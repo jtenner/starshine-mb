@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-03
 sources:
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
@@ -53,13 +54,14 @@ Binaryen `optimize-casts` is small enough to summarize as one owner file plus he
 | `src/ir/utils.h` | `ReFinalize` helper used after both rewrite halves. |
 | `test/lit/passes/optimize-casts.wast` | Official examples for positive rewrites, same-index barriers, side-effect/call barriers, and unsupported nearby families. |
 
-The 2026-05-05 current-main source bridge found no teaching-relevant drift from the 2026-04-22 `version_129` dossier. See [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md).
+The 2026-07-02 source refresh for Binaryen `version_130` found no teaching-relevant drift from the two-phase `version_129` dossier, but it did provide the closeout lit family checklist used by the 2026-07-03 Starshine source/docs review. See [`../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md`](../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md).
 
 ## Upstream owner file
 
 The core owner file is Binaryen's `src/passes/OptimizeCasts.cpp`:
 
 - current `main`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/OptimizeCasts.cpp>
+- `version_130`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/OptimizeCasts.cpp>
 - `version_129`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>
 
 The important internal owners are:
@@ -186,20 +188,21 @@ This provides the `ReFinalize` machinery that makes the inserted casts, fresh lo
 Primary source:
 
 - current `main`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/optimize-casts.wast>
+- `version_130`: <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/optimize-casts.wast>
 - `version_129`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-casts.wast>
 
-The lit file proves these families directly enough for wiki teaching:
+The `version_130` lit file proves these families directly enough for wiki teaching and Starshine closeout:
 
-| Family | What to look for in the living shape catalog |
-| --- | --- |
-| Later refined-local reuse | A cast result is stored in a fresh local and later gets use that local. |
-| Earlier motion | A later cast is duplicated onto an earlier get when no barrier intervenes. |
-| Most-refined subtype preference | Narrower compatible casts beat wider compatible casts. |
-| `ref.as_non_null` | Nullable locals can get useful non-null refinements; already-non-null locals do not need pointless duplication. |
-| Same-index local write | `local.set $x` kills remembered facts about `$x`. |
-| Effects and calls | Earlier movement is blocked when trap timing could change. |
-| Separate locals | A write to `$x` does not kill facts about `$y`. |
-| Unsupported neighbors | `ref.test`, `br_on_cast`, and extern conversions are not this pass's rewrite surface. |
+| Family | What to look for in the living shape catalog | 2026-07-03 Starshine review |
+| --- | --- | --- |
+| Later refined-local reuse | A cast result is stored in a fresh local and later gets use that local. | Covered by direct `ref.cast` / `ref.as_non_null`, tee, fallthrough block, and exact-local tests plus `optimize-casts-all`. |
+| Earlier motion | A later cast is duplicated onto an earlier get when no barrier intervenes. | Covered for reasonable straight-line, pure-root, separate-index local-write, separate-tee, nested-branch-local, and mixed ref.as/cast source windows. |
+| Most-refined subtype preference | Narrower compatible casts beat wider compatible casts. | Covered by `best`, `best-2`, repeated equal, move-cast, and three-level best-cast fixtures. |
+| `ref.as_non_null` | Nullable locals can get useful non-null refinements; already-non-null locals do not need pointless duplication. | Covered by nullable-source positives, non-nullable-source negatives, and mixed nullable-cast/ref.as cases. |
+| Same-index local write | `local.set $x` kills remembered facts about `$x`. | Covered by same-local set and tee barrier fixtures and the barrier profile. |
+| Effects and calls | Earlier movement is blocked when trap timing could change; later reuse can cross a call after the cast. | Covered by call/memory/trapping numeric negatives for early motion and by later-reuse implementation/profile evidence. |
+| Separate locals | A write to `$x` does not kill facts about `$y`. | Covered by separate-index `local.set` and `local.tee` cases. |
+| Unsupported neighbors | `ref.test`, `br_on_cast`, and extern conversions are not Binaryen's rewrite surface. | Binaryen non-goal; Starshine's extra static folds are documented as intentional local wins. |
 
 See [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly before/after examples.
 

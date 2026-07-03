@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-03
 sources:
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
@@ -24,7 +25,7 @@ This page exists for one reason:
 
 It is not.
 
-Binaryen deliberately splits the pass into **two** internal dataflow passes because the safety question is different in each one.
+Binaryen deliberately splits the pass into **two** internal dataflow passes because the safety question is different in each one. The 2026-07-02 `version_130` source refresh kept this split unchanged, and the 2026-07-03 Starshine source/docs review uses this page's strict-vs-loose distinction as the closeout boundary.
 
 ## The short version
 
@@ -300,6 +301,15 @@ When reading `optimize-casts`, ask two questions in order:
 2. **What barrier model applies in that half?**
 
 If you ask those two questions first, most of the test outcomes stop being mysterious.
+
+## 2026-07-03 Starshine review result
+
+The current Starshine implementation keeps the asymmetry visible:
+
+- early motion remains strict and source-backed, covering empty, `nop`, dropped local-read, dropped nontrapping i32 pure-tree, pure separate-index `local.set`, dropped/source separate-local `local.tee`, nested branch-local, and mixed nullable-cast/ref.as windows while keeping calls, `call_ref`-class exits, memory loads, same-local writes, trapping roots, and nonlinear control as barriers;
+- later reuse materializes a fresh exact refined local at the original cast/ref.as site and may retarget later reads through side effects/calls because the cast point is unchanged, while same-local writes and nonlinear control clear the fact.
+
+The remaining broader ideas—arbitrary CFG dominance, extern conversions, immediate deletion of all old casts, and a fully generic EffectAnalyzer clone beyond the tested barrier families—are non-goals for the v0.1.0 OC audit unless future source drift or fuzz evidence reopens them.
 
 ## The one thing a future Starshine port must not collapse away
 

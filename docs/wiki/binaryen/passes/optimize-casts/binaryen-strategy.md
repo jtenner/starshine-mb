@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-03
 sources:
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
@@ -22,29 +23,27 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The reviewed official Binaryen `version_129` release page checked on 2026-04-22 showed publish date **2026-04-01**.
-- A narrow 2026-04-22 spot check on current `main` did not surface a teaching-relevant drift beyond the contract summarized here.
-- A focused 2026-05-05 current-main recheck also found no teaching-relevant drift and refreshed the owner/helper/lit-test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
-- The core implementation is `src/passes/OptimizeCasts.cpp`.
-- Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
-- The key helper contracts come from:
+- Use Binaryen `version_130` as the current source oracle for this pass; the 2026-07-02 recursive audit fetched `src/passes/OptimizeCasts.cpp` and `test/lit/passes/optimize-casts.wast` into `.tmp/oc-audit/` and rechecked the local source/lit inventory.
+- The `version_130` pass keeps the same teaching-relevant contract previously captured from `version_129`: a function-parallel, GC-gated pass with strict earlier cast motion and looser later cast reuse, both limited to `ref.cast` and `ref.as_non_null` local-flow refinements.
+- The `version_130` lit file still enumerates the same practical behavior families: `ref.as`, `ref.as-no`, `ref.cast`, write and call barriers, `best` / `best-2`, fallthrough blocks, `multiple`, `move-cast-1` through `move-cast-6`, already-refined/non-nullable negatives, side-effect barriers, separate-index `ref.as_non_null`, mixed `ref.as_non_null` / `ref.cast` cases, nested/unoptimizable casts, tee barriers, repeated casts, nonlinear boundaries, and helper functions.
+- Scheduler placement still comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
+- The key helper contracts still come from:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
   - `src/ir/effects.h`
   - `src/ir/utils.h`
-- The shipped behavior examples come from `test/lit/passes/optimize-casts.wast`.
+- The final 2026-07-03 Starshine source/docs review treats the remaining broader ideas outside those lit/source families as non-goals unless a future Binaryen source update or reduced mismatch reopens them.
 
 Primary source URLs:
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-casts.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/OptimizeCasts.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/linear-execution.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/properties.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/optimize-casts.wast>
 
 ## High-level intent
 
@@ -72,6 +71,24 @@ That makes the pass easier to describe honestly:
 | Refinalize | Recompute types after adding earlier casts | Rewrites refine local and expression types |
 | Later-reuse phase | Save the best already-computed cast in a fresh local and retarget later less-refined gets | Reuse a narrow value without moving the cast earlier |
 | Refinalize again | Recompute types after changing local/get types | New locals and redirected gets need correct final types |
+
+## 2026-07-03 source/docs review result
+
+The `version_130` source/lit inventory does not require new OC implementation work after the recursive audit slices through Slice 50. The final review classifies the source-backed families as follows:
+
+| Binaryen source/lit family | Starshine status | Closeout decision |
+| --- | --- | --- |
+| GC gate, function pass registration, preset slot after `heap2local` | Active pass, dispatcher, registry, and public `optimize` / `shrink` slot are present. | Covered. |
+| Later reuse of direct `ref.cast(local.get x)` and `ref.as_non_null(local.get x)` | Fresh exact carrier locals, `local.tee`, same-index write invalidation, and non-null-source negative are tested. | Covered. |
+| Later reuse through `local.tee` / fallthrough wrappers | Direct tee, separate-destination tee alias, branch-free block/value-block source, and multi-root pure-prefix value-block cases are tested. | Covered for the source-backed straight-line/fallthrough subset. |
+| Calls and side effects after an already-computed cast | Later reuse can cross ordinary calls and side-effect roots because the original cast point is not moved. | Covered by implementation shape and dedicated/profile evidence; reopen only for a reduced call/refinement mismatch. |
+| Strict earlier motion of later `ref.cast` / `ref.as_non_null` | Implemented inside empty, `nop`, dropped local-read, dropped nontrapping i32 pure-tree, pure separate-index `local.set`, separate-local dropped/source `local.tee`, nested branch-local, and mixed nullable-cast/ref.as windows. | Covered for reasonable v0.1.0 source-backed windows. |
+| Earlier-motion barriers | Same-local `local.set` / `local.tee`, calls, `call_ref`-class control exits, memory loads, trapping numeric ops, branches, and nonlinear control remain barriers. | Covered; broad EffectAnalyzer-equivalent generality is a non-goal until a reduced source/lit or fuzz gap needs it. |
+| Best-cast selection and `move-cast-1` through `move-cast-6` | Narrower-subtype selection, broader/narrower orderings, repeated equal casts, materialized/refinalized-source reuse, three-level chains, and mixed ref.as/cast refinalization are tested. | Covered for source/lit families sampled by `optimize-casts-all`. |
+| `ref.as_non_null` specifics | Nullable-source positives and non-nullable-source negatives are tested, including mixed nullable `ref.cast` + `ref.as_non_null` roots. | Covered. |
+| `past-basic-block` / arbitrary dominance TODO | Binaryen intentionally does not optimize the lit `past-basic-block` shape and leaves a TODO for broader dominance. | Non-goal; reopen only if upstream implements it or Starshine chooses a measured local win. |
+| Generic `ref.test`, descriptor cast/test, branch-cast folds | Not Binaryen `OptimizeCasts.cpp` contract, but Starshine keeps direct static folds. | Accepted Starshine extension; broad random residual is a measured `heap2local-ref` static-fold win. |
+| Whole-CFG cast propagation, extern conversions, deleting every now-redundant old cast | Explicitly outside reviewed Binaryen source contract. | Non-goal. |
 
 ## Phase 0: the pass is function-parallel and GC-gated
 

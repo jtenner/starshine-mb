@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-03
 sources:
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
@@ -19,7 +20,7 @@ related:
 
 # `optimize-casts` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `optimize-casts` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `optimize-casts` pass. It was refreshed against the 2026-07-02 Binaryen `version_130` source/lit inventory and the 2026-07-03 Starshine source/docs review.
 
 ## Read this page with one mental model
 
@@ -441,10 +442,19 @@ When you look at a possible `optimize-casts` candidate, ask these questions in o
 
 If any answer is “no,” expect Binaryen to keep the original shape.
 
+## 2026-07-03 Starshine shape review
+
+The current Starshine pass has focused tests or dedicated generator leaves for each reasonable `version_130` source/lit family above: later reuse, earlier motion, same-index barriers, side-effect/call trap-timing barriers, separate locals, best-cast subtype selection, nullable `ref.as_non_null`, `local.tee` fallthrough, repeated casts, move-cast chains, branch-free fallthrough blocks, and nonlinear-control negatives.
+
+Two shape classes remain intentionally outside OC closeout:
+
+- `past-basic-block`-style arbitrary dominance: Binaryen itself leaves this as a TODO and the lit expected output remains unchanged, so Starshine keeps it a non-goal without a measured local win.
+- generic cast-like neighbors (`ref.test`, descriptor casts/tests, `br_on_cast`, extern conversions): only the first three are Starshine-owned direct static folds, and their broad random residual is accepted only for the measured fresh exact-struct `heap2local-ref` win; extern conversions remain out of scope.
+
 ## Source strength note
 
-- The positive and negative shapes above come directly from Binaryen's shipped `optimize-casts` lit tests plus the reviewed `version_129` implementation comments and helper contracts.
-- The 2026-05-05 current-main recheck found no teaching-relevant shape drift from those examples.
+- The positive and negative shapes above come directly from Binaryen's shipped `optimize-casts` lit tests plus the reviewed `version_130` implementation comments and helper contracts.
+- The 2026-07-02 source refresh found no teaching-relevant shape drift from those examples.
 - The unlock examples are derived explanations of why the pass sits where it does in the GC/local cleanup cluster.
 
 ## Sources

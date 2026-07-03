@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-03
 sources:
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
@@ -44,23 +45,17 @@ Use this bridge with:
 
 ## Current local reality
 
-`optimize-casts` now has an active narrow HOT implementation in Starshine. The current pass removes provably redundant GC casts, folds statically known `ref.test` / descriptor-test outcomes, removes redundant descriptor casts, and rewrites guaranteed-success `br_on_cast` / `br_on_cast_fail`; it is direct-pass revalidated, the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is debug-artifact proven, and public `optimize` / `shrink` now schedule that slot.
+`optimize-casts` now has an active HOT implementation in Starshine and has completed the v0.1.0 source/docs review for the reasonable Binaryen `version_130` local-flow surface. The pass removes provably redundant GC casts, folds statically known `ref.test` / descriptor-test outcomes, removes redundant descriptor casts, rewrites guaranteed-success/fail `br_on_cast` / `br_on_cast_fail`, implements strict early motion for source-backed linear windows, and implements later reuse through fresh exact refined carrier locals. It is covered by focused tests, a closeout-sized direct GenValid lane, a closeout-sized `optimize-casts-all` dedicated lane, broad/random evidence with one accepted measured Starshine static-fold win, explicit wasm-smith evidence accepted with `--normalize unreachable-control-debris`, O4z timing, and ordered neighborhood owner localization.
 
-## Remaining upstream-aligned widening
+## Upstream-aligned closeout questions
 
-The active Starshine pass is direct-parity green for its current narrow rewrite. A future upstream-aligned widening should still start from the reviewed Binaryen oracle exactly as it exists today:
+The final source/docs review answers the upstream-aligned questions as follows:
 
-1. `ref.cast`
-2. `ref.as_non_null`
-
-Keep upstream-aligned widening small enough to prove the safety boundaries before widening anything else.
-That means the next upstream-aligned landing should be able to answer these questions:
-
-- Can a cast be duplicated earlier only inside a strict linear window?
-- Can a later get reuse an already-computed cast through a refined carrier local?
-- Does a same-index `local.set` kill remembered facts immediately?
-- Do side effects, calls, and non-linear control still block earlier motion?
-- Does `ref.as_non_null` only help when the target local is nullable?
+- Can a cast be duplicated earlier only inside a strict linear window? **Yes**, for the source-backed root/nested-region windows Starshine implements; broader EffectAnalyzer generality is a non-goal until reduced evidence needs it.
+- Can a later get reuse an already-computed cast through a refined carrier local? **Yes**, including direct get/tee/fallthrough-block/value-block cases and exact non-null carrier locals.
+- Does a same-index `local.set` kill remembered facts immediately? **Yes**, and same-index `local.tee` has the same barrier treatment.
+- Do side effects, calls, and non-linear control still block earlier motion? **Yes** for calls, call_ref-class exits, memory loads, trapping numeric roots, branches, and nonlinear control; later reuse may cross side-effect/call roots because the cast point does not move.
+- Does `ref.as_non_null` only help when the target local is nullable? **Yes**, with explicit non-nullable-source negatives.
 
 ## Exact Starshine code surfaces
 
@@ -93,7 +88,7 @@ That means the next upstream-aligned landing should be able to answer these ques
 
 ## Validation ladder
 
-Future widening should validate in this order:
+Future widening after the v0.1.0 closeout should validate in this order:
 
 1. strict earlier-motion positives
    - `ref.cast` duplicated only when the path stays linear
@@ -117,17 +112,16 @@ Future widening should validate in this order:
 
 ## Non-goals to preserve
 
-Do not widen the active pass into a generic cast optimizer.
-The reviewed upstream oracle still does **not** own the following families even though Starshine's local direct pass now has conservative direct-only rewrites for the first three:
+Do not widen the active pass into a generic cast optimizer without a separate design and measurement. The reviewed `version_130` upstream oracle still does **not** own the following families even though Starshine's local direct pass intentionally keeps conservative direct-only rewrites for the first three:
 
 - `ref.test`
 - `br_on_cast` / `br_on_cast_fail`
 - descriptor-cast rewrites
 - extern-conversion simplification
-- whole-CFG cast propagation
+- whole-CFG cast propagation, including Binaryen's own `past-basic-block` TODO
 - immediate deletion of every redundant cast produced by the rewrite
 
-Those may be future work, but they are not the reviewed contract.
+Future work may still choose a local extension, but only with focused tests, direct/broad fuzz evidence, size or semantic benefit, and explicit reopening criteria.
 
 ## Related pages
 
