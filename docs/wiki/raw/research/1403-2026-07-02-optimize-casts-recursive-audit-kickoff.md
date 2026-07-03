@@ -898,9 +898,21 @@ Validation for this slice:
 
 This is a major blocker fix, not final OC closeout. The exact non-null fresh-local blocker is fixed for the covered straight-line initialized-local model and the latest bounded aggregate smoke is green, but the pass still lacks the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, larger dedicated aggregate signoff, wasm-smith/random-all lanes, and source/docs review before parity can be claimed. Open transform/evidence gaps remain: broader local.tee/write variants beyond the current source-tee, tee-alias, and dropped separate-local tee subsets, broader nested/control early motion beyond independent same-region scans, broader `move-cast-*` chains beyond the current source-backed subsets, richer mixed `ref.cast`/`ref.as_non_null` chains, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, and larger generated/direct residual classification.
 
+## Slice 42 dedicated aggregate scale-up
+
+The forty-second recursive slice first scaled the dedicated `optimize-casts-all` aggregate after the exact-local fix.
+
+Validation for this slice:
+
+- Dedicated aggregate probe `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-exact-local-1000`: requested/compared `1000/1000`, normalized `1000`, cleanup-normalized `0`, mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `1000/0`. Selected leaves were `later-reuse=255`, `early-motion=160`, `ref-as=149`, `best-cast=147`, `barriers=133`, `static-folds=89`, and `neighborhood=67`.
+- Dedicated aggregate closeout-sized lane `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-exact-local-10000`: requested/compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `10000/0`. Selected leaves were `later-reuse=2323`, `early-motion=1560`, `best-cast=1518`, `barriers=1535`, `ref-as=1509`, `neighborhood=793`, and `static-folds=762`.
+
+Agent classification: the dedicated profile inventory is now strong enough for the pass-specific GenValid closeout lane, and no residuals appeared to reduce in `optimize-casts-all`. This does **not** complete OC closeout by itself because the full four-lane matrix still needs direct `100000`, explicit wasm-smith `10000`, and broad/random `10000` evidence after classifying broad-profile residuals, plus O4z slot/neighborhood evidence, pass-local timing, and final source/docs review.
+
 ## Recommended next implementation slices
 
-1. Run a larger dedicated `optimize-casts-all` lane with the exact-local fix (start at `1000`, then scale only if still green) and classify any residuals by selected profile; reduce a source-backed red fixture only for residuals that are not merely new exact-local/validation fallout.
-2. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, inspect Binaryen `move-cast-side-effects`, `move-ref.as-and-ref.cast-2`, or a richer local.tee/local-write variant; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
-3. Alternatively, broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first.
-4. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.
+1. Classify the broad/random profile lane after the exact-local fix; reduce source-backed residuals only when they are OC-owned parity gaps rather than documented static-fold Starshine wins or other-pass profile shape gaps.
+2. Refresh explicit wasm-smith and direct GenValid scale-up lanes with the current native binary, then decide whether the remaining missing direct `100000` closeout lane is worth running in the next slice.
+3. Capture O4z slot/neighborhood and pass-local timing evidence for `optimize-casts`; classify any neighborhood raw/canonical drift by owner instead of treating validation alone as parity.
+4. If new residuals appear, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
+5. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.
