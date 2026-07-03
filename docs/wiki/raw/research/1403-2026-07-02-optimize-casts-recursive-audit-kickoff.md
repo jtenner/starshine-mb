@@ -999,9 +999,51 @@ Acceptance basis:
 
 Decision: the explicit wasm-smith lane is accepted for OC closeout with `--normalize unreachable-control-debris`. Reopen the lane for any raw mismatch that involves OC-owned cast/refinement behavior, any residual after the normalizer, any Starshine validation/generator/property failure, or a new Starshine command-failure class after Binaryen/oracle tool failures are excluded. The remaining OC audit work is now source/docs review and deciding whether any still-documented broader local-flow gaps are reasonable non-goals or require another source-backed implementation slice.
 
-## Recommended next implementation slices
+## Slice 51 final source/docs review
 
-1. Perform the final OC source/docs review against the `version_130` source/lit inventory and current Starshine tests. Decide which still-documented broader local-flow gaps are reasonable non-goals with reopening criteria versus implementation work.
-2. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
-3. If the source/docs review finds an unimplemented reasonable OC family, broaden strict early motion or later reuse one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
-4. Do not claim final OC parity until the source/docs review either closes or explicitly scopes every remaining local-flow gap and the docs/backlog state match that decision.
+The final iteration performed the remaining source/docs review against the local Binaryen `version_130` source/lit inventory in `.tmp/oc-audit/` and current Starshine implementation/tests/docs.
+
+Review result: no additional implementation-required `version_130` local-flow family remained for the v0.1.0 OC audit. The source-backed family table was filed into `docs/wiki/binaryen/passes/optimize-casts/binaryen-strategy.md` and supporting shape/readiness pages. Classification:
+
+| Source/lit surface | Current decision |
+| --- | --- |
+| GC-gated pass, registry, and scheduler slot | Covered by active Starshine pass, dispatcher, registry, and public `optimize` / `shrink` placement. |
+| Direct later reuse for `ref.cast` and `ref.as_non_null` | Covered with exact fresh carrier locals, `local.tee`, non-null-source negative, and same-index invalidation tests. |
+| Fallthrough and `local.tee` later reuse | Covered for source-backed direct tee, separate-destination tee alias, branch-free block/value-block, and pure-prefix value-block-source subsets. |
+| Calls and side effects after an already-computed cast | Covered/accepted because later reuse does not move the cast point; reopen only for a reduced call/refinement mismatch. |
+| Strict earlier motion | Covered for empty, `nop`, dropped local-read, dropped nontrapping i32 pure-tree, pure separate-index `local.set`, separate-local dropped/source `local.tee`, nested branch-local, and mixed nullable-cast/ref.as windows. |
+| Early-motion barriers | Covered by same-local write/tee, calls, `call_ref`-class exits, memory loads, trapping numeric roots, branches, and nonlinear control negatives. A fully generic EffectAnalyzer clone is not required for v0.1.0 closeout. |
+| Best-cast and move-cast families | Covered by narrower-subtype, broader/narrower orderings, repeated equal, move-cast-2 through move-cast-6, mixed ref.as/cast, materialized/refinalized-source reuse, and three-level best-cast fixtures. |
+| `ref.as_non_null` nullable/non-nullable split | Covered by nullable-source positives and non-nullable-source negatives. |
+| `past-basic-block` arbitrary dominance | Non-goal: Binaryen's own lit expected output preserves the unoptimized shape and the source keeps this as a TODO. |
+| Generic cast-like neighbors | Binaryen non-goal; Starshine's `ref.test`, descriptor, and branch-cast static folds remain a documented local extension with measured broad-profile static-fold win. |
+| Extern conversions, whole-CFG propagation, immediate cleanup of every old cast | Non-goal for this audit. |
+
+Validation for this slice was source/diff review only; no behavior changed. `git diff --check` passed before the source-review docs commit.
+
+## Slice 52 closeout docs/backlog alignment
+
+The next slice converted the final review into living status:
+
+- `agent-todo.md` now marks `[O4Z-AUDIT-OC]` completed for the current v0.1.0 direct-pass/`-O4z` audit scope.
+- `docs/wiki/binaryen/passes/optimize-casts/index.md`, `starshine-strategy.md`, `starshine-port-readiness-and-validation.md`, and `fuzzing.md` now describe OC as closed with explicit non-goals and reopening criteria rather than as a still-open local-flow audit.
+- `docs/wiki/index.md` now catalogs the closed OC dossier, closeout-scale evidence, residual policies, and reopening criteria.
+
+Validation for this slice was docs/backlog diff review only; no behavior changed. `git diff --check` passed before the status-closeout docs commit.
+
+## Slice 53 final research/log closeout
+
+This slice files the final source/docs review and closeout decision back into the durable research note and wiki log.
+
+Final status: OC is complete for the current v0.1.0 direct-pass/`-O4z` audit scope. The generator inventory is complete enough for signoff, the required closeout evidence is refreshed or explicitly accepted, source/docs review found no further implementation-required `version_130` local-flow family, and docs/backlog/wiki pages now reflect the closed state.
+
+Retained reopening criteria:
+
+- new Binaryen source/lit drift for `OptimizeCasts.cpp` or `optimize-casts.wast`;
+- any direct or dedicated `optimize-casts-all` mismatch;
+- a broad/random residual outside the accepted fresh exact-struct `heap2local-ref` `ref.test` static-fold win, or that family becoming size-neutral/size-losing for Starshine;
+- an explicit wasm-smith residual after `--normalize unreachable-control-debris`, any cast/refinement-owned wasm-smith mismatch, or a Starshine-specific command-failure class;
+- a Starshine validation/generator/property failure;
+- a reduction proving OC seeds the later `coalesce-locals` O4z neighborhood size drift.
+
+No recursive continuation is required after Slice 53 unless one of those criteria reopens OC.
