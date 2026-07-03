@@ -588,7 +588,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-throw-before-unreachable-get-after-dominated-get.wat` under `--local-subtyping`, and also narrows the trailing-`unreachable` variant in `.tmp/ls-probes/try-table-throw-before-unreachable-after-dominated-get.wat`;
 - the pre-`throw` get and the syntactic tail get are both dominated by the non-null write;
-- Starshine now treats direct `throw` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen non-final `return`, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine now treats direct `throw` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
 
 ## Shape 6h-b: terminal `return` in a `try_table` body can preserve already-dominated gets
 
@@ -614,7 +614,35 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-return-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` appears before the terminal body `return` and is dominated by the non-null write;
-- Starshine allows final `return` inside the copied `try_table` body scan for this subset, still refuses non-final return, `throw_ref`, catch-ref/post-state EH flow, and never propagates try-body writes outward.
+- Starshine allows final `return` inside the copied `try_table` body scan for this subset, still refuses `throw_ref`, catch-ref/post-state EH flow, and never propagates try-body writes outward.
+
+## Shape 6h-b2: non-final `return` in a `try_table` body can preserve already-dominated tail gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block $h
+  (try_table (catch $e $h)
+    (local.set $x (local.get $p))
+    (drop (local.get $x))
+    (return)
+    (drop (local.get $x)))) ;; syntactically after return, so unreachable
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.wat` under `--local-subtyping`, and also narrows the trailing-`unreachable` variant in `.tmp/ls-probes/try-table-return-before-unreachable-after-dominated-get.wat`;
+- `wasm-tools validate --features all .tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.nonnulllocal.wat` accepts the corresponding non-null local form, unlike the direct block-return validator-boundary family;
+- the pre-`return` get and the syntactic tail get are both dominated by the non-null write;
+- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `return_call` forms, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
