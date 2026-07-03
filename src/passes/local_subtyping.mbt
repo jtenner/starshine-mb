@@ -416,7 +416,7 @@ fn ls_scan_branch_free_dominance_instrs(
           ref_body_locals,
           block_initialized,
           safe,
-          allow_terminal_return~,
+          allow_terminal_return=allow_terminal_return || allow_return_skip,
           allow_terminal_throw~,
         )
         if !block_result.valid {
