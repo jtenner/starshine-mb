@@ -184,6 +184,30 @@ Why it rewrites:
 - the block body is branch-free in the current Starshine subset;
 - a get inside the block cannot observe the original nullable default.
 
+## Shape 6a: branch-free block writes can dominate later outer gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block
+  (local.set $x (local.get $p)))
+(drop (local.get $x))
+```
+
+Possible after, when the block has no branch/return/throw flow:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows this shape under `--local-subtyping`;
+- a branch-free block runs its write before the following outer get;
+- Starshine now propagates initialized state out of branch-free blocks, while still bailing on branch, return, throw, and `try_table` flow.
+
 ## Shape 7: branch-free loops can preserve entry domination
 
 Before:
@@ -206,7 +230,7 @@ Why it rewrites:
 
 - the assignment is non-null and dominates the first loop entry;
 - the current Starshine subset only admits branch-free loop bodies, so there is no backedge that can observe a different pre-write state;
-- writes inside the loop are not propagated to later outer gets.
+- writes inside the loop are not propagated to later outer gets; a local Binaryen v130 probe for a branch-free loop write followed by an outside get kept the declaration nullable child, so Starshine keeps that source-backed fallback.
 
 ## Shape 8: branch-free `if` arms can preserve entry domination
 
@@ -257,7 +281,8 @@ Why it rewrites:
 
 - the assignment dominates entry to both the block and the nested `if`;
 - each nested `if` arm is scanned with a copy of the block-entry state;
-- writes inside the block or nested `if` still do not propagate to later outer gets in the current Starshine subset.
+- writes inside the nested `if` still do not propagate to later outer gets in the current Starshine subset;
+- plain branch-free block writes do propagate to later outer gets as in Shape 6a.
 
 ## Shape 10: gets matter, but they do not choose the LUB
 
