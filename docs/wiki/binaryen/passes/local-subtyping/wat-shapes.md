@@ -382,7 +382,7 @@ Why it rewrites:
 - local Binaryen v130 narrows `.tmp/ls-probes/if-arm-direct-throw-skips-later-write-get.wat` under `--local-subtyping`;
 - the throwing arm cannot reach the later write or get;
 - every path that reaches the later get has executed the non-null write;
-- Starshine now treats direct `throw` inside copied `if` arm scans as a path skip, parallel to the conditional-`return` subset. This does not widen `throw_ref`, catch-ref/post-state EH flow, or broad `try_table` handling beyond the separate source-backed try-body dominated-get tail subset.
+- Starshine now treats direct `throw` and the source-backed direct `throw_ref` analog inside copied `if` arm scans as path skips, parallel to the conditional-`return` subset. This does not widen catch-ref/post-state EH flow or broad `try_table` handling beyond the separate source-backed try-body dominated-get tail subset.
 
 ## Shape 6e: root terminal `return` can preserve already-dominated gets
 
@@ -510,7 +510,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows this shape under `--local-subtyping`;
 - the final `throw` exits the root body, so the observed get before it is the only relevant read and is dominated by the non-null write;
-- Starshine now treats a root-tail `throw` as a non-propagating terminal control boundary, while still refusing other nested/non-final throw/EH flow and broader `try_table` behavior until those shapes have separate dominance and validator evidence.
+- Starshine now treats root-tail `throw` and the source-backed root-tail `throw_ref` analog as non-propagating terminal control boundaries, while still refusing other nested/non-final throw/EH flow and broader `try_table` behavior until those shapes have separate dominance and validator evidence.
 
 ## Shape 6g: block terminal `throw` can preserve already-dominated gets inside the block
 
@@ -535,7 +535,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/block-terminal-throw-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` is before the terminal block `throw` and is dominated by the non-null write;
-- Starshine now threads the terminal-throw permission into `block` scans reached from the root scan, treating the block throw as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Nested/non-final throw, `throw_ref`, and broader `try_table`/EH flow remain conservative blockers until separately source-backed.
+- Starshine now threads the terminal-throw permission into `block` scans reached from the root scan, treating block `throw` and the source-backed block-tail `throw_ref` analog as non-propagating dominance boundaries without propagating block-carried writes to an outer post-state. Nested/non-final throw beyond the covered `try_table` body tail subset and broader `try_table`/EH flow remain conservative blockers until separately source-backed.
 
 ## Shape 6g-b: if-arm block terminal `throw` can preserve already-dominated gets
 
@@ -564,7 +564,35 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/if-arm-block-terminal-throw-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` is inside the throwing `if` arm's nested block and is dominated by the non-null write before the terminal block `throw`;
-- Starshine now treats that nested block throw as a non-propagating terminal boundary when it is reached from a copied return/throw-skipped `if` arm scan. This does not propagate writes out of the arm or widen non-final throw, `throw_ref`, catch-ref/post-state EH flow, or broader `try_table` handling.
+- Starshine now treats that nested block throw as a non-propagating terminal boundary when it is reached from a copied return/throw-skipped `if` arm scan. This does not propagate writes out of the arm or widen non-final throw, catch-ref/post-state EH flow, or broader `try_table` handling.
+
+## Shape 6g-c: `throw_ref` mirrors covered terminal/direct-throw dominance subsets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(param $e (ref exn))
+(local $x (ref null $Parent))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+(local.get $e)
+(throw_ref)
+```
+
+The same source-backed subset applies to block-tail `throw_ref`, an `if` arm where `throw_ref` skips a later dominating write/get path, and `try_table` body terminal or non-final `throw_ref` tails whose later syntactic tail gets are already dominated.
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/throw-ref-terminal-after-dominated-get.wat`, `.tmp/ls-probes/throw-ref-block-terminal-after-dominated-get.wat`, `.tmp/ls-probes/throw-ref-if-skip-before-dominated-write.wat`, `.tmp/ls-probes/throw-ref-try-table-terminal-after-dominated-get.wat`, and `.tmp/ls-probes/throw-ref-try-table-before-unreachable-tail-get.wat` under `--local-subtyping`;
+- the exception reference operand is separate from the narrowed local in the covered tests, and every raw get of `$x` is dominated by the non-null write;
+- Starshine now handles `ThrowRef` through the same non-propagating terminal/skip scanner branch as `Throw`, while still refusing catch-ref/catch-all-ref post-state propagation and broader EH flow without separate evidence.
 
 ## Shape 6h: `try_table` bodies can preserve body-local domination
 
@@ -615,7 +643,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-throw-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` appears before the terminal body `throw` and is dominated by the non-null write;
-- Starshine allows final `throw` inside the copied `try_table` body scan for this subset, still refuses `throw_ref`, catch-ref/post-state EH flow, and never propagates try-body writes outward.
+- Starshine allows final `throw` and the source-backed final `throw_ref` analog inside the copied `try_table` body scan for this subset, still refuses catch-ref/post-state EH flow, and never propagates try-body writes outward.
 
 ## Shape 6h-a2: non-final `throw` in a `try_table` body can preserve already-dominated tail gets
 
@@ -642,7 +670,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-throw-before-unreachable-get-after-dominated-get.wat` under `--local-subtyping`, and also narrows the trailing-`unreachable` variant in `.tmp/ls-probes/try-table-throw-before-unreachable-after-dominated-get.wat`;
 - the pre-`throw` get and the syntactic tail get are both dominated by the non-null write;
-- Starshine now treats direct `throw` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine now treats direct `throw` and the source-backed direct `throw_ref` analog inside a copied `try_table` body as non-propagating terminal points but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen catch-ref/catch-all-ref post-state or broader EH flow.
 
 ## Shape 6h-b: terminal `return` in a `try_table` body can preserve already-dominated gets
 
@@ -668,7 +696,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-return-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` appears before the terminal body `return` and is dominated by the non-null write;
-- Starshine allows final `return` inside the copied `try_table` body scan for this subset, still refuses `throw_ref`, catch-ref/post-state EH flow, and never propagates try-body writes outward.
+- Starshine allows final `return` inside the copied `try_table` body scan for this subset, still refuses catch-ref/post-state EH flow, and never propagates try-body writes outward.
 
 ## Shape 6h-b2: non-final `return` in a `try_table` body can preserve already-dominated tail gets
 
@@ -696,7 +724,7 @@ Why it rewrites:
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.wat` under `--local-subtyping`, and also narrows the trailing-`unreachable` variant in `.tmp/ls-probes/try-table-return-before-unreachable-after-dominated-get.wat`;
 - `wasm-tools validate --features all .tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.nonnulllocal.wat` accepts the corresponding non-null local form, unlike the direct block-return validator-boundary family;
 - the pre-`return` get and the syntactic tail get are both dominated by the non-null write;
-- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen catch-ref/catch-all-ref post-state or broader EH flow.
 
 ## Shape 6h-c: tail calls in a `try_table` body can preserve already-dominated gets
 
@@ -724,7 +752,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-return-call-after-dominated-get.wat`, `.tmp/ls-probes/try-table-terminal-return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/try-table-terminal-return-call-ref-after-dominated-get.wat`, `.tmp/ls-probes/try-table-return-call-before-unreachable-tail-get.wat`, `.tmp/ls-probes/try-table-return-call-indirect-before-unreachable-tail-get.wat`, and `.tmp/ls-probes/try-table-return-call-ref-before-unreachable-tail-get.wat` under `--local-subtyping`;
 - the observed gets before the tail call, and any syntactic tail gets after that tail call in the non-final probes, are dominated by the non-null write;
-- Starshine's scanner already treats `return_call`, `return_call_indirect`, and `return_call_ref` as return-like non-propagating terminal points inside the copied `try_table` body scan. This still does not propagate try-body writes outward and does not widen broad tail-call retagging, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine's scanner already treats `return_call`, `return_call_indirect`, and `return_call_ref` as return-like non-propagating terminal points inside the copied `try_table` body scan. This still does not propagate try-body writes outward and does not widen broad tail-call retagging, catch-ref/catch-all-ref post-state, or broader EH flow.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
