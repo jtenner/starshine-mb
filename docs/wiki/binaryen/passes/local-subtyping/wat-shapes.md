@@ -402,15 +402,24 @@ Why iteration matters:
 Before and after stay unchanged in the signature:
 
 ```wat
-(func $f (param $p anyref)
+(func $f (param $p (ref null $Parent))
+  (local.set $p
+    (ref.as_non_null (ref.null $A)))
   (drop (local.get $p)))
+```
+
+After, from local Binaryen v130 evidence:
+
+```wat
+(func $f (param $p (ref null $Parent))
+  ...)
 ```
 
 Why:
 
-- the scanner can see params today;
-- the rewrite loop starts at the body-local base;
-- the function ABI remains unchanged.
+- local Binaryen v130 keeps the parameter at its declared signature type even after a non-null child write;
+- Starshine only rewrites body-local declarations;
+- preserving params avoids changing the function ABI and matches the source-backed boundary.
 
 ## Shape 13: non-reference and tuple/nondefaultable locals are preserved
 

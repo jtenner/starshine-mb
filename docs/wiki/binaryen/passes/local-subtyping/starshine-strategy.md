@@ -54,7 +54,7 @@ It has:
 - preset-slot coverage in the default hot optimize path.
 
 What it does **not** have yet is full Binaryen parity.
-The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root, inside a branch-free `block` or `loop` entered after that write, after a branch-free `block` write that dominates a later outer get, inside branch-free nested `if` arms in such a dominated region, or inside branch-free root `if` arms entered after that write. It also has source-backed nullable fallback guards for loop writes before outside gets, all-arm `if` writes before outside gets, and block writes followed by branch flow before outside gets, plus focused validation for non-null `local.tee` assignment/use narrowing.
+The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root, inside a branch-free `block` or `loop` entered after that write, after a branch-free `block` write that dominates a later outer get, inside branch-free nested `if` arms in such a dominated region, or inside branch-free root `if` arms entered after that write. It also has source-backed nullable fallback guards for loop writes before outside gets, all-arm `if` writes before outside gets, block writes followed by branch flow before outside gets, and parameter writes that leave signature params unchanged, plus focused validation for non-null `local.tee` assignment/use narrowing.
 
 ## Exact local code map today
 
@@ -72,8 +72,8 @@ The current implementation is a narrower subset that narrows body locals from wr
   - active hot-pass dispatcher case.
 - `src/passes/optimize_test.mbt:491-495, 522-526`
   - preset honesty plus exact local-subtyping slot placement in the optimize preset.
-- `src/passes/local_subtyping_test.mbt:41-497`
-  - direct active-pass tests for registry lookup, write-site narrowing, tee assignments, straight-line non-null dominance, branch-free block/loop dominance/fallback, branch-free block-write post-state propagation, branch-free nested block-if dominance, source-backed nullable loop post-state fallback, and branch-free root-if dominance/fallback.
+- `src/passes/local_subtyping_test.mbt`
+  - direct active-pass tests for registry lookup, write-site narrowing, tee assignments, straight-line non-null dominance, branch-free block/loop dominance/fallback, branch-free block-write post-state propagation, branch-free nested block-if dominance, source-backed nullable loop/if/branch-flow post-state fallback, parameter preservation, and branch-free root-if dominance/fallback.
 - `src/cmd/cmd_wbtest.mbt:4376-4439`
   - CLI integration test for `--local-subtyping` on wasm inputs.
 
@@ -83,7 +83,7 @@ The current Starshine code path is intentionally small:
 
 1. lift each function into HOT form;
 2. collect assignment result types from `local.set` and `local.tee`;
-3. pre-scan the raw straight-line body, branch-free `block` bodies, branch-free block writes before later outer gets, branch-free `loop` bodies entered after prior writes, branch-free nested `if` arms inside such dominated regions, and branch-free root `if` arms to decide where a nullable local may safely become non-null because reads are dominated by an earlier write, while keeping nullable fallbacks at the source-backed loop/if/branch-flow post-state boundaries;
+3. pre-scan the raw straight-line body, branch-free `block` bodies, branch-free block writes before later outer gets, branch-free `loop` bodies entered after prior writes, branch-free nested `if` arms inside such dominated regions, and branch-free root `if` arms to decide where a nullable body local may safely become non-null because reads are dominated by an earlier write, while keeping nullable fallbacks at the source-backed loop/if/branch-flow post-state boundaries and preserving parameters as signature-owned locals;
 4. pick the most specific safe common reference subtype, falling back to nullable when dominance is not proven;
 5. rewrite body-local declarations only;
 6. rebuild the module if any body local changed.
@@ -124,7 +124,7 @@ The next full-contract parity tests should cover:
 1. structured-control dominance positives and negatives beyond branch-free `block` bodies, branch-free `loop` entry bodies, branch-free root `if` arms, and the now-covered branch-free block-write post-state case;
 2. `local.get` / `local.tee` expression retagging after declaration narrowing;
 3. repeated refinement after a pass change;
-4. parameter preservation versus body-local rewrite scope;
+4. broader body-local/parameter boundary coverage beyond the now-guarded source-backed parameter-preservation fixture;
 5. pass-specific GenValid profile coverage for LS assignment/dominance families.
 
 ## Bottom line

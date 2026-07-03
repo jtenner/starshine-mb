@@ -49,7 +49,7 @@ Use it with:
 ## Current local reality
 
 Starshine `local-subtyping` is an active module pass.
-The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals and now has first straight-line plus non-null `local.tee` assignment/use validation, branch-free `block`, branch-free block-write post-state, branch-free `loop` entry, nested block/loop-`if`, and root `if` non-null dominance slices, plus source-backed nullable fallbacks for loop writes, all-arm `if` writes, and branch-flow block post-state cases. It still does not do full structural get-aware dominance repair, broad get/tee expression retagging, or iterative refinalization.
+The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals and now has first straight-line plus non-null `local.tee` assignment/use validation, branch-free `block`, branch-free block-write post-state, branch-free `loop` entry, nested block/loop-`if`, and root `if` non-null dominance slices, plus source-backed nullable fallbacks for loop writes, all-arm `if` writes, branch-flow block post-state cases, and parameter preservation after writes. It still does not do full structural get-aware dominance repair, broad get/tee expression retagging, or iterative refinalization.
 
 ## The current Starshine slice
 
@@ -58,7 +58,7 @@ The shipped slice is:
 1. collect write-site types from `local.set` / `local.tee`;
 2. compute a safe common reference subtype;
 3. allow nullable-to-non-null narrowing only for the current straight-line, branch-free `block`, branch-free block-write post-state, branch-free `loop` entry, nested branch-free region-`if`, and branch-free root `if` subset where every raw `local.get` of that body local follows a dominating write and no `try_table`, branch, return, throw, loop backedge, or broader join/post-state case invalidates the simple proof; source-backed loop write, all-arm `if` write, and branch-flow block post-state cases fall back to nullable child rather than non-null;
-4. rewrite body-local declarations only;
+4. rewrite body-local declarations only and preserve function parameters as ABI/signature types;
 5. rebuild the module only when a body local changes.
 
 That is a valid Starshine pass, but it is only a subset of the upstream contract.
@@ -73,7 +73,7 @@ That is a valid Starshine pass, but it is only a subset of the upstream contract
 | `src/passes/registry_test.mbt:78-82` | registry category is `module_pass`. |
 | `src/passes/optimize.mbt:284-285, 296-312` | registry entry and hot-preset inclusion. |
 | `src/passes/pass_manager.mbt:8937-8940` | active dispatcher case. |
-| `src/passes/local_subtyping_test.mbt` | active pass tests for registry lookup, the shipped narrowing cases, non-null `local.tee` assignment/use validation, straight-line non-null dominance, branch-free block/loop dominance/fallback, branch-free block-write post-state propagation, nested branch-free block-if dominance, source-backed nullable loop/if/branch-flow post-state fallback, and branch-free root-if dominance/fallback. |
+| `src/passes/local_subtyping_test.mbt` | active pass tests for registry lookup, the shipped narrowing cases, non-null `local.tee` assignment/use validation, straight-line non-null dominance, branch-free block/loop dominance/fallback, branch-free block-write post-state propagation, nested branch-free block-if dominance, source-backed nullable loop/if/branch-flow post-state fallback, parameter preservation, and branch-free root-if dominance/fallback. |
 | `src/cmd/cmd_wbtest.mbt:4376-4439` | end-to-end CLI proof for `--local-subtyping`. |
 | `src/passes/optimize_test.mbt:522-526` | preset slot proof in the late local-cleanup neighborhood. |
 
@@ -85,7 +85,7 @@ Compared with Binaryen, Starshine still lacks:
 - non-null fallback based on structural dominance across loops with backedges or post-state joins, EH regions, broader `if` join/post-state cases, and blocks/ifs with branch/return/throw flow; branch-free block write post-state is now covered, while branch-free loop writes, all-arm `if` writes, and branch-flow block post-state cases currently follow Binaryen-observed nullable post-state behavior;
 - broad get/tee expression retagging after declaration narrowing; a non-null `local.tee` assignment/use fixture validates today, but the general explicit Binaryen retagging contract remains open;
 - repeated refinalize/reanalyze rounds;
-- broader shape coverage for parameters, structured tees, and non-null cases.
+- broader shape coverage for structured tees, non-null cases, and parameter/body-local boundaries beyond the now-guarded source-backed parameter-preservation case.
 
 Those are the next parity slices, not the current shipped pass.
 
@@ -101,14 +101,14 @@ Current coverage should stay green first:
 
 Refreshed direct signoff on 2026-05-06 ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
-The current audit slices add and validate focused direct tests: `local.tee` assignments feed narrowing, including a non-null tee assignment/use that validates after non-null declaration narrowing; a straight-line non-null write before all gets can narrow a nullable body local to a non-null child type; branch-free `block` and `loop` bodies entered after a dominating write can contain non-null gets; a branch-free `block` write can propagate to a later outer get; a branch-free nested `if` inside such a dominated region can contain non-null gets; a branch-free root `if` entered after a dominating write can contain non-null gets; and early gets before the write, including gets inside an earlier block or `if` arm, fall back to the nullable child type. Source-backed post-state fallbacks keep a branch-free loop write, all-arm `if` writes, and a block write followed by branch flow nullable for a later outer get. The straight-line, block-entry, block-write post-state, loop-entry, nested block-if, and root-if non-null positives failed before implementation and now pass with optimized-module validation.
+The current audit slices add and validate focused direct tests: `local.tee` assignments feed narrowing, including a non-null tee assignment/use that validates after non-null declaration narrowing; a straight-line non-null write before all gets can narrow a nullable body local to a non-null child type; branch-free `block` and `loop` bodies entered after a dominating write can contain non-null gets; a branch-free `block` write can propagate to a later outer get; a branch-free nested `if` inside such a dominated region can contain non-null gets; a branch-free root `if` entered after a dominating write can contain non-null gets; and early gets before the write, including gets inside an earlier block or `if` arm, fall back to the nullable child type. Source-backed fallbacks keep a branch-free loop write, all-arm `if` writes, and a block write followed by branch flow nullable for a later outer get, and keep nullable function parameters unchanged after writes. The straight-line, block-entry, block-write post-state, loop-entry, nested block-if, and root-if non-null positives failed before implementation and now pass with optimized-module validation.
 
 Then grow coverage in this order:
 
 1. structured-control nullable-to-non-null positives and failures beyond branch-free `block` bodies, branch-free block-write post-state, branch-free `loop` entry bodies, and branch-free root `if` arms;
 2. `local.get` / `local.tee` expression retagging;
 3. repeated refinement after a narrowing change;
-4. parameter preservation and body-local-only scope checks;
+4. broader parameter/body-local-only scope checks beyond the source-backed nullable-parameter preservation guard;
 5. an LS-specific GenValid aggregate profile for direct signoff.
 
 ## What to avoid saying
