@@ -203,4 +203,11 @@ Current mixed local.tee pair slice evidence from 2026-07-03:
 - Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-mixed-tee-pair-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
 - Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-mixed-tee-pair-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
 
+Current best-cast source-feed slice evidence from 2026-07-03:
+
+- Focused `src/passes/optimize_casts_test.mbt` now passes `64/64` after adding the Binaryen `best`-style fixture where an already-materialized broader cast feeds the source of a later narrower cast across intervening `global.set` roots while the existing unrelated-cast negative stays conservative.
+- `moon fmt` passed; `moon test src/passes` passed `3879/3879`; `moon info` and native `src/cmd` build passed with pre-existing warnings.
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-best-source-feed-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-best-source-feed-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
+
 Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.
