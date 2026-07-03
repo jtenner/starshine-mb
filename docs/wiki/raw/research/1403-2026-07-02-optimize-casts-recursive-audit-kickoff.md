@@ -921,10 +921,21 @@ Broad-profile agent classification: all `43` mismatches came from `heap2local-re
 
 This still is not final closeout: direct regular GenValid is only at `10000` rather than `100000`, wasm-smith is only at `1000` rather than `10000`, broad/random is only at `1000` rather than `10000` and has a documented Starshine-win mismatch family, and O4z/timing/source-review evidence remains separate.
 
+## Slice 44 O4z timing and neighborhood probe
+
+The final evidence slice for this iteration captured pass-local timing and an O4z-neighborhood replay on the checked-in startup repro, using `_build/native/release/build/cmd/cmd.exe`.
+
+Validation for this slice:
+
+- Direct timing probe `.tmp/self-compare-optimize-casts-o4z-repro-after-exact-local` on `tests/repros/o4z-debug-startup-map-init-repro.wasm` with `--optimize-casts --timing-only`: canonical wasm equal; Starshine runtime `18.548ms`; Binaryen runtime `16.648ms`; Starshine pass runtime `10.076ms`; Binaryen pass runtime `7.932ms`; Starshine raw runtime `0.000ms`; other traced runtime `5.783ms`; untraced/runtime overhead `2.689ms`. Agent classification: Starshine is about `1.27x` Binaryen pass-local time, satisfying the pass-local `<= 2x` / at least 50%-as-fast target despite the script's stricter same-speed flag saying `no`.
+- O4z GC/local neighborhood probe `.tmp/self-compare-optimize-casts-o4z-neighborhood-after-exact-local` on the same repro with `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse --timing-only`: both Starshine and Binaryen outputs validated with `wasm-tools validate --features all`; Starshine runtime `35.979ms`; Binaryen runtime `39.020ms`; Starshine pass runtime `17.643ms`; Binaryen pass runtime `18.038ms`; canonical wasm was not equal; normalized wasm sizes were Starshine `191380` bytes and Binaryen `191059` bytes. Agent classification: timing is acceptable and the outputs are valid, but the raw/canonical neighborhood size/shape drift is not closeout parity evidence yet. Treat it as an open neighborhood classification item, likely involving the surrounding GC/local cleanup passes as well as OC, rather than as a semantic-safe conclusion from validation alone.
+
+End-of-iteration status: this iteration made the pass-specific GenValid lane closeout-sized and green, refreshed direct `10000`, explicit wasm-smith `1000`, and broad random `1000` evidence, classified the broad `heap2local-ref` residual as a source-backed Starshine static-fold win, and captured first timing/neighborhood evidence. The full OC goal remains incomplete because the direct regular lane is not yet at `100000`, wasm-smith and broad/random are not yet at `10000`, the broad raw mismatch family needs an explicit closeout decision/normalizer/acceptance if it remains, the O4z neighborhood drift is valid but not classified to owner, and the final source/docs review is not done.
+
 ## Recommended next implementation slices
 
-1. Capture O4z slot/neighborhood and pass-local timing evidence for `optimize-casts`; classify any neighborhood raw/canonical drift by owner instead of treating validation alone as parity.
-2. Decide whether to scale explicit wasm-smith and broad/random lanes to `10000`, accepting that the `heap2local-ref` static-fold Starshine-win family will remain a raw mismatch unless normalized or explicitly accepted.
-3. Run the remaining direct regular GenValid `100000` lane only when the next thread has enough time, using the existing native binary or rebuilding it first.
+1. Scale explicit wasm-smith and broad/random lanes to `10000`; expect broad `heap2local-ref` static-fold raw mismatches unless a closeout normalizer or explicit Starshine-win acceptance is added.
+2. Run the remaining direct regular GenValid `100000` lane with a current native binary.
+3. Classify the O4z GC/local neighborhood raw/canonical drift by owner, starting from the saved `.tmp/self-compare-optimize-casts-o4z-neighborhood-after-exact-local` artifacts, and decide whether an OC-specific fixture or a neighbor backlog item is warranted.
 4. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
 5. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.

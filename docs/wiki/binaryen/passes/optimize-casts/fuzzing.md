@@ -283,4 +283,10 @@ Current non-dedicated lane refresh from 2026-07-03:
 - Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-1000`: requested/compared `1000/1000`, normalized `957`, mismatches `43`, validation/generator/property/command failures `0`, Binaryen cache `165/835`. All `43` raw mismatches came from `heap2local-ref` selected-profile cases.
 - Agent classification for the broad residual: Starshine folds `drop(ref.test (ref (exact $0)) (struct.new_default $0))` to `drop(i32.const 1)` while Binaryen leaves the test. This is a source-backed Starshine static-fold win guarded by focused `ref.test` tests, not a behavior-parity gap; inspected failures were each `5` normalized-wasm bytes smaller for Starshine.
 
-Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining required matrix lanes are fully scaled or explicitly accepted with the documented broad static-fold win, plus O4z slot/neighborhood evidence, pass-local timing, and final source/docs review are complete.
+Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining required matrix lanes are fully scaled or explicitly accepted with the documented broad static-fold win, plus final O4z slot/neighborhood evidence and source/docs review.
+
+Current timing and neighborhood evidence from 2026-07-03:
+
+- Direct timing probe `.tmp/self-compare-optimize-casts-o4z-repro-after-exact-local` on `tests/repros/o4z-debug-startup-map-init-repro.wasm` with `--optimize-casts --timing-only`: canonical wasm equal; Starshine pass runtime `10.076ms`; Binaryen pass runtime `7.932ms`; Starshine is about `1.27x` Binaryen pass-local time, satisfying the pass-local `<= 2x` target.
+- GC/local neighborhood probe `.tmp/self-compare-optimize-casts-o4z-neighborhood-after-exact-local` on the same repro with `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse --timing-only`: Starshine pass runtime `17.643ms`; Binaryen pass runtime `18.038ms`; both outputs validate; canonical wasm is not equal and Starshine's normalized wasm is `191380` bytes versus Binaryen `191059` bytes.
+- Agent classification: timing is acceptable, but the neighborhood size/shape drift is still open owner-classification work rather than closeout evidence.
