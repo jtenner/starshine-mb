@@ -681,12 +681,29 @@ fn oc_collect_refinements(
 }
 
 ///|
+fn oc_existing_fresh_can_feed_refinement_source(
+  func : @ir.HotFunc,
+  candidate_id : Int,
+  current_id : Int,
+) -> Bool {
+  match
+    (
+      oc_refinement_type_from_node(func, candidate_id),
+      oc_refinement_type_from_node(func, current_id),
+    ) {
+    (Some(candidate), Some(current)) => candidate == current
+    _ => false
+  }
+}
+
+///|
 fn oc_refinements_allow_retarget(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
   refinements : Array[(Int, Int)],
   local_id : Int,
   best_cast : Int,
+  has_existing_fresh : Bool,
 ) -> Bool {
   let mut saw_refinement = false
   for refinement in refinements {
@@ -697,7 +714,13 @@ fn oc_refinements_allow_retarget(
           func,
           best_cast,
           refinement.1,
-        ) {
+        ) &&
+        !(has_existing_fresh &&
+        oc_existing_fresh_can_feed_refinement_source(
+          func,
+          best_cast,
+          refinement.1,
+        )) {
         return false
       }
     }
@@ -712,11 +735,12 @@ fn oc_refinement_blocks_retarget(
   refinements : Array[(Int, Int)],
   local_id : Int,
   best_cast : Int,
+  has_existing_fresh : Bool,
 ) -> Bool {
   for refinement in refinements {
     if refinement.0 == local_id {
       return !oc_refinements_allow_retarget(
-        module_ctx, func, refinements, local_id, best_cast,
+        module_ctx, func, refinements, local_id, best_cast, has_existing_fresh,
       )
     }
   }
@@ -1497,7 +1521,12 @@ fn oc_later_reuse_scan_region(
         if best_cast >= 0 &&
           !oc_contains_local(writes, local_id) &&
           !oc_refinement_blocks_retarget(
-            module_ctx, func, refinements, local_id, best_cast,
+            module_ctx,
+            func,
+            refinements,
+            local_id,
+            best_cast,
+            fresh_locals[local_id] >= 0,
           ) &&
           oc_count_local_gets(func, root_id, local_id) > 0 {
           let fresh_local = if fresh_locals[local_id] >= 0 {

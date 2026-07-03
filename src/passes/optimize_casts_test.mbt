@@ -1222,7 +1222,7 @@ test "optimize-casts refinalizes later broader cast after earlier narrower cast"
   assert_true(pretty.contains("local.tee"), msg=pretty)
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "local.get (Local 1)"),
-    2,
+    3,
     msg=pretty,
   )
   @debug.assert_eq(
