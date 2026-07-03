@@ -353,6 +353,31 @@ Why it rewrites:
 - the only observed get appears before the return and is dominated by the non-null write;
 - Starshine now treats this as a non-propagating terminal control boundary, while still refusing direct return/post-state cases that require unreachable later-get validation proof.
 
+## Shape 6e-a: block terminal `return` can preserve already-dominated gets inside the block
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block
+  (local.set $x (local.get $p))
+  (drop (local.get $x))
+  (return))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/block-terminal-return-after-dominated-get.wat` under `--local-subtyping`;
+- the `local.get` is before the terminal block `return` and is dominated by the non-null write;
+- Starshine now threads the terminal-return permission into `block` scans reached from the root scan, treating the block return as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Direct block-return post-state cases with later unreachable gets remain nullable until validator/tooling support can prove or repair those gets.
+
 ## Shape 6f: root terminal `throw` can preserve already-dominated gets
 
 Before:
