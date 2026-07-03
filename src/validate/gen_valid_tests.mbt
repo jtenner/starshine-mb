@@ -4653,6 +4653,25 @@ fn gen_valid_test_tuple_body_has_select(body : Array[Instruction]) -> Bool {
 ///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
   if gen_valid_test_has_func_export(mod_, "run") {
+    let instrs = gen_valid_test_first_func_instrs(mod_)
+    if instrs.length() >= 8 {
+      match
+        (
+          instrs[instrs.length() - 3],
+          instrs[instrs.length() - 2],
+          instrs[instrs.length() - 1],
+        ) {
+        (
+          LocalGet(LocalIdx(get_before)),
+          LocalSet(LocalIdx(set_idx)),
+          LocalGet(LocalIdx(get_after)),
+        ) if get_before == set_idx &&
+          set_idx == get_after &&
+          gen_valid_test_tuple_helper_has_effect(mod_) =>
+          return "runtime-effectful-scratch-localized-selected-lane"
+        _ => ()
+      }
+    }
     if gen_valid_test_tuple_helper_has_effect(mod_) {
       return "runtime-effectful-selected-lane"
     }
@@ -4893,6 +4912,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let runtime_effectful_scratch = match
+    gen_valid_module_result_from_seed(
+      0x6001UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -4973,6 +5000,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x6000UL),
     Some("oi-tuple:runtime-all-results"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x6001UL),
+    Some("oi-tuple:runtime-effectful-scratch-localized-selected-lane"),
   )
   assert_true(
     gen_valid_test_tuple_first_block_i32_const(
@@ -5101,6 +5132,15 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
       msg="expected runtime all-results tuple case to export \\{name}",
     )
   }
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      runtime_effectful_scratch.wasm_module,
+    ),
+    "runtime-effectful-scratch-localized-selected-lane",
+  )
+  assert_true(
+    gen_valid_test_has_func_export(runtime_effectful_scratch.wasm_module, "run"),
+  )
 }
 
 ///|
