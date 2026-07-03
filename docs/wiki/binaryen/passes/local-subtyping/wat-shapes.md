@@ -329,7 +329,31 @@ Why it rewrites:
 - every path that reaches the later get has executed the non-null write;
 - Starshine now treats `return` inside copied `if` arms as a path skip for this dominance proof, while keeping direct return/post-state cases conservative.
 
-## Shape 6e: direct block `return` flow is a Starshine validator boundary
+## Shape 6e: root terminal `return` can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+(return)
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- the final `return` is at the root instruction tail;
+- the only observed get appears before the return and is dominated by the non-null write;
+- Starshine now treats this as a non-propagating terminal control boundary, while still refusing direct return/post-state cases that require unreachable later-get validation proof.
+
+## Shape 6f: direct block `return` flow is a Starshine validator boundary
 
 Before:
 
