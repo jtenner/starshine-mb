@@ -171,7 +171,7 @@ fn optimize_casts_memory_void_module(
 }
 
 ///|
-fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
+fn optimize_casts_run_module(mod_ : @lib.Module) -> @lib.Module {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
     Err(err) => abort("unexpected invalid optimize-casts fixture: \{err}")
@@ -182,9 +182,14 @@ fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
     Err(err) => abort("expected optimize-casts pipeline success, got \{err}")
   }
   match @validate.validate_module(optimized) {
-    Ok(_) => optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    Ok(_) => optimized
     Err(err) => abort("expected optimize-casts output to validate, got \{err}")
   }
+}
+
+///|
+fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
+  optimize_casts_run_module(mod_).pretty_print_func(@lib.FuncIdx::new(0U))
 }
 
 ///|
@@ -717,6 +722,33 @@ test "optimize-casts duplicates later ref.as_non_null across separate-index loca
     2,
     msg=pretty,
   )
+}
+
+///|
+test "optimize-casts materializes fresh exact non-null cast locals after initialization support" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let optimized = optimize_casts_run_module(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let fresh_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
+      @debug.assert_eq(locals, @lib.Locals::from_types([fresh_type]))
+    _ => fail("expected one optimized function")
+  }
 }
 
 ///|

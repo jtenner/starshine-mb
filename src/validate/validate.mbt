@@ -10394,6 +10394,65 @@ test "validate_module reports end-of-body underflow with stack shape" {
 }
 
 ///|
+test "validate_module accepts initialized non-defaultable body locals" {
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let non_null_struct = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type, sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types([non_null_struct]),
+          Expr::new([
+            Instruction::struct_new_default(TypeIdx::new(0U)),
+            Instruction::local_set(LocalIdx::new(0U)),
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+}
+
+///|
+test "validate_module rejects uninitialized non-defaultable body local reads" {
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let non_null_struct = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type, sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types([non_null_struct]),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected uninitialized non-defaultable local read to fail")
+    Err(err) => {
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).contains("uninitialized local"))
+    }
+  }
+}
+
+///|
 test "validate_module reports wrong end-of-body result type with stack shape" {
   let sig = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
