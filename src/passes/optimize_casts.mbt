@@ -1103,6 +1103,51 @@ fn oc_nontrapping_pure_local_set(func : @ir.HotFunc, root_id : Int) -> Int? {
 }
 
 ///|
+fn oc_nontrapping_pure_tee_value(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet => true
+    _ => oc_i32_nontrapping_pure_tree(func, node_id, 64)
+  }
+}
+
+///|
+fn oc_dropped_nontrapping_pure_local_tee(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Int? {
+  if !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 1 {
+        let tee_id = @ir.hot_child_get(func, root_id, 0)
+        let tee = @ir.hot_node_get(func, tee_id)
+        match tee.op {
+          @ir.HotOp::LocalTee =>
+            if @ir.hot_child_count(func, tee_id) == 1 {
+              let value_id = @ir.hot_child_get(func, tee_id, 0)
+              if oc_nontrapping_pure_tee_value(func, value_id) {
+                Some(tee.imm0)
+              } else {
+                None
+              }
+            } else {
+              None
+            }
+          _ => None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
 fn oc_direct_dropped_refinement(
   func : @ir.HotFunc,
   root_id : Int,
@@ -1669,6 +1714,26 @@ fn oc_early_motion_scan_region(
       None => ()
     }
     match oc_nontrapping_pure_local_set(func, root_id) {
+      Some(local_id) => {
+        if local_id >= 0 && local_id < local_count {
+          if oc_flush_pending_get(
+              ctx, func, pending_gets, pending_get_best_refinements, moved_refinalized_refinements,
+              local_id,
+            ) {
+            changed = true
+          }
+          oc_clear_pending_get(
+            pending_gets, pending_get_best_refinements, local_id,
+          )
+          pending_refinement_casts[local_id] = -1
+          pending_refinement_gets[local_id] = -1
+          seen_refinements[local_id] = false
+        }
+        continue
+      }
+      None => ()
+    }
+    match oc_dropped_nontrapping_pure_local_tee(func, root_id) {
       Some(local_id) => {
         if local_id >= 0 && local_id < local_count {
           if oc_flush_pending_get(
