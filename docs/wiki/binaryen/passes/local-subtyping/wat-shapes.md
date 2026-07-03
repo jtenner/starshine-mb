@@ -329,6 +329,33 @@ Why it rewrites:
 - every path that reaches the later get has executed the non-null write;
 - Starshine now treats `return` inside copied `if` arms as a path skip for this dominance proof, while keeping direct return/post-state cases conservative.
 
+## Shape 6d-throw: direct `throw` in an `if` arm can skip a later write/get path
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(if (i32.const 1)
+  (then (throw $e))
+  (else (nop)))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/if-arm-direct-throw-skips-later-write-get.wat` under `--local-subtyping`;
+- the throwing arm cannot reach the later write or get;
+- every path that reaches the later get has executed the non-null write;
+- Starshine now treats direct `throw` inside copied `if` arm scans as a path skip, parallel to the conditional-`return` subset. This does not widen non-final throw after a dominated get, `throw_ref`, catch-ref/post-state EH flow, or broad `try_table` handling.
+
 ## Shape 6e: root terminal `return` can preserve already-dominated gets
 
 Before:
@@ -625,7 +652,7 @@ Before:
   (else (drop (local.get $x))))
 ```
 
-Possible after, when the `if` arms have no direct branch/throw flow except the conditional-return skip subset:
+Possible after, when the `if` arms have no direct branch/throw flow except the conditional-return and direct-throw skip subsets:
 
 ```wat
 (local $x (ref $A))
