@@ -4120,8 +4120,19 @@ fn optimize_instructions_tuple_extract_lane_is_direct_localizable(
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::Block
-    | @ir.HotOp::Loop
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for i = 0; i < @ir.hot_region_root_count(func, body); i = i + 1 {
+        if !optimize_instructions_tuple_extract_lane_is_direct_localizable(
+            func,
+            @ir.hot_region_get(func, body, i),
+          ) {
+          return false
+        }
+      }
+      return true
+    }
+    @ir.HotOp::Loop
     | @ir.HotOp::If
     | @ir.HotOp::Try
     | @ir.HotOp::TryTable
@@ -4196,6 +4207,41 @@ fn optimize_instructions_tuple_extract_lane_must_preserve(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for i = 0; i < @ir.hot_region_root_count(func, body); i = i + 1 {
+        let child_id = @ir.hot_region_get(func, body, i)
+        if !optimize_instructions_tuple_extract_lane_is_direct_localizable(
+            func, child_id,
+          ) ||
+          optimize_instructions_tuple_extract_lane_must_preserve(
+            ctx, func, child_id,
+          ) {
+          return true
+        }
+      }
+      return false
+    }
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Catch
+    | @ir.HotOp::CatchAll => return true
+    _ => ()
+  }
   !optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
   optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
     func, node_id,

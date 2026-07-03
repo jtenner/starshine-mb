@@ -26040,10 +26040,12 @@ test "optimize-instructions localizes selected effect before later tuple sibling
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with unsupported control sibling boundary" {
-  // Boundary-only OI-M classification: this direct slice does not yet localize
-  // control/branch/EH or nested-region tuple siblings. Keeping the original
-  // tuple shape prevents silently deleting unsupported control payloads.
+test "optimize-instructions drops pure block tuple sibling" {
+  // OI-M-SB004 narrow positive slice: Binaryen `version_130`
+  // `--optimize-instructions` localizes tuple.extract when a non-selected
+  // sibling is a pure, branch-free block (`.tmp/oi-m-control-sibling-sb004-20260703.wat`).
+  // Starshine may drop that unused sibling because it has no effects, traps, or
+  // escaping control; branch/EH/control-transfer siblings remain fail-closed.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -26064,21 +26066,67 @@ test "optimize-instructions intentionally keeps tuple.extract with unsupported c
   @ir.hot_root_append(func, extract)
 
   optimize_instructions_tuple_test_run(
-    func, "unsupported control tuple sibling boundary",
+    func, "pure block tuple sibling localization",
   )
 
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Const => ()
+    other => fail("expected pure block sibling to be dropped, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(7)),
+  )
+}
+
+///|
+test "optimize-instructions intentionally keeps tuple.extract with branch sibling boundary" {
+  // Boundary-only OI-M-SB004 coverage: branch-bearing block siblings are not the
+  // pure block subset above. Keeping the original tuple shape prevents silently
+  // deleting unsupported control-transfer payloads until structured
+  // reconstruction is source-backed.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let branch_sibling = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [],
+  )
+  let branch_label = @ir.hot_control_node_label(func, branch_sibling)
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, branch_sibling),
+    [
+      @ir.hot_build_br(func, branch_label, values=[
+        @ir.hot_build_const_i64(func, @lib.I64(9L)),
+      ]),
+      @ir.hot_build_const_i64(func, @lib.I64(10L)),
+    ],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected, branch_sibling],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(func, "branch tuple sibling boundary")
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
     @ir.HotOp::TupleExtract => ()
-    _ =>
-      fail(
-        "expected unsupported control sibling tuple.extract to stay unchanged",
-      )
+    _ => fail("expected branch sibling tuple.extract to stay unchanged")
   }
   @debug.assert_eq(@ir.hot_child_get(func, root, 0), tuple)
-  match @ir.hot_node_get(func, control_sibling).op {
+  match @ir.hot_node_get(func, branch_sibling).op {
     @ir.HotOp::Block => ()
-    _ => fail("expected unsupported control sibling block to stay available")
+    _ => fail("expected branch sibling block to stay available")
   }
 }
 
