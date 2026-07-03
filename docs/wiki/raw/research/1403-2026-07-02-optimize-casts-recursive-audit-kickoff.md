@@ -588,6 +588,28 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader `move-cast-*` chains beyond the current best-selection/refinalization subset, remaining mixed `ref.cast`/`ref.as_non_null` variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 28 move-cast-4 broader-source refinalization result
+
+The twenty-eighth recursive slice broadened the strict early-motion source-cast/refinalization subset to the Binaryen `move-cast-4` ordering:
+
+- an earlier dropped same-local `local.get`, followed by a narrower cast and then a later broader cast, now keeps the earliest get at the best narrower cast;
+- the later broader cast's direct source is rewritten through the earlier narrower refinement before the post-early-motion static folder runs, so the broader outer cast is refinalized away instead of surviving as nullable-fresh-local debris;
+- the existing narrower-then-broader source fixture was tightened to require the broader `HeapType Idx 0` cast to disappear, making this a source-backed Starshine win over the earlier nullable-local later-reuse shape.
+
+Before implementation, the new move-cast-4-style fixture produced a validating output that still contained a later broader `(HeapType Idx 0)` cast. `src/passes/optimize_casts.mbt` now handles both directions in the direct source-cast window: a later narrower cast can still be duplicated into an earlier broader cast source, and an earlier narrower cast can now be duplicated into a later broader cast source when the pending refinement is strictly more refined. Same-local write/local.tee, trap/effect/control, unrelated-cast, unsupported outer-ref.cast-over-ref.as, and nullable-fresh-local blocker boundaries remain unchanged.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts keeps the best earlier cast before a later broader cast` before implementation (`56/57` passed), then passed `57/57` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3872/3872`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-move-cast-4-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-move-cast-4-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader `move-cast-*` chains beyond the current best-selection/refinalization subsets, remaining mixed `ref.cast`/`ref.as_non_null` variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
