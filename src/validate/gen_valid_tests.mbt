@@ -12957,7 +12957,8 @@ test "heap2local array and ref gen-valid profiles emit direct Binaryen families"
 ///|
 test "local-subtyping gen-valid profiles resolve and expose replayable aggregate" {
   let expected = [
-    "local-subtyping-straight-line", "local-subtyping-structured", "local-subtyping-all",
+    "local-subtyping-straight-line", "local-subtyping-structured", "local-subtyping-unreachable-tail",
+    "local-subtyping-all",
   ]
   let names = gen_valid_profile_names()
   for name in expected {
@@ -12968,9 +12969,10 @@ test "local-subtyping gen-valid profiles resolve and expose replayable aggregate
       @debug.assert_eq(profile, LocalSubtypingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 2)
+      @debug.assert_eq(members.length(), 3)
       @debug.assert_eq(members[0].profile, LocalSubtypingStraightLineProfile)
       @debug.assert_eq(members[1].profile, LocalSubtypingStructuredProfile)
+      @debug.assert_eq(members[2].profile, LocalSubtypingUnreachableTailProfile)
     }
     Err(msg) => fail(msg)
   }
@@ -12997,11 +12999,14 @@ test "local-subtyping aggregate profile samples straight-line and structured fam
   }
   assert_true(seen.contains(LocalSubtypingStraightLineProfile))
   assert_true(seen.contains(LocalSubtypingStructuredProfile))
+  assert_true(seen.contains(LocalSubtypingUnreachableTailProfile))
 }
 
 ///|
 test "local-subtyping gen-valid leaves emit validating local refinement triggers" {
-  let expected = ["local-subtyping-straight-line", "local-subtyping-structured"]
+  let expected = [
+    "local-subtyping-straight-line", "local-subtyping-structured", "local-subtyping-unreachable-tail",
+  ]
   for name in expected {
     let profile = match gen_valid_profile_by_name(name) {
       Ok(profile) => profile
@@ -13032,6 +13037,12 @@ test "local-subtyping gen-valid leaves emit validating local refinement triggers
       pretty.contains("local.get"),
       msg="profile \{name} did not emit a body-local read:\n\{pretty}",
     )
+    if name == "local-subtyping-unreachable-tail" {
+      assert_true(
+        pretty.contains("return"),
+        msg="profile \{name} did not emit a return/unreachable-tail trigger:\n\{pretty}",
+      )
+    }
   }
 }
 

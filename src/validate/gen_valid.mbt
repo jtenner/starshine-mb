@@ -730,6 +730,7 @@ pub enum GenValidProfile {
   Heap2LocalAllProfile
   LocalSubtypingStraightLineProfile
   LocalSubtypingStructuredProfile
+  LocalSubtypingUnreachableTailProfile
   LocalSubtypingAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
@@ -896,6 +897,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     Heap2LocalAllProfile => "heap2local-all"
     LocalSubtypingStraightLineProfile => "local-subtyping-straight-line"
     LocalSubtypingStructuredProfile => "local-subtyping-structured"
+    LocalSubtypingUnreachableTailProfile => "local-subtyping-unreachable-tail"
     LocalSubtypingAllProfile => "local-subtyping-all"
     RemoveUnusedBrsControlProfile => "remove-unused-brs-control"
     RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
@@ -1068,6 +1070,7 @@ pub fn gen_valid_profile_members(
       [
         GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 3),
         GenValidProfileMember::new(LocalSubtypingStructuredProfile, 2),
+        GenValidProfileMember::new(LocalSubtypingUnreachableTailProfile, 1),
       ]
     RemoveUnusedBrsAllProfile =>
       [
@@ -1266,6 +1269,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     Heap2LocalAllProfile,
     LocalSubtypingStraightLineProfile,
     LocalSubtypingStructuredProfile,
+    LocalSubtypingUnreachableTailProfile,
     LocalSubtypingAllProfile,
     RemoveUnusedBrsControlProfile,
     RemoveUnusedBrsSwitchProfile,
@@ -1828,7 +1832,9 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_heap2local_profile_config(profile)
     Heap2LocalAllProfile =>
       gen_valid_heap2local_profile_config(Heap2LocalAllProfile)
-    LocalSubtypingStraightLineProfile | LocalSubtypingStructuredProfile =>
+    LocalSubtypingStraightLineProfile
+    | LocalSubtypingStructuredProfile
+    | LocalSubtypingUnreachableTailProfile =>
       gen_valid_local_subtyping_profile_config(profile)
     LocalSubtypingAllProfile =>
       gen_valid_local_subtyping_profile_config(
@@ -3287,7 +3293,8 @@ fn gen_valid_is_remove_unused_brs_family_config(
 ///|
 fn gen_valid_is_local_subtyping_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(LocalSubtypingStraightLineProfile) ||
-  config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile)
+  config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile) ||
+  config == GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile)
 }
 
 ///|
@@ -12523,7 +12530,13 @@ fn gen_valid_append_local_subtyping_body_slice(
     None => return
   }
   gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
-  if ctx.config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile) {
+  if ctx.config ==
+    GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile) {
+    gen_valid_local_subtyping_append_get_drop(out, local_idx)
+    out.push(Instruction::return_())
+    gen_valid_local_subtyping_append_get_drop(out, local_idx)
+  } else if ctx.config ==
+    GenValidConfig::for_profile(LocalSubtypingStructuredProfile) {
     out.push(
       Instruction::block(
         BlockType::void_(),
