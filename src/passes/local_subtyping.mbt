@@ -268,6 +268,57 @@ fn ls_expr_writes_ref_body_local(
 }
 
 ///|
+fn ls_catches_include_ref_flow(catches : Array[@lib.Catch]) -> Bool {
+  for catch_ in catches {
+    match catch_ {
+      @lib.CatchRef(_, _) | @lib.CatchAllRef(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ls_instrs_include_ref_catch_flow(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, body) => {
+        if ls_catches_include_ref_flow(catches) {
+          return true
+        }
+        if ls_expr_includes_ref_catch_flow(body) {
+          return true
+        }
+      }
+      @lib.Block(_, body) | @lib.Loop(_, body) =>
+        if ls_expr_includes_ref_catch_flow(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ls_instrs_include_ref_catch_flow(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ls_instrs_include_ref_catch_flow(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ls_expr_includes_ref_catch_flow(expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  ls_instrs_include_ref_catch_flow(instrs)
+}
+
+///|
 fn ls_ref_with_nullable(rt : @lib.RefType, nullable : Bool) -> @lib.RefType {
   @lib.RefType::new(
     nullable || rt.is_nullable(),
@@ -1086,6 +1137,9 @@ fn ls_rewrite_func(
   }
   if raw_param_count >= 0 &&
     !ls_expr_writes_ref_body_local(body, raw_param_count, ref_body_locals) {
+    return (func, false)
+  }
+  if raw_param_count >= 0 && ls_expr_includes_ref_catch_flow(body) {
     return (func, false)
   }
   let (refined_body, body_changed) = if raw_param_count >= 0 {

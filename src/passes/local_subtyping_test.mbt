@@ -2126,6 +2126,104 @@ test "local-subtyping accepts try_table return_call_ref before unreachable tail 
 }
 
 ///|
+test "local-subtyping boundary no-ops catch_ref skipped block write until handler flow is represented" {
+  // Boundary: local Binaryen v130 narrows this residual to a nullable exact
+  // child local, but Starshine HOT lifting aborts on this catch_ref result-flow
+  // shape today. Keep the pass fail-closed and non-crashing until the handler
+  // payload/post-state representation supports a parity implementation.
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let exn_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+  )
+  let noexn_nullable = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+  )
+  let mod_ = ls_test_module_with_child_param_and_tag(base_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(exn_ref),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::ref_(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U))],
+          @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
+        ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::ref_null_type(noexn_nullable),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), base_nullable)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected catch_ref skipped-write fail-closed fallback to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping boundary no-ops catch_all_ref skipped block write until handler flow is represented" {
+  // Boundary: local Binaryen v130 narrows this residual to a nullable exact
+  // child local, but Starshine HOT lifting aborts on this catch_all_ref
+  // result-flow shape today. Keep the pass fail-closed and non-crashing until
+  // the handler payload/post-state representation supports parity.
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let exn_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+  )
+  let noexn_nullable = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+  )
+  let mod_ = ls_test_module_with_child_param_and_tag(base_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(exn_ref),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::all_ref(@lib.LabelIdx::new(0U))],
+          @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
+        ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::ref_null_type(noexn_nullable),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), base_nullable)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected catch_all_ref skipped-write fail-closed fallback to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "local-subtyping keeps try_table body write nullable before outside get" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
