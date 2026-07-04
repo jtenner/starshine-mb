@@ -2680,14 +2680,11 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    StructAtomicGet(order, i, idx) => {
+    StructAtomicGet(_, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5C), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
-      }
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
@@ -2695,12 +2692,21 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    StructAtomicGetS(order, i, idx) => {
+    StructAtomicGetS(_, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5D), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(order, buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StructAtomicGetU(_, i, idx) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x5E), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {
@@ -2710,12 +2716,29 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    StructAtomicGetU(order, i, idx) => {
+    StructAtomicRmw(op, i, idx) => {
+      let id = match op {
+        AggregateAtomicRmwAdd => 0x60U
+        AggregateAtomicRmwSub => 0x61U
+        AggregateAtomicRmwAnd => 0x62U
+        AggregateAtomicRmwOr => 0x63U
+        AggregateAtomicRmwXor => 0x64U
+        AggregateAtomicRmwXchg => 0x65U
+      }
       buf.write_byte(0xFE)
-      if Encode::encode(@lib.U32(0x5E), buf) is Err(t) {
+      if Encode::encode(@lib.U32(id), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(order, buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StructAtomicCmpxchg(i, idx) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x66), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {
@@ -2821,6 +2844,32 @@ pub impl Encode for Instruction with fn encode(val, buf) {
     ArraySet(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(14), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ArrayAtomicRmw(op, i) => {
+      let id = match op {
+        AggregateAtomicRmwAdd => 0x6BU
+        AggregateAtomicRmwSub => 0x6CU
+        AggregateAtomicRmwAnd => 0x6DU
+        AggregateAtomicRmwOr => 0x6EU
+        AggregateAtomicRmwXor => 0x6FU
+        AggregateAtomicRmwXchg => 0x70U
+      }
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(id), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ArrayAtomicCmpxchg(i) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x71), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {

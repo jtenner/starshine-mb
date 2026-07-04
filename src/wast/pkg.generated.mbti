@@ -303,6 +303,10 @@ pub enum Instruction {
   StructAtomicGet(AtomicOrder, Index, UInt)
   StructAtomicGetS(AtomicOrder, Index, UInt)
   StructAtomicGetU(AtomicOrder, Index, UInt)
+  StructAtomicRmw(@lib.AggregateAtomicRmwOp, Index, UInt)
+  StructAtomicCmpxchg(Index, UInt)
+  ArrayAtomicRmw(@lib.AggregateAtomicRmwOp, Index)
+  ArrayAtomicCmpxchg(Index)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -524,6 +528,20 @@ pub enum Opcode {
   StructAtomicGet
   StructAtomicGetS
   StructAtomicGetU
+  StructAtomicRmwAdd
+  StructAtomicRmwSub
+  StructAtomicRmwAnd
+  StructAtomicRmwOr
+  StructAtomicRmwXor
+  StructAtomicRmwXchg
+  StructAtomicRmwCmpxchg
+  ArrayAtomicRmwAdd
+  ArrayAtomicRmwSub
+  ArrayAtomicRmwAnd
+  ArrayAtomicRmwOr
+  ArrayAtomicRmwXor
+  ArrayAtomicRmwXchg
+  ArrayAtomicRmwCmpxchg
   StructNewDesc
   StructNewDefaultDesc
   RefGetDesc

@@ -3480,31 +3480,119 @@ fn decode_instruction_with_depth(
           }
         Ok((@lib.U32(id), i)) if id >= 0x5C && id <= 0x5E =>
           match Decode::decode(bytes, i) {
-            Ok((order, i)) =>
+            Ok((type_idx, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((type_idx, i)) =>
-                  match Decode::decode(bytes, i) {
-                    Ok((field_idx, i)) => {
-                      let instr = match id {
-                        0x5C =>
-                          Instruction::struct_atomic_get(
-                            order, type_idx, field_idx,
-                          )
-                        0x5D =>
-                          Instruction::struct_atomic_get_s(
-                            order, type_idx, field_idx,
-                          )
-                        _ =>
-                          Instruction::struct_atomic_get_u(
-                            order, type_idx, field_idx,
-                          )
-                      }
-                      Ok((instr, i))
-                    }
-                    Err(t) => Err(t)
+                Ok((field_idx, i)) => {
+                  // Current shared-GC aggregate atomic-get binaries are
+                  // orderless. Keep SeqCst internally for the older local
+                  // representation; do not read a relaxed/order immediate.
+                  let order = AtomicOrder::seq_cst()
+                  let instr = match id {
+                    0x5C =>
+                      Instruction::struct_atomic_get(order, type_idx, field_idx)
+                    0x5D =>
+                      Instruction::struct_atomic_get_s(
+                        order, type_idx, field_idx,
+                      )
+                    _ =>
+                      Instruction::struct_atomic_get_u(
+                        order, type_idx, field_idx,
+                      )
                   }
+                  Ok((instr, i))
+                }
                 Err(t) => Err(t)
               }
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(id), i)) if id >= 0x60 && id <= 0x66 =>
+          match Decode::decode(bytes, i) {
+            Ok((type_idx, i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((field_idx, i)) => {
+                  let instr = match id {
+                    0x60 =>
+                      Instruction::struct_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::add(),
+                        type_idx,
+                        field_idx,
+                      )
+                    0x61 =>
+                      Instruction::struct_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::sub(),
+                        type_idx,
+                        field_idx,
+                      )
+                    0x62 =>
+                      Instruction::struct_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::and_(),
+                        type_idx,
+                        field_idx,
+                      )
+                    0x63 =>
+                      Instruction::struct_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::or_(),
+                        type_idx,
+                        field_idx,
+                      )
+                    0x64 =>
+                      Instruction::struct_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::xor(),
+                        type_idx,
+                        field_idx,
+                      )
+                    0x65 =>
+                      Instruction::struct_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::xchg(),
+                        type_idx,
+                        field_idx,
+                      )
+                    _ => Instruction::struct_atomic_cmpxchg(type_idx, field_idx)
+                  }
+                  Ok((instr, i))
+                }
+                Err(t) => Err(t)
+              }
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(id), i)) if id >= 0x6B && id <= 0x71 =>
+          match Decode::decode(bytes, i) {
+            Ok((type_idx, i)) => {
+              let instr = match id {
+                0x6B =>
+                  Instruction::array_atomic_rmw(
+                    @lib.AggregateAtomicRmwOp::add(),
+                    type_idx,
+                  )
+                0x6C =>
+                  Instruction::array_atomic_rmw(
+                    @lib.AggregateAtomicRmwOp::sub(),
+                    type_idx,
+                  )
+                0x6D =>
+                  Instruction::array_atomic_rmw(
+                    @lib.AggregateAtomicRmwOp::and_(),
+                    type_idx,
+                  )
+                0x6E =>
+                  Instruction::array_atomic_rmw(
+                    @lib.AggregateAtomicRmwOp::or_(),
+                    type_idx,
+                  )
+                0x6F =>
+                  Instruction::array_atomic_rmw(
+                    @lib.AggregateAtomicRmwOp::xor(),
+                    type_idx,
+                  )
+                0x70 =>
+                  Instruction::array_atomic_rmw(
+                    @lib.AggregateAtomicRmwOp::xchg(),
+                    type_idx,
+                  )
+                _ => Instruction::array_atomic_cmpxchg(type_idx)
+              }
+              Ok((instr, i))
+            }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(23), i)) =>

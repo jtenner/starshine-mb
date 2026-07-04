@@ -253,6 +253,20 @@ pub enum Opcode {
   StructAtomicGet
   StructAtomicGetS
   StructAtomicGetU
+  StructAtomicRmwAdd
+  StructAtomicRmwSub
+  StructAtomicRmwAnd
+  StructAtomicRmwOr
+  StructAtomicRmwXor
+  StructAtomicRmwXchg
+  StructAtomicRmwCmpxchg
+  ArrayAtomicRmwAdd
+  ArrayAtomicRmwSub
+  ArrayAtomicRmwAnd
+  ArrayAtomicRmwOr
+  ArrayAtomicRmwXor
+  ArrayAtomicRmwXchg
+  ArrayAtomicRmwCmpxchg
   StructNewDesc
   StructNewDefaultDesc
   RefGetDesc
@@ -788,6 +802,20 @@ pub impl Show for Opcode with fn output(self, logger) {
     StructAtomicGet => logger.write_string("StructAtomicGet")
     StructAtomicGetS => logger.write_string("StructAtomicGetS")
     StructAtomicGetU => logger.write_string("StructAtomicGetU")
+    StructAtomicRmwAdd => logger.write_string("StructAtomicRmwAdd")
+    StructAtomicRmwSub => logger.write_string("StructAtomicRmwSub")
+    StructAtomicRmwAnd => logger.write_string("StructAtomicRmwAnd")
+    StructAtomicRmwOr => logger.write_string("StructAtomicRmwOr")
+    StructAtomicRmwXor => logger.write_string("StructAtomicRmwXor")
+    StructAtomicRmwXchg => logger.write_string("StructAtomicRmwXchg")
+    StructAtomicRmwCmpxchg => logger.write_string("StructAtomicRmwCmpxchg")
+    ArrayAtomicRmwAdd => logger.write_string("ArrayAtomicRmwAdd")
+    ArrayAtomicRmwSub => logger.write_string("ArrayAtomicRmwSub")
+    ArrayAtomicRmwAnd => logger.write_string("ArrayAtomicRmwAnd")
+    ArrayAtomicRmwOr => logger.write_string("ArrayAtomicRmwOr")
+    ArrayAtomicRmwXor => logger.write_string("ArrayAtomicRmwXor")
+    ArrayAtomicRmwXchg => logger.write_string("ArrayAtomicRmwXchg")
+    ArrayAtomicRmwCmpxchg => logger.write_string("ArrayAtomicRmwCmpxchg")
     StructNewDesc => logger.write_string("StructNewDesc")
     StructNewDefaultDesc => logger.write_string("StructNewDefaultDesc")
     RefGetDesc => logger.write_string("RefGetDesc")

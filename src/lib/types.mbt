@@ -491,6 +491,46 @@ pub fn AtomicOrder::acq_rel() -> AtomicOrder {
 }
 
 ///|
+pub enum AggregateAtomicRmwOp {
+  AggregateAtomicRmwAdd
+  AggregateAtomicRmwSub
+  AggregateAtomicRmwAnd
+  AggregateAtomicRmwOr
+  AggregateAtomicRmwXor
+  AggregateAtomicRmwXchg
+} derive(Eq, Hash, Debug)
+
+///|
+pub fn AggregateAtomicRmwOp::add() -> AggregateAtomicRmwOp {
+  AggregateAtomicRmwAdd
+}
+
+///|
+pub fn AggregateAtomicRmwOp::sub() -> AggregateAtomicRmwOp {
+  AggregateAtomicRmwSub
+}
+
+///|
+pub fn AggregateAtomicRmwOp::and_() -> AggregateAtomicRmwOp {
+  AggregateAtomicRmwAnd
+}
+
+///|
+pub fn AggregateAtomicRmwOp::or_() -> AggregateAtomicRmwOp {
+  AggregateAtomicRmwOr
+}
+
+///|
+pub fn AggregateAtomicRmwOp::xor() -> AggregateAtomicRmwOp {
+  AggregateAtomicRmwXor
+}
+
+///|
+pub fn AggregateAtomicRmwOp::xchg() -> AggregateAtomicRmwOp {
+  AggregateAtomicRmwXchg
+}
+
+///|
 pub enum BlockType {
   VoidBlockType
   ValTypeBlockType(ValType)
@@ -759,6 +799,8 @@ pub enum Instruction {
   StructAtomicGet(AtomicOrder, TypeIdx, U32)
   StructAtomicGetS(AtomicOrder, TypeIdx, U32)
   StructAtomicGetU(AtomicOrder, TypeIdx, U32)
+  StructAtomicRmw(AggregateAtomicRmwOp, TypeIdx, U32)
+  StructAtomicCmpxchg(TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -769,6 +811,8 @@ pub enum Instruction {
   ArrayGetS(TypeIdx)
   ArrayGetU(TypeIdx)
   ArraySet(TypeIdx)
+  ArrayAtomicRmw(AggregateAtomicRmwOp, TypeIdx)
+  ArrayAtomicCmpxchg(TypeIdx)
   ArrayLen
   ArrayFill(TypeIdx)
   ArrayCopy(TypeIdx, TypeIdx)
@@ -4118,6 +4162,23 @@ pub fn Instruction::struct_atomic_get_u(
 }
 
 ///|
+pub fn Instruction::struct_atomic_rmw(
+  op : AggregateAtomicRmwOp,
+  ty : TypeIdx,
+  fi : U32,
+) -> Instruction {
+  StructAtomicRmw(op, ty, fi)
+}
+
+///|
+pub fn Instruction::struct_atomic_cmpxchg(
+  ty : TypeIdx,
+  fi : U32,
+) -> Instruction {
+  StructAtomicCmpxchg(ty, fi)
+}
+
+///|
 pub fn Instruction::struct_set(ty : TypeIdx, fi : U32) -> Instruction {
   StructSet(ty, fi)
 }
@@ -4175,6 +4236,19 @@ pub fn Instruction::array_get_u(ti : TypeIdx) -> Instruction {
 ///|
 pub fn Instruction::array_set(ti : TypeIdx) -> Instruction {
   ArraySet(ti)
+}
+
+///|
+pub fn Instruction::array_atomic_rmw(
+  op : AggregateAtomicRmwOp,
+  ti : TypeIdx,
+) -> Instruction {
+  ArrayAtomicRmw(op, ti)
+}
+
+///|
+pub fn Instruction::array_atomic_cmpxchg(ti : TypeIdx) -> Instruction {
+  ArrayAtomicCmpxchg(ti)
 }
 
 ///|

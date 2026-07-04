@@ -164,6 +164,10 @@ fn wast_arbitrary_count_instructions(
       | StructAtomicGet(_, _, _)
       | StructAtomicGetS(_, _, _)
       | StructAtomicGetU(_, _, _)
+      | StructAtomicRmw(_, _, _)
+      | StructAtomicCmpxchg(_, _)
+      | ArrayAtomicRmw(_, _)
+      | ArrayAtomicCmpxchg(_)
       | StructNewDesc(_)
       | StructNewDefaultDesc(_)
       | RefGetDesc(_) =>

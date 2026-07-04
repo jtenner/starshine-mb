@@ -84,7 +84,11 @@ fn effects_mask_for_atomic_exact(instr : Instruction?) -> EffectMask {
     | Some(Instruction::I64AtomicStore32(_)) =>
       EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
     Some(Instruction::AtomicRmw(_, _))
-    | Some(Instruction::AtomicCmpxchg(_, _)) =>
+    | Some(Instruction::AtomicCmpxchg(_, _))
+    | Some(Instruction::StructAtomicRmw(_, _, _))
+    | Some(Instruction::StructAtomicCmpxchg(_, _))
+    | Some(Instruction::ArrayAtomicRmw(_, _))
+    | Some(Instruction::ArrayAtomicCmpxchg(_)) =>
       EFFECT_MASK_MEMORY_READ | EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
     _ => EFFECT_MASK_MEMORY_READ | EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
   }

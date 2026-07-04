@@ -2403,6 +2403,91 @@ fn typecheck_struct_atomic_get_u(
 }
 
 ///|
+fn aggregate_atomic_value_type(stor : StorageType) -> Result[ValType, String] {
+  if stor.is_packed() {
+    return Err("aggregate atomic RMW/cmpxchg requires non-packed field")
+  }
+  let vt = stor.unpack()
+  match vt {
+    NumTypeValType(I32NumType) | NumTypeValType(I64NumType) => Ok(vt)
+    _ => Err("aggregate atomic RMW/cmpxchg requires i32 or i64 storage")
+  }
+}
+
+///|
+fn typecheck_struct_atomic_rmw(
+  st : TcState,
+  _op : @lib.AggregateAtomicRmwOp,
+  x : TypeIdx,
+  i : U32,
+) -> TcResult {
+  let fields = match st.env.resolve_struct_fields(x) {
+    Err(e) => return Err(e)
+    Ok(fs) => fs
+  }
+  let ft = match get_struct_field(fields, i) {
+    Err(e) => return Err(e)
+    Ok(f) => f
+  }
+  if !ft.is_mutable() {
+    return Err("struct.atomic.rmw on immutable field")
+  }
+  let FieldType(stor, _) = ft
+  let val_ty = match aggregate_atomic_value_type(stor) {
+    Err(e) => return Err(e)
+    Ok(vt) => vt
+  }
+  let st1 = match st.pop_expect(val_ty) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match
+    st1.pop_expect(ValType::ref_type(RefType::new(true, HeapType::new(x)))) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st2.push1(val_ty))
+}
+
+///|
+fn typecheck_struct_atomic_cmpxchg(
+  st : TcState,
+  x : TypeIdx,
+  i : U32,
+) -> TcResult {
+  let fields = match st.env.resolve_struct_fields(x) {
+    Err(e) => return Err(e)
+    Ok(fs) => fs
+  }
+  let ft = match get_struct_field(fields, i) {
+    Err(e) => return Err(e)
+    Ok(f) => f
+  }
+  if !ft.is_mutable() {
+    return Err("struct.atomic.rmw.cmpxchg on immutable field")
+  }
+  let FieldType(stor, _) = ft
+  let val_ty = match aggregate_atomic_value_type(stor) {
+    Err(e) => return Err(e)
+    Ok(vt) => vt
+  }
+  let st1 = match st.pop_expect(val_ty) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(val_ty) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st3 = match
+    st2.pop_expect(ValType::ref_type(RefType::new(true, HeapType::new(x)))) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st3.push1(val_ty))
+}
+
+///|
 fn typecheck_struct_set(st : TcState, x : TypeIdx, i : U32) -> TcResult {
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
@@ -3016,6 +3101,72 @@ fn typecheck_array_set(st : TcState, x : TypeIdx) -> TcResult {
     Ok(s) => s
   }
   Ok(st3)
+}
+
+///|
+fn typecheck_array_atomic_rmw(
+  st : TcState,
+  _op : @lib.AggregateAtomicRmwOp,
+  x : TypeIdx,
+) -> TcResult {
+  let ft = match st.env.resolve_array_field(x) {
+    Err(e) => return Err(e)
+    Ok(f) => f
+  }
+  if !ft.is_mutable() {
+    return Err("array.atomic.rmw on immutable array element type")
+  }
+  let FieldType(sto, _) = ft
+  let elem_vt = match aggregate_atomic_value_type(sto) {
+    Err(e) => return Err(e)
+    Ok(vt) => vt
+  }
+  let st1 = match st.pop_expect(elem_vt) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(ValType::i32()) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st3 = match st2.pop_expect(ValType::ref_array_nullable(x)) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st3.push1(elem_vt))
+}
+
+///|
+fn typecheck_array_atomic_cmpxchg(st : TcState, x : TypeIdx) -> TcResult {
+  let ft = match st.env.resolve_array_field(x) {
+    Err(e) => return Err(e)
+    Ok(f) => f
+  }
+  if !ft.is_mutable() {
+    return Err("array.atomic.rmw.cmpxchg on immutable array element type")
+  }
+  let FieldType(sto, _) = ft
+  let elem_vt = match aggregate_atomic_value_type(sto) {
+    Err(e) => return Err(e)
+    Ok(vt) => vt
+  }
+  let st1 = match st.pop_expect(elem_vt) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(elem_vt) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st3 = match st2.pop_expect(ValType::i32()) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st4 = match st3.pop_expect(ValType::ref_array_nullable(x)) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st4.push1(elem_vt))
 }
 
 ///|
@@ -3655,6 +3806,8 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
       typecheck_struct_atomic_get_s(st, order, x, i)
     StructAtomicGetU(order, x, i) =>
       typecheck_struct_atomic_get_u(st, order, x, i)
+    StructAtomicRmw(op, x, i) => typecheck_struct_atomic_rmw(st, op, x, i)
+    StructAtomicCmpxchg(x, i) => typecheck_struct_atomic_cmpxchg(st, x, i)
     StructSet(x, i) => typecheck_struct_set(st, x, i)
     ArrayNew(x) => typecheck_array_new(st, x)
     ArrayNewDefault(x) => typecheck_array_new_default(st, x)
@@ -3663,6 +3816,8 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ArrayGetS(x) => typecheck_array_get_s(st, x)
     ArrayGetU(x) => typecheck_array_get_u(st, x)
     ArraySet(x) => typecheck_array_set(st, x)
+    ArrayAtomicRmw(op, x) => typecheck_array_atomic_rmw(st, op, x)
+    ArrayAtomicCmpxchg(x) => typecheck_array_atomic_cmpxchg(st, x)
     ArrayLen => typecheck_array_len(st)
     ArrayFill(x) => typecheck_array_fill(st, x)
     ArrayCopy(x, y) => typecheck_array_copy(st, x, y)
@@ -7705,6 +7860,96 @@ test "Typecheck StructAtomicGet rejects packed field without signedness" {
     ) {
     Ok(_) => fail("expected struct.atomic.get packed-field rejection")
     Err(message) => assert_true(message.contains("packed field"))
+  }
+}
+
+///|
+test "Typecheck StructAtomicRmw and cmpxchg" {
+  let struct_type = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::val_type(ValType::i32()), Var),
+    ]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let rmw_state = make_state(env, [struct_ref, ValType::i32()])
+  let rmw = assert_ok(
+    Typecheck::typecheck(
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        TypeIdx::new(0),
+        U32(0),
+      ),
+      rmw_state,
+    ),
+  )
+  assert_stack(rmw, [ValType::i32()])
+  let cmp_state = make_state(env, [struct_ref, ValType::i32(), ValType::i32()])
+  let cmp = assert_ok(
+    Typecheck::typecheck(
+      Instruction::struct_atomic_cmpxchg(TypeIdx::new(0), U32(0)),
+      cmp_state,
+    ),
+  )
+  assert_stack(cmp, [ValType::i32()])
+}
+
+///|
+test "Typecheck StructAtomicRmw rejects invalid field shapes" {
+  let packed_struct = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::pack_type(PackType::i8()), Var),
+    ]),
+  )
+  let immutable_struct = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::val_type(ValType::i32()), Const),
+    ]),
+  )
+  let env = { ..empty_env(), global_types: [packed_struct, immutable_struct] }
+  let ref0 = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let ref1 = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(1))),
+  )
+  match
+    Typecheck::typecheck(
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        TypeIdx::new(0),
+        U32(0),
+      ),
+      make_state(env, [ref0, ValType::i32()]),
+    ) {
+    Ok(_) => fail("expected packed aggregate atomic rejection")
+    Err(message) => assert_true(message.contains("non-packed"), msg=message)
+  }
+  match
+    Typecheck::typecheck(
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        TypeIdx::new(1),
+        U32(0),
+      ),
+      make_state(env, [ref1, ValType::i32()]),
+    ) {
+    Ok(_) => fail("expected immutable aggregate atomic rejection")
+    Err(message) => assert_true(message.contains("immutable"), msg=message)
+  }
+  match
+    Typecheck::typecheck(
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        TypeIdx::new(0),
+        U32(3),
+      ),
+      make_state(env, [ref0, ValType::i32()]),
+    ) {
+    Ok(_) => fail("expected invalid field index rejection")
+    Err(message) => assert_true(message.contains("out of range"), msg=message)
   }
 }
 

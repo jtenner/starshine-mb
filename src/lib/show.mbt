@@ -805,6 +805,18 @@ pub impl Show for AtomicOrder with fn output(self, logger) {
 }
 
 ///|
+pub impl Show for AggregateAtomicRmwOp with fn output(self, logger) {
+  match self {
+    AggregateAtomicRmwAdd => logger.write_string("add")
+    AggregateAtomicRmwSub => logger.write_string("sub")
+    AggregateAtomicRmwAnd => logger.write_string("and")
+    AggregateAtomicRmwOr => logger.write_string("or")
+    AggregateAtomicRmwXor => logger.write_string("xor")
+    AggregateAtomicRmwXchg => logger.write_string("xchg")
+  }
+}
+
+///|
 pub impl Show for Instruction with fn output(self, logger) {
   match self {
     Unreachable => logger.write_string("unreachable")
@@ -1418,6 +1430,22 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(i, logger)
       logger.write_char(')')
     }
+    StructAtomicRmw(op, t, i) => {
+      logger.write_string("(struct.atomic.rmw.")
+      Show::output(op, logger)
+      logger.write_char(' ')
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    StructAtomicCmpxchg(t, i) => {
+      logger.write_string("(struct.atomic.rmw.cmpxchg ")
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
     StructSet(t, i) => {
       logger.write_string("(struct.set ")
       Show::output(t, logger)
@@ -1488,6 +1516,18 @@ pub impl Show for Instruction with fn output(self, logger) {
     }
     ArraySet(i) => {
       logger.write_string("(array.set ")
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    ArrayAtomicRmw(op, i) => {
+      logger.write_string("(array.atomic.rmw.")
+      Show::output(op, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    ArrayAtomicCmpxchg(i) => {
+      logger.write_string("(array.atomic.rmw.cmpxchg ")
       Show::output(i, logger)
       logger.write_char(')')
     }

@@ -122,6 +122,22 @@ pub fn AbsHeapType::struct_() -> Self
 pub impl PrettyPrint for AbsHeapType
 pub impl Show for AbsHeapType
 
+pub enum AggregateAtomicRmwOp {
+  AggregateAtomicRmwAdd
+  AggregateAtomicRmwSub
+  AggregateAtomicRmwAnd
+  AggregateAtomicRmwOr
+  AggregateAtomicRmwXor
+  AggregateAtomicRmwXchg
+} derive(Eq, Hash, @debug.Debug)
+pub fn AggregateAtomicRmwOp::add() -> Self
+pub fn AggregateAtomicRmwOp::and_() -> Self
+pub fn AggregateAtomicRmwOp::or_() -> Self
+pub fn AggregateAtomicRmwOp::sub() -> Self
+pub fn AggregateAtomicRmwOp::xchg() -> Self
+pub fn AggregateAtomicRmwOp::xor() -> Self
+pub impl Show for AggregateAtomicRmwOp
+
 pub enum AtomicCmpxchgOp {
   I32AtomicRmwCmpxchgOp
   I64AtomicRmwCmpxchgOp
@@ -1211,6 +1227,8 @@ pub enum Instruction {
   StructAtomicGet(AtomicOrder, TypeIdx, U32)
   StructAtomicGetS(AtomicOrder, TypeIdx, U32)
   StructAtomicGetU(AtomicOrder, TypeIdx, U32)
+  StructAtomicRmw(AggregateAtomicRmwOp, TypeIdx, U32)
+  StructAtomicCmpxchg(TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -1221,6 +1239,8 @@ pub enum Instruction {
   ArrayGetS(TypeIdx)
   ArrayGetU(TypeIdx)
   ArraySet(TypeIdx)
+  ArrayAtomicRmw(AggregateAtomicRmwOp, TypeIdx)
+  ArrayAtomicCmpxchg(TypeIdx)
   ArrayLen
   ArrayFill(TypeIdx)
   ArrayCopy(TypeIdx, TypeIdx)
@@ -1514,6 +1534,8 @@ pub enum Instruction {
   I32x4RelaxedDotI8x16I7x16AddS
 } derive(Eq, Hash, @debug.Debug)
 pub fn Instruction::any_convert_extern() -> Self
+pub fn Instruction::array_atomic_cmpxchg(TypeIdx) -> Self
+pub fn Instruction::array_atomic_rmw(AggregateAtomicRmwOp, TypeIdx) -> Self
 pub fn Instruction::array_copy(TypeIdx, TypeIdx) -> Self
 pub fn Instruction::array_fill(TypeIdx) -> Self
 pub fn Instruction::array_get(TypeIdx) -> Self
@@ -1996,9 +2018,11 @@ pub fn Instruction::string_new_lossy_utf8_array() -> Self
 pub fn Instruction::string_new_utf8_array() -> Self
 pub fn Instruction::string_new_wtf16_array() -> Self
 pub fn Instruction::string_new_wtf8_array() -> Self
+pub fn Instruction::struct_atomic_cmpxchg(TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get(AtomicOrder, TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get_s(AtomicOrder, TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get_u(AtomicOrder, TypeIdx, U32) -> Self
+pub fn Instruction::struct_atomic_rmw(AggregateAtomicRmwOp, TypeIdx, U32) -> Self
 pub fn Instruction::struct_get(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_s(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_u(TypeIdx, U32) -> Self

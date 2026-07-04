@@ -294,7 +294,11 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
               match hot_instr_payload_get(func, node.imm1).instr {
                 Instruction::StructAtomicGet(_, _, _)
                 | Instruction::StructAtomicGetS(_, _, _)
-                | Instruction::StructAtomicGetU(_, _, _) => true
+                | Instruction::StructAtomicGetU(_, _, _)
+                | Instruction::StructAtomicRmw(_, _, _)
+                | Instruction::StructAtomicCmpxchg(_, _)
+                | Instruction::ArrayAtomicRmw(_, _)
+                | Instruction::ArrayAtomicCmpxchg(_) => true
                 _ => false
               }
             } else {

@@ -687,6 +687,7 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
         | Instruction::StructAtomicGetU(_, _, _) => Some(1)
         Instruction::MemoryAtomicNotify(_)
         | Instruction::AtomicRmw(_, _)
+        | Instruction::StructAtomicRmw(_, _, _)
         | Instruction::I32AtomicStore(_)
         | Instruction::I64AtomicStore(_)
         | Instruction::I32AtomicStore8(_)
@@ -696,7 +697,10 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
         | Instruction::I64AtomicStore32(_) => Some(2)
         Instruction::MemoryAtomicWait32(_)
         | Instruction::MemoryAtomicWait64(_)
-        | Instruction::AtomicCmpxchg(_, _) => Some(3)
+        | Instruction::AtomicCmpxchg(_, _)
+        | Instruction::StructAtomicCmpxchg(_, _)
+        | Instruction::ArrayAtomicRmw(_, _) => Some(3)
+        Instruction::ArrayAtomicCmpxchg(_) => Some(4)
         _ => None
       }
     _ => None
@@ -828,6 +832,10 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::StructAtomicGet(_, _, _)
     | Instruction::StructAtomicGetS(_, _, _)
     | Instruction::StructAtomicGetU(_, _, _)
+    | Instruction::StructAtomicRmw(_, _, _)
+    | Instruction::StructAtomicCmpxchg(_, _)
+    | Instruction::ArrayAtomicRmw(_, _)
+    | Instruction::ArrayAtomicCmpxchg(_)
     | Instruction::I32AtomicStore(_)
     | Instruction::I64AtomicStore(_)
     | Instruction::I32AtomicStore8(_)
@@ -1440,7 +1448,11 @@ fn hot_lift_impl_exact_node_shape(
     }
     Instruction::StructAtomicGet(_, _, _)
     | Instruction::StructAtomicGetS(_, _, _)
-    | Instruction::StructAtomicGetU(_, _, _) => (op, ty, 0, payload_id)
+    | Instruction::StructAtomicGetU(_, _, _)
+    | Instruction::StructAtomicRmw(_, _, _)
+    | Instruction::StructAtomicCmpxchg(_, _)
+    | Instruction::ArrayAtomicRmw(_, _)
+    | Instruction::ArrayAtomicCmpxchg(_) => (op, ty, 0, payload_id)
     Instruction::MemoryAtomicNotify(memarg)
     | Instruction::MemoryAtomicWait32(memarg)
     | Instruction::MemoryAtomicWait64(memarg)

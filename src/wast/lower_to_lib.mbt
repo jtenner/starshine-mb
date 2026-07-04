@@ -2510,6 +2510,69 @@ fn wt_instr_to_lib(
         _ => Err("internal error: unexpected struct atomic access instruction")
       }
     }
+    StructAtomicRmw(op, idx, field_idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @lib.Instruction::struct_atomic_rmw(
+          op,
+          @lib.TypeIdx::new(ti),
+          @lib.U32(field_idx),
+        ),
+      )
+    }
+    StructAtomicCmpxchg(idx, field_idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @lib.Instruction::struct_atomic_cmpxchg(
+          @lib.TypeIdx::new(ti),
+          @lib.U32(field_idx),
+        ),
+      )
+    }
+    ArrayAtomicRmw(op, idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::array_atomic_rmw(op, @lib.TypeIdx::new(ti)))
+    }
+    ArrayAtomicCmpxchg(idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::array_atomic_cmpxchg(@lib.TypeIdx::new(ti)))
+    }
     RefGetDesc(idx) =>
       match
         wt_resolve_named_or_num_index(

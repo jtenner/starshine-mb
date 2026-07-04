@@ -445,6 +445,10 @@ pub enum Instruction {
   StructAtomicGet(AtomicOrder, Index, UInt)
   StructAtomicGetS(AtomicOrder, Index, UInt)
   StructAtomicGetU(AtomicOrder, Index, UInt)
+  StructAtomicRmw(@lib.AggregateAtomicRmwOp, Index, UInt)
+  StructAtomicCmpxchg(Index, UInt)
+  ArrayAtomicRmw(@lib.AggregateAtomicRmwOp, Index)
+  ArrayAtomicCmpxchg(Index)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -972,15 +976,23 @@ fn WastParser::is_reserved_word(self : WastParser, word : String) -> Bool {
 fn WastParser::parse_atomic_order(
   self : WastParser,
 ) -> AtomicOrder raise ParserError {
+  match self.try_parse_atomic_order() {
+    Some(order) => order
+    None => raise UnexpectedToken(self.current, "expected atomic ordering")
+  }
+}
+
+///|
+fn WastParser::try_parse_atomic_order(self : WastParser) -> AtomicOrder? {
   if self.is_reserved_word("seq_cst") {
     let _ = self.advance()
-    return SeqCst
+    return Some(SeqCst)
   }
   if self.is_reserved_word("acq_rel") || self.is_reserved_word("acqrel") {
     let _ = self.advance()
-    return AcqRel
+    return Some(AcqRel)
   }
-  raise UnexpectedToken(self.current, "expected atomic ordering")
+  None
 }
 
 ///|
@@ -1935,23 +1947,71 @@ fn WastParser::parse_opcode_instruction(
       StructGetU(type_idx, field_idx)
     }
     StructAtomicGet => {
-      let order = self.parse_atomic_order()
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
       StructAtomicGet(order, type_idx, field_idx)
     }
     StructAtomicGetS => {
-      let order = self.parse_atomic_order()
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
       StructAtomicGetS(order, type_idx, field_idx)
     }
     StructAtomicGetU => {
-      let order = self.parse_atomic_order()
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
       StructAtomicGetU(order, type_idx, field_idx)
     }
+    StructAtomicRmwAdd => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicRmw(@lib.AggregateAtomicRmwOp::add(), type_idx, field_idx)
+    }
+    StructAtomicRmwSub => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicRmw(@lib.AggregateAtomicRmwOp::sub(), type_idx, field_idx)
+    }
+    StructAtomicRmwAnd => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicRmw(@lib.AggregateAtomicRmwOp::and_(), type_idx, field_idx)
+    }
+    StructAtomicRmwOr => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicRmw(@lib.AggregateAtomicRmwOp::or_(), type_idx, field_idx)
+    }
+    StructAtomicRmwXor => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicRmw(@lib.AggregateAtomicRmwOp::xor(), type_idx, field_idx)
+    }
+    StructAtomicRmwXchg => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicRmw(@lib.AggregateAtomicRmwOp::xchg(), type_idx, field_idx)
+    }
+    StructAtomicRmwCmpxchg => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicCmpxchg(type_idx, field_idx)
+    }
+    ArrayAtomicRmwAdd =>
+      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::add(), self.parse_index())
+    ArrayAtomicRmwSub =>
+      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::sub(), self.parse_index())
+    ArrayAtomicRmwAnd =>
+      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::and_(), self.parse_index())
+    ArrayAtomicRmwOr =>
+      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::or_(), self.parse_index())
+    ArrayAtomicRmwXor =>
+      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::xor(), self.parse_index())
+    ArrayAtomicRmwXchg =>
+      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::xchg(), self.parse_index())
+    ArrayAtomicRmwCmpxchg => ArrayAtomicCmpxchg(self.parse_index())
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
     RefGetDesc => RefGetDesc(self.parse_index())

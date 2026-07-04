@@ -196,6 +196,18 @@ fn atomic_order_text(order : AtomicOrder) -> String {
 }
 
 ///|
+fn aggregate_atomic_rmw_suffix(op : @lib.AggregateAtomicRmwOp) -> String {
+  match op {
+    @lib.AggregateAtomicRmwAdd => "add"
+    @lib.AggregateAtomicRmwSub => "sub"
+    @lib.AggregateAtomicRmwAnd => "and"
+    @lib.AggregateAtomicRmwOr => "or"
+    @lib.AggregateAtomicRmwXor => "xor"
+    @lib.AggregateAtomicRmwXchg => "xchg"
+  }
+}
+
+///|
 fn render_type_use(type_use : TypeUse) -> String {
   let out = StringBuilder::new()
   match type_use.type_index {
@@ -436,12 +448,19 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
     StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
     StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"
-    StructAtomicGet(order, idx, field_idx) =>
-      "struct.atomic.get \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
-    StructAtomicGetS(order, idx, field_idx) =>
-      "struct.atomic.get_s \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
-    StructAtomicGetU(order, idx, field_idx) =>
-      "struct.atomic.get_u \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicGet(_, idx, field_idx) =>
+      "struct.atomic.get \{index_text(idx)} \{field_idx}"
+    StructAtomicGetS(_, idx, field_idx) =>
+      "struct.atomic.get_s \{index_text(idx)} \{field_idx}"
+    StructAtomicGetU(_, idx, field_idx) =>
+      "struct.atomic.get_u \{index_text(idx)} \{field_idx}"
+    StructAtomicRmw(op, idx, field_idx) =>
+      "struct.atomic.rmw.\{aggregate_atomic_rmw_suffix(op)} \{index_text(idx)} \{field_idx}"
+    StructAtomicCmpxchg(idx, field_idx) =>
+      "struct.atomic.rmw.cmpxchg \{index_text(idx)} \{field_idx}"
+    ArrayAtomicRmw(op, idx) =>
+      "array.atomic.rmw.\{aggregate_atomic_rmw_suffix(op)} \{index_text(idx)}"
+    ArrayAtomicCmpxchg(idx) => "array.atomic.rmw.cmpxchg \{index_text(idx)}"
     StructNewDesc(idx) => "struct.new_desc \{index_text(idx)}"
     StructNewDefaultDesc(idx) => "struct.new_default_desc \{index_text(idx)}"
     RefGetDesc(idx) => "ref.get_desc \{index_text(idx)}"

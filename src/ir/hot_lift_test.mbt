@@ -172,6 +172,14 @@ test "hot lift can preserve representative exact-payload families in module cont
       @lib.Instruction::i32_const(@lib.I32(1)),
       @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg),
       @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::array_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        @lib.TypeIdx::new(0U),
+      ),
+      @lib.Instruction::drop(),
     ]),
     HotLocals::new(),
     ctx,
@@ -182,12 +190,14 @@ test "hot lift can preserve representative exact-payload families in module cont
   let array_drop = hot_root_get(func, 2)
   let simd_drop = hot_root_get(func, 3)
   let atomic_drop = hot_root_get(func, 4)
+  let aggregate_atomic_drop = hot_root_get(func, 5)
 
   let load_id = hot_child_get(func, load_drop, 0)
   let add_id = hot_child_get(func, add_drop, 0)
   let array_id = hot_child_get(func, array_drop, 0)
   let simd_id = hot_child_get(func, simd_drop, 0)
   let atomic_id = hot_child_get(func, atomic_drop, 0)
+  let aggregate_atomic_id = hot_child_get(func, aggregate_atomic_drop, 0)
 
   assert_true(hot_node_kind_is_memory(func, load_id))
   @debug.assert_eq(
@@ -213,6 +223,16 @@ test "hot lift can preserve representative exact-payload families in module cont
   @debug.assert_eq(
     hot_node_exact_instr(func, atomic_id),
     Some(@lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg)),
+  )
+  assert_true(hot_node_kind_is_atomic(func, aggregate_atomic_id))
+  @debug.assert_eq(
+    hot_node_exact_instr(func, aggregate_atomic_id),
+    Some(
+      @lib.Instruction::array_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        @lib.TypeIdx::new(0U),
+      ),
+    ),
   )
 }
 

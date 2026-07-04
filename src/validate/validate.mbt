@@ -5244,6 +5244,12 @@ fn gen_valid_gc_surface_facts_instr(
     | StructAtomicGetS(_, _, _)
     | StructAtomicGetU(_, _, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true }
+    StructAtomicRmw(_, _, _) | StructAtomicCmpxchg(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_struct_get: true,
+        has_struct_set: true,
+      }
     StructSet(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true }
     ArrayNew(_) | ArrayNewDefault(_) | ArrayNewFixed(_, _) =>
@@ -5271,6 +5277,12 @@ fn gen_valid_gc_surface_facts_instr(
       }
     ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_get: true }
+    ArrayAtomicRmw(_, _) | ArrayAtomicCmpxchg(_) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_get: true,
+        has_array_set: true,
+      }
     ArraySet(_) | ArrayFill(_) | ArrayCopy(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_set: true }
     ArrayInitData(_, _) =>

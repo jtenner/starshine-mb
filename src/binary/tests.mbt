@@ -1983,13 +1983,13 @@ test "relaxed SIMD instructions use exact 0xFD subopcode roundtrips" {
 test "struct atomic get instruction encode decode opcodes" {
   let cases = [
     (
-      "struct.atomic.get acq_rel",
+      "struct.atomic.get orderless",
       Instruction::struct_atomic_get(
-        AtomicOrder::acq_rel(),
+        AtomicOrder::seq_cst(),
         TypeIdx::new(0U),
         U32(0U),
       ),
-      b"\xFE\x5C\x01\x00\x00",
+      b"\xFE\x5C\x00\x00",
     ),
     (
       "struct.atomic.get_s seq_cst",
@@ -1998,16 +1998,16 @@ test "struct atomic get instruction encode decode opcodes" {
         TypeIdx::new(1U),
         U32(2U),
       ),
-      b"\xFE\x5D\x00\x01\x02",
+      b"\xFE\x5D\x01\x02",
     ),
     (
-      "struct.atomic.get_u acq_rel",
+      "struct.atomic.get_u orderless",
       Instruction::struct_atomic_get_u(
-        AtomicOrder::acq_rel(),
+        AtomicOrder::seq_cst(),
         TypeIdx::new(2U),
         U32(3U),
       ),
-      b"\xFE\x5E\x01\x02\x03",
+      b"\xFE\x5E\x02\x03",
     ),
   ]
   for case in cases {
@@ -2028,6 +2028,68 @@ test "struct atomic get instruction encode decode opcodes" {
       }
       Err(e) =>
         fail("expected struct atomic get decode success for \{name}, got \{e}")
+    }
+  }
+}
+
+///|
+test "aggregate atomic rmw cmpxchg encode decode opcodes" {
+  let cases = [
+    (
+      "struct.atomic.rmw.add",
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        TypeIdx::new(0U),
+        U32(0U),
+      ),
+      b"\xFE\x60\x00\x00",
+    ),
+    (
+      "struct.atomic.rmw.xchg",
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::xchg(),
+        TypeIdx::new(0U),
+        U32(0U),
+      ),
+      b"\xFE\x65\x00\x00",
+    ),
+    (
+      "struct.atomic.rmw.cmpxchg",
+      Instruction::struct_atomic_cmpxchg(TypeIdx::new(0U), U32(0U)),
+      b"\xFE\x66\x00\x00",
+    ),
+    (
+      "array.atomic.rmw.add",
+      Instruction::array_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::add(),
+        TypeIdx::new(0U),
+      ),
+      b"\xFE\x6B\x00",
+    ),
+    (
+      "array.atomic.rmw.cmpxchg",
+      Instruction::array_atomic_cmpxchg(TypeIdx::new(0U)),
+      b"\xFE\x71\x00",
+    ),
+  ]
+  for case in cases {
+    let (name, expected_instr, expected_bytes) = case
+    let buf = @buffer.new()
+    match Encode::encode(expected_instr, buf) {
+      Ok(_) => @debug.assert_eq(buf.to_bytes(), expected_bytes)
+      Err(e) =>
+        fail("expected aggregate atomic encode success for \{name}, got \{e}")
+    }
+    match
+      (
+        Decode::decode(expected_bytes, 0) :
+        Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok((decoded, next)) => {
+        @debug.assert_eq(decoded, expected_instr)
+        @debug.assert_eq(next, expected_bytes.length())
+      }
+      Err(e) =>
+        fail("expected aggregate atomic decode success for \{name}, got \{e}")
     }
   }
 }
