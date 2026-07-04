@@ -10485,6 +10485,50 @@ test "validate_module rejects uninitialized non-defaultable body local reads" {
 }
 
 ///|
+test "validate_module rejects direct block-return non-defaultable unreachable-tail local get" {
+  let parent_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let child_type = RecType::new(
+    SubType::new(false, [TypeIdx::new(0U)], CompType::struct_([])),
+  )
+  let child_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(1U))),
+  )
+  let sig = RecType::new(SubType::comp_type(CompType::func([child_ref], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([parent_type, child_type, sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types([child_ref]),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::local_set(LocalIdx::new(1U)),
+                Instruction::return_(),
+              ]),
+            ),
+            Instruction::local_get(LocalIdx::new(1U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected unreachable-tail non-defaultable local read after direct block return to fail",
+      )
+    Err(err) => {
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).contains("uninitialized local"))
+    }
+  }
+}
+
+///|
 test "validate_module reports wrong end-of-body result type with stack shape" {
   let sig = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
