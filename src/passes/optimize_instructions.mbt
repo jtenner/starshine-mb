@@ -13158,6 +13158,114 @@ fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_label_owner_is(
+  func : @ir.HotFunc,
+  label_id : Int,
+  owner_id : Int,
+) -> Bool {
+  label_id >= 0 &&
+  label_id < func.labels.length() &&
+  @ir.hot_label_owner(func, label_id) == owner_id
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_is_br_on_null_local_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  root_id : Int,
+) -> Bool {
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::BrOnNull => ()
+    _ => return false
+  }
+  if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
+      func,
+      root.imm0,
+      block_id,
+    ) ||
+    @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  let nullable_ref = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, nullable_ref).op {
+    @ir.HotOp::LocalGet =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, nullable_ref,
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_null_trampoline_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  root_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+      func, root_id,
+    ) {
+    return false
+  }
+  let inner_label = @ir.hot_control_node_label(func, root_id)
+  if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
+      func, inner_label, root_id,
+    ) ||
+    @ir.hot_label_branch_arity(func, inner_label) != 0 {
+    return false
+  }
+  let body = @ir.hot_region_body_ref(func, root_id)
+  let root_count = @ir.hot_region_root_count(func, body)
+  if root_count == 1 {
+    let branch_id = @ir.hot_region_get(func, body, 0)
+    let branch = @ir.hot_node_get(func, branch_id)
+    match branch.op {
+      @ir.HotOp::Br => ()
+      _ => return false
+    }
+    if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
+        func,
+        branch.imm0,
+        block_id,
+      ) ||
+      @ir.hot_child_count(func, branch_id) != 1 {
+      return false
+    }
+    optimize_instructions_standalone_ref_get_desc_is_br_on_null_local_root(
+      func,
+      root_id,
+      @ir.hot_child_get(func, branch_id, 0),
+    )
+  } else if root_count == 2 {
+    let null_branch = @ir.hot_region_get(func, body, 0)
+    let value_branch = @ir.hot_region_get(func, body, 1)
+    if !optimize_instructions_standalone_ref_get_desc_is_br_on_null_local_root(
+        func, root_id, null_branch,
+      ) {
+      return false
+    }
+    let branch = @ir.hot_node_get(func, value_branch)
+    match branch.op {
+      @ir.HotOp::Br =>
+        optimize_instructions_standalone_ref_get_desc_label_owner_is(
+          func,
+          branch.imm0,
+          block_id,
+        ) &&
+        @ir.hot_child_count(func, value_branch) == 0
+      _ => false
+    }
+  } else {
+    false
+  }
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
   func : @ir.HotFunc,
   block_id : Int,
@@ -13172,13 +13280,21 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
   if root_count == 0 {
     return false
   }
-  let mut saw_internal_br_on_non_null = false
+  let mut saw_internal_ref_branch = false
   for slot = 0; slot < root_count - 1; slot = slot + 1 {
     let root_id = @ir.hot_region_get(func, body, slot)
     if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
         func, root_id,
-      ) ||
-      optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+      ) {
+      return false
+    }
+    if optimize_instructions_standalone_ref_get_desc_is_internal_br_on_null_trampoline_root(
+        func, block_id, root_id,
+      ) {
+      saw_internal_ref_branch = true
+      continue
+    }
+    if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
         func, block_id, root_id,
       ) {
       return false
@@ -13186,7 +13302,7 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
     if optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root(
         func, block_id, root_id,
       ) {
-      saw_internal_br_on_non_null = true
+      saw_internal_ref_branch = true
     }
   }
   let final_id = @ir.hot_region_get(func, body, root_count - 1)
@@ -13199,7 +13315,7 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
         func, block_id, final_id,
       )
     @ir.HotOp::RefNull =>
-      saw_internal_br_on_non_null &&
+      saw_internal_ref_branch &&
       optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
         func, final_id,
       ) &&
