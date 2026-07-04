@@ -13087,12 +13087,27 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
         ) {
         return true
       }
+    @ir.HotOp::BrTable => {
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          @ir.hot_branch_table_default_target(func, node.imm0),
+        ) {
+        return true
+      }
+      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+        if !optimize_instructions_descriptor_label_is_internal_to_expr(
+            func, owner_id, label_id,
+          ) {
+          return true
+        }
+      }
+    }
     @ir.HotOp::Block
     | @ir.HotOp::Loop
     | @ir.HotOp::If
     | @ir.HotOp::Try
     | @ir.HotOp::TryTable
-    | @ir.HotOp::BrTable
     | @ir.HotOp::BrOnNull
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
@@ -13153,7 +13168,7 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
       !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
         func, block_id, final_id,
       )
-    @ir.HotOp::Br =>
+    @ir.HotOp::Br | @ir.HotOp::BrTable =>
       optimize_instructions_standalone_ref_get_desc_node_has_no_results(
         func, final_id,
       ) &&
