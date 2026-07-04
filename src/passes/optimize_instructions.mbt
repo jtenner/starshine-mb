@@ -12037,6 +12037,43 @@ fn optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
 }
 
 ///|
+fn optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  if !target_nullable {
+    return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      if ref_type.is_non_nullable() {
+        return false
+      }
+      let source = ref_type.get_heap_type()
+      match (source, target) {
+        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
+        _ => return false
+      }
+      source != target &&
+      (
+        ref_type.is_exact() ||
+        optimize_instructions_heap_matches_target(
+          module_ctx, source, target, 512,
+        )
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_operand_is_nullable_match_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -12349,6 +12386,15 @@ fn optimize_instructions_try_fold_ref_test_null(
         func, operand_id, target,
       ) => {
       optimize_instructions_replace_with_ref_is_non_null_test(
+        ctx, func, node_id, operand_id,
+      )
+      true
+    }
+    _ if exact &&
+      optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
+        ctx, func, operand_id, target, nullable,
+      ) => {
+      optimize_instructions_replace_with_ref_is_null(
         ctx, func, node_id, operand_id,
       )
       true

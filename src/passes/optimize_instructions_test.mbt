@@ -8715,6 +8715,159 @@ test "optimize-instructions folds exact ref.test and ref.cast misses on inexact 
 }
 
 ///|
+test "optimize-instructions folds nullable exact ref.test subtype misses to ref.is_null" {
+  // OI-J exactness/useful-type-info slice: Binaryen version_130 rewrites a
+  // nullable exact-target test to `ref.is_null` when a nullable `$sub` operand
+  // cannot have exact runtime type `$base`; null is the only matching value.
+  // This covers exact and inexact strict-subtype operands plus an effectful
+  // inexact producer, and deliberately does not widen nullable exact casts.
+  let base_type = @lib.TypeIdx::new(0U)
+  let sub_type = @lib.TypeIdx::new(1U)
+  let exact_test_func_type = @lib.TypeIdx::new(2U)
+  let inexact_test_func_type = @lib.TypeIdx::new(3U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let sub_heap = @lib.HeapType::new(sub_type)
+  let nullable_exact_base_ref_type = @lib.RefType::new(
+    true,
+    base_heap,
+    exact=true,
+  )
+  let nullable_exact_sub_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, sub_heap, exact=true),
+  )
+  let nullable_inexact_sub_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, sub_heap),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_exact_sub_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_inexact_sub_ref], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        exact_test_func_type, inexact_test_func_type, inexact_test_func_type,
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(nullable_exact_base_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(nullable_exact_base_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_inexact_sub_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_test_type(nullable_exact_base_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let exact_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let inexact_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  // pretty_print currently spells the lowered RefIsNull instruction as
+  // `ref.null`; this test locks the OI rewrite by proving `ref.test` is gone
+  // and the null predicate remains instead of a constant false/true fold.
+  assert_false(exact_pretty.contains("ref.test"), msg=exact_pretty)
+  assert_true(exact_pretty.contains("ref.null"), msg=exact_pretty)
+  assert_false(inexact_pretty.contains("ref.test"), msg=inexact_pretty)
+  assert_true(inexact_pretty.contains("ref.null"), msg=inexact_pretty)
+  assert_false(effect_pretty.contains("ref.test"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("ref.null"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("global.set"), msg=effect_pretty)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr(exact_body)),
+          @lib.Func(_, @lib.Expr(inexact_body)),
+          @lib.Func(_, @lib.Expr(effect_body)),
+        ]
+      )
+    ) => {
+      assert_true(
+        exact_body.any(fn(instr) { instr == @lib.Instruction::ref_is_null() }),
+      )
+      assert_true(
+        inexact_body.any(fn(instr) { instr == @lib.Instruction::ref_is_null() }),
+      )
+      assert_true(
+        effect_body.any(fn(instr) { instr == @lib.Instruction::ref_is_null() }),
+      )
+    }
+    _ => fail("expected exactly three optimized functions")
+  }
+}
+
+///|
 test "optimize-instructions removes local ref.as_non_null sets under trap-ignoring modes" {
   // OI-J trap-mode slice: Binaryen version_130 default mode preserves the
   // implicit null trap in `local.set $x (ref.as_non_null (local.get $x))`, but
