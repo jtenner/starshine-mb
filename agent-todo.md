@@ -211,6 +211,184 @@ Preset behavior inventory:
   - Current finding: after the DFE audit, public `optimize` / `shrink` include Binaryen-shaped early and late DFE neighborhoods plus `dae-optimizing`, `inlining-optimizing`, `duplicate-import-elimination`, and one early `remove-unused-module-elements` slot. Remaining documented count/order gaps are now outside DFE: the second pre-pass `remove-unused-module-elements`, repeated `reorder-locals` / `coalesce-locals` details, `code-folding`, `redundant-set-elimination`, and the known extra Starshine `remove-unused-brs` slot. Local `wasm-opt --version` now reports `version_130`, so the exact path needs a fresh `version_130` reread before final non-DFE scheduling claims.
   - Deliverables: refresh the no-DWARF path against the current local `version_130` oracle, add exact preset-order tests for any changes, and keep repeated cleanup slots intentional unless an ordered-neighborhood proof justifies divergence.
 
+### Coalesce-locals direct-pass parity
+
+- [COALESCE-LOCALS]001 - Random-all `heap2local-struct` local declaration / renumbering debris
+  - Status: active direct-pass parity investigation for `coalesce-locals` against current Binaryen direct `--coalesce-locals`; do not mark closed until a future slice either accepts the normalization boundary with durable evidence or implements safe raw-parity local packing.
+  - Shared random-all evidence: direct `--coalesce-locals` compare against Binaryen over the `random-all-profiles` GenValid lane requested/compared `1000/1000`, normalized matches `837`, raw mismatches `163`, validation failures `0`, generator failures `0`, command failures `0`. Mismatch selected-profile breakdown: `heap2local-struct=38`, `ssa-nomerge-smoke=125`, newly added `coalesce-locals-*` profiles `0`. All `652` mismatch artifacts validate with `wasm-tools validate --features all` (`binaryen.raw.wasm`, `starshine.raw.wasm`, `binaryen.wasm`, `starshine.wasm` across all `163` mismatch dirs). Downstream convergence check `wasm-opt -O -all binaryen.raw.wasm -o b.wasm; wasm-opt -O -all starshine.raw.wasm -o s.wasm; cmp b.wasm s.wasm` made all `163` optimized pairs byte-identical; optimized size delta after downstream `-O` is `0` for both mismatch families.
+  - Correctness constraints for any fix: use exact local type equality only, never subtype-based coalescing; preserve parameter semantics; preserve implicit zero-initialized local semantics; preserve `local.tee` stack semantics; be conservative around branch/loop/control-flow carriers unless proven safe; do not classify a mismatch as a Starshine win merely because both outputs validate or downstream cleanup erases it.
+  - Classification: cleanup-normalized local-declaration / local-renumbering debris. This is not a Starshine win and is not a semantic mismatch based on current validation and downstream convergence evidence. Starshine raw output is larger in all `38` cases (total `+471` bytes, mean `+12.39`); canonical wasm size is equal in all `38`; normalized WAT size is equal in all `38`; the existing `local-cleanup-debris` normalizer accounts for all `38`; downstream `wasm-opt -O` makes each pair byte-identical.
+  - Representative shape: input has locals like `(local i32 (ref null 0) (ref null 4))` with the used nullable struct ref local originally at index `2`. Binaryen maps the used nullable struct ref local to an earlier local index. Starshine preserves unused leading declaration debris and leaves the used ref local at a later index. Treat this as local declaration packing / logical-local renumbering, not same-type-slot coalescing.
+  - Reduced repro candidate:
+
+    ```wat
+    (module
+      (type $F (func))
+      (type $S (struct (field (mut i32)) (field eqref)))
+      (func (export "main")
+        (local i32)
+        (local (ref null $F))
+        (local (ref null $S))
+
+        (local.set 2
+          (struct.new $S
+            (i32.const 10)
+            (ref.null none)
+          )
+        )
+
+        (struct.set $S 0
+          (local.get 2)
+          (i32.const 30)
+        )
+
+        (drop
+          (struct.get $S 0
+            (local.get 2)
+          )
+        )
+      )
+    )
+    ```
+
+  - Suggested action: accept current `local-cleanup-debris` normalization as the narrow boundary unless exact raw parity is required. If exact raw parity is required, implement a safe final local-packing / renumbering step after coalescing: keep params fixed; build final coalesced logical-local groups; mark groups used if referenced by `local.get`, `local.set`, or `local.tee`; assign new non-param indices to used groups first, matching Binaryen's observed ordering if possible; append unused local declarations later; rewrite every local index use consistently; preserve each logical local's exact type; validate after rewriting. This must not be implemented as unsafe same-type slot reuse. Binaryen appears to be renumbering logical locals, not coalescing an `i32` slot with a nullable ref slot.
+  - Risk areas: params are not implicit-zero locals; nullable refs are defaultable but nondefaultable refs require preserving set-before-get proof; exact logical-local type must move with the local index.
+  - Suggested reduced tests: the GC ref local declaration packing case above; exact-type-only ref test using a base struct and subtype struct to prevent subtype-based coalescing; param/implicit-local-initialization test ensuring a non-param local does not inherit param semantics.
+  - Replication: use the existing pass compare harness in direct-pass form, e.g. conceptual lane `bun scripts/pass-fuzz-compare.ts --pass coalesce-locals --gen-valid-profile random-all-profiles ...`, or the equivalent direct `--coalesce-locals` Starshine-vs-Binaryen compare. Expected high-level result from this investigation: `1000` compared, `837` normalized matches, `163` raw mismatches, `38` `heap2local-struct`, `125` `ssa-nomerge-smoke`, `0` validation/generator/command failures. Validate mismatch artifacts with `wasm-tools validate --features all binaryen.raw.wasm`, `wasm-tools validate --features all starshine.raw.wasm`, `wasm-tools validate --features all binaryen.wasm`, and `wasm-tools validate --features all starshine.wasm`. Check downstream convergence with `wasm-opt -O -all binaryen.raw.wasm -o b.wasm; wasm-opt -O -all starshine.raw.wasm -o s.wasm; cmp b.wasm s.wasm`.
+
+- [COALESCE-LOCALS]002 - Random-all `ssa-nomerge-smoke` downstream-equivalent local cleanup drift
+  - Status: active direct-pass parity investigation for `coalesce-locals` against current Binaryen direct `--coalesce-locals`; do not mark closed until a future slice either implements a narrow cleanup fix or records a separately named normalization boundary.
+  - Shared random-all evidence: same direct `--coalesce-locals` random-all lane as `[COALESCE-LOCALS]001`: requested/compared `1000/1000`, normalized `837`, raw mismatches `163`, failures `0`, selected-profile breakdown `heap2local-struct=38`, `ssa-nomerge-smoke=125`, newly added `coalesce-locals-*` profiles `0`; all raw/canonical mismatch artifacts validate, and downstream `wasm-opt -O` makes all `163` pairs byte-identical with optimized size delta `0` for both families.
+  - Correctness constraints for any fix: exact local type equality only; preserve params, implicit-zero non-param locals, `local.tee` stack values, and control-flow carrier semantics; be conservative around branches, loops, block exits, EH/control constructs if present, params, and nondefaultable refs; do not claim a Starshine win from validation alone or downstream convergence alone.
+  - Classification: downstream-`-O` equivalent local-cleanup drift; raw-size-losing direct-pass parity gap. This is not currently a Starshine win and is not a semantic mismatch based on current validation and downstream convergence evidence. The existing `local-cleanup-debris` normalizer does not account for these `125` mismatches. Starshine raw output is larger in all `125` cases (total `+1687` bytes, mean `+13.5`); canonical wasm sizes are equal in all `125`; Starshine normalized WAT is consistently larger by `+23` chars per case; downstream `wasm-opt -O` makes all `125` pairs byte-identical.
+  - Aggregate opcode/count observation across all `125` cases, computed as Starshine WAT minus Binaryen WAT:
+
+    ```text
+    local.set: -500
+    local.get: +125
+    drop:      +625
+    nop:       +125
+    ```
+
+  - Interpretation: fewer `local.set`s alone is not enough evidence for a Starshine win. The extra `drop`, `nop`, and `local.get` debris plus consistent raw-size loss means this remains a direct-pass parity gap unless stronger performance evidence is collected. Likely shapes include dead store converted to `drop` in one output but not the other; branch/return path dead local cleanup differences; block/`br_if` carrier liveness differences; final `local.set tmp; nop; drop(local.get tmp)` forwarding missed by Starshine; different cleanup order around coalescing, SSA no-merge stress, and local DCE.
+  - Reduced repro candidates:
+
+    ```wat
+    ;; 1. Terminal return dead store.
+    (module
+      (func (export "main") (param $p i32)
+        (local $x i32)
+
+        (if (local.get $p)
+          (then
+            (local.set $x (i32.const 7))
+            return
+          )
+        )
+
+        (local.set $x (i32.const 9))
+        (drop (local.get $x))
+      )
+    )
+    ```
+
+    ```wat
+    ;; 2. Block branch dead store where local is not read after the block.
+    (module
+      (func (export "main") (param $p i32)
+        (local $x i32)
+
+        (block $exit
+          (if (local.get $p)
+            (then
+              (local.set $x (i32.const 7))
+              (br $exit)
+            )
+          )
+
+          (local.set $x (i32.const 9))
+        )
+
+        (drop (i32.const 0))
+      )
+    )
+    ```
+
+    ```wat
+    ;; 3. Negative branch carrier case where the local is live after the block.
+    (module
+      (func (export "main") (param $p i32)
+        (local $x i32)
+
+        (block $exit
+          (if (local.get $p)
+            (then
+              (local.set $x (i32.const 7))
+              (br $exit)
+            )
+          )
+
+          (local.set $x (i32.const 9))
+        )
+
+        (drop (local.get $x))
+      )
+    )
+    ```
+
+    ```wat
+    ;; 4. br_if carrier negative case.
+    (module
+      (func (export "main") (param $p i32)
+        (local $x i32)
+
+        (local.set $x (i32.const 7))
+
+        (block $b
+          (br_if $b (local.get $p))
+          (local.set $x (i32.const 9))
+        )
+
+        (drop (local.get $x))
+      )
+    )
+    ```
+
+    ```wat
+    ;; 5. Final forwarding debris shape.
+    (module
+      (func (export "main")
+        (local $tmp i32)
+
+        (local.set $tmp (i32.const 122))
+        nop
+        (drop (local.get $tmp))
+      )
+    )
+    ```
+
+    ```wat
+    ;; 6. local.tee stack semantics guard.
+    (module
+      (func (export "main")
+        (local $x i32)
+
+        (drop
+          (i32.add
+            (local.tee $x (i32.const 121))
+            (i32.const 1)
+          )
+        )
+
+        (drop (local.get $x))
+      )
+    )
+    ```
+
+  - Suggested action: prefer a narrow Starshine cleanup fix if direct `coalesce-locals` raw parity matters. Candidate cleanup rules: dead `local.set` to `drop` only when the assigned value is not read on any path before overwrite or function exit; `local.tee` write removal only when the local write is dead while preserving the stack value; `local.set tmp; nop*; drop(local.get tmp)` to `drop(expr)` only when the get is the only use of the set value and there are no intervening effects/control-flow hazards. Validate transformed functions. If not fixing now, add/use a narrow explicitly named normalizer such as `dead-local-cleanup-debris`, but keep it reported separately from true direct normalized matches.
+  - Evidence required before calling either `[COALESCE-LOCALS]001` or `[COALESCE-LOCALS]002` a Starshine win: raw/code-body size improvement, not regression; or canonical/downstream optimized size improvement; or measured runtime improvement with confidence intervals; or measured engine compile-time or generated-code-size improvement; or correctness/validation advantage over Binaryen. For `ssa-nomerge-smoke`, fewer `local.set`s alone is insufficient because Starshine currently has more `drop`, `nop`, and `local.get` debris and larger raw output. Any win claim must state whether it applies before or after downstream `-O`; after downstream `-O`, all current mismatch pairs converge byte-identically, so there is no remaining post-`-O` win in the current evidence.
+  - Replication: use the existing pass compare harness in direct-pass form, e.g. conceptual lane `bun scripts/pass-fuzz-compare.ts --pass coalesce-locals --gen-valid-profile random-all-profiles ...`, or the equivalent direct `--coalesce-locals` Starshine-vs-Binaryen compare. Expected high-level result from this investigation: `1000` compared, `837` normalized matches, `163` raw mismatches, `38` `heap2local-struct`, `125` `ssa-nomerge-smoke`, `0` validation/generator/command failures. Validate mismatch artifacts with `wasm-tools validate --features all binaryen.raw.wasm`, `wasm-tools validate --features all starshine.raw.wasm`, `wasm-tools validate --features all binaryen.wasm`, and `wasm-tools validate --features all starshine.wasm`. Check downstream convergence with `wasm-opt -O -all binaryen.raw.wasm -o b.wasm; wasm-opt -O -all starshine.raw.wasm -o s.wasm; cmp b.wasm s.wasm`.
+
 - [O4Z-AUDIT-SSA] - Deep audit `ssa-nomerge`
   - Status: completed for direct `ssa-nomerge` / Binaryen `SSAify(false)` closeout as of 2026-06-18. The former active `SSANM-*` implementation, generator, artifact, huge-function, preset-scheduling, and final-publication slices are no longer active backlog; their durable evidence lives in `docs/wiki/binaryen/passes/ssa-nomerge/parity.md`, `docs/wiki/binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`, and the wiki log.
   - Final direct closeout evidence:
