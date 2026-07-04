@@ -2113,7 +2113,7 @@ fn oc_rewrite_node(
       }
       false
     }
-    Some(@lib.Instruction::RefTest(nullable, heap_type))
+    Some(@lib.Instruction::RefTest(nullable, false, heap_type))
     | Some(@lib.Instruction::RefTestDesc(nullable, heap_type)) => {
       if @ir.hot_child_count(func, node_id) != 1 {
         return false

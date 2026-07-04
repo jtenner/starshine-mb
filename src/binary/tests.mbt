@@ -2819,7 +2819,27 @@ test "encode ref.null exact type index uses heap-type immediate" {
 }
 
 ///|
-test "encode exact ref.cast and ref.cast_desc_eq immediates" {
+test "encode exact ref.test, ref.cast, and ref.cast_desc_eq immediates" {
+  let exact_test = Instruction::ref_test_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+  )
+  let test_buf = @buffer.new()
+  match Encode::encode(exact_test, test_buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected exact ref.test encode success, got \{e}")
+  }
+  let test_bytes = test_buf.to_bytes()
+  @debug.assert_eq(test_bytes, b"\xfb\x14\x62\x00")
+  let (decoded_test, test_i) = match
+    (
+      Decode::decode(test_bytes, 0) :
+      Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected exact ref.test decode success, got \{e}")
+  }
+  @debug.assert_eq(test_i, test_bytes.length())
+  @debug.assert_eq(decoded_test, exact_test)
+
   let exact_cast = Instruction::ref_cast_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
   )
@@ -2927,6 +2947,52 @@ test "Descriptor instruction roundtrip" {
 }
 
 ///|
+test "exact ref.test instruction roundtrip preserves exact heap immediate" {
+  let expected = Instruction::ref_test_exact(
+    false,
+    HeapType::new(TypeIdx::new(1U)),
+  )
+  let bytes = b"\xFB\x14\x62\x01"
+  match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok((decoded, next)) => {
+      @debug.assert_eq(decoded, expected)
+      @debug.assert_eq(next, bytes.length())
+    }
+    Err(e) => fail("expected exact ref.test decode success, got \{e}")
+  }
+  let buf = @buffer.new()
+  match Encode::encode(expected, buf) {
+    Ok(_) => @debug.assert_eq(buf.to_bytes(), bytes)
+    Err(e) => fail("expected exact ref.test encode success, got \{e}")
+  }
+}
+
+///|
+test "exact ref.test rejects truncated exact heap immediate" {
+  let bytes = b"\xFB\x14\x62"
+  match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(_) => fail("expected truncated exact ref.test decode failure")
+    Err(BinaryDecodeError::UnexpectedEofInSignedLeb) => ()
+    Err(e) =>
+      fail("expected signed LEB EOF for truncated exact ref.test, got \{e}")
+  }
+}
+
+///|
+test "exact ref.test rejects exact marker before abstract heap immediate" {
+  let bytes = b"\xFB\x14\x62\x6D"
+  match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(_) => fail("expected invalid exact abstract ref.test decode failure")
+    Err(BinaryDecodeError::InvalidS33Range) => ()
+    Err(e) =>
+      fail("expected InvalidS33Range for exact abstract ref.test, got \{e}")
+  }
+}
+
+///|
 test "exact ref.cast instruction roundtrip preserves exact heap immediate" {
   let expected = Instruction::ref_cast_exact(
     false,
@@ -2946,6 +3012,92 @@ test "exact ref.cast instruction roundtrip preserves exact heap immediate" {
     Ok(_) => @debug.assert_eq(buf.to_bytes(), bytes)
     Err(e) => fail("expected exact ref.cast encode success, got \{e}")
   }
+}
+
+///|
+test "exact ref.test and ref.cast module roundtrip preserves exactness" {
+  let exact_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::struct_([]))),
+        RecType::new(
+          SubType::comp_type(CompType::func([exact_ref], [ValType::i32()])),
+        ),
+        RecType::new(
+          SubType::comp_type(CompType::func([exact_ref], [exact_ref])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U), TypeIdx::new(2U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::ref_test_exact(false, HeapType::new(TypeIdx::new(0U))),
+          ]),
+        ),
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::ref_cast_exact(false, HeapType::new(TypeIdx::new(0U))),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail("expected exact ref.test/cast module encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected exact ref.test/cast module decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                LocalGet(LocalIdx(0U)),
+                RefTest(false, true, HeapType(TypeIdx(0U))),
+              ]
+            )
+          ),
+          Func(
+            _,
+            Expr(
+              [
+                LocalGet(LocalIdx(0U)),
+                RefCast(false, true, HeapType(TypeIdx(0U))),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail("expected exact ref.test and ref.cast to survive module roundtrip")
+  }
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail("expected exact ref.test/cast module re-encode success, got \{e}")
+  }
+  let reparsed = match decode_module(reencoded) {
+    Ok(v) => v
+    Err(e) => fail("expected exact ref.test/cast re-decode success, got \{e}")
+  }
+  @debug.assert_eq(reparsed, decoded)
 }
 
 ///|

@@ -2498,7 +2498,7 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.StructAtomicGetU(_, type_idx, _)
       | @lib.StructSet(type_idx, _) => dae_mark_used_type_idx(type_idx, used)
       @lib.RefNull(rt) => dae_mark_used_ref_type(rt, used)
-      @lib.RefTest(_, ht)
+      @lib.RefTest(_, _, ht)
       | @lib.RefCast(_, _, ht)
       | @lib.RefTestDesc(_, ht)
       | @lib.RefCastDescEq(_, _, ht) => dae_mark_used_heap_type(ht, used)
@@ -2638,10 +2638,13 @@ fn dae_rewrite_pruned_type_idx_instr(
       )
     @lib.RefNull(rt) =>
       @lib.Instruction::ref_null_type(dae_rewrite_pruned_ref_type(rt, remap))
-    @lib.RefTest(nullable, ht) =>
-      @lib.Instruction::ref_test(
-        nullable,
-        dae_rewrite_pruned_heap_type(ht, remap),
+    @lib.RefTest(nullable, exact, ht) =>
+      @lib.Instruction::ref_test_type(
+        @lib.RefType::new(
+          nullable,
+          dae_rewrite_pruned_heap_type(ht, remap),
+          exact~,
+        ),
       )
     @lib.RefCast(nullable, exact, ht) =>
       @lib.Instruction::ref_cast_type(
@@ -9169,7 +9172,7 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2AllTrue
     | @lib.I64x2Bitmask
     | @lib.RefIsNull
-    | @lib.RefTest(_, _)
+    | @lib.RefTest(_, _, _)
     | @lib.RefTestDesc(_, _)
     | @lib.RefI31
     | @lib.AnyConvertExtern

@@ -2045,8 +2045,13 @@ fn typecheck_ref_test_or_cast_types_compatible(
 }
 
 ///|
-fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
-  let rt = RefType::new(nullable, ht)
+fn typecheck_ref_test(
+  st : TcState,
+  nullable : Bool,
+  exact : Bool,
+  ht : HeapType,
+) -> TcResult {
+  let rt = RefType::new(nullable, ht, exact~)
   if Validate::validate(rt, st.env) is Err(t) {
     return Err("invalid ref.test target reftype: " + t)
   }
@@ -2124,10 +2129,13 @@ fn typecheck_ref_cast_desc_eq_descriptor_matches(
     Some(st) =>
       match st.describes_type() {
         Some(described_idx) => {
+          if descriptor.is_nullable() {
+            return false
+          }
           let described = RefType::new(
             target.is_nullable(),
             HeapType::new(described_idx),
-            exact=descriptor.is_exact(),
+            exact=target.is_exact(),
           )
           Match::matches(described, target, env)
         }
@@ -2152,6 +2160,16 @@ fn typecheck_ref_cast_desc_eq(
         t
       }
     Err(e) => return Err(e)
+  }
+  match ht {
+    HeapType(type_idx) =>
+      match st.env.resolve_struct_descriptor_type(type_idx) {
+        Ok(Some(_)) => ()
+        Ok(None) =>
+          return Err("ref.cast_desc_eq target requires descriptor metadata")
+        Err(e) => return Err(e)
+      }
+    _ => return Err("ref.cast_desc_eq target requires descriptor metadata")
   }
   let (st1, first_opt) = match st.pop_ref_or_bot() {
     Err(e) => return Err(e)
@@ -3784,7 +3802,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
         StorageType::pack_type(PackType::i8()),
       )
     RefGetDesc(type_idx) => typecheck_ref_get_desc(st, type_idx)
-    RefTest(nullable, ht) => typecheck_ref_test(st, nullable, ht)
+    RefTest(nullable, exact, ht) => typecheck_ref_test(st, nullable, exact, ht)
     RefCast(nullable, exact, ht) => typecheck_ref_cast(st, nullable, exact, ht)
     RefTestDesc(nullable, ht) => typecheck_ref_test_desc(st, nullable, ht)
     RefCastDescEq(nullable, exact, ht) =>
@@ -7316,6 +7334,33 @@ test "Typecheck RefTest with concrete type in global types" {
 }
 
 ///|
+test "Typecheck exact RefTest accepts exact concrete source" {
+  let struct_subtype = SubType::comp_type(CompType::struct_([]))
+  let env : Env = { ..empty_env(), global_types: [struct_subtype] }
+  let exact_struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+  )
+  let state = make_state(env, [exact_struct_ref])
+  let result = Typecheck::typecheck(
+    Instruction::ref_test_exact(false, HeapType::new(TypeIdx::new(0U))),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck exact RefTest rejects abstract exact target" {
+  let env = empty_env()
+  let state = make_state(env, [anyref_type()])
+  let result = Typecheck::typecheck(
+    Instruction::ref_test_exact(false, HeapType::abs(AbsHeapType::eq())),
+    state,
+  )
+  assert_err(result)
+}
+
+///|
 test "Typecheck RefCast non-nullable" {
   let env = empty_env()
   let state = make_state(env, [anyref_type()])
@@ -7394,7 +7439,7 @@ test "Typecheck RefCastDescEq stack effect" {
   let env = Env::{ ..empty_env(), global_types: [described, descriptor] }
   let state = make_state(env, [
     anyref_type(),
-    ValType::ref_null(HeapType::new(TypeIdx::new(1U))),
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
   ])
   let result = Typecheck::typecheck(
     Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0U))),
@@ -7402,6 +7447,85 @@ test "Typecheck RefCastDescEq stack effect" {
   )
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::ref_null(HeapType::new(TypeIdx::new(0U)))])
+}
+
+///|
+test "Typecheck exact RefCastDescEq accepts inexact descriptor operand" {
+  let env = typecheck_descriptor_struct_env()
+  let state = make_state(env, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+    ),
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast_desc_eq_type(
+      RefType::new(true, HeapType::new(TypeIdx::new(0U)), exact=true),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(true, HeapType::new(TypeIdx::new(0U)), exact=true),
+    ),
+  ])
+}
+
+///|
+test "Typecheck RefCastDescEq rejects mismatched descriptor describes target" {
+  let described = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(2U))),
+  )
+  let other = SubType::comp_type(CompType::struct_([]))
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(1U))),
+  )
+  let env = Env::{ ..empty_env(), global_types: [described, other, descriptor] }
+  let state = make_state(env, [
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0U)))),
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(2U)))),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(0U))),
+    state,
+  )
+  assert_err(result)
+}
+
+///|
+test "Typecheck RefCastDescEq rejects nullable descriptor operand" {
+  let env = typecheck_descriptor_struct_env()
+  let state = make_state(env, [
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0U)))),
+    ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(1U)))),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(0U))),
+    state,
+  )
+  assert_err(result)
+}
+
+///|
+test "Typecheck RefCastDescEq rejects descriptorless target" {
+  let target = SubType::comp_type(CompType::struct_([]))
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+  )
+  let env = Env::{ ..empty_env(), global_types: [target, descriptor] }
+  let state = make_state(env, [
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0U)))),
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(0U))),
+    state,
+  )
+  assert_err(result)
 }
 
 ///|

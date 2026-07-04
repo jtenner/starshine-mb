@@ -1504,7 +1504,7 @@ fn h2l_try_fold_direct_struct_ref_test(
     return false
   }
   let target_heap_type = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefTest(_, heap_type)) => heap_type
+    Some(@lib.Instruction::RefTest(_, false, heap_type)) => heap_type
     _ => return false
   }
   if @ir.hot_child_count(func, node_id) != 1 {
@@ -1568,7 +1568,7 @@ fn h2l_try_fold_direct_array_ref_test(
     return false
   }
   let target_heap_type = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefTest(_, heap_type)) => heap_type
+    Some(@lib.Instruction::RefTest(_, false, heap_type)) => heap_type
     _ => return false
   }
   if @ir.hot_child_count(func, node_id) != 1 {

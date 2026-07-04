@@ -2400,7 +2400,7 @@ fn gen_valid_test_instrs_contain_direct_ref_ops(
   for instr in instrs {
     match instr {
       RefIsNull => saw_is_null = true
-      RefTest(_, _) => saw_test = true
+      RefTest(_, _, _) => saw_test = true
       RefCast(_, _, _) => saw_cast = true
       RefEq => saw_eq = true
       Block(_, Expr(body)) | Loop(_, Expr(body)) =>
@@ -12807,7 +12807,7 @@ fn gen_valid_test_module_contains_h2l_ref_candidate(mod : Module) -> Bool {
             StructNew(_) | StructNewDefault(_) => saw_new = true
             RefAsNonNull => saw_as_non_null = true
             RefEq => saw_ref_eq = true
-            RefTest(_, _) => saw_ref_test = true
+            RefTest(_, _, _) => saw_ref_test = true
             _ => ()
           }
         }

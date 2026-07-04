@@ -28,6 +28,35 @@ fn optimize_casts_module(
 }
 
 ///|
+fn optimize_casts_descriptor_module(
+  param_type : @lib.ValType,
+  result_type : @lib.ValType,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::rec(1))),
+  )
+  let descriptor = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::rec(0))),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([param_type], [result_type])),
+  )
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([@lib.RecType::group([base, descriptor]), func_type]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn optimize_casts_void_module(
   param_type : @lib.ValType,
   body : Array[@lib.Instruction],
@@ -252,7 +281,7 @@ test "optimize-casts removes ref.cast_desc_eq when source already has the target
     @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let pretty = optimize_casts_run_pretty(
-    optimize_casts_module(base_ref, base_ref, [
+    optimize_casts_descriptor_module(base_ref, base_ref, [
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::ref_cast_desc_eq(
         false,

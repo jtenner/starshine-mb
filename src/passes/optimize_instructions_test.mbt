@@ -8413,12 +8413,11 @@ test "optimize-instructions intentionally keeps legacy descriptor equality casts
 }
 
 ///|
-test "optimize-instructions narrows nullable descriptor casts on exact non-null operands" {
-  // OI-J useful-type-info descriptor slice: Binaryen version_130 rewrites a
-  // nullable descriptor equality cast whose reference operand is already exact
-  // and non-null to a non-null exact descriptor cast, preserving the explicit
-  // descriptor equality check instead of removing the cast. This covers only
-  // the representable ref.cast_desc_eq useful-type-info case; ref.test_desc,
+test "optimize-instructions narrows nullable descriptor casts on exact non-null operands without inventing exact descriptor target" {
+  // OI-J useful-type-info descriptor slice: the nullable result can narrow to
+  // non-null when the reference operand is already non-null, but this fixture's
+  // descriptor operand is not proven exact. Keep the immediate inexact so the
+  // output stays valid under current custom-descriptor validation; ref.test_desc,
   // TNH, IIT, and broader descriptor-cast success logic remain open.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
@@ -8480,14 +8479,14 @@ test "optimize-instructions narrows nullable descriptor casts on exact non-null 
     @ir.hot_node_exact_instr(func, root),
     Some(
       @lib.Instruction::ref_cast_desc_eq_type(
-        @lib.RefType::new(false, described_heap, exact=true),
+        @lib.RefType::new(false, described_heap),
       ),
     ),
   )
   match @ir.hot_type_results(func, @ir.hot_node_type(func, root)) {
     [@lib.ValType::RefTypeValType(ref_type)] => {
       @debug.assert_eq(ref_type.is_non_nullable(), true)
-      @debug.assert_eq(ref_type.is_exact(), true)
+      @debug.assert_eq(ref_type.is_exact(), false)
       @debug.assert_eq(ref_type.get_heap_type(), described_heap)
     }
     other => fail("expected narrowed ref.cast_desc_eq type, got \{other}")
@@ -8495,13 +8494,12 @@ test "optimize-instructions narrows nullable descriptor casts on exact non-null 
 }
 
 ///|
-test "optimize-instructions narrows non-null descriptor casts on exact operands" {
-  // OI-J exactness/useful-type-info breadth: Binaryen version_130 rewrites a
-  // non-null descriptor equality cast whose reference operand is already exact
-  // and non-null to an exact descriptor cast, while preserving the explicit
-  // descriptor equality check in default and IIT modes. This is distinct from
-  // the nullable narrowing case above and still does not claim ref.test_desc or
-  // broad descriptor success parity.
+test "optimize-instructions preserves inexact descriptor casts on exact operands without exact descriptors" {
+  // OI-J exactness/useful-type-info breadth: an exact reference operand alone is
+  // not enough to spell an exact descriptor-cast immediate when the descriptor
+  // operand is not itself proven exact. Preserve the explicit descriptor
+  // equality check and keep the immediate inexact; this does not claim
+  // ref.test_desc or broad descriptor success parity.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let described_heap = @lib.HeapType::new(described_type)
@@ -8552,8 +8550,7 @@ test "optimize-instructions narrows non-null descriptor casts on exact operands"
   )
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
-    Err(err) =>
-      fail("expected non-null descriptor exactness narrowing, got \{err}")
+    Err(err) => fail("expected non-null descriptor narrowing, got \{err}")
   }
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(@ir.hot_child_count(func, root), 2)
@@ -8561,17 +8558,17 @@ test "optimize-instructions narrows non-null descriptor casts on exact operands"
     @ir.hot_node_exact_instr(func, root),
     Some(
       @lib.Instruction::ref_cast_desc_eq_type(
-        @lib.RefType::new(false, described_heap, exact=true),
+        @lib.RefType::new(false, described_heap),
       ),
     ),
   )
   match @ir.hot_type_results(func, @ir.hot_node_type(func, root)) {
     [@lib.ValType::RefTypeValType(ref_type)] => {
       @debug.assert_eq(ref_type.is_non_nullable(), true)
-      @debug.assert_eq(ref_type.is_exact(), true)
+      @debug.assert_eq(ref_type.is_exact(), false)
       @debug.assert_eq(ref_type.get_heap_type(), described_heap)
     }
-    other => fail("expected exact non-null ref.cast_desc_eq type, got \{other}")
+    other => fail("expected non-null ref.cast_desc_eq type, got \{other}")
   }
 }
 
@@ -9337,7 +9334,7 @@ test "optimize-instructions skips nullable descriptor casts under traps-never-ha
   let described_heap = @lib.HeapType::new(described_type)
   let descriptor_heap = @lib.HeapType::new(descriptor_type)
   let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
-  let descriptor_ref_type = @lib.RefType::new(true, descriptor_heap)
+  let descriptor_ref_type = @lib.RefType::new(false, descriptor_heap)
   let func = @ir.hot_lift_func(
     @lib.Module::new()
     .with_type_sec(
@@ -9482,13 +9479,13 @@ test "optimize-instructions erases nontrapping ref.get_desc descriptor operands 
 }
 
 ///|
-test "optimize-instructions moves standalone ref.get_desc local null checks" {
-  // OI-J finite roadmap slice: Binaryen version_130 default mode simplifies the
-  // direct-local shape `ref.get_desc(ref.as_non_null(local.get nullable))` to
-  // `ref.get_desc(local.get nullable)`, using `ref.get_desc` itself as the null
-  // trap. This is intentionally smaller than the broad descriptor/exactness,
-  // TNH, and IIT families: standalone block/effect/trapping/control children
-  // remain fail-closed until separately probed and implemented.
+test "optimize-instructions moves standalone ref.get_desc branch-free block null checks" {
+  // OI-J finite block-child slice: Binaryen version_130 default mode simplifies
+  // standalone `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)`
+  // for the direct-local baseline and for branch-free blocks whose ordered
+  // effect/trap roots stay inside the block before the final nullable local.
+  // TNH/IIT, descriptor casts, ref.test_desc, and escaping/control-shaped
+  // standalone children remain outside this slice.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let described_heap = @lib.HeapType::new(described_type)
@@ -9540,7 +9537,12 @@ test "optimize-instructions moves standalone ref.get_desc local null checks" {
         @lib.TypeIdx::new(2U),
         @lib.TypeIdx::new(2U),
         @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
         @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
         @lib.TypeIdx::new(4U),
       ]),
     )
@@ -9585,8 +9587,25 @@ test "optimize-instructions moves standalone ref.get_desc local null checks" {
               @lib.Expr::new([
                 @lib.Instruction::i32_const(@lib.I32(1)),
                 @lib.Instruction::i32_const(@lib.I32(0)),
-                @lib.Instruction::i32_div_s(),
+                @lib.Instruction::i32_div_u(),
                 @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(2)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
                 @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
               ]),
             ),
@@ -9612,6 +9631,80 @@ test "optimize-instructions moves standalone ref.get_desc local null checks" {
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32(3)),
+                    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                  ],
+                  None,
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::loop_(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::try_table(
+                  @lib.BlockType::void_(),
+                  [],
+                  @lib.Expr::new([]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::ref_as_non_null(),
           ]),
@@ -9623,19 +9716,72 @@ test "optimize-instructions moves standalone ref.get_desc local null checks" {
   assert_true(pure_pretty.contains("ref.get_desc"), msg=pure_pretty)
   assert_false(pure_pretty.contains("ref.as_non_null"), msg=pure_pretty)
   let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(effect_pretty.contains("ref.as_non_null"), msg=effect_pretty)
-  assert_true(effect_pretty.contains("global.set"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("ref.get_desc"), msg=effect_pretty)
+  assert_false(effect_pretty.contains("ref.as_non_null"), msg=effect_pretty)
+  optimize_instructions_assert_strings_in_order(effect_pretty, [
+    "I32(1)", "global.set", "local.get", "ref.get_desc",
+  ])
   let trapping_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(trapping_pretty.contains("ref.as_non_null"), msg=trapping_pretty)
-  assert_true(trapping_pretty.contains("i32.div"), msg=trapping_pretty)
-  let escaping_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_true(escaping_pretty.contains("ref.as_non_null"), msg=escaping_pretty)
-  assert_true(escaping_pretty.contains("br"), msg=escaping_pretty)
-  let quarantine_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(trapping_pretty.contains("ref.get_desc"), msg=trapping_pretty)
+  assert_false(trapping_pretty.contains("ref.as_non_null"), msg=trapping_pretty)
+  optimize_instructions_assert_strings_in_order(trapping_pretty, [
+    "i32.div", "drop", "local.get", "ref.get_desc",
+  ])
+  let ordered_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(ordered_pretty.contains("ref.as_non_null"), msg=ordered_pretty)
+  optimize_instructions_assert_strings_in_order(ordered_pretty, [
+    "I32(1)", "global.set", "I32(2)", "global.set", "local.get", "ref.get_desc",
+  ])
+  let br_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(br_pretty.contains("ref.as_non_null"), msg=br_pretty)
+  assert_true(br_pretty.contains("br"), msg=br_pretty)
+  let br_if_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(br_if_pretty.contains("ref.as_non_null"), msg=br_if_pretty)
+  assert_true(br_if_pretty.contains("br_if"), msg=br_if_pretty)
+  let if_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_true(if_pretty.contains("ref.as_non_null"), msg=if_pretty)
+  assert_true(if_pretty.contains("if"), msg=if_pretty)
+  let loop_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  assert_true(loop_pretty.contains("ref.as_non_null"), msg=loop_pretty)
+  assert_true(loop_pretty.contains("loop"), msg=loop_pretty)
+  let try_table_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  assert_true(
+    try_table_pretty.contains("ref.as_non_null"),
+    msg=try_table_pretty,
+  )
+  assert_true(try_table_pretty.contains("try_table"), msg=try_table_pretty)
+  let quarantine_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
   assert_true(
     quarantine_pretty.contains("ref.as_non_null"),
     msg=quarantine_pretty,
   )
+
+  let tnh_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let tnh_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(tnh_ctx, tnh_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected standalone ref.get_desc TNH boundary, got \{err}")
+  }
+  let tnh_root = @ir.hot_root_get(tnh_func, 0)
+  match @ir.hot_node_exact_instr(tnh_func, tnh_root) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected TNH root to stay ref.get_desc, got \{other}")
+  }
+  let tnh_child = @ir.hot_child_get(tnh_func, tnh_root, 0)
+  match @ir.hot_node_exact_instr(tnh_func, tnh_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    other =>
+      fail("expected TNH path to keep explicit ref.as_non_null, got \{other}")
+  }
 }
 
 ///|

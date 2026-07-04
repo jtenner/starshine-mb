@@ -12119,7 +12119,8 @@ fn optimize_instructions_try_fold_ref_test_null(
     return false
   }
   let (nullable, target) = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefTest(nullable, target)) => (nullable, target)
+    Some(@lib.Instruction::RefTest(nullable, false, target)) =>
+      (nullable, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
@@ -12539,6 +12540,9 @@ fn optimize_instructions_descriptor_expr_has_branch_control(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Br
     | @ir.HotOp::BrIf
@@ -12847,7 +12851,125 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
 }
 
 ///|
-fn optimize_instructions_try_move_standalone_ref_get_desc_local_null_check(
+fn optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => ref_type.is_nullable()
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)).length() == 0
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)).length() > 1 {
+    return true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Catch
+    | @ir.HotOp::CatchAll => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Bool {
+  if !optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+      func, block_id,
+    ) {
+    return false
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  let root_count = @ir.hot_region_root_count(func, body)
+  if root_count == 0 {
+    return false
+  }
+  for slot = 0; slot < root_count - 1; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, body, slot)
+    if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+        func, root_id,
+      ) ||
+      optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func, root_id,
+      ) {
+      return false
+    }
+  }
+  let final_id = @ir.hot_region_get(func, body, root_count - 1)
+  match @ir.hot_node_get(func, final_id).op {
+    @ir.HotOp::LocalGet => ()
+    _ => return false
+  }
+  optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, final_id,
+  ) &&
+  !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+    func, final_id,
+  )
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
+  func : @ir.HotFunc,
+  nullable_child : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, nullable_child).op {
+    @ir.HotOp::LocalGet =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, nullable_child,
+      )
+    @ir.HotOp::Block =>
+      optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
+        func, nullable_child,
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   descriptor_id : Int,
@@ -12871,9 +12993,10 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_local_null_check(
     return false
   }
   let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
-  match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::LocalGet => ()
-    _ => return false
+  if !optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
+      func, nullable_child,
+    ) {
+    return false
   }
   @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
   pass_mark_mutated(ctx, func)
@@ -12966,7 +13089,8 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
       ctx, func, descriptor_id, target,
     )
   let narrowed_nullable = nullable && operand_nullable
-  let narrowed_exact = exact || operand_exact || descriptor_exact
+  ignore(operand_exact)
+  let narrowed_exact = exact || descriptor_exact
   if narrowed_nullable == nullable &&
     narrowed_exact == exact &&
     narrowed_target == target {
@@ -13709,7 +13833,8 @@ fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
     optimize_instructions_descriptor_operand_exactly_describes_target(
       ctx, func, descriptor_id, target,
     )
-  let narrowed_exact = exact || operand_exact || descriptor_exact
+  ignore(operand_exact)
+  let narrowed_exact = exact || descriptor_exact
   let narrowed_ref_type = @lib.RefType::new(
     false,
     narrowed_target,
@@ -15740,7 +15865,7 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
         ctx, func, node_id,
       ) ||
-      optimize_instructions_try_move_standalone_ref_get_desc_local_null_check(
+      optimize_instructions_try_move_standalone_ref_get_desc_null_check(
         ctx, func, node_id,
       ) ||
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||

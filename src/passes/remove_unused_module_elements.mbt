@@ -2467,7 +2467,7 @@ fn rume_mark_instruction_types(
       rume_mark_expr_types(used_types, body)
     }
     @lib.RefNull(ref_type) => rume_mark_ref_type(used_types, ref_type)
-    @lib.RefTest(_, heap_type)
+    @lib.RefTest(_, _, heap_type)
     | @lib.RefCast(_, _, heap_type)
     | @lib.RefTestDesc(_, heap_type)
     | @lib.RefCastDescEq(_, _, heap_type) =>

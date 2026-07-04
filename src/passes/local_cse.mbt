@@ -500,7 +500,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64TruncF32U => 155
     @lib.Instruction::I64TruncF64S => 156
     @lib.Instruction::I64TruncF64U => 157
-    @lib.Instruction::RefTest(_, _) => 158
+    @lib.Instruction::RefTest(_, _, _) => 158
     @lib.Instruction::AnyConvertExtern => 159
     @lib.Instruction::ExternConvertAny => 160
     @lib.Instruction::RefCast(true, _, _) => 162
@@ -1326,7 +1326,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64TruncSatF32U
     | @lib.Instruction::I64TruncSatF64S
     | @lib.Instruction::I64TruncSatF64U
-    | @lib.Instruction::RefTest(_, _)
+    | @lib.Instruction::RefTest(_, _, _)
     | @lib.Instruction::AnyConvertExtern
     | @lib.Instruction::ExternConvertAny
     | @lib.Instruction::RefAsNonNull
@@ -1540,7 +1540,7 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32TruncF32U
     | @lib.Instruction::I32TruncF64S
     | @lib.Instruction::I32TruncF64U
-    | @lib.Instruction::RefTest(_, _)
+    | @lib.Instruction::RefTest(_, _, _)
     | @lib.Instruction::I31GetS
     | @lib.Instruction::I31GetU
     | @lib.Instruction::StructGetS(_, _)

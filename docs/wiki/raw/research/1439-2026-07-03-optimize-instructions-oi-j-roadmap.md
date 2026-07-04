@@ -20,7 +20,7 @@ Primary sources checked locally:
 
 | Slice | Candidate behavior | Binaryen source/lit anchor | Starshine status after this note |
 |---|---|---|---|
-| OI-J.1 standalone descriptor child null check | `ref.get_desc(ref.as_non_null(local.get nullable))` can become `ref.get_desc(local.get nullable)` because `ref.get_desc` preserves the same null trap for the direct local child. | `skipNonNullCast` / `trapOnNull` behavior, descriptor lit coverage, probe 03. | Implemented only for direct `LocalGet`, default mode, not TNH. |
+| OI-J.1 standalone descriptor child null check | `ref.get_desc(ref.as_non_null(local.get nullable))` can become `ref.get_desc(local.get nullable)` because `ref.get_desc` preserves the same null trap for the direct local child. Branch-free block children with ordered zero-result effect/trap roots and a final nullable `local.get` are covered by the follow-up block slice. | `skipNonNullCast` / `trapOnNull` behavior, descriptor lit coverage, probes 03-05 plus the focused block-child pack. | Implemented for direct `LocalGet` and the finite branch-free block child subset, default mode, not TNH. |
 | OI-J.2 descriptor-cast descriptor operands | Same child-null-check movement when `ref.get_desc` is the descriptor operand of `ref.cast_desc_eq`; broader block/select/if/control surfaces exist. | Existing Starshine descriptor-operand tests plus probes 01-09. | Existing implementation remains; not broadened by this slice. |
 | OI-J.3 descriptor equality cast success/failure | Default mode preserves explicit descriptor checks unless known-null/trap facts justify a fold; TNH can assume descriptor success. | `optimize-instructions-desc.wast`, `skipCast`, TNH gates. | Partially implemented historically; no broad new claim. |
 | OI-J.4 exact casts/tests | Exact source/target compatibility, already-exact casts, failed exact tests. | `optimize-instructions-exact.wast`, `all-casts-exact`. | Existing tests plus probes 10-11; not expanded here. |
@@ -68,9 +68,10 @@ Rationale:
 
 Implemented guardrails:
 
-- Match only `RefGetDesc(RefAsNonNull(LocalGet))`.
-- Do not run under `traps_never_happen`; TNH-specific descriptor erasure remains in the existing TNH helper.
-- Do not rewrite block/select/if/effectful/trapping/control children in this standalone slice.
+- Original roadmap slice: match only `RefGetDesc(RefAsNonNull(LocalGet))`.
+- Follow-up `1441` slice: also match branch-free `Block` children with one nullable reference result, ordered zero-result effect/trap roots, and a final nullable `LocalGet`; do not rebuild or move the block.
+- Do not run under `traps_never_happen`; TNH-specific descriptor erasure remains separate.
+- Do not rewrite select/if/loop/try_table/branch/control children in the standalone helper; block children containing control/EH/multivalue remain fail-closed.
 - Do not rewrite ordinary non-descriptor `ref.as_non_null` forms; OI-I remains quarantined.
 
 ## Red-first tests and validation
@@ -93,17 +94,14 @@ Total tests: 3925, passed: 3925, failed: 0.
 
 The test includes:
 
-- Positive pure direct-local standalone rewrite.
-- Fail-closed effectful block child with `global.set`.
-- Fail-closed trapping block child with integer division by zero in the child.
-- Fail-closed branch/control block child.
-- OI-I quarantine for ordinary non-descriptor `ref.as_non_null(local)`.
+- Original test coverage: positive pure direct-local standalone rewrite, fail-closed effectful/trapping/control block children, and OI-I quarantine for ordinary non-descriptor `ref.as_non_null(local)`.
+- Follow-up `1441` coverage: direct-local remains positive; branch-free effectful `global.set`, trapping `i32.div_u`, and ordered double-`global.set` block children now remove `ref.as_non_null` while preserving order; `br`, `br_if`, `if`, `loop`, `try_table`, non-descriptor `ref.as_non_null`, and TNH remain fail-closed.
 
 ## Remaining roadmap
 
-1. Fix or separately classify Starshine descriptor-cast validation failure from probe 01 before using it as implementation evidence.
-2. Fix or separately classify exact-cast decode failure from probe 10 before exactness work.
-3. Add a dedicated source-backed effectful standalone `ref.get_desc` slice only if it can prove no trap/effect reorder relative to siblings and control.
+1. Probe 01 descriptor-cast validation and probe 10 exact `ref.test` binary support were reduced by `1440-2026-07-03-optimize-instructions-oi-j-representation-blockers.md`; further descriptor-cast optimizer behavior and exactness reasoning remain separate follow-ups.
+2. `ref.test_desc` text/binary/tooling remains a separate OI-J blocker.
+3. The dedicated source-backed branch-free standalone `ref.get_desc` block-child slice is recorded in `1441-2026-07-03-optimize-instructions-oi-j-standalone-refgetdesc-block-child.md`: direct `LocalGet`, ordered `global.set` roots, and ordered trapping `i32.div_u` roots are covered without rebuilding or moving the block; control/EH/multivalue children remain fail-closed.
 4. Add a dedicated escaping-control/localizer slice for descriptor children; do not infer safety from validation alone.
 5. Keep TNH and IIT in explicit mode-specific slices with tests that prove mode gating, not default-mode behavior.
 6. Only after the above, broaden `pass-oi-descriptor-gc` or add a new OI-J profile for exactness/TNH/IIT.

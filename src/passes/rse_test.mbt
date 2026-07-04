@@ -130,8 +130,13 @@ fn rse_test_refined_cast_module(cast : @lib.Instruction) -> @lib.Module {
     @lib.RefType::new(true, base_heap),
   )
   let base_ref = @lib.ValType::ref_type(@lib.RefType::new(false, base_heap))
-  let base = @lib.RecType::new(
-    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  let base = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::rec(1))),
+  )
+  let descriptor = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::rec(0))),
   )
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -139,8 +144,10 @@ fn rse_test_refined_cast_module(cast : @lib.Instruction) -> @lib.Module {
     ),
   )
   @lib.Module::new()
-  .with_type_sec(@lib.TypeSec::new([base, func_type]))
-  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_type_sec(
+    @lib.TypeSec::new([@lib.RecType::group([base, descriptor]), func_type]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
   .with_code_sec(
     @lib.CodeSec::new([
       @lib.Func::new(

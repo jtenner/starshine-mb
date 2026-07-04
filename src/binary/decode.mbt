@@ -237,21 +237,6 @@ fn decode_ref_heap_type(
 }
 
 ///|
-fn decode_maybe_exact_heap_type(
-  bytes : Bytes,
-  i : Int,
-) -> Result[(Bool, HeapType, Int), BinaryDecodeError] {
-  match decode_ref_heap_type(bytes, i) {
-    Ok((exact, ht, next)) => Ok((exact, ht, next))
-    Err(_) =>
-      match Decode::decode(bytes, i) {
-        Ok((ht, next)) => Ok((false, ht, next))
-        Err(err) => Err(err)
-      }
-  }
-}
-
-///|
 pub impl Decode for RefType with fn decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
@@ -3230,13 +3215,19 @@ fn decode_instruction_with_depth(
         Ok((@lib.U32(0xB7), i)) =>
           Ok((Instruction::string_encode_wtf8_array(), i))
         Ok((@lib.U32(20), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_test(false, ht), i))
+          match decode_ref_heap_type(bytes, i) {
+            Ok((exact, ht, i)) =>
+              Ok(
+                (Instruction::ref_test_type(RefType::new(false, ht, exact~)), i),
+              )
             Err(t) => Err(t)
           }
         Ok((@lib.U32(21), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_test(true, ht), i))
+          match decode_ref_heap_type(bytes, i) {
+            Ok((exact, ht, i)) =>
+              Ok(
+                (Instruction::ref_test_type(RefType::new(true, ht, exact~)), i),
+              )
             Err(t) => Err(t)
           }
         Ok((@lib.U32(22), i)) =>

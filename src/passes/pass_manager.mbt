@@ -24412,7 +24412,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
           @lib.Instruction::RefIsNull,
           @lib.Instruction::Drop,
           @lib.Instruction::LocalGet(test_local),
-          @lib.Instruction::RefTest(test_nullable, _),
+          @lib.Instruction::RefTest(test_nullable, false, _),
           @lib.Instruction::Drop,
           @lib.Instruction::LocalGet(cast_local),
           @lib.Instruction::RefCast(true, _, _),
@@ -24468,7 +24468,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
         }
         (
           @lib.Instruction::RefNull(_),
-          @lib.Instruction::RefTest(nullable, _),
+          @lib.Instruction::RefTest(nullable, false, _),
           @lib.Instruction::Drop,
         ) => {
           out.push(

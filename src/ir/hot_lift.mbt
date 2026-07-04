@@ -805,7 +805,7 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::I64Store8(_)
     | Instruction::I64Store16(_)
     | Instruction::I64Store32(_) => Some(HotOp::Store)
-    Instruction::RefTest(_, _) => Some(HotOp::RefTest)
+    Instruction::RefTest(_, _, _) => Some(HotOp::RefTest)
     Instruction::RefCast(_, _, _) => Some(HotOp::RefCast)
     Instruction::RefTestDesc(_, _) => Some(HotOp::RefTestDesc)
     Instruction::RefCastDescEq(_, _, _) => Some(HotOp::RefCastDescEq)
@@ -1475,7 +1475,7 @@ fn hot_lift_impl_exact_node_shape(
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
       (op, ty, memarg_id, payload_id)
     }
-    Instruction::RefTest(_, _)
+    Instruction::RefTest(_, _, _)
     | Instruction::RefCast(_, _, _)
     | Instruction::RefTestDesc(_, _)
     | Instruction::RefCastDescEq(_, _, _)

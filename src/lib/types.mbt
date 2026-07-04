@@ -819,7 +819,7 @@ pub enum Instruction {
   ArrayInitData(TypeIdx, DataIdx)
   ArrayInitElem(TypeIdx, ElemIdx)
   RefGetDesc(TypeIdx)
-  RefTest(Bool, HeapType)
+  RefTest(Bool, Bool, HeapType)
   RefCast(Bool, Bool, HeapType)
   RefTestDesc(Bool, HeapType)
   RefCastDescEq(Bool, Bool, HeapType)
@@ -4283,7 +4283,20 @@ pub fn Instruction::ref_get_desc(ti : TypeIdx) -> Instruction {
 
 ///|
 pub fn Instruction::ref_test(nullable : Bool, ht : HeapType) -> Instruction {
-  RefTest(nullable, ht)
+  RefTest(nullable, false, ht)
+}
+
+///|
+pub fn Instruction::ref_test_type(rt : RefType) -> Instruction {
+  RefTest(rt.is_nullable(), rt.is_exact(), rt.get_heap_type())
+}
+
+///|
+pub fn Instruction::ref_test_exact(
+  nullable : Bool,
+  ht : HeapType,
+) -> Instruction {
+  RefTest(nullable, true, ht)
 }
 
 ///|

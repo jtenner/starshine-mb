@@ -1563,9 +1563,9 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(ti, logger)
       logger.write_char(')')
     }
-    RefTest(n, ht) => {
+    RefTest(n, exact, ht) => {
       logger.write_string("(ref.test ")
-      HeapTypeRefType(n, false, ht).output(logger)
+      HeapTypeRefType(n, exact, ht).output(logger)
       logger.write_char(')')
     }
     RefCast(n, exact, ht) => {

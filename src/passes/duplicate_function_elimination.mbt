@@ -627,7 +627,7 @@ fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
     @lib.ArrayInitData(_, _) => true
     @lib.ArrayInitElem(_, _) => true
     @lib.RefGetDesc(_) => true
-    @lib.RefTest(_, heap_type) => dfe_heap_type_mentions_type_idxs(heap_type)
+    @lib.RefTest(_, _, heap_type) => dfe_heap_type_mentions_type_idxs(heap_type)
     @lib.RefCast(_, _, heap_type) => dfe_heap_type_mentions_type_idxs(heap_type)
     @lib.RefTestDesc(_, heap_type) =>
       dfe_heap_type_mentions_type_idxs(heap_type)
@@ -1380,10 +1380,13 @@ fn dfe_rewrite_instruction_type_idxs(
       )
     @lib.RefGetDesc(type_idx) =>
       @lib.Instruction::ref_get_desc(dfe_rewrite_type_idx(type_idx, remap))
-    @lib.RefTest(nullable, heap_type) =>
-      @lib.Instruction::ref_test(
-        nullable,
-        dfe_rewrite_heap_type(heap_type, remap),
+    @lib.RefTest(nullable, exact, heap_type) =>
+      @lib.Instruction::ref_test_type(
+        @lib.RefType::new(
+          nullable,
+          dfe_rewrite_heap_type(heap_type, remap),
+          exact~,
+        ),
       )
     @lib.RefCast(nullable, exact, heap_type) =>
       @lib.Instruction::ref_cast_type(
@@ -1815,10 +1818,15 @@ fn dfe_scan_rewrite_instruction_type_idxs(
         },
         mentions_type_idxs: true,
       }
-    @lib.RefTest(nullable, heap_type) =>
+    @lib.RefTest(nullable, exact, heap_type) =>
       {
         rewritten: match dfe_try_rewrite_heap_type(heap_type, remap) {
-          Some(next) => Some(@lib.Instruction::ref_test(nullable, next))
+          Some(next) =>
+            Some(
+              @lib.Instruction::ref_test_type(
+                @lib.RefType::new(nullable, next, exact~),
+              ),
+            )
           None => None
         },
         mentions_type_idxs: dfe_heap_type_mentions_type_idxs(heap_type),
@@ -2203,9 +2211,14 @@ fn dfe_try_rewrite_instruction_type_idxs(
         Some(next) => Some(@lib.Instruction::ref_get_desc(next))
         None => None
       }
-    @lib.RefTest(nullable, heap_type) =>
+    @lib.RefTest(nullable, exact, heap_type) =>
       match dfe_try_rewrite_heap_type(heap_type, remap) {
-        Some(next) => Some(@lib.Instruction::ref_test(nullable, next))
+        Some(next) =>
+          Some(
+            @lib.Instruction::ref_test_type(
+              @lib.RefType::new(nullable, next, exact~),
+            ),
+          )
         None => None
       }
     @lib.RefCast(nullable, exact, heap_type) =>

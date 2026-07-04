@@ -154,7 +154,7 @@ test "Typecheck RefCastDescEq rejects invalid descriptor target type index" {
 ///|
 test "Typecheck RefCastDescEq accepts polymorphic stack in unreachable state" {
   let state : TcState = {
-    env: empty_env(),
+    env: tcneg_descriptor_struct_env(),
     stack: [],
     reachable: false,
     escape: TerminalTcEscape,
@@ -162,14 +162,14 @@ test "Typecheck RefCastDescEq accepts polymorphic stack in unreachable state" {
     initialized_locals: [],
   }
   let result = Typecheck::typecheck(
-    Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::eq())),
+    Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0U))),
     state,
   )
   match result {
     Err(e) =>
       fail("unexpected ref.cast_desc_eq error in unreachable state: \{e}")
     Ok(next) =>
-      assert_stack(next, [ValType::ref_null(HeapType::abs(AbsHeapType::eq()))])
+      assert_stack(next, [ValType::ref_null(HeapType::new(TypeIdx::new(0U)))])
   }
 }
 

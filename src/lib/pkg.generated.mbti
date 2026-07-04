@@ -1247,7 +1247,7 @@ pub enum Instruction {
   ArrayInitData(TypeIdx, DataIdx)
   ArrayInitElem(TypeIdx, ElemIdx)
   RefGetDesc(TypeIdx)
-  RefTest(Bool, HeapType)
+  RefTest(Bool, Bool, HeapType)
   RefCast(Bool, Bool, HeapType)
   RefTestDesc(Bool, HeapType)
   RefCastDescEq(Bool, Bool, HeapType)
@@ -2004,6 +2004,8 @@ pub fn Instruction::ref_null(HeapType) -> Self
 pub fn Instruction::ref_null_type(RefType) -> Self
 pub fn Instruction::ref_test(Bool, HeapType) -> Self
 pub fn Instruction::ref_test_desc(Bool, HeapType) -> Self
+pub fn Instruction::ref_test_exact(Bool, HeapType) -> Self
+pub fn Instruction::ref_test_type(RefType) -> Self
 pub fn Instruction::return_() -> Self
 pub fn Instruction::return_call(FuncIdx) -> Self
 pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self

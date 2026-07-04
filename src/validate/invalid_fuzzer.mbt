@@ -14009,13 +14009,17 @@ test "function-body ref.cast_desc_eq input mutation repairs by using a reference
       )
   }
   let (with_func, _, _) = validate_invalid_ast_append_defined_func(
-    Module::new(),
-    [],
+    validate_invalid_ast_ref_get_desc_module(),
+    [
+      ValType::ref_null(HeapType::new(TypeIdx::new(0U))),
+      ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
+    ],
     [],
     Locals::empty(),
     Expr::new([
-      Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
-      Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::eq())),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0U))),
       Instruction::drop(),
     ]),
   )

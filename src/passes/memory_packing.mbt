@@ -1293,7 +1293,7 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.I64Extend8S
     | @lib.I64Extend16S
     | @lib.I64Extend32S
-    | @lib.RefTest(_, _)
+    | @lib.RefTest(_, _, _)
     | @lib.RefCast(_, _, _)
     | @lib.RefTestDesc(_, _)
     | @lib.RefCastDescEq(_, _, _)

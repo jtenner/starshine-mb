@@ -125,22 +125,6 @@ pub impl Encode for HeapType with fn encode(val, buf) {
 }
 
 ///|
-fn encode_exact_heap_type(
-  ht : HeapType,
-  buf : @buffer.Buffer,
-) -> Result[Unit, BinaryEncodeError] {
-  match ht {
-    HeapType(TypeIdx(i)) => {
-      buf.write_byte(0x62)
-      Encode::encode(@lib.S33(i), buf)
-    }
-    HeapType(RecIdx(_)) =>
-      Err(BinaryEncodeError::CannotEncodeRecursiveIndexHeapType)
-    _ => Err(BinaryEncodeError::CannotEncodeDefTypeHeapType)
-  }
-}
-
-///|
 pub impl Encode for AbsHeapType with fn encode(val, buf) {
   match val {
     ExnAbsHeapType => buf.write_byte(0x69)
@@ -3009,21 +2993,21 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    RefTest(false, ht) => {
+    RefTest(false, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(20), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht, buf) is Err(t) {
+      if encode_ref_heap_type(exact, ht, buf) is Err(t) {
         return Err(t)
       }
     }
-    RefTest(true, ht) => {
+    RefTest(true, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(21), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht, buf) is Err(t) {
+      if encode_ref_heap_type(exact, ht, buf) is Err(t) {
         return Err(t)
       }
     }

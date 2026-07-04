@@ -5316,7 +5316,7 @@ fn gen_valid_gc_surface_facts_instr(
       { ..gen_valid_gc_surface_facts_empty(), has_string_const: true }
     RefGetDesc(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_ref_get_desc: true }
-    RefTest(_, _) =>
+    RefTest(_, _, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
     RefTestDesc(_, _) =>
       {
@@ -6776,7 +6776,7 @@ fn validate_test_basic_ref_forms_instr(
   match instr {
     RefIsNull => { ..validate_test_basic_ref_forms_empty(), ref_is_null: true }
     RefNull(rt) => validate_test_basic_ref_forms_ref_null(rt)
-    RefTest(nullable, _) =>
+    RefTest(nullable, _, _) =>
       {
         ..validate_test_basic_ref_forms_empty(),
         ref_test_nullable: nullable,

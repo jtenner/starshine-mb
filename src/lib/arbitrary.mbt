@@ -1280,6 +1280,7 @@ pub impl @quickcheck.Arbitrary for Instruction with fn arbitrary(t, state) {
     211 =>
       RefTest(
         @quickcheck.Arbitrary::arbitrary(t, state),
+        false,
         @quickcheck.Arbitrary::arbitrary(t, state),
       )
     212 =>
