@@ -9870,13 +9870,14 @@ test "optimize-instructions erases nontrapping ref.get_desc descriptor operands 
 
 ///|
 test "optimize-instructions moves standalone ref.get_desc branch-free block null checks" {
-  // OI-J finite block-child slice: Binaryen version_130 default mode simplifies
-  // standalone `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)`
-  // for the direct-local baseline and for branch-free blocks whose ordered
-  // effect/trap roots stay inside the block before the final nullable local.
-  // Descriptor casts, ref.test_desc, TNH branch-free block children, and
-  // escaping/control-shaped standalone children remain outside this slice; TNH
-  // direct-local coverage below follows Binaryen's trap-skipping mode.
+  // OI-J finite block-child slice: Binaryen version_130 simplifies standalone
+  // `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)` for the
+  // direct-local baseline, branch-free blocks whose ordered effect/trap roots
+  // stay before the final nullable local, and self-contained br/br_if blocks
+  // whose branches target the descriptor child block itself. Descriptor casts,
+  // ref.test_desc, escaping-control standalone children, and broader control/EH
+  // children remain outside this slice; TNH coverage below follows Binaryen's
+  // trap-skipping mode for the same finite child families.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let described_heap = @lib.HeapType::new(described_type)
@@ -10124,10 +10125,10 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
     "I32(1)", "global.set", "I32(2)", "global.set", "local.get", "ref.get_desc",
   ])
   let br_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
-  assert_true(br_pretty.contains("ref.as_non_null"), msg=br_pretty)
+  assert_false(br_pretty.contains("ref.as_non_null"), msg=br_pretty)
   assert_true(br_pretty.contains("br"), msg=br_pretty)
   let br_if_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  assert_true(br_if_pretty.contains("ref.as_non_null"), msg=br_if_pretty)
+  assert_false(br_if_pretty.contains("ref.as_non_null"), msg=br_if_pretty)
   assert_true(br_if_pretty.contains("br_if"), msg=br_if_pretty)
   let if_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
   assert_true(if_pretty.contains("ref.as_non_null"), msg=if_pretty)
@@ -10287,6 +10288,52 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
   match @ir.hot_node_get(tnh_ordered_block_func, tnh_ordered_final).op {
     @ir.HotOp::LocalGet => ()
     other => fail("expected TNH ordered block final local.get, got \{other}")
+  }
+
+  let tnh_br_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(4U))
+  match hot_pass_run(tnh_ctx, tnh_br_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected TNH self-contained br block success, got \{err}")
+  }
+  let tnh_br_root = @ir.hot_root_get(tnh_br_func, 0)
+  let tnh_br_child = @ir.hot_child_get(tnh_br_func, tnh_br_root, 0)
+  match @ir.hot_node_get(tnh_br_func, tnh_br_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected TNH self-contained br block child, got \{other}")
+  }
+  let tnh_br_body = @ir.hot_region_body_ref(tnh_br_func, tnh_br_child)
+  let tnh_br_final = @ir.hot_region_get(
+    tnh_br_func,
+    tnh_br_body,
+    @ir.hot_region_root_count(tnh_br_func, tnh_br_body) - 1,
+  )
+  match @ir.hot_node_get(tnh_br_func, tnh_br_final).op {
+    @ir.HotOp::Br => ()
+    other => fail("expected TNH self-contained br final root, got \{other}")
+  }
+
+  let tnh_br_if_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(5U))
+  match hot_pass_run(tnh_ctx, tnh_br_if_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH self-contained br_if block success, got \{err}")
+  }
+  let tnh_br_if_root = @ir.hot_root_get(tnh_br_if_func, 0)
+  let tnh_br_if_child = @ir.hot_child_get(tnh_br_if_func, tnh_br_if_root, 0)
+  match @ir.hot_node_get(tnh_br_if_func, tnh_br_if_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected TNH self-contained br_if block child, got \{other}")
+  }
+  let tnh_br_if_body = @ir.hot_region_body_ref(tnh_br_if_func, tnh_br_if_child)
+  let tnh_br_if_final = @ir.hot_region_get(
+    tnh_br_if_func,
+    tnh_br_if_body,
+    @ir.hot_region_root_count(tnh_br_if_func, tnh_br_if_body) - 1,
+  )
+  match @ir.hot_node_get(tnh_br_if_func, tnh_br_if_final).op {
+    @ir.HotOp::LocalGet => ()
+    other =>
+      fail("expected TNH self-contained br_if final local.get, got \{other}")
   }
 }
 

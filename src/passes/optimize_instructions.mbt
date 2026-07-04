@@ -13071,6 +13071,7 @@ fn optimize_instructions_standalone_ref_get_desc_node_has_no_results(
 ///|
 fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
   func : @ir.HotFunc,
+  owner_id : Int,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)).length() > 1 {
@@ -13078,13 +13079,19 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          node.imm0,
+        ) {
+        return true
+      }
     @ir.HotOp::Block
     | @ir.HotOp::Loop
     | @ir.HotOp::If
     | @ir.HotOp::Try
     | @ir.HotOp::TryTable
-    | @ir.HotOp::Br
-    | @ir.HotOp::BrIf
     | @ir.HotOp::BrTable
     | @ir.HotOp::BrOnNull
     | @ir.HotOp::BrOnNonNull
@@ -13102,6 +13109,7 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
         func,
+        owner_id,
         @ir.hot_child_get(func, node_id, slot),
       ) {
       return true
@@ -13131,22 +13139,29 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
         func, root_id,
       ) ||
       optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func, root_id,
+        func, block_id, root_id,
       ) {
       return false
     }
   }
   let final_id = @ir.hot_region_get(func, body, root_count - 1)
   match @ir.hot_node_get(func, final_id).op {
-    @ir.HotOp::LocalGet => ()
-    _ => return false
+    @ir.HotOp::LocalGet =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, final_id,
+      ) &&
+      !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func, block_id, final_id,
+      )
+    @ir.HotOp::Br =>
+      optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+        func, final_id,
+      ) &&
+      !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func, block_id, final_id,
+      )
+    _ => false
   }
-  optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, final_id,
-  ) &&
-  !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-    func, final_id,
-  )
 }
 
 ///|
