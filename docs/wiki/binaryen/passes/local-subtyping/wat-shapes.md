@@ -5,6 +5,7 @@ last_reviewed: 2026-07-04
 sources:
   - ../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
+  - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -134,6 +135,38 @@ Why it rewrites:
 - the `local.tee` is assignment evidence and also an expression use;
 - local Binaryen v130 narrows this shape to a non-null child declaration;
 - Starshine's emitted lib representation has no separate get/tee result-type field to retag; a focused tee-parent optimized module validates after the declaration change.
+
+## Shape 3b: raw `unreachable` before a tee/get stays nullable today
+
+Before:
+
+```wat
+(local $x (ref null $callee_t))
+unreachable
+(drop
+  (block (result (ref null $callee_t))
+    (local.tee $x (ref.func $callee))))
+(drop (local.get $x))
+```
+
+Binaryen v130 after, conceptually:
+
+```wat
+(local $x (ref $callee_t))
+```
+
+Starshine after, today:
+
+```wat
+(local $x (ref null $callee_t)) ;; often exact after narrowing the heap
+```
+
+Why it stays nullable in Starshine:
+
+- the source validates, and Binaryen v130 narrows the reduced shape to a non-null exact local;
+- `wasm-tools validate --features all` rejects the Binaryen output with `uninitialized local: 1` at the later get;
+- rebuilt Starshine keeps the local nullable exact and emits validating wasm;
+- this is a precise validator/tooling boundary, not a measured Starshine win. Reopen only if the non-null output validates, Starshine adopts a spec-backed raw-unreachable tee proof, or LS can safely repair the later get.
 
 ## Shape 4: non-null narrowing needs dominated gets
 

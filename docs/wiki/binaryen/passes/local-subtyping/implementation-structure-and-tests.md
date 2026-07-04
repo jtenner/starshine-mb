@@ -8,6 +8,7 @@ sources:
   - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
   - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
+  - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -109,7 +110,7 @@ The active Starshine tests are small but meaningful.
 | `src/passes/local_subtyping_test.mbt:89-107` | A body local narrows to an assigned child heap type. |
 | `src/passes/local_subtyping_test.mbt:111-130` | Mixed sibling assignments keep the common supertype. |
 | `src/passes/local_subtyping_test.mbt` iterative fixtures | `local-subtyping iterates after local.get assignment refinalization` proves a dependent local assigned from `local.get` narrows after an earlier local declaration rewrite and module re-lift; `local-subtyping iterates after select LUB refinalization` proves the source-backed untyped select/LUB shape rewrites to a non-null `(ref func)` result and narrows the dependent local; `local-subtyping iterates after call_ref result refinalization` and `local-subtyping replaces bottom call_ref refinalization with unreachable value` prove the represented zero-param call_ref and bottom-call-ref refinalization shapes. |
-| `src/passes/local_subtyping_test.mbt` local.tee fixtures | `local.tee` assignment evidence feeds narrowing, a non-null tee assignment/use validates after non-null declaration narrowing, a tee-parent shape validates without emitted retag repair, and the raw-unreachable-before-write tee/get shape stays nullable to avoid Starshine's nondefaultable-local validation boundary. |
+| `src/passes/local_subtyping_test.mbt` local.tee fixtures | `local.tee` assignment evidence feeds narrowing, a non-null tee assignment/use validates after non-null declaration narrowing, a tee-parent shape validates without emitted retag repair, and the raw-unreachable-before-write tee/get shape stays nullable to avoid the nondefaultable-local validation/tooling boundary, including a WAT-parsed exact nullable function-local guard. |
 | `src/passes/local_subtyping_test.mbt` parameter fixture | A source-backed nullable-parameter write/get guard proves the pass preserves signature params and rewrites only body locals. |
 | `src/passes/local_subtyping_test.mbt` dominance fixtures | Straight-line, branch-free block/loop, loop tail-`br_if` backedge, terminal `br` / `br_table` dominated-get, branch-free block-write post-state, nested branch-free block-if, branch-free root-if, conditional-return/direct-return_call/direct-return_call_indirect/direct-return_call_ref/direct-throw/direct-throw_ref skip, root/block terminal-return/return_call/return_call_indirect/return_call_ref, root non-final return/tail-call unreachable-tail-get, if-arm nested block terminal-return/throw, root/block terminal-throw/throw_ref, try_table body dominated-get including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails with already-dominated tail gets, source-backed nullable loop/if/branch-flow/try-table-body/branch-skipped-write post-state, and direct block-return validator-boundary tests cover non-null positives and nullable fallbacks. |
 | `src/validate/validate.mbt` nondefaultable-local boundary fixture | `validate_module rejects direct block-return non-defaultable unreachable-tail local get` locks the reduced Binaryen non-null output as currently invalid under Starshine validation, matching the 2026-07-04 `wasm-tools` rejection. |
@@ -128,7 +129,7 @@ The 2026-07-04 behavior-family matrix reduced the remaining owner/test-map gaps 
 
 - `catch_ref` / `catch_all_ref` handler-result and skipped-write post-state local-flow parity, currently guarded by fail-closed tests because Starshine HOT lifting cannot yet represent the ref-catch result-flow shapes that Binaryen v130 narrows to nullable exact-child locals;
 - the direct block-return nondefaultable-local unreachable-tail validator/tooling boundary, refreshed as a reduced Binaryen non-null output rejected by `wasm-tools` and locked by `src/validate/validate.mbt` boundary coverage;
-- the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary.
+- the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary, now refreshed as a reduced Binaryen non-null output rejected by `wasm-tools` while rebuilt Starshine keeps nullable exact output valid.
 
 Broad get/tee expression retagging is now classified as representation-satisfied for emitted Starshine lib instructions unless Starshine later adds emitted local expression type metadata or lowers a stale typed HOT graph.
 
@@ -148,6 +149,7 @@ The earlier broad structural-control list is now either implemented/protected in
 - [`../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md`](../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md)
 - [`../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md`](../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md)
 - [`../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md`](../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md)
+- [`../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md`](../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md)
 - Binaryen `version_129` owner: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
 - Binaryen `version_129` lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LocalSubtyping.cpp>

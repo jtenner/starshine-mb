@@ -17,6 +17,7 @@ sources:
   - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
   - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
+  - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -115,7 +116,7 @@ Starshine still lacks three precise Binaryen-relevant surfaces:
 
 1. `catch_ref` / `catch_all_ref` handler-result and skipped-write post-state local-flow parity: Binaryen v130 narrows the probed skipped-write shapes to nullable exact-child locals, but Starshine currently fail-closes before HOT lifting those ref-catch result-flow modules;
 2. a validator/tooling solution or validating Binaryen output repair for the direct block-return nondefaultable-local unreachable-tail family;
-3. a validator/tooling solution for the raw-unreachable-before-write nondefaultable-local tee/get family exposed by Binaryen's retag lit shape.
+3. a validator/tooling solution for the raw-unreachable-before-write nondefaultable-local tee/get family exposed by Binaryen's retag lit shape. The 2026-07-04 refresh reduced this to an exact nullable function-local tee/get shape: Binaryen v130 narrows it to non-null exact, `wasm-tools` rejects that output with `uninitialized local: 1`, and rebuilt Starshine keeps a nullable exact local that validates.
 
 The represented zero-param adjacent-local-get `multiple-iterations-refinalize-call-ref` and bottom-call-ref lit surfaces are now implemented. Reopen `call_ref` refinalization for non-adjacent target flow, parameterized bottom-call replacement, argument side-effect preservation, or type-immediate rewrites with non-identical params.
 

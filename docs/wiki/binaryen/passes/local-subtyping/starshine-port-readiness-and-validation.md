@@ -16,6 +16,7 @@ sources:
   - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
   - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
+  - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -92,7 +93,7 @@ The 2026-07-04 behavior-family matrix refreshed Binaryen `version_130` `LocalSub
 
 1. `catch_ref` / `catch_all_ref` handler-result and skipped-write post-state local-flow parity. Binaryen v130 narrows the probed skipped-write shapes to nullable exact-child locals, but Starshine currently fail-closes before HOT lifting those ref-catch result-flow modules;
 2. the direct block-return nondefaultable-local unreachable-tail validator/tooling boundary, now refreshed as a reduced Binaryen non-null output that `wasm-tools` and Starshine validation reject;
-3. the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary.
+3. the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary, now refreshed as a reduced Binaryen non-null output rejected by `wasm-tools` while rebuilt Starshine keeps nullable exact output valid.
 
 The rest of the prior structural-control list is either implemented/protected by focused tests, source/probe-backed as a nullable fallback, or routed to downstream cleanup owners. In particular, branch-flow block post-state, loop-write post-state, all-arm `if` post-state, branch-skipped writes, and try-body-write post-state should not be described as hidden broad gaps unless a new Binaryen v130+ source/lit/probe shows a specific narrowing that Starshine still misses.
 
@@ -117,7 +118,7 @@ Then grow coverage in this order:
 
 1. EH `catch_ref` / `catch_all_ref` local-flow implementation once Starshine can HOT-lift or otherwise analyze ref-catch result-flow shapes; match Binaryen's nullable exact-child narrowing for skipped post-catch writes and keep broad catch-payload joins broad;
 2. the direct block-return nondefaultable-local validator/tooling boundary once the reduced non-null output validates, Starshine validation intentionally adopts a spec-backed unreachable-tail proof, or Binaryen repairs the output shape;
-3. the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary once Starshine validation can prove Binaryen's lit shape;
+3. the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary once the reduced non-null output validates, Starshine validation intentionally adopts a spec-backed raw-unreachable tee proof, or LS can safely repair the later get while keeping emitted wasm valid;
 4. keep the ordered-neighborhood closeout residual routed to the right owner after the direct regular GenValid, dedicated `local-subtyping-all`, random-all-profiles, and cleanup-normalized wasm-smith lanes passed. The raw ordered `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` attempt `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-20260703` timed out after 3600s with only `200` partial cases (`18` matches, `182` mismatches); the cleanup-normalized rerun `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-local-cleanup-20260704` compared `10000/10000` with zero failures under `--normalize local-cleanup-debris`. Reopen under LS only if a reduced case depends on LS-owned narrowing, dominance, get/tee retagging, refinalization, or reference-local interaction with `heap2local` / `optimize-casts`. The LS-specific `local-subtyping-all` aggregate passed the required 10000-case dedicated direct signoff lane with `local-subtyping-straight-line=5030`, `local-subtyping-structured=3296`, and `local-subtyping-unreachable-tail=1674` selected cases.
 
 ## What to avoid saying
