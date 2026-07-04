@@ -13202,10 +13202,6 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
     if !is_standalone_root {
       return false
     }
-    match @ir.hot_node_get(func, nullable_child).op {
-      @ir.HotOp::LocalGet => ()
-      _ => return false
-    }
   }
   if !optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
       func, nullable_child,

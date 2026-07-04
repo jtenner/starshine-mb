@@ -10147,7 +10147,6 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
     msg=quarantine_pretty,
   )
 
-  let tnh_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
   let tnh_ctx = HotPassContext::new(
     optimize_instructions_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -10157,22 +10156,137 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
     traps_never_happen=true,
     module_ctx=Some(@ir.hot_module_context_from_module(module_)),
   )
-  match hot_pass_run(tnh_ctx, tnh_func) {
+  let tnh_direct_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  match hot_pass_run(tnh_ctx, tnh_direct_func) {
     Ok(_) => ()
     Err(err) =>
       fail(
         "expected standalone ref.get_desc TNH direct-local success, got \{err}",
       )
   }
-  let tnh_root = @ir.hot_root_get(tnh_func, 0)
-  match @ir.hot_node_exact_instr(tnh_func, tnh_root) {
+  let tnh_direct_root = @ir.hot_root_get(tnh_direct_func, 0)
+  match @ir.hot_node_exact_instr(tnh_direct_func, tnh_direct_root) {
     Some(@lib.Instruction::RefGetDesc(_)) => ()
-    other => fail("expected TNH root to stay ref.get_desc, got \{other}")
+    other => fail("expected TNH direct root to stay ref.get_desc, got \{other}")
   }
-  let tnh_child = @ir.hot_child_get(tnh_func, tnh_root, 0)
-  match @ir.hot_node_get(tnh_func, tnh_child).op {
+  let tnh_direct_child = @ir.hot_child_get(tnh_direct_func, tnh_direct_root, 0)
+  match @ir.hot_node_get(tnh_direct_func, tnh_direct_child).op {
     @ir.HotOp::LocalGet => ()
     other => fail("expected TNH direct-local child, got \{other}")
+  }
+
+  let tnh_block_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  match hot_pass_run(tnh_ctx, tnh_block_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected standalone ref.get_desc TNH branch-free block success, got \{err}",
+      )
+  }
+  let tnh_block_root = @ir.hot_root_get(tnh_block_func, 0)
+  match @ir.hot_node_exact_instr(tnh_block_func, tnh_block_root) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected TNH block root to stay ref.get_desc, got \{other}")
+  }
+  let tnh_block_child = @ir.hot_child_get(tnh_block_func, tnh_block_root, 0)
+  match @ir.hot_node_get(tnh_block_func, tnh_block_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected TNH branch-free block child, got \{other}")
+  }
+  let tnh_block_body = @ir.hot_region_body_ref(tnh_block_func, tnh_block_child)
+  @debug.assert_eq(@ir.hot_region_root_count(tnh_block_func, tnh_block_body), 2)
+  let tnh_block_first = @ir.hot_region_get(tnh_block_func, tnh_block_body, 0)
+  match @ir.hot_node_get(tnh_block_func, tnh_block_first).op {
+    @ir.HotOp::GlobalSet => ()
+    other =>
+      fail("expected TNH branch-free block to keep global.set, got \{other}")
+  }
+  let tnh_block_final = @ir.hot_region_get(tnh_block_func, tnh_block_body, 1)
+  match @ir.hot_node_get(tnh_block_func, tnh_block_final).op {
+    @ir.HotOp::LocalGet => ()
+    other =>
+      fail("expected TNH branch-free block final local.get, got \{other}")
+  }
+
+  let tnh_trapping_block_func = @ir.hot_lift_func(
+    module_,
+    @lib.FuncIdx::new(2U),
+  )
+  match hot_pass_run(tnh_ctx, tnh_trapping_block_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected TNH trapping block success, got \{err}")
+  }
+  let tnh_trapping_root = @ir.hot_root_get(tnh_trapping_block_func, 0)
+  let tnh_trapping_child = @ir.hot_child_get(
+    tnh_trapping_block_func, tnh_trapping_root, 0,
+  )
+  match @ir.hot_node_get(tnh_trapping_block_func, tnh_trapping_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected TNH trapping block child, got \{other}")
+  }
+  let tnh_trapping_body = @ir.hot_region_body_ref(
+    tnh_trapping_block_func, tnh_trapping_child,
+  )
+  @debug.assert_eq(
+    @ir.hot_region_root_count(tnh_trapping_block_func, tnh_trapping_body),
+    2,
+  )
+  let tnh_trapping_first = @ir.hot_region_get(
+    tnh_trapping_block_func, tnh_trapping_body, 0,
+  )
+  match @ir.hot_node_get(tnh_trapping_block_func, tnh_trapping_first).op {
+    @ir.HotOp::Drop => ()
+    other =>
+      fail("expected TNH trapping block to keep dropped div, got \{other}")
+  }
+  let tnh_trapping_final = @ir.hot_region_get(
+    tnh_trapping_block_func, tnh_trapping_body, 1,
+  )
+  match @ir.hot_node_get(tnh_trapping_block_func, tnh_trapping_final).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected TNH trapping block final local.get, got \{other}")
+  }
+
+  let tnh_ordered_block_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(3U))
+  match hot_pass_run(tnh_ctx, tnh_ordered_block_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected TNH ordered block success, got \{err}")
+  }
+  let tnh_ordered_root = @ir.hot_root_get(tnh_ordered_block_func, 0)
+  let tnh_ordered_child = @ir.hot_child_get(
+    tnh_ordered_block_func, tnh_ordered_root, 0,
+  )
+  match @ir.hot_node_get(tnh_ordered_block_func, tnh_ordered_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected TNH ordered block child, got \{other}")
+  }
+  let tnh_ordered_body = @ir.hot_region_body_ref(
+    tnh_ordered_block_func, tnh_ordered_child,
+  )
+  @debug.assert_eq(
+    @ir.hot_region_root_count(tnh_ordered_block_func, tnh_ordered_body),
+    3,
+  )
+  let tnh_ordered_first = @ir.hot_region_get(
+    tnh_ordered_block_func, tnh_ordered_body, 0,
+  )
+  match @ir.hot_node_get(tnh_ordered_block_func, tnh_ordered_first).op {
+    @ir.HotOp::GlobalSet => ()
+    other => fail("expected first TNH ordered root global.set, got \{other}")
+  }
+  let tnh_ordered_second = @ir.hot_region_get(
+    tnh_ordered_block_func, tnh_ordered_body, 1,
+  )
+  match @ir.hot_node_get(tnh_ordered_block_func, tnh_ordered_second).op {
+    @ir.HotOp::GlobalSet => ()
+    other => fail("expected second TNH ordered root global.set, got \{other}")
+  }
+  let tnh_ordered_final = @ir.hot_region_get(
+    tnh_ordered_block_func, tnh_ordered_body, 2,
+  )
+  match @ir.hot_node_get(tnh_ordered_block_func, tnh_ordered_final).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected TNH ordered block final local.get, got \{other}")
   }
 }
 
