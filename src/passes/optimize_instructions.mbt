@@ -13158,6 +13158,52 @@ fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  root_id : Int,
+) -> Bool {
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::BrOnCast => ()
+    _ => return false
+  }
+  if !optimize_instructions_descriptor_label_is_internal_to_expr(
+      func,
+      block_id,
+      root.imm0,
+    ) ||
+    @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  let (source_nullable, target_nullable, source_heap, target_heap) = match
+    @ir.hot_node_exact_instr(func, root_id) {
+    Some(
+      @lib.Instruction::BrOnCast(
+        _,
+        @lib.CastOp(src_null, dst_null),
+        src_heap,
+        dst_heap
+      )
+    ) => (src_null, dst_null, src_heap, dst_heap)
+    _ => return false
+  }
+  if !source_nullable || target_nullable || source_heap != target_heap {
+    return false
+  }
+  let nullable_ref = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, nullable_ref).op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, nullable_ref)) {
+        [@lib.ValType::RefTypeValType(ref_type)] =>
+          ref_type.is_nullable() && ref_type.get_heap_type() == source_heap
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_label_owner_is(
   func : @ir.HotFunc,
   label_id : Int,
@@ -13327,6 +13373,10 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
         func, final_id,
       ) &&
       !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func, block_id, final_id,
+      )
+    @ir.HotOp::BrOnCast =>
+      optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
         func, block_id, final_id,
       )
     _ => false
