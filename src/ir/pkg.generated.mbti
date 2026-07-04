@@ -219,6 +219,8 @@ pub fn hot_branch_target(HotFunc, Int) -> Int?
 
 pub fn hot_branch_target_set(HotFunc, Int, Int) -> Unit
 
+pub fn hot_build_atomic(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]) -> Int
+
 pub fn hot_build_binary(HotFunc, @lib.ValType, Int, Int) -> Int
 
 pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int]) -> Int
@@ -504,6 +506,8 @@ pub fn hot_node_kind_is_table(HotFunc, Int) -> Bool
 pub fn hot_node_kind_is_tuple(HotFunc, Int) -> Bool
 
 pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
+
+pub fn hot_node_promote_to_block(HotFunc, Int, @lib.BlockType, Array[Int]) -> Unit
 
 pub fn hot_node_repeated_live_child(HotFunc, Int) -> Int?
 

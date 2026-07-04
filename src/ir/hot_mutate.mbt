@@ -622,6 +622,35 @@ pub fn hot_control_demote_if_to_block(
 }
 
 ///|
+pub fn hot_node_promote_to_block(
+  func : HotFunc,
+  node_id : NodeId,
+  block_type : BlockType,
+  new_children : Array[NodeId],
+) -> Unit {
+  hot_mutate_require_live_node(func, node_id, "hot_node_promote_to_block")
+  let ty = hot_type_intern_block_result(func, block_type)
+  ignore(hot_replace_child_span(func, node_id, new_children))
+  let label_id = hot_label_alloc(
+    func,
+    HotLabelKind::BlockLabel,
+    ty,
+    node_id,
+    hot_type_result_arity(func, ty),
+  )
+  let node = hot_node_get(func, node_id)
+  func.nodes[node_id] = {
+    ..node,
+    op: HotOp::Block,
+    ty,
+    flags: hot_default_flags_for_op(HotOp::Block),
+    imm0: label_id,
+    imm1: 0,
+  }
+  hot_revision_bump(func)
+}
+
+///|
 pub fn hot_tuple_make_promote_to_block(
   func : HotFunc,
   tuple_make_id : NodeId,

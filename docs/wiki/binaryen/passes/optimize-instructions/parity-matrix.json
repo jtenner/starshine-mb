@@ -48,7 +48,8 @@
     "docs/wiki/raw/research/1435-2026-07-03-optimize-instructions-oi-k-terminalization.md",
     "docs/wiki/raw/research/1434-2026-07-03-optimize-instructions-oi-k-array-set-new-effect-localization.md",
     "docs/wiki/raw/research/1436-2026-07-03-optimize-instructions-oi-k-array-new-set-effect-localization.md",
-    "docs/wiki/raw/research/1437-2026-07-03-optimize-instructions-oi-k-dedicated-aggregate-profile.md"
+    "docs/wiki/raw/research/1437-2026-07-03-optimize-instructions-oi-k-dedicated-aggregate-profile.md",
+    "docs/wiki/raw/research/1438-2026-07-03-optimize-instructions-oi-l-atomic-closeout.md"
   ],
   "families": [
     {
@@ -477,10 +478,9 @@
       "status": "implemented-trigger-smoke-plus",
       "families": [
         "OI-I",
-        "OI-J",
-        "OI-L"
+        "OI-J"
       ],
-      "intent": "Seed-indexed OI-I reference trigger-smoke modules covering branch-cast boundaries, direct null/test/cast/equality forms, and local-carried null/test/cast forms. Descriptor/exactness/TNH/IIT coverage is intentionally split into pass-oi-descriptor-gc; OI-K aggregate constructor/get/set coverage is intentionally split into pass-oi-gc-aggregate; non-descriptor pass-oi-ref-gc evidence remains quarantined from OI-J parity claims.",
+      "intent": "Seed-indexed OI-I reference trigger-smoke modules covering branch-cast boundaries, direct null/test/cast/equality forms, and local-carried null/test/cast forms. Descriptor/exactness/TNH/IIT coverage is intentionally split into pass-oi-descriptor-gc; OI-K aggregate constructor/get/set coverage is intentionally split into pass-oi-gc-aggregate; OI-L aggregate atomic RMW/cmpxchg coverage has no profile until Starshine gains representation/parser/lowering support. Non-descriptor pass-oi-ref-gc evidence remains quarantined from OI-J and OI-L parity claims.",
       "featureRequirements": [
         "reference-types",
         "gc"
@@ -516,7 +516,6 @@
         "src/validate/gen_valid.mbt::gen_valid_oi_gc_aggregate_profile_module and gen_valid_oi_trigger_profile_case_label(PassOiGcAggregateProfile) (2026-07-03)",
         "src/validate/gen_valid_tests.mbt::pass-oi-gc-aggregate profile selects validating aggregate trigger labels and ::pass-oi-gc-aggregate boundary labels are stable and distinct (2026-07-03)",
         "2026-07-03 focused signoff for pass-oi-gc-aggregate: JSON validation passed; focused GenValid aggregate tests passed 2/2; profile registry test passed 1/1; bun test scripts/lib/oi-parity-sweep.test.ts passed 9/9; full moon test passed 7329/7329; native src/cmd build passed with pre-existing warnings; grouped OI-K sweep .tmp/oi-k-gc-aggregate-grouped-count120-20260703 compared 120/120 with 110 normalized matches, 10 raw mismatches, and zero validation/property/generator/command failures; all fifteen profile labels sampled."
-
       ]
     },
     {
@@ -4282,39 +4281,31 @@
         "threads"
       ],
       "binaryenOracleMode": "compare-pass normalized WAT after Starshine text/core constructors and feature floors are confirmed",
-      "starshineStatus": "blocked-surface",
+      "starshineStatus": "partial-implementation-blocked",
       "priority": "P2",
-      "blockerBoundaryReason": "Starshine exposes some struct.atomic.get syntax but aggregate RMW/cmpxchg text/core constructors and unshared-lowering coverage are not a complete implemented surface.",
+      "blockerBoundaryReason": "Follow-up implementation added shared-GC aggregate atomic RMW/cmpxchg core decode/encode/validate/HOT representation and a local-receiver optimize-instructions rewrite for unshared struct RMW/xchg/cmpxchg, including identity RMW and same-value cmpxchg to struct.atomic.get. Array aggregate atomics remain a sampled no-rewrite boundary. Native Binaryen-shaped probes now decode, optimize with fail-closed unchanged behavior where required, and validate, but global-receiver struct probes expose a HOT lift/lower result-root sentinel issue: mutating those functions can lower to unreachable. The pass therefore currently rewrites only local.get struct receivers and returns unchanged for array atomics or unsupported aggregate receivers until HOT root/result handling or a safe raw rewrite is fixed.",
       "lastCheckedEvidence": [
-        "docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md",
-        "docs/wiki/binaryen/passes/optimize-instructions/gc-casts-call_ref-and-trap-sensitive-rewrites.md",
-        "src/passes/optimize_instructions.mbt",
-        "src/validate/gen_valid.mbt",
-        "src/validate/gen_valid_tests.mbt",
-        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
-        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
-        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)"
+        "docs/wiki/raw/research/1438-2026-07-03-optimize-instructions-oi-l-atomic-closeout.md (2026-07-03 follow-up section)",
+        "src/passes/optimize_instructions_test.mbt focused *OI-L* test: local-receiver struct RMW/xchg/cmpxchg rewrites and array no-rewrite boundary",
+        "Native probe smoke over .tmp/oi-l-gc-atomics-probes-20260703/*.input.wasm with --optimize-instructions --validate plus wasm-tools validate --features all passed; global-receiver struct probes are currently unchanged, not rewritten",
+        "moon test passed 7333/7333 after the partial implementation",
+        "Binaryen v130 direct probes still define the remaining target: global/unshared struct aggregate RMW/cmpxchg rewrites; arrays preserved"
       ],
-      "genValidProfiles": [
-        "pass-oi-ref-gc"
-      ],
-      "metamorphicTransforms": [
-        "oi-local-carried",
-        "oi-effectful-sibling"
-      ],
+      "genValidProfiles": [],
+      "metamorphicTransforms": [],
       "sweep": {
         "enabled": false,
-        "count": 100,
+        "count": 0,
         "seed": "0x5eed",
-        "profile": "pass-oi-ref-gc",
-        "blockedUntilProfileExists": false
+        "profile": "pass-oi-gc-atomics",
+        "blockedUntilProfileExists": true
       },
-      "closeoutState": "blocked-surface",
-      "releaseImpact": "P2 blocked: aggregate RMW/cmpxchg representation/parser/generator support is incomplete.",
-      "remainingCloseoutWork": "Do not fuzz as if implemented. First confirm Starshine text/core constructors and feature floors for aggregate atomics/RMW/cmpxchg.",
-      "nextCloseoutAction": "Representation/tooling investigation, not compare-pass expansion.",
-      "closeoutRationale": "The row already identifies missing aggregate RMW/cmpxchg text/core constructors and incomplete unshared-lowering coverage, so it is a blocked surface.",
-      "reopenCriteria": "Starshine gains aggregate atomic RMW/cmpxchg representation/parser/lowerer support or v0.1 release scope requires the surface."
+      "closeoutState": "partial-local-receiver-global-hot-blocker",
+      "releaseImpact": "P2 partial implementation blocker: local-receiver struct OI-L rewrites exist and validate, but final parity requires fixing HOT/global-receiver aggregate atomic result handling or adding a safe raw rewrite before widening the receiver gate.",
+      "remainingCloseoutWork": "Fix HOT lift/root result handling for aggregate atomic result bodies or implement a safe raw pre-HOT rewrite; add red-first global.get receiver coverage; widen the receiver gate to global.get; confirm native struct probes rewrite to struct.get/struct.set/select or struct.atomic.get while array probes preserve array atomics; then update this row to final parity/no-rewrite classification.",
+      "nextCloseoutAction": "Start from the global-receiver struct probes that currently stay unchanged. Reproduce the trailing-unreachable HOT body shape with --print-func, fix HOT result-root handling or bypass safely in raw, then rerun focused OI-L tests, native probe WAT inspection, and full validation.",
+      "closeoutRationale": "The family is finite: direct Binaryen behavior exists for unshared struct RMW/cmpxchg, array RMW/cmpxchg is currently no-rewrite in the sampled valid probes, and Starshine now has partial local-receiver support. The remaining gap is specifically global-receiver/native probe rewriting because mutating those HOT bodies exposes a result-root sentinel lowering issue; until fixed, the pass preserves those functions unchanged.",
+      "reopenCriteria": "Finalize when HOT lift/root result handling or a safe raw rewrite supports Binaryen-shaped global.get receiver struct aggregate atomics, a red-first test covers that shape, native struct probes rewrite to the Binaryen-backed struct.get/struct.set/select or struct.atomic.get forms, array probes remain preserved, and validation stays green. Broader reopening also applies if true shared/concurrent runtime tooling or v0.1 release scope requires additional proposal semantics."
     },
     {
       "id": "OI-M-tuple-multivalue-selected-lanes",

@@ -3807,6 +3807,509 @@ fn optimize_instructions_load_result_type(
 }
 
 ///|
+fn optimize_instructions_struct_atomic_field_type(
+  ctx : HotPassContext,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+) -> @lib.ValType? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let @lib.U32(raw_field) = field_idx
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return None
+  }
+  let field = match fields.get(raw_field.reinterpret_as_int()) {
+    Some(field) => field
+    None => return None
+  }
+  if !field.is_mutable() || field.get_storage_type().is_packed() {
+    return None
+  }
+  let value_type = field.unpack()
+  if value_type == @lib.ValType::i32() || value_type == @lib.ValType::i64() {
+    Some(value_type)
+  } else {
+    None
+  }
+}
+
+///|
+fn optimize_instructions_add_temp_local(
+  func : @ir.HotFunc,
+  value_type : @lib.ValType,
+) -> Int {
+  let local_id = @ir.hot_local_count(func)
+  func.locals.locals.push(value_type)
+  local_id
+}
+
+///|
+fn optimize_instructions_build_exact_heap(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  result_type : @lib.ValType?,
+  children : Array[Int],
+) -> Int {
+  let result_types = match result_type {
+    Some(value_type) => [value_type]
+    None => []
+  }
+  @ir.hot_build_heap(func, result_types, instr, children)
+}
+
+///|
+fn optimize_instructions_build_exact_atomic(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  result_type : @lib.ValType?,
+  children : Array[Int],
+) -> Int {
+  let result_types = match result_type {
+    Some(value_type) => [value_type]
+    None => []
+  }
+  @ir.hot_build_atomic(func, result_types, instr, children)
+}
+
+///|
+fn optimize_instructions_build_exact_binary_for_value_type(
+  func : @ir.HotFunc,
+  value_type : @lib.ValType,
+  instr32 : @lib.Instruction,
+  instr64 : @lib.Instruction,
+  lhs : Int,
+  rhs : Int,
+) -> Int? {
+  let instr = if value_type == @lib.ValType::i32() {
+    instr32
+  } else if value_type == @lib.ValType::i64() {
+    instr64
+  } else {
+    return None
+  }
+  let node_id = @ir.hot_build_binary(func, value_type, lhs, rhs)
+  @ir.hot_node_exact_instr_set(func, node_id, instr)
+  Some(node_id)
+}
+
+///|
+fn optimize_instructions_build_exact_compare_for_value_type(
+  func : @ir.HotFunc,
+  value_type : @lib.ValType,
+  instr32 : @lib.Instruction,
+  instr64 : @lib.Instruction,
+  lhs : Int,
+  rhs : Int,
+) -> Int? {
+  let instr = if value_type == @lib.ValType::i32() {
+    instr32
+  } else if value_type == @lib.ValType::i64() {
+    instr64
+  } else {
+    return None
+  }
+  let node_id = @ir.hot_build_compare(func, lhs, rhs)
+  @ir.hot_node_exact_instr_set(func, node_id, instr)
+  Some(node_id)
+}
+
+///|
+fn optimize_instructions_replace_with_value_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  result_type : @lib.ValType,
+  body : Array[Int],
+) -> Unit {
+  @ir.hot_node_promote_to_block(
+    func,
+    node_id,
+    @lib.BlockType::val_type(result_type),
+    body,
+  )
+  for root_idx = 0
+      root_idx + 1 < @ir.hot_root_count(func)
+      root_idx = root_idx + 1 {
+    if @ir.hot_root_get(func, root_idx) == node_id {
+      let next_root = @ir.hot_root_get(func, root_idx + 1)
+      match @ir.hot_node_get(func, next_root).op {
+        @ir.HotOp::Unreachable => {
+          ignore(@ir.hot_root_remove(func, root_idx + 1))
+          break
+        }
+        _ => ()
+      }
+    }
+  }
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_i32_const_is(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  value : Int,
+) -> Bool {
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(raw)) => raw == value
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_i64_const_is(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  value : Int64,
+) -> Bool {
+  match optimize_instructions_i64_const(func, dead, node_id) {
+    Some(@lib.I64(raw)) => raw == value
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_nodes_are_same_const_value(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  value_type : @lib.ValType,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  if value_type == @lib.ValType::i32() {
+    match
+      (
+        optimize_instructions_i32_const(func, dead, lhs),
+        optimize_instructions_i32_const(func, dead, rhs),
+      ) {
+      (Some(@lib.I32(a)), Some(@lib.I32(b))) => a == b
+      _ => false
+    }
+  } else if value_type == @lib.ValType::i64() {
+    match
+      (
+        optimize_instructions_i64_const(func, dead, lhs),
+        optimize_instructions_i64_const(func, dead, rhs),
+      ) {
+      (Some(@lib.I64(a)), Some(@lib.I64(b))) => a == b
+      _ => false
+    }
+  } else {
+    false
+  }
+}
+
+///|
+fn optimize_instructions_struct_atomic_identity_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  value_type : @lib.ValType,
+  op : @lib.AggregateAtomicRmwOp,
+  value_id : Int,
+) -> Bool {
+  match op {
+    @lib.AggregateAtomicRmwAdd
+    | @lib.AggregateAtomicRmwOr
+    | @lib.AggregateAtomicRmwXor =>
+      if value_type == @lib.ValType::i32() {
+        optimize_instructions_i32_const_is(func, dead, value_id, 0)
+      } else {
+        optimize_instructions_i64_const_is(func, dead, value_id, 0L)
+      }
+    @lib.AggregateAtomicRmwAnd =>
+      if value_type == @lib.ValType::i32() {
+        optimize_instructions_i32_const_is(func, dead, value_id, -1)
+      } else {
+        optimize_instructions_i64_const_is(func, dead, value_id, -1L)
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_struct_atomic_receiver_is_dupable(
+  func : @ir.HotFunc,
+  receiver_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, receiver_id).op {
+    @ir.HotOp::LocalGet => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+  value_type : @lib.ValType,
+  receiver_id : Int,
+  operands_to_drop : Array[Int],
+) -> Bool {
+  if !optimize_instructions_struct_atomic_receiver_is_dupable(func, receiver_id) {
+    return false
+  }
+  let body : Array[Int] = []
+  for operand in operands_to_drop {
+    if !optimize_instructions_node_is_live(func, dead, operand) ||
+      !optimize_instructions_is_side_effect_free_expr(func, dead, operand) {
+      return false
+    }
+    body.push(@ir.hot_build_drop(func, operand))
+  }
+  body.push(
+    optimize_instructions_build_exact_atomic(
+      func,
+      @lib.Instruction::struct_atomic_get(
+        @lib.AtomicOrder::seq_cst(),
+        type_idx,
+        field_idx,
+      ),
+      Some(value_type),
+      [receiver_id],
+    ),
+  )
+  optimize_instructions_replace_with_value_block(
+    ctx, func, node_id, value_type, body,
+  )
+  true
+}
+
+///|
+fn optimize_instructions_try_rewrite_struct_atomic_rmw(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  op : @lib.AggregateAtomicRmwOp,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+  value_type : @lib.ValType,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let receiver_id = @ir.hot_child_get(func, node_id, 0)
+  let value_id = @ir.hot_child_get(func, node_id, 1)
+  if optimize_instructions_struct_atomic_identity_operand(
+      func, dead, value_type, op, value_id,
+    ) {
+    return optimize_instructions_try_rewrite_struct_atomic_identity_get(
+      ctx,
+      func,
+      dead,
+      node_id,
+      type_idx,
+      field_idx,
+      value_type,
+      receiver_id,
+      [value_id],
+    )
+  }
+  match op {
+    @lib.AggregateAtomicRmwAdd | @lib.AggregateAtomicRmwXchg => ()
+    _ => return false
+  }
+  if !optimize_instructions_struct_atomic_receiver_is_dupable(func, receiver_id) ||
+    !optimize_instructions_is_side_effect_free_expr(func, dead, value_id) {
+    return false
+  }
+  let receiver_local = optimize_instructions_add_temp_local(
+    func,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+    ),
+  )
+  let value_local = optimize_instructions_add_temp_local(func, value_type)
+  let old_local = optimize_instructions_add_temp_local(func, value_type)
+  let old_get_for_new = @ir.hot_build_local_get(func, old_local)
+  let value_get_for_new = @ir.hot_build_local_get(func, value_local)
+  let new_value = match op {
+    @lib.AggregateAtomicRmwAdd =>
+      match
+        optimize_instructions_build_exact_binary_for_value_type(
+          func,
+          value_type,
+          @lib.Instruction::i32_add(),
+          @lib.Instruction::i64_add(),
+          old_get_for_new,
+          value_get_for_new,
+        ) {
+        Some(id) => id
+        None => return false
+      }
+    @lib.AggregateAtomicRmwXchg => value_get_for_new
+    _ => return false
+  }
+  let body : Array[Int] = [
+    @ir.hot_build_local_set(func, receiver_local, receiver_id),
+    @ir.hot_build_local_set(func, value_local, value_id),
+    @ir.hot_build_local_set(
+      func,
+      old_local,
+      optimize_instructions_build_exact_heap(
+        func,
+        @lib.Instruction::struct_get(type_idx, field_idx),
+        Some(value_type),
+        [@ir.hot_build_local_get(func, receiver_local)],
+      ),
+    ),
+    optimize_instructions_build_exact_heap(
+      func,
+      @lib.Instruction::struct_set(type_idx, field_idx),
+      None,
+      [@ir.hot_build_local_get(func, receiver_local), new_value],
+    ),
+    @ir.hot_build_local_get(func, old_local),
+  ]
+  optimize_instructions_replace_with_value_block(
+    ctx, func, node_id, value_type, body,
+  )
+  true
+}
+
+///|
+fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+  value_type : @lib.ValType,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 3 {
+    return false
+  }
+  let receiver_id = @ir.hot_child_get(func, node_id, 0)
+  let expected_id = @ir.hot_child_get(func, node_id, 1)
+  let replacement_id = @ir.hot_child_get(func, node_id, 2)
+  if optimize_instructions_nodes_are_same_const_value(
+      func, dead, value_type, expected_id, replacement_id,
+    ) {
+    return optimize_instructions_try_rewrite_struct_atomic_identity_get(
+      ctx,
+      func,
+      dead,
+      node_id,
+      type_idx,
+      field_idx,
+      value_type,
+      receiver_id,
+      [expected_id, replacement_id],
+    )
+  }
+  if !optimize_instructions_struct_atomic_receiver_is_dupable(func, receiver_id) ||
+    !optimize_instructions_is_side_effect_free_expr(func, dead, expected_id) ||
+    !optimize_instructions_is_side_effect_free_expr(func, dead, replacement_id) {
+    return false
+  }
+  let receiver_local = optimize_instructions_add_temp_local(
+    func,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+    ),
+  )
+  let expected_local = optimize_instructions_add_temp_local(func, value_type)
+  let replacement_local = optimize_instructions_add_temp_local(func, value_type)
+  let old_local = optimize_instructions_add_temp_local(func, value_type)
+  let old_for_compare = @ir.hot_build_local_get(func, old_local)
+  let expected_for_compare = @ir.hot_build_local_get(func, expected_local)
+  let condition = match
+    optimize_instructions_build_exact_compare_for_value_type(
+      func,
+      value_type,
+      @lib.Instruction::i32_eq(),
+      @lib.Instruction::i64_eq(),
+      old_for_compare,
+      expected_for_compare,
+    ) {
+    Some(id) => id
+    None => return false
+  }
+  let selected = @ir.hot_build_select(
+    func,
+    value_type,
+    @ir.hot_build_local_get(func, replacement_local),
+    @ir.hot_build_local_get(func, old_local),
+    condition,
+  )
+  let body : Array[Int] = [
+    @ir.hot_build_local_set(func, receiver_local, receiver_id),
+    @ir.hot_build_local_set(func, expected_local, expected_id),
+    @ir.hot_build_local_set(func, replacement_local, replacement_id),
+    @ir.hot_build_local_set(
+      func,
+      old_local,
+      optimize_instructions_build_exact_heap(
+        func,
+        @lib.Instruction::struct_get(type_idx, field_idx),
+        Some(value_type),
+        [@ir.hot_build_local_get(func, receiver_local)],
+      ),
+    ),
+    optimize_instructions_build_exact_heap(
+      func,
+      @lib.Instruction::struct_set(type_idx, field_idx),
+      None,
+      [@ir.hot_build_local_get(func, receiver_local), selected],
+    ),
+    @ir.hot_build_local_get(func, old_local),
+  ]
+  optimize_instructions_replace_with_value_block(
+    ctx, func, node_id, value_type, body,
+  )
+  true
+}
+
+///|
+fn optimize_instructions_try_rewrite_aggregate_atomic(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return false
+  }
+  match instr {
+    @lib.Instruction::StructAtomicRmw(op, type_idx, field_idx) => {
+      let value_type = match
+        optimize_instructions_struct_atomic_field_type(ctx, type_idx, field_idx) {
+        Some(value_type) => value_type
+        None => return false
+      }
+      optimize_instructions_try_rewrite_struct_atomic_rmw(
+        ctx, func, dead, node_id, op, type_idx, field_idx, value_type,
+      )
+    }
+    @lib.Instruction::StructAtomicCmpxchg(type_idx, field_idx) => {
+      let value_type = match
+        optimize_instructions_struct_atomic_field_type(ctx, type_idx, field_idx) {
+        Some(value_type) => value_type
+        None => return false
+      }
+      optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
+        ctx, func, dead, node_id, type_idx, field_idx, value_type,
+      )
+    }
+    @lib.Instruction::ArrayAtomicRmw(_, _)
+    | @lib.Instruction::ArrayAtomicCmpxchg(_) => false
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_const_memory_access_offset(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3825,6 +4328,16 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) => instr
     None => return false
+  }
+  match instr {
+    @lib.Instruction::StructAtomicGet(_, _, _)
+    | @lib.Instruction::StructAtomicGetS(_, _, _)
+    | @lib.Instruction::StructAtomicGetU(_, _, _)
+    | @lib.Instruction::StructAtomicRmw(_, _, _)
+    | @lib.Instruction::StructAtomicCmpxchg(_, _)
+    | @lib.Instruction::ArrayAtomicRmw(_, _)
+    | @lib.Instruction::ArrayAtomicCmpxchg(_) => return false
+    _ => ()
   }
   let @lib.MemArg(align, mem, @lib.U64(offset)) = @ir.hot_memarg_get(
       func,
@@ -15215,7 +15728,14 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_replace_unreachable_guard_cast_branch(
         ctx, func, node_id,
       )
-    @ir.HotOp::Load | @ir.HotOp::Atomic =>
+    @ir.HotOp::Load =>
+      optimize_instructions_try_fold_const_memory_access_offset(
+        ctx, func, dead, node_id,
+      )
+    @ir.HotOp::Atomic =>
+      optimize_instructions_try_rewrite_aggregate_atomic(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_fold_const_memory_access_offset(
         ctx, func, dead, node_id,
       )
@@ -15289,10 +15809,40 @@ fn optimize_instructions_visit_node(
 }
 
 ///|
+fn optimize_instructions_func_has_unsupported_aggregate_atomic_receiver(
+  func : @ir.HotFunc,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(@lib.Instruction::ArrayAtomicRmw(_, _))
+      | Some(@lib.Instruction::ArrayAtomicCmpxchg(_)) => return true
+      Some(@lib.Instruction::StructAtomicRmw(_, _, _))
+      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _)) => {
+        if @ir.hot_child_count(func, node_id) == 0 {
+          return true
+        }
+        match @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op {
+          @ir.HotOp::LocalGet => ()
+          _ => return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if optimize_instructions_func_has_unsupported_aggregate_atomic_receiver(func) {
+    return HotPassResult::unchanged()
+  }
   let mut changed = false
   let node_count = @ir.hot_node_count(func)
   let seen = @bitset.BitSet::new(node_count)

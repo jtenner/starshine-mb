@@ -19131,40 +19131,114 @@ test "optimize-instructions directizes call-indexed table.get call_ref targets" 
 }
 
 ///|
-test "optimize-instructions intentionally rejects unsupported GC atomic RMW surface" {
-  // OI-L boundary: Binaryen version_130 optimizes struct.atomic.rmw.add(0),
-  // struct.atomic.rmw.and(-1), and struct.atomic.rmw.cmpxchg(expected ==
-  // replacement) to struct.get-like reads for the probed acqrel/acqrel forms.
-  // Starshine currently represents only struct.atomic.get* in its aggregate
-  // atomic text/core surface, so RMW/cmpxchg must stay an explicit unsupported
-  // boundary instead of being hidden as pass parity.
-  let rmw_src =
+test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves array boundary" {
+  // OI-L source-backed Binaryen version_130 subset: direct
+  // --optimize-instructions lowers unshared struct aggregate RMW/cmpxchg, folds
+  // identity struct RMW and same-value cmpxchg to struct.atomic.get plus dropped
+  // operands, and leaves sampled array RMW/cmpxchg unchanged.
+  let src =
     #|(module
     #|  (type $S (struct (field (mut i32))))
-    #|  (func (param $s (ref $S)) (result i32)
-    #|    (struct.atomic.rmw.add acqrel acqrel $S 0
+    #|  (type $A (array (mut i32)))
+    #|  (func (param $s (ref $S)) (param $v i32) (result i32)
+    #|    (struct.atomic.rmw.add 0 0
     #|      (local.get $s)
-    #|      (i32.const 0))))
-    #|
-  match @wast.wast_to_binary_module(rmw_src) {
-    Ok(_) => fail("expected unsupported struct.atomic.rmw surface to reject")
-    Err(_) => ()
-  }
-
-  let cmpxchg_src =
-    #|(module
-    #|  (type $S (struct (field (mut i32))))
+    #|      (local.get $v)))
+    #|  (func (param $s (ref $S)) (param $v i32) (result i32)
+    #|    (struct.atomic.rmw.xchg 0 0
+    #|      (local.get $s)
+    #|      (local.get $v)))
     #|  (func (param $s (ref $S)) (result i32)
-    #|    (struct.atomic.rmw.cmpxchg acqrel acqrel $S 0
+    #|    (struct.atomic.rmw.add 0 0
+    #|      (local.get $s)
+    #|      (i32.const 0)))
+    #|  (func (param $s (ref $S)) (result i32)
+    #|    (struct.atomic.rmw.or 0 0
+    #|      (local.get $s)
+    #|      (i32.const 0)))
+    #|  (func (param $s (ref $S)) (result i32)
+    #|    (struct.atomic.rmw.and 0 0
+    #|      (local.get $s)
+    #|      (i32.const -1)))
+    #|  (func (param $s (ref $S)) (result i32)
+    #|    (struct.atomic.rmw.cmpxchg 0 0
     #|      (local.get $s)
     #|      (i32.const 7)
-    #|      (i32.const 7))))
+    #|      (i32.const 7)))
+    #|  (func (param $s (ref $S)) (param $e i32) (param $r i32) (result i32)
+    #|    (struct.atomic.rmw.cmpxchg 0 0
+    #|      (local.get $s)
+    #|      (local.get $e)
+    #|      (local.get $r)))
+    #|  (func (param $a (ref $A)) (param $i i32) (param $v i32) (result i32)
+    #|    (array.atomic.rmw.add 1
+    #|      (local.get $a)
+    #|      (local.get $i)
+    #|      (local.get $v))))
     #|
-  match @wast.wast_to_binary_module(cmpxchg_src) {
-    Ok(_) =>
-      fail("expected unsupported struct.atomic.rmw.cmpxchg surface to reject")
-    Err(_) => ()
+  let optimized = match pass_test_run_pipeline(src, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected OI-L optimize-instructions success, got \{err}")
   }
+
+  let lowered_add = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(lowered_add.contains("struct.atomic.rmw.add"), msg=lowered_add)
+  assert_true(lowered_add.contains("struct.get"), msg=lowered_add)
+  assert_true(lowered_add.contains("struct.set"), msg=lowered_add)
+  assert_true(lowered_add.contains("i32.add"), msg=lowered_add)
+
+  let lowered_xchg = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(
+    lowered_xchg.contains("struct.atomic.rmw.xchg"),
+    msg=lowered_xchg,
+  )
+  assert_true(lowered_xchg.contains("struct.get"), msg=lowered_xchg)
+  assert_true(lowered_xchg.contains("struct.set"), msg=lowered_xchg)
+
+  for idx = 2; idx <= 5; idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("struct.atomic.rmw"), msg=pretty)
+    assert_true(pretty.contains("struct.atomic.get"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+
+  let lowered_cmpxchg = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_false(
+    lowered_cmpxchg.contains("struct.atomic.rmw.cmpxchg"),
+    msg=lowered_cmpxchg,
+  )
+  assert_true(lowered_cmpxchg.contains("struct.get"), msg=lowered_cmpxchg)
+  assert_true(lowered_cmpxchg.contains("struct.set"), msg=lowered_cmpxchg)
+  assert_true(lowered_cmpxchg.contains("select"), msg=lowered_cmpxchg)
+
+  let array_boundary = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  assert_true(
+    array_boundary.contains("array.atomic.rmw.add"),
+    msg=array_boundary,
+  )
+
+  // Current fail-closed native-probe blocker: global receivers are preserved
+  // until HOT lift/lower result-root handling for aggregate atomics is fixed.
+  let global_receiver_src =
+    #|(module
+    #|  (type $S (struct (field (mut i32))))
+    #|  (global $g (ref $S) (struct.new $S (i32.const 7)))
+    #|  (func (result i32)
+    #|    (struct.atomic.rmw.add 0 0
+    #|      (global.get $g)
+    #|      (i32.const 1))))
+    #|
+  let global_receiver = match
+    pass_test_run_pipeline(global_receiver_src, ["optimize-instructions"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected global receiver fail-closed success, got \{err}")
+  }
+  assert_true(
+    global_receiver.contains("struct.atomic.rmw.add"),
+    msg=global_receiver,
+  )
 }
 
 ///|
