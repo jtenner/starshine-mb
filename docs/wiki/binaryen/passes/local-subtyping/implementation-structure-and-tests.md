@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -113,18 +114,18 @@ The active Starshine tests are small but meaningful.
 ## What this page is *not*
 
 This page is not a claim of full Binaryen parity.
-The current Starshine implementation does not yet include:
+The 2026-07-04 behavior-family matrix reduced the remaining owner/test-map gaps to precise residuals:
 
-- full structural get-aware non-null repair beyond straight-line roots, branch-free blocks, terminal `br` / `br_table` dominated-get blocks, branch-free block-write post-state, branch-free loop entry bodies plus the narrow tail-`br_if` backedge subset, nested branch-free block-if arms, branch-free root if arms, root/block terminal-return/return_call/return_call_indirect/return_call_ref, root non-final return/tail-call unreachable-tail-get, if-arm nested block terminal-return/throw, root/block terminal-throw/throw_ref, and try_table body dominated-get tails including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and source-backed non-final body `return`/`throw`/`throw_ref`/tail-call tails;
 - broad get/tee expression retagging after narrowing beyond the focused non-null `local.tee` validation fixture;
-- iterative refinalization;
-- dominance-sensitive non-null propagation for loops with broader backedges/post-state joins, EH, broader `if` join/post-state cases, broader `try_table`/EH flow, branch/return/throw control flow beyond the terminal-branch dominated-get, conditional-return/direct-return_call/direct-return_call_indirect/direct-return_call_ref/direct-throw/direct-throw_ref skip branch, root/block terminal-return/return_call/return_call_indirect/return_call_ref, root non-final return/tail-call unreachable-tail-get subsets, if-arm nested block terminal-return/throw, root/block terminal-throw/throw_ref, try_table body dominated-get subsets including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails; current loop write, all-arm `if` write, branch-skipped write, branch-flow block post-state, try-table body post-state, and direct block-return cases are source-backed nullable/tooling fallbacks;
-- broader parameter/body-local boundary coverage beyond the now-source-backed parameter-preservation fixture.
+- iterative refinalization/reanalysis after one declaration rewrite sharpens another assigned value type;
+- focused EH `catch_ref` / `catch_all_ref` handler-flow and handler post-state local-declaration probes/classification;
+- the direct block-return nondefaultable-local unreachable-tail validator/tooling boundary.
 
-Those gaps belong on the strategy and validation pages, not in the owner/test map.
+The earlier broad structural-control list is now either implemented/protected in `local_subtyping_test.mbt`, source/probe-backed as nullable fallback behavior, or routed to downstream cleanup owners. Those remaining residuals belong on the strategy and validation pages, not as hidden owner/test-map uncertainty.
 
 ## Sources
 
+- [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md)
 - [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md)
 - [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md)

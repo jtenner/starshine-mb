@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/1429-2026-07-03-local-subtyping-closeout-lane-evidence.md
   - ../../../raw/research/1430-2026-07-04-local-subtyping-ordered-neighborhood-cleanup.md
+  - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -81,15 +82,16 @@ That is a valid Starshine pass, but it is only a subset of the upstream contract
 
 ## What still needs parity work
 
-Compared with Binaryen, Starshine still lacks:
+The 2026-07-04 behavior-family matrix refreshed Binaryen `version_130` `LocalSubtyping.cpp`, `local-subtyping.wast`, and `local-structural-dominance.h`; all three matched the earlier `version_129` source basis. The review moved the old broad bucket list into four precise residuals:
 
-- full structural get-site dominance analysis;
-- non-null fallback based on structural dominance across loops with backedges or post-state joins beyond the source-backed tail-`br_if` dominated-get subset, EH regions, broader `if` join/post-state cases, and blocks/ifs with branch/return/return_call/throw flow beyond the terminal-branch dominated-get, conditional-return/direct-return_call/direct-return_call_indirect/direct-return_call_ref/direct-throw/direct-throw_ref skip branch, root/block terminal-return/return_call/return_call_indirect/return_call_ref, root non-final return/tail-call unreachable-tail-get subsets, if-arm nested block terminal-return/throw, and root/block terminal-throw/throw_ref subsets; branch-free block write post-state is now covered, while branch-free loop writes, all-arm `if` writes, branch-skipped writes, branch-flow block post-state, try-table body post-state, and direct block-return cases currently follow Binaryen-observed nullable post-state behavior or a precise Starshine validator tooling boundary;
-- broad get/tee expression retagging after declaration narrowing; a non-null `local.tee` assignment/use fixture validates today, but the general explicit Binaryen retagging contract remains open;
-- repeated refinalize/reanalyze rounds;
-- broader shape coverage for structured tees, non-null cases, and parameter/body-local boundaries beyond the now-guarded source-backed parameter-preservation case.
+1. broad explicit `local.get` / `local.tee` expression retagging after declaration narrowing;
+2. iterative refinalization/reanalysis after one local declaration rewrite exposes a sharper assigned value type;
+3. EH `catch_ref` / `catch_all_ref` handler-flow and handler post-state probes/classification;
+4. the direct block-return nondefaultable-local unreachable-tail validator/tooling boundary.
 
-Those are the next parity slices, not the current shipped pass.
+The rest of the prior structural-control list is either implemented/protected by focused tests, source/probe-backed as a nullable fallback, or routed to downstream cleanup owners. In particular, branch-flow block post-state, loop-write post-state, all-arm `if` post-state, branch-skipped writes, and try-body-write post-state should not be described as hidden broad gaps unless a new Binaryen v130+ source/lit/probe shows a specific narrowing that Starshine still misses.
+
+Those four residuals are the next parity slices, not the current shipped pass.
 
 ## Validation ladder
 
@@ -108,10 +110,10 @@ The current audit slices add and validate focused direct tests: `local.tee` assi
 
 Then grow coverage in this order:
 
-1. structured-control nullable-to-non-null positives and failures beyond branch-free `block` bodies, branch-free block-write post-state, branch-free `loop` entry bodies, the tail-`br_if` backedge subset, and branch-free root `if` arms;
-2. `local.get` / `local.tee` expression retagging;
-3. repeated refinement after a narrowing change;
-4. broader parameter/body-local-only scope checks beyond the source-backed nullable-parameter preservation guard;
+1. `local.get` / `local.tee` expression retagging after declaration narrowing, especially unreachable get/tee parent-expression shapes from Binaryen's lit surface;
+2. repeated refinement after a narrowing change, especially select/block LUB and `call_ref` cases where one narrowed local sharpens a later assignment;
+3. EH `catch_ref` / `catch_all_ref` local-flow probes that decide whether handler payload and handler post-state remain nullable boundaries or need a new safe subset;
+4. the direct block-return nondefaultable-local validator/tooling boundary once Starshine validation can prove Binaryen's unreachable-tail shape;
 5. keep the ordered-neighborhood closeout residual routed to the right owner after the direct regular GenValid, dedicated `local-subtyping-all`, random-all-profiles, and cleanup-normalized wasm-smith lanes passed. The raw ordered `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` attempt `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-20260703` timed out after 3600s with only `200` partial cases (`18` matches, `182` mismatches); the cleanup-normalized rerun `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-local-cleanup-20260704` compared `10000/10000` with zero failures under `--normalize local-cleanup-debris`. Reopen under LS only if a reduced case depends on LS-owned narrowing, dominance, get/tee retagging, refinalization, or reference-local interaction with `heap2local` / `optimize-casts`. The LS-specific `local-subtyping-all` aggregate passed the required 10000-case dedicated direct signoff lane with `local-subtyping-straight-line=5030`, `local-subtyping-structured=3296`, and `local-subtyping-unreachable-tail=1674` selected cases.
 
 ## What to avoid saying

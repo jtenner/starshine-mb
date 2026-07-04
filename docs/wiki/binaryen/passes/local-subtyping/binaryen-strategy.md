@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -25,13 +26,16 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the tagged source oracle for this pass.
-- Use [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md) as the freshness bridge above the 2026-04-25 source-correction note.
-- The 2026-04-25 recheck found no teaching-relevant current-main drift from `version_129`, but it did find that this repo's 2026-04-22 summary overcorrected the pass into a smaller set-only story.
-- The 2026-05-05 current-main recheck also found no teaching-relevant drift and keeps the corrected set/get/refinalize story fresh.
+- Use Binaryen `version_130` as the installed oracle for the active v0.1.0 audit; `wasm-opt --version` reported `version_130` during the 2026-07-04 source refresh.
+- The 2026-07-04 behavior-family review downloaded Binaryen `version_130` `LocalSubtyping.cpp`, `local-subtyping.wast`, and `local-structural-dominance.h`, downloaded the corresponding `version_129` files, and found empty diffs. The older `version_129` dossier therefore remains source-current for the installed `version_130` oracle.
+- Use [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md) as the freshness bridge above the 2026-04-25 source-correction note, and [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md) for the v130 source-refresh and residual-family matrix.
+- The 2026-04-25 and 2026-05-05 rechecks found no teaching-relevant drift from the corrected set/get/refinalize story; the 2026-07-04 v130 refresh keeps that story unchanged.
 
 Primary source URLs:
 
+- Binaryen `version_130` `LocalSubtyping.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/LocalSubtyping.cpp>
+- Binaryen `version_130` `local-structural-dominance.h`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-structural-dominance.h>
+- Binaryen `version_130` `local-subtyping.wast`: <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/local-subtyping.wast>
 - Binaryen `version_129` `LocalSubtyping.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
 - Binaryen `version_129` `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `version_129` `opt-utils.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
@@ -181,10 +185,14 @@ If Starshine ports `local-subtyping`, preserve these first:
 
 ## Sources
 
+- [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md)
 - [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
 - [`../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
+- Binaryen `version_130` pass source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/LocalSubtyping.cpp>
+- Binaryen `version_130` structural-dominance header: <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-structural-dominance.h>
+- Binaryen `version_130` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/local-subtyping.wast>
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LocalSubtyping.cpp>
