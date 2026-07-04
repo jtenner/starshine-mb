@@ -339,6 +339,55 @@ fn ls_test_module_with_child_param_tag_and_tail_refs(
 }
 
 ///|
+fn ls_test_module_with_i32_param_and_imported_func_refs(
+  body_local_types : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let i32_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let i64_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let main_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([i32_func_type, i64_func_type, main_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("out"),
+        @lib.Name::new("i32"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Import::new(
+        @lib.Name::new("out"),
+        @lib.Name::new("i64"),
+        @lib.ExternType::func(@lib.TypeIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::declarative(),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types(body_local_types),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
 test "local-subtyping registers as an active module pass" {
   match pass_registry_lookup("local-subtyping") {
     Some(entry) => {
@@ -452,6 +501,63 @@ test "local-subtyping iterates after local.get assignment refinalization" {
     Ok(_) => ()
     Err(err) =>
       fail("expected iterated local-subtyping module to validate, got \{err}")
+  }
+}
+
+///|
+test "local-subtyping iterates after select LUB refinalization" {
+  let funcref_nullable = @lib.ValType::funcref()
+  let i32_func_nonnull = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  let i64_func_nonnull = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let func_nonnull = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+  )
+  let mod_ = ls_test_module_with_i32_param_and_imported_func_refs(
+    [funcref_nullable, funcref_nullable, funcref_nullable],
+    [
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::select(),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::drop(),
+    ],
+  )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_locals(optimized), [
+    i32_func_nonnull, i64_func_nonnull, func_nonnull,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected iterated select-LUB local-subtyping module to validate, got \{err}",
+      )
   }
 }
 
