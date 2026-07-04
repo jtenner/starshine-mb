@@ -9904,6 +9904,104 @@ test "optimize-instructions folds descriptor casts with exact mismatching descri
 }
 
 ///|
+test "optimize-instructions rewrites exact-result descriptor cast misses before final validation" {
+  // OI-J descriptor validation boundary: Binaryen version_130 also rewrites the
+  // exact-result spelling of the strict-subtype/exact-descriptor miss to
+  // `unreachable`. Starshine's final validator rejects that exact-result
+  // descriptor cast if it survives optimization, so the public pipeline must
+  // fold it before final module validation instead of relying on the narrower
+  // already-valid inexact-result HOT fixture above.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let exact_base_ref_type = @lib.RefType::new(false, base_heap, exact=true)
+  let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_type(sub_ref_type)], [
+              @lib.ValType::ref_type(exact_base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(module_, HotPipelineOptions::new(), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected exact-result descriptor miss to fold before final validation, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
 test "optimize-instructions exactifies nullable descriptor casts with exact descriptor operands" {
   // OI-J descriptor exactness breadth: Binaryen version_130 rewrites a nullable
   // descriptor equality cast fed by an inexact nullable reference plus an exact
