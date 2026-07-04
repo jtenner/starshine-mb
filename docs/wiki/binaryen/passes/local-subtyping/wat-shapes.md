@@ -6,6 +6,7 @@ sources:
   - ../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
   - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
+  - ../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -819,7 +820,7 @@ Why it rewrites:
 - the observed gets before the tail call, and any syntactic tail gets after that tail call in the non-final probes, are dominated by the non-null write;
 - Starshine's scanner already treats `return_call`, `return_call_indirect`, and `return_call_ref` as return-like non-propagating terminal points inside the copied `try_table` body scan. This still does not propagate try-body writes outward and does not widen catch-ref/catch-all-ref post-state or broader EH flow.
 
-## Shape 6h-d: `catch_ref` / `catch_all_ref` skipped writes are a Starshine representation boundary
+## Shape 6h-d: `catch_ref` / `catch_all_ref` skipped writes narrow through raw assignment
 
 Before:
 
@@ -840,11 +841,11 @@ Binaryen v130 output narrows the local heap type but keeps nullability:
 (local $x (ref null (exact $A)))
 ```
 
-Why Starshine stays broader for now:
+Current Starshine behavior:
 
-- local Binaryen v130 narrows `.tmp/ls-eh-probes-20260704/catch-ref-skips-block-write.wat` and `.tmp/ls-eh-probes-20260704/catch-all-ref-skips-block-write.wat` to nullable exact-child locals;
-- the catch path can skip the write and still reach the outside get through the block result, so non-null narrowing would be invalid;
-- Starshine currently cannot HOT-lift the ref-catch result-flow shape safely for assignment collection, so `local-subtyping` fail-closes on raw `CatchRef` / `CatchAllRef` functions. Focused boundary tests require pass success plus unchanged, validating output. This is not a Starshine win; reopen when ref-catch result-flow analysis can match Binaryen's nullable exact-child narrowing while preserving broad catch-payload joins.
+- local Binaryen v130 narrows `.tmp/ls-ref-catch-impl-20260704/catch-ref-skipped-struct-write.wat` and `.tmp/ls-ref-catch-impl-20260704/catch-all-ref-skipped-struct-write.wat` to nullable exact-child locals;
+- the catch path can skip the write and still reach the outside get through the block result, so non-null narrowing remains invalid;
+- Starshine now matches this concrete nullable exact-child rewrite without HOT lifting the ref-catch result-flow function. The raw ref-catch path collects only directly provable assignment producer types, falls back to the declared local type for unknown producers, and disables non-null dominance through ref-catch flow. Focused tests require the `catch_ref` and `catch_all_ref` skipped-write shapes to narrow to `(ref null (exact $A))` and validate. Reopen ref-catch under LS only for reduced cases outside this raw-assignment subset, such as catch-payload result joins that must stay broad.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
