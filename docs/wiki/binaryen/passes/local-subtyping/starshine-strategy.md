@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/1430-2026-07-04-local-subtyping-ordered-neighborhood-cleanup.md
   - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
   - ../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md
+  - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -58,7 +59,7 @@ It has:
 - preset-slot coverage in the default hot optimize path.
 
 What it does **not** have yet is full Binaryen parity.
-The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root, inside a branch-free `block` or `loop` entered after that write, inside the source-backed loop tail-`br_if` backedge case entered after that write, after a branch-free `block` write that dominates a later outer get, before a terminal `br` / `br_table` whose branch does not need to propagate writes to an outer post-state, inside branch-free nested `if` arms in such a dominated region, inside branch-free root `if` arms entered after that write, inside direct `return_call`, `return_call_indirect`, `return_call_ref`, `throw`, or `throw_ref` if-arms that skip a later dominating write/get path, or before a root/block terminal `return`, direct `return_call`, `return_call_indirect`, or `return_call_ref`, before a root non-final `return`/`return_call`/`return_call_indirect`/`return_call_ref` whose later gets are already dominated and unreachable, a nested block terminal `return` or `throw` inside a return/return_call/throw-skipped `if` arm, root/block terminal `throw`/`throw_ref`, or a `try_table` body whose get is dominated by that write, including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails whose later gets are already dominated. It also has source-backed nullable fallback guards for loop writes before outside gets, all-arm `if` writes before outside gets, block writes followed by branch flow before outside gets, `try_table` body writes before outside gets, `br_if` paths that can skip a later block write, and parameter writes that leave signature params unchanged, plus focused validation for non-null `local.tee` assignment/use narrowing.
+The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root, inside a branch-free `block` or `loop` entered after that write, inside the source-backed loop tail-`br_if` backedge case entered after that write, after a branch-free `block` write that dominates a later outer get, before a terminal `br` / `br_table` whose branch does not need to propagate writes to an outer post-state, inside branch-free nested `if` arms in such a dominated region, inside branch-free root `if` arms entered after that write, inside direct `return_call`, `return_call_indirect`, `return_call_ref`, `throw`, or `throw_ref` if-arms that skip a later dominating write/get path, or before a root/block terminal `return`, direct `return_call`, `return_call_indirect`, or `return_call_ref`, before a root non-final `return`/`return_call`/`return_call_indirect`/`return_call_ref` whose later gets are already dominated and unreachable, a nested block terminal `return` or `throw` inside a return/return_call/throw-skipped `if` arm, root/block terminal `throw`/`throw_ref`, or a `try_table` body whose get is dominated by that write, including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails whose later gets are already dominated. It also has source-backed nullable fallback guards for loop writes before outside gets, all-arm `if` writes before outside gets, block writes followed by branch flow before outside gets, `try_table` body writes before outside gets, `br_if` paths that can skip a later block write, and parameter writes that leave signature params unchanged, focused validation for non-null `local.tee` assignment/use narrowing, and an iterative rewrite/re-lift loop that covers Binaryen's local-get `multiple-iterations` chain.
 
 ## Exact local code map today
 
@@ -66,8 +67,8 @@ The current implementation is a narrower subset that narrows body locals from wr
   - summary and public pass description.
 - `src/passes/local_subtyping.mbt:143-590`
   - heap subtype helpers, assignment collection, candidate narrowing, straight-line/block/loop/nested-if/root-if dominance scanning including the narrow tail-`br_if` loop-backedge subset, branch-free block write post-state propagation, terminal `br` / `br_table` dominated-get admission without outer post-state propagation, root/block terminal-`return`/direct `return_call`/`return_call_indirect`/`return_call_ref`, root non-final `return`/`return_call`/`return_call_indirect`/`return_call_ref` unreachable-tail-get admission, if-arm nested block terminal-`return`/`throw`, root/block terminal-`throw`/`throw_ref`, and `try_table` body dominated-get admission including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails with already-dominated gets, and function-local rewrite.
-- `src/passes/local_subtyping.mbt:591-622`
-  - active module-pass entrypoint and module rebuild.
+- `src/passes/local_subtyping.mbt:591-650`
+  - active module-pass entrypoint, bounded iterative module rewrite/re-lift loop, and module rebuild.
 - `src/passes/registry_test.mbt:78-82`
   - registry category proof: `local-subtyping` is a module pass.
 - `src/passes/optimize.mbt:284-285, 296-312`
@@ -92,7 +93,8 @@ The current Starshine code path is intentionally small:
 3. pre-scan the raw straight-line body, branch-free `block` bodies, branch-free block writes before later outer gets, terminal `br` / `br_table` block bodies whose gets are already dominated before the branch, `loop` bodies entered after prior writes including the narrow source-backed tail-`br_if` backedge subset, branch-free nested `if` arms inside such dominated regions, branch-free root `if` arms, conditional-`return` branches, direct `return_call` / `return_call_indirect` / `return_call_ref` arms, and direct `throw` / `throw_ref` arms that skip a later write/get path, and root/block terminal `return`/direct `return_call` / `return_call_indirect` / `return_call_ref`, root non-final `return`/`return_call`/`return_call_indirect`/`return_call_ref` tails before already-dominated unreachable-tail gets, if-arm nested block terminal `return`/`throw`, root/block terminal `throw`/`throw_ref`, or a `try_table` body (non-throwing, ending in terminal body `return`/`throw`/`throw_ref`, or containing a source-backed non-final body `return`/`throw`/`throw_ref` before already-dominated unreachable-tail gets) after dominated gets to decide where a nullable body local may safely become non-null because reads are dominated by an earlier write, while keeping nullable fallbacks at the source-backed loop/if/branch-flow post-state boundaries, direct block-return validator boundary, try-table body post-state boundary, `br_if` paths that can skip writes, and preserving parameters as signature-owned locals;
 4. pick the most specific safe common reference subtype, falling back to nullable when dominance is not proven;
 5. rewrite body-local declarations only;
-6. rebuild the module if any body local changed.
+6. rebuild and re-lift the module while declarations keep changing, so dependent `local.get` assignment types can sharpen after an earlier local declaration rewrite;
+7. return the original module unchanged when no rewrite is needed.
 
 That gives Starshine a real, active `local-subtyping` pass without pretending to have the whole upstream contract yet.
 
@@ -110,7 +112,7 @@ Implemented or protected for the active v0.1.0 audit scope:
 
 Starshine still lacks four precise Binaryen-relevant surfaces:
 
-1. iterative refinalization/reanalysis after one local declaration change sharpens another assigned value type;
+1. focused `multiple-iterations-refinalize` select/LUB and `call_ref` / bottom-call-ref probes beyond the now-implemented local-get `multiple-iterations` chain;
 2. focused EH catch-ref/catch-all-ref handler and handler post-state local-flow probes/classification;
 3. a validator/tooling solution for the direct block-return nondefaultable-local unreachable-tail family;
 4. a validator/tooling solution for the raw-unreachable-before-write nondefaultable-local tee/get family exposed by Binaryen's retag lit shape.
@@ -139,7 +141,7 @@ The newest LS audit slices add focused coverage for direct `local.tee` assignmen
 
 The next full-contract parity tests should cover:
 
-1. repeated refinement after a pass change, especially select/block LUB and `call_ref` cases where one narrowed local sharpens a later assignment;
+1. the remaining repeated-refinement probes beyond the local-get chain, especially select/block LUB and `call_ref` cases where one narrowed local sharpens a later assignment;
 2. EH `catch_ref` / `catch_all_ref` local-flow probes that decide whether handler payload and handler post-state remain nullable boundaries or need a new safe subset;
 3. the direct block-return nondefaultable-local validator/tooling boundary once Starshine validation can prove Binaryen's unreachable-tail shape;
 4. the raw-unreachable-before-write nondefaultable-local validator/tooling boundary once Starshine validation can prove Binaryen's tee/get retag lit shape;
