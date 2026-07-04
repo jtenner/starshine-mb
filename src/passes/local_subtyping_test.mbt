@@ -388,6 +388,51 @@ fn ls_test_module_with_i32_param_and_imported_func_refs(
 }
 
 ///|
+fn ls_test_module_with_ret_any_and_i31_call_ref(
+  body_local_types : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let ret_any_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::anyref()])),
+  )
+  let ret_i31_type = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::func([], [@lib.ValType::i31ref()]),
+    ),
+  )
+  let main_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([ret_any_type, ret_i31_type, main_type]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(1U)]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::declarative(),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types(body_local_types),
+        @lib.Expr::new(body),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([]),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "local-subtyping registers as an active module pass" {
   match pass_registry_lookup("local-subtyping") {
     Some(entry) => {
@@ -557,6 +602,95 @@ test "local-subtyping iterates after select LUB refinalization" {
     Err(err) =>
       fail(
         "expected iterated select-LUB local-subtyping module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping iterates after call_ref result refinalization" {
+  let ret_any_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let ret_i31_nonnull = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let mod_ = ls_test_module_with_ret_any_and_i31_call_ref(
+    [ret_any_nullable, @lib.ValType::anyref()],
+    [
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+    ],
+  )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_locals(optimized), [
+    ret_i31_nonnull,
+    @lib.ValType::i31ref(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected iterated call_ref local-subtyping module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping replaces bottom call_ref refinalization with unreachable value" {
+  let ret_any_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let nullfuncref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+  )
+  let mod_ = ls_test_module_with_ret_any_and_i31_call_ref(
+    [ret_any_nullable, @lib.ValType::anyref()],
+    [
+      @lib.Instruction::ref_null(
+        @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ],
+  )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_locals(optimized), [
+    nullfuncref,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::none())),
+    ),
+  ])
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected bottom call_ref local-subtyping module to validate, got \{err}: \{pretty}",
       )
   }
 }

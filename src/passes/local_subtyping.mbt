@@ -506,6 +506,139 @@ fn ls_select_declared_type(types : Array[@lib.ValType]?) -> @lib.ValType? {
 }
 
 ///|
+priv struct LsFuncShape {
+  params : Array[@lib.ValType]
+  results : Array[@lib.ValType]
+}
+
+///|
+fn LsFuncShape::new(
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> LsFuncShape {
+  { params, results }
+}
+
+///|
+fn ls_resolve_func_type_idx(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> LsFuncShape? {
+  match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+    Some(subtype) =>
+      match subtype.get_comptype() {
+        @lib.FuncCompType(params, results) =>
+          Some(LsFuncShape::new(params, results))
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn ls_val_is_subtype(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.ValType,
+  target : @lib.ValType,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  match (ls_as_ref(source), ls_as_ref(target)) {
+    (Some(source_ref), Some(target_ref)) =>
+      ls_ref_is_subtype(module_ctx, source_ref, target_ref)
+    _ => false
+  }
+}
+
+///|
+fn ls_results_are_subtypes(
+  module_ctx : @ir.HotModuleContext,
+  source : Array[@lib.ValType],
+  target : Array[@lib.ValType],
+) -> Bool {
+  if source.length() != target.length() {
+    return false
+  }
+  for idx = 0; idx < source.length(); idx = idx + 1 {
+    if !ls_val_is_subtype(module_ctx, source[idx], target[idx]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ls_candidate_call_ref_type(
+  current_type_idx : @lib.TypeIdx,
+  target_type : @lib.ValType,
+  module_ctx : @ir.HotModuleContext,
+) -> @lib.TypeIdx? {
+  let target_ref = match ls_as_ref(target_type) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let target_type_idx = match target_ref.get_heap_type() {
+    @lib.HeapType(type_idx) => type_idx
+    _ => return None
+  }
+  if target_type_idx == current_type_idx {
+    return None
+  }
+  let current_shape = match
+    ls_resolve_func_type_idx(module_ctx, current_type_idx) {
+    Some(func_type) => func_type
+    None => return None
+  }
+  let target_shape = match
+    ls_resolve_func_type_idx(module_ctx, target_type_idx) {
+    Some(func_type) => func_type
+    None => return None
+  }
+  if target_shape.params != current_shape.params {
+    return None
+  }
+  if !ls_results_are_subtypes(
+      module_ctx,
+      target_shape.results,
+      current_shape.results,
+    ) {
+    return None
+  }
+  if !ls_heap_is_subtype(
+      module_ctx,
+      target_ref.get_heap_type(),
+      @lib.HeapType::new(current_type_idx),
+      512,
+    ) {
+    return None
+  }
+  Some(target_type_idx)
+}
+
+///|
+fn ls_call_ref_has_no_params(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match ls_resolve_func_type_idx(module_ctx, type_idx) {
+    Some(shape) => shape.params.is_empty()
+    None => false
+  }
+}
+
+///|
+fn ls_is_nullable_nofunc_ref(val_type : @lib.ValType) -> Bool {
+  match ls_as_ref(val_type) {
+    Some(ref_type) =>
+      ref_type.is_nullable() &&
+      ref_type.get_heap_type() ==
+      @lib.HeapType::abs(@lib.AbsHeapType::no_func())
+    None => false
+  }
+}
+
+///|
 fn ls_refine_selects_instrs(
   instrs : Array[@lib.Instruction],
   param_types : Array[@lib.ValType],
@@ -610,6 +743,59 @@ fn ls_refine_selects_instrs(
             rewritten.push(@lib.Instruction::select(types=Some([val_type])))
             changed = true
           }
+          None => rewritten.push(next_instr)
+        }
+      }
+      @lib.CallRef(type_idx) => {
+        let len = rewritten.length()
+        let target_type = if len >= 1 {
+          match rewritten[len - 1] {
+            @lib.LocalGet(target_idx) =>
+              ls_local_declared_type(target_idx, param_types, body_locals)
+            _ => None
+          }
+        } else {
+          None
+        }
+        match target_type {
+          Some(val_type) =>
+            match ls_candidate_call_ref_type(type_idx, val_type, module_ctx) {
+              Some(next_type_idx) => {
+                rewritten.push(@lib.Instruction::call_ref(next_type_idx))
+                changed = true
+              }
+              None =>
+                if ls_is_nullable_nofunc_ref(val_type) &&
+                  ls_call_ref_has_no_params(module_ctx, type_idx) {
+                  match rewritten[len - 1] {
+                    @lib.LocalGet(target_idx) => {
+                      let bottom_ref = @lib.ValType::ref_type(
+                        @lib.RefType::new(
+                          false,
+                          @lib.HeapType::abs(@lib.AbsHeapType::none()),
+                        ),
+                      )
+                      ignore(
+                        rewritten.set(
+                          len - 1,
+                          @lib.Instruction::block(
+                            @lib.BlockType::val_type(bottom_ref),
+                            @lib.Expr::new([
+                              @lib.Instruction::local_get(target_idx),
+                              @lib.Instruction::drop(),
+                              @lib.Instruction::unreachable_(),
+                            ]),
+                          ),
+                        ),
+                      )
+                      changed = true
+                    }
+                    _ => rewritten.push(next_instr)
+                  }
+                } else {
+                  rewritten.push(next_instr)
+                }
+            }
           None => rewritten.push(next_instr)
         }
       }
