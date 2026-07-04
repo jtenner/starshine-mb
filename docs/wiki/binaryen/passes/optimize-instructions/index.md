@@ -121,6 +121,7 @@ sources:
   - ../../../raw/research/1449-2026-07-04-optimize-instructions-oi-j-tnh-standalone-refgetdesc-block-child.md
   - ../../../raw/research/1450-2026-07-04-optimize-instructions-oi-j-standalone-refgetdesc-self-contained-branch.md
   - ../../../raw/research/1451-2026-07-04-optimize-instructions-oi-j-standalone-refgetdesc-brtable.md
+  - ../../../raw/research/1452-2026-07-04-optimize-instructions-oi-j-standalone-refgetdesc-br-on-non-null.md
   - ../../../raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md
   - ../../../raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md
   - ../../../raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md

@@ -13103,13 +13103,20 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
         }
       }
     }
+    @ir.HotOp::BrOnNonNull =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          node.imm0,
+        ) {
+        return true
+      }
     @ir.HotOp::Block
     | @ir.HotOp::Loop
     | @ir.HotOp::If
     | @ir.HotOp::Try
     | @ir.HotOp::TryTable
     | @ir.HotOp::BrOnNull
-    | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail
     | @ir.HotOp::Return
@@ -13134,6 +13141,23 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  root_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::BrOnNonNull =>
+      optimize_instructions_descriptor_label_is_internal_to_expr(
+        func,
+        block_id,
+        @ir.hot_node_get(func, root_id).imm0,
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
   func : @ir.HotFunc,
   block_id : Int,
@@ -13148,6 +13172,7 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
   if root_count == 0 {
     return false
   }
+  let mut saw_internal_br_on_non_null = false
   for slot = 0; slot < root_count - 1; slot = slot + 1 {
     let root_id = @ir.hot_region_get(func, body, slot)
     if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
@@ -13158,10 +13183,23 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
       ) {
       return false
     }
+    if optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root(
+        func, block_id, root_id,
+      ) {
+      saw_internal_br_on_non_null = true
+    }
   }
   let final_id = @ir.hot_region_get(func, body, root_count - 1)
   match @ir.hot_node_get(func, final_id).op {
     @ir.HotOp::LocalGet =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, final_id,
+      ) &&
+      !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func, block_id, final_id,
+      )
+    @ir.HotOp::RefNull =>
+      saw_internal_br_on_non_null &&
       optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
         func, final_id,
       ) &&
