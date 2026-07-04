@@ -41,6 +41,23 @@ fn ls_test_first_body_local(mod_ : @lib.Module) -> @lib.ValType {
 }
 
 ///|
+fn ls_test_first_body_locals(mod_ : @lib.Module) -> Array[@lib.ValType] {
+  match mod_.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _), ..])) => {
+      let result : Array[@lib.ValType] = []
+      for idx = 0; idx < locals.length(); idx = idx + 1 {
+        result.push(locals[idx])
+      }
+      result
+    }
+    other =>
+      abort(
+        "expected first function with body locals, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 fn ls_test_first_func_params(mod_ : @lib.Module) -> Array[@lib.ValType] {
   match mod_.type_sec {
     Some(@lib.TypeSec(types)) =>
@@ -242,11 +259,45 @@ fn ls_test_module_with_child_param_and_tail_refs(
   body_local_type : @lib.ValType,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
+  ls_test_module_with_child_param_callee_locals_and_tail_refs(
+    [body_local_type],
+    body,
+  )
+}
+
+///|
+fn ls_test_module_with_child_param_callee_locals_and_tail_refs(
+  body_local_types : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let child_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let main_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([child_ref], [])),
+  )
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
   let func_ref_type = @lib.RefType::new(
     true,
     @lib.HeapType::abs(@lib.AbsHeapType::func()),
   )
-  ls_test_module_with_child_param_and_callee(body_local_type, body)
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, child, main_type, callee_type]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(3U)]),
+  )
   .with_table_sec(
     @lib.TableSec::new([
       @lib.Table::new(
@@ -264,6 +315,15 @@ fn ls_test_module_with_child_param_and_tail_refs(
         ),
         @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
       ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types(body_local_types),
+        @lib.Expr::new(body),
+      ),
+      @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
     ]),
   )
 }
@@ -355,6 +415,44 @@ test "local-subtyping narrows body locals from local.tee assignments" {
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
   @debug.assert_eq(ls_test_first_body_local(optimized), child_nullable)
+}
+
+///|
+test "local-subtyping iterates after local.get assignment refinalization" {
+  let funcref_nullable = @lib.ValType::funcref()
+  let callee_nonnull = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(3U)),
+      exact=true,
+    ),
+  )
+  let mod_ = ls_test_module_with_child_param_callee_locals_and_tail_refs(
+    [funcref_nullable, funcref_nullable],
+    [
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+    ],
+  )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_locals(optimized), [
+    callee_nonnull, callee_nonnull,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected iterated local-subtyping module to validate, got \{err}")
+  }
 }
 
 ///|

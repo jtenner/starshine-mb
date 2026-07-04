@@ -687,35 +687,62 @@ fn ls_rebuild_module(
 }
 
 ///|
-pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      let module_ctx = @ir.hot_module_context_from_module(mod_)
-      let imported_func_count = ls_imported_func_count(mod_)
-      let rewritten_funcs : Array[@lib.Func] = Array::new(
-        capacity=funcs.length(),
-      )
-      let mut changed = false
-      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-        let func_idx = @lib.FuncIdx::new(
-          (imported_func_count + code_idx).reinterpret_as_uint(),
-        )
-        let (next_func, next_changed) = ls_rewrite_func(
-          funcs[code_idx],
-          func_idx,
-          mod_,
-          module_ctx,
-        )
-        rewritten_funcs.push(next_func)
-        if next_changed {
-          changed = true
-        }
+fn ls_ref_body_local_iteration_limit(funcs : Array[@lib.Func]) -> Int {
+  let mut limit = 1
+  for func in funcs {
+    let @lib.Func(body_locals, _) = func
+    for idx = 0; idx < body_locals.length(); idx = idx + 1 {
+      match ls_as_ref(body_locals[idx]) {
+        Some(_) => limit += 1
+        None => ()
       }
-      if !changed {
-        return mod_
-      }
-      ls_rebuild_module(mod_, Some(@lib.CodeSec::new(rewritten_funcs)))
     }
-    None => mod_
   }
+  limit
+}
+
+///|
+pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  let mut current_mod = mod_
+  let mut did_change = false
+  let mut iteration = 0
+  let iteration_limit = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => ls_ref_body_local_iteration_limit(funcs)
+    None => return mod_
+  }
+  while iteration < iteration_limit {
+    let funcs = match current_mod.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => return current_mod
+    }
+    let module_ctx = @ir.hot_module_context_from_module(current_mod)
+    let imported_func_count = ls_imported_func_count(current_mod)
+    let rewritten_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+    let mut changed = false
+    for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+      let func_idx = @lib.FuncIdx::new(
+        (imported_func_count + code_idx).reinterpret_as_uint(),
+      )
+      let (next_func, next_changed) = ls_rewrite_func(
+        funcs[code_idx],
+        func_idx,
+        current_mod,
+        module_ctx,
+      )
+      rewritten_funcs.push(next_func)
+      if next_changed {
+        changed = true
+      }
+    }
+    if !changed {
+      return if did_change { current_mod } else { mod_ }
+    }
+    current_mod = ls_rebuild_module(
+      current_mod,
+      Some(@lib.CodeSec::new(rewritten_funcs)),
+    )
+    did_change = true
+    iteration += 1
+  }
+  current_mod
 }
