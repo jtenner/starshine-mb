@@ -9800,6 +9800,110 @@ test "optimize-instructions skips descriptor casts on non-null subtype operands 
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with exact mismatching descriptors" {
+  // OI-J descriptor exactness breadth: Binaryen version_130 rewrites a
+  // descriptor equality cast to `unreachable` when a non-null strict-subtype
+  // reference operand is paired with an exact descriptor for the supertype.
+  // The descriptor equality check can only pass for exact `$base` values, so a
+  // `(ref $sub)` operand cannot produce a successful result. This finite slice
+  // covers only pure/erasable operands; effectful descriptor/ref operands,
+  // nullable null-only descriptor casts, TNH/IIT, and ref.test_desc remain open.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_type(sub_ref_type)], [
+              @lib.ValType::ref_type(base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected exact descriptor miss fold, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Unreachable => ()
+    _ => fail("expected unreachable for exact descriptor mismatch")
+  }
+}
+
+///|
 test "optimize-instructions exactifies nullable descriptor casts with exact descriptor operands" {
   // OI-J descriptor exactness breadth: Binaryen version_130 rewrites a nullable
   // descriptor equality cast fed by an inexact nullable reference plus an exact

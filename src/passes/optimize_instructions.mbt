@@ -13676,6 +13676,52 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
 }
 
 ///|
+fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if ctx.traps_never_happen ||
+    ctx.ignore_implicit_traps ||
+    @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let (nullable, target) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, _, target)) =>
+      (nullable, target)
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  if !optimize_instructions_descriptor_operand_exactly_describes_target(
+      ctx, func, descriptor_id, target,
+    ) {
+    return false
+  }
+  if !(optimize_instructions_ref_operand_misses_exact_target(
+      func, operand_id, target, nullable,
+    ) ||
+    optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+      ctx, func, operand_id, target, nullable,
+    )) {
+    return false
+  }
+  if !optimize_instructions_descriptor_operand_can_erase(
+      ctx, func, dead, descriptor_id,
+    ) {
+    return false
+  }
+  if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    true
+  } else {
+    false
+  }
+}
+
+///|
 fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -16531,6 +16577,9 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_ref_cast_desc_eq_null(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
