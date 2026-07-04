@@ -461,6 +461,8 @@ pub fn hot_module_resolve_tag_type(HotModuleContext, @lib.TagIdx) -> @lib.TagTyp
 
 pub fn hot_module_resolve_type_func_type(HotModuleContext, @lib.TypeIdx) -> @lib.FuncType?
 
+pub fn hot_module_subtype_count(HotModuleContext) -> Int
+
 pub fn hot_node_count(HotFunc) -> Int
 
 pub fn hot_node_exact_instr(HotFunc, Int) -> @lib.Instruction?

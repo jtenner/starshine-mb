@@ -11760,7 +11760,7 @@ fn optimize_instructions_subtype_heap_matches_target(
 }
 
 ///|
-fn optimize_instructions_concrete_final_source_misses_target(
+fn optimize_instructions_concrete_source_has_no_target_overlap(
   module_ctx : @ir.HotModuleContext?,
   source : @lib.HeapType,
   target : @lib.HeapType,
@@ -11770,16 +11770,21 @@ fn optimize_instructions_concrete_final_source_misses_target(
     None => return false
   }
   match source {
-    @lib.HeapType::HeapType(source_idx) =>
-      match @ir.hot_module_resolve_subtype(ctx, source_idx) {
-        Some(@lib.SubType(true, _, _, _)) | Some(@lib.CompTypeSubType(_, _)) =>
-          not(
-            optimize_instructions_heap_matches_target(ctx, source, target, 512),
-          )
-        _ => false
-      }
-    _ => false
+    @lib.HeapType::HeapType(_) => ()
+    _ => return false
   }
+  if optimize_instructions_heap_matches_target(ctx, source, target, 512) {
+    return false
+  }
+  let subtype_count = @ir.hot_module_subtype_count(ctx)
+  for i = 0; i < subtype_count; i = i + 1 {
+    let heap = @lib.HeapType::new(@lib.TypeIdx::new(i.reinterpret_as_uint()))
+    if optimize_instructions_heap_matches_target(ctx, heap, source, 512) &&
+      optimize_instructions_heap_matches_target(ctx, heap, target, 512) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -11840,7 +11845,7 @@ fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
             ref_type.get_heap_type(),
             target,
           ) ||
-          optimize_instructions_concrete_final_source_misses_target(
+          optimize_instructions_concrete_source_has_no_target_overlap(
             ctx.module_ctx,
             ref_type.get_heap_type(),
             target,
@@ -11874,7 +11879,7 @@ fn optimize_instructions_ref_is_known_miss_for_target(
               ref_type.get_heap_type(),
               target,
             ) ||
-            optimize_instructions_concrete_final_source_misses_target(
+            optimize_instructions_concrete_source_has_no_target_overlap(
               ctx.module_ctx,
               ref_type.get_heap_type(),
               target,

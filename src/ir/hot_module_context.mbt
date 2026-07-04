@@ -241,6 +241,11 @@ pub fn hot_module_resolve_subtype(
 }
 
 ///|
+pub fn hot_module_subtype_count(ctx : HotModuleContext) -> Int {
+  ctx.subtypes.length()
+}
+
+///|
 pub fn hot_module_resolve_type_func_type(
   ctx : HotModuleContext,
   idx : TypeIdx,

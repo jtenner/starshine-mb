@@ -17616,6 +17616,118 @@ test "optimize-instructions folds impossible ref.test and ref.cast between final
 }
 
 ///|
+test "optimize-instructions folds impossible ref.test and ref.cast between non-final no-overlap sibling heap locals" {
+  // OI-J non-final concrete sibling miss: Binaryen version_130 folds a non-null
+  // `$a` local tested/cast to a different non-final `$b` heap when no known
+  // module subtype can overlap both heaps. This deliberately stays narrower
+  // than broad exactness/descriptor/TNH/IIT parity and keeps an overlap guard.
+  let a_type = @lib.TypeIdx::new(0U)
+  let b_type = @lib.TypeIdx::new(1U)
+  let overlapping_a_type = @lib.TypeIdx::new(2U)
+  let overlapping_b_type = @lib.TypeIdx::new(3U)
+  let test_type = @lib.TypeIdx::new(5U)
+  let cast_type = @lib.TypeIdx::new(6U)
+  let overlap_test_type = @lib.TypeIdx::new(7U)
+  let a_heap = @lib.HeapType::new(a_type)
+  let b_heap = @lib.HeapType::new(b_type)
+  let overlapping_a_heap = @lib.HeapType::new(overlapping_a_type)
+  let overlapping_b_heap = @lib.HeapType::new(overlapping_b_type)
+  let a_ref = @lib.ValType::ref_type(@lib.RefType::new(false, a_heap))
+  let b_ref = @lib.ValType::ref_type(@lib.RefType::new(false, b_heap))
+  let overlapping_a_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, overlapping_a_heap),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::group([
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+          @lib.SubType::new(
+            false,
+            [overlapping_a_type, overlapping_b_type],
+            @lib.CompType::struct_([]),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([a_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([a_ref], [b_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([overlapping_a_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type, cast_type, overlap_test_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, b_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, b_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, overlapping_b_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let cast_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let overlap_test = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(test_sibling.contains("ref.test"), msg=test_sibling)
+  assert_true(test_sibling.contains("I32(0)"), msg=test_sibling)
+  assert_true(cast_sibling.contains("unreachable"), msg=cast_sibling)
+  assert_false(cast_sibling.contains("ref.cast"), msg=cast_sibling)
+  assert_true(overlap_test.contains("ref.test"), msg=overlap_test)
+  assert_false(overlap_test.contains("I32(0)"), msg=overlap_test)
+}
+
+///|
 test "optimize-instructions folds impossible ref.test and ref.cast between non-null struct array locals" {
   let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
   let array_heap = @lib.HeapType::abs(@lib.AbsHeapType::array())
