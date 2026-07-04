@@ -13173,9 +13173,6 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
   func : @ir.HotFunc,
   descriptor_id : Int,
 ) -> Bool {
-  if ctx.traps_never_happen {
-    return false
-  }
   match @ir.hot_node_exact_instr(func, descriptor_id) {
     Some(@lib.Instruction::RefGetDesc(_)) => ()
     _ => return false
@@ -13192,6 +13189,24 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
     return false
   }
   let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
+  if ctx.traps_never_happen {
+    let mut is_standalone_root = false
+    for root_idx = 0
+        root_idx < @ir.hot_root_count(func)
+        root_idx = root_idx + 1 {
+      if @ir.hot_root_get(func, root_idx) == descriptor_id {
+        is_standalone_root = true
+        break
+      }
+    }
+    if !is_standalone_root {
+      return false
+    }
+    match @ir.hot_node_get(func, nullable_child).op {
+      @ir.HotOp::LocalGet => ()
+      _ => return false
+    }
+  }
   if !optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
       func, nullable_child,
     ) {

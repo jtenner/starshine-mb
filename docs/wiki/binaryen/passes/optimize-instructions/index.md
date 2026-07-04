@@ -117,6 +117,7 @@ sources:
   - ../../../raw/research/1445-2026-07-04-optimize-instructions-oi-j-exact-subtype-miss.md
   - ../../../raw/research/1446-2026-07-04-optimize-instructions-oi-j-iit-tnh-asnonnull-local-set.md
   - ../../../raw/research/1447-2026-07-04-optimize-instructions-oi-j-iit-tnh-same-local-cast-eq.md
+  - ../../../raw/research/1448-2026-07-04-optimize-instructions-oi-j-tnh-standalone-refgetdesc-local.md
   - ../../../raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md
   - ../../../raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md
   - ../../../raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md

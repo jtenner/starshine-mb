@@ -9874,8 +9874,9 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
   // standalone `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)`
   // for the direct-local baseline and for branch-free blocks whose ordered
   // effect/trap roots stay inside the block before the final nullable local.
-  // TNH/IIT, descriptor casts, ref.test_desc, and escaping/control-shaped
-  // standalone children remain outside this slice.
+  // Descriptor casts, ref.test_desc, TNH branch-free block children, and
+  // escaping/control-shaped standalone children remain outside this slice; TNH
+  // direct-local coverage below follows Binaryen's trap-skipping mode.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let described_heap = @lib.HeapType::new(described_type)
@@ -10159,7 +10160,9 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
   match hot_pass_run(tnh_ctx, tnh_func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected standalone ref.get_desc TNH boundary, got \{err}")
+      fail(
+        "expected standalone ref.get_desc TNH direct-local success, got \{err}",
+      )
   }
   let tnh_root = @ir.hot_root_get(tnh_func, 0)
   match @ir.hot_node_exact_instr(tnh_func, tnh_root) {
@@ -10167,10 +10170,9 @@ test "optimize-instructions moves standalone ref.get_desc branch-free block null
     other => fail("expected TNH root to stay ref.get_desc, got \{other}")
   }
   let tnh_child = @ir.hot_child_get(tnh_func, tnh_root, 0)
-  match @ir.hot_node_exact_instr(tnh_func, tnh_child) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    other =>
-      fail("expected TNH path to keep explicit ref.as_non_null, got \{other}")
+  match @ir.hot_node_get(tnh_func, tnh_child).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected TNH direct-local child, got \{other}")
   }
 }
 
