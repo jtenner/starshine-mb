@@ -12847,6 +12847,40 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
 }
 
 ///|
+fn optimize_instructions_try_move_standalone_ref_get_desc_local_null_check(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> Bool {
+  if ctx.traps_never_happen {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, descriptor_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, descriptor_id) != 1 {
+    return false
+  }
+  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
+  match @ir.hot_node_exact_instr(func, get_desc_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, get_desc_child) != 1 {
+    return false
+  }
+  let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
+  match @ir.hot_node_get(func, nullable_child).op {
+    @ir.HotOp::LocalGet => ()
+    _ => return false
+  }
+  @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_move_ref_get_desc_child_null_check(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -15704,6 +15738,9 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::Heap =>
       optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
+        ctx, func, node_id,
+      ) ||
+      optimize_instructions_try_move_standalone_ref_get_desc_local_null_check(
         ctx, func, node_id,
       ) ||
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||

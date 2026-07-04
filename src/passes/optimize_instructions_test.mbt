@@ -9482,6 +9482,163 @@ test "optimize-instructions erases nontrapping ref.get_desc descriptor operands 
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc local null checks" {
+  // OI-J finite roadmap slice: Binaryen version_130 default mode simplifies the
+  // direct-local shape `ref.get_desc(ref.as_non_null(local.get nullable))` to
+  // `ref.get_desc(local.get nullable)`, using `ref.get_desc` itself as the null
+  // trap. This is intentionally smaller than the broad descriptor/exactness,
+  // TNH, and IIT families: standalone block/effect/trapping/control children
+  // remain fail-closed until separately probed and implemented.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let nonnull_described_val_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, described_heap),
+  )
+  let anyref = @lib.ValType::anyref()
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_described_val_type], [anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [anyref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_described_val_type], [
+              nonnull_described_val_type,
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(4U),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::i32_div_s(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let pure_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pure_pretty.contains("ref.get_desc"), msg=pure_pretty)
+  assert_false(pure_pretty.contains("ref.as_non_null"), msg=pure_pretty)
+  let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(effect_pretty.contains("ref.as_non_null"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("global.set"), msg=effect_pretty)
+  let trapping_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(trapping_pretty.contains("ref.as_non_null"), msg=trapping_pretty)
+  assert_true(trapping_pretty.contains("i32.div"), msg=trapping_pretty)
+  let escaping_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(escaping_pretty.contains("ref.as_non_null"), msg=escaping_pretty)
+  assert_true(escaping_pretty.contains("br"), msg=escaping_pretty)
+  let quarantine_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(
+    quarantine_pretty.contains("ref.as_non_null"),
+    msg=quarantine_pretty,
+  )
+}
+
+///|
 test "optimize-instructions moves ref.get_desc child null checks into descriptor casts" {
   // OI-J descriptor-operand trapOnNull breadth: Binaryen version_130 default
   // and IIT modes preserve the descriptor equality cast, but simplify
