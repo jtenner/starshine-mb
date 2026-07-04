@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
   - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
@@ -46,7 +47,7 @@ Instead, it answers: which Starshine surfaces are now active, which placement/ar
 | Ordered-slot proof | `src/passes/coalesce_locals_test.mbt` and `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` now cover both exact neighborhoods. | Treat `[CL]003` as closed; future work belongs to neighboring-pass or preset slices, not direct `coalesce-locals` uncertainty. |
 | Local-index rewrite substrate | `src/passes/reorder_locals.mbt:118`, `:183`, and `:544` already scan and rewrite local users and rebuild declarations for a landed module pass. | Reuse the local-index and metadata-repair lessons; do not copy the exact reorder algorithm as the coalescing algorithm. |
 | Later cleanup substrate | `src/passes/simplify_locals.mbt:70`, `:4126`, `:4191`, `:4245`, and `:4348` already own HOT local-traffic cleanup phases. | Let later cleanup remain a consumer; do not grow `coalesce-locals` into generic simplify-locals. |
-| Core pass | `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup, and name-section invalidation. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior. |
+| Core pass | `src/passes/coalesce_locals.mbt` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup, structured param-slot reuse, conservative loop unused-local coalescing, and name-section invalidation. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior. |
 
 ## Landed direct-pass shape
 
@@ -91,15 +92,16 @@ Current status before moving the direct pass into public preset slots:
 1. **Unit shape tests** are green for active registration, non-overlap merging, interference negatives, redundant-copy cleanup, dead write cleanup, the exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` order, and the exact `reorder-locals -> coalesce-locals -> reorder-locals` order.
 2. **Registry tests** prove `--coalesce-locals` is an active module pass with dispatcher and CLI coverage.
 3. **Preset tests** keep the public first slot explicit and keep public `reorder-locals` scheduling separate from the direct pass.
-4. **Fuzz parity** is green for the refreshed 2026-05-08 mixed-generator direct lane at `.tmp/pass-fuzz-coalesce-locals-20260508` (`6759/10000` compared cases, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), for `.tmp/pass-fuzz-cl-genvalid-10000-livecount` at `10000/10000` normalized matches, and for older mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-livecount` with zero mismatches.
+4. **Fuzz parity** is green for the refreshed 2026-07-04 regular GenValid direct lane at `.tmp/pass-fuzz-coalesce-locals-loop-unused-10000-20260704` (`10000/10000` compared cases, `10000` normalized matches, `0` mismatches, `0` validation/generator/property/command failures), for the older 2026-05-08 mixed-generator direct lane at `.tmp/pass-fuzz-coalesce-locals-20260508`, for `.tmp/pass-fuzz-cl-genvalid-10000-livecount` at `10000/10000` normalized matches, and for older mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-livecount` with zero mismatches.
 5. **Artifact Starshine-side validation** is green for the direct pass: running Starshine `--coalesce-locals` over the rebuilt debug WASI artifact writes a validating output.
 6. **Direct-pass self-opt artifact compare** is canonically/function equal with Binaryen on both `.tmp/self-opt-cl-debug-livecount` and `.tmp/self-opt-cl-optimized-livecount`; the optimized-artifact direct pass timer is now faster than Binaryen (`591.437ms` vs `629.109ms`), while total wall time remains slightly above Binaryen.
 7. **Reorder-sandwich artifact replay** is green at `.tmp/self-opt-cl-reorder-sandwich-20260508` with `Normalized WAT equal: yes` and `Canonical function compare equal: yes` on the checked-in debug artifact.
 
-That is enough to treat the exact `coalesce-locals` slot work as proven. Remaining uncertainty now belongs to neighboring-pass/preset work, not this direct pass.
+That is enough to treat the exact `coalesce-locals` slot work as proven for the older slot scope. The reopened v0.1.0 O4z audit is still active for closeout-scale direct matrix lanes, ordered O4z GC/local neighborhood size drift, TypeIdx invariant docs, and large-function coloring/runtime review.
 
 ## Health-check outcome from this run
 
+The 2026-07-04 direct refresh fixed the current regular GenValid mismatch family by allowing structured body locals to reuse dead fixed parameter slots and by coalescing syntactically unused locals inside loop functions without admitting accessed loop-local merging.
 The 2026-05-05 implementation run promoted `coalesce-locals` from removed-name planning to active direct module-pass status.
 No contradiction was found between the 2026-04-22 tagged source manifest and the 2026-05-05 current-main recheck for the teaching-level `coalesce-locals` contract.
 The 2026-05-08 ordered-slot replay refresh reran the standard direct signoff lane after landing exact-neighborhood regressions: `.tmp/pass-fuzz-coalesce-locals-20260508` reported `6759/10000` compared cases, `6759` normalized matches, and `20` Binaryen empty-recursion-group command failures.
@@ -107,6 +109,7 @@ That same refresh closed the remaining slot proof: `src/passes/coalesce_locals_t
 
 ## Sources
 
+- [`../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md`](../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md)
 - [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md)
 - [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md)

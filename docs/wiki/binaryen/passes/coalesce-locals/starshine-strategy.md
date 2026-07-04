@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
   - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
@@ -248,7 +249,7 @@ Starshine now has direct-pass implementation and evidence, and it now **does** c
 What it still does **not** claim is that every broader neighboring-pass or public preset policy question is closed. The current repo status is best summarized as:
 
 - active direct pass
-- direct 10k parity refreshed on current head
+- direct 10k parity refreshed on 2026-07-04 after fixing structured param-slot reuse and loop unused-local coalescing
 - both exact scheduler neighborhoods replayed
 - first public slot kept explicit, second slot still focused because public `reorder-locals` scheduling is tracked elsewhere
 
@@ -285,7 +286,7 @@ Current Starshine `coalesce-locals` strategy is direct-pass parity plus exact-sl
 
 - the upstream spelling is intentionally active in `src/passes/optimize.mbt`
 - the canonical two-slot no-DWARF story is now regression-covered and backed by a current-head reorder-sandwich artifact replay
-- the direct pass has focused tests, CLI coverage, full `moon test`, refreshed 10k mixed-generator parity evidence, debug/optimized artifact self-opt canonical-function equality for the direct pass, and a green debug-artifact reorder-sandwich compare on normalized WAT plus canonical functions
+- the direct pass has focused tests, CLI coverage, full `moon test`, refreshed 2026-07-04 10k regular GenValid parity evidence, older 10k mixed-generator parity evidence, debug/optimized artifact self-opt canonical-function equality for the direct pass, and a green debug-artifact reorder-sandwich compare on normalized WAT plus canonical functions
 - total optimized-artifact wall time for the direct pass is still slightly above Binaryen, but the pass-local runtime issue is retired
 - the docs keep one important honesty rule explicit: proving `coalesce-locals` itself does not automatically settle every broader `reorder-locals` or preset scheduling question
 
@@ -293,7 +294,7 @@ So the right mental model today is “active direct pass, exact slots proven, br
 It is:
 
 - **active direct transform**
-- **current-head direct parity refreshed**
+- **current-head direct parity refreshed after the 2026-07-04 structured/loop unused-local fix**
 - **both exact scheduler neighborhoods replayed**
 - **clear neighboring implementation map for broader preset follow-up**
 - **clear warning not to over-claim unrelated neighboring-pass policy as part of direct `coalesce-locals` signoff**

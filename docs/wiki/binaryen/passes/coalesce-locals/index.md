@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: implemented
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
   - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
@@ -66,12 +67,13 @@ That is narrower than “merge any locals that look unused.”
 
 ## Current durable takeaways
 
-- Starshine's current direct-pass validation is green on focused tests, CLI coverage, full `moon test`, the refreshed 2026-05-08 mixed-generator direct parity lane (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), earlier 10k `gen-valid` Binaryen compare, mixed-generator comparable cases, and compatible Binaryen 128 self-opt artifact compare on both rebuilt debug and optimized WASI artifacts.
+- Starshine's current direct-pass validation is green on focused tests, CLI coverage, full `moon test`, the refreshed 2026-07-04 regular GenValid direct parity lane (`10000/10000` compared, `10000` normalized matches, `0` mismatches, `0` validation/generator/property/command failures), the older 2026-05-08 mixed-generator direct parity lane, earlier 10k `gen-valid` Binaryen compare, mixed-generator comparable cases, and compatible Binaryen 128 self-opt artifact compare on both rebuilt debug and optimized WASI artifacts.
 - The exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` and `reorder-locals -> coalesce-locals -> reorder-locals` neighborhoods are now both regression-covered in `src/passes/coalesce_locals_test.mbt`.
 - The debug-artifact `reorder-locals -> coalesce-locals -> reorder-locals` replay at `.tmp/self-opt-cl-reorder-sandwich-20260508` is green on normalized WAT and canonical-function equality.
 - The pass header explicitly says the algorithm is **nonlinear in the number of locals**, so Binaryen schedules it late after earlier local-cleanup passes have already reduced the local set.
 - Exact local type equality is mandatory while coalescing. This pass does **not** use subtype compatibility.
 - Two locals can overlap in liveness and still share a slot if Binaryen can prove they hold the same current value.
+- The 2026-07-04 direct refresh fixed a current GenValid parity gap where Starshine over-preserved structured/loop locals: structured body locals may reuse dead fixed param slots, and loop functions now coalesce syntactically unused locals while keeping accessed loop locals conservative.
 - Implicit local zero-initialization and fixed param ordering are part of the correctness story.
 - Loop backedge copies get extra priority because removing them can avoid branch-only copy work.
 - Binaryen tries two greedy orders by default and has a separate `coalesce-locals-learning` variant, but the default optimize pipeline uses the normal greedy pass.
@@ -110,6 +112,7 @@ That is narrower than “merge any locals that look unused.”
 - [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
+- [`../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md`](../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md)
 - [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md)
 - [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
 - [`../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md)

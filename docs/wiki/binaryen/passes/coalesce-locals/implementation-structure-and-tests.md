@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
   - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
@@ -112,14 +113,15 @@ Starshine now implements this pass as an active direct module pass. The relevant
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057` | Active module-pass owner with action scan, value-aware interference, exact-type coloring, local-index rewrite, redundant-copy cleanup, dead-write cleanup, and local-name-section invalidation. |
-| `src/passes/coalesce_locals_test.mbt:14-341` | Focused direct-pass and ordered-neighborhood tests for registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, ineffective-write cleanup, `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals`, and `reorder-locals -> coalesce-locals -> reorder-locals`. |
+| `src/passes/coalesce_locals.mbt` | Active module-pass owner with action scan, value-aware interference, exact-type coloring, local-index rewrite, redundant-copy cleanup, dead-write cleanup, structured param-slot reuse, conservative loop unused-local coalescing, and local-name-section invalidation. |
+| `src/passes/coalesce_locals_test.mbt` | Focused direct-pass and ordered-neighborhood tests for registration, non-overlap merge, different-value overlap, later reread liveness, structured param-slot reuse, loop unused-local coalescing, redundant-copy cleanup, ineffective-write cleanup, `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals`, and `reorder-locals -> coalesce-locals -> reorder-locals`. |
 | `src/passes/optimize.mbt:277` | `coalesce-locals` is an active module pass spelling. |
 | `src/passes/pass_manager.mbt:8936` | Dispatches `coalesce-locals` to `coalesce_locals_run_module_pass`. |
 | `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic the coalescer must compose with. |
 | `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4126`, `src/passes/simplify_locals.mbt:4191`, `src/passes/simplify_locals.mbt:4245`, `src/passes/simplify_locals.mbt:4348` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF pipeline still records both `coalesce-locals` slots. |
-| `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` | Current ordered-slot proof: new in-tree regressions, refreshed 10k direct parity, and current-head debug-artifact replay for the reorder sandwich. |
+| `docs/wiki/raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md` | Current direct-refresh proof: structured param-slot reuse, loop unused-local coalescing, and a fresh 10k regular GenValid direct lane with zero mismatches. |
+| `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` | Ordered-slot proof: in-tree neighborhood regressions, refreshed 10k direct parity, and current-head debug-artifact replay for the reorder sandwich. |
 
 ## What this page rules out
 
