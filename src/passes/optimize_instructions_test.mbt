@@ -8339,6 +8339,98 @@ test "optimize-instructions folds exact ref.cast on already exact locals" {
 }
 
 ///|
+test "optimize-instructions folds exact ref.test on already exact operands" {
+  // OI-J exactness positive: Binaryen version_130 folds
+  // `ref.test (ref (exact $a))` to true when the tested value is already an
+  // exact `$a`, preserving effectful producers as dropped operands. Binaryen
+  // also folds the non-null same-heap inexact local predicate to true here,
+  // unlike exact ref.cast where the runtime trap must remain fail-closed.
+  let foo_type = @lib.TypeIdx::new(0U)
+  let pure_func_type = @lib.TypeIdx::new(1U)
+  let effectful_func_type = @lib.TypeIdx::new(1U)
+  let inexact_func_type = @lib.TypeIdx::new(2U)
+  let foo_heap = @lib.HeapType::new(foo_type)
+  let exact_foo_ref_type = @lib.RefType::new(false, foo_heap, exact=true)
+  let exact_foo_ref = @lib.ValType::ref_type(exact_foo_ref_type)
+  let inexact_foo_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, foo_heap),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([exact_foo_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([inexact_foo_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([pure_func_type, effectful_func_type, inexact_func_type]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(exact_foo_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(exact_foo_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_test_type(exact_foo_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(exact_foo_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let exact_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let effectful_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let inexact_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(exact_pretty.contains("ref.test"), msg=exact_pretty)
+  assert_true(exact_pretty.contains("I32(1)"), msg=exact_pretty)
+  assert_false(effectful_pretty.contains("ref.test"), msg=effectful_pretty)
+  assert_true(effectful_pretty.contains("global.set"), msg=effectful_pretty)
+  assert_true(effectful_pretty.contains("I32(1)"), msg=effectful_pretty)
+  assert_false(inexact_pretty.contains("ref.test"), msg=inexact_pretty)
+  assert_true(inexact_pretty.contains("I32(1)"), msg=inexact_pretty)
+}
+
+///|
 test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
   // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
   // two-operand descriptor equality casts under `--enable-custom-descriptors`

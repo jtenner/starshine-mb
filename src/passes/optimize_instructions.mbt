@@ -11838,6 +11838,22 @@ fn optimize_instructions_ref_operand_is_nullable_exact_heap(
 }
 
 ///|
+fn optimize_instructions_ref_operand_matches_exact_test_target(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] =>
+      ref_type.is_exact() &&
+      ref_type.get_heap_type() == target &&
+      (target_nullable || ref_type.is_non_nullable())
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_operand_is_nullable_match_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -12118,9 +12134,10 @@ fn optimize_instructions_try_fold_ref_test_null(
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
-  let (nullable, target) = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefTest(nullable, false, target)) =>
-      (nullable, target)
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefTest(nullable, exact, target)) =>
+      (nullable, exact, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
@@ -12139,6 +12156,12 @@ fn optimize_instructions_try_fold_ref_test_null(
       true
     }
     _ if not(nullable) &&
+      (
+        not(exact) ||
+        optimize_instructions_ref_operand_has_exact_heap(
+          func, operand_id, target,
+        )
+      ) &&
       optimize_instructions_ref_operand_is_nullable_match_for_target(
         func, operand_id, target,
       ) => {
@@ -12149,6 +12172,12 @@ fn optimize_instructions_try_fold_ref_test_null(
     }
     _ if optimize_instructions_ref_is_known_match_for_target(
         func, operand_id, target,
+      ) ||
+      (
+        exact &&
+        optimize_instructions_ref_operand_matches_exact_test_target(
+          func, operand_id, target, nullable,
+        )
       ) ||
       (
         nullable &&
