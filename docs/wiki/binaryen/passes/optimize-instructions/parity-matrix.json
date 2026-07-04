@@ -9,6 +9,7 @@
     "mismatch",
     "intentional-boundary",
     "blocked-surface",
+    "implemented-final-probe-smoke",
     "unsafe-gap",
     "starshine-win-candidate"
   ],
@@ -4281,15 +4282,16 @@
         "threads"
       ],
       "binaryenOracleMode": "compare-pass normalized WAT after Starshine text/core constructors and feature floors are confirmed",
-      "starshineStatus": "partial-implementation-blocked",
+      "starshineStatus": "implemented-final-probe-smoke",
       "priority": "P2",
-      "blockerBoundaryReason": "Follow-up implementation added shared-GC aggregate atomic RMW/cmpxchg core decode/encode/validate/HOT representation and a local-receiver optimize-instructions rewrite for unshared struct RMW/xchg/cmpxchg, including identity RMW and same-value cmpxchg to struct.atomic.get. Array aggregate atomics remain a sampled no-rewrite boundary. Native Binaryen-shaped probes now decode, optimize with fail-closed unchanged behavior where required, and validate, but global-receiver struct probes expose a HOT lift/lower result-root sentinel issue: mutating those functions can lower to unreachable. The pass therefore currently rewrites only local.get struct receivers and returns unchanged for array atomics or unsupported aggregate receivers until HOT root/result handling or a safe raw rewrite is fixed.",
+      "blockerBoundaryReason": "Final OI-L probe closeout is complete for the current Binaryen v130 sampled surface. Starshine decodes/encodes/validates current shared-GC aggregate atomic get/RMW/cmpxchg binaries with the reserved-zero immediate, HOT-lifts/lowers aggregate atomic result bodies without trailing unreachable collapse, and optimize-instructions rewrites unshared struct aggregate RMW/xchg/cmpxchg for local.get and Binaryen-shaped global.get receivers. Non-identity RMW/xchg/cmpxchg lower to ordinary struct.get/struct.set/select shapes returning the old value; identity add/or/xor 0, and -1, and same-value cmpxchg lower to struct.atomic.get with dropped dead operands. Sampled array aggregate RMW/cmpxchg probes remain an intentional Binaryen-backed no-rewrite boundary and preserve array.atomic.*.",
       "lastCheckedEvidence": [
-        "docs/wiki/raw/research/1438-2026-07-03-optimize-instructions-oi-l-atomic-closeout.md (2026-07-03 follow-up section)",
-        "src/passes/optimize_instructions_test.mbt focused *OI-L* test: local-receiver struct RMW/xchg/cmpxchg rewrites and array no-rewrite boundary",
-        "Native probe smoke over .tmp/oi-l-gc-atomics-probes-20260703/*.input.wasm with --optimize-instructions --validate plus wasm-tools validate --features all passed; global-receiver struct probes are currently unchanged, not rewritten",
-        "moon test passed 7333/7333 after the partial implementation",
-        "Binaryen v130 direct probes still define the remaining target: global/unshared struct aggregate RMW/cmpxchg rewrites; arrays preserved"
+        "docs/wiki/raw/research/1438-2026-07-03-optimize-instructions-oi-l-atomic-closeout.md (2026-07-03 final implementation section)",
+        "src/binary/tests.mbt focused atomic tests: current aggregate atomic reserved-zero decode/encode bytes for struct.atomic.get, struct RMW/cmpxchg, and array RMW/cmpxchg",
+        "src/passes/optimize_instructions_test.mbt focused *OI-L* test: local-receiver and global-receiver struct RMW/xchg/cmpxchg rewrites plus array no-rewrite boundary; red-first global receiver check failed before the decode/receiver fix",
+        "moon test --package jtenner/starshine/binary --file tests.mbt --filter *atomic* passed 3/3; moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter *OI-L* passed 1/1; moon fmt passed (2026-07-03)",
+        "moon build --target native --release src/cmd passed with pre-existing warnings; native smoke over .tmp/oi-l-gc-atomics-probes-20260703/*.input.wasm and *.input.print.input.wasm emitted 18 Starshine outputs with --optimize-instructions --validate, all accepted by wasm-tools validate --features all; WAT inspection found struct probes rewritten without struct.atomic.rmw/unreachable and array probes preserving array.atomic.* (2026-07-03)",
+        "Binaryen v130 direct probes define the sampled target: unshared struct aggregate RMW/cmpxchg rewrites and array RMW/cmpxchg preservation"
       ],
       "genValidProfiles": [],
       "metamorphicTransforms": [],
@@ -4298,14 +4300,15 @@
         "count": 0,
         "seed": "0x5eed",
         "profile": "pass-oi-gc-atomics",
-        "blockedUntilProfileExists": true
+        "blockedUntilProfileExists": true,
+        "reason": "Final OI-L classification is probe/test backed; no dedicated random pass-oi-gc-atomics profile exists yet, so future randomized reopening/signoff should add one instead of reusing pass-oi-ref-gc."
       },
-      "closeoutState": "partial-local-receiver-global-hot-blocker",
-      "releaseImpact": "P2 partial implementation blocker: local-receiver struct OI-L rewrites exist and validate, but final parity requires fixing HOT/global-receiver aggregate atomic result handling or adding a safe raw rewrite before widening the receiver gate.",
-      "remainingCloseoutWork": "Fix HOT lift/root result handling for aggregate atomic result bodies or implement a safe raw pre-HOT rewrite; add red-first global.get receiver coverage; widen the receiver gate to global.get; confirm native struct probes rewrite to struct.get/struct.set/select or struct.atomic.get while array probes preserve array atomics; then update this row to final parity/no-rewrite classification.",
-      "nextCloseoutAction": "Start from the global-receiver struct probes that currently stay unchanged. Reproduce the trailing-unreachable HOT body shape with --print-func, fix HOT result-root handling or bypass safely in raw, then rerun focused OI-L tests, native probe WAT inspection, and full validation.",
-      "closeoutRationale": "The family is finite: direct Binaryen behavior exists for unshared struct RMW/cmpxchg, array RMW/cmpxchg is currently no-rewrite in the sampled valid probes, and Starshine now has partial local-receiver support. The remaining gap is specifically global-receiver/native probe rewriting because mutating those HOT bodies exposes a result-root sentinel lowering issue; until fixed, the pass preserves those functions unchanged.",
-      "reopenCriteria": "Finalize when HOT lift/root result handling or a safe raw rewrite supports Binaryen-shaped global.get receiver struct aggregate atomics, a red-first test covers that shape, native struct probes rewrite to the Binaryen-backed struct.get/struct.set/select or struct.atomic.get forms, array probes remain preserved, and validation stays green. Broader reopening also applies if true shared/concurrent runtime tooling or v0.1 release scope requires additional proposal semantics."
+      "closeoutState": "implemented-final-probe-smoke",
+      "releaseImpact": "P2 final probe-smoke classification: the current Binaryen-backed OI-L struct aggregate atomic rewrite surface is implemented and sampled array aggregate atomics are an intentional no-rewrite boundary. Broader randomized/profile or true concurrent shared-memory runtime coverage remains future reopening/signoff work, not an active known blocker.",
+      "remainingCloseoutWork": "None for the current sampled OI-L probe surface. Future work: add pass-oi-gc-atomics if randomized aggregate-atomic coverage is desired; revisit if Binaryen adds array aggregate RMW/cmpxchg rewrites, proposal binary immediates change, validation/runtime evidence exposes semantic loss, or true shared/concurrent runtime tooling becomes available.",
+      "nextCloseoutAction": "No immediate OI-L implementation action. Keep the focused binary/pass tests and native probe smoke as regression evidence; add a dedicated pass-oi-gc-atomics profile only for future randomized signoff or reopened semantics.",
+      "closeoutRationale": "The family is finite in the reviewed Binaryen v130 probes: direct Binaryen rewrites unshared struct RMW/xchg/cmpxchg and preserves sampled array RMW/cmpxchg. Starshine now decodes/encodes the current binary immediate shape, rewrites both local and global struct receivers, validates native probe outputs, and WAT inspection confirms struct probes no longer collapse to unreachable while array probes retain array.atomic.*. No current sampled OI-L residual remains open.",
+      "reopenCriteria": "Reopen OI-L if aggregate atomic decode/encode immediates change, a struct aggregate RMW/cmpxchg probe fails validation or stops rewriting, an array aggregate atomic is rewritten by Binaryen direct or accidentally rewritten by Starshine, a dedicated pass-oi-gc-atomics randomized lane finds a semantic/validation mismatch, v0.1 scope requires additional proposal semantics, or true shared/concurrent runtime tooling reveals ordering/atomicity issues not covered by single-thread static probe validation."
     },
     {
       "id": "OI-M-tuple-multivalue-selected-lanes",

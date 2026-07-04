@@ -235,3 +235,51 @@ moon test
 ```
 
 Results: focused OI-L test passed, native probe smoke passed, `moon fmt` passed, and full `moon test` passed (`7333/7333`) with pre-existing warnings.
+
+## 2026-07-03 final follow-up: global receivers and reserved-zero aggregate immediates
+
+The next recursive slice fixed the finite blocker and moves the sampled OI-L surface to **implemented/final probe-smoke**.
+
+Root cause of the apparent HOT sentinel issue:
+
+- Current Binaryen/wasm-tools shared-GC aggregate atomic binaries carry a reserved zero immediate after aggregate type/field indices (`struct.*`) or after the array type index (`array.*`).
+- Starshine decoded the instruction but did not consume that reserved zero, so the remaining byte was decoded as `unreachable` before `end`.
+- Mutating a result body with that decoded trailing `unreachable` made the lowered function collapse to `unreachable`.
+
+Implemented fixes:
+
+- `src/binary/decode.mbt` now consumes and validates the reserved-zero aggregate atomic immediate for `struct.atomic.get*`, `struct.atomic.rmw.*`, `struct.atomic.rmw.cmpxchg`, `array.atomic.rmw.*`, and `array.atomic.rmw.cmpxchg`.
+- `src/binary/encode.mbt` now emits the reserved zero for the same current binary surface.
+- `src/passes/optimize_instructions.mbt` now treats `global.get` receivers as safely duplicable alongside `local.get` for this struct aggregate rewrite family and removes the previous global/array fail-close. Arrays still do not rewrite because the aggregate-atomic rewrite helper intentionally returns false for `array.atomic.*`.
+- `src/passes/optimize_instructions_test.mbt` now requires the Binaryen-shaped global-receiver struct probe to rewrite and asserts no trailing `unreachable` remains.
+- `src/binary/tests.mbt` locks the current reserved-zero binary spelling red-first for aggregate atomic get/RMW/cmpxchg opcodes.
+
+Validation and smoke evidence for this final follow-up:
+
+```sh
+moon fmt
+moon test --package jtenner/starshine/binary --file tests.mbt --filter '*atomic*'
+moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*OI-L*'
+moon build --target native --release src/cmd
+# Native probe smoke over .tmp/oi-l-gc-atomics-probes-20260703/*.input.wasm
+# and *.input.print.input.wasm:
+target/native/release/build/cmd/cmd.exe --optimize-instructions --validate ...
+wasm-tools validate --features all ...
+wasm-tools print ...
+```
+
+Results:
+
+- `moon fmt` passed.
+- Focused binary atomic tests passed `3/3`.
+- Focused OI-L pass test passed `1/1`.
+- Native `src/cmd` release build passed with pre-existing warnings.
+- Native probe smoke emitted and validated 18 Starshine outputs under `.tmp/oi-l-starshine-opt-20260703-final`.
+- WAT inspection confirmed struct probes no longer contain `struct.atomic.rmw` or trailing `unreachable`; non-identity struct RMW/cmpxchg probes rewrite to `struct.get`/`struct.set`/`select` shapes and identity probes rewrite to `struct.atomic.get` forms.
+- WAT inspection confirmed sampled array probes preserve `array.atomic.*`.
+
+Final classification:
+
+- OI-L is implemented/final for the current Binaryen-backed sampled probe surface.
+- `pass-oi-gc-atomics` still does not exist; future randomized OI-L signoff should add that profile instead of treating `pass-oi-ref-gc` as evidence.
+- Reopen OI-L if aggregate atomic binary immediates change, struct probes stop rewriting or fail validation, Binaryen begins rewriting array aggregate RMW/cmpxchg, Starshine accidentally rewrites sampled arrays, a dedicated OI-L profile finds a semantic/validation mismatch, v0.1 scope expands the proposal semantics, or true shared/concurrent runtime tooling exposes ordering/atomicity issues not covered by static single-thread probe validation.

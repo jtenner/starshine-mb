@@ -2691,6 +2691,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
+        return Err(t)
+      }
     }
     StructAtomicGetS(_, i, idx) => {
       buf.write_byte(0xFE)
@@ -2703,6 +2706,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
+        return Err(t)
+      }
     }
     StructAtomicGetU(_, i, idx) => {
       buf.write_byte(0xFE)
@@ -2713,6 +2719,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
         return Err(t)
       }
     }
@@ -2735,6 +2744,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
+        return Err(t)
+      }
     }
     StructAtomicCmpxchg(i, idx) => {
       buf.write_byte(0xFE)
@@ -2745,6 +2757,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
         return Err(t)
       }
     }
@@ -2866,6 +2881,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
+        return Err(t)
+      }
     }
     ArrayAtomicCmpxchg(i) => {
       buf.write_byte(0xFE)
@@ -2873,6 +2891,9 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
         return Err(t)
       }
     }

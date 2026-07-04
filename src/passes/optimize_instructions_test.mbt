@@ -19219,8 +19219,8 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     msg=array_boundary,
   )
 
-  // Current fail-closed native-probe blocker: global receivers are preserved
-  // until HOT lift/lower result-root handling for aggregate atomics is fixed.
+  // Binaryen-shaped native probes use global receivers. They must rewrite too;
+  // decoding must not leave a trailing unreachable sentinel that collapses the body.
   let global_receiver_src =
     #|(module
     #|  (type $S (struct (field (mut i32))))
@@ -19235,10 +19235,14 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
     Err(err) => fail("expected global receiver fail-closed success, got \{err}")
   }
-  assert_true(
+  assert_false(
     global_receiver.contains("struct.atomic.rmw.add"),
     msg=global_receiver,
   )
+  assert_true(global_receiver.contains("struct.get"), msg=global_receiver)
+  assert_true(global_receiver.contains("struct.set"), msg=global_receiver)
+  assert_true(global_receiver.contains("global.get"), msg=global_receiver)
+  assert_false(global_receiver.contains("unreachable"), msg=global_receiver)
 }
 
 ///|

@@ -4038,7 +4038,7 @@ fn optimize_instructions_struct_atomic_receiver_is_dupable(
   receiver_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, receiver_id).op {
-    @ir.HotOp::LocalGet => true
+    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet => true
     _ => false
   }
 }
@@ -15817,18 +15817,11 @@ fn optimize_instructions_func_has_unsupported_aggregate_atomic_receiver(
       continue
     }
     match @ir.hot_node_exact_instr(func, node_id) {
-      Some(@lib.Instruction::ArrayAtomicRmw(_, _))
-      | Some(@lib.Instruction::ArrayAtomicCmpxchg(_)) => return true
       Some(@lib.Instruction::StructAtomicRmw(_, _, _))
-      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _)) => {
+      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _)) =>
         if @ir.hot_child_count(func, node_id) == 0 {
           return true
         }
-        match @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op {
-          @ir.HotOp::LocalGet => ()
-          _ => return true
-        }
-      }
       _ => ()
     }
   }

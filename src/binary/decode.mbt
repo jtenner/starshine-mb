@@ -396,6 +396,19 @@ pub impl Decode for AtomicOrder with fn decode(bytes, i) {
 }
 
 ///|
+fn decode_aggregate_atomic_reserved_zero(
+  bytes : Bytes,
+  i : Int,
+) -> Result[Int, BinaryDecodeError] {
+  match
+    (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
+    Ok((@lib.U32(0), next)) => Ok(next)
+    Ok(_) => Err(BinaryDecodeError::InvalidAtomicInstruction)
+    Err(t) => Err(t)
+  }
+}
+
+///|
 pub impl Decode for RecType with fn decode(buf, i) {
   match buf.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
@@ -3483,9 +3496,15 @@ fn decode_instruction_with_depth(
             Ok((type_idx, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((field_idx, i)) => {
-                  // Current shared-GC aggregate atomic-get binaries are
-                  // orderless. Keep SeqCst internally for the older local
-                  // representation; do not read a relaxed/order immediate.
+                  let i = match
+                    decode_aggregate_atomic_reserved_zero(bytes, i) {
+                    Ok(next) => next
+                    Err(t) => return Err(t)
+                  }
+                  // Current shared-GC aggregate atomic-get binaries carry a
+                  // reserved zero after the aggregate indices, not a semantic
+                  // local ordering selector. Keep SeqCst internally for the
+                  // older local representation.
                   let order = AtomicOrder::seq_cst()
                   let instr = match id {
                     0x5C =>
@@ -3510,6 +3529,11 @@ fn decode_instruction_with_depth(
             Ok((type_idx, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((field_idx, i)) => {
+                  let i = match
+                    decode_aggregate_atomic_reserved_zero(bytes, i) {
+                    Ok(next) => next
+                    Err(t) => return Err(t)
+                  }
                   let instr = match id {
                     0x60 =>
                       Instruction::struct_atomic_rmw(
@@ -3558,6 +3582,10 @@ fn decode_instruction_with_depth(
         Ok((@lib.U32(id), i)) if id >= 0x6B && id <= 0x71 =>
           match Decode::decode(bytes, i) {
             Ok((type_idx, i)) => {
+              let i = match decode_aggregate_atomic_reserved_zero(bytes, i) {
+                Ok(next) => next
+                Err(t) => return Err(t)
+              }
               let instr = match id {
                 0x6B =>
                   Instruction::array_atomic_rmw(

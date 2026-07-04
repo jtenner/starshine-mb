@@ -1989,7 +1989,7 @@ test "struct atomic get instruction encode decode opcodes" {
         TypeIdx::new(0U),
         U32(0U),
       ),
-      b"\xFE\x5C\x00\x00",
+      b"\xFE\x5C\x00\x00\x00",
     ),
     (
       "struct.atomic.get_s seq_cst",
@@ -1998,7 +1998,7 @@ test "struct atomic get instruction encode decode opcodes" {
         TypeIdx::new(1U),
         U32(2U),
       ),
-      b"\xFE\x5D\x01\x02",
+      b"\xFE\x5D\x01\x02\x00",
     ),
     (
       "struct.atomic.get_u orderless",
@@ -2007,7 +2007,7 @@ test "struct atomic get instruction encode decode opcodes" {
         TypeIdx::new(2U),
         U32(3U),
       ),
-      b"\xFE\x5E\x02\x03",
+      b"\xFE\x5E\x02\x03\x00",
     ),
   ]
   for case in cases {
@@ -2042,7 +2042,7 @@ test "aggregate atomic rmw cmpxchg encode decode opcodes" {
         TypeIdx::new(0U),
         U32(0U),
       ),
-      b"\xFE\x60\x00\x00",
+      b"\xFE\x60\x00\x00\x00",
     ),
     (
       "struct.atomic.rmw.xchg",
@@ -2051,12 +2051,12 @@ test "aggregate atomic rmw cmpxchg encode decode opcodes" {
         TypeIdx::new(0U),
         U32(0U),
       ),
-      b"\xFE\x65\x00\x00",
+      b"\xFE\x65\x00\x00\x00",
     ),
     (
       "struct.atomic.rmw.cmpxchg",
       Instruction::struct_atomic_cmpxchg(TypeIdx::new(0U), U32(0U)),
-      b"\xFE\x66\x00\x00",
+      b"\xFE\x66\x00\x00\x00",
     ),
     (
       "array.atomic.rmw.add",
@@ -2064,12 +2064,12 @@ test "aggregate atomic rmw cmpxchg encode decode opcodes" {
         @lib.AggregateAtomicRmwOp::add(),
         TypeIdx::new(0U),
       ),
-      b"\xFE\x6B\x00",
+      b"\xFE\x6B\x00\x00",
     ),
     (
       "array.atomic.rmw.cmpxchg",
       Instruction::array_atomic_cmpxchg(TypeIdx::new(0U)),
-      b"\xFE\x71\x00",
+      b"\xFE\x71\x00\x00",
     ),
   ]
   for case in cases {
