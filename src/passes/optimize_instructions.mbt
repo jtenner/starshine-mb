@@ -14100,6 +14100,7 @@ fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
 
 ///|
 fn optimize_instructions_ref_eq_same_local_operand(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Int? {
@@ -14117,7 +14118,9 @@ fn optimize_instructions_ref_eq_same_local_operand(
               let local_idx = @ir.hot_node_get(func, child_id).imm0
               match @ir.hot_local_type(func, local_idx) {
                 Some(@lib.ValType::RefTypeValType(ref_type)) =>
-                  if ref_type.get_heap_type() == target ||
+                  if ctx.ignore_implicit_traps || ctx.traps_never_happen {
+                    Some(local_idx)
+                  } else if ref_type.get_heap_type() == target ||
                     (
                       ref_type.get_heap_type() ==
                       @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
@@ -14146,14 +14149,15 @@ fn optimize_instructions_ref_eq_same_local_operand(
 
 ///|
 fn optimize_instructions_ref_eq_operands_are_same_local(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
   match
     (
-      optimize_instructions_ref_eq_same_local_operand(func, lhs_id),
-      optimize_instructions_ref_eq_same_local_operand(func, rhs_id),
+      optimize_instructions_ref_eq_same_local_operand(ctx, func, lhs_id),
+      optimize_instructions_ref_eq_same_local_operand(ctx, func, rhs_id),
     ) {
     (Some(lhs), Some(rhs)) => lhs == rhs
     _ => false
@@ -14602,7 +14606,9 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
   let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  if optimize_instructions_ref_eq_operands_are_same_local(func, lhs_id, rhs_id) ||
+  if optimize_instructions_ref_eq_operands_are_same_local(
+      ctx, func, lhs_id, rhs_id,
+    ) ||
     optimize_instructions_ref_eq_operands_are_same_i31_local(
       func, lhs_id, rhs_id,
     ) {

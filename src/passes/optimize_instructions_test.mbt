@@ -8627,6 +8627,108 @@ test "optimize-instructions removes local ref.as_non_null sets under trap-ignori
 }
 
 ///|
+test "optimize-instructions folds same-local nullable ref.cast equality under trap-ignoring modes" {
+  // OI-J trap-mode slice from roadmap probe 12: default mode must preserve the
+  // nullable ref.cast trap in `ref.eq(x, ref.cast T x)`, but IIT/TNH can skip the
+  // trap and fold same-local equality to true. This covers only the local-ref.eq
+  // observation point, not general ordinary cast erasure.
+  let type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let heap = @lib.HeapType::new(type_idx)
+  let eqref_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([eqref_type], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(@lib.RefType::new(true, heap)),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+      ]),
+    )
+
+  let default_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let default_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(default_ctx, default_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected default same-local cast equality success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(default_body)) = @ir.hot_lower_func(default_func)
+  assert_true(
+    default_body.any(fn(instr) { instr == @lib.Instruction::ref_eq() }),
+  )
+  assert_true(
+    default_body.any(fn(instr) {
+      match instr {
+        @lib.RefCast(true, false, target) => target == heap
+        _ => false
+      }
+    }),
+  )
+
+  let iit_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let iit_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    ignore_implicit_traps=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(iit_ctx, iit_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected IIT same-local cast equality success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(iit_body)) = @ir.hot_lower_func(iit_func)
+  @debug.assert_eq(iit_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+
+  let tnh_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let tnh_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(tnh_ctx, tnh_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH same-local cast equality success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(tnh_body)) = @ir.hot_lower_func(tnh_func)
+  @debug.assert_eq(tnh_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+}
+
+///|
 test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
   // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
   // two-operand descriptor equality casts under `--enable-custom-descriptors`
