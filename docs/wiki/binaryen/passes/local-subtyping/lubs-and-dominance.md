@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
+  - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
+  - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -96,7 +99,7 @@ This is stricter than textual order. Loops, blocks, catches, and other structure
 
 Changing one local declaration can change the inferred type of expressions that assign to another local. Binaryen therefore reruns the analysis after refinalization while changes continue.
 
-The current Starshine subset already does one pass over declarations, so it will miss repeated-refinement cases from the official lit file until refinalization is added.
+Starshine now handles the focused official-lit repeated-refinement surfaces that have landed in the recursive LS audit: a dependent `local.get` assignment chain, the adjacent-local-get select/LUB shape, and represented zero-param adjacent-local-get `call_ref` / bottom-call-ref shapes. It still does not claim arbitrary expression retagging or EH handler-flow refinalization beyond those protected slices.
 
 ## Parameters and body locals
 

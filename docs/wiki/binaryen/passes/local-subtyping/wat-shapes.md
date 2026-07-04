@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-04
 sources:
   - ../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md
+  - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -433,7 +434,37 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/return-call-after-dominated-get.wat`, `.tmp/ls-probes/block-terminal-return-call-after-dominated-get.wat`, `.tmp/ls-probes/return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/block-terminal-return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/return-call-ref-after-dominated-get.wat`, and `.tmp/ls-probes/block-terminal-return-call-ref-after-dominated-get.wat` under `--local-subtyping`;
 - the observed get appears before the terminal tail call and is dominated by the non-null write;
-- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` as non-propagating terminal return boundaries for the source-backed root/block, copied-if-arm path-skip, and copied `try_table` body tail subsets. Broader tail-call refinalization remains conservative beyond these probed declaration-narrowing cases.
+- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` as non-propagating terminal return boundaries for the source-backed root/block, copied-if-arm path-skip, and copied `try_table` body tail subsets.
+
+## Shape 6d-a: adjacent `call_ref` can refinalize after target-local narrowing
+
+Before:
+
+```wat
+(type $ret-any (sub (func (result anyref))))
+(type $ret-i31 (sub $ret-any (func (result i31ref))))
+(local $f (ref null $ret-any))
+(local $x anyref)
+(local.set $f (ref.func $ret-i31))
+(local.set $x (call_ref $ret-any (local.get $f)))
+```
+
+Possible after, from Binaryen v130 and Starshine focused coverage:
+
+```wat
+(local $f (ref (exact $ret-i31)))
+(local $x i31ref)
+(local.set $x (call_ref $ret-i31 (local.get $f)))
+```
+
+Bottom-target variant:
+
+```wat
+(local.set $f (ref.null nofunc))
+(local.set $x (call_ref $ret-any (local.get $f)))
+```
+
+narrows `$f` to `nullfuncref`, narrows `$x` to `(ref none)`, and replaces the unemittable bottom `call_ref` with an unreachable value block that drops the target. Starshine currently implements this for represented zero-param adjacent-local-get targets; reopen for non-adjacent targets, parameterized bottom calls, argument side effects, or non-identical function params.
 
 ## Shape 6e-a: block terminal `return` can preserve already-dominated gets inside the block
 
@@ -753,7 +784,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-return-call-after-dominated-get.wat`, `.tmp/ls-probes/try-table-terminal-return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/try-table-terminal-return-call-ref-after-dominated-get.wat`, `.tmp/ls-probes/try-table-return-call-before-unreachable-tail-get.wat`, `.tmp/ls-probes/try-table-return-call-indirect-before-unreachable-tail-get.wat`, and `.tmp/ls-probes/try-table-return-call-ref-before-unreachable-tail-get.wat` under `--local-subtyping`;
 - the observed gets before the tail call, and any syntactic tail gets after that tail call in the non-final probes, are dominated by the non-null write;
-- Starshine's scanner already treats `return_call`, `return_call_indirect`, and `return_call_ref` as return-like non-propagating terminal points inside the copied `try_table` body scan. This still does not propagate try-body writes outward and does not widen tail-call refinalization, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine's scanner already treats `return_call`, `return_call_indirect`, and `return_call_ref` as return-like non-propagating terminal points inside the copied `try_table` body scan. This still does not propagate try-body writes outward and does not widen catch-ref/catch-all-ref post-state or broader EH flow.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
