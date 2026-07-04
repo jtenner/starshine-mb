@@ -10710,6 +10710,133 @@ test "optimize-instructions moves standalone ref.get_desc br_on_cast block null 
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc br_on_cast_fail block null checks" {
+  // OI-J standalone self-contained br_on_cast_fail slice: Binaryen version_130
+  // default/IIT/TNH simplify `ref.get_desc(ref.as_non_null(block ...))` for the
+  // narrow nullable-to-non-null same-heap br_on_cast_fail shape where the
+  // failure branch targets the descriptor child block and the success
+  // fallthrough is a non-null same-heap value. This does not claim descriptor
+  // BrOn variants, arbitrary cast targets, escaping labels, payload prefixes,
+  // effectful/control operands, EH, or broader descriptor/exactness behavior.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, described_heap),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_described_val_type], [
+              @lib.ValType::anyref(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast_fail(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  described_heap,
+                  false,
+                  described_heap,
+                ),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected standalone br_on_cast_fail ref.get_desc success, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected standalone root ref.get_desc, got \{other}")
+  }
+  let child = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, child).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail("expected self-contained br_on_cast_fail block child, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, child)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 1)
+  let branch = @ir.hot_region_get(func, body, 0)
+  match @ir.hot_node_get(func, branch).op {
+    @ir.HotOp::BrOnCastFail => ()
+    other => fail("expected internal br_on_cast_fail root, got \{other}")
+  }
+
+  let tnh_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let tnh_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(tnh_ctx, tnh_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected TNH standalone br_on_cast_fail ref.get_desc success, got \{err}",
+      )
+  }
+  let tnh_root = @ir.hot_root_get(tnh_func, 0)
+  match @ir.hot_node_exact_instr(tnh_func, tnh_root) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected TNH standalone root ref.get_desc, got \{other}")
+  }
+  let tnh_child = @ir.hot_child_get(tnh_func, tnh_root, 0)
+  match @ir.hot_node_get(tnh_func, tnh_child).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail("expected TNH self-contained br_on_cast_fail block, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc br_on_null block null checks" {
   // OI-J standalone self-contained br_on_null slice: Binaryen version_130
   // default/IIT/TNH simplify `ref.get_desc(ref.as_non_null(block ...))` for the

@@ -13165,7 +13165,7 @@ fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
 ) -> Bool {
   let root = @ir.hot_node_get(func, root_id)
   match root.op {
-    @ir.HotOp::BrOnCast => ()
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => ()
     _ => return false
   }
   if !optimize_instructions_descriptor_label_is_internal_to_expr(
@@ -13180,6 +13180,14 @@ fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
     @ir.hot_node_exact_instr(func, root_id) {
     Some(
       @lib.Instruction::BrOnCast(
+        _,
+        @lib.CastOp(src_null, dst_null),
+        src_heap,
+        dst_heap
+      )
+    ) => (src_null, dst_null, src_heap, dst_heap)
+    Some(
+      @lib.Instruction::BrOnCastFail(
         _,
         @lib.CastOp(src_null, dst_null),
         src_heap,
@@ -13375,7 +13383,7 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
       !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
         func, block_id, final_id,
       )
-    @ir.HotOp::BrOnCast =>
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
       optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
         func, block_id, final_id,
       )
