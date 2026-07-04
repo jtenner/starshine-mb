@@ -492,6 +492,7 @@ fn ls_scan_branch_free_dominance_instrs(
           None => ()
         }
       }
+      @lib.Unreachable => allow_later_write_init = false
       @lib.BrIf(_) => allow_later_write_init = false
       @lib.Br(_) | @lib.BrTable(_, _) => {
         allow_later_write_init = false

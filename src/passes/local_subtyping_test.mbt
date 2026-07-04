@@ -358,6 +358,80 @@ test "local-subtyping narrows body locals from local.tee assignments" {
 }
 
 ///|
+test "local-subtyping retag representation validates tee parent after narrowing" {
+  let funcref_nullable = @lib.ValType::funcref()
+  let callee_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(3U)),
+    exact=true,
+  )
+  let callee_nonnull = @lib.ValType::ref_type(callee_ref)
+  let mod_ = ls_test_module_with_child_param_and_tail_refs(funcref_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(funcref_nullable),
+      @lib.Expr::new([
+        @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), callee_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tee-parent narrowed module to validate without retag repair, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping keeps nullable for unreachable-before-write tee boundary" {
+  let funcref_nullable = @lib.ValType::funcref()
+  let callee_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(3U)),
+      exact=true,
+    ),
+  )
+  let mod_ = ls_test_module_with_child_param_and_tail_refs(funcref_nullable, [
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(funcref_nullable),
+      @lib.Expr::new([
+        @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), callee_nullable)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected unreachable-before-write tee/get boundary to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "local-subtyping narrows local.tee non-null assignment to non-null" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
