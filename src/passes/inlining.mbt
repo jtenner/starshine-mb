@@ -5201,6 +5201,7 @@ fn inl_run_final_raw_vacuum_preclean(mod_ : @lib.Module) -> @lib.Module {
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[code_idx]
     let (next_instrs, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
       instrs,
+      None,
     )
     if changed {
       let next_func = @lib.Func::new(locals, @lib.Expr::new(next_instrs))

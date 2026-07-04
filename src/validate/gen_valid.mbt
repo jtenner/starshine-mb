@@ -647,6 +647,12 @@ pub enum GenValidProfile {
   ValidatorStressProfile
   PassCleanupProfile
   VacuumProfile
+  VacuumCoreProfile
+  VacuumTerminalUnreachableProfile
+  VacuumStructuralWrappersProfile
+  VacuumCallPrefixContinuationProfile
+  VacuumLocalsetPrefixPreserveProfile
+  VacuumHazardBoundaryProfile
   PassDaeProfile
   PassInliningProfile
   PassMemoryProfile
@@ -801,6 +807,12 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ValidatorStressProfile => "validator-stress"
     PassCleanupProfile => "pass-cleanup"
     VacuumProfile => "vacuum"
+    VacuumCoreProfile => "vacuum-core"
+    VacuumTerminalUnreachableProfile => "vacuum-terminal-unreachable"
+    VacuumStructuralWrappersProfile => "vacuum-structural-wrappers"
+    VacuumCallPrefixContinuationProfile => "vacuum-call-prefix-continuation"
+    VacuumLocalsetPrefixPreserveProfile => "vacuum-localset-prefix-preserve"
+    VacuumHazardBoundaryProfile => "vacuum-hazard-boundary"
     PassDaeProfile => "pass-dae"
     PassInliningProfile => "pass-inlining"
     PassMemoryProfile => "pass-memory"
@@ -946,7 +958,8 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
 ///|
 pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
   match profile {
-    GsiDescCastAllProfile
+    VacuumProfile
+    | GsiDescCastAllProfile
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
@@ -969,6 +982,15 @@ pub fn gen_valid_profile_members(
   profile : GenValidProfile,
 ) -> Array[GenValidProfileMember] {
   match profile {
+    VacuumProfile =>
+      [
+        GenValidProfileMember::new(VacuumCoreProfile, 2),
+        GenValidProfileMember::new(VacuumTerminalUnreachableProfile, 1),
+        GenValidProfileMember::new(VacuumStructuralWrappersProfile, 1),
+        GenValidProfileMember::new(VacuumCallPrefixContinuationProfile, 1),
+        GenValidProfileMember::new(VacuumLocalsetPrefixPreserveProfile, 1),
+        GenValidProfileMember::new(VacuumHazardBoundaryProfile, 1),
+      ]
     GsiDescCastAllProfile =>
       [
         GenValidProfileMember::new(GsiDescCastPositiveProfile, 5),
@@ -1188,6 +1210,12 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ValidatorStressProfile,
     PassCleanupProfile,
     VacuumProfile,
+    VacuumCoreProfile,
+    VacuumTerminalUnreachableProfile,
+    VacuumStructuralWrappersProfile,
+    VacuumCallPrefixContinuationProfile,
+    VacuumLocalsetPrefixPreserveProfile,
+    VacuumHazardBoundaryProfile,
     PassDaeProfile,
     PassInliningProfile,
     PassMemoryProfile,
@@ -1367,6 +1395,8 @@ pub fn gen_valid_profile_by_name(
     "precompute-all-profiles" => Ok(PrecomputeAllProfile)
     "vacuum-closeout" => Ok(VacuumProfile)
     "vacuum-all" => Ok(VacuumProfile)
+    "vacuum-all-profiles" => Ok(VacuumProfile)
+    "vacuum-current" => Ok(VacuumCoreProfile)
     "pick-load-signs" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
@@ -1540,45 +1570,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         },
       }
     }
-    VacuumProfile => {
-      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
-      GenValidConfig::{
-        ..base,
-        max_type_defs: 1,
-        max_imports: 0,
-        max_defined_funcs: 2,
-        max_tables: 0,
-        max_mems: 0,
-        max_globals: 0,
-        max_tags: 0,
-        max_elems: 0,
-        max_datas: 0,
-        max_params: 0,
-        max_results: 0,
-        max_locals: 0,
-        max_body_statements: 13,
-        max_body_depth: 3,
-        features: GenValidFeatureToggles::{
-          ..base.features,
-          allow_imports: false,
-          allow_tables: false,
-          allow_mems: false,
-          allow_globals: false,
-          allow_tags: false,
-          allow_elems: false,
-          allow_datas: false,
-          allow_calls: false,
-          allow_call_indirect: false,
-          allow_tail_calls: false,
-          allow_v128: false,
-          allow_relaxed_simd: false,
-          allow_memory64: false,
-          allow_atomics: false,
-          allow_typed_body_generator: true,
-          allow_name_custom_sections: false,
-        },
-      }
-    }
+    VacuumProfile
+    | VacuumCoreProfile
+    | VacuumTerminalUnreachableProfile
+    | VacuumStructuralWrappersProfile
+    | VacuumCallPrefixContinuationProfile
+    | VacuumLocalsetPrefixPreserveProfile
+    | VacuumHazardBoundaryProfile => gen_valid_vacuum_profile_config(profile)
     PassDaeProfile => {
       let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
       GenValidConfig::{
@@ -15242,6 +15240,124 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let family_id = match profile {
+    VacuumCoreProfile => 1
+    VacuumTerminalUnreachableProfile => 2
+    VacuumStructuralWrappersProfile => 3
+    VacuumCallPrefixContinuationProfile => 4
+    VacuumLocalsetPrefixPreserveProfile => 5
+    VacuumHazardBoundaryProfile => 6
+    _ => 0
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == VacuumHazardBoundaryProfile ||
+      profile == VacuumCallPrefixContinuationProfile ||
+      profile == VacuumLocalsetPrefixPreserveProfile {
+      4
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: if profile == VacuumHazardBoundaryProfile {
+      4
+    } else if profile == VacuumCallPrefixContinuationProfile {
+      2
+    } else if profile == VacuumLocalsetPrefixPreserveProfile {
+      3
+    } else {
+      2
+    },
+    max_tables: 0,
+    max_mems: if profile == VacuumHazardBoundaryProfile {
+      1
+    } else {
+      0
+    },
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == VacuumLocalsetPrefixPreserveProfile {
+      1
+    } else {
+      0
+    },
+    max_results: if profile == VacuumHazardBoundaryProfile ||
+      profile == VacuumCallPrefixContinuationProfile ||
+      profile == VacuumLocalsetPrefixPreserveProfile {
+      1
+    } else {
+      0
+    },
+    max_locals: if profile == VacuumHazardBoundaryProfile ||
+      profile == VacuumCallPrefixContinuationProfile ||
+      profile == VacuumLocalsetPrefixPreserveProfile {
+      1
+    } else {
+      0
+    },
+    max_body_statements: 13 + family_id,
+    max_body_depth: 3,
+    max_module_byte_size_budget: Some(200000 + family_id),
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: profile == VacuumHazardBoundaryProfile,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: profile == VacuumHazardBoundaryProfile ||
+      profile == VacuumCallPrefixContinuationProfile ||
+      profile == VacuumLocalsetPrefixPreserveProfile,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_typed_body_generator: true,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_vacuum_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(VacuumProfile) ||
+  config == GenValidConfig::for_profile(VacuumCoreProfile) ||
+  config == GenValidConfig::for_profile(VacuumTerminalUnreachableProfile) ||
+  config == GenValidConfig::for_profile(VacuumStructuralWrappersProfile) ||
+  config == GenValidConfig::for_profile(VacuumCallPrefixContinuationProfile) ||
+  config == GenValidConfig::for_profile(VacuumLocalsetPrefixPreserveProfile) ||
+  config == GenValidConfig::for_profile(VacuumHazardBoundaryProfile)
+}
+
+///|
+fn gen_valid_vacuum_profile_kind(config : GenValidConfig) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(VacuumTerminalUnreachableProfile) {
+    VacuumTerminalUnreachableProfile
+  } else if config ==
+    GenValidConfig::for_profile(VacuumStructuralWrappersProfile) {
+    VacuumStructuralWrappersProfile
+  } else if config ==
+    GenValidConfig::for_profile(VacuumCallPrefixContinuationProfile) {
+    VacuumCallPrefixContinuationProfile
+  } else if config ==
+    GenValidConfig::for_profile(VacuumLocalsetPrefixPreserveProfile) {
+    VacuumLocalsetPrefixPreserveProfile
+  } else if config == GenValidConfig::for_profile(VacuumHazardBoundaryProfile) {
+    VacuumHazardBoundaryProfile
+  } else {
+    VacuumCoreProfile
+  }
+}
+
+///|
 fn gen_valid_vacuum_profile_small_body() -> Array[Instruction] {
   [
     Instruction::nop(),
@@ -15301,11 +15417,58 @@ fn gen_valid_vacuum_profile_large_body() -> Array[Instruction] {
       Some([Instruction::i32_const(I32(18)), Instruction::drop()]),
     ),
   )
+  body.push(Instruction::unreachable_())
   body
 }
 
 ///|
-fn gen_valid_vacuum_profile_module() -> Module {
+fn gen_valid_vacuum_terminal_unreachable_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(21)),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i64_const(I64(22L)),
+        Instruction::drop(),
+        Instruction::unreachable_(),
+      ]),
+    ),
+    Instruction::unreachable_(),
+  ]
+}
+
+///|
+fn gen_valid_vacuum_structural_wrappers_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::block(BlockType::void_(), Expr::new([])),
+        Instruction::nop(),
+        Instruction::i32_const(I32(1)),
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i32_const(I32(23)), Instruction::drop()],
+          Some([]),
+        ),
+      ]),
+    ),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::unreachable_()]),
+    ),
+    Instruction::i32_const(I32(0)),
+    Instruction::if_(
+      BlockType::void_(),
+      [],
+      Some([Instruction::i32_const(I32(24)), Instruction::drop()]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_vacuum_core_profile_module() -> Module {
   let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([void_func_type]))
@@ -15322,6 +15485,191 @@ fn gen_valid_vacuum_profile_module() -> Module {
       ),
     ]),
   )
+}
+
+///|
+fn gen_valid_vacuum_terminal_unreachable_profile_module() -> Module {
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([void_func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_vacuum_terminal_unreachable_body()),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_vacuum_structural_wrappers_profile_module() -> Module {
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([void_func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_vacuum_structural_wrappers_body()),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_vacuum_call_prefix_continuation_profile_module() -> Module {
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_func_type, void_func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(1))])),
+      Func::new(
+        Locals::single(1U, ValType::i32()),
+        Expr::new([
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::block(BlockType::void_(), Expr::new([])),
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_sub(),
+              Instruction::drop(),
+              Instruction::call(FuncIdx::new(0U)),
+              Instruction::if_(
+                BlockType::void_(),
+                [Instruction::call(FuncIdx::new(0U)), Instruction::drop()],
+                Some([]),
+              ),
+            ]),
+          ),
+          Instruction::i32_const(I32(26)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_vacuum_localset_prefix_preserve_profile_module() -> Module {
+  let unary_i32_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let consume_i32_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([unary_i32_type, consume_i32_type, void_func_type]),
+  )
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U), TypeIdx::new(2U)]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+      ),
+      Func::new(Locals::empty(), Expr::new([])),
+      Func::new(
+        Locals::single(1U, ValType::i32()),
+        Expr::new([
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::i32_const(I32(27)),
+              Instruction::call(FuncIdx::new(0U)),
+              Instruction::local_set(LocalIdx::new(0U)),
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::call(FuncIdx::new(1U)),
+            ]),
+          ),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::if_(
+            BlockType::void_(),
+            [
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::call(FuncIdx::new(1U)),
+            ],
+            Some([]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_vacuum_hazard_boundary_profile_module() -> Module {
+  let alloc_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([alloc_type, void_func_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+    ]),
+  )
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(0))])),
+      Func::new(Locals::empty(), Expr::new([])),
+      Func::new(Locals::empty(), Expr::new([])),
+      Func::new(
+        Locals::single(1U, ValType::i32()),
+        Expr::new([
+          Instruction::i32_const(I32(29)),
+          Instruction::drop(),
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(30)),
+          Instruction::i32_store(gen_valid_memarg()),
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::call(FuncIdx::new(2U)),
+          Instruction::i32_const(I32(31)),
+          Instruction::i32_const(I32(32)),
+          Instruction::i32_add(),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_vacuum_profile_module(config : GenValidConfig) -> Module {
+  match gen_valid_vacuum_profile_kind(config) {
+    VacuumTerminalUnreachableProfile =>
+      gen_valid_vacuum_terminal_unreachable_profile_module()
+    VacuumStructuralWrappersProfile =>
+      gen_valid_vacuum_structural_wrappers_profile_module()
+    VacuumCallPrefixContinuationProfile =>
+      gen_valid_vacuum_call_prefix_continuation_profile_module()
+    VacuumLocalsetPrefixPreserveProfile =>
+      gen_valid_vacuum_localset_prefix_preserve_profile_module()
+    VacuumHazardBoundaryProfile =>
+      gen_valid_vacuum_hazard_boundary_profile_module()
+    _ => gen_valid_vacuum_core_profile_module()
+  }
 }
 
 ///|
@@ -21841,8 +22189,8 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   if gen_valid_is_precompute_profile_config(config) {
     return gen_valid_precompute_profile_module(config)
   }
-  if config == GenValidConfig::for_profile(VacuumProfile) {
-    return gen_valid_vacuum_profile_module()
+  if gen_valid_is_vacuum_profile_config(config) {
+    return gen_valid_vacuum_profile_module(config)
   }
   if gen_valid_is_pick_load_signs_profile_config(config) {
     return gen_valid_pick_load_signs_profile_module(config)

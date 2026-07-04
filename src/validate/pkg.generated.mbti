@@ -1119,6 +1119,12 @@ pub enum GenValidProfile {
   ValidatorStressProfile
   PassCleanupProfile
   VacuumProfile
+  VacuumCoreProfile
+  VacuumTerminalUnreachableProfile
+  VacuumStructuralWrappersProfile
+  VacuumCallPrefixContinuationProfile
+  VacuumLocalsetPrefixPreserveProfile
+  VacuumHazardBoundaryProfile
   PassDaeProfile
   PassInliningProfile
   PassMemoryProfile

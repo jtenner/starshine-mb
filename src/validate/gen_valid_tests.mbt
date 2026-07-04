@@ -14415,13 +14415,43 @@ fn gen_valid_test_instrs_contain_array_get(instrs : Array[Instruction]) -> Bool 
 }
 
 ///|
-test "vacuum gen-valid profile resolves dedicated cleanup lane" {
+test "vacuum gen-valid profiles expose stable family lanes" {
   @debug.assert_eq(gen_valid_profile_name(VacuumProfile), "vacuum")
+  @debug.assert_eq(gen_valid_profile_name(VacuumCoreProfile), "vacuum-core")
+  @debug.assert_eq(
+    gen_valid_profile_name(VacuumTerminalUnreachableProfile),
+    "vacuum-terminal-unreachable",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(VacuumStructuralWrappersProfile),
+    "vacuum-structural-wrappers",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(VacuumCallPrefixContinuationProfile),
+    "vacuum-call-prefix-continuation",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(VacuumLocalsetPrefixPreserveProfile),
+    "vacuum-localset-prefix-preserve",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(VacuumHazardBoundaryProfile),
+    "vacuum-hazard-boundary",
+  )
   assert_true(gen_valid_profile_names().contains("vacuum"))
+  assert_true(gen_valid_profile_names().contains("vacuum-core"))
   match gen_valid_profile_by_name("vacuum") {
     Ok(profile) => {
       @debug.assert_eq(profile, VacuumProfile)
-      assert_false(gen_valid_profile_is_composite(profile))
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 6)
+      @debug.assert_eq(members[0].profile, VacuumCoreProfile)
+      @debug.assert_eq(members[1].profile, VacuumTerminalUnreachableProfile)
+      @debug.assert_eq(members[2].profile, VacuumStructuralWrappersProfile)
+      @debug.assert_eq(members[3].profile, VacuumCallPrefixContinuationProfile)
+      @debug.assert_eq(members[4].profile, VacuumLocalsetPrefixPreserveProfile)
+      @debug.assert_eq(members[5].profile, VacuumHazardBoundaryProfile)
     }
     Err(msg) => fail(msg)
   }
@@ -14429,24 +14459,30 @@ test "vacuum gen-valid profile resolves dedicated cleanup lane" {
     Ok(profile) => @debug.assert_eq(profile, VacuumProfile)
     Err(msg) => fail(msg)
   }
-  let config = GenValidConfig::for_profile(VacuumProfile)
-  @debug.assert_eq(gen_valid_config_label(config), "vacuum")
-  assert_true(config.features.allow_typed_body_generator)
-  assert_false(config.features.allow_imports)
-  assert_false(config.features.allow_calls)
+  match gen_valid_profile_by_name("vacuum_core") {
+    Ok(profile) => @debug.assert_eq(profile, VacuumCoreProfile)
+    Err(msg) => fail(msg)
+  }
+  let aggregate = GenValidConfig::for_profile(VacuumProfile)
+  @debug.assert_eq(gen_valid_config_label(aggregate), "vacuum")
+  let core = GenValidConfig::for_profile(VacuumCoreProfile)
+  @debug.assert_eq(gen_valid_config_label(core), "vacuum-core")
+  assert_true(core.features.allow_typed_body_generator)
+  assert_false(core.features.allow_imports)
+  assert_false(core.features.allow_calls)
 }
 
 ///|
-test "vacuum gen-valid profile emits cleanup trigger families" {
-  let generated = match
+test "vacuum gen-valid family profiles emit focused trigger scaffolds" {
+  let core = match
     gen_valid_module_result_from_seed(
       0x5eedUL,
-      GenValidConfig::for_profile(VacuumProfile),
+      GenValidConfig::for_profile(VacuumCoreProfile),
     ) {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
-  match generated.wasm_module.code_sec {
+  match core.wasm_module.code_sec {
     Some(
       CodeSec(
         [
@@ -14473,10 +14509,124 @@ test "vacuum gen-valid profile emits cleanup trigger families" {
     ) => ()
     _ =>
       fail(
-        "expected vacuum profile to emit nop/drop/if/block/unreachable cleanup scaffolds",
+        "expected vacuum-core to emit nop/drop/if/block/unreachable cleanup scaffolds",
       )
   }
-  assert_true(generated.facts.has_standalone_unreachable)
+  assert_true(core.facts.has_standalone_unreachable)
+
+  let terminal = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumTerminalUnreachableProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match terminal.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [Func(_, Expr([I32Const(_), Drop, Block(_, _), Unreachable])), ..]
+      )
+    ) => ()
+    _ => fail("expected vacuum-terminal-unreachable trigger body")
+  }
+  assert_true(terminal.facts.has_standalone_unreachable)
+
+  let structural = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumStructuralWrappersProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match structural.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr([Block(_, _), Block(_, _), I32Const(_), If(_, _, Some(_)), ..])
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ => fail("expected vacuum-structural-wrappers trigger body")
+  }
+
+  let call_prefix = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumCallPrefixContinuationProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match call_prefix.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [_, Func(_, Expr([Block(_, _), I32Const(_), LocalSet(_), ..])), ..]
+      )
+    ) => ()
+    _ => fail("expected vacuum-call-prefix-continuation trigger body")
+  }
+
+  let localset = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumLocalsetPrefixPreserveProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match localset.wasm_module.code_sec {
+    Some(CodeSec([_, _, Func(_, Expr([Block(_, _), ..])), ..])) => ()
+    _ => fail("expected vacuum-localset-prefix-preserve trigger body")
+  }
+
+  let hazard = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumHazardBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match hazard.wasm_module.mem_sec {
+    Some(MemSec([_])) => ()
+    _ => fail("expected vacuum-hazard-boundary memory")
+  }
+  match hazard.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          _,
+          _,
+          _,
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(_),
+                Drop,
+                Call(_),
+                LocalSet(_),
+                LocalGet(_),
+                I32Const(_),
+                I32Store(_),
+                Call(_),
+                Call(_),
+                ..,
+              ]
+            )
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ => fail("expected vacuum-hazard-boundary calls/store/cleanup body")
+  }
 }
 
 ///|

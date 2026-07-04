@@ -745,6 +745,265 @@ fn hot_pass_vacuum_label_is_used(
 }
 
 ///|
+fn hot_pass_vacuum_exact_i32_const(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  expected : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.I32Const(@lib.I32(value))) => value == expected
+    _ => false
+  }
+}
+
+///|
+fn hot_pass_vacuum_exact_local_get(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Int? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.LocalGet(@lib.LocalIdx(raw))) => Some(raw.reinterpret_as_int())
+    _ => None
+  }
+}
+
+///|
+fn hot_pass_vacuum_exact_local_set(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Int? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.LocalSet(@lib.LocalIdx(raw))) => Some(raw.reinterpret_as_int())
+    _ => None
+  }
+}
+
+///|
+fn hot_pass_vacuum_is_const_arg_call_local_set(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Int? {
+  let target = match hot_pass_vacuum_exact_local_set(func, node_id) {
+    Some(local_id) => local_id
+    None => return None
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let call_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, call_id) {
+    Some(@lib.Call(_)) => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, call_id) != 2 {
+    return None
+  }
+  if !hot_pass_vacuum_exact_i32_const(
+      func,
+      @ir.hot_child_get(func, call_id, 0),
+      0,
+    ) ||
+    !hot_pass_vacuum_exact_i32_const(
+      func,
+      @ir.hot_child_get(func, call_id, 1),
+      0,
+    ) {
+    return None
+  }
+  Some(target)
+}
+
+///|
+fn hot_pass_vacuum_is_load_linked_local_get(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  target_local : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.I32Load(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let tee_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, tee_id) {
+    Some(@lib.LocalTee(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, tee_id) != 1 {
+    return false
+  }
+  match
+    hot_pass_vacuum_exact_local_get(func, @ir.hot_child_get(func, tee_id, 0)) {
+    Some(local_id) => local_id == target_local
+    None => false
+  }
+}
+
+///|
+fn hot_pass_vacuum_is_load_linked_eqz_condition(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  target_local : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.I32Eqz) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let eq_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, eq_id) {
+    Some(@lib.I32Eq) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, eq_id) != 2 {
+    return false
+  }
+  let lhs = @ir.hot_child_get(func, eq_id, 0)
+  let rhs = @ir.hot_child_get(func, eq_id, 1)
+  (
+    hot_pass_vacuum_is_load_linked_local_get(func, lhs, target_local) &&
+    hot_pass_vacuum_exact_i32_const(func, rhs, 20)
+  ) ||
+  (
+    hot_pass_vacuum_exact_i32_const(func, lhs, 20) &&
+    hot_pass_vacuum_is_load_linked_local_get(func, rhs, target_local)
+  )
+}
+
+///|
+fn hot_pass_vacuum_is_load_linked_unreachable_if(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  target_local : Int,
+) -> Bool {
+  if !(@ir.hot_node_get(func, node_id).op is @ir.HotOp::If) ||
+    @ir.hot_child_count(func, node_id) == 0 ||
+    @ir.hot_region_root_count(func, @ir.hot_region_then_ref(func, node_id)) != 1 {
+    return false
+  }
+  match @ir.hot_region_else_ref(func, node_id) {
+    Some(_) => return false
+    None => ()
+  }
+  let then_root = @ir.hot_region_get(
+    func,
+    @ir.hot_region_then_ref(func, node_id),
+    0,
+  )
+  if !(@ir.hot_node_get(func, then_root).op is @ir.HotOp::Unreachable) {
+    return false
+  }
+  hot_pass_vacuum_is_load_linked_eqz_condition(
+    func,
+    @ir.hot_child_get(func, node_id, 0),
+    target_local,
+  )
+}
+
+///|
+fn hot_pass_vacuum_region_is_load_linked_local_set_call_prefix(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 2 {
+    let target_local = match
+      hot_pass_vacuum_is_const_arg_call_local_set(
+        func,
+        @ir.hot_region_get(func, region_ref, 0),
+      ) {
+      Some(local_id) => local_id
+      None => return false
+    }
+    return hot_pass_vacuum_is_load_linked_unreachable_if(
+      func,
+      @ir.hot_region_get(func, region_ref, 1),
+      target_local,
+    )
+  }
+  if root_count != 11 {
+    return false
+  }
+  let target_local = match
+    hot_pass_vacuum_exact_local_set(
+      func,
+      @ir.hot_region_get(func, region_ref, 3),
+    ) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  match
+    hot_pass_vacuum_exact_local_get(
+      func,
+      @ir.hot_region_get(func, region_ref, 4),
+    ) {
+    Some(local_id) if local_id == target_local => ()
+    _ => return false
+  }
+  let if_id = @ir.hot_region_get(func, region_ref, 10)
+  if !(@ir.hot_node_get(func, if_id).op is @ir.HotOp::If) ||
+    @ir.hot_region_root_count(func, @ir.hot_region_then_ref(func, if_id)) != 1 {
+    return false
+  }
+  match @ir.hot_region_else_ref(func, if_id) {
+    Some(_) => return false
+    None => ()
+  }
+  let then_root = @ir.hot_region_get(
+    func,
+    @ir.hot_region_then_ref(func, if_id),
+    0,
+  )
+  if !(@ir.hot_node_get(func, then_root).op is @ir.HotOp::Unreachable) {
+    return false
+  }
+  hot_pass_vacuum_exact_i32_const(
+    func,
+    @ir.hot_region_get(func, region_ref, 0),
+    0,
+  ) &&
+  hot_pass_vacuum_exact_i32_const(
+    func,
+    @ir.hot_region_get(func, region_ref, 1),
+    0,
+  ) &&
+  (match
+    @ir.hot_node_exact_instr(func, @ir.hot_region_get(func, region_ref, 2)) {
+    Some(@lib.Call(_)) => true
+    _ => false
+  }) &&
+  (match
+    @ir.hot_node_exact_instr(func, @ir.hot_region_get(func, region_ref, 5)) {
+    Some(@lib.LocalTee(_)) => true
+    _ => false
+  }) &&
+  (match
+    @ir.hot_node_exact_instr(func, @ir.hot_region_get(func, region_ref, 6)) {
+    Some(@lib.I32Load(_)) => true
+    _ => false
+  }) &&
+  hot_pass_vacuum_exact_i32_const(
+    func,
+    @ir.hot_region_get(func, region_ref, 7),
+    20,
+  ) &&
+  (match
+    @ir.hot_node_exact_instr(func, @ir.hot_region_get(func, region_ref, 8)) {
+    Some(@lib.I32Eq) => true
+    _ => false
+  }) &&
+  (match
+    @ir.hot_node_exact_instr(func, @ir.hot_region_get(func, region_ref, 9)) {
+    Some(@lib.I32Eqz) => true
+    _ => false
+  })
+}
+
+///|
 fn hot_pass_vacuum_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
   for info in @ir.hot_control_region_slot_info(op) {
     if info.slot == slot {
@@ -1158,6 +1417,27 @@ fn hot_pass_remove_region_nops(
           vacuum_delete_detached_non_control_nodes(ctx, func, removed)
           changed = true
           continue
+        }
+        if @ir.hot_type_result_arity(func, node.ty) == 0 &&
+          @ir.hot_region_root_count(func, body_ref) == 1 {
+          let only_child = @ir.hot_region_get(func, body_ref, 0)
+          if @ir.hot_node_get(func, only_child).op is @ir.HotOp::Block {
+            let child_body_ref = @ir.hot_region_body_ref(func, only_child)
+            if hot_pass_vacuum_region_is_load_linked_local_set_call_prefix(
+                func, child_body_ref,
+              ) &&
+              !hot_pass_vacuum_label_is_used(
+                func,
+                @ir.hot_control_node_label(func, only_child),
+              ) {
+              let child_roots = vacuum_region_roots(func, child_body_ref)
+              @ir.hot_region_replace_body(func, child_body_ref, [])
+              @ir.hot_region_replace_body(func, body_ref, child_roots)
+              pass_mark_mutated(ctx, func)
+              vacuum_delete_detached_non_control_nodes(ctx, func, [only_child])
+              changed = true
+            }
+          }
         }
         if @ir.hot_type_result_arity(func, node.ty) == 0 &&
           @ir.hot_region_root_count(func, body_ref) == 1 &&
@@ -27678,7 +27958,12 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
   owner_depth : Int,
 ) -> Bool {
   match instr {
-    @lib.Br(label) | @lib.BrIf(label) =>
+    @lib.Br(label)
+    | @lib.BrIf(label)
+    | @lib.BrOnNull(label)
+    | @lib.BrOnNonNull(label)
+    | @lib.BrOnCast(label, _, _, _)
+    | @lib.BrOnCastFail(label, _, _, _) =>
       run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth)
     @lib.BrTable(labels, fallback) => {
       if run_hot_pipeline_raw_vacuum_label_targets_owner(fallback, owner_depth) {
@@ -27750,6 +28035,40 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
     @lib.BrIf(label) =>
       @lib.Instruction::br_if(
         run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.BrOnNull(label) =>
+      @lib.Instruction::br_on_null(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.BrOnNonNull(label) =>
+      @lib.Instruction::br_on_non_null(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.BrOnCast(
+      label,
+      @lib.CastOp(source_nullable, target_nullable),
+      source_heap,
+      target_heap
+    ) =>
+      @lib.Instruction::br_on_cast(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        source_nullable,
+        source_heap,
+        target_nullable,
+        target_heap,
+      )
+    @lib.BrOnCastFail(
+      label,
+      @lib.CastOp(source_nullable, target_nullable),
+      source_heap,
+      target_heap
+    ) =>
+      @lib.Instruction::br_on_cast_fail(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        source_nullable,
+        source_heap,
+        target_nullable,
+        target_heap,
       )
     @lib.BrTable(labels, fallback) => {
       let rebased : Array[@lib.LabelIdx] = []
@@ -27938,7 +28257,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descen
 }
 
 ///|
-fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant_ignoring_nops(
+fn run_hot_pipeline_raw_vacuum_body_has_empty_block_call_prefix_shape_ignoring_nops(
   body : Array[@lib.Instruction],
 ) -> Bool {
   let non_nops : Array[@lib.Instruction] = []
@@ -27948,9 +28267,25 @@ fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descen
       _ => non_nops.push(instr)
     }
   }
+  run_hot_pipeline_raw_vacuum_body_is_empty_block_call_prefix_if_wrapper_candidate(
+    non_nops,
+  ) ||
   run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant(
     non_nops,
   )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_top_level_nop(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Nop => return true
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -28097,6 +28432,38 @@ fn run_hot_pipeline_raw_vacuum_body_is_call_tee_unreachable_if_wrapper_candidate
     }
   }
   call_count == 1
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_lowered_call_tee_unreachable_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 4 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  if !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  match body[body.length() - 2] {
+    @lib.LocalTee(_) => ()
+    _ => return false
+  }
+  let mut call_count = 0
+  let mut saw_lowered_condition_piece = false
+  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalGet(_) | @lib.I32Const(_) | @lib.I64Const(_) => ()
+      @lib.I32Shl | @lib.I32Add | @lib.I32Load(_) | @lib.LocalTee(_) =>
+        saw_lowered_condition_piece = true
+      @lib.Call(_) => call_count = call_count + 1
+      _ => return false
+    }
+  }
+  call_count == 1 && saw_lowered_condition_piece
 }
 
 ///|
@@ -28247,6 +28614,104 @@ fn run_hot_pipeline_raw_vacuum_prefix_block_starts_call_result_local_set(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_two_arg_call_result_local_set_release_target(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != 6 {
+    return None
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+    ) if release_raw == receiver_raw => Some(target_raw.reinterpret_as_int())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set_release(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  non_nops.length() == 6 &&
+  non_nops[0] is @lib.LocalGet(_) &&
+  non_nops[1] is @lib.LocalGet(_) &&
+  non_nops[2] is @lib.Call(_) &&
+  non_nops[3] is @lib.LocalSet(_) &&
+  non_nops[4] is @lib.LocalGet(_) &&
+  non_nops[5] is @lib.Call(_)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set_double_release(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != 8 {
+    return false
+  }
+  let first_arg = match non_nops[0] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => raw
+    _ => return false
+  }
+  let second_arg = match non_nops[1] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => raw
+    _ => return false
+  }
+  match
+    (
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+    ) {
+    (
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(first_release)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(second_release)),
+      @lib.Call(_),
+    ) => first_release == first_arg && second_release == second_arg
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_condition_prefix_has_call(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -28288,6 +28753,45 @@ fn run_hot_pipeline_raw_vacuum_prefix_block_has_direct_call_local_set_and_later_
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_is_prefix_call_arg(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_) | @lib.LocalGet(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_prefix_block_starts_five_arg_call_result_local_set_release_triple(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != 13 {
+    return false
+  }
+  for idx = 0; idx < 5; idx = idx + 1 {
+    if !run_hot_pipeline_raw_vacuum_instr_is_prefix_call_arg(non_nops[idx]) {
+      return false
+    }
+  }
+  non_nops[5] is @lib.Call(_) &&
+  non_nops[6] is @lib.LocalSet(_) &&
+  non_nops[7] is @lib.LocalGet(_) &&
+  non_nops[8] is @lib.Call(_) &&
+  non_nops[9] is @lib.LocalGet(_) &&
+  non_nops[10] is @lib.Call(_) &&
+  non_nops[11] is @lib.LocalGet(_) &&
+  non_nops[12] is @lib.Call(_)
 }
 
 ///|
@@ -28343,6 +28847,297 @@ fn run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_is_f3083_loop_body_release_update_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() < 14 {
+    return false
+  }
+  match non_nops[non_nops.length() - 1] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(_)) =>
+      if !run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(then_body) {
+        return false
+      }
+    _ => return false
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(item_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_item_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(state_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_item_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_state_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) =>
+      next_item_raw == item_raw &&
+      release_item_raw == item_raw &&
+      next_state_raw == state_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f3317_singleton_retain_allocation_loop_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 1 {
+    return false
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return false
+  }
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in child_body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() < 22 {
+    return false
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.If(@lib.VoidBlockType, retain_then, None),
+      @lib.LocalGet(@lib.LocalIdx(compute_retained_raw)),
+      @lib.I32Const(_),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.If(@lib.VoidBlockType, release_then, None),
+    ) => {
+      if compute_retained_raw != retained_raw ||
+        release_retained_raw != retained_raw {
+        return false
+      }
+      match retain_then {
+        [@lib.LocalGet(@lib.LocalIdx(next_raw)), @lib.Call(_)] if next_raw ==
+          retained_raw => ()
+        _ => return false
+      }
+      match release_then {
+        [@lib.LocalGet(@lib.LocalIdx(next_raw)), @lib.Call(_)] if next_raw ==
+          retained_raw => ()
+        _ => return false
+      }
+    }
+    _ => return false
+  }
+  let mut store_count = 0
+  let mut call_count = 0
+  for instr in non_nops {
+    match instr {
+      @lib.I32Store(_) => store_count = store_count + 1
+      @lib.Call(_) => call_count = call_count + 1
+      _ => ()
+    }
+  }
+  store_count >= 2 && call_count >= 3
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_tag20_compare_prefix_end(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  if body.length() < 4 {
+    return None
+  }
+  let if_idx = body.length() - 1
+  match body[if_idx] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return None
+  }
+  if !(body[if_idx - 1] is @lib.I32Eq) {
+    return None
+  }
+  match body[if_idx - 2] {
+    @lib.I32Const(@lib.I32(20)) => ()
+    _ => return None
+  }
+  match body[if_idx - 3] {
+    @lib.I32Const(_) => Some(if_idx - 3)
+    @lib.I32Load(_) if if_idx >= 4 && body[if_idx - 4] is @lib.LocalGet(_) =>
+      Some(if_idx - 4)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_can_tag20_prefix(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.LocalSet(_)
+    | @lib.LocalTee(_)
+    | @lib.I32Const(_)
+    | @lib.I32Sub
+    | @lib.Call(_)
+    | @lib.Drop => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_tag20_call_local_set_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let prefix_end = match
+    run_hot_pipeline_raw_vacuum_tag20_compare_prefix_end(body) {
+    Some(idx) => idx
+    None => return false
+  }
+  if !run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+      body,
+    ) {
+    return false
+  }
+  let mut local_set_count = 0
+  let mut call_count = 0
+  for idx = 0; idx < prefix_end; idx = idx + 1 {
+    let instr = body[idx]
+    if !run_hot_pipeline_raw_vacuum_instr_can_tag20_prefix(instr) {
+      return false
+    }
+    match instr {
+      @lib.LocalSet(_) => local_set_count = local_set_count + 1
+      @lib.Call(_) => call_count = call_count + 1
+      _ => ()
+    }
+  }
+  local_set_count >= 2 && call_count >= 1
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_ends_local_set(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  if body.length() == 0 {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.LocalSet(@lib.LocalIdx(raw)) => Some(raw.reinterpret_as_int())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_last_non_nop_before(
+  body : Array[@lib.Instruction],
+  end_exclusive : Int,
+) -> @lib.Instruction? {
+  let mut idx = end_exclusive - 1
+  while idx >= 0 {
+    match body[idx] {
+      @lib.Nop => idx = idx - 1
+      instr => return Some(instr)
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_predicate_local_set_block(
+  body : Array[@lib.Instruction],
+  flag_local : Int,
+) -> Bool {
+  let cleaned = run_hot_pipeline_raw_vacuum_drop_leading_empty_blocks(body)
+  if cleaned.length() == 0 {
+    return false
+  }
+  match cleaned[cleaned.length() - 1] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      match
+        (
+          run_hot_pipeline_raw_vacuum_body_ends_local_set(then_body),
+          run_hot_pipeline_raw_vacuum_body_ends_local_set(else_body),
+        ) {
+        (Some(then_local), Some(else_local)) =>
+          then_local == flag_local && else_local == flag_local
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_predicate_local_continuation_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(predicate_body)) => {
+      match body[body.length() - 1] {
+        @lib.If(@lib.VoidBlockType, _, _) => ()
+        _ => return false
+      }
+      let flag_local = match
+        run_hot_pipeline_raw_vacuum_body_last_non_nop_before(
+          body,
+          body.length() - 1,
+        ) {
+        Some(@lib.LocalGet(@lib.LocalIdx(raw))) => raw.reinterpret_as_int()
+        _ => return false
+      }
+      run_hot_pipeline_raw_vacuum_body_has_predicate_local_set_block(
+        predicate_body, flag_local,
+      ) &&
+      run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+        body,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -28384,6 +29179,335 @@ fn run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_is_branchy_loop_dispatch_to_parent_block(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) > 0 => ()
+    _ => return false
+  }
+  let mut if_idx = -1
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.If(@lib.VoidBlockType, then_body, Some(_)) => {
+        if_idx = idx
+        if then_body.length() == 0 {
+          return false
+        }
+        break
+      }
+      @lib.Nop
+      | @lib.LocalGet(_)
+      | @lib.LocalTee(_)
+      | @lib.I32Load(_)
+      | @lib.I32Const(_)
+      | @lib.I32Eq
+      | @lib.I32GtS
+      | @lib.I32Sub
+      | @lib.Call(_) => ()
+      _ => return false
+    }
+  }
+  if if_idx < 0 {
+    return false
+  }
+  for idx = if_idx + 1; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.I32Const(_) | @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.Nop => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f649_branchy_loop_dispatch_parent_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 1 {
+    return false
+  }
+  let parent_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(parent_body)) => parent_body
+    _ => return false
+  }
+  if parent_body.length() < 3 {
+    return false
+  }
+  match parent_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) =>
+      if !run_hot_pipeline_raw_vacuum_body_is_branchy_loop_dispatch_to_parent_block(
+          dispatch_body,
+        ) {
+        return false
+      }
+    _ => return false
+  }
+  let mut continuation_if_idx = -1
+  let mut saw_condition_call = false
+  for idx = 1; idx < parent_body.length(); idx = idx + 1 {
+    match parent_body[idx] {
+      @lib.If(@lib.VoidBlockType, _, Some(_)) => {
+        continuation_if_idx = idx
+        break
+      }
+      @lib.Call(_) => saw_condition_call = true
+      @lib.Nop
+      | @lib.LocalGet(_)
+      | @lib.LocalTee(_)
+      | @lib.I32Load(_)
+      | @lib.I32Const(_)
+      | @lib.I32Eq => ()
+      _ => return false
+    }
+  }
+  if continuation_if_idx < 0 || !saw_condition_call {
+    return false
+  }
+  for idx = continuation_if_idx + 1; idx < parent_body.length(); idx = idx + 1 {
+    match parent_body[idx] {
+      @lib.Nop | @lib.I32Const(_) | @lib.LocalGet(_) | @lib.LocalSet(_) => ()
+      _ => return false
+    }
+  }
+  if !(parent_body[parent_body.length() - 1] is @lib.LocalSet(_)) {
+    return false
+  }
+  match parent_body[continuation_if_idx] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(_)) =>
+      run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(then_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 4 =>
+        return true
+      @lib.If(_, then_body, Some(else_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(then_body) ||
+          run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(else_body) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(then_body) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(child_body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_top_level_local_set(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    if instr is @lib.LocalSet(_) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f749_inner_tag_selection(
+  body : Array[@lib.Instruction],
+  requires_branch_in_then : Bool,
+) -> Bool {
+  if body.length() < 7 {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3], body[4], body[5]) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+    ) => ()
+    _ => return false
+  }
+  match body[6] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let then_has_required_state = if requires_branch_in_then {
+        run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(then_body) &&
+        run_hot_pipeline_raw_vacuum_body_has_top_level_local_set(then_body)
+      } else {
+        run_hot_pipeline_raw_vacuum_body_ends_local_set(then_body) is Some(_)
+      }
+      then_has_required_state &&
+      run_hot_pipeline_raw_vacuum_body_has_f749_outer_branch(else_body)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f749_branchy_selection(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 5 {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3]) {
+    (@lib.LocalGet(_), @lib.Call(_), @lib.I32Const(@lib.I32(1)), @lib.I32Eq) =>
+      ()
+    _ => return false
+  }
+  match body[4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if else_body.length() < 8 ||
+        !(else_body[else_body.length() - 1] is @lib.Unreachable) {
+        return false
+      }
+      run_hot_pipeline_raw_vacuum_body_is_f749_inner_tag_selection(
+        then_body, false,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_f749_inner_tag_selection(
+        else_body, true,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f749_double_branchy_selection_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 1 {
+    return false
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_f749_branchy_selection(child_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_has_f749_i64_return_continuation(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for pos = idx + 1; pos < instrs.length(); pos = pos + 1 {
+    match instrs[pos] {
+      @lib.Nop => ()
+      other => sig.push(other)
+    }
+    if sig.length() >= 7 {
+      break
+    }
+  }
+  if sig.length() < 7 {
+    return false
+  }
+  match (sig[0], sig[1], sig[2], sig[3], sig[4], sig[5], sig[6]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(value_local_a)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_local_a)),
+      @lib.LocalGet(@lib.LocalIdx(value_local_b)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_local_b)),
+      @lib.I64ExtendI32S,
+    ) => value_local_a == value_local_b && result_local_a == result_local_b
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_branchy_loop_dispatch_singleton_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  if body.length() == 1 {
+    return match body[0] {
+      @lib.If(@lib.VoidBlockType, then_body, None) =>
+        run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
+          then_body,
+        ) ||
+        run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(then_body)
+      _ => false
+    }
+  }
+  if body.length() != 6 {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3], body[4], body[5]) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.I32LtS,
+      @lib.If(@lib.VoidBlockType, then_body, Some(_)),
+    ) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
+        then_body,
+      ) ||
+      run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(then_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_tag_load_dispatch_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let mut end = body.length()
+  if end > 0 && body[end - 1] is @lib.Unreachable {
+    end = end - 1
+  }
+  if end < 6 {
+    return false
+  }
+  match body[end - 1] {
+    @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+    _ => return false
+  }
+  if !(body[end - 2] is @lib.I32Eq) {
+    return false
+  }
+  match body[end - 3] {
+    @lib.I32Const(_) => ()
+    _ => return false
+  }
+  let mut saw_call = false
+  let mut saw_load = false
+  let mut saw_tee = false
+  for idx = 0; idx + 1 < end; idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalGet(_) | @lib.I32Const(_) | @lib.I32Eq => ()
+      @lib.LocalTee(_) => saw_tee = true
+      @lib.I32Load(_) => saw_load = true
+      @lib.Call(_) => saw_call = true
+      _ => return false
+    }
+  }
+  saw_call && saw_load && saw_tee
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_branchy_local_set_call_prefix_parent_unwrap_candidate(
   original_body : Array[@lib.Instruction],
   protected_body : Array[@lib.Instruction],
@@ -28420,7 +29544,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_cand
 ) -> Bool {
   if !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
       body,
-    ) {
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
     return false
   }
   let prefix_body = match body[0] {
@@ -28432,6 +29557,11854 @@ fn run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_cand
   ) &&
   run_hot_pipeline_raw_vacuum_condition_prefix_has_call(body) &&
   run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_two_arg_call_local_set_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      body,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let prefix_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => prefix_body
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set_release(
+    prefix_body,
+  ) &&
+  run_hot_pipeline_raw_vacuum_condition_prefix_has_call(body) &&
+  run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5032_two_release_prefix_if_parent_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      body,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let prefix_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => prefix_body
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set_double_release(
+    prefix_body,
+  ) &&
+  run_hot_pipeline_raw_vacuum_condition_prefix_has_call(body) &&
+  run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5138_load_linked_result_prefix_parent_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 5 ||
+    !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      non_nops,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let prefix_body = match non_nops[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      run_hot_pipeline_raw_vacuum_strip_top_level_nops(prefix_body)
+    _ => return false
+  }
+  if prefix_body.length() != 10 {
+    return false
+  }
+  let (retained_raw, target_raw, context_raw) = match
+    (
+      prefix_body[0],
+      prefix_body[1],
+      prefix_body[2],
+      prefix_body[3],
+      prefix_body[4],
+      prefix_body[5],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.LocalGet(@lib.LocalIdx(context_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+    ) => (retained_raw, target_raw, context_raw)
+    _ => return false
+  }
+  match (prefix_body[6], prefix_body[7], prefix_body[8], prefix_body[9]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_context_raw)),
+      @lib.Call(_),
+    ) if release_retained_raw == retained_raw &&
+      release_context_raw == context_raw => ()
+    _ => return false
+  }
+  match (non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_target_raw)),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, _, Some(else_body)),
+    ) if read_target_raw == target_raw =>
+      run_hot_pipeline_raw_vacuum_else_starts_with_release_pairs(else_body, 5)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_else_starts_with_release_pairs(
+  else_body : Array[@lib.Instruction],
+  min_pair_count : Int,
+) -> Bool {
+  let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+    else_body,
+  )
+  let mut release_pair_count = 0
+  for idx = 0; idx + 1 < else_non_nops.length(); idx = idx + 2 {
+    match (else_non_nops[idx], else_non_nops[idx + 1]) {
+      (@lib.LocalGet(_), @lib.Call(_)) =>
+        release_pair_count = release_pair_count + 1
+      _ => break
+    }
+  }
+  release_pair_count >= min_pair_count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5138_paired_result_prefix_parent_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 5 ||
+    !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      non_nops,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let paired_body = match non_nops[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(paired_body)) =>
+      run_hot_pipeline_raw_vacuum_strip_top_level_nops(paired_body)
+    _ => return false
+  }
+  if paired_body.length() != 9 {
+    return false
+  }
+  let prefix_body = match paired_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      run_hot_pipeline_raw_vacuum_strip_top_level_nops(prefix_body)
+    _ => return false
+  }
+  let source_raw = match prefix_body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(source_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+    ] if release_retained_raw == retained_raw => source_raw
+    _ => return false
+  }
+  let target_raw = match
+    (
+      paired_body[1],
+      paired_body[2],
+      paired_body[3],
+      paired_body[4],
+      paired_body[5],
+      paired_body[6],
+      paired_body[7],
+      paired_body[8],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_source_raw)),
+      @lib.LocalGet(@lib.LocalIdx(context_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_source_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_context_raw)),
+      @lib.Call(_),
+    ) if read_source_raw == source_raw &&
+      release_source_raw == source_raw &&
+      release_context_raw == context_raw => target_raw
+    _ => return false
+  }
+  match (non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_target_raw)),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, _, Some(else_body)),
+    ) if read_target_raw == target_raw =>
+      run_hot_pipeline_raw_vacuum_else_starts_with_release_pairs(else_body, 2)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5154_selected_local_from_tag_if(
+  final_if : @lib.Instruction,
+) -> UInt? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_raw_instrs_have_branch(else_body) ||
+        !run_hot_pipeline_raw_vacuum_else_starts_with_release_pairs(
+          else_body, 2,
+        ) {
+        return None
+      }
+      let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      if then_non_nops.length() < 2 {
+        return None
+      }
+      match
+        (
+          then_non_nops[then_non_nops.length() - 2],
+          then_non_nops[then_non_nops.length() - 1],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(payload_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+        ) if payload_raw != selected_raw => Some(selected_raw)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5184_selected_local_from_tag_if(
+  final_if : @lib.Instruction,
+) -> UInt? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_raw_instrs_have_branch(else_body) {
+        return None
+      }
+      let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      if then_non_nops.length() < 2 {
+        return None
+      }
+      let selected_raw = match
+        (
+          then_non_nops[then_non_nops.length() - 2],
+          then_non_nops[then_non_nops.length() - 1],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(payload_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+        ) if payload_raw != selected_raw => selected_raw
+        _ => return None
+      }
+      let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      if else_non_nops.length() < 6 {
+        return None
+      }
+      match (else_non_nops[0], else_non_nops[1]) {
+        (@lib.LocalGet(_), @lib.Call(_)) => ()
+        _ => return None
+      }
+      let mut conditional_release_count = 0
+      let mut idx = 2
+      while idx + 1 < else_non_nops.length() {
+        match (else_non_nops[idx], else_non_nops[idx + 1]) {
+          (
+            @lib.LocalGet(@lib.LocalIdx(guard_raw)),
+            @lib.If(@lib.VoidBlockType, guarded_body, None),
+          ) =>
+            match guarded_body {
+              [@lib.LocalGet(@lib.LocalIdx(release_raw)), @lib.Call(_)] if release_raw ==
+                guard_raw => {
+                conditional_release_count = conditional_release_count + 1
+                idx = idx + 2
+                continue
+              }
+              _ => ()
+            }
+          _ => ()
+        }
+        break
+      }
+      if conditional_release_count == 0 || else_non_nops.length() < idx + 3 {
+        return None
+      }
+      match
+        (
+          else_non_nops[else_non_nops.length() - 3],
+          else_non_nops[else_non_nops.length() - 2],
+          else_non_nops[else_non_nops.length() - 1],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(payload_raw)),
+          @lib.LocalSet(@lib.LocalIdx(else_selected_raw)),
+          @lib.Br(label),
+        ) if payload_raw != else_selected_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 2 =>
+          Some(selected_raw)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5154_slot_replace_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  slot_raw : UInt,
+  selected_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 6 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(release_slot_raw)),
+      @lib.I32Load(_),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store_slot_raw)),
+      @lib.LocalGet(@lib.LocalIdx(store_value_raw)),
+      @lib.I32Store(_),
+    ] =>
+      release_slot_raw == slot_raw &&
+      store_slot_raw == slot_raw &&
+      store_value_raw == selected_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5154_retain_pair_result_before_slot_store_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 20 ||
+    !run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
+      non_nops,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let (slot_raw, selected_raw) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+      non_nops[15],
+      non_nops[16],
+      non_nops[17],
+      non_nops[18],
+      non_nops[19],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(context_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(call_context_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_context_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_result_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+      final_if,
+    ) if slot_raw != retained_raw &&
+      context_raw != retained_raw &&
+      call_context_raw == context_raw &&
+      call_retained_raw == retained_raw &&
+      release_context_raw == context_raw &&
+      release_retained_raw == retained_raw &&
+      read_result_raw == result_raw &&
+      tagged_raw != result_raw =>
+      match
+        run_hot_pipeline_raw_vacuum_f5154_selected_local_from_tag_if(final_if) {
+        Some(selected_raw) => (slot_raw, selected_raw)
+        None => return false
+      }
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_body_has_f5154_slot_replace_continuation(
+    parent_body, start_idx, slot_raw, selected_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5184_drop_call_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 6 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(_),
+      @lib.I32Const(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.Drop,
+    ] => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5184_single_retain_result_before_drop_continuation_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 16 ||
+    !run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
+      non_nops,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+      non_nops[15],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(context_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_result_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+      final_if,
+    ) if slot_raw != retained_raw &&
+      context_raw != retained_raw &&
+      call_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      read_result_raw == result_raw &&
+      tagged_raw != result_raw =>
+      if !(run_hot_pipeline_raw_vacuum_f5184_selected_local_from_tag_if(
+          final_if,
+        )
+        is Some(_)) {
+        return false
+      }
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_body_has_f5184_drop_call_continuation(
+    parent_body, start_idx,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f5138_outer_singleton_parent(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f5138_load_linked_result_prefix_parent_preserve_candidate(
+      child_body,
+    ) {
+    return None
+  }
+  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+  let rebased_child_body = match rebased[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(rebased_child_body)) =>
+      rebased_child_body
+    _ => child_body
+  }
+  let (clean_child_body, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    rebased_child_body, module_ctx,
+  )
+  Some([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new(clean_child_body),
+    ),
+  ])
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_candidate(
+      non_nops,
+    )
+  }
+  if body.length() < 16 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let if_idx = body.length() - 1
+  match body[if_idx] {
+    @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+    _ => return false
+  }
+  if !(body[if_idx - 1] is @lib.I64Eq) {
+    return false
+  }
+  match body[if_idx - 2] {
+    @lib.I64Const(@lib.I64(4294967296L)) => ()
+    _ => return false
+  }
+  let compared_local = match body[if_idx - 3] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
+    _ => return false
+  }
+  let stable_locals : Array[Int] = []
+  for idx = 0; idx + 5 < if_idx - 3; idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.Call(_),
+        @lib.LocalSet(@lib.LocalIdx(result_raw)),
+        @lib.LocalGet(_),
+        @lib.Call(_),
+        @lib.LocalGet(@lib.LocalIdx(copy_raw)),
+        @lib.LocalSet(@lib.LocalIdx(stable_raw)),
+      ) if copy_raw == result_raw =>
+        stable_locals.push(stable_raw.reinterpret_as_int())
+      _ => ()
+    }
+  }
+  stable_locals.length() >= 2 && stable_locals[0] == compared_local
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1346_local_set_release_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f1346_local_set_release_prefix_if_preserve_candidate(
+      non_nops,
+    )
+  }
+  if body.length() != 3 ||
+    !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      body,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let prefix_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => prefix_body
+    _ => return false
+  }
+  let target_local = match
+    run_hot_pipeline_raw_vacuum_two_arg_call_result_local_set_release_target(
+      prefix_body,
+    ) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  match body[1] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+      target_local => ()
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_local_release_pair(
+  body : Array[@lib.Instruction],
+  local_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1]) {
+      (@lib.LocalGet(@lib.LocalIdx(raw)), @lib.Call(_)) if raw == local_raw =>
+        return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f3469_const_arg_local_set_release_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f3469_const_arg_local_set_release_prefix_if_preserve_candidate(
+      non_nops,
+    )
+  }
+  if body.length() != 7 ||
+    !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      body,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let (receiver_raw, target_raw) = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+      let prefix_non_nops : Array[@lib.Instruction] = []
+      for instr in prefix_body {
+        match instr {
+          @lib.Nop => ()
+          _ => prefix_non_nops.push(instr)
+        }
+      }
+      match prefix_non_nops {
+        [
+          @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.Call(_),
+          @lib.LocalSet(@lib.LocalIdx(target_raw)),
+          @lib.LocalGet(@lib.LocalIdx(release_raw)),
+          @lib.Call(_),
+        ] if release_raw == receiver_raw => (receiver_raw, target_raw)
+        _ => return false
+      }
+    }
+    _ => return false
+  }
+  match (body[1], body[2], body[3], body[4], body[5], body[6]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) if read_raw == target_raw =>
+      receiver_raw != target_raw &&
+      run_hot_pipeline_raw_vacuum_body_has_local_release_pair(
+        then_body, tagged_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_local_release_pair(
+        else_body, tagged_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(else_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f3561_branch_if_cleanup_local(
+  final_if : @lib.Instruction,
+  result_raw : UInt,
+) -> Int? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let cleanup_raw = match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_result_raw)),
+          @lib.Call(_),
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+        ] if then_result_raw == result_raw => {
+          match nested_then {
+            [
+              @lib.LocalGet(@lib.LocalIdx(release_raw)),
+              @lib.Call(_),
+              @lib.Br(label),
+            ] if release_raw == result_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+            _ => return None
+          }
+          match nested_else {
+            [
+              @lib.LocalGet(@lib.LocalIdx(next_result_raw)),
+              @lib.LocalSet(@lib.LocalIdx(cleanup_raw)),
+            ] if next_result_raw == result_raw => cleanup_raw
+            _ => return None
+          }
+        }
+        _ => return None
+      }
+      match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_result_raw)),
+          @lib.If(@lib.VoidBlockType, release_then, None),
+          @lib.Br(label),
+        ] if else_result_raw == result_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+          match release_then {
+            [@lib.LocalGet(@lib.LocalIdx(release_raw)), @lib.Call(_)] if release_raw ==
+              result_raw => Some(cleanup_raw.reinterpret_as_int())
+            _ => None
+          }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
+      non_nops,
+    )
+  }
+  if body.length() != 16 {
+    return None
+  }
+  let result_raw = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+      body[14],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(36UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_retained_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(built_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_built_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+    ) if next_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      next_built_raw == built_raw => result_raw
+    _ => return None
+  }
+  run_hot_pipeline_raw_vacuum_f3561_branch_if_cleanup_local(
+    body[15],
+    result_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f3561_terminal_release_return_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  cleanup_local : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < body.length() && sig.length() < 4 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(next_cleanup_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Return,
+    ] => next_cleanup_raw.reinterpret_as_int() == cleanup_local
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f3561_load_retain_prefix_before_terminal_release_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  match
+    run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
+      body,
+    ) {
+    Some(cleanup_local) =>
+      run_hot_pipeline_raw_vacuum_body_has_f3561_terminal_release_return_continuation(
+        parent_body, start_idx, cleanup_local,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != 21 {
+    return false
+  }
+  let (receiver_raw, call_raw, local0_raw) = match
+    (non_nops[0], non_nops[1], non_nops[2], non_nops[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Call(@lib.FuncIdx(call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(local0_raw)),
+    ) => (receiver_raw, call_raw, local0_raw)
+    _ => return false
+  }
+  let local1_raw = match (non_nops[4], non_nops[5], non_nops[6], non_nops[7]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_receiver_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.Call(@lib.FuncIdx(next_call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+    ) if next_receiver_raw == receiver_raw && next_call_raw == call_raw =>
+      next_local_raw
+    _ => return false
+  }
+  let local2_raw = match
+    (non_nops[8], non_nops[9], non_nops[10], non_nops[11]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_receiver_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.Call(@lib.FuncIdx(next_call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+    ) if next_receiver_raw == receiver_raw && next_call_raw == call_raw =>
+      next_local_raw
+    _ => return false
+  }
+  let local3_raw = match
+    (non_nops[12], non_nops[13], non_nops[14], non_nops[15]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_receiver_raw)),
+      @lib.I32Const(@lib.I32(3)),
+      @lib.Call(@lib.FuncIdx(next_call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+    ) if next_receiver_raw == receiver_raw && next_call_raw == call_raw =>
+      next_local_raw
+    _ => return false
+  }
+  if local0_raw == local1_raw ||
+    local0_raw == local2_raw ||
+    local0_raw == local3_raw ||
+    local1_raw == local2_raw ||
+    local1_raw == local3_raw ||
+    local2_raw == local3_raw {
+    return false
+  }
+  match non_nops[20] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  match (non_nops[16], non_nops[17], non_nops[18], non_nops[19]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(tag_local_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(20)),
+      @lib.I32Eq,
+    ) => tag_local_raw == local0_raw
+    (
+      @lib.I32Const(@lib.I32(20)),
+      @lib.LocalGet(@lib.LocalIdx(tag_local_raw)),
+      @lib.I32Load(_),
+      @lib.I32Eq,
+    ) => tag_local_raw == local0_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_singleton_child(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let kept_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(kept_body)) => kept_body
+    _ => return None
+  }
+  if kept_body.length() != 1 {
+    return None
+  }
+  let extra_body = match kept_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(extra_body)) => extra_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
+      extra_body,
+    ) {
+    return None
+  }
+  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(extra_body, 0)
+  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    rebased, module_ctx,
+  )
+  Some([
+    @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(cleaned)),
+  ])
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_child_before_continuation(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let mut continuation_idx = 1
+  while continuation_idx < body.length() {
+    match body[continuation_idx] {
+      @lib.Nop => continuation_idx = continuation_idx + 1
+      _ => break
+    }
+  }
+  if continuation_idx + 1 != body.length() {
+    return None
+  }
+  match body[continuation_idx] {
+    @lib.Br(_) => ()
+    _ => return None
+  }
+  let kept_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(kept_body)) => kept_body
+    _ => return None
+  }
+  if kept_body.length() != 1 {
+    return None
+  }
+  let extra_body = match kept_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(extra_body)) => extra_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
+      extra_body,
+    ) {
+    return None
+  }
+  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(extra_body, 0)
+  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    rebased, module_ctx,
+  )
+  Some([
+    @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(cleaned)),
+    body[continuation_idx],
+  ])
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_local_copy_child(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 2 {
+    return false
+  }
+  match (body[0], body[1]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+    ) => source_raw != target_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1738_parent_br_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let mut idx = start_idx + 1
+  while idx < body.length() {
+    match body[idx] {
+      @lib.Nop => idx = idx + 1
+      @lib.Br(label) =>
+        return run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_two_tag_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 9 {
+    return false
+  }
+  let copy_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => copy_body
+    _ => return false
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_local_copy_child(
+      copy_body,
+    ) {
+    return false
+  }
+  let mut saw_tag1_dispatch = false
+  let mut tag1_if_idx = -1
+  for idx = 1; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.Call(_),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32Eq,
+        @lib.If(_, first_then, None),
+      ) if first_then.length() > 0 &&
+        run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(first_then) => {
+        saw_tag1_dispatch = true
+        tag1_if_idx = idx + 3
+        break
+      }
+      _ => ()
+    }
+  }
+  if !saw_tag1_dispatch {
+    return false
+  }
+  for idx = tag1_if_idx + 1; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.Call(_),
+        @lib.I32Const(@lib.I32(2)),
+        @lib.I32Eq,
+        @lib.If(_, second_then, Some(second_else)),
+      ) if second_then.length() > 0 && second_else.length() > 0 => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1738_loop_head_local_copy_child(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_two_tag_dispatch(body) ||
+    !run_hot_pipeline_raw_vacuum_body_has_f1738_parent_br_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  let copy_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => copy_body
+    _ => return None
+  }
+  let flattened : Array[@lib.Instruction] = []
+  for instr in copy_body {
+    flattened.push(instr)
+  }
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1743_nested_tag2_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 2 {
+    return false
+  }
+  let dispatch_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return false
+  }
+  if dispatch_body.length() < 7 {
+    return false
+  }
+  match
+    (
+      dispatch_body[0],
+      dispatch_body[1],
+      dispatch_body[2],
+      dispatch_body[3],
+      dispatch_body[4],
+      dispatch_body[5],
+      dispatch_body[dispatch_body.length() - 1],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tee_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+      @lib.Br(label),
+    ) =>
+      source_raw != tee_raw &&
+      then_body.length() > 0 &&
+      else_body.length() > 0 &&
+      run_hot_pipeline_raw_vacuum_body_has_top_level_local_set(then_body) &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1743_loop_update_continuation(
+  body : Array[@lib.Instruction],
+  copied_target_raw : UInt,
+) -> Bool {
+  if body.length() < 19 ||
+    !run_hot_pipeline_raw_vacuum_body_is_f1743_nested_tag2_dispatch(body) {
+    return false
+  }
+  let update_raw = match
+    (body[1], body[2], body[3], body[4], body[5], body[6], body[7]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(loop_count_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.LocalTee(@lib.LocalIdx(update_raw)),
+      @lib.I32Const(@lib.I32(12)),
+      @lib.I32GeS,
+      @lib.If(@lib.VoidBlockType, then_body, None),
+    ) if loop_count_raw == copied_target_raw && then_body.length() > 0 =>
+      update_raw
+    _ => return false
+  }
+  let mut saw_eqz_return_guard = false
+  for idx = 8; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.LocalGet(_),
+        @lib.Call(_),
+        @lib.I32Eqz,
+        @lib.If(@lib.VoidBlockType, guard_then, None),
+      ) if guard_then.length() > 0 => {
+        saw_eqz_return_guard = true
+        break
+      }
+      _ => ()
+    }
+  }
+  if !saw_eqz_return_guard {
+    return false
+  }
+  let tail_idx = body.length() - 11
+  match
+    (
+      body[tail_idx],
+      body[tail_idx + 1],
+      body[tail_idx + 2],
+      body[tail_idx + 3],
+      body[tail_idx + 4],
+      body[tail_idx + 5],
+      body[tail_idx + 6],
+      body[tail_idx + 7],
+      body[tail_idx + 8],
+      body[tail_idx + 9],
+      body[tail_idx + 10],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(call_arg_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_result_raw)),
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_update_raw)),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ) =>
+      call_arg_raw == release_raw &&
+      result_raw == next_result_raw &&
+      next_update_raw == update_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_dispatch(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 ||
+    !run_hot_pipeline_raw_vacuum_body_has_f1738_parent_br_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  let (copy_body, copied_target_raw) = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => {
+      if copy_body.length() != 2 {
+        return None
+      }
+      match (copy_body[0], copy_body[1]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(source_raw)),
+          @lib.LocalSet(@lib.LocalIdx(target_raw)),
+        ) if source_raw != target_raw => (copy_body, target_raw)
+        _ => return None
+      }
+    }
+    _ => return None
+  }
+  let continuation_body = match body[1] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(continuation_body)) =>
+      continuation_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f1743_loop_update_continuation(
+      continuation_body, copied_target_raw,
+    ) {
+    return None
+  }
+  let flattened : Array[@lib.Instruction] = []
+  for instr in copy_body {
+    flattened.push(instr)
+  }
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f3579_then_releases_and_returns(
+  body : Array[@lib.Instruction],
+  guard_raw : UInt,
+  copied_raw : UInt,
+  pair_raw : UInt,
+  env_raw : UInt,
+) -> Bool {
+  match body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(next_guard_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_copied_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_pair_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_env_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Return,
+    ] =>
+      next_guard_raw == guard_raw &&
+      next_copied_raw == copied_raw &&
+      next_pair_raw == pair_raw &&
+      next_env_raw == env_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f3579_loop_head_local_copy_guard_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 12 {
+    return false
+  }
+  let copied_raw = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_local_copy_child(
+          copy_body,
+        ) {
+        return false
+      }
+      match copy_body[1] {
+        @lib.LocalSet(@lib.LocalIdx(target_raw)) => target_raw
+        _ => return false
+      }
+    }
+    _ => return false
+  }
+  match
+    (
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(env_source_raw)),
+      @lib.LocalSet(@lib.LocalIdx(env_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(pair_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(guard_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Ne,
+      @lib.If(@lib.VoidBlockType, then_body, None),
+    ) if env_source_raw != env_raw =>
+      run_hot_pipeline_raw_vacuum_f3579_then_releases_and_returns(
+        then_body, guard_raw, copied_raw, pair_raw, env_raw,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f3579_loop_head_local_copy_guard_wrapper(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_is_f3579_loop_head_local_copy_guard_wrapper(
+      body,
+    ) {
+    return None
+  }
+  let copy_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => copy_body
+    _ => return None
+  }
+  let flattened : Array[@lib.Instruction] = []
+  for instr in copy_body {
+    flattened.push(instr)
+  }
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+  body : Array[@lib.Instruction],
+  active_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1]) {
+      (@lib.LocalGet(@lib.LocalIdx(raw)), @lib.Call(_)) if raw == active_raw =>
+        return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+            child_body, active_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+            then_body, active_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+                child_body, active_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+            child_body, active_raw,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_f3841_selected_local(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_f3841_selected_local(non_nops)
+  }
+  if body.length() != 15 {
+    return None
+  }
+  let (retained_raw, value_raw, active_raw) = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_retained_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(value_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_value_raw)),
+      @lib.LocalTee(@lib.LocalIdx(active_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(_),
+    ) if source_raw != retained_raw &&
+      next_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      next_value_raw == value_raw &&
+      value_raw != active_raw => (retained_raw, value_raw, active_raw)
+    _ => return None
+  }
+  ignore(retained_raw)
+  ignore(value_raw)
+  match body[14] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+          then_body, active_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
+          else_body, active_raw,
+        ) {
+        return None
+      }
+      match run_hot_pipeline_raw_vacuum_body_ends_local_set(else_body) {
+        Some(selected_raw) =>
+          if run_hot_pipeline_raw_vacuum_body_sets_local(
+              then_body,
+              selected_raw.reinterpret_as_uint(),
+            ) {
+            Some(selected_raw)
+          } else {
+            None
+          }
+        None => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_has_f3841_selected_local_set_br_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 3 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(next_selected_raw)),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_selected_raw.reinterpret_as_int() == selected_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_before_local_set_branch(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  let selected_raw = match
+    run_hot_pipeline_raw_vacuum_body_f3841_selected_local(child_body) {
+    Some(local_raw) => local_raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_has_f3841_selected_local_set_br_continuation(
+      parent_body, start_idx, selected_raw,
+    ) ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(child_body, 0) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let stripped : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => stripped.push(instr)
+    }
+  }
+  stripped
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f3998_prefix_result_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 9 {
+    return None
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.LocalGet(@lib.LocalIdx(arg_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+    ) if source_raw != retained_raw &&
+      retained_raw == release_raw &&
+      result_raw != retained_raw &&
+      arg_raw != result_raw => return Some(result_raw)
+    _ => ()
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalGet(@lib.LocalIdx(index_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.LocalGet(@lib.LocalIdx(arg_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+    ) if source_raw != retained_raw &&
+      index_raw != retained_raw &&
+      retained_raw == release_raw &&
+      result_raw != retained_raw &&
+      arg_raw != result_raw => Some(result_raw)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_is_f3998_tag2_dispatch_if(
+  instr : @lib.Instruction,
+  active_raw : UInt,
+) -> Bool {
+  match instr {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if then_body.length() < 6 || else_body.length() != 3 {
+        return false
+      }
+      match
+        (
+          then_body[0],
+          then_body[1],
+          then_body[2],
+          then_body[3],
+          then_body[4],
+          then_body[5],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(first_active_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(second_active_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+          @lib.LocalTee(_),
+        ) if first_active_raw == active_raw && second_active_raw == active_raw =>
+          ()
+        _ => return false
+      }
+      match (else_body[0], else_body[1], else_body[2]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(else_active_raw)),
+          @lib.LocalSet(_),
+          @lib.Br(label),
+        ) =>
+          else_active_raw == active_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f3998_tag2_prefix_child(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 7 {
+    return false
+  }
+  let result_raw = match non_nops[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      match run_hot_pipeline_raw_vacuum_f3998_prefix_result_local(prefix_body) {
+        Some(raw) => raw
+        None => return false
+      }
+    _ => return false
+  }
+  let active_raw = match
+    (non_nops[1], non_nops[2], non_nops[3], non_nops[4], non_nops[5]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(active_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+    ) if read_raw == result_raw && active_raw != result_raw => active_raw
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_instr_is_f3998_tag2_dispatch_if(
+    non_nops[6],
+    active_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_has_f3998_release_load_loop_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 8 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  if sig.length() < 8 {
+    return false
+  }
+  match (sig[0], sig[1], sig[2], sig[3], sig[4], sig[5], sig[6], sig[7]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(collection_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+      @lib.LocalSet(@lib.LocalIdx(count_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalSet(@lib.LocalIdx(index_raw)),
+      @lib.Loop(@lib.VoidBlockType, _),
+    ) =>
+      release_raw != collection_raw &&
+      count_raw != index_raw &&
+      collection_raw != index_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_continuation(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_has_f3998_release_load_loop_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 1 {
+    return None
+  }
+  match non_nops[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => {
+      let child_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        child_body,
+      )
+      if !run_hot_pipeline_raw_vacuum_body_is_f3998_tag2_prefix_child(
+          child_non_nops,
+        ) {
+        return None
+      }
+      Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_non_nops, 0))
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4070_prefix_result_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 5 {
+    return None
+  }
+  match (non_nops[0], non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+    ) if source_raw == release_raw && source_raw != result_raw =>
+      Some(result_raw)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4070_dispatch_payload_load(
+  body : Array[@lib.Instruction],
+  dispatch_raw : UInt,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() < 4 {
+    return false
+  }
+  for idx = 0; idx + 3 < non_nops.length(); idx = idx + 1 {
+    match
+      (non_nops[idx], non_nops[idx + 1], non_nops[idx + 2], non_nops[idx + 3]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(read_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.LocalSet(_),
+      ) if read_raw == dispatch_raw => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4070_one_arg_prefix_parent(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() < 22 {
+    return false
+  }
+  let produced_raw = match non_nops[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      match run_hot_pipeline_raw_vacuum_f4070_prefix_result_local(prefix_body) {
+        Some(raw) => raw
+        None => return false
+      }
+    _ => return false
+  }
+  match
+    (
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+      non_nops[15],
+      non_nops[16],
+      non_nops[17],
+      non_nops[18],
+      non_nops[19],
+      non_nops[20],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(produced_arg_raw)),
+      @lib.LocalGet(@lib.LocalIdx(second_arg_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(third_released_arg_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(first_release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(second_release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(third_release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(dispatch_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) if produced_arg_raw == produced_raw &&
+      first_release_raw == produced_raw &&
+      second_release_raw == second_arg_raw &&
+      third_release_raw == third_released_arg_raw &&
+      result_read_raw == result_raw &&
+      result_raw != produced_raw &&
+      dispatch_raw != result_raw =>
+      match non_nops[21] {
+        @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+          run_hot_pipeline_raw_vacuum_body_has_f4070_dispatch_payload_load(
+            then_body, dispatch_raw,
+          ) &&
+          run_hot_pipeline_raw_vacuum_body_has_f4070_dispatch_payload_load(
+            else_body, dispatch_raw,
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_result_dispatch(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if !run_hot_pipeline_raw_vacuum_body_is_f4070_one_arg_prefix_parent(non_nops) ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(non_nops, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_f4071_has_payload_load(
+  body : Array[@lib.Instruction],
+  result_raw : UInt,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() < 3 {
+    return false
+  }
+  for idx = 0; idx + 2 < non_nops.length(); idx = idx + 1 {
+    match (non_nops[idx], non_nops[idx + 1], non_nops[idx + 2]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_result_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+      ) if next_result_raw == result_raw => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_f4071_else_ends_selected_local_outer_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() < 2 {
+    return false
+  }
+  match (non_nops[non_nops.length() - 2], non_nops[non_nops.length() - 1]) {
+    (@lib.LocalSet(_), @lib.Br(label)) =>
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 2
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4071_selected_local_branch_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 3 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(next_selected_raw)),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_selected_raw.reinterpret_as_int() == selected_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4071_load_retain_tag_dispatch_before_selected_local_branch_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 12 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let (source_raw, retained_raw, result_raw) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(call_source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) if source_raw == call_source_raw &&
+      source_raw != retained_raw &&
+      result_raw != source_raw &&
+      result_raw != retained_raw => (source_raw, retained_raw, result_raw)
+    _ => return false
+  }
+  ignore(source_raw)
+  let selected_raw = match non_nops[11] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_has_local_release_pair(
+          else_body, retained_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_f4071_has_payload_load(
+          then_body, result_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_f4071_has_payload_load(
+          else_body, result_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_f4071_else_ends_selected_local_outer_branch(
+          else_body,
+        ) {
+        return false
+      }
+      match run_hot_pipeline_raw_vacuum_body_ends_local_set(then_body) {
+        Some(selected_raw) => selected_raw
+        None => return false
+      }
+    }
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_body_has_f4071_selected_local_branch_continuation(
+    parent_body, start_idx, selected_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4073_slot_store_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  slot_raw : UInt,
+  selected_raw : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 6 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(load_slot_raw)),
+      @lib.I32Load(_),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store_slot_raw)),
+      @lib.LocalGet(@lib.LocalIdx(stored_raw)),
+      @lib.I32Store(_),
+    ] =>
+      load_slot_raw == slot_raw &&
+      store_slot_raw == slot_raw &&
+      stored_raw.reinterpret_as_int() == selected_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4073_call_result_tag_dispatch_before_slot_store_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 26 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let slot_raw = match non_nops[0] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => raw
+    _ => return false
+  }
+  match non_nops[1] {
+    @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))) => ()
+    _ => return false
+  }
+  let retained_raw = match non_nops[2] {
+    @lib.LocalTee(@lib.LocalIdx(raw)) => raw
+    _ => return false
+  }
+  match non_nops[3] {
+    @lib.Call(_) => ()
+    _ => return false
+  }
+  let active_raw = match non_nops[4] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => raw
+    _ => return false
+  }
+  match non_nops[5] {
+    @lib.Call(_) => ()
+    _ => return false
+  }
+  match (non_nops[7], non_nops[8]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_active_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_retained_raw)),
+    ) if next_active_raw == active_raw && next_retained_raw == retained_raw =>
+      ()
+    _ => return false
+  }
+  for idx = 6; idx <= 13; idx = idx + 1 {
+    match non_nops[idx] {
+      @lib.LocalGet(_) => ()
+      _ => return false
+    }
+  }
+  match non_nops[14] {
+    @lib.Call(_) => ()
+    _ => return false
+  }
+  let result_raw = match non_nops[15] {
+    @lib.LocalSet(@lib.LocalIdx(raw)) => raw
+    _ => return false
+  }
+  match (non_nops[16], non_nops[17], non_nops[18], non_nops[19]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(release_active_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+    ) if release_active_raw == active_raw &&
+      release_retained_raw == retained_raw => ()
+    _ => return false
+  }
+  let tag_raw = match
+    (non_nops[20], non_nops[21], non_nops[22], non_nops[23], non_nops[24]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) if result_read_raw == result_raw => tag_raw
+    _ => return false
+  }
+  let selected_raw = match non_nops[25] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_f4071_has_payload_load(
+          then_body, tag_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_f4071_has_payload_load(
+          else_body, tag_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_f4071_else_ends_selected_local_outer_branch(
+          else_body,
+        ) {
+        return false
+      }
+      match run_hot_pipeline_raw_vacuum_body_ends_local_set(then_body) {
+        Some(selected_raw) => selected_raw
+        None => return false
+      }
+    }
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_body_has_f4073_slot_store_continuation(
+    parent_body, start_idx, slot_raw, selected_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4071_sentinel_active_local(
+  final_if : @lib.Instruction,
+) -> Int? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(_)) =>
+      match then_body {
+        [@lib.LocalGet(@lib.LocalIdx(active_raw)), @lib.Call(_), @lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(
+            label,
+          ) >=
+          2 => Some(active_raw.reinterpret_as_int())
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4071_sentinel_else_sets_selected_local(
+  final_if : @lib.Instruction,
+  selected_raw : Int,
+) -> Bool {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, _, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_sets_local(
+        else_body,
+        selected_raw.reinterpret_as_uint(),
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4071_sentinel_allocation_selected_local(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  active_raw : Int,
+) -> Int? {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 13 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(_),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_active_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_retained_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_selected_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(release_active_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+    ] =>
+      if next_active_raw.reinterpret_as_int() == active_raw &&
+        release_active_raw.reinterpret_as_int() == active_raw &&
+        next_retained_raw == retained_raw &&
+        release_retained_raw == retained_raw {
+        Some(next_selected_raw.reinterpret_as_int())
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4071_sentinel_prefix_before_allocation_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 15 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+      @lib.LocalTee(_),
+      @lib.I64Const(@lib.I64(4294967296L)),
+      @lib.I64Eq,
+    ) if source_raw != retained_raw &&
+      call_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      result_read_raw == result_raw => ()
+    _ => return false
+  }
+  match run_hot_pipeline_raw_vacuum_f4071_sentinel_active_local(non_nops[14]) {
+    Some(active_raw) =>
+      match
+        run_hot_pipeline_raw_vacuum_f4071_sentinel_allocation_selected_local(
+          parent_body, start_idx, active_raw,
+        ) {
+        Some(selected_raw) =>
+          run_hot_pipeline_raw_vacuum_f4071_sentinel_else_sets_selected_local(
+            non_nops[14],
+            selected_raw,
+          )
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4232_selected_local_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 2 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [@lib.LocalGet(@lib.LocalIdx(next_selected_raw)), @lib.Return] =>
+      next_selected_raw.reinterpret_as_int() == selected_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4232_sentinel_return_selected_local(
+  final_if : @lib.Instruction,
+  sentinel_raw : UInt,
+) -> Int? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      match then_body {
+        [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(label) >= 2 =>
+          ()
+        _ => return None
+      }
+      match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_sentinel_raw)),
+          @lib.I32WrapI64,
+          @lib.LocalTee(@lib.LocalIdx(wrapped_raw)),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.I32GeS,
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+        ] if else_sentinel_raw == sentinel_raw =>
+          match nested_then {
+            [
+              @lib.LocalGet(@lib.LocalIdx(next_wrapped_raw)),
+              @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+            ] if next_wrapped_raw == wrapped_raw =>
+              match nested_else {
+                [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(
+                    label,
+                  ) >=
+                  2 => return Some(selected_raw.reinterpret_as_int())
+                _ => return None
+              }
+            _ => return None
+          }
+        _ => return None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4232_sentinel_prefix_before_selected_local_return_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 15 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let sentinel_raw = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_arg_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(sentinel_raw)),
+      @lib.I64Const(@lib.I64(4294967296L)),
+      @lib.I64Eq,
+    ) if source_raw != retained_raw &&
+      call_retained_raw == retained_raw &&
+      call_arg_raw != retained_raw &&
+      release_retained_raw == retained_raw &&
+      result_read_raw == result_raw => sentinel_raw
+    _ => return false
+  }
+  match
+    run_hot_pipeline_raw_vacuum_f4232_sentinel_return_selected_local(
+      non_nops[14],
+      sentinel_raw,
+    ) {
+    Some(selected_raw) =>
+      run_hot_pipeline_raw_vacuum_body_has_f4232_selected_local_return_continuation(
+        parent_body, start_idx, selected_raw,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4483_selected_value_from_tag1_if(
+  final_if : @lib.Instruction,
+  result_raw : UInt,
+) -> Int? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if else_body.length() == 0 {
+        return None
+      }
+      let selected_raw = match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_result_raw)),
+          @lib.I64Load(_),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+          @lib.LocalGet(@lib.LocalIdx(release_result_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(selected_reload_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_target_raw)),
+        ] if then_result_raw == result_raw &&
+          release_result_raw == result_raw &&
+          selected_reload_raw == selected_raw &&
+          selected_target_raw != selected_raw =>
+          selected_target_raw.reinterpret_as_int()
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_result_raw)),
+          @lib.LocalTee(@lib.LocalIdx(then_alias_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(@lib.LocalIdx(payload_raw)),
+          @lib.LocalGet(@lib.LocalIdx(count_alias_raw)),
+          @lib.Call(_),
+          @lib.LocalTee(_),
+          @lib.I32Const(@lib.I32(1)),
+          @lib.I32GtS,
+          @lib.If(@lib.VoidBlockType, _, Some(_)),
+          @lib.LocalGet(@lib.LocalIdx(payload_reload_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_target_raw)),
+        ] if then_result_raw == result_raw &&
+          count_alias_raw == then_alias_raw &&
+          payload_reload_raw == payload_raw =>
+          selected_target_raw.reinterpret_as_int()
+        _ => return None
+      }
+      match else_body[else_body.length() - 1] {
+        @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 2 =>
+          Some(selected_raw)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4483_range_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 3 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(next_selected_raw)),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_selected_raw.reinterpret_as_int() == selected_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4483_indexed_call_result_tag1_prefix_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if (non_nops.length() != 17 && non_nops.length() != 21) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let result_raw = if non_nops.length() == 17 {
+    match
+      (
+        non_nops[0],
+        non_nops[1],
+        non_nops[2],
+        non_nops[3],
+        non_nops[4],
+        non_nops[5],
+        non_nops[6],
+        non_nops[7],
+        non_nops[8],
+        non_nops[9],
+        non_nops[10],
+        non_nops[11],
+        non_nops[12],
+        non_nops[13],
+        non_nops[14],
+        non_nops[15],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(base_raw)),
+        @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+        @lib.LocalGet(@lib.LocalIdx(index_raw)),
+        @lib.I32Const(@lib.I32(2)),
+        @lib.I32Shl,
+        @lib.I32Add,
+        @lib.I32Load(_),
+        @lib.LocalTee(@lib.LocalIdx(item_raw)),
+        @lib.Call(_),
+        @lib.LocalGet(@lib.LocalIdx(call_item_raw)),
+        @lib.I32Const(_),
+        @lib.Call(_),
+        @lib.LocalTee(@lib.LocalIdx(result_raw)),
+        @lib.Call(_),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32Eq,
+      ) if base_raw != index_raw && call_item_raw == item_raw => result_raw
+      _ => return false
+    }
+  } else {
+    match
+      (
+        non_nops[0],
+        non_nops[1],
+        non_nops[2],
+        non_nops[3],
+        non_nops[4],
+        non_nops[5],
+        non_nops[6],
+        non_nops[7],
+        non_nops[8],
+        non_nops[9],
+        non_nops[10],
+        non_nops[11],
+        non_nops[12],
+        non_nops[13],
+        non_nops[14],
+        non_nops[15],
+        non_nops[16],
+        non_nops[17],
+        non_nops[18],
+        non_nops[19],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(base_raw)),
+        @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+        @lib.LocalGet(@lib.LocalIdx(index_raw)),
+        @lib.I32Const(@lib.I32(2)),
+        @lib.I32Shl,
+        @lib.I32Add,
+        @lib.I32Load(_),
+        @lib.LocalTee(@lib.LocalIdx(item_raw)),
+        @lib.Call(_),
+        @lib.LocalGet(@lib.LocalIdx(call_item_raw)),
+        @lib.I64Const(_),
+        @lib.I64Const(_),
+        @lib.I64Const(_),
+        @lib.I64Const(_),
+        @lib.I32Const(_),
+        @lib.Call(_),
+        @lib.LocalTee(@lib.LocalIdx(result_raw)),
+        @lib.Call(_),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32Eq,
+      ) if base_raw != index_raw && call_item_raw == item_raw => result_raw
+      _ => return false
+    }
+  }
+  match
+    run_hot_pipeline_raw_vacuum_f4483_selected_value_from_tag1_if(
+      non_nops[non_nops.length() - 1],
+      result_raw,
+    ) {
+    Some(selected_raw) =>
+      run_hot_pipeline_raw_vacuum_body_has_f4483_range_continuation(
+        parent_body, start_idx, selected_raw,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5277_tag_refcount_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> UInt? {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 3 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(selected_raw)),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ] => {
+      let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      match then_non_nops {
+        [@lib.LocalGet(@lib.LocalIdx(then_release_raw)), @lib.Call(_)] if then_release_raw ==
+          selected_raw => ()
+        _ => return None
+      }
+      if else_non_nops.length() < 5 {
+        return None
+      }
+      match (else_non_nops[0], else_non_nops[1]) {
+        (@lib.LocalGet(@lib.LocalIdx(read_raw)), @lib.I32Load(_)) if read_raw ==
+          selected_raw => ()
+        _ => return None
+      }
+      let mut saw_release = false
+      for release_idx = 0
+          release_idx + 1 < else_non_nops.length()
+          release_idx = release_idx + 1 {
+        match (else_non_nops[release_idx], else_non_nops[release_idx + 1]) {
+          (@lib.LocalGet(@lib.LocalIdx(release_raw)), @lib.Call(_)) if release_raw ==
+            selected_raw => saw_release = true
+          _ => ()
+        }
+      }
+      if saw_release {
+        Some(selected_raw)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
+  body : Array[@lib.Instruction],
+  target_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(source_raw)),
+        @lib.LocalSet(@lib.LocalIdx(set_raw)),
+      ) if set_raw == target_raw && source_raw != target_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
+            child_body, target_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
+            then_body, target_raw,
+          ) ||
+          run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
+            else_body, target_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
+            then_body, target_raw,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5277_else_has_refcount_fallback_branch(
+  else_body : Array[@lib.Instruction],
+  result_raw : UInt,
+) -> Bool {
+  let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+    else_body,
+  )
+  if else_non_nops.length() < 8 {
+    return false
+  }
+  let mut saw_result_refcount_load = false
+  for idx = 0; idx + 3 < else_non_nops.length(); idx = idx + 1 {
+    match
+      (
+        else_non_nops[idx],
+        else_non_nops[idx + 1],
+        else_non_nops[idx + 2],
+        else_non_nops[idx + 3],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(read_result_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.LocalSet(_),
+      ) if read_result_raw == result_raw => saw_result_refcount_load = true
+      _ => ()
+    }
+  }
+  if !saw_result_refcount_load {
+    return false
+  }
+  match
+    (
+      else_non_nops[else_non_nops.length() - 3],
+      else_non_nops[else_non_nops.length() - 2],
+      else_non_nops[else_non_nops.length() - 1],
+    ) {
+    (@lib.LocalGet(_), @lib.LocalSet(_), @lib.Br(label)) =>
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 2
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5277_final_if_matches_selected_local(
+  final_if : @lib.Instruction,
+  result_raw : UInt,
+  selected_raw : UInt,
+) -> Bool {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
+        then_body, selected_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_f5277_else_has_refcount_fallback_branch(
+        else_body, result_raw,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5277_indexed_retain_before_tag_continuation_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 17 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let result_raw = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+      non_nops[15],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(base_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalGet(@lib.LocalIdx(index_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Shl,
+      @lib.I32Add,
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(item_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(call_item_raw)),
+      @lib.LocalGet(@lib.LocalIdx(context_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) if base_raw != index_raw &&
+      call_item_raw == item_raw &&
+      context_raw != item_raw &&
+      result_raw != item_raw => result_raw
+    _ => return false
+  }
+  let selected_raw = match
+    run_hot_pipeline_raw_vacuum_body_has_f5277_tag_refcount_continuation(
+      parent_body, start_idx,
+    ) {
+    Some(raw) => raw
+    None => return false
+  }
+  run_hot_pipeline_raw_vacuum_f5277_final_if_matches_selected_local(
+    non_nops[16],
+    result_raw,
+    selected_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5288_selected_locals_from_leading_dispatch(
+  body : Array[@lib.Instruction],
+) -> (UInt, UInt)? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 6 {
+    return None
+  }
+  let (receiver_raw, tag_raw) = match
+    (non_nops[0], non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) => (receiver_raw, tag_raw)
+    _ => return None
+  }
+  match non_nops[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      let then_selected_raw = match then_non_nops {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_receiver_raw)),
+          @lib.I32Load(_),
+          @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+        ] if then_receiver_raw == receiver_raw &&
+          read_retained_raw == retained_raw &&
+          selected_raw != retained_raw => selected_raw
+        _ => return None
+      }
+      let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      if else_non_nops.length() != 3 {
+        return None
+      }
+      let nested_if = match else_non_nops {
+        [
+          @lib.LocalGet(@lib.LocalIdx(read_tag_raw)),
+          nested_if,
+          @lib.Unreachable,
+        ] if read_tag_raw == tag_raw => nested_if
+        _ => return None
+      }
+      match nested_if {
+        @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)) => {
+          let nested_then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+            nested_then,
+          )
+          let (first_raw, second_raw) = match nested_then_non_nops {
+            [
+              @lib.LocalGet(@lib.LocalIdx(load0_receiver_raw)),
+              @lib.I32Load(_),
+              @lib.LocalSet(@lib.LocalIdx(first_raw)),
+              @lib.LocalGet(@lib.LocalIdx(load4_receiver_raw)),
+              @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+              @lib.LocalTee(@lib.LocalIdx(second_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(release_first_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(read_second_raw)),
+              @lib.LocalSet(_),
+              @lib.LocalGet(@lib.LocalIdx(read_first_raw)),
+              @lib.LocalSet(_),
+              @lib.Br(then_label),
+            ] if load0_receiver_raw == receiver_raw &&
+              load4_receiver_raw == receiver_raw &&
+              release_first_raw == first_raw &&
+              read_second_raw == second_raw &&
+              read_first_raw == first_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(then_label) >= 3 =>
+              (first_raw, second_raw)
+            _ => return None
+          }
+          let nested_else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+            nested_else,
+          )
+          let else_selected_raw = match nested_else_non_nops {
+            [
+              @lib.LocalGet(@lib.LocalIdx(else_receiver_raw)),
+              @lib.I32Load(_),
+              @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+              @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+              @lib.Br(else_label),
+            ] if else_receiver_raw == receiver_raw &&
+              read_retained_raw == retained_raw &&
+              selected_raw != retained_raw &&
+              selected_raw != first_raw &&
+              selected_raw != second_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(else_label) >= 2 =>
+              selected_raw
+            _ => return None
+          }
+          Some((then_selected_raw, else_selected_raw))
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5288_selected_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 8 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(call_selected_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_selected_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(return_result_raw)),
+      @lib.Return,
+    ] =>
+      call_selected_raw == selected_raw &&
+      release_selected_raw == selected_raw &&
+      return_result_raw == result_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_before_returns(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let dispatch_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return None
+  }
+  let selected_raw = match
+    run_hot_pipeline_raw_vacuum_f5288_selected_locals_from_leading_dispatch(
+      dispatch_body,
+    ) {
+    Some((then_selected_raw, _)) => then_selected_raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f5288_selected_return_continuation(
+      parent_body, start_idx, selected_raw,
+    ) ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(dispatch_body, 0) {
+    return None
+  }
+  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    dispatch_body, 0,
+  )
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5392_selected_locals_from_leading_tag2_dispatch(
+  body : Array[@lib.Instruction],
+) -> (UInt, UInt)? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 6 {
+    return None
+  }
+  let (receiver_raw, tag_raw) = match
+    (non_nops[0], non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+    ) => (receiver_raw, tag_raw)
+    _ => return None
+  }
+  match non_nops[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      let (first_raw, second_raw) = match then_non_nops {
+        [
+          @lib.LocalGet(@lib.LocalIdx(load0_receiver_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(@lib.LocalIdx(first_raw)),
+          @lib.LocalGet(@lib.LocalIdx(load4_receiver_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+          @lib.LocalTee(@lib.LocalIdx(second_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(release_first_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(read_second_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_second_raw)),
+          @lib.LocalGet(@lib.LocalIdx(read_first_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_first_raw)),
+        ] if load0_receiver_raw == receiver_raw &&
+          load4_receiver_raw == receiver_raw &&
+          release_first_raw == first_raw &&
+          read_second_raw == second_raw &&
+          read_first_raw == first_raw &&
+          selected_first_raw != selected_second_raw =>
+          (selected_first_raw, selected_second_raw)
+        _ => return None
+      }
+      if first_raw == second_raw {
+        return None
+      }
+      let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      let nested_if = match else_non_nops {
+        [
+          @lib.LocalGet(@lib.LocalIdx(read_tag_raw)),
+          @lib.I32Const(@lib.I32(1)),
+          @lib.I32Eq,
+          nested_if,
+          @lib.Unreachable,
+        ] if read_tag_raw == tag_raw => nested_if
+        _ => return None
+      }
+      match nested_if {
+        @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)) => {
+          let nested_then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+            nested_then,
+          )
+          let then_selected_raw = match nested_then_non_nops {
+            [
+              @lib.LocalGet(@lib.LocalIdx(then_receiver_raw)),
+              @lib.I32Load(_),
+              @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+              @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+              @lib.Br(then_label),
+            ] if then_receiver_raw == receiver_raw &&
+              read_retained_raw == retained_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(then_label) >= 4 =>
+              selected_raw
+            _ => return None
+          }
+          let nested_else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+            nested_else,
+          )
+          let else_selected_raw = match nested_else_non_nops {
+            [
+              @lib.LocalGet(@lib.LocalIdx(else_receiver_raw)),
+              @lib.I32Load(_),
+              @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+              @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+              @lib.Br(else_label),
+            ] if else_receiver_raw == receiver_raw &&
+              read_retained_raw == retained_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(else_label) >= 5 =>
+              selected_raw
+            _ => return None
+          }
+          if then_selected_raw == first_raw ||
+            then_selected_raw == second_raw ||
+            else_selected_raw == first_raw ||
+            else_selected_raw == second_raw ||
+            then_selected_raw == else_selected_raw {
+            return None
+          }
+          Some((first_raw, second_raw))
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5392_call_release_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  first_raw : UInt,
+  second_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 15 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(call_first_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_second_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_first_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_second_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(process_result_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(return_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_result_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_return_raw)),
+      @lib.Return,
+    ] =>
+      call_first_raw == first_raw &&
+      call_second_raw == second_raw &&
+      release_first_raw == first_raw &&
+      release_second_raw == second_raw &&
+      process_result_raw == result_raw &&
+      release_result_raw == result_raw &&
+      read_return_raw == return_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_before_call_return(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let dispatch_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return None
+  }
+  let (first_raw, second_raw) = match
+    run_hot_pipeline_raw_vacuum_f5392_selected_locals_from_leading_tag2_dispatch(
+      dispatch_body,
+    ) {
+    Some(locals) => locals
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f5392_call_release_return_continuation(
+      parent_body, start_idx, first_raw, second_raw,
+    ) ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(dispatch_body, 0) {
+    return None
+  }
+  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    dispatch_body, 0,
+  )
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5419_selected_local_from_tag1_owner_dispatch(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 6 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
+    return None
+  }
+  let (source_raw, tag_raw) = match
+    (non_nops[0], non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) if source_raw != tag_raw => (source_raw, tag_raw)
+    _ => return None
+  }
+  match non_nops[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let selected_raw = match
+        run_hot_pipeline_raw_vacuum_strip_top_level_nops(then_body) {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+          @lib.Call(_),
+        ] if then_source_raw == source_raw && retained_raw != source_raw =>
+          retained_raw
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+        ] if then_source_raw == source_raw &&
+          read_retained_raw == retained_raw &&
+          selected_raw != source_raw &&
+          selected_raw != retained_raw => selected_raw
+        _ => return None
+      }
+      let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      let (nested_then, nested_else) = match else_non_nops {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_tag_raw)),
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+          @lib.Unreachable,
+        ] if else_tag_raw == tag_raw => (nested_then, nested_else)
+        _ => return None
+      }
+      match run_hot_pipeline_raw_vacuum_strip_top_level_nops(nested_then) {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(then_offset4_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalTee(_),
+          @lib.Call(_),
+          @lib.LocalGet(_),
+          @lib.Call(_),
+          @lib.LocalGet(_),
+          @lib.LocalSet(_),
+          @lib.LocalGet(_),
+          @lib.LocalSet(_),
+          @lib.Br(label),
+        ] if then_source_raw == source_raw &&
+          then_offset4_source_raw == source_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 5 => ()
+        _ => return None
+      }
+      match run_hot_pipeline_raw_vacuum_strip_top_level_nops(nested_else) {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalTee(_),
+          @lib.Call(_),
+          @lib.LocalGet(_),
+          @lib.LocalSet(_),
+          @lib.Br(label),
+        ] if else_source_raw == source_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 4 =>
+          Some(selected_raw)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5419_stream_loop_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 12 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(renderer_raw)),
+      @lib.I32Const(_),
+      @lib.LocalGet(@lib.LocalIdx(env_raw)),
+      @lib.I32Load(_),
+      @lib.CallIndirect(_, _),
+      @lib.Drop,
+      @lib.LocalGet(@lib.LocalIdx(read_selected_raw)),
+      @lib.I32Load(_),
+      @lib.LocalSet(@lib.LocalIdx(count_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalSet(@lib.LocalIdx(index_raw)),
+      @lib.Loop(@lib.VoidBlockType, _),
+    ] =>
+      read_selected_raw == selected_raw &&
+      renderer_raw != env_raw &&
+      count_raw != index_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_stream_loop(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let owner_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(owner_body)) =>
+      run_hot_pipeline_raw_vacuum_strip_top_level_nops(owner_body)
+    _ => return None
+  }
+  if owner_body.length() != 1 {
+    return None
+  }
+  let dispatch_body = match owner_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return None
+  }
+  let selected_raw = match
+    run_hot_pipeline_raw_vacuum_f5419_selected_local_from_tag1_owner_dispatch(
+      dispatch_body,
+    ) {
+    Some(raw) => raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f5419_stream_loop_continuation(
+      body, 0, selected_raw,
+    ) {
+    return None
+  }
+  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    dispatch_body, 0,
+  )
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5351_leading_tag_dispatch_before_zero_return(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 3 ||
+    !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
+    return false
+  }
+  match (non_nops[0], non_nops[1], non_nops[2]) {
+    (@lib.LocalGet(_), @lib.Call(_), @lib.If(@lib.VoidBlockType, _, Some(_))) =>
+      ()
+    _ => return false
+  }
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 2 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [@lib.I32Const(@lib.I32(0)), @lib.Return] => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5369_allocation_path_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 12 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(first_raw)),
+      @lib.LocalGet(@lib.LocalIdx(second_raw)),
+      @lib.LocalGet(@lib.LocalIdx(third_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_first_raw)),
+      @lib.Call(_),
+      @lib.I32Const(_),
+      @lib.LocalGet(@lib.LocalIdx(read_result_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      _,
+    ] =>
+      first_raw == release_first_raw &&
+      result_raw == read_result_raw &&
+      first_raw != second_raw &&
+      first_raw != third_raw &&
+      second_raw != third_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5369_then_has_refcount_dispatch_branch(
+  then_body : Array[@lib.Instruction],
+  dispatch_raw : UInt,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(then_body)
+  if non_nops.length() < 32 {
+    return false
+  }
+  let object_raw = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_dispatch_raw)),
+      @lib.LocalTee(@lib.LocalIdx(object_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(read_object_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+      @lib.LocalSet(_),
+    ) if read_dispatch_raw == dispatch_raw && read_object_raw == object_raw =>
+      object_raw
+    _ => return false
+  }
+  let mut field_load_count = 0
+  for idx = 0; idx + 2 < non_nops.length(); idx = idx + 1 {
+    match (non_nops[idx], non_nops[idx + 1], non_nops[idx + 2]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(read_object_raw)),
+        @lib.I32Load(_),
+        @lib.LocalSet(_),
+      ) if read_object_raw == object_raw =>
+        field_load_count = field_load_count + 1
+      _ => ()
+    }
+  }
+  if field_load_count < 6 {
+    return false
+  }
+  for instr in non_nops {
+    match instr {
+      @lib.If(@lib.VoidBlockType, nested_then, Some(_)) => {
+        let nested_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+          nested_then,
+        )
+        if nested_non_nops.length() >= 2 {
+          match nested_non_nops[nested_non_nops.length() - 1] {
+            @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >=
+              4 => return true
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5369_else_has_release_branch(
+  else_body : Array[@lib.Instruction],
+  dispatch_raw : UInt,
+  owner_raw : UInt,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(else_body)
+  if non_nops.length() < 5 {
+    return false
+  }
+  match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[non_nops.length() - 3],
+      non_nops[non_nops.length() - 2],
+      non_nops[non_nops.length() - 1],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_dispatch_raw)),
+      @lib.If(@lib.VoidBlockType, _, None),
+      @lib.LocalGet(@lib.LocalIdx(read_owner_raw)),
+      @lib.Call(_),
+      @lib.Br(label),
+    ) =>
+      read_dispatch_raw == dispatch_raw &&
+      read_owner_raw == owner_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 3
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_before_allocation_continuation_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() < 13 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let (owner_raw, retained_raw, result_raw, dispatch_raw, then_body, else_body) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(owner_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_result_raw)),
+      @lib.LocalTee(@lib.LocalIdx(dispatch_raw)),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) if read_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      read_result_raw == result_raw =>
+      (owner_raw, retained_raw, result_raw, dispatch_raw, then_body, else_body)
+    _ => return false
+  }
+  retained_raw != owner_raw &&
+  result_raw != retained_raw &&
+  dispatch_raw != retained_raw &&
+  run_hot_pipeline_raw_vacuum_f5369_then_has_refcount_dispatch_branch(
+    then_body, dispatch_raw,
+  ) &&
+  run_hot_pipeline_raw_vacuum_f5369_else_has_release_branch(
+    else_body, dispatch_raw, owner_raw,
+  ) &&
+  run_hot_pipeline_raw_vacuum_body_has_f5369_allocation_path_continuation(
+    parent_body, start_idx,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f6113_then_has_retain_dispatch_branch(
+  then_body : Array[@lib.Instruction],
+  owner_raw : UInt,
+  dispatch_raw : UInt,
+) -> UInt? {
+  let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+    then_body,
+  )
+  if then_non_nops.length() != 21 {
+    return None
+  }
+  match
+    (
+      then_non_nops[0],
+      then_non_nops[1],
+      then_non_nops[2],
+      then_non_nops[3],
+      then_non_nops[4],
+      then_non_nops[5],
+      then_non_nops[6],
+      then_non_nops[7],
+      then_non_nops[8],
+      then_non_nops[9],
+      then_non_nops[10],
+      then_non_nops[11],
+      then_non_nops[12],
+      then_non_nops[13],
+      then_non_nops[14],
+      then_non_nops[15],
+      then_non_nops[16],
+      then_non_nops[17],
+      then_non_nops[18],
+      then_non_nops[19],
+      then_non_nops[20],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(read_dispatch_raw)),
+      @lib.LocalSet(@lib.LocalIdx(set_selected_raw)),
+      @lib.LocalGet(@lib.LocalIdx(load_dispatch_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalSet(@lib.LocalIdx(payload_raw)),
+      @lib.LocalGet(@lib.LocalIdx(context_owner_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalTee(@lib.LocalIdx(context_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(retain_payload_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(call_payload_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_context_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(compare_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_payload_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_context_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_compare_raw)),
+      @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+    ) if read_dispatch_raw == dispatch_raw &&
+      set_selected_raw != dispatch_raw &&
+      load_dispatch_raw == dispatch_raw &&
+      context_owner_raw != owner_raw &&
+      payload_raw != dispatch_raw &&
+      context_raw != payload_raw &&
+      retain_payload_raw == payload_raw &&
+      call_payload_raw == payload_raw &&
+      call_context_raw == context_raw &&
+      release_payload_raw == payload_raw &&
+      release_context_raw == context_raw &&
+      read_compare_raw == compare_raw => {
+      let result_raw = match
+        run_hot_pipeline_raw_vacuum_strip_top_level_nops(nested_then) {
+        [
+          @lib.LocalGet(@lib.LocalIdx(nested_dispatch_raw)),
+          @lib.LocalSet(@lib.LocalIdx(result_raw)),
+        ] if nested_dispatch_raw == dispatch_raw => result_raw
+        _ => return None
+      }
+      match run_hot_pipeline_raw_vacuum_strip_top_level_nops(nested_else) {
+        [
+          @lib.LocalGet(@lib.LocalIdx(release_selected_raw)),
+          @lib.Call(_),
+          @lib.Br(label),
+        ] if release_selected_raw == set_selected_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 4 =>
+          Some(result_raw)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f6113_else_has_release_branch(
+  else_body : Array[@lib.Instruction],
+  dispatch_raw : UInt,
+) -> Bool {
+  match run_hot_pipeline_raw_vacuum_strip_top_level_nops(else_body) {
+    [
+      @lib.LocalGet(@lib.LocalIdx(read_dispatch_raw)),
+      @lib.If(@lib.VoidBlockType, release_body, None),
+      @lib.Br(label),
+    ] if read_dispatch_raw == dispatch_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 3 =>
+      match run_hot_pipeline_raw_vacuum_strip_top_level_nops(release_body) {
+        [@lib.LocalGet(@lib.LocalIdx(release_dispatch_raw)), @lib.Call(_)] =>
+          release_dispatch_raw == dispatch_raw
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f6113_parent_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  owner_raw : UInt,
+  selected_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 27 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(read_owner_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(copied_raw)),
+      @lib.LocalSet(@lib.LocalIdx(saved_raw)),
+      @lib.LocalGet(@lib.LocalIdx(read_copied_raw)),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(retain_saved_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(count_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_count_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Sub,
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(read_selected_raw)),
+      @lib.I32Load(_),
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.I32Add,
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(load_selected_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalSet(_),
+    ] =>
+      read_owner_raw == owner_raw &&
+      read_copied_raw == copied_raw &&
+      saved_raw != copied_raw &&
+      retained_raw != saved_raw &&
+      retain_saved_raw == saved_raw &&
+      call_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      read_count_raw == count_raw &&
+      read_selected_raw == selected_raw &&
+      load_selected_raw == selected_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f6113_retain_call_tag_dispatch_before_parent_continuation_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 12 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let (owner_raw, retained_raw, result_raw, dispatch_raw, then_body, else_body) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(owner_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(read_result_raw)),
+      @lib.LocalTee(@lib.LocalIdx(dispatch_raw)),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) if read_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      read_result_raw == result_raw =>
+      (owner_raw, retained_raw, result_raw, dispatch_raw, then_body, else_body)
+    _ => return false
+  }
+  let selected_raw = match
+    run_hot_pipeline_raw_vacuum_f6113_then_has_retain_dispatch_branch(
+      then_body, owner_raw, dispatch_raw,
+    ) {
+    Some(raw) => raw
+    None => return false
+  }
+  owner_raw != retained_raw &&
+  result_raw != retained_raw &&
+  dispatch_raw != result_raw &&
+  run_hot_pipeline_raw_vacuum_f6113_else_has_release_branch(
+    else_body, dispatch_raw,
+  ) &&
+  run_hot_pipeline_raw_vacuum_body_has_f6113_parent_continuation(
+    parent_body, start_idx, owner_raw, selected_raw,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4310_accumulator_store_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 12 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(first_ptr_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(first_reload_raw)),
+      @lib.I32Load(_),
+      @lib.I32Add,
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(second_ptr_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(second_reload_raw)),
+      @lib.I32Load(_),
+      @lib.I32Add,
+      @lib.I32Store(_),
+    ] =>
+      first_ptr_raw == first_reload_raw &&
+      second_ptr_raw == second_reload_raw &&
+      first_ptr_raw != second_ptr_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4493_selected_value_from_tag1_if(
+  final_if : @lib.Instruction,
+  result_raw : UInt,
+) -> Int? {
+  match final_if {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if else_body.length() == 0 {
+        return None
+      }
+      let selected_raw = match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_result_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(@lib.LocalIdx(payload_raw)),
+          @lib.LocalGet(@lib.LocalIdx(release_result_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(payload_reload_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+        ] if then_result_raw == result_raw &&
+          release_result_raw == result_raw &&
+          payload_reload_raw == payload_raw => selected_raw.reinterpret_as_int()
+        _ => return None
+      }
+      match else_body[else_body.length() - 1] {
+        @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 2 =>
+          Some(selected_raw)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4493_allocation_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 10 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.I32Const(@lib.I32(4)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(ptr_raw)),
+      @lib.I32Const(_),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store_ptr_raw)),
+      @lib.LocalGet(@lib.LocalIdx(payload_raw)),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(return_ptr_raw)),
+      @lib.Return,
+    ] =>
+      store_ptr_raw == ptr_raw &&
+      return_ptr_raw == ptr_raw &&
+      payload_raw.reinterpret_as_int() == selected_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4493_offset4_call_result_tag1_prefix_before_allocation_return_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 16 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let result_raw = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(base_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(call_base_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_set_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) if base_raw != retained_raw &&
+      call_base_raw != retained_raw &&
+      call_retained_raw == retained_raw &&
+      release_retained_raw == retained_raw &&
+      result_read_raw == result_set_raw => result_raw
+    _ => return false
+  }
+  match
+    run_hot_pipeline_raw_vacuum_f4493_selected_value_from_tag1_if(
+      non_nops[15],
+      result_raw,
+    ) {
+    Some(selected_raw) =>
+      run_hot_pipeline_raw_vacuum_body_has_f4493_allocation_return_continuation(
+        parent_body, start_idx, selected_raw,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4310_side_effect_prefix_before_accumulator_stores_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if !run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
+      non_nops,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_f4310_accumulator_store_continuation(
+      parent_body, start_idx,
+    ) {
+    return false
+  }
+  match non_nops[non_nops.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, Some(else_body)) =>
+      run_hot_pipeline_raw_instrs_have_branch(else_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4311_tag85_86_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 6 {
+    return false
+  }
+  let tagged_raw = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.I32Const(@lib.I32(86)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      if !run_hot_pipeline_raw_instrs_have_branch(else_body) ||
+        run_hot_pipeline_raw_instrs_have_branch(then_body) {
+        return false
+      }
+      match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_tagged_raw)),
+          @lib.I32Const(@lib.I32(85)),
+          @lib.I32Eq,
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+          @lib.Unreachable,
+        ] if else_tagged_raw == tagged_raw =>
+          if !run_hot_pipeline_raw_instrs_have_branch(nested_then) ||
+            !run_hot_pipeline_raw_instrs_have_branch(nested_else) {
+            return false
+          }
+        _ => return false
+      }
+      if source_raw == tagged_raw {
+        return false
+      }
+      tagged_raw
+    }
+    _ => return false
+  }
+  tagged_raw.reinterpret_as_int() >= 0
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4311_call_local_set_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 6 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.I32Const(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(temp_raw)),
+      @lib.LocalGet(@lib.LocalIdx(arg_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+    ] => temp_raw != arg_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call_continuation(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_has_f4311_call_local_set_continuation(
+      parent_body, start_idx,
+    ) ||
+    body.length() != 1 {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_is_f4311_tag85_86_dispatch(
+          dispatch_body,
+        ) {
+        return None
+      }
+      Some(
+        run_hot_pipeline_raw_vacuum_rebase_outer_body(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
+          0,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4859_leading_owner_exit_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 4 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
+    return false
+  }
+  match (non_nops[0], non_nops[1], non_nops[2], non_nops[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      if source_raw == tagged_raw ||
+        !run_hot_pipeline_raw_instrs_have_branch(then_body) ||
+        !run_hot_pipeline_raw_instrs_have_branch(else_body) {
+        return false
+      }
+      match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(then_i64_source_raw)),
+          @lib.I64Load(_),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(then_i32_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+          @lib.LocalSet(_),
+          ..,
+          @lib.Unreachable,
+        ] if then_source_raw == tagged_raw &&
+          then_i64_source_raw == tagged_raw &&
+          then_i32_source_raw == tagged_raw => ()
+        _ => return false
+      }
+      match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_i32_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(else_i64_source_raw)),
+          @lib.I64Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(else_release_source_raw)),
+          @lib.Call(_),
+          ..,
+        ] if else_i32_source_raw == tagged_raw &&
+          else_i64_source_raw == tagged_raw &&
+          else_release_source_raw == tagged_raw => true
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4860_leading_owner_exit_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 3 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
+    return false
+  }
+  match (non_nops[0], non_nops[1], non_nops[2]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_i64_source_raw)),
+          @lib.I64Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalSet(@lib.LocalIdx(loaded_i64_raw)),
+          @lib.LocalGet(@lib.LocalIdx(then_i32_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+          @lib.LocalTee(@lib.LocalIdx(tagged_child_raw)),
+          @lib.Call(_),
+          @lib.If(@lib.VoidBlockType, child_then, Some(child_else)),
+          @lib.Unreachable,
+        ] if then_i64_source_raw == source_raw &&
+          then_i32_source_raw == source_raw => {
+          match child_then {
+            [
+              @lib.LocalGet(@lib.LocalIdx(child_then_source_raw)),
+              @lib.I64Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+              @lib.LocalSet(_),
+              @lib.LocalGet(@lib.LocalIdx(child_then_value_raw)),
+              @lib.LocalSet(_),
+              @lib.Br(_),
+            ] if child_then_source_raw == tagged_child_raw &&
+              child_then_value_raw == loaded_i64_raw => ()
+            _ => return false
+          }
+          match child_else {
+            [
+              @lib.LocalGet(@lib.LocalIdx(child_else_value_raw)),
+              @lib.LocalSet(_),
+              @lib.Br(_),
+            ] if child_else_value_raw == loaded_i64_raw => ()
+            _ => return false
+          }
+        }
+        _ => return false
+      }
+      match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_i32_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalSet(@lib.LocalIdx(loaded_i32_raw)),
+          @lib.LocalGet(@lib.LocalIdx(else_i64_source_raw)),
+          @lib.I64Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+          @lib.LocalTee(@lib.LocalIdx(tagged_i64_raw)),
+          @lib.I64Const(@lib.I64(4294967296L)),
+          @lib.I64Eq,
+          @lib.If(@lib.VoidBlockType, fallback_then, Some(fallback_else)),
+        ] if else_i32_source_raw == source_raw &&
+          else_i64_source_raw == source_raw => {
+          match fallback_then {
+            [
+              @lib.LocalGet(@lib.LocalIdx(fallback_then_value_raw)),
+              @lib.LocalSet(_),
+            ] if fallback_then_value_raw == loaded_i32_raw => ()
+            _ => return false
+          }
+          match fallback_else {
+            [
+              @lib.LocalGet(@lib.LocalIdx(fallback_i64_raw)),
+              @lib.I32WrapI64,
+              @lib.LocalSet(_),
+              @lib.LocalGet(@lib.LocalIdx(fallback_i32_raw)),
+              @lib.LocalSet(_),
+              @lib.Br(_),
+            ] if fallback_i64_raw == tagged_i64_raw &&
+              fallback_i32_raw == loaded_i32_raw => true
+            _ => false
+          }
+        }
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4915_tag1_owner_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 6 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
+    return false
+  }
+  let (source_raw, tag_raw) = match
+    (non_nops[0], non_nops[1], non_nops[2], non_nops[3], non_nops[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) => (source_raw, tag_raw)
+    _ => return false
+  }
+  if source_raw == tag_raw {
+    return false
+  }
+  match non_nops[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let payload_raw = match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalTee(@lib.LocalIdx(payload_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(payload_copy_source_raw)),
+          @lib.LocalSet(@lib.LocalIdx(payload_copy_raw)),
+        ] if then_source_raw == source_raw &&
+          payload_copy_source_raw == payload_raw => payload_copy_raw
+        _ => return false
+      }
+      let (nested_then, nested_else) = match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_tag_raw)),
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+          @lib.Unreachable,
+        ] if else_tag_raw == tag_raw => (nested_then, nested_else)
+        _ => return false
+      }
+      let selected_raw = match nested_then {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalSet(@lib.LocalIdx(selected_raw)),
+          @lib.LocalGet(@lib.LocalIdx(then_offset4_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+          @lib.LocalTee(@lib.LocalIdx(offset4_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(release_selected_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(offset4_copy_source_raw)),
+          @lib.LocalSet(@lib.LocalIdx(offset4_copy_raw)),
+          @lib.LocalGet(@lib.LocalIdx(selected_copy_source_raw)),
+          @lib.LocalSet(@lib.LocalIdx(selected_copy_raw)),
+          @lib.Br(label),
+        ] if then_source_raw == source_raw &&
+          then_offset4_source_raw == source_raw &&
+          selected_raw == release_selected_raw &&
+          offset4_copy_source_raw == offset4_raw &&
+          selected_copy_source_raw == selected_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) > 1 => {
+          if offset4_raw == source_raw ||
+            offset4_raw == tag_raw ||
+            offset4_copy_raw == selected_copy_raw {
+            return false
+          }
+          selected_copy_raw
+        }
+        _ => return false
+      }
+      match nested_else {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalTee(@lib.LocalIdx(fallback_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(fallback_copy_source_raw)),
+          @lib.LocalSet(@lib.LocalIdx(fallback_copy_raw)),
+          @lib.Br(label),
+        ] if else_source_raw == source_raw &&
+          fallback_copy_source_raw == fallback_raw &&
+          fallback_copy_raw != source_raw &&
+          fallback_copy_raw != tag_raw &&
+          fallback_copy_raw != selected_raw &&
+          fallback_copy_raw != payload_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) > 1 => true
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4915_tag95_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 8 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(renderer_raw)),
+      @lib.I32Const(@lib.I32(95)),
+      @lib.Call(_),
+      @lib.Drop,
+      @lib.LocalGet(@lib.LocalIdx(payload_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_renderer_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+    ] if renderer_raw == next_renderer_raw && payload_raw != renderer_raw =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_has_f4915_tag95_return_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_is_f4915_tag1_owner_dispatch(body) {
+    return Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0))
+  }
+  if body.length() != 1 {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_is_f4915_tag1_owner_dispatch(
+          dispatch_body,
+        ) {
+        return None
+      }
+      Some(
+        run_hot_pipeline_raw_vacuum_rebase_outer_body(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
+          0,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4919_tag99_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 14 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(renderer_raw)),
+      @lib.I32Const(@lib.I32(99)),
+      @lib.Call(_),
+      @lib.Drop,
+      @lib.LocalGet(_),
+      @lib.If(@lib.VoidBlockType, _, None),
+      @lib.LocalGet(@lib.LocalIdx(payload_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_renderer_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_result_raw)),
+      @lib.Return,
+      ..,
+    ] if renderer_raw == next_renderer_raw &&
+      payload_raw == release_raw &&
+      result_raw == next_result_raw &&
+      payload_raw != renderer_raw => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4919_call_if_return_dispatch(
+  body : Array[@lib.Instruction],
+  return_local : UInt,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 3 {
+    return false
+  }
+  match (non_nops[0], non_nops[1], non_nops[2]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      if then_body.length() < 8 || else_body.length() < 7 {
+        return false
+      }
+      match
+        (then_body[0], then_body[1], then_body[2], then_body[3], then_body[4]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalTee(_),
+          @lib.I32Const(@lib.I32(1)),
+          @lib.I32Eq,
+        ) if then_source_raw == source_raw => ()
+        _ => return false
+      }
+      match then_body[5] {
+        @lib.If(@lib.VoidBlockType, tag_then, Some(tag_else)) => {
+          match tag_then {
+            [
+              @lib.LocalGet(_),
+              @lib.I32Const(@lib.I32(99)),
+              @lib.Call(_),
+              @lib.Drop,
+              @lib.Call(_),
+              @lib.LocalGet(_),
+              @lib.Call(_),
+              @lib.LocalSet(_),
+            ] => ()
+            _ => return false
+          }
+          match tag_else {
+            [@lib.LocalGet(_), @lib.LocalSet(_), @lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(
+                label,
+              ) >
+              1 => ()
+            _ => return false
+          }
+        }
+        _ => return false
+      }
+      match (then_body[6], then_body[7]) {
+        (@lib.LocalGet(_), @lib.LocalSet(@lib.LocalIdx(ret_raw))) if ret_raw ==
+          return_local => ()
+        _ => return false
+      }
+      match else_body[5] {
+        @lib.If(@lib.VoidBlockType, first_then, Some(first_else)) => {
+          if first_then.length() == 0 || first_else.length() == 0 {
+            return false
+          }
+          match first_then[first_then.length() - 1] {
+            @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) > 1 =>
+              ()
+            _ => return false
+          }
+          match first_else[first_else.length() - 1] {
+            @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) > 1 =>
+              ()
+            _ => return false
+          }
+        }
+        _ => return false
+      }
+      match else_body[else_body.length() - 1] {
+        @lib.Unreachable => true
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_return(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  module_ctx : @ir.HotModuleContext?,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 3 ||
+    !run_hot_pipeline_raw_vacuum_body_has_f4919_tag99_return_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  let return_local = match (body[1], body[2]) {
+    (@lib.LocalGet(@lib.LocalIdx(raw)), @lib.Return) => raw
+    _ => return None
+  }
+  let dispatch_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f4919_call_if_return_dispatch(
+      dispatch_body, return_local,
+    ) {
+    return None
+  }
+  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0)
+  let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    rebased, module_ctx,
+  )
+  let flattened : Array[@lib.Instruction] = []
+  for instr in clean_rebased {
+    flattened.push(instr)
+  }
+  flattened.push(body[1])
+  flattened.push(body[2])
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
+  body : Array[@lib.Instruction],
+  selector_raw : UInt,
+  require_terminal_outer_branch : Bool,
+  allow_leading_release : Bool,
+) -> UInt? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  let mut start_idx = 0
+  let mut leading_release_count = 0
+  while allow_leading_release &&
+        leading_release_count < 3 &&
+        start_idx + 1 < non_nops.length() {
+    match (non_nops[start_idx], non_nops[start_idx + 1]) {
+      (@lib.LocalGet(@lib.LocalIdx(released_raw)), @lib.Call(_)) if released_raw !=
+        selector_raw => {
+        start_idx = start_idx + 2
+        leading_release_count = leading_release_count + 1
+      }
+      _ => break
+    }
+  }
+  if non_nops.length() - start_idx < 6 {
+    return None
+  }
+  match
+    (
+      non_nops[start_idx],
+      non_nops[start_idx + 1],
+      non_nops[start_idx + 2],
+      non_nops[start_idx + 3],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(branch_selector_raw)),
+      @lib.LocalTee(_),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+      @lib.LocalSet(_),
+    ) if branch_selector_raw == selector_raw => ()
+    _ => return None
+  }
+  let final_set_idx = if require_terminal_outer_branch {
+    match non_nops[non_nops.length() - 1] {
+      @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 3 =>
+        non_nops.length() - 3
+      _ => return None
+    }
+  } else {
+    match non_nops[non_nops.length() - 1] {
+      @lib.Br(_) => return None
+      _ => non_nops.length() - 2
+    }
+  }
+  if final_set_idx < start_idx || final_set_idx + 1 >= non_nops.length() {
+    return None
+  }
+  match (non_nops[final_set_idx], non_nops[final_set_idx + 1]) {
+    (@lib.LocalGet(_), @lib.LocalSet(@lib.LocalIdx(selected_raw))) =>
+      Some(selected_raw)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5083_conditional_handoff_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  selected_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 2 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [@lib.LocalGet(_), @lib.If(@lib.VoidBlockType, then_body, Some(else_body))] => {
+      let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      match (then_non_nops, else_non_nops) {
+        (
+          [
+            @lib.LocalGet(@lib.LocalIdx(first_selected_raw)),
+            @lib.Call(_),
+            @lib.LocalSet(@lib.LocalIdx(first_tmp_raw)),
+            @lib.LocalGet(@lib.LocalIdx(second_selected_raw)),
+            @lib.Call(_),
+            @lib.LocalSet(@lib.LocalIdx(second_tmp_raw)),
+            @lib.LocalGet(@lib.LocalIdx(release_selected_raw)),
+            @lib.Call(_),
+            @lib.LocalGet(@lib.LocalIdx(call_first_tmp_raw)),
+            @lib.LocalGet(@lib.LocalIdx(call_second_tmp_raw)),
+            @lib.I32Const(@lib.I32(1)),
+            @lib.Call(_),
+            @lib.LocalSet(@lib.LocalIdx(result_raw)),
+            @lib.LocalGet(@lib.LocalIdx(release_second_tmp_raw)),
+            @lib.Call(_),
+            @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+            @lib.LocalSet(@lib.LocalIdx(handoff_raw)),
+          ],
+          [
+            @lib.LocalGet(@lib.LocalIdx(else_selected_raw)),
+            @lib.LocalSet(@lib.LocalIdx(else_handoff_raw)),
+          ],
+        ) =>
+          first_selected_raw == selected_raw &&
+          second_selected_raw == selected_raw &&
+          release_selected_raw == selected_raw &&
+          else_selected_raw == selected_raw &&
+          call_first_tmp_raw == first_tmp_raw &&
+          call_second_tmp_raw == second_tmp_raw &&
+          release_second_tmp_raw == second_tmp_raw &&
+          result_read_raw == result_raw &&
+          else_handoff_raw == handoff_raw
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f5027_allocation_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+  payload_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 10 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.I32Const(@lib.I32(4)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(box_raw)),
+      @lib.I32Const(@lib.I32(tag_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(init_box_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_payload_raw)),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(return_box_raw)),
+      @lib.Return,
+      ..,
+    ] if box_raw == init_box_raw &&
+      box_raw == return_box_raw &&
+      next_payload_raw == payload_raw &&
+      (tag_raw == 256 || tag_raw == 257) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5083_selected_payload_before_conditional_handoff_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() < 8 {
+    return false
+  }
+  let final_idx = non_nops.length() - 1
+  let selector_raw = if final_idx >= 5 {
+    match
+      (
+        non_nops[final_idx - 5],
+        non_nops[final_idx - 4],
+        non_nops[final_idx - 3],
+        non_nops[final_idx - 2],
+        non_nops[final_idx - 1],
+        non_nops[final_idx],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.LocalTee(@lib.LocalIdx(raw)),
+        @lib.Call(_),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32Eq,
+        @lib.If(@lib.VoidBlockType, _, Some(_)),
+      ) => raw
+      _ =>
+        match
+          (
+            non_nops[final_idx - 3],
+            non_nops[final_idx - 2],
+            non_nops[final_idx - 1],
+            non_nops[final_idx],
+          ) {
+          (
+            @lib.LocalGet(_),
+            @lib.LocalTee(@lib.LocalIdx(raw)),
+            @lib.Call(_),
+            @lib.If(@lib.VoidBlockType, _, Some(_)),
+          ) => raw
+          _ => return false
+        }
+    }
+  } else {
+    match
+      (
+        non_nops[final_idx - 3],
+        non_nops[final_idx - 2],
+        non_nops[final_idx - 1],
+        non_nops[final_idx],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.LocalTee(@lib.LocalIdx(raw)),
+        @lib.Call(_),
+        @lib.If(@lib.VoidBlockType, _, Some(_)),
+      ) => raw
+      _ => return false
+    }
+  }
+  let mut call_count = 0
+  let mut saw_local_set = false
+  for idx = 0; idx < final_idx; idx = idx + 1 {
+    match non_nops[idx] {
+      @lib.Call(_) => call_count = call_count + 1
+      @lib.LocalSet(_) => saw_local_set = true
+      _ => ()
+    }
+  }
+  if call_count < 3 || !saw_local_set {
+    return false
+  }
+  let (then_body, else_body) = match non_nops[final_idx] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      (then_body, else_body)
+    _ => return false
+  }
+  let then_selected = match
+    run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
+      then_body, selector_raw, false, false,
+    ) {
+    Some(raw) => raw
+    None => return false
+  }
+  let else_selected = match
+    run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
+      else_body, selector_raw, true, false,
+    ) {
+    Some(raw) => raw
+    None => return false
+  }
+  then_selected != else_selected &&
+  run_hot_pipeline_raw_vacuum_body_has_f5083_conditional_handoff_continuation(
+    parent_body, start_idx, then_selected,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_non_nops_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
+  non_nops : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if non_nops.length() < 8 {
+    return false
+  }
+  let final_idx = non_nops.length() - 1
+  let selector_raw = match
+    (
+      non_nops[final_idx - 3],
+      non_nops[final_idx - 2],
+      non_nops[final_idx - 1],
+      non_nops[final_idx],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(raw)),
+      @lib.Call(_),
+      @lib.If(@lib.VoidBlockType, _, Some(_)),
+    ) => raw
+    _ => return false
+  }
+  let mut call_count = 0
+  let mut saw_local_set = false
+  for idx = 0; idx < final_idx; idx = idx + 1 {
+    match non_nops[idx] {
+      @lib.Call(_) => call_count = call_count + 1
+      @lib.LocalSet(_) => saw_local_set = true
+      _ => ()
+    }
+  }
+  if call_count < 3 || !saw_local_set {
+    return false
+  }
+  let (then_body, else_body) = match non_nops[final_idx] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      (then_body, else_body)
+    _ => return false
+  }
+  let then_selected = match
+    run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
+      then_body, selector_raw, true, false,
+    ) {
+    Some(raw) => raw
+    None => return false
+  }
+  let else_selected = match
+    run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
+      else_body, selector_raw, false, true,
+    ) {
+    Some(raw) => raw
+    None => return false
+  }
+  then_selected != else_selected &&
+  run_hot_pipeline_raw_vacuum_body_has_f5027_allocation_return_continuation(
+    parent_body, start_idx, else_selected,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if run_hot_pipeline_raw_vacuum_non_nops_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
+      non_nops, parent_body, start_idx,
+    ) {
+    return true
+  }
+  if non_nops.length() < 2 {
+    return false
+  }
+  let merged : Array[@lib.Instruction] = []
+  match non_nops[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      for instr in run_hot_pipeline_raw_vacuum_strip_top_level_nops(prefix_body) {
+        merged.push(instr)
+      }
+    _ => return false
+  }
+  for idx = 1; idx < non_nops.length(); idx = idx + 1 {
+    merged.push(non_nops[idx])
+  }
+  run_hot_pipeline_raw_vacuum_non_nops_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
+    merged, parent_body, start_idx,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4859_case0_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 4 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [@lib.LocalGet(_), @lib.I32Const(@lib.I32(0)), @lib.Call(_), @lib.Drop] =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_has_f4859_case0_return_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_is_f4859_leading_owner_exit_dispatch(body) ||
+    run_hot_pipeline_raw_vacuum_body_is_f4860_leading_owner_exit_dispatch(body) {
+    return Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0))
+  }
+  if body.length() != 1 {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_is_f4859_leading_owner_exit_dispatch(
+          dispatch_body,
+        ) &&
+        !run_hot_pipeline_raw_vacuum_body_is_f4860_leading_owner_exit_dispatch(
+          dispatch_body,
+        ) {
+        return None
+      }
+      Some(
+        run_hot_pipeline_raw_vacuum_rebase_outer_body(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
+          0,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4665_tag2_56_classification_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 6 {
+    return false
+  }
+  let (source_raw, tag_raw) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      let stripped_then = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        then_body,
+      )
+      match stripped_then {
+        [
+          @lib.LocalGet(@lib.LocalIdx(then_source0_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.LocalSet(@lib.LocalIdx(field0_raw)),
+          @lib.LocalGet(@lib.LocalIdx(then_source4_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+          @lib.LocalSet(@lib.LocalIdx(field4_raw)),
+          @lib.LocalGet(@lib.LocalIdx(then_source8_raw)),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+          @lib.LocalTee(@lib.LocalIdx(field8_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(copy4_raw)),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(copy8_raw)),
+          @lib.LocalSet(_),
+          @lib.LocalGet(@lib.LocalIdx(copy0_raw)),
+          @lib.LocalSet(_),
+        ] if then_source0_raw == source_raw &&
+          then_source4_raw == source_raw &&
+          then_source8_raw == source_raw &&
+          copy4_raw == field4_raw &&
+          copy8_raw == field8_raw &&
+          copy0_raw == field0_raw => ()
+        _ => return false
+      }
+      let stripped_else = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+        else_body,
+      )
+      match stripped_else {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_tag_raw)),
+          @lib.I32Const(@lib.I32(56)),
+          @lib.I32Eq,
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+          @lib.Unreachable,
+        ] if else_tag_raw == tag_raw => {
+          let stripped_nested_then = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+            nested_then,
+          )
+          match stripped_nested_then {
+            [
+              @lib.LocalGet(@lib.LocalIdx(then_source_raw)),
+              @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+              @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(copy_retained_raw)),
+              @lib.LocalSet(_),
+              @lib.Br(then_label),
+            ] if then_source_raw == source_raw &&
+              copy_retained_raw == retained_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(then_label) >= 4 => ()
+            _ => return false
+          }
+          let stripped_nested_else = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
+            nested_else,
+          )
+          match stripped_nested_else {
+            [
+              @lib.LocalGet(@lib.LocalIdx(else_source4_raw)),
+              @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+              @lib.LocalSet(_),
+              @lib.LocalGet(@lib.LocalIdx(else_source0_raw)),
+              @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+              @lib.LocalSet(_),
+              @lib.Br(else_label),
+            ] if else_source4_raw == source_raw &&
+              else_source0_raw == source_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(else_label) >= 5 => ()
+            _ => return false
+          }
+        }
+        _ => return false
+      }
+      (source_raw, tag_raw)
+    }
+    _ => return false
+  }
+  source_raw != tag_raw &&
+  !run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4665_renderer_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 11 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(renderer_raw)),
+      @lib.I32Const(@lib.I32(178120)),
+      @lib.LocalGet(@lib.LocalIdx(env_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+      @lib.CallIndirect(_, _),
+      @lib.Drop,
+      @lib.LocalGet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_env_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_renderer_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+    ] =>
+      renderer_raw == call_renderer_raw &&
+      env_raw == call_env_raw &&
+      result_raw != renderer_raw &&
+      result_raw != env_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_before_renderer_continuation(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_has_f4665_renderer_continuation(
+      parent_body, start_idx,
+    ) ||
+    body.length() != 1 {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_is_f4665_tag2_56_classification_dispatch(
+          dispatch_body,
+        ) {
+        return None
+      }
+      Some(
+        run_hot_pipeline_raw_vacuum_rebase_outer_body(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
+          0,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_then(
+  then_body : Array[@lib.Instruction],
+) -> (Int, Int)? {
+  let body = run_hot_pipeline_raw_vacuum_strip_top_level_nops(then_body)
+  if body.length() < 10 {
+    return None
+  }
+  let mut saw_offset0 = false
+  let mut saw_offset4 = false
+  let mut saw_refcount_if = false
+  for instr in body {
+    match instr {
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))) => saw_offset0 = true
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))) => saw_offset4 = true
+      @lib.If(@lib.VoidBlockType, _, _) => saw_refcount_if = true
+      _ => ()
+    }
+  }
+  if saw_offset0 && saw_offset4 && saw_refcount_if {
+    Some((0, 1))
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_call_result_child(
+  body : Array[@lib.Instruction],
+) -> (Int, Int)? {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() == 0 {
+    return None
+  }
+  match non_nops[non_nops.length() - 1] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !(run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_then(
+          then_body,
+        )
+        is Some(_)) ||
+        !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(else_body) ||
+        !run_hot_pipeline_raw_instrs_have_branch(else_body) {
+        return None
+      }
+      let mut saw_call = false
+      let mut saw_tag_one = false
+      for idx = 0; idx + 1 < non_nops.length(); idx = idx + 1 {
+        match non_nops[idx] {
+          @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+            saw_call = true
+          @lib.I32Const(@lib.I32(1)) if non_nops[idx + 1] is @lib.I32Eq =>
+            saw_tag_one = true
+          _ => ()
+        }
+      }
+      if saw_call && saw_tag_one {
+        Some((0, 1))
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4702_call_result_child_before_store_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 10 {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !(run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_call_result_child(
+      child_body,
+    )
+    is Some(_)) {
+    return None
+  }
+  match
+    (
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.I32Store(@lib.MemArg(_, _, @lib.U64(0UL))),
+    ) => {
+      let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+        child_body, 0,
+      )
+      for idx = 1; idx < body.length(); idx = idx + 1 {
+        flattened.push(body[idx])
+      }
+      Some(flattened)
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4463_offset20_call_result_tag1_prefix(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 38 {
+    return false
+  }
+  let (loaded_raw, alloc_raw, call_result_raw, boxed_raw, tag_raw) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+      non_nops[15],
+      non_nops[16],
+      non_nops[17],
+      non_nops[18],
+      non_nops[19],
+      non_nops[20],
+      non_nops[21],
+      non_nops[22],
+      non_nops[23],
+      non_nops[24],
+      non_nops[25],
+      non_nops[26],
+      non_nops[27],
+      non_nops[28],
+      non_nops[29],
+      non_nops[30],
+      non_nops[31],
+      non_nops[32],
+      non_nops[33],
+      non_nops[34],
+      non_nops[35],
+      non_nops[36],
+      non_nops[37],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(20UL))),
+      @lib.LocalSet(@lib.LocalIdx(loaded_raw)),
+      @lib.I32Const(@lib.I32(8)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(alloc_raw)),
+      @lib.I32Const(@lib.I32(524544)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store0_alloc_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(store4_alloc_raw)),
+      @lib.I32Const(@lib.I32(10088)),
+      @lib.I32Store(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalGet(@lib.LocalIdx(retain_loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(call_loaded_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_arg_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_alloc_raw)),
+      @lib.Call(@lib.FuncIdx(4553U)),
+      @lib.LocalTee(@lib.LocalIdx(boxed_raw)),
+      @lib.Call(@lib.FuncIdx(4509U)),
+      @lib.LocalSet(@lib.LocalIdx(call_result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_arg_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_alloc_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_boxed_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_read_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      if source_raw == loaded_raw ||
+        loaded_raw != retain_loaded_raw ||
+        loaded_raw != call_loaded_raw ||
+        loaded_raw != release_loaded_raw ||
+        alloc_raw != store0_alloc_raw ||
+        alloc_raw != store4_alloc_raw ||
+        alloc_raw != call_alloc_raw ||
+        alloc_raw != release_alloc_raw ||
+        call_arg_raw != release_arg_raw ||
+        boxed_raw != release_boxed_raw ||
+        call_result_raw != result_read_raw ||
+        call_result_raw == tag_raw ||
+        then_body.length() == 0 ||
+        !run_hot_pipeline_raw_instrs_have_branch(else_body) {
+        return false
+      }
+      (loaded_raw, alloc_raw, call_result_raw, boxed_raw, tag_raw)
+    }
+    _ => return false
+  }
+  loaded_raw != alloc_raw &&
+  alloc_raw != boxed_raw &&
+  boxed_raw != tag_raw &&
+  call_result_raw != boxed_raw
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f4463_offset12_indexed_call_result_tag1_prefix(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
+  if non_nops.length() != 56 {
+    return false
+  }
+  let (
+    loaded_raw,
+    retained_raw,
+    alloc_raw,
+    second_raw,
+    second_arg_raw,
+    boxed_raw,
+    result_raw,
+    tag_raw,
+  ) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+      non_nops[6],
+      non_nops[7],
+      non_nops[8],
+      non_nops[9],
+      non_nops[10],
+      non_nops[11],
+      non_nops[12],
+      non_nops[13],
+      non_nops[14],
+      non_nops[15],
+      non_nops[16],
+      non_nops[17],
+      non_nops[18],
+      non_nops[19],
+      non_nops[20],
+      non_nops[21],
+      non_nops[22],
+      non_nops[23],
+      non_nops[24],
+      non_nops[25],
+      non_nops[26],
+      non_nops[27],
+      non_nops[28],
+      non_nops[29],
+      non_nops[30],
+      non_nops[31],
+      non_nops[32],
+      non_nops[33],
+      non_nops[34],
+      non_nops[35],
+      non_nops[36],
+      non_nops[37],
+      non_nops[38],
+      non_nops[39],
+      non_nops[40],
+      non_nops[41],
+      non_nops[42],
+      non_nops[43],
+      non_nops[44],
+      non_nops[45],
+      non_nops[46],
+      non_nops[47],
+      non_nops[48],
+      non_nops[49],
+      non_nops[50],
+      non_nops[51],
+      non_nops[52],
+      non_nops[53],
+      non_nops[54],
+      non_nops[55],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalGet(@lib.LocalIdx(index_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Shl,
+      @lib.I32Add,
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+      @lib.LocalTee(@lib.LocalIdx(loaded_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(12UL))),
+      @lib.LocalTee(@lib.LocalIdx(retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_loaded_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(10088)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I64Const(@lib.I64(4294967296L)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(second_raw)),
+      @lib.I32Const(@lib.I32(10088)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(second_get_raw)),
+      @lib.LocalSet(@lib.LocalIdx(call_second_raw)),
+      @lib.I32Const(@lib.I32(8)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(alloc_raw)),
+      @lib.I32Const(@lib.I32(524544)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store0_alloc_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(store4_alloc_raw)),
+      @lib.I32Const(@lib.I32(10088)),
+      @lib.I32Store(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(call_retained_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_arg_second_raw)),
+      @lib.LocalGet(@lib.LocalIdx(call_alloc_raw)),
+      @lib.Call(@lib.FuncIdx(4553U)),
+      @lib.LocalTee(@lib.LocalIdx(boxed_raw)),
+      @lib.Call(@lib.FuncIdx(4509U)),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_retained_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_second_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_alloc_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_boxed_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(result_get_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) => {
+      if source_raw == index_raw ||
+        loaded_raw != release_loaded_raw ||
+        second_raw != second_get_raw ||
+        call_second_raw != call_arg_second_raw ||
+        call_second_raw != release_second_raw ||
+        retained_raw != call_retained_raw ||
+        retained_raw != release_retained_raw ||
+        alloc_raw != store0_alloc_raw ||
+        alloc_raw != store4_alloc_raw ||
+        alloc_raw != call_alloc_raw ||
+        alloc_raw != release_alloc_raw ||
+        boxed_raw != release_boxed_raw ||
+        result_raw != result_get_raw ||
+        result_raw == tag_raw ||
+        then_body.length() == 0 ||
+        !run_hot_pipeline_raw_instrs_have_branch(else_body) {
+        return false
+      }
+      (
+        loaded_raw, retained_raw, alloc_raw, second_raw, call_second_raw, boxed_raw,
+        result_raw, tag_raw,
+      )
+    }
+    _ => return false
+  }
+  loaded_raw != retained_raw &&
+  retained_raw != alloc_raw &&
+  alloc_raw != boxed_raw &&
+  boxed_raw != tag_raw &&
+  second_raw != second_arg_raw &&
+  second_raw != result_raw
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owner(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) if run_hot_pipeline_raw_vacuum_body_is_f4463_offset12_indexed_call_result_tag1_prefix(
+        child_body,
+      ) => Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f4463_failure_box_return_continuation(
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  while idx < parent_body.length() && sig.length() < 10 {
+    match parent_body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  match sig {
+    [
+      @lib.I32Const(@lib.I32(4)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(box_raw)),
+      @lib.I32Const(@lib.I32(256)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store_box_raw)),
+      @lib.LocalGet(_),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(return_box_raw)),
+      @lib.Return,
+    ] => box_raw == store_box_raw && box_raw == return_box_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_box_return(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 4 ||
+    !run_hot_pipeline_raw_vacuum_body_has_f4463_failure_box_return_continuation(
+      parent_body, start_idx,
+    ) {
+    return None
+  }
+  let prefix_block = match body[0] {
+    @lib.Block(
+      @lib.VoidBlockType,
+      @lib.Expr([@lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body))])
+    ) if run_hot_pipeline_raw_vacuum_body_is_f4463_offset20_call_result_tag1_prefix(
+        prefix_body,
+      ) => {
+      let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new(prefix_body),
+          ),
+        ],
+        0,
+      )
+      match rebased {
+        [rebased_prefix] => rebased_prefix
+        _ => return None
+      }
+    }
+    _ => return None
+  }
+  match (body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(value_raw)),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+      @lib.Br(@lib.LabelIdx(1U)),
+    ) if value_raw != target_raw =>
+      Some([prefix_block, body[1], body[2], body[3]])
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 16 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+      body[14],
+      body[15],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(owner_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_loaded_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(parsed_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_parsed_raw)),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) =>
+      owner_raw != loaded_raw &&
+      loaded_raw == next_loaded_raw &&
+      loaded_raw == release_raw &&
+      parsed_raw == next_parsed_raw &&
+      parsed_raw != tagged_raw &&
+      then_body.length() > 0 &&
+      else_body.length() > 0 &&
+      run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(else_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1759_counter_store_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 12 {
+      break
+    }
+  }
+  if sig.length() < 12 {
+    return false
+  }
+  match
+    (
+      sig[0],
+      sig[1],
+      sig[2],
+      sig[3],
+      sig[4],
+      sig[5],
+      sig[6],
+      sig[7],
+      sig[8],
+      sig[9],
+      sig[10],
+      sig[11],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(counter_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_counter_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+      @lib.I32Load(_),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_slot_raw)),
+      @lib.LocalGet(_),
+      @lib.I32Store(_),
+    ) => counter_raw == next_counter_raw && slot_raw == next_slot_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_before_counter_store_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_preserve_candidate(body) &&
+  run_hot_pipeline_raw_vacuum_body_has_f1759_counter_store_continuation(
+    parent_body, start_idx,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1054_local_copy_load_prefix_child(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 2 {
+    return false
+  }
+  match (body[0], body[1]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+    ) => source_raw != target_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1054_load_prefix_continuation(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 17 {
+    return false
+  }
+  let loaded_raw = match (body[5], body[6], body[7]) {
+    (@lib.LocalTee(@lib.LocalIdx(raw)), @lib.I32Load(_), @lib.LocalSet(_)) =>
+      raw
+    _ => return false
+  }
+  match (body[8], body[9], body[10], body[11]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_raw)),
+      @lib.I32Load(_),
+      @lib.LocalSet(_),
+      @lib.LocalGet(@lib.LocalIdx(call_base_raw)),
+    ) if next_raw == loaded_raw && call_base_raw == loaded_raw => ()
+    _ => return false
+  }
+  match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[12],
+      body[13],
+      body[14],
+      body[15],
+      body[16],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.Call(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32GtS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_prefix(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 18 {
+    return None
+  }
+  let copy_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => copy_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1054_local_copy_load_prefix_child(
+      copy_body,
+    ) {
+    return None
+  }
+  let continuation : Array[@lib.Instruction] = []
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    continuation.push(body[idx])
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1054_load_prefix_continuation(
+      continuation,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(copy_body, 0)
+  for instr in continuation {
+    flattened.push(instr)
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_sets_local(
+  body : Array[@lib.Instruction],
+  target_raw : UInt,
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) if raw == target_raw => return true
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_sets_local(child_body, target_raw) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_sets_local(then_body, target_raw) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_sets_local(
+                child_body, target_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_sets_local(child_body, target_raw) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_ends_with_outer_br(
+  body : Array[@lib.Instruction],
+  min_depth : Int,
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.Br(label) =>
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= min_depth
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1148_tag_selection(
+  body : Array[@lib.Instruction],
+  continuation_raw : UInt,
+) -> Bool {
+  if body.length() != 6 {
+    return false
+  }
+  let (receiver_raw, tag_raw) = match
+    (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+    ) => (receiver_raw, tag_raw)
+    _ => return false
+  }
+  match body[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_raw_vacuum_body_sets_local(
+          then_body, continuation_raw,
+        ) {
+        return false
+      }
+      if else_body.length() < 5 ||
+        !(else_body[else_body.length() - 1] is @lib.Unreachable) {
+        return false
+      }
+      match (else_body[0], else_body[1], else_body[2], else_body[3]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_tag_raw)),
+          @lib.I32Const(@lib.I32(1)),
+          @lib.I32Eq,
+          @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)),
+        ) if next_tag_raw == tag_raw => {
+          if nested_then.length() < 5 || nested_else.length() < 5 {
+            return false
+          }
+          match (nested_then[0], nested_then[1], nested_then[2]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_receiver_raw)),
+              @lib.I32Load(_),
+              @lib.LocalTee(_),
+            ) if next_receiver_raw == receiver_raw => ()
+            _ => return false
+          }
+          match (nested_else[0], nested_else[1], nested_else[2]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_receiver_raw)),
+              @lib.I32Load(_),
+              @lib.LocalTee(_),
+            ) if next_receiver_raw == receiver_raw => ()
+            _ => return false
+          }
+          run_hot_pipeline_raw_vacuum_body_ends_with_outer_br(nested_then, 2) &&
+          run_hot_pipeline_raw_vacuum_body_ends_with_outer_br(nested_else, 2)
+        }
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1148_tag_selection_wrappers_before_load_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 4 {
+    return None
+  }
+  let continuation_raw = match (body[1], body[2], body[3]) {
+    (@lib.LocalGet(@lib.LocalIdx(raw)), @lib.I32Load(_), @lib.LocalSet(_)) =>
+      raw
+    _ => return None
+  }
+  let middle_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(middle_body)) => middle_body
+    _ => return None
+  }
+  if middle_body.length() != 1 {
+    return None
+  }
+  let selection_body = match middle_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(selection_body)) => selection_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1148_tag_selection(
+      selection_body, continuation_raw,
+    ) {
+    return None
+  }
+  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    selection_body, 0,
+  )
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_br_table_targets_outer_only(
+  labels : Array[@lib.LabelIdx],
+  fallback : @lib.LabelIdx,
+) -> Bool {
+  if run_hot_pipeline_raw_vacuum_label_depth(fallback) < 1 {
+    return false
+  }
+  for label in labels {
+    if run_hot_pipeline_raw_vacuum_label_depth(label) < 1 {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1167_br_table_child_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return false
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return false
+  }
+  if child_body.length() == 0 {
+    return false
+  }
+  match child_body[child_body.length() - 1] {
+    @lib.BrTable(labels, fallback) =>
+      run_hot_pipeline_raw_vacuum_br_table_targets_outer_only(labels, fallback)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if !run_hot_pipeline_raw_vacuum_body_is_f1167_br_table_child_before_unreachable(
+      body,
+    ) {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_count_br_tables(
+  body : Array[@lib.Instruction],
+) -> Int {
+  let mut count = 0
+  for instr in body {
+    match instr {
+      @lib.BrTable(_, _) => count = count + 1
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_br_tables(child_body)
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body)
+        match else_body {
+          Some(child_body) =>
+            count = count +
+              run_hot_pipeline_raw_vacuum_body_count_br_tables(child_body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_only_f1792_dispatch_return_instrs(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+        if !run_hot_pipeline_raw_vacuum_body_has_only_f1792_dispatch_return_instrs(
+            child_body,
+          ) {
+          return false
+        }
+      @lib.LocalGet(_)
+      | @lib.LocalSet(_)
+      | @lib.LocalTee(_)
+      | @lib.I32Load(_)
+      | @lib.I32Const(_)
+      | @lib.I32Sub
+      | @lib.Call(_)
+      | @lib.Br(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_leading_void_block_depth(
+  body : Array[@lib.Instruction],
+) -> Int {
+  if body.length() == 0 {
+    return 0
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      1 + run_hot_pipeline_raw_vacuum_body_leading_void_block_depth(child_body)
+    _ => 0
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1792_br_table_dispatch_return_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 1 {
+    return false
+  }
+  let top_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(top_body)) => top_body
+    _ => return false
+  }
+  if top_body.length() != 3 {
+    return false
+  }
+  match (top_body[1], top_body[2]) {
+    (@lib.I32Const(@lib.I32(0)), @lib.Return) => ()
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_body_leading_void_block_depth(top_body) >= 8 &&
+  run_hot_pipeline_raw_vacuum_body_count_br_tables(top_body) == 1 &&
+  run_hot_pipeline_raw_vacuum_body_has_only_f1792_dispatch_return_instrs(
+    top_body,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1792_merge_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 3 {
+      break
+    }
+  }
+  match sig {
+    [@lib.LocalGet(_), @lib.LocalSet(_), @lib.Br(label)] =>
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrapper(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 4 ||
+    !run_hot_pipeline_raw_vacuum_body_has_f1792_merge_continuation(body, 0) {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1792_br_table_dispatch_return_wrapper(
+      wrapper_body,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_starts_f1836_tag20_fetch_cascade(
+  body : Array[@lib.Instruction],
+  source_raw : UInt,
+  slot_raw : UInt,
+) -> Bool {
+  if body.length() < 24 {
+    return false
+  }
+  let (first_raw, call_raw) = match
+    (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_slot_raw)),
+      @lib.I32Load(_),
+      @lib.Call(@lib.FuncIdx(call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(first_raw)),
+    ) if next_source_raw == source_raw && next_slot_raw == slot_raw =>
+      (first_raw, call_raw)
+    _ => return false
+  }
+  let second_raw = match
+    (body[5], body[6], body[7], body[8], body[9], body[10], body[11]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_slot_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.Call(@lib.FuncIdx(next_call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(raw)),
+    ) if next_source_raw == source_raw &&
+      next_slot_raw == slot_raw &&
+      next_call_raw == call_raw => raw
+    _ => return false
+  }
+  let third_raw = match
+    (body[12], body[13], body[14], body[15], body[16], body[17], body[18]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_slot_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Add,
+      @lib.Call(@lib.FuncIdx(next_call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(raw)),
+    ) if next_source_raw == source_raw &&
+      next_slot_raw == slot_raw &&
+      next_call_raw == call_raw => raw
+    _ => return false
+  }
+  if first_raw == second_raw ||
+    first_raw == third_raw ||
+    second_raw == third_raw {
+    return false
+  }
+  match (body[19], body[20], body[21], body[22], body[23]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_first_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(20)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) =>
+      next_first_raw == first_raw &&
+      then_body.length() > 0 &&
+      else_body.length() > 0
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1836_tag20_fetch_cascade(
+  body : Array[@lib.Instruction],
+  source_raw : UInt,
+  slot_raw : UInt,
+) -> Bool {
+  if run_hot_pipeline_raw_vacuum_body_starts_f1836_tag20_fetch_cascade(
+      body, source_raw, slot_raw,
+    ) {
+    return true
+  }
+  for idx = 0; idx + 4 < body.length(); idx = idx + 1 {
+    match
+      (body[idx], body[idx + 1], body[idx + 2], body[idx + 3], body[idx + 4]) {
+      (
+        @lib.LocalGet(_),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(20)),
+        @lib.I32Eq,
+        @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+      ) if then_body.length() > 0 && else_body.length() > 0 => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f1836_tag20_fetch_cascade(
+            child_body, source_raw, slot_raw,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1836_loop_if_owner_branch_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 8 {
+    return false
+  }
+  for idx = 0; idx + 7 < body.length(); idx = idx + 1 {
+    let (slot_raw, source_raw) = match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(2)),
+        @lib.I32Add,
+        @lib.LocalGet(@lib.LocalIdx(source_raw)),
+        @lib.Call(_),
+        @lib.I32LtS,
+      ) if slot_raw != source_raw => (slot_raw, source_raw)
+      _ => continue
+    }
+    match body[idx + 7] {
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+        if then_body.length() > 0 &&
+          else_body.length() > 0 &&
+          idx + 8 == body.length() &&
+          run_hot_pipeline_raw_vacuum_body_has_f1836_tag20_fetch_cascade(
+            then_body, source_raw, slot_raw,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1836_loop_if_owner_branch_wrapper(
+      wrapper_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(231)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) if next_probe_raw == probe_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
+            child_body, probe_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
+            then_body, probe_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
+                child_body, probe_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1940_cleanup_else(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() < 7 {
+    return false
+  }
+  match (non_nops[0], non_nops[1]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+      @lib.If(@lib.VoidBlockType, _, None),
+    ) if next_probe_raw == probe_raw => ()
+    _ => return false
+  }
+  match non_nops[non_nops.length() - 1] {
+    @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+    _ => return false
+  }
+  let mut release_call_pairs = 0
+  for idx = 2; idx + 1 < non_nops.length(); idx = idx + 1 {
+    match (non_nops[idx], non_nops[idx + 1]) {
+      (@lib.LocalGet(_), @lib.Call(_)) =>
+        release_call_pairs = release_call_pairs + 1
+      _ => ()
+    }
+  }
+  release_call_pairs >= 2
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1940_call_tee_br_table_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f1940_call_tee_br_table_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 || !(body[5] is @lib.Unreachable) {
+    return false
+  }
+  let probe_raw = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+    ) => probe_raw
+    _ => return false
+  }
+  match body[4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) == 1 &&
+      run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
+        then_body, probe_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(then_body) &&
+      run_hot_pipeline_raw_vacuum_body_is_f1940_cleanup_else(
+        else_body, probe_raw,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1940_call_tee_br_table_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(224)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) if next_probe_raw == probe_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
+            child_body, probe_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
+            then_body, probe_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
+                child_body, probe_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(236)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) if next_probe_raw == probe_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+            child_body, probe_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+            then_body, probe_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+                child_body, probe_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() < 3 {
+    return false
+  }
+  match (non_nops[0], non_nops[1]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+      @lib.If(@lib.VoidBlockType, then_body, None),
+    ) if next_probe_raw == probe_raw && then_body.length() >= 2 => ()
+    _ => return false
+  }
+  match non_nops[non_nops.length() - 1] {
+    @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1956_call_tee_br_table_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f1956_call_tee_br_table_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 || !(body[5] is @lib.Unreachable) {
+    return false
+  }
+  let probe_raw = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+    ) => probe_raw
+    _ => return false
+  }
+  match body[4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) == 1 &&
+      run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
+        then_body, probe_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+        else_body, probe_raw,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1956_call_tee_br_table_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2054_call_tee_br_table_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2054_call_tee_br_table_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 || !(body[5] is @lib.Unreachable) {
+    return false
+  }
+  let probe_raw = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+    ) => probe_raw
+    _ => return false
+  }
+  match body[4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) == 1 &&
+      run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+        then_body, probe_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+        else_body, probe_raw,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2054_call_tee_br_table_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(236)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) => return Some(tagged_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(child_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(then_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(
+                child_body,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2321_call_arg_tee_br_table_release_ladder_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2321_call_arg_tee_br_table_release_ladder_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 7 || !(body[6] is @lib.Unreachable) {
+    return false
+  }
+  let probe_raw = match (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+    ) => probe_raw
+    _ => return false
+  }
+  match body[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) != 1 ||
+        !run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+          then_body, probe_raw,
+        ) {
+        return false
+      }
+      let tagged_raw = match then_body[0] {
+        @lib.Block(_, @lib.Expr(child_body)) =>
+          run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(child_body)
+        _ => None
+      }
+      match tagged_raw {
+        Some(tagged_raw) =>
+          run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+            then_body, tagged_raw,
+          ) ==
+          4 &&
+          run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
+            then_body, tagged_raw,
+          ) &&
+          run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+            else_body, probe_raw,
+          ) &&
+          !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_ladder_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2321_call_arg_tee_br_table_release_ladder_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Int {
+  let mut count = 0
+  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+        @lib.Call(_),
+        @lib.Br(label),
+      ) if next_tagged_raw == tagged_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => count = count + 1
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
+            child_body, tagged_raw,
+          )
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
+            then_body, tagged_raw,
+          )
+        match else_body {
+          Some(child_body) =>
+            count = count +
+              run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
+                child_body, tagged_raw,
+              )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2334_child_source(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_f2334_child_source(non_nops)
+  }
+  if body.length() != 11 || !(body[10] is @lib.Unreachable) {
+    return None
+  }
+  let (source_raw, result_raw) = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+      @lib.LocalSet(@lib.LocalIdx(loaded_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+    ) if next_source_raw == source_raw && next_loaded_raw == loaded_raw =>
+      (source_raw, result_raw)
+    _ => return None
+  }
+  match body[9] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) != 1 ||
+        !run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
+          then_body, result_raw,
+        ) {
+        return None
+      }
+      let tagged_raw = match then_body[0] {
+        @lib.Block(_, @lib.Expr(child_body)) =>
+          run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(child_body)
+        _ => None
+      }
+      match tagged_raw {
+        Some(tagged_raw) =>
+          if run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
+              then_body, tagged_raw,
+            ) ==
+            4 &&
+            run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+              else_body, result_raw,
+            ) {
+            Some(source_raw)
+          } else {
+            None
+          }
+        None => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2334_offset8_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  source_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 9 {
+      break
+    }
+  }
+  match sig {
+    [
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+      @lib.Call(_),
+      @lib.Call(_),
+      @lib.I64ExtendI32S,
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_source_raw == source_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  if wrapper_body.length() != 1 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(wrapper_body, 0) {
+    return None
+  }
+  let child_body = match wrapper_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  let source_raw = match
+    run_hot_pipeline_raw_vacuum_f2334_child_source(child_body) {
+    Some(source_raw) => source_raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f2334_offset8_continuation(
+      body, 0, source_raw,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  for idx = 0; idx + 4 < body.length(); idx = idx + 1 {
+    match
+      (body[idx], body[idx + 1], body[idx + 2], body[idx + 3], body[idx + 4]) {
+      (
+        @lib.LocalGet(_),
+        @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+        @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+        @lib.Call(_),
+        @lib.BrTable(labels, _),
+      ) if labels.length() >= 5 => return Some(tagged_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(child_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(then_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(
+                child_body,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Int {
+  let mut count = 0
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1]) {
+      (@lib.LocalGet(@lib.LocalIdx(next_tagged_raw)), @lib.I32Load(_)) if next_tagged_raw ==
+        tagged_raw => count = count + 1
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+            child_body, tagged_raw,
+          )
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+            then_body, tagged_raw,
+          )
+        match else_body {
+          Some(child_body) =>
+            count = count +
+              run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+                child_body, tagged_raw,
+              )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+  kind : Int,
+) -> Bool {
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], kind) {
+      (@lib.LocalGet(@lib.LocalIdx(next_tagged_raw)), @lib.I64Load(_), 1) if next_tagged_raw ==
+        tagged_raw => return true
+      (@lib.LocalGet(@lib.LocalIdx(next_tagged_raw)), @lib.F32Load(_), 2) if next_tagged_raw ==
+        tagged_raw => return true
+      (@lib.LocalGet(@lib.LocalIdx(next_tagged_raw)), @lib.F64Load(_), 3) if next_tagged_raw ==
+        tagged_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+            child_body, tagged_raw, kind,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+            then_body, tagged_raw, kind,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+                child_body, tagged_raw, kind,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2651_i32_value_local(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> UInt? {
+  for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+        @lib.I32Load(_),
+        @lib.LocalSet(@lib.LocalIdx(value_raw)),
+        @lib.Br(label),
+      ) if next_tagged_raw == tagged_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+        return Some(value_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2651_i32_value_local(
+            child_body, tagged_raw,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2651_i32_value_local(
+            then_body, tagged_raw,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2651_i32_value_local(
+                child_body, tagged_raw,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2651_converter_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  value_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 5 {
+      break
+    }
+  }
+  match sig {
+    [
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_value_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_value_raw == value_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_converter_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 6 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  if wrapper_body.length() != 1 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(wrapper_body, 0) {
+    return None
+  }
+  let child_body = match wrapper_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_count_br_tables(child_body) != 1 {
+    return None
+  }
+  let tagged_raw = match
+    run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(child_body) {
+    Some(tagged_raw) => tagged_raw
+    None => return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+      child_body, tagged_raw,
+    ) <
+    3 ||
+    !run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+      child_body, tagged_raw, 1,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+      child_body, tagged_raw, 2,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+      child_body, tagged_raw, 3,
+    ) {
+    return None
+  }
+  let value_raw = match
+    run_hot_pipeline_raw_vacuum_f2651_i32_value_local(child_body, tagged_raw) {
+    Some(value_raw) => value_raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f2651_converter_continuation(
+      body, 0, value_raw,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
+  body : Array[@lib.Instruction],
+  guard_raw : UInt,
+) -> UInt? {
+  for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_guard_raw)),
+        @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+        @lib.Call(_),
+        @lib.BrTable(labels, _),
+      ) if next_guard_raw == guard_raw && labels.length() >= 5 =>
+        return Some(tagged_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
+            child_body, guard_raw,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
+            then_body, guard_raw,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
+                child_body, guard_raw,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 13 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+        body[idx + 7],
+        body[idx + 8],
+        body[idx + 9],
+        body[idx + 10],
+        body[idx + 11],
+        body[idx + 12],
+        body[idx + 13],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+        @lib.LocalSet(_),
+        @lib.LocalGet(@lib.LocalIdx(load_tagged_raw)),
+        @lib.I32Load(_),
+        @lib.LocalSet(@lib.LocalIdx(value_raw)),
+        @lib.LocalGet(@lib.LocalIdx(count_tagged_raw)),
+        @lib.Call(_),
+        @lib.LocalTee(_),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32GtS,
+        @lib.If(@lib.VoidBlockType, _, Some(_)),
+        @lib.LocalGet(@lib.LocalIdx(next_value_raw)),
+        @lib.LocalSet(_),
+        @lib.Br(label),
+      ) if next_tagged_raw == tagged_raw &&
+        load_tagged_raw == tagged_raw &&
+        count_tagged_raw == tagged_raw &&
+        next_value_raw == value_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
+            child_body, tagged_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
+            then_body, tagged_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
+                child_body, tagged_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2696_tee_br_table_release_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2696_tee_br_table_release_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 4 || !(body[3] is @lib.Unreachable) {
+    return false
+  }
+  let guard_raw = match (body[0], body[1]) {
+    (@lib.LocalGet(_), @lib.LocalTee(@lib.LocalIdx(guard_raw))) => guard_raw
+    _ => return false
+  }
+  match body[2] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) != 1 {
+        return false
+      }
+      let tagged_raw = match
+        run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
+          then_body, guard_raw,
+        ) {
+        Some(tagged_raw) => tagged_raw
+        None => return false
+      }
+      run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+        then_body, tagged_raw,
+      ) >=
+      2 &&
+      run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+        then_body, tagged_raw, 1,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+        then_body, tagged_raw, 2,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+        then_body, tagged_raw, 3,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
+        then_body, tagged_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
+        then_body, tagged_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+        else_body, guard_raw,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2696_tee_br_table_release_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(source_raw)),
+        @lib.Call(_),
+        @lib.BrTable(labels, _),
+      ) if labels.length() >= 5 => return Some(source_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(
+            child_body,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(
+            then_body,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(
+                child_body,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2714_i32_output_local(
+  body : Array[@lib.Instruction],
+  source_raw : UInt,
+) -> UInt? {
+  for idx = 0; idx + 7 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+        body[idx + 7],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(load_source_raw)),
+        @lib.I32Load(_),
+        @lib.LocalSet(@lib.LocalIdx(temp_raw)),
+        @lib.LocalGet(@lib.LocalIdx(release_source_raw)),
+        @lib.Call(_),
+        @lib.LocalGet(@lib.LocalIdx(next_temp_raw)),
+        @lib.LocalSet(@lib.LocalIdx(output_raw)),
+        @lib.Br(label),
+      ) if load_source_raw == source_raw &&
+        release_source_raw == source_raw &&
+        next_temp_raw == temp_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+        return Some(output_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2714_i32_output_local(
+            child_body, source_raw,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2714_i32_output_local(
+            then_body, source_raw,
+          ) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2714_i32_output_local(
+                child_body, source_raw,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2714_terminal_release_return_zero(
+  body : Array[@lib.Instruction],
+  source_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+        @lib.Call(_),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.Return,
+      ) if next_source_raw == source_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f2714_terminal_release_return_zero(
+            child_body, source_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_has_f2714_terminal_release_return_zero(
+            then_body, source_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_has_f2714_terminal_release_return_zero(
+                child_body, source_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wrapper_before_local_set_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 6 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  if wrapper_body.length() != 1 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(wrapper_body, 0) {
+    return None
+  }
+  let child_body = match wrapper_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_count_br_tables(child_body) != 1 {
+    return None
+  }
+  let source_raw = match
+    run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(child_body) {
+    Some(source_raw) => source_raw
+    None => return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
+      child_body, source_raw,
+    ) <
+    2 ||
+    !run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+      child_body, source_raw, 1,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+      child_body, source_raw, 2,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
+      child_body, source_raw, 3,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
+      child_body, source_raw,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_f2714_terminal_release_return_zero(
+      child_body, source_raw,
+    ) {
+    return None
+  }
+  let output_raw = match
+    run_hot_pipeline_raw_vacuum_f2714_i32_output_local(child_body, source_raw) {
+    Some(output_raw) => output_raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f2651_converter_continuation(
+      body, 0, output_raw,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2905_selector_locals(
+  body : Array[@lib.Instruction],
+) -> (UInt, UInt)? {
+  for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(source_raw)),
+        @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+        @lib.Call(_),
+        @lib.BrTable(labels, _),
+      ) if source_raw != tagged_raw && labels.length() >= 4 =>
+        return Some((source_raw, tagged_raw))
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match run_hot_pipeline_raw_vacuum_f2905_selector_locals(child_body) {
+          Some(locals) => return Some(locals)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match run_hot_pipeline_raw_vacuum_f2905_selector_locals(then_body) {
+          Some(locals) => return Some(locals)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2905_selector_locals(child_body) {
+              Some(locals) => return Some(locals)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> UInt? {
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
+            child_body, tagged_raw,
+          ) {
+          Some(output_raw) => return Some(output_raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
+            then_body, tagged_raw,
+          ) {
+          Some(output_raw) => return Some(output_raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
+                child_body, tagged_raw,
+              ) {
+              Some(output_raw) => return Some(output_raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  for idx = 0; idx + 7 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+        body[idx + 7],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(load_tagged_raw)),
+        @lib.I32Load(_),
+        @lib.LocalSet(@lib.LocalIdx(temp_raw)),
+        @lib.LocalGet(@lib.LocalIdx(release_tagged_raw)),
+        @lib.Call(_),
+        @lib.LocalGet(@lib.LocalIdx(next_temp_raw)),
+        @lib.LocalSet(@lib.LocalIdx(output_raw)),
+        @lib.Br(label),
+      ) if load_tagged_raw == tagged_raw &&
+        release_tagged_raw == tagged_raw &&
+        next_temp_raw == temp_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+        return Some(output_raw)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Int {
+  let mut count = 0
+  for idx = 0; idx + 7 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+        body[idx + 7],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(load_tagged_raw)),
+        @lib.I32Load(_),
+        @lib.LocalSet(@lib.LocalIdx(temp_raw)),
+        @lib.LocalGet(@lib.LocalIdx(release_tagged_raw)),
+        @lib.Call(_),
+        @lib.LocalGet(@lib.LocalIdx(next_temp_raw)),
+        @lib.LocalSet(_),
+        @lib.Br(label),
+      ) if load_tagged_raw == tagged_raw &&
+        release_tagged_raw == tagged_raw &&
+        next_temp_raw == temp_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => count = count + 1
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
+            child_body, tagged_raw,
+          )
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
+            then_body, tagged_raw,
+          )
+        match else_body {
+          Some(child_body) =>
+            count = count +
+              run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
+                child_body, tagged_raw,
+              )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2905_nested_call_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  output_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 6 {
+      break
+    }
+  }
+  match sig {
+    [
+      @lib.LocalGet(@lib.LocalIdx(next_output_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_output_raw == output_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    [
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(@lib.LocalIdx(next_output_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ] =>
+      next_output_raw == output_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2905_direct_call_br_table_local_load_wrapper_before_call_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 7 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  if wrapper_body.length() != 1 ||
+    run_hot_pipeline_raw_vacuum_body_targets_owner(wrapper_body, 0) {
+    return None
+  }
+  let child_body = match wrapper_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_count_br_tables(child_body) != 1 {
+    return None
+  }
+  let (_, tagged_raw) = match
+    run_hot_pipeline_raw_vacuum_f2905_selector_locals(child_body) {
+    Some(locals) => locals
+    None => return None
+  }
+  if run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
+      child_body, tagged_raw,
+    ) <
+    5 {
+    return None
+  }
+  let output_raw = match
+    run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
+      child_body, tagged_raw,
+    ) {
+    Some(output_raw) => output_raw
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f2905_nested_call_continuation(
+      body, 0, output_raw,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() >= 4 {
+    for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
+      match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+        (@lib.LocalGet(_), @lib.Call(_), @lib.I32Const(@lib.I32(0)), @lib.Return
+        ) => return true
+        _ => ()
+      }
+    }
+  }
+  if body.length() >= 6 {
+    for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+      match
+        (
+          body[idx],
+          body[idx + 1],
+          body[idx + 2],
+          body[idx + 3],
+          body[idx + 4],
+          body[idx + 5],
+        ) {
+        (
+          @lib.LocalGet(_),
+          @lib.Call(_),
+          @lib.LocalGet(_),
+          @lib.Call(_),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.Return,
+        ) => return true
+        (
+          @lib.LocalGet(_),
+          @lib.Call(_),
+          @lib.LocalGet(_),
+          @lib.Call(_),
+          @lib.I64Const(@lib.I64(4294967296L)),
+          @lib.Return,
+        ) => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(child_body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(then_body) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(
+                child_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2775_branch_or_cleanup_else(
+  body : Array[@lib.Instruction],
+  source_raw : UInt,
+  tag_raw : UInt,
+) -> Bool {
+  if body.length() != 5 || !(body[4] is @lib.Unreachable) {
+    return false
+  }
+  match (body[0], body[1], body[2]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_tag_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+    ) if next_tag_raw == tag_raw => ()
+    _ => return false
+  }
+  match body[3] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(_),
+          @lib.Br(label),
+        ] if next_source_raw == source_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+        _ => return false
+      }
+      run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(else_body)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2775_call_tee_cleanup_return_if_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2775_call_tee_cleanup_return_if_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 {
+    return false
+  }
+  let (source_raw, tag_raw) = match
+    (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) => (source_raw, tag_raw)
+    _ => return false
+  }
+  match body[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(then_body) &&
+      run_hot_pipeline_raw_vacuum_body_is_f2775_branch_or_cleanup_else(
+        else_body, source_raw, tag_raw,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrapper_before_sibling_branch(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  match body[1] {
+    @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2775_call_tee_cleanup_return_if_wrapper(
+      wrapper_body,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  flattened.push(body[1])
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2823_release(
+  body : Array[@lib.Instruction],
+  active_raw : UInt,
+) -> Bool {
+  match body {
+    [@lib.LocalGet(@lib.LocalIdx(next_active_raw)), @lib.Call(_)] =>
+      next_active_raw == active_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2823_active_branch_or_release(
+  body : Array[@lib.Instruction],
+  active_raw : UInt,
+) -> Bool {
+  if body.length() != 6 || !(body[5] is @lib.Unreachable) {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_active_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I32GtS,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) if next_active_raw == active_raw => {
+      match then_body {
+        [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+          ()
+        _ => return false
+      }
+      match else_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(else_active_raw)),
+          @lib.Call(_),
+          @lib.Br(label),
+        ] if else_active_raw == active_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => true
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2823_then_cleanup(
+  body : Array[@lib.Instruction],
+  active_raw : UInt,
+) -> Bool {
+  if body.length() != 5 {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_active_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(14)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) if next_active_raw == active_raw =>
+      run_hot_pipeline_raw_vacuum_body_is_f2823_active_branch_or_release(
+        then_body, active_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_f2823_release(else_body, active_raw)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2823_branch_or_release_else(
+  body : Array[@lib.Instruction],
+  source_raw : UInt,
+  tag_raw : UInt,
+  active_raw : UInt,
+) -> Bool {
+  if body.length() != 4 {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_tag_raw)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+    ) if next_tag_raw == tag_raw => {
+      match then_body {
+        [
+          @lib.LocalGet(@lib.LocalIdx(next_source_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(_),
+          @lib.Br(label),
+        ] if next_source_raw == source_raw &&
+          run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+        _ => return false
+      }
+      run_hot_pipeline_raw_vacuum_body_is_f2823_release(else_body, active_raw)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2823_call_tee_branch_cleanup_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2823_call_tee_branch_cleanup_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 {
+    return false
+  }
+  let (source_raw, tag_raw) = match
+    (body[0], body[1], body[2], body[3], body[4]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+    ) => (source_raw, tag_raw)
+    _ => return false
+  }
+  match body[5] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let active_raw = match then_body {
+        [@lib.LocalGet(@lib.LocalIdx(active_raw)), ..] => active_raw
+        _ => return false
+      }
+      run_hot_pipeline_raw_vacuum_body_is_f2823_then_cleanup(
+        then_body, active_raw,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_f2823_branch_or_release_else(
+        else_body, source_raw, tag_raw, active_raw,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper_before_i64_return(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 3 {
+    return None
+  }
+  let wrapper_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return None
+  }
+  match (body[1], body[2]) {
+    (@lib.I64Const(@lib.I64(4294967296L)), @lib.Return) => ()
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2823_call_tee_branch_cleanup_wrapper(
+      wrapper_body,
+    ) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  flattened.push(body[1])
+  flattened.push(body[2])
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(220)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) if next_probe_raw == probe_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
+            child_body, probe_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
+            then_body, probe_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
+                child_body, probe_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2297_release_ladder_if(
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+  count_raw : UInt,
+  value_raw : UInt,
+  copy_raw : UInt,
+) -> Bool {
+  if then_body.length() < 7 || else_body.length() != 4 {
+    return false
+  }
+  match
+    (
+      then_body[0],
+      then_body[1],
+      then_body[2],
+      then_body[3],
+      then_body[4],
+      then_body[5],
+      then_body[6],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_count_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Sub,
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_value_raw)),
+      @lib.Call(_),
+    ) if next_tagged_raw == tagged_raw &&
+      next_count_raw == count_raw &&
+      next_value_raw == value_raw => ()
+    _ => return false
+  }
+  match (else_body[0], else_body[1], else_body[2], else_body[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_count_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, release_then, None),
+    ) if next_count_raw == count_raw && release_then.length() == 4 =>
+      match
+        (release_then[0], release_then[1], release_then[2], release_then[3]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_copy_raw)),
+          @lib.I32Const(@lib.I32(8)),
+          @lib.I32Sub,
+          @lib.Call(_),
+        ) => next_copy_raw == copy_raw
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Int {
+  let mut count = 0
+  for idx = 0; idx + 13 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+        body[idx + 7],
+        body[idx + 8],
+        body[idx + 9],
+        body[idx + 10],
+        body[idx + 11],
+        body[idx + 12],
+        body[idx + 13],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+        @lib.LocalSet(@lib.LocalIdx(copy_raw)),
+        @lib.LocalGet(@lib.LocalIdx(load_tagged_raw)),
+        @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+        @lib.LocalSet(@lib.LocalIdx(value_raw)),
+        @lib.LocalGet(@lib.LocalIdx(count_tagged_raw)),
+        @lib.Call(_),
+        @lib.LocalTee(@lib.LocalIdx(count_raw)),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32GtS,
+        @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+        @lib.LocalGet(@lib.LocalIdx(next_value_raw)),
+        @lib.LocalSet(_),
+        @lib.Br(label),
+      ) if next_tagged_raw == tagged_raw &&
+        load_tagged_raw == tagged_raw &&
+        count_tagged_raw == tagged_raw &&
+        next_value_raw == value_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 &&
+        run_hot_pipeline_raw_vacuum_body_is_f2297_release_ladder_if(
+          then_body, else_body, tagged_raw, count_raw, value_raw, copy_raw,
+        ) => count = count + 1
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+            child_body, tagged_raw,
+          )
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+            then_body, tagged_raw,
+          )
+        match else_body {
+          Some(child_body) =>
+            count = count +
+              run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+                child_body, tagged_raw,
+              )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Bool {
+  if body.length() < 4 {
+    return false
+  }
+  match
+    (body[body.length() - 3], body[body.length() - 2], body[body.length() - 1]) {
+    (@lib.LocalGet(@lib.LocalIdx(next_tagged_raw)), @lib.Call(_), @lib.Br(label)
+    ) if next_tagged_raw == tagged_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2297_call_tee_br_table_release_ladder_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2297_call_tee_br_table_release_ladder_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 || !(body[5] is @lib.Unreachable) {
+    return false
+  }
+  let probe_raw = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+    ) => probe_raw
+    _ => return false
+  }
+  match body[4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) != 1 ||
+        !run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
+          then_body, probe_raw,
+        ) {
+        return false
+      }
+      let tagged_raw = match then_body[0] {
+        @lib.Block(_, @lib.Expr(child_body)) =>
+          run_hot_pipeline_raw_vacuum_f2297_selector_tagged_local(child_body)
+        _ => None
+      }
+      match tagged_raw {
+        Some(tagged_raw) =>
+          run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+            then_body, tagged_raw,
+          ) >=
+          4 &&
+          run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
+            then_body, tagged_raw,
+          ) &&
+          run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+            else_body, probe_raw,
+          ) &&
+          !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2297_selector_tagged_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(220)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) => return Some(tagged_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2297_selector_tagged_local(child_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2297_selector_tagged_local(then_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2297_selector_tagged_local(
+                child_body,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladder_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2297_call_tee_br_table_release_ladder_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
+  body : Array[@lib.Instruction],
+  probe_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+        @lib.LocalTee(_),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(231)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) if next_probe_raw == probe_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
+            child_body, probe_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
+            then_body, probe_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
+                child_body, probe_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(231)),
+        @lib.I32Sub,
+        @lib.BrTable(_, _),
+      ) => return Some(tagged_raw)
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        match
+          run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(child_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+      @lib.If(_, then_body, else_body) => {
+        match
+          run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(then_body) {
+          Some(raw) => return Some(raw)
+          None => ()
+        }
+        match else_body {
+          Some(child_body) =>
+            match
+              run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(
+                child_body,
+              ) {
+              Some(raw) => return Some(raw)
+              None => ()
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
+  body : Array[@lib.Instruction],
+  tagged_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 18 < body.length(); idx = idx + 1 {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 6],
+        body[idx + 7],
+        body[idx + 8],
+        body[idx + 9],
+        body[idx + 10],
+        body[idx + 11],
+        body[idx + 12],
+        body[idx + 13],
+        body[idx + 14],
+        body[idx + 15],
+        body[idx + 16],
+        body[idx + 17],
+        body[idx + 18],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+        @lib.LocalSet(@lib.LocalIdx(copy_raw)),
+        @lib.LocalGet(@lib.LocalIdx(load_wide_tagged_raw)),
+        @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+        @lib.LocalSet(@lib.LocalIdx(wide_raw)),
+        @lib.LocalGet(@lib.LocalIdx(load_value_tagged_raw)),
+        @lib.I32Load(@lib.MemArg(_, _, @lib.U64(4UL))),
+        @lib.LocalSet(@lib.LocalIdx(value_raw)),
+        @lib.LocalGet(@lib.LocalIdx(count_tagged_raw)),
+        @lib.Call(_),
+        @lib.LocalTee(@lib.LocalIdx(count_raw)),
+        @lib.I32Const(@lib.I32(1)),
+        @lib.I32GtS,
+        @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+        @lib.LocalGet(@lib.LocalIdx(next_value_raw)),
+        @lib.LocalSet(_),
+        @lib.LocalGet(@lib.LocalIdx(next_wide_raw)),
+        @lib.LocalSet(_),
+        @lib.Br(label),
+      ) if next_tagged_raw == tagged_raw &&
+        load_wide_tagged_raw == tagged_raw &&
+        load_value_tagged_raw == tagged_raw &&
+        count_tagged_raw == tagged_raw &&
+        next_value_raw == value_raw &&
+        next_wide_raw == wide_raw &&
+        run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 &&
+        run_hot_pipeline_raw_vacuum_body_is_f2297_release_ladder_if(
+          then_body, else_body, tagged_raw, count_raw, wide_raw, copy_raw,
+        ) => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
+            child_body, tagged_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
+            then_body, tagged_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
+                child_body, tagged_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2320_call_tee_br_table_double_update_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2320_call_tee_br_table_double_update_wrapper(
+      non_nops,
+    )
+  }
+  if body.length() != 6 || !(body[5] is @lib.Unreachable) {
+    return false
+  }
+  let probe_raw = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+    ) => probe_raw
+    _ => return false
+  }
+  match body[4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if run_hot_pipeline_raw_vacuum_body_count_br_tables(then_body) != 1 ||
+        !run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
+          then_body, probe_raw,
+        ) {
+        return false
+      }
+      let tagged_raw = match then_body[0] {
+        @lib.Block(_, @lib.Expr(child_body)) =>
+          run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(child_body)
+        _ => None
+      }
+      match tagged_raw {
+        Some(tagged_raw) =>
+          run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
+            then_body, tagged_raw,
+          ) ==
+          2 &&
+          run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
+            then_body, tagged_raw,
+          ) &&
+          run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
+            then_body, tagged_raw,
+          ) &&
+          run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
+            else_body, probe_raw,
+          ) &&
+          !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2320_call_tee_br_table_double_update_wrapper_before_unreachable(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f2320_call_tee_br_table_double_update_wrapper(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1963_local_set_sentinel_comparison(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 14 {
+    return false
+  }
+  let (lhs_result_raw, rhs_result_raw) = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(lhs_arg0_raw)),
+      @lib.LocalGet(@lib.LocalIdx(lhs_arg1_raw)),
+      @lib.LocalGet(@lib.LocalIdx(lhs_arg2_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(lhs_result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(rhs_arg0_raw)),
+      @lib.LocalGet(@lib.LocalIdx(rhs_arg1_raw)),
+      @lib.LocalGet(@lib.LocalIdx(rhs_arg2_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(rhs_result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_lhs_result_raw)),
+      @lib.I64Const(@lib.I64(4294967296L)),
+      @lib.I64Eq,
+    ) if lhs_arg0_raw == rhs_arg0_raw &&
+      lhs_arg1_raw == rhs_arg1_raw &&
+      lhs_arg2_raw != rhs_arg2_raw &&
+      lhs_result_raw == next_lhs_result_raw &&
+      lhs_result_raw != rhs_result_raw => (lhs_result_raw, rhs_result_raw)
+    _ => return false
+  }
+  match body[13] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      match then_body {
+        [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(label) >= 2 =>
+          ()
+        _ => return false
+      }
+      if else_body.length() != 7 {
+        return false
+      }
+      let selector_raw = match (else_body[0], else_body[1], else_body[2]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_lhs_result_raw)),
+          @lib.I32WrapI64,
+          @lib.LocalSet(@lib.LocalIdx(selector_raw)),
+        ) if next_lhs_result_raw == lhs_result_raw => selector_raw
+        _ => return false
+      }
+      match (else_body[3], else_body[4], else_body[5]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_rhs_result_raw)),
+          @lib.I64Const(@lib.I64(4294967296L)),
+          @lib.I64Eq,
+        ) if next_rhs_result_raw == rhs_result_raw => ()
+        _ => return false
+      }
+      match else_body[6] {
+        @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)) => {
+          match nested_then {
+            [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(label) >=
+              2 => ()
+            _ => return false
+          }
+          if nested_else.length() != 6 {
+            return false
+          }
+          match
+            (
+              nested_else[0],
+              nested_else[1],
+              nested_else[2],
+              nested_else[3],
+              nested_else[4],
+            ) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_selector_raw)),
+              @lib.LocalGet(@lib.LocalIdx(next_rhs_result_raw)),
+              @lib.I32WrapI64,
+              @lib.I32Eq,
+              @lib.I32Eqz,
+            ) if next_selector_raw == selector_raw &&
+              next_rhs_result_raw == rhs_result_raw => ()
+            _ => return false
+          }
+          match nested_else[5] {
+            @lib.If(@lib.VoidBlockType, final_then, None) =>
+              match final_then {
+                [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(
+                    label,
+                  ) >=
+                  2 => !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
+                _ => false
+              }
+            _ => false
+          }
+        }
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1963_local_set_sentinel_comparison_wrapper(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 1 {
+    return None
+  }
+  let child_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1963_local_set_sentinel_comparison(
+      child_body,
+    ) {
+    return None
+  }
+  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1948_sentinel_branch_selection(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 8 {
+    return false
+  }
+  let result_raw = match
+    (body[0], body[1], body[2], body[3], body[4], body[5], body[6]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+      @lib.I64Const(@lib.I64(4294967296L)),
+      @lib.I64Eq,
+    ) => result_raw
+    _ => return false
+  }
+  match body[7] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      match then_body {
+        [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(label) >= 4 =>
+          ()
+        _ => return false
+      }
+      if else_body.length() != 4 {
+        return false
+      }
+      let selector_raw = match (else_body[0], else_body[1], else_body[2]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_result_raw)),
+          @lib.I32WrapI64,
+          @lib.LocalTee(@lib.LocalIdx(selector_raw)),
+        ) if next_result_raw == result_raw => selector_raw
+        _ => return false
+      }
+      match else_body[3] {
+        @lib.If(@lib.VoidBlockType, nested_then, None) => {
+          if nested_then.length() != 5 || !(nested_then[4] is @lib.Unreachable) {
+            return false
+          }
+          match
+            (nested_then[0], nested_then[1], nested_then[2], nested_then[3]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_selector_raw)),
+              @lib.I32Const(@lib.I32(1)),
+              @lib.I32Eq,
+              @lib.If(@lib.VoidBlockType, selector_then, Some(selector_else)),
+            ) if next_selector_raw == selector_raw => {
+              match selector_then {
+                [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(
+                    label,
+                  ) >=
+                  5 => ()
+                _ => return false
+              }
+              match selector_else {
+                [@lib.Br(label)] if run_hot_pipeline_raw_vacuum_label_depth(
+                    label,
+                  ) >=
+                  6 => ()
+                _ => return false
+              }
+              !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) &&
+              !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 1)
+            }
+            _ => false
+          }
+        }
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_has_f1948_i64_call_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if start_idx + 4 >= body.length() {
+    return false
+  }
+  match
+    (
+      body[start_idx + 1],
+      body[start_idx + 2],
+      body[start_idx + 3],
+      body[start_idx + 4],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.Call(_),
+      @lib.I64ExtendI32S,
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1948_call_tee_sentinel_branch_wrappers(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 5 ||
+    !run_hot_pipeline_raw_vacuum_has_f1948_i64_call_continuation(body, 0) {
+    return None
+  }
+  let outer_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => outer_body
+    _ => return None
+  }
+  if outer_body.length() != 1 {
+    return None
+  }
+  let selection_body = match outer_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(selection_body)) => selection_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1948_sentinel_branch_selection(
+      selection_body,
+    ) {
+    return None
+  }
+  let flattened_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    selection_body, 0,
+  )
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    flattened_once, 0,
+  )
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 10 {
+    return None
+  }
+  let copy_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => copy_body
+    _ => return None
+  }
+  let (source_raw, target_raw) = match copy_body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+    ] if source_raw != target_raw => (source_raw, target_raw)
+    _ => return None
+  }
+  ignore(source_raw)
+  match
+    (body[1], body[2], body[3], body[4], body[5], body[6], body[7], body[8]) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.I32Eqz,
+    ) => ()
+    _ => return None
+  }
+  match body[9] {
+    @lib.If(@lib.VoidBlockType, then_body, None) =>
+      match then_body {
+        [@lib.LocalGet(@lib.LocalIdx(next_target_raw)), @lib.Call(_), ..] if next_target_raw ==
+          target_raw => ()
+        _ => return None
+      }
+    _ => return None
+  }
+  let flattened : Array[@lib.Instruction] = []
+  for instr in copy_body {
+    flattened.push(instr)
+  }
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
+  body : Array[@lib.Instruction],
+) -> UInt? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
+      non_nops,
+    )
+  }
+  if body.length() < 23 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+      body,
+    ) {
+    return None
+  }
+  let (slot_raw, increment_raw, root_raw, probe_raw, result_raw) = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+      body[14],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.LocalSet(@lib.LocalIdx(increment_raw)),
+      @lib.LocalGet(@lib.LocalIdx(root_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_increment_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_probe_raw)),
+      @lib.Call(_),
+    ) if next_probe_raw == probe_raw &&
+      release_probe_raw == probe_raw &&
+      next_increment_raw == increment_raw =>
+      (slot_raw, increment_raw, root_raw, probe_raw, result_raw)
+    _ => return None
+  }
+  let mut saw_result_call = false
+  let mut saw_condition_tee = false
+  for idx = 15; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalGet(@lib.LocalIdx(raw)) if raw == result_raw =>
+        if idx + 1 < body.length() && body[idx + 1] is @lib.Call(_) {
+          saw_result_call = true
+        }
+      @lib.LocalTee(_) => saw_condition_tee = true
+      @lib.LocalGet(@lib.LocalIdx(raw)) if raw == root_raw => ()
+      @lib.LocalGet(_)
+      | @lib.Call(_)
+      | @lib.I32Const(_)
+      | @lib.I32Eq
+      | @lib.I32Eqz
+      | @lib.I32And
+      | @lib.I32WrapI64
+      | @lib.I64Const(_)
+      | @lib.I64Eq => ()
+      _ => ()
+    }
+  }
+  ignore(increment_raw)
+  ignore(probe_raw)
+  if saw_result_call && saw_condition_tee {
+    Some(slot_raw)
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_f1900_reload_signature_at(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  slot_raw : UInt,
+) -> (UInt, UInt, UInt)? {
+  let sig : Array[@lib.Instruction] = []
+  let mut idx = start_idx
+  while idx < instrs.length() && sig.length() < 15 {
+    match instrs[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    idx = idx + 1
+  }
+  if sig.length() < 15 {
+    return None
+  }
+  let (reload_raw, probe_raw, result_raw) = match
+    (
+      sig[0],
+      sig[1],
+      sig[2],
+      sig[3],
+      sig[4],
+      sig[5],
+      sig[6],
+      sig[7],
+      sig[8],
+      sig[9],
+      sig[10],
+      sig[11],
+      sig[12],
+      sig[13],
+      sig[14],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_slot_raw)),
+      @lib.I32Load(_),
+      @lib.LocalSet(@lib.LocalIdx(reload_raw)),
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(probe_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(release_slot_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_probe_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_reload_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(result_raw)),
+      @lib.LocalGet(@lib.LocalIdx(final_probe_raw)),
+      @lib.Call(_),
+    ) if next_slot_raw == slot_raw &&
+      release_slot_raw == slot_raw &&
+      next_probe_raw == probe_raw &&
+      final_probe_raw == probe_raw &&
+      next_reload_raw == reload_raw &&
+      reload_raw != probe_raw => (reload_raw, probe_raw, result_raw)
+    _ => return None
+  }
+  Some((reload_raw, probe_raw, result_raw))
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f1900_reload_continuation(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  slot_raw : UInt,
+) -> Bool {
+  run_hot_pipeline_raw_vacuum_f1900_reload_signature_at(
+    instrs,
+    start_idx + 1,
+    slot_raw,
+  )
+  is Some(_)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f2094_block_continuation(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  slot_raw : UInt,
+) -> Bool {
+  if start_idx + 1 >= instrs.length() {
+    return false
+  }
+  let raw_continuation_body = match instrs[start_idx + 1] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => body
+    _ => return false
+  }
+  let continuation_body : Array[@lib.Instruction] = []
+  for instr in raw_continuation_body {
+    match instr {
+      @lib.Nop => ()
+      _ => continuation_body.push(instr)
+    }
+  }
+  run_hot_pipeline_raw_vacuum_f1900_reload_signature_at(
+    continuation_body, 0, slot_raw,
+  )
+  is Some(_)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reload_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  match
+    run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(body) {
+    Some(slot_raw) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_f1900_reload_continuation(
+        parent_body, start_idx, slot_raw,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  match
+    run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(body) {
+    Some(slot_raw) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_f2094_block_continuation(
+        parent_body, start_idx, slot_raw,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1895_return_branch_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  match (body[body.length() - 2], body[body.length() - 1]) {
+    (@lib.I32Const(@lib.I32(1)), @lib.Return) => ()
+    _ => return false
+  }
+  let inner_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(inner_body)) => inner_body
+    _ => return false
+  }
+  if inner_body.length() < 13 {
+    return false
+  }
+  match inner_body[inner_body.length() - 1] {
+    @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+    _ => return false
+  }
+  match
+    (
+      inner_body[0],
+      inner_body[1],
+      inner_body[2],
+      inner_body[3],
+      inner_body[4],
+      inner_body[5],
+      inner_body[6],
+      inner_body[7],
+      inner_body[8],
+      inner_body[9],
+      inner_body[10],
+      inner_body[11],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.Call(_),
+      @lib.LocalTee(_),
+      @lib.I64Const(@lib.I64(4294967296L)),
+      @lib.I64Eq,
+      @lib.I32Eqz,
+      @lib.If(@lib.VoidBlockType, then_body, _),
+    ) => then_body.length() > 0
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f1895_call_eqz_if_continuation(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if start_idx + 5 >= instrs.length() {
+    return false
+  }
+  match
+    (
+      instrs[start_idx],
+      instrs[start_idx + 1],
+      instrs[start_idx + 2],
+      instrs[start_idx + 3],
+      instrs[start_idx + 4],
+      instrs[start_idx + 5],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.I32Eqz,
+      @lib.If(@lib.VoidBlockType, then_body, _),
+    ) => then_body.length() > 0
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f1895_empty_sibling_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  if idx + 1 >= instrs.length() {
+    return false
+  }
+  match instrs[idx] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr([])) => ()
+    _ => return false
+  }
+  let wrapper_body = match instrs[idx + 1] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(wrapper_body)) => wrapper_body
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_body_is_f1895_return_branch_wrapper(wrapper_body) &&
+  run_hot_pipeline_raw_vacuum_instrs_have_f1895_call_eqz_if_continuation(
+    instrs,
+    idx + 2,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_drop_f1895_empty_sibling(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  for drop_idx = 0; drop_idx < body.length(); drop_idx = drop_idx + 1 {
+    if run_hot_pipeline_raw_vacuum_instrs_have_f1895_empty_sibling_at(
+        body, drop_idx,
+      ) {
+      let cleaned : Array[@lib.Instruction] = []
+      for idx = 0; idx < body.length(); idx = idx + 1 {
+        if idx != drop_idx {
+          cleaned.push(body[idx])
+        }
+      }
+      return Some(cleaned)
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_then_is_f2072_release_return(
+  then_body : Array[@lib.Instruction],
+  object_raw : UInt,
+  release_raw : UInt,
+) -> Bool {
+  match then_body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(then_release_raw)),
+      @lib.Call(@lib.FuncIdx(release_call_raw)),
+      @lib.LocalGet(@lib.LocalIdx(then_object_raw)),
+      @lib.Call(@lib.FuncIdx(next_release_call_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Return,
+    ] =>
+      then_release_raw == release_raw &&
+      then_object_raw == object_raw &&
+      next_release_call_raw == release_call_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f2072_branch_return_continuation_at(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if start_idx + 21 >= instrs.length() {
+    return false
+  }
+  let (object_raw, index_raw) = match
+    (
+      instrs[start_idx],
+      instrs[start_idx + 1],
+      instrs[start_idx + 2],
+      instrs[start_idx + 3],
+      instrs[start_idx + 4],
+      instrs[start_idx + 5],
+      instrs[start_idx + 6],
+      instrs[start_idx + 7],
+      instrs[start_idx + 8],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(object_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(release_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(index_raw)),
+      @lib.Call(_),
+      @lib.I32Eqz,
+      @lib.If(@lib.VoidBlockType, then_body, None),
+    ) if run_hot_pipeline_raw_vacuum_then_is_f2072_release_return(
+        then_body, object_raw, release_raw,
+      ) => (object_raw, index_raw)
+    _ => return false
+  }
+  match
+    (
+      instrs[start_idx + 9],
+      instrs[start_idx + 10],
+      instrs[start_idx + 11],
+      instrs[start_idx + 12],
+      instrs[start_idx + 13],
+      instrs[start_idx + 14],
+      instrs[start_idx + 15],
+      instrs[start_idx + 16],
+      instrs[start_idx + 17],
+      instrs[start_idx + 18],
+      instrs[start_idx + 19],
+      instrs[start_idx + 20],
+      instrs[start_idx + 21],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_object_raw)),
+      @lib.I32Load(@lib.MemArg(_, _, @lib.U64(8UL))),
+      @lib.LocalTee(@lib.LocalIdx(loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(length_raw)),
+      @lib.LocalGet(@lib.LocalIdx(release_loaded_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_index_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_length_raw)),
+      @lib.I32LtS,
+      @lib.If(@lib.VoidBlockType, then_body, _),
+    ) =>
+      next_object_raw == object_raw &&
+      next_loaded_raw == loaded_raw &&
+      release_loaded_raw == loaded_raw &&
+      next_index_raw == index_raw &&
+      next_length_raw == length_raw &&
+      then_body.length() > 0
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f2072_empty_sibling_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  if idx + 1 >= instrs.length() {
+    return false
+  }
+  match instrs[idx] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr([])) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_f2072_branch_return_continuation_at(
+        instrs,
+        idx + 1,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_drop_f2072_empty_sibling(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  for drop_idx = 0; drop_idx < body.length(); drop_idx = drop_idx + 1 {
+    if run_hot_pipeline_raw_vacuum_instrs_have_f2072_empty_sibling_at(
+        body, drop_idx,
+      ) {
+      let cleaned : Array[@lib.Instruction] = []
+      for idx = 0; idx < body.length(); idx = idx + 1 {
+        if idx != drop_idx {
+          cleaned.push(body[idx])
+        }
+      }
+      return Some(cleaned)
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_then_is_f2842_release_return(
+  then_body : Array[@lib.Instruction],
+  left_raw : UInt,
+  right_raw : UInt,
+  release_call_raw : UInt,
+) -> Bool {
+  match then_body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(then_right_raw)),
+      @lib.Call(@lib.FuncIdx(first_release_call_raw)),
+      @lib.LocalGet(@lib.LocalIdx(then_left_raw)),
+      @lib.Call(@lib.FuncIdx(second_release_call_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Return,
+    ] =>
+      then_right_raw == right_raw &&
+      then_left_raw == left_raw &&
+      first_release_call_raw == release_call_raw &&
+      second_release_call_raw == release_call_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_f2842_empty_block_before_live_if_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  if idx + 27 >= instrs.length() {
+    return false
+  }
+  match instrs[idx] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr([])) => ()
+    _ => return false
+  }
+  match
+    (
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 17],
+      instrs[idx + 18],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(left_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(right_raw)),
+      @lib.Call(@lib.FuncIdx(compare_call_raw)),
+      @lib.I32Eqz,
+      @lib.If(@lib.VoidBlockType, then_body, None),
+      @lib.LocalGet(@lib.LocalIdx(release_right_raw)),
+      @lib.Call(@lib.FuncIdx(release_call_raw)),
+    ) if release_right_raw == right_raw &&
+      run_hot_pipeline_raw_vacuum_then_is_f2842_release_return(
+        then_body, left_raw, right_raw, release_call_raw,
+      ) =>
+      match
+        (
+          instrs[idx + 8],
+          instrs[idx + 9],
+          instrs[idx + 10],
+          instrs[idx + 11],
+          instrs[idx + 12],
+          instrs[idx + 13],
+          instrs[idx + 14],
+          instrs[idx + 15],
+          instrs[idx + 16],
+          instrs[idx + 19],
+          instrs[idx + 20],
+          instrs[idx + 21],
+          instrs[idx + 22],
+          instrs[idx + 23],
+          instrs[idx + 24],
+          instrs[idx + 25],
+          instrs[idx + 26],
+          instrs[idx + 27],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(first_left_raw)),
+          @lib.LocalGet(@lib.LocalIdx(first_right_raw)),
+          @lib.LocalGet(@lib.LocalIdx(sub_left_raw)),
+          @lib.LocalGet(@lib.LocalIdx(sub_right_raw)),
+          @lib.Call(@lib.FuncIdx(next_compare_call_raw)),
+          @lib.I32Const(@lib.I32(1)),
+          @lib.I32Sub,
+          @lib.Call(_),
+          @lib.LocalSet(@lib.LocalIdx(count_raw)),
+          @lib.LocalGet(@lib.LocalIdx(load_left_raw)),
+          @lib.LocalGet(@lib.LocalIdx(load_count_raw)),
+          @lib.LocalTee(_),
+          @lib.Call(_),
+          @lib.LocalTee(_),
+          @lib.I32Load(@lib.MemArg(_, _, @lib.U64(0UL))),
+          @lib.I32Const(@lib.I32(4)),
+          @lib.I32Eq,
+          @lib.If(@lib.VoidBlockType, live_then_body, _),
+        ) =>
+          first_left_raw == left_raw &&
+          first_right_raw == right_raw &&
+          sub_left_raw == left_raw &&
+          sub_right_raw == right_raw &&
+          next_compare_call_raw == compare_call_raw &&
+          load_left_raw == left_raw &&
+          load_count_raw == count_raw &&
+          live_then_body.length() > 0
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_drop_f2842_empty_block_before_live_if(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  for drop_idx = 0; drop_idx < body.length(); drop_idx = drop_idx + 1 {
+    if run_hot_pipeline_raw_vacuum_instrs_have_f2842_empty_block_before_live_if_at(
+        body, drop_idx,
+      ) {
+      let cleaned : Array[@lib.Instruction] = []
+      for idx = 0; idx < body.length(); idx = idx + 1 {
+        if idx != drop_idx {
+          cleaned.push(body[idx])
+        }
+      }
+      return Some(cleaned)
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2850_guard_else(
+  body : Array[@lib.Instruction],
+  env_raw : UInt,
+  index_raw : UInt,
+  flag_raw : UInt,
+) -> Bool {
+  match body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(else_env_raw)),
+      @lib.LocalGet(@lib.LocalIdx(else_index_raw)),
+      @lib.Call(_),
+      @lib.I32Eqz,
+      @lib.LocalSet(@lib.LocalIdx(else_flag_raw)),
+    ] =>
+      else_env_raw == env_raw &&
+      else_index_raw == index_raw &&
+      else_flag_raw == flag_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2850_release_return(
+  body : Array[@lib.Instruction],
+  value_raw : UInt,
+  env_raw : UInt,
+) -> Bool {
+  match body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(then_value_raw)),
+      @lib.Call(@lib.FuncIdx(first_release_call_raw)),
+      @lib.LocalGet(@lib.LocalIdx(then_env_raw)),
+      @lib.Call(@lib.FuncIdx(second_release_call_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Return,
+    ] =>
+      then_value_raw == value_raw &&
+      then_env_raw == env_raw &&
+      first_release_call_raw == second_release_call_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2850_local_copy_guard_wrapper(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 10 {
+    return None
+  }
+  let copy_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(copy_body)) => copy_body
+    _ => return None
+  }
+  let value_raw = match copy_body {
+    [
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.LocalSet(@lib.LocalIdx(target_raw)),
+    ] if source_raw != target_raw => target_raw
+    _ => return None
+  }
+  match
+    (
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalSet(@lib.LocalIdx(env_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(index_raw)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I32LtS,
+      @lib.If(@lib.VoidBlockType, guard_then, Some(guard_else)),
+      @lib.LocalGet(@lib.LocalIdx(flag_get_raw)),
+      @lib.If(@lib.VoidBlockType, return_then, None),
+    ) => {
+      let flag_raw = match guard_then {
+        [
+          @lib.I32Const(@lib.I32(1)),
+          @lib.LocalSet(@lib.LocalIdx(then_flag_raw)),
+        ] => then_flag_raw
+        _ => return None
+      }
+      if flag_get_raw != flag_raw ||
+        !run_hot_pipeline_raw_vacuum_body_is_f2850_guard_else(
+          guard_else, env_raw, index_raw, flag_raw,
+        ) ||
+        !run_hot_pipeline_raw_vacuum_body_is_f2850_release_return(
+          return_then, value_raw, env_raw,
+        ) {
+        return None
+      }
+      let flattened : Array[@lib.Instruction] = []
+      for instr in copy_body {
+        flattened.push(instr)
+      }
+      for idx = 1; idx < body.length(); idx = idx + 1 {
+        flattened.push(body[idx])
+      }
+      Some(flattened)
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_contains_local_release_call(
+  body : Array[@lib.Instruction],
+  release_call_raw : UInt,
+) -> Bool {
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match (body[idx], body[idx + 1]) {
+      (@lib.LocalGet(_), @lib.Call(@lib.FuncIdx(call_raw))) if call_raw ==
+        release_call_raw => return true
+      _ => ()
+    }
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_contains_local_release_call(
+            child_body, release_call_raw,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_body_contains_local_release_call(
+            then_body, release_call_raw,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(child_body) =>
+            if run_hot_pipeline_raw_vacuum_body_contains_local_release_call(
+                child_body, release_call_raw,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_ends_with_zero_set_and_outer_br(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  match
+    (body[body.length() - 3], body[body.length() - 2], body[body.length() - 1]) {
+    (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(_), @lib.Br(label)) =>
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1155_branch_continuation(
+  body : Array[@lib.Instruction],
+  release_call_raw : UInt,
+) -> Bool {
+  if body.length() < 5 ||
+    !run_hot_pipeline_raw_vacuum_body_ends_with_zero_set_and_outer_br(body) {
+    return false
+  }
+  match body[body.length() - 4] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_body_ends_with_outer_br(then_body, 1) &&
+      run_hot_pipeline_raw_vacuum_body_contains_local_release_call(
+        else_body, release_call_raw,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1155_single_release_child_before_branch_continuation(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 5 {
+    return None
+  }
+  let release_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(release_body)) => release_body
+    _ => return None
+  }
+  if release_body.length() != 2 {
+    return None
+  }
+  let release_call_raw = match (release_body[0], release_body[1]) {
+    (@lib.LocalGet(_), @lib.Call(@lib.FuncIdx(call_raw))) => call_raw
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_has_f1155_branch_continuation(
+      body, release_call_raw,
+    ) {
+    return None
+  }
+  let flattened : Array[@lib.Instruction] = []
+  for instr in release_body {
+    flattened.push(instr)
+  }
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_prefix(
+  body : Array[@lib.Instruction],
+) -> (UInt, UInt)? {
+  if body.length() != 13 {
+    return None
+  }
+  let (slot_raw, item_raw) = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(item_raw)),
+      @lib.Call(_),
+    ) => (slot_raw, item_raw)
+    _ => return None
+  }
+  let update_raw = match (body[4], body[5], body[6], body[7]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_item_raw)),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalSet(@lib.LocalIdx(update_raw)),
+    ) if next_item_raw == item_raw => update_raw
+    _ => return None
+  }
+  match (body[8], body[9], body[10], body[11]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_item_raw)),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(next_update_raw)),
+      @lib.LocalTee(@lib.LocalIdx(result_raw)),
+    ) if next_item_raw == item_raw && next_update_raw == update_raw =>
+      match body[12] {
+        @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+          let target_raw = match then_body {
+            [
+              @lib.LocalGet(@lib.LocalIdx(then_result_raw)),
+              @lib.LocalSet(@lib.LocalIdx(target_raw)),
+            ] if then_result_raw == result_raw => target_raw
+            _ => return None
+          }
+          match else_body {
+            [
+              @lib.LocalGet(@lib.LocalIdx(else_result_raw)),
+              @lib.If(@lib.VoidBlockType, inner_then, None),
+              @lib.Br(label),
+            ] if else_result_raw == result_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 =>
+              match inner_then {
+                [@lib.LocalGet(@lib.LocalIdx(inner_result_raw)), @lib.Call(_)] if inner_result_raw ==
+                  result_raw => Some((target_raw, slot_raw))
+                _ => None
+              }
+            _ => None
+          }
+        }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1224_loop_update_parent_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  target_raw : UInt,
+  slot_raw : UInt,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 24 {
+      break
+    }
+  }
+  if sig.length() < 24 {
+    return false
+  }
+  let loaded_raw = match (sig[0], sig[1], sig[2]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_target_raw)),
+      @lib.I32Load(_),
+      @lib.LocalSet(@lib.LocalIdx(loaded_raw)),
+    ) if next_target_raw == target_raw => loaded_raw
+    _ => return false
+  }
+  match (sig[3], sig[4], sig[5], sig[6], sig[7], sig[8]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_target_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32GtS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) if next_target_raw == target_raw => ()
+    _ => return false
+  }
+  match
+    (
+      sig[9],
+      sig[10],
+      sig[11],
+      sig[12],
+      sig[13],
+      sig[14],
+      sig[15],
+      sig[16],
+      sig[17],
+      sig[18],
+      sig[19],
+      sig[20],
+      sig[21],
+      sig[22],
+      sig[23],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(release_slot_raw)),
+      @lib.I32Load(_),
+      @lib.Call(_),
+      @lib.LocalGet(@lib.LocalIdx(store_slot_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_loaded_raw)),
+      @lib.I32Store(_),
+      @lib.LocalGet(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(count_slot_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_count_slot_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.I32Store(_),
+    ) =>
+      release_slot_raw == slot_raw &&
+      store_slot_raw == slot_raw &&
+      next_loaded_raw == loaded_raw &&
+      count_slot_raw == next_count_slot_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_preserve_candidate(
+  body : Array[@lib.Instruction],
+  parent_body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  match
+    run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_prefix(body) {
+    Some((target_raw, slot_raw)) =>
+      run_hot_pipeline_raw_vacuum_body_has_f1224_loop_update_parent_continuation(
+        parent_body, start_idx, target_raw, slot_raw,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f1260_tag21_tag22_dispatch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 12 {
+    return false
+  }
+  let (cursor_raw, slot_raw, item_raw, tag_raw) = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(cursor_raw)),
+      @lib.LocalGet(@lib.LocalIdx(slot_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(item_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(21)),
+      @lib.I32Eq,
+    ) => (cursor_raw, slot_raw, item_raw, tag_raw)
+    _ => return false
+  }
+  if cursor_raw == slot_raw {
+    return false
+  }
+  match body[11] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      if then_body.length() < 10 || else_body.length() < 5 {
+        return false
+      }
+      let lhs_raw = match
+        (then_body[0], then_body[1], then_body[2], then_body[3], then_body[4]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_item_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(@lib.LocalIdx(lhs_raw)),
+          @lib.LocalGet(@lib.LocalIdx(release_item_raw)),
+          @lib.Call(_),
+        ) if next_item_raw == item_raw && release_item_raw == item_raw =>
+          lhs_raw
+        _ => return false
+      }
+      match (then_body[5], then_body[6], then_body[7], then_body[8]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_lhs_raw)),
+          @lib.LocalGet(_),
+          @lib.Call(_),
+          @lib.I32Eqz,
+        ) if next_lhs_raw == lhs_raw => ()
+        _ => return false
+      }
+      match then_body[9] {
+        @lib.If(@lib.VoidBlockType, [@lib.Br(label)], None) if run_hot_pipeline_raw_vacuum_label_depth(
+            label,
+          ) >=
+          1 => ()
+        _ => return false
+      }
+      match (else_body[0], else_body[1], else_body[2]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_tag_raw)),
+          @lib.I32Const(@lib.I32(22)),
+          @lib.I32Eq,
+        ) if next_tag_raw == tag_raw => ()
+        _ => return false
+      }
+      match else_body[3] {
+        @lib.If(@lib.VoidBlockType, nested_then, Some(nested_else)) => {
+          if nested_then.length() < 10 || nested_else.length() < 3 {
+            return false
+          }
+          let nested_lhs_raw = match
+            (
+              nested_then[0],
+              nested_then[1],
+              nested_then[2],
+              nested_then[3],
+              nested_then[4],
+            ) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_item_raw)),
+              @lib.I32Load(_),
+              @lib.LocalSet(@lib.LocalIdx(next_lhs_raw)),
+              @lib.LocalGet(@lib.LocalIdx(release_item_raw)),
+              @lib.Call(_),
+            ) if next_item_raw == item_raw && release_item_raw == item_raw =>
+              next_lhs_raw
+            _ => return false
+          }
+          match
+            (nested_then[5], nested_then[6], nested_then[7], nested_then[8]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_lhs_raw)),
+              @lib.LocalGet(_),
+              @lib.Call(_),
+              @lib.If(
+                @lib.VoidBlockType,
+                [@lib.Br(then_label)],
+                Some([@lib.Br(else_label)])
+              ),
+            ) if next_lhs_raw == nested_lhs_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(then_label) >= 1 &&
+              run_hot_pipeline_raw_vacuum_label_depth(else_label) >= 1 => ()
+            _ => return false
+          }
+          if !(nested_then[nested_then.length() - 1] is @lib.Unreachable) {
+            return false
+          }
+          match (nested_else[0], nested_else[1], nested_else[2]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(release_item_raw)),
+              @lib.Call(_),
+              @lib.Br(label),
+            ) if release_item_raw == item_raw &&
+              run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+            _ => return false
+          }
+        }
+        _ => return false
+      }
+      else_body[else_body.length() - 1] is @lib.Unreachable
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1260_append_update_continuation(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 17 {
+    return false
+  }
+  let temp_raw = match (body[1], body[2], body[3], body[4], body[5]) {
+    (
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(temp_raw)),
+      @lib.Call(_),
+      @lib.LocalSet(_),
+    ) => temp_raw
+    _ => return false
+  }
+  match (body[6], body[7]) {
+    (@lib.LocalGet(@lib.LocalIdx(next_temp_raw)), @lib.Call(_)) if next_temp_raw ==
+      temp_raw => ()
+    _ => return false
+  }
+  match
+    (
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+      body[14],
+      body[15],
+      body[16],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Store(_),
+      @lib.LocalGet(@lib.LocalIdx(counter_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_counter_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.I32Store(_),
+    ) => counter_raw == next_counter_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_append_update(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let dispatch_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_f1260_tag21_tag22_dispatch(
+      dispatch_body,
+    ) ||
+    !run_hot_pipeline_raw_vacuum_body_has_f1260_append_update_continuation(body) {
+    return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    dispatch_body, 0,
+  )
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_f2130_tag42_tag43_dispatch(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_f2130_tag42_tag43_dispatch(
+      non_nops,
+    )
+  }
+  if body.length() != 11 {
+    return None
+  }
+  let (object_raw, index_raw, tagged_raw, tag_raw) = match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(object_raw)),
+      @lib.LocalGet(_),
+      @lib.LocalTee(@lib.LocalIdx(index_raw)),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(tagged_raw)),
+      @lib.I32Load(_),
+      @lib.LocalTee(@lib.LocalIdx(tag_raw)),
+      @lib.I32Const(@lib.I32(42)),
+      @lib.I32Eq,
+    ) => (object_raw, index_raw, tagged_raw, tag_raw)
+    _ => return None
+  }
+  match body[10] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let result_raw = match
+        run_hot_pipeline_raw_vacuum_body_ends_local_set(then_body) {
+        Some(raw) => raw.reinterpret_as_uint()
+        None => return None
+      }
+      if then_body.length() < 18 {
+        return None
+      }
+      let (payload_raw, retained_raw) = match
+        (
+          then_body[0],
+          then_body[1],
+          then_body[2],
+          then_body[3],
+          then_body[4],
+          then_body[5],
+          then_body[6],
+          then_body[7],
+          then_body[8],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_tagged_raw)),
+          @lib.I32Load(_),
+          @lib.LocalSet(@lib.LocalIdx(payload_raw)),
+          @lib.LocalGet(@lib.LocalIdx(release_tagged_raw)),
+          @lib.Call(_),
+          @lib.LocalGet(@lib.LocalIdx(next_object_raw)),
+          @lib.LocalGet(@lib.LocalIdx(next_payload_raw)),
+          @lib.Call(_),
+          @lib.LocalSet(@lib.LocalIdx(retained_raw)),
+        ) if next_tagged_raw == tagged_raw &&
+          release_tagged_raw == tagged_raw &&
+          next_object_raw == object_raw &&
+          next_payload_raw == payload_raw => (payload_raw, retained_raw)
+        _ => return None
+      }
+      ignore(payload_raw)
+      let allocated_raw = match
+        (then_body[then_body.length() - 2], then_body[then_body.length() - 1]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_allocated_raw)),
+          @lib.LocalSet(@lib.LocalIdx(next_result_raw)),
+        ) if next_result_raw == result_raw => next_allocated_raw
+        _ => return None
+      }
+      let mut saw_allocation = false
+      let mut saw_alloc_release = false
+      for idx = 9; idx + 5 < then_body.length(); idx = idx + 1 {
+        match
+          (
+            then_body[idx],
+            then_body[idx + 1],
+            then_body[idx + 2],
+            then_body[idx + 3],
+            then_body[idx + 4],
+            then_body[idx + 5],
+          ) {
+          (
+            @lib.LocalGet(@lib.LocalIdx(next_retained_raw)),
+            @lib.I32Const(@lib.I32(0)),
+            @lib.Call(_),
+            @lib.LocalTee(_),
+            @lib.Call(_),
+            @lib.LocalSet(@lib.LocalIdx(next_allocated_raw)),
+          ) if next_retained_raw == retained_raw &&
+            next_allocated_raw == allocated_raw => saw_allocation = true
+          _ => ()
+        }
+      }
+      for idx = 9; idx + 1 < then_body.length(); idx = idx + 1 {
+        match (then_body[idx], then_body[idx + 1]) {
+          (@lib.LocalGet(@lib.LocalIdx(next_retained_raw)), @lib.Call(_)) if next_retained_raw ==
+            retained_raw => saw_alloc_release = true
+          _ => ()
+        }
+      }
+      if !saw_allocation || !saw_alloc_release {
+        return None
+      }
+      if else_body.length() < 6 {
+        return None
+      }
+      match (else_body[0], else_body[1], else_body[2]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_tag_raw)),
+          @lib.I32Const(@lib.I32(43)),
+          @lib.I32Eq,
+        ) if next_tag_raw == tag_raw => ()
+        _ => return None
+      }
+      match else_body[3] {
+        @lib.If(@lib.VoidBlockType, tag43_then, Some(tag43_else)) => {
+          if tag43_then.length() < 8 || tag43_else.length() < 4 {
+            return None
+          }
+          match (tag43_then[0], tag43_then[1]) {
+            (@lib.LocalGet(@lib.LocalIdx(release_tagged_raw)), @lib.Call(_)) if release_tagged_raw ==
+              tagged_raw => ()
+            _ => return None
+          }
+          match
+            (
+              tag43_then[2],
+              tag43_then[3],
+              tag43_then[4],
+              tag43_then[5],
+              tag43_then[6],
+            ) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(next_object_raw)),
+              @lib.LocalGet(@lib.LocalIdx(next_index_raw)),
+              @lib.Call(_),
+              @lib.I32Const(@lib.I32(1)),
+              @lib.I32Ne,
+            ) if next_object_raw == object_raw && next_index_raw == index_raw =>
+              ()
+            _ => return None
+          }
+          match tag43_then[7] {
+            @lib.If(@lib.VoidBlockType, release_then, Some(update_else)) => {
+              if release_then.length() < 2 || update_else.length() < 8 {
+                return None
+              }
+              match (release_then[0], release_then[1]) {
+                (@lib.LocalGet(@lib.LocalIdx(release_object_raw)), @lib.Call(_)) if release_object_raw ==
+                  object_raw => ()
+                _ => return None
+              }
+              match
+                (
+                  update_else[0],
+                  update_else[1],
+                  update_else[2],
+                  update_else[3],
+                  update_else[4],
+                  update_else[5],
+                  update_else[6],
+                  update_else[7],
+                ) {
+                (
+                  @lib.LocalGet(@lib.LocalIdx(next_object_raw)),
+                  @lib.LocalSet(_),
+                  @lib.LocalGet(@lib.LocalIdx(update_object_raw)),
+                  @lib.LocalGet(@lib.LocalIdx(update_index_raw)),
+                  @lib.I32Const(@lib.I32(0)),
+                  @lib.Call(_),
+                  @lib.LocalSet(_),
+                  @lib.Br(label),
+                ) if next_object_raw == object_raw &&
+                  update_object_raw == object_raw &&
+                  update_index_raw == index_raw &&
+                  run_hot_pipeline_raw_vacuum_label_depth(label) >= 3 => ()
+                _ => return None
+              }
+            }
+            _ => return None
+          }
+          match (tag43_else[0], tag43_else[1], tag43_else[2], tag43_else[3]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(release_tagged_raw)),
+              @lib.Call(_),
+              @lib.LocalGet(@lib.LocalIdx(release_object_raw)),
+              @lib.Call(_),
+            ) if release_tagged_raw == tagged_raw &&
+              release_object_raw == object_raw => ()
+            _ => return None
+          }
+        }
+        _ => return None
+      }
+      match
+        (else_body[else_body.length() - 2], else_body[else_body.length() - 1]) {
+        (
+          @lib.I32Const(@lib.I32(0)),
+          @lib.LocalSet(@lib.LocalIdx(next_result_raw)),
+        ) if next_result_raw == result_raw =>
+          Some(result_raw.reinterpret_as_int())
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_wrapper(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 4 {
+    return None
+  }
+  let dispatch_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(dispatch_body)) => dispatch_body
+    _ => return None
+  }
+  let result_raw = match
+    run_hot_pipeline_raw_vacuum_body_is_f2130_tag42_tag43_dispatch(
+      dispatch_body,
+    ) {
+    Some(raw) => raw
+    None => return None
+  }
+  match (body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_result_raw)),
+      @lib.LocalSet(_),
+      @lib.Br(label),
+    ) if next_result_raw.reinterpret_as_int() == result_raw &&
+      run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
+    _ => return None
+  }
+  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    dispatch_body, 0,
+  )
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f996_tag_dispatch_parent_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let sig : Array[@lib.Instruction] = []
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Nop => ()
+      instr => sig.push(instr)
+    }
+    if sig.length() >= 9 {
+      break
+    }
+  }
+  if sig.length() < 9 {
+    return false
+  }
+  match
+    (sig[0], sig[1], sig[2], sig[3], sig[4], sig[5], sig[6], sig[7], sig[8]) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Const(@lib.I32(4)),
+      @lib.Call(_),
+      @lib.LocalTee(_),
+      @lib.I32Load(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(@lib.I32(241)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() < 13 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  let (receiver_raw, start_value, call_raw, first_local_raw) = match
+    (non_nops[0], non_nops[1], non_nops[2], non_nops[3]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(receiver_raw)),
+      @lib.I32Const(@lib.I32(start_value)),
+      @lib.Call(@lib.FuncIdx(call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(first_local_raw)),
+    ) => (receiver_raw, start_value, call_raw, first_local_raw)
+    _ => return false
+  }
+  let mut group_count = 1
+  while group_count < 4 && (group_count + 1) * 4 + 5 <= non_nops.length() {
+    let base = group_count * 4
+    match
+      (
+        non_nops[base],
+        non_nops[base + 1],
+        non_nops[base + 2],
+        non_nops[base + 3],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_receiver_raw)),
+        @lib.I32Const(@lib.I32(value)),
+        @lib.Call(@lib.FuncIdx(next_call_raw)),
+        @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+      ) if next_receiver_raw == receiver_raw &&
+        next_call_raw == call_raw &&
+        value == start_value + group_count &&
+        next_local_raw != first_local_raw => group_count = group_count + 1
+      _ => break
+    }
+  }
+  if group_count < 2 || non_nops.length() != group_count * 4 + 5 {
+    return false
+  }
+  let tag_idx = group_count * 4
+  match
+    (
+      non_nops[tag_idx],
+      non_nops[tag_idx + 1],
+      non_nops[tag_idx + 2],
+      non_nops[tag_idx + 3],
+      non_nops[tag_idx + 4],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(tag_local_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(tag_value)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) =>
+      tag_local_raw == first_local_raw &&
+      (
+        (group_count == 4 && start_value == 0 && tag_value == 20) ||
+        (group_count == 2 && start_value == 4 && tag_value == 72)
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_indexed_tag_cascade_expected_offset(
+  group : Int,
+) -> Int {
+  match group {
+    0 => 0
+    1 => 2
+    2 => 3
+    3 => 5
+    4 => 6
+    5 => 7
+    6 => 8
+    7 => 9
+    _ => 10
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_indexed_call_local_set_tag_cascade_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+    return false
+  }
+  if non_nops.length() == 57 {
+    let (base_raw, index_raw, call_raw, first_local_raw) = match
+      (non_nops[0], non_nops[1], non_nops[2], non_nops[3]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(base_raw)),
+        @lib.LocalGet(@lib.LocalIdx(index_raw)),
+        @lib.Call(@lib.FuncIdx(call_raw)),
+        @lib.LocalSet(@lib.LocalIdx(first_local_raw)),
+      ) => (base_raw, index_raw, call_raw, first_local_raw)
+      _ => return false
+    }
+    let first_local = first_local_raw.reinterpret_as_int()
+    let mut cursor = 4
+    let mut group = 1
+    while group < 9 {
+      if cursor + 6 > non_nops.length() {
+        return false
+      }
+      let expected_offset = run_hot_pipeline_raw_vacuum_indexed_tag_cascade_expected_offset(
+        group,
+      )
+      match
+        (
+          non_nops[cursor],
+          non_nops[cursor + 1],
+          non_nops[cursor + 2],
+          non_nops[cursor + 3],
+          non_nops[cursor + 4],
+          non_nops[cursor + 5],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(next_base_raw)),
+          @lib.LocalGet(@lib.LocalIdx(next_index_raw)),
+          @lib.I32Const(@lib.I32(offset)),
+          @lib.I32Add,
+          @lib.Call(@lib.FuncIdx(next_call_raw)),
+          @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+        ) if next_base_raw == base_raw &&
+          next_index_raw == index_raw &&
+          offset == expected_offset &&
+          next_call_raw == call_raw &&
+          next_local_raw.reinterpret_as_int() == first_local + group => {
+          cursor = cursor + 6
+          group = group + 1
+        }
+        _ => return false
+      }
+    }
+    return match
+      (
+        non_nops[cursor],
+        non_nops[cursor + 1],
+        non_nops[cursor + 2],
+        non_nops[cursor + 3],
+        non_nops[cursor + 4],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(tag_local_raw)),
+        @lib.I32Load(_),
+        @lib.I32Const(@lib.I32(10)),
+        @lib.I32Eq,
+        @lib.If(@lib.VoidBlockType, _, _),
+      ) => tag_local_raw == first_local_raw
+      _ => false
+    }
+  }
+  if non_nops.length() != 51 {
+    return false
+  }
+  let (base_raw, index_raw, call_raw, first_local_raw) = match
+    (
+      non_nops[0],
+      non_nops[1],
+      non_nops[2],
+      non_nops[3],
+      non_nops[4],
+      non_nops[5],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(base_raw)),
+      @lib.LocalGet(@lib.LocalIdx(index_raw)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Sub,
+      @lib.Call(@lib.FuncIdx(call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(first_local_raw)),
+    ) => (base_raw, index_raw, call_raw, first_local_raw)
+    _ => return false
+  }
+  let first_local = first_local_raw.reinterpret_as_int()
+  match (non_nops[6], non_nops[7], non_nops[8], non_nops[9]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(next_base_raw)),
+      @lib.LocalGet(@lib.LocalIdx(next_index_raw)),
+      @lib.Call(@lib.FuncIdx(next_call_raw)),
+      @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+    ) if next_base_raw == base_raw &&
+      next_index_raw == index_raw &&
+      next_call_raw == call_raw &&
+      next_local_raw.reinterpret_as_int() == first_local + 1 => ()
+    _ => return false
+  }
+  let mut cursor = 10
+  let mut group = 2
+  while group < 8 {
+    let expected_offset = match group {
+      2 => 1
+      3 => 3
+      4 => 4
+      5 => 5
+      6 => 7
+      _ => 8
+    }
+    match
+      (
+        non_nops[cursor],
+        non_nops[cursor + 1],
+        non_nops[cursor + 2],
+        non_nops[cursor + 3],
+        non_nops[cursor + 4],
+        non_nops[cursor + 5],
+      ) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(next_base_raw)),
+        @lib.LocalGet(@lib.LocalIdx(next_index_raw)),
+        @lib.I32Const(@lib.I32(offset)),
+        @lib.I32Add,
+        @lib.Call(@lib.FuncIdx(next_call_raw)),
+        @lib.LocalSet(@lib.LocalIdx(next_local_raw)),
+      ) if next_base_raw == base_raw &&
+        next_index_raw == index_raw &&
+        offset == expected_offset &&
+        next_call_raw == call_raw &&
+        next_local_raw.reinterpret_as_int() == first_local + group => {
+        cursor = cursor + 6
+        group = group + 1
+      }
+      _ => return false
+    }
+  }
+  match
+    (
+      non_nops[cursor],
+      non_nops[cursor + 1],
+      non_nops[cursor + 2],
+      non_nops[cursor + 3],
+      non_nops[cursor + 4],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(tag_local_raw)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(41)),
+      @lib.I32Eq,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => tag_local_raw == first_local_raw
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_load_linked_local_set_call_prefix_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != body.length() {
+    return run_hot_pipeline_raw_vacuum_body_is_load_linked_local_set_call_prefix_if_wrapper_candidate(
+      non_nops,
+    )
+  }
+  if body.length() != 11 {
+    return false
+  }
+  let target_local = match body[3] {
+    @lib.LocalSet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
+    _ => return false
+  }
+  match body[4] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+      target_local => ()
+    _ => return false
+  }
+  match body[10] {
+    @lib.If(@lib.VoidBlockType, [@lib.Unreachable], None) => ()
+    _ => return false
+  }
+  body[0] is @lib.I32Const(_) &&
+  body[1] is @lib.I32Const(_) &&
+  body[2] is @lib.Call(_) &&
+  body[5] is @lib.LocalTee(_) &&
+  body[6] is @lib.I32Load(_) &&
+  body[7] is @lib.I32Const(@lib.I32(20)) &&
+  body[8] is @lib.I32Eq &&
+  body[9] is @lib.I32Eqz
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_singleton_load_linked_local_set_call_prefix_block(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.length() == 1 &&
+  (match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_load_linked_local_set_call_prefix_if_wrapper_candidate(
+        child_body,
+      )
+    _ => false
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_has_singleton_load_linked_local_set_call_prefix_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_singleton_load_linked_local_set_call_prefix_block(
+        body,
+      ) ||
+      run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_prefix_block(
+        body,
+      )
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_prefix_block(
+        body,
+      )
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_prefix_block(
+          then_body,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_prefix_block(
+            body,
+          )
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_prefix_block(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_vacuum_instr_has_singleton_load_linked_local_set_call_prefix_block(
+        instr,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_two_arg_local_set_release_prefix_target(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() != 6 {
+    return None
+  }
+  let receiver_local = match non_nops[0] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
+    _ => return None
+  }
+  let target_local = match non_nops[3] {
+    @lib.LocalSet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
+    _ => return None
+  }
+  match non_nops[4] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+      receiver_local => ()
+    _ => return None
+  }
+  if non_nops[1] is @lib.I32Const(_) &&
+    non_nops[2] is @lib.Call(_) &&
+    non_nops[5] is @lib.Call(_) {
+    Some(target_local)
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_loads_linked_local_before_if(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  target_local : Int,
+) -> Bool {
+  if start_idx + 5 >= body.length() {
+    return false
+  }
+  match body[start_idx] {
+    @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+      target_local => ()
+    _ => return false
+  }
+  body[start_idx + 1] is @lib.LocalTee(_) &&
+  body[start_idx + 2] is @lib.I32Load(_) &&
+  body[start_idx + 3] is @lib.I32Const(@lib.I32(20)) &&
+  body[start_idx + 4] is @lib.I32Eq &&
+  body[start_idx + 5] is @lib.If(@lib.VoidBlockType, _, _)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_flatten_load_linked_release_prefix_child(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 7 {
+    return None
+  }
+  let (prefix_body, target_local) = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      match
+        run_hot_pipeline_raw_vacuum_two_arg_local_set_release_prefix_target(
+          prefix_body,
+        ) {
+        Some(local_id) => (prefix_body, local_id)
+        None => return None
+      }
+    _ => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_loads_linked_local_before_if(
+      body, 1, target_local,
+    ) {
+    return None
+  }
+  let flattened : Array[@lib.Instruction] = []
+  for instr in prefix_body {
+    match instr {
+      @lib.Nop => ()
+      _ => flattened.push(instr)
+    }
+  }
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    flattened.push(body[idx])
+  }
+  Some(flattened)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_wrap_load_linked_release_prefix(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 12 {
+    return None
+  }
+  let prefix_body : Array[@lib.Instruction] = []
+  for idx = 0; idx < 6; idx = idx + 1 {
+    prefix_body.push(body[idx])
+  }
+  let target_local = match
+    run_hot_pipeline_raw_vacuum_two_arg_local_set_release_prefix_target(
+      prefix_body,
+    ) {
+    Some(local_id) => local_id
+    None => return None
+  }
+  if !run_hot_pipeline_raw_vacuum_body_loads_linked_local_before_if(
+      body, 6, target_local,
+    ) {
+    return None
+  }
+  let wrapped : Array[@lib.Instruction] = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new(prefix_body),
+    ),
+  ]
+  for idx = 6; idx < body.length(); idx = idx + 1 {
+    wrapped.push(body[idx])
+  }
+  Some(wrapped)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_has_load_linked_release_prefix_child(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_try_wrap_load_linked_release_prefix(body)
+      is Some(_) ||
+      run_hot_pipeline_raw_vacuum_try_flatten_load_linked_release_prefix_child(
+        body,
+      )
+      is Some(_) ||
+      run_hot_pipeline_raw_vacuum_instrs_have_load_linked_release_prefix_child(
+        body,
+      )
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_instrs_have_load_linked_release_prefix_child(
+          then_body,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_instrs_have_load_linked_release_prefix_child(
+            body,
+          )
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_load_linked_release_prefix_child(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_vacuum_instr_has_load_linked_release_prefix_child(
+        instr,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_prefix_block(
+    instrs,
+  ) ||
+  run_hot_pipeline_raw_vacuum_instrs_have_load_linked_release_prefix_child(
+    instrs,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_five_arg_allocator_release_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      body,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let has_reduced_const_call_condition = body.length() == 4 &&
+    body[1] is @lib.I32Const(_) &&
+    body[2] is @lib.Call(_)
+  let has_full_refcount_eq_condition = body.length() == 7 &&
+    body[1] is @lib.LocalGet(_) &&
+    body[2] is @lib.LocalTee(_) &&
+    body[3] is @lib.Call(_) &&
+    body[4] is @lib.I32Const(_) &&
+    body[5] is @lib.I32Eq
+  if !has_reduced_const_call_condition && !has_full_refcount_eq_condition {
+    return false
+  }
+  let prefix_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => prefix_body
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_prefix_block_starts_five_arg_call_result_local_set_release_triple(
+    prefix_body,
+  ) &&
+  run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_call_indirect_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 6 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) ||
+    !run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+      body,
+    ) {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    if !run_hot_pipeline_raw_vacuum_instr_can_prefix_side_effect_if_wrapper(
+        body[idx],
+      ) {
+      return false
+    }
+  }
+  let mut saw_local_tee = false
+  let mut saw_call_before_indirect = false
+  let mut saw_call_indirect = false
+  let mut saw_set_after_indirect = false
+  let mut saw_call_after_set = false
+  let mut previous_was_call_indirect = false
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalTee(_) => saw_local_tee = true
+      @lib.Call(_) =>
+        if saw_set_after_indirect {
+          saw_call_after_set = true
+        } else if !saw_call_indirect {
+          saw_call_before_indirect = true
+        }
+      @lib.CallIndirect(_, _) => {
+        if saw_call_before_indirect {
+          saw_call_indirect = true
+        }
+        previous_was_call_indirect = true
+        continue
+      }
+      @lib.LocalSet(_) if previous_was_call_indirect =>
+        saw_set_after_indirect = true
+      _ => ()
+    }
+    previous_was_call_indirect = false
+  }
+  saw_local_tee &&
+  saw_call_before_indirect &&
+  saw_call_indirect &&
+  saw_set_after_indirect &&
+  saw_call_after_set
 }
 
 ///|
@@ -28465,6 +41438,38 @@ fn run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_if_preserve_candidate(
     }
   }
   local_set_count >= 3 && call_count >= 4 && saw_local_tee
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_five_arg_prefix_parent_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if start_idx + 1 >= body.length() {
+    return false
+  }
+  if body[start_idx + 1] is @lib.LocalGet(_) {
+    return true
+  }
+  let non_nops : Array[@lib.Instruction] = []
+  let mut idx = start_idx + 1
+  let mut saw_nop = false
+  while idx < body.length() && non_nops.length() < 7 {
+    match body[idx] {
+      @lib.Nop => saw_nop = true
+      instr => non_nops.push(instr)
+    }
+    idx = idx + 1
+  }
+  saw_nop &&
+  non_nops.length() >= 7 &&
+  non_nops[0] is @lib.LocalGet(_) &&
+  non_nops[1] is @lib.LocalGet(_) &&
+  non_nops[2] is @lib.LocalGet(_) &&
+  non_nops[3] is @lib.Call(_) &&
+  non_nops[4] is @lib.LocalSet(_) &&
+  non_nops[5] is @lib.LocalGet(_) &&
+  non_nops[6] is @lib.Call(_)
 }
 
 ///|
@@ -28607,6 +41612,56 @@ fn run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_can_prefix_refcount_call_if_wrapper(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.If(@lib.VoidBlockType, _, _) =>
+      !run_hot_pipeline_raw_vacuum_instr_contains_unreachable(instr) &&
+      !run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(instr, 0)
+    _ =>
+      run_hot_pipeline_raw_vacuum_instr_can_prefix_side_effect_if_wrapper(instr)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_refcount_call_prefix_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 6 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) ||
+    !run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+      body,
+    ) {
+    return false
+  }
+  let mut saw_prefix_if = false
+  let mut saw_local_set = false
+  let mut call_count = 0
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    let instr = body[idx]
+    if !run_hot_pipeline_raw_vacuum_instr_can_prefix_refcount_call_if_wrapper(
+        instr,
+      ) {
+      return false
+    }
+    match instr {
+      @lib.If(@lib.VoidBlockType, _, _) => saw_prefix_if = true
+      @lib.LocalSet(_) => saw_local_set = true
+      @lib.Call(_) => call_count = call_count + 1
+      _ => ()
+    }
+  }
+  saw_prefix_if && saw_local_set && call_count >= 2
 }
 
 ///|
@@ -28954,8 +42009,679 @@ fn run_hot_pipeline_raw_vacuum_try_pop_pure_stack_expr(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_try_pop_i32_const_compare_keep_lhs(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 3 {
+    return false
+  }
+  match (instrs[instrs.length() - 2], instrs[instrs.length() - 1]) {
+    (@lib.I32Const(_), @lib.I32Eq | @lib.I32Ne) => {
+      ignore(instrs.pop())
+      ignore(instrs.pop())
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_call_returns_single_i32(
+  module_ctx : @ir.HotModuleContext?,
+  func_idx : @lib.FuncIdx,
+) -> Bool {
+  match module_ctx {
+    Some(ctx) =>
+      match @ir.hot_module_resolve_func_type(ctx, func_idx) {
+        Some(@lib.FuncType(_, [result])) => result == @lib.ValType::i32()
+        _ => false
+      }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_call_single_i32_param_count(
+  module_ctx : @ir.HotModuleContext?,
+  func_idx : @lib.FuncIdx,
+) -> Int? {
+  match module_ctx {
+    Some(ctx) =>
+      match @ir.hot_module_resolve_func_type(ctx, func_idx) {
+        Some(@lib.FuncType(params, [result])) if result == @lib.ValType::i32() =>
+          Some(params.length())
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_call_operand_value_expr_operand_count(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext?,
+) -> Int? {
+  match instr {
+    @lib.Call(func_idx) =>
+      run_hot_pipeline_raw_vacuum_call_single_i32_param_count(
+        module_ctx, func_idx,
+      )
+    @lib.LocalTee(_) => Some(1)
+    @lib.If(@lib.ValTypeBlockType(value_type), _, Some(_)) if value_type ==
+      @lib.ValType::i32() => Some(1)
+    _ => run_hot_pipeline_raw_vacuum_pure_instr_operand_count(instr)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
+  instrs : Array[@lib.Instruction],
+  end_exclusive : Int,
+  module_ctx : @ir.HotModuleContext?,
+) -> Int? {
+  if end_exclusive <= 0 {
+    return None
+  }
+  let instr = instrs[end_exclusive - 1]
+  let operand_count = match
+    run_hot_pipeline_raw_vacuum_call_operand_value_expr_operand_count(
+      instr, module_ctx,
+    ) {
+    Some(count) => count
+    None => return None
+  }
+  let mut start = end_exclusive - 1
+  let mut remaining = operand_count
+  while remaining > 0 {
+    let operand_start = match
+      run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
+        instrs, start, module_ctx,
+      ) {
+      Some(value) => value
+      None => return None
+    }
+    start = operand_start
+    remaining = remaining - 1
+  }
+  Some(start)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr_drop(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  if body.length() < 2 || !(body[body.length() - 1] is @lib.Drop) {
+    return false
+  }
+  match body[body.length() - 2] {
+    @lib.Call(func_idx) if run_hot_pipeline_raw_vacuum_call_returns_single_i32(
+        module_ctx, func_idx,
+      ) => ()
+    _ => return false
+  }
+  match
+    run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
+      body,
+      body.length() - 1,
+      module_ctx,
+    ) {
+    Some(0) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_ends_call_drop(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.length() >= 2 &&
+  body[body.length() - 2] is @lib.Call(_) &&
+  body[body.length() - 1] is @lib.Drop
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_ends_result_if_drop(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.length() >= 2 &&
+  body[body.length() - 2] is @lib.If(@lib.ValTypeBlockType(_), _, Some(_)) &&
+  body[body.length() - 1] is @lib.Drop
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_has_dropped_result_if_call_candidate(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      (
+        run_hot_pipeline_raw_vacuum_body_ends_call_drop(then_body) &&
+        run_hot_pipeline_raw_vacuum_body_ends_call_drop(else_body)
+      ) ||
+      (
+        run_hot_pipeline_raw_vacuum_body_ends_result_if_drop(then_body) &&
+        run_hot_pipeline_raw_vacuum_body_ends_result_if_drop(else_body)
+      ) ||
+      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+        then_body,
+      ) ||
+      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+        else_body,
+      )
+    @lib.If(_, then_body, Some(else_body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+        then_body,
+      ) ||
+      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+        else_body,
+      )
+    @lib.If(_, then_body, None) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+        then_body,
+      )
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+        body,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_vacuum_instr_has_dropped_result_if_call_candidate(
+        instr,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_f1259_release_update_prefix_before_terminal_call(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 7 {
+    return false
+  }
+  let (shared_raw, value_raw) = match (body[0], body[1], body[2]) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(shared_raw)),
+      @lib.I32Load(_),
+      @lib.LocalSet(@lib.LocalIdx(value_raw)),
+    ) => (shared_raw, value_raw)
+    _ => return false
+  }
+  match (body[3], body[4]) {
+    (@lib.LocalGet(@lib.LocalIdx(next_shared_raw)), @lib.Call(_)) if next_shared_raw ==
+      shared_raw => ()
+    _ => return false
+  }
+  let mut terminal_uses_value = false
+  for idx = 5; idx + 2 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalGet(@lib.LocalIdx(next_value_raw)) if next_value_raw ==
+        value_raw => terminal_uses_value = true
+      _ => ()
+    }
+  }
+  terminal_uses_value
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_only_pure_prefix_before_terminal_call_drop(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 2 {
+    return false
+  }
+  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
+    if run_hot_pipeline_raw_vacuum_pure_instr_operand_count(body[idx]) is None {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.Call(func_idx) if run_hot_pipeline_raw_vacuum_call_returns_single_i32(
+        module_ctx, func_idx,
+      ) =>
+      match
+        run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
+          body,
+          body.length(),
+          module_ctx,
+        ) {
+        Some(0) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_single_loaded_result_if_drop(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  if body.length() != 4 {
+    return false
+  }
+  match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Load(_),
+      @lib.If(@lib.ValTypeBlockType(value_type), then_body, Some(else_body)),
+      @lib.Drop,
+    ) if value_type == @lib.ValType::i32() =>
+      run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr(
+        then_body, module_ctx,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr(
+        else_body, module_ctx,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_strip_terminal_i32_call_drop(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 ||
+    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) ||
+    run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(body, 0) ||
+    run_hot_pipeline_raw_vacuum_body_has_f1259_release_update_prefix_before_terminal_call(
+      body,
+    ) {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.Drop => ()
+    _ => return None
+  }
+  let terminal_is_result_if_value_expr = match body[body.length() - 2] {
+    @lib.If(@lib.ValTypeBlockType(value_type), _, Some(_)) if value_type ==
+      @lib.ValType::i32() =>
+      match
+        run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
+          body,
+          body.length() - 1,
+          module_ctx,
+        ) {
+        Some(0) => true
+        _ => false
+      }
+    _ => false
+  }
+  let terminal_is_loaded_result_if_value_expr = run_hot_pipeline_raw_vacuum_body_is_single_loaded_result_if_drop(
+    body, module_ctx,
+  )
+  if !terminal_is_result_if_value_expr &&
+    !terminal_is_loaded_result_if_value_expr &&
+    !run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr_drop(
+      body, module_ctx,
+    ) &&
+    !run_hot_pipeline_raw_vacuum_body_has_only_pure_prefix_before_terminal_call_drop(
+      body,
+    ) {
+    return None
+  }
+  match body[body.length() - 2] {
+    @lib.Call(func_idx) if run_hot_pipeline_raw_vacuum_call_returns_single_i32(
+        module_ctx, func_idx,
+      ) => ()
+    @lib.If(@lib.ValTypeBlockType(value_type), _, Some(_)) if value_type ==
+      @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let value_body : Array[@lib.Instruction] = []
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    value_body.push(body[idx])
+  }
+  Some(value_body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_block_type_is_empty(
+  module_ctx : @ir.HotModuleContext?,
+  block_type : @lib.BlockType,
+) -> Bool {
+  match block_type {
+    @lib.VoidBlockType => true
+    @lib.ValTypeBlockType(_) => false
+    @lib.TypeIdxBlockType(type_idx) =>
+      match module_ctx {
+        Some(ctx) =>
+          match @ir.hot_module_resolve_type_func_type(ctx, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              params.is_empty() && results.is_empty()
+            None => false
+          }
+        None => false
+      }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_has_typeidx_empty_block_candidate(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(@lib.TypeIdxBlockType(_), _) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
+        body,
+      )
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
+          then_body,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
+            body,
+          )
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_vacuum_instr_has_typeidx_empty_block_candidate(
+        instr,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_empty_block_before_local_copy_continuation(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  let mut scan = idx + 1
+  while scan < instrs.length() && instrs[scan] == @lib.Instruction::nop() {
+    scan = scan + 1
+  }
+  if scan >= instrs.length() || !(instrs[scan] is @lib.LocalGet(_)) {
+    return false
+  }
+  scan = scan + 1
+  while scan < instrs.length() && instrs[scan] == @lib.Instruction::nop() {
+    scan = scan + 1
+  }
+  scan < instrs.length() && instrs[scan] is @lib.LocalSet(_)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_local_copy_child(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  match body {
+    [@lib.LocalGet(_), @lib.LocalSet(_)] => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_if_body_is_f7138_i32_div_counter_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  match non_nops {
+    [
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.I32DivU,
+      @lib.LocalSet(_),
+      @lib.LocalGet(_),
+      @lib.I32Const(_),
+      @lib.I32Add,
+      @lib.LocalSet(_),
+      @lib.Br(_),
+    ] => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_has_f6286_f6594_f6628_f6785_f7095_f7130_f7133_f7138_f7141_f7263_parser_branch_continuation(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  let mut scan = idx + 1
+  while scan < instrs.length() && instrs[scan] == @lib.Instruction::nop() {
+    scan = scan + 1
+  }
+  if scan + 1 < instrs.length() {
+    match (instrs[scan], instrs[scan + 1]) {
+      (@lib.LocalGet(_), @lib.If(@lib.VoidBlockType, then_body, _)) =>
+        if run_hot_pipeline_raw_vacuum_if_body_is_f7138_i32_div_counter_branch(
+            then_body,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  if scan + 3 >= instrs.length() {
+    return false
+  }
+  match (instrs[scan], instrs[scan + 1], instrs[scan + 2], instrs[scan + 3]) {
+    (
+      @lib.LocalGet(_),
+      @lib.I32Const(_),
+      @lib.I32GtS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.I64Const(_),
+      @lib.I64Ne,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    _ => ()
+  }
+  if scan + 4 >= instrs.length() {
+    return false
+  }
+  match
+    (
+      instrs[scan],
+      instrs[scan + 1],
+      instrs[scan + 2],
+      instrs[scan + 3],
+      instrs[scan + 4],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32GtS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32LeS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(_),
+      @lib.I32GtS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(_),
+      @lib.I32GeS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(_),
+      @lib.I32GeU,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(_),
+      @lib.I32LeS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    (
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I64Const(_),
+      @lib.I64GeU,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => return true
+    _ => ()
+  }
+  if scan + 5 < instrs.length() {
+    match
+      (
+        instrs[scan],
+        instrs[scan + 1],
+        instrs[scan + 2],
+        instrs[scan + 3],
+        instrs[scan + 4],
+        instrs[scan + 5],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.I32WrapI64,
+        @lib.LocalTee(_),
+        @lib.I32Const(_),
+        @lib.I32GeS,
+        @lib.If(@lib.VoidBlockType, _, _),
+      ) => return true
+      _ => ()
+    }
+  }
+  if scan + 6 >= instrs.length() {
+    return false
+  }
+  match
+    (
+      instrs[scan],
+      instrs[scan + 1],
+      instrs[scan + 2],
+      instrs[scan + 3],
+      instrs[scan + 4],
+      instrs[scan + 5],
+      instrs[scan + 6],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalTee(_),
+      @lib.I32Const(_),
+      @lib.I32Sub,
+      @lib.I32LeS,
+      @lib.If(@lib.VoidBlockType, _, _),
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_is_noop_ladder_condition_piece(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_) | @lib.I32Const(_) | @lib.I32Eq | @lib.I32Eqz => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_pure_noop_conditional_ladder(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  if non_nops.length() == 0 {
+    return true
+  }
+  match non_nops[non_nops.length() - 1] {
+    @lib.If(block_type, then_body, else_body) => {
+      if block_type != @lib.BlockType::void_() {
+        return false
+      }
+      for idx = 0; idx < non_nops.length() - 1; idx = idx + 1 {
+        if !run_hot_pipeline_raw_vacuum_instr_is_noop_ladder_condition_piece(
+            non_nops[idx],
+          ) {
+          return false
+        }
+      }
+      if !run_hot_pipeline_raw_vacuum_body_is_pure_noop_conditional_ladder(
+          then_body,
+        ) {
+        return false
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_body_is_pure_noop_conditional_ladder(body)
+        None => true
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean_instrs(
   instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -28975,18 +42701,102 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
         match block_type {
+          @lib.VoidBlockType if body.length() == 0 &&
+            (
+              run_hot_pipeline_raw_vacuum_instrs_have_f1895_empty_sibling_at(
+                instrs, idx,
+              ) ||
+              run_hot_pipeline_raw_vacuum_instrs_have_f2072_empty_sibling_at(
+                instrs, idx,
+              ) ||
+              run_hot_pipeline_raw_vacuum_instrs_have_f2842_empty_block_before_live_if_at(
+                instrs, idx,
+              ) ||
+              run_hot_pipeline_raw_vacuum_empty_block_before_local_copy_continuation(
+                instrs, idx,
+              )
+            ) => {
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f5138_outer_singleton_parent(
+                body, module_ctx,
+              ) {
+              Some(flattened) => {
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+                changed = true
+                idx = idx + 1
+                continue
+              }
+              None => ()
+            }
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_child_before_continuation(
+                body, module_ctx,
+              ) {
+              Some(next_body) => {
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+                )
+                changed = true
+                idx = idx + 1
+                continue
+              }
+              None => ()
+            }
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_singleton_child(
+                body, module_ctx,
+              ) {
+              Some(next_body) => {
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+                )
+                changed = true
+                idx = idx + 1
+                continue
+              }
+              None => ()
+            }
+          }
+          _ => ()
+        }
+        match block_type {
           @lib.VoidBlockType if instrs.length() == 1 &&
             run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
               body,
             ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_predicate_local_continuation_preserve_candidate(
+              body,
+            ) &&
             !run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_candidate(
+              body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_five_arg_allocator_release_prefix_if_preserve_candidate(
+              body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f1346_local_set_release_prefix_if_preserve_candidate(
+              body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f3469_const_arg_local_set_release_prefix_if_preserve_candidate(
+              body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f5138_load_linked_result_prefix_parent_preserve_candidate(
+              body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f5138_paired_result_prefix_parent_preserve_candidate(
               body,
             ) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
             let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-              rebased,
+              rebased, module_ctx,
             )
             for next_instr in clean_rebased {
               rewritten.push(next_instr)
@@ -29010,13 +42820,776 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             idx = idx + 1
             continue
           }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_result_dispatch(
+              body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_result_dispatch(
+                body,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
+              body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
+                body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
+              body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
+                body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_before_returns(
+              body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_before_returns(
+                body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_before_call_return(
+              body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_before_call_return(
+                body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5351_leading_tag_dispatch_before_zero_return(
+              body, instrs, idx,
+            ) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+            let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+              rebased, module_ctx,
+            )
+            for next_instr in clean_rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
           _ => ()
         }
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-          body,
+          body, module_ctx,
         )
         changed = changed || body_changed
         match block_type {
+          @lib.VoidBlockType if next_body.length() == 0 &&
+            run_hot_pipeline_raw_vacuum_empty_block_before_local_copy_continuation(
+              instrs, idx,
+            ) => changed = true
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_local_copy_child(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_has_f6286_f6594_f6628_f6785_f7095_f7130_f7133_f7138_f7141_f7263_parser_branch_continuation(
+              instrs, idx,
+            ) => {
+            for next_instr in next_body {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5154_retain_pair_result_before_slot_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f5184_single_retain_result_before_drop_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4493_offset4_call_result_tag1_prefix_before_allocation_return_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5032_two_release_prefix_if_parent_preserve_candidate(
+              next_body,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+              body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2850_local_copy_guard_wrapper(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2850_local_copy_guard_wrapper(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1738_loop_head_local_copy_child(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1738_loop_head_local_copy_child(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_dispatch(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_dispatch(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f3579_loop_head_local_copy_guard_wrapper(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f3579_loop_head_local_copy_guard_wrapper(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_before_local_set_branch(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_before_local_set_branch(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_continuation(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_continuation(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_stream_loop(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_stream_loop(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1963_local_set_sentinel_comparison_wrapper(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1963_local_set_sentinel_comparison_wrapper(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1948_call_tee_sentinel_branch_wrappers(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1948_call_tee_sentinel_branch_wrappers(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_prefix(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_prefix(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1148_tag_selection_wrappers_before_load_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1148_tag_selection_wrappers_before_load_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_ladder_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_ladder_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_converter_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_converter_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wrapper_before_local_set_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wrapper_before_local_set_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2905_direct_call_br_table_local_load_wrapper_before_call_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2905_direct_call_br_table_local_load_wrapper_before_call_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrapper_before_sibling_branch(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrapper_before_sibling_branch(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper_before_i64_return(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper_before_i64_return(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladder_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladder_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2320_call_tee_br_table_double_update_wrapper_before_unreachable(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2320_call_tee_br_table_double_update_wrapper_before_unreachable(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrapper(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrapper(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_drop_f1895_empty_sibling(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_drop_f1895_empty_sibling(
+                next_body,
+              ) {
+              Some(cleaned_body) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(cleaned_body),
+                  ),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_drop_f2072_empty_sibling(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_drop_f2072_empty_sibling(
+                next_body,
+              ) {
+              Some(cleaned_body) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(cleaned_body),
+                  ),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_drop_f2842_empty_block_before_live_if(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_drop_f2842_empty_block_before_live_if(
+                next_body,
+              ) {
+              Some(cleaned_body) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(cleaned_body),
+                  ),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1155_single_release_child_before_branch_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1155_single_release_child_before_branch_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_append_update(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_append_update(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_wrapper(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_wrapper(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f649_branchy_loop_dispatch_parent_wrapper_candidate(
+              next_body,
+            ) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f749_double_branchy_selection_wrapper_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_has_f749_i64_return_continuation(
+              instrs, idx,
+            ) => {
+            match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => {
+                let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                  child_body, 0,
+                )
+                let rebased_twice = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                  rebased_once, 0,
+                )
+                for next_instr in rebased_twice {
+                  rewritten.push(next_instr)
+                }
+              }
+              _ => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f749_branchy_selection(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_has_f749_i64_return_continuation(
+              instrs, idx,
+            ) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_has_top_level_nop(
+              body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_is_branchy_loop_dispatch_singleton_wrapper_candidate(
+              next_body,
+            ) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_empty_block_call_prefix_if_wrapper_candidate(
               next_body,
             ) &&
@@ -29033,10 +43606,65 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             )
             changed = true
           }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owner(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owner(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if next_body.length() == 1 &&
+            (match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                (
+                  (
+                    run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
+                      child_body,
+                    ) &&
+                    run_hot_pipeline_raw_vacuum_body_has_call_prefix_before_final_if(
+                      child_body,
+                    ) &&
+                    run_hot_pipeline_raw_vacuum_body_has_top_level_nop(body)
+                  ) ||
+                  run_hot_pipeline_raw_vacuum_body_is_refcount_call_prefix_if_wrapper_candidate(
+                    child_body,
+                  )
+                ) &&
+                !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(
+                  child_body,
+                ) &&
+                !run_hot_pipeline_raw_vacuum_body_targets_owner(child_body, 0)
+              _ => false
+            }) => {
+            match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(
+                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                        child_body, 0,
+                      ),
+                    ),
+                  ),
+                )
+              _ => ()
+            }
+            changed = true
+          }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
               next_body,
             ) &&
-            run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant_ignoring_nops(
+            run_hot_pipeline_raw_vacuum_body_has_empty_block_call_prefix_shape_ignoring_nops(
               body,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
@@ -29055,7 +43683,16 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                 run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_candidate(
                   protected_body,
                 ) ||
+                run_hot_pipeline_raw_vacuum_body_is_five_arg_allocator_release_prefix_if_preserve_candidate(
+                  protected_body,
+                ) ||
+                run_hot_pipeline_raw_vacuum_body_is_two_arg_call_local_set_prefix_if_preserve_candidate(
+                  protected_body,
+                ) ||
                 run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_parent_preserve_candidate(
+                  protected_body,
+                ) ||
+                run_hot_pipeline_raw_vacuum_body_is_f5138_paired_result_prefix_parent_preserve_candidate(
                   protected_body,
                 )
               _ => false
@@ -29091,6 +43728,24 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             run_hot_pipeline_raw_vacuum_body_is_recursive_call_prefix_if_wrapper_candidate(
               next_body,
             ) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_tag20_call_local_set_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_five_arg_allocator_release_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_five_arg_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_two_arg_call_local_set_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
@@ -29101,18 +43756,348 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             }
             changed = true
           }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f3561_load_retain_prefix_before_terminal_release_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4071_sentinel_prefix_before_allocation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4232_sentinel_prefix_before_selected_local_return_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4310_side_effect_prefix_before_accumulator_stores_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4073_call_result_tag_dispatch_before_slot_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4483_indexed_call_result_tag1_prefix_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5277_indexed_retain_before_tag_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_before_allocation_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f6113_retain_call_tag_dispatch_before_parent_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5083_selected_payload_before_conditional_handoff_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5154_retain_pair_result_before_slot_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f5184_single_retain_result_before_drop_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
               body,
             ) &&
             run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
               next_body,
             ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_before_counter_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_tag20_call_local_set_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
             !(run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_if_preserve_candidate(
               next_body,
             ) &&
             run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
               instrs, idx,
             )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_call_indirect_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reload_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reload_preserve_candidate(
+              body, instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+              body, instrs, idx,
+            )) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f3083_loop_body_release_update_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_before_allocation_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f6113_retain_call_tag_dispatch_before_parent_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_box_return(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_box_return(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call_continuation(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call_continuation(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_return(
+              next_body, instrs, idx, module_ctx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_return(
+                next_body, instrs, idx, module_ctx,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_before_renderer_continuation(
+              next_body, instrs, idx,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_before_renderer_continuation(
+                next_body, instrs, idx,
+              ) {
+              Some(flattened) =>
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4702_call_result_child_before_store_continuation(
+              next_body,
+            )
+            is Some(_) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_flatten_f4702_call_result_child_before_store_continuation(
+                next_body,
+              ) {
+              Some(flattened) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f3317_singleton_retain_allocation_loop_wrapper(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(
+                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                        child_body, 0,
+                      ),
+                    ),
+                  ),
+                )
+              _ => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f4071_load_retain_tag_dispatch_before_selected_local_branch_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f4071_sentinel_prefix_before_allocation_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f4232_sentinel_prefix_before_selected_local_return_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f4310_side_effect_prefix_before_accumulator_stores_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f4073_call_result_tag_dispatch_before_slot_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f4483_indexed_call_result_tag1_prefix_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f5277_indexed_retain_before_tag_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f6113_retain_call_tag_dispatch_before_parent_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f5154_retain_pair_result_before_slot_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f5184_single_retain_result_before_drop_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+          @lib.VoidBlockType if next_body.length() == 1 &&
+            (match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                run_hot_pipeline_raw_vacuum_body_is_tag_load_dispatch_if_wrapper_candidate(
+                  child_body,
+                ) &&
+                !run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
+                  child_body,
+                )
+              _ => false
+            }) => {
+            match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(
+                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                        child_body, 0,
+                      ),
+                    ),
+                  ),
+                )
+              _ => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_tag_load_dispatch_if_wrapper_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_before_counter_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
+              next_body,
+            ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
               next_body, 0,
@@ -29134,6 +44119,79 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             }
             changed = true
           }
+          @lib.VoidBlockType if (
+              (
+                run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_candidate(
+                  body,
+                ) &&
+                run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_candidate(
+                  next_body,
+                )
+              ) ||
+              (
+                run_hot_pipeline_raw_vacuum_body_is_indexed_call_local_set_tag_cascade_if_wrapper_candidate(
+                  body,
+                ) &&
+                run_hot_pipeline_raw_vacuum_body_is_indexed_call_local_set_tag_cascade_if_wrapper_candidate(
+                  next_body,
+                )
+              )
+            ) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_f996_tag_dispatch_parent_continuation(
+              instrs, idx,
+            )) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_wrap_load_linked_release_prefix(
+              next_body,
+            )
+            is Some(_) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            match
+              run_hot_pipeline_raw_vacuum_try_wrap_load_linked_release_prefix(
+                next_body,
+              ) {
+              Some(wrapped) =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(wrapped)),
+                )
+              None => ()
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_singleton_load_linked_local_set_call_prefix_block(
+              body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_is_singleton_load_linked_local_set_call_prefix_block(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                rewritten.push(
+                  @lib.Instruction::block(
+                    block_type,
+                    @lib.Expr::new(
+                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                        child_body, 0,
+                      ),
+                    ),
+                  ),
+                )
+              _ => ()
+            }
+            changed = true
+          }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_single_flipped_if_wrapper_candidate(
               next_body,
             ) &&
@@ -29152,6 +44210,32 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               ) ||
               run_hot_pipeline_raw_vacuum_body_is_call_tee_unreachable_if_wrapper_candidate(
                 next_body,
+              ) ||
+              run_hot_pipeline_raw_vacuum_body_is_lowered_call_tee_unreachable_if_wrapper_candidate(
+                next_body,
+              )
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          _ if run_hot_pipeline_raw_vacuum_block_type_is_empty(
+              module_ctx, block_type,
+            ) &&
+            (
+              run_hot_pipeline_raw_vacuum_body_is_unreachable_if_wrapper_candidate(
+                next_body,
+              ) ||
+              run_hot_pipeline_raw_vacuum_body_is_call_tee_unreachable_if_wrapper_candidate(
+                next_body,
+              ) ||
+              run_hot_pipeline_raw_vacuum_body_is_lowered_call_tee_unreachable_if_wrapper_candidate(
+                next_body,
               )
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
@@ -29165,6 +44249,51 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
               next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_before_counter_store_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_call_indirect_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_tag20_call_local_set_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reload_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reload_preserve_candidate(
+              body, instrs, idx,
+            )) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) ||
+            run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
+              body, instrs, idx,
+            )) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f3083_loop_body_release_update_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f4483_indexed_call_result_tag1_prefix_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f5277_indexed_retain_before_tag_continuation_preserve_candidate(
+              next_body, instrs, idx,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_before_allocation_continuation_preserve_candidate(
+              next_body, instrs, idx,
             ) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
@@ -29184,7 +44313,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-          body,
+          body, module_ctx,
         )
         changed = changed || body_changed
         rewritten.push(
@@ -29193,7 +44322,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-          body,
+          body, module_ctx,
         )
         changed = changed || body_changed
         rewritten.push(
@@ -29206,12 +44335,12 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-          then_body,
+          then_body, module_ctx,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
             let (cleaned, did_change) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-              body,
+              body, module_ctx,
             )
             (Some(cleaned), did_change)
           }
@@ -29255,12 +44384,54 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               }
               _ =>
                 match normalized_else {
-                  Some(else_body) if next_then.length() == 0 &&
-                    else_body.length() > 0 => {
-                    rewritten.push(@lib.Instruction::i32_eqz())
-                    rewritten.push(
-                      @lib.Instruction::if_(block_type, else_body, None),
+                  Some(else_body) => {
+                    if next_then.length() == 0 &&
+                      run_hot_pipeline_raw_vacuum_body_is_pure_noop_conditional_ladder(
+                        else_body,
+                      ) {
+                      rewritten.push(
+                        @lib.Instruction::if_(block_type, next_then, None),
+                      )
+                      changed = true
+                      idx = idx + 1
+                      continue
+                    }
+                    let packed_then = run_hot_pipeline_raw_vacuum_try_strip_terminal_i32_call_drop(
+                      next_then, module_ctx,
                     )
+                    let packed_else = run_hot_pipeline_raw_vacuum_try_strip_terminal_i32_call_drop(
+                      else_body, module_ctx,
+                    )
+                    match (packed_then, packed_else) {
+                      (Some(then_value), Some(else_value)) => {
+                        rewritten.push(
+                          @lib.Instruction::if_(
+                            @lib.BlockType::val_type(@lib.ValType::i32()),
+                            then_value,
+                            Some(else_value),
+                          ),
+                        )
+                        rewritten.push(@lib.Instruction::drop())
+                        changed = true
+                      }
+                      _ if next_then.length() == 0 && else_body.length() > 0 => {
+                        rewritten.push(@lib.Instruction::i32_eqz())
+                        rewritten.push(
+                          @lib.Instruction::if_(block_type, else_body, None),
+                        )
+                        changed = true
+                      }
+                      _ =>
+                        rewritten.push(
+                          @lib.Instruction::if_(
+                            block_type, next_then, normalized_else,
+                          ),
+                        )
+                    }
+                  }
+                  _ if next_then.length() == 0 &&
+                    rewritten[rewritten.length() - 1] is @lib.Call(_) => {
+                    rewritten.push(@lib.Instruction::drop())
                     changed = true
                   }
                   _ =>
@@ -29293,6 +44464,15 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               ) ||
               run_hot_pipeline_raw_vacuum_try_pop_pure_stack_expr(rewritten)
             ) => {
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.Drop if rewritten.length() > 0 &&
+            run_hot_pipeline_raw_vacuum_try_pop_i32_const_compare_keep_lhs(
+              rewritten,
+            ) => {
+            rewritten.push(@lib.Instruction::drop())
             changed = true
             idx = idx + 1
             continue
@@ -29416,6 +44596,7 @@ fn run_hot_pipeline_raw_vacuum_has_dense_nop_debris(
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
@@ -29432,14 +44613,34 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     })
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let module_ctx = if run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
+      instrs,
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+      instrs,
+    ) {
+    Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
+  } else {
+    None
+  }
   if run_hot_pipeline_raw_vacuum_has_dense_nop_debris(instrs) {
     let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-      instrs,
+      instrs, module_ctx,
     )
     if changed {
+      let final_rewritten = if run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
+          rewritten,
+        ) {
+        let (rerun, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+          rewritten, module_ctx,
+        )
+        rerun
+      } else {
+        rewritten
+      }
       return Some({
         reason: "raw-vacuum-preclean",
-        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        func: @lib.Func::new(locals, @lib.Expr::new(final_rewritten)),
         unchanged_original: false,
         trace_skip_raw: true,
       })
@@ -29466,7 +44667,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     !has_terminal_debris {
     return None
   }
-  let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
+  let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    instrs, module_ctx,
+  )
   if guarded_hot_hazard && !changed {
     return Some({
       reason: "raw-vacuum-guarded-hazard",
@@ -29486,9 +44689,19 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   if !changed {
     return None
   }
+  let final_rewritten = if run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
+      rewritten,
+    ) {
+    let (rerun, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+      rewritten, module_ctx,
+    )
+    rerun
+  } else {
+    rewritten
+  }
   Some({
     reason: "raw-vacuum-preclean",
-    func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    func: @lib.Func::new(locals, @lib.Expr::new(final_rewritten)),
     unchanged_original: false,
     trace_skip_raw: true,
   })
@@ -34164,7 +49377,9 @@ fn run_hot_pipeline_func(
       "raw:vacuum-preclean",
     )
     match
-      run_hot_pipeline_raw_vacuum_preclean(mod_, func_idx, descriptor, options) {
+      run_hot_pipeline_raw_vacuum_preclean(
+        mod_, func_idx, module_state, descriptor, options,
+      ) {
       Some(result) => {
         module_state.vacuum_raw_preclean_elapsed_us += perf_elapsed_since_start_opt(
           options.perf,
