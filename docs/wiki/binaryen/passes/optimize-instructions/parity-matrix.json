@@ -3,7 +3,7 @@
   "kind": "starshine.optimize-instructions.parity-matrix",
   "pass": "optimize-instructions",
   "binaryenVersion": "version_130",
-  "lastReviewed": "2026-07-03",
+  "lastReviewed": "2026-07-04",
   "statusVocabulary": [
     "covered",
     "mismatch",
@@ -63,7 +63,8 @@
     "docs/wiki/raw/research/1453-2026-07-04-optimize-instructions-oi-j-standalone-refgetdesc-br-on-null.md",
     "docs/wiki/raw/research/1454-2026-07-04-optimize-instructions-oi-j-standalone-refgetdesc-br-on-cast.md",
     "docs/wiki/raw/research/1455-2026-07-04-optimize-instructions-oi-j-standalone-refgetdesc-br-on-cast-fail.md",
-    "docs/wiki/raw/research/1456-2026-07-04-optimize-instructions-oi-j-reftestdesc-descriptor-bron-boundary.md"
+    "docs/wiki/raw/research/1456-2026-07-04-optimize-instructions-oi-j-reftestdesc-descriptor-bron-boundary.md",
+    "docs/wiki/raw/research/1457-2026-07-04-optimize-instructions-oi-j-inexact-subtype-exact-target-miss.md"
   ],
   "families": [
     {

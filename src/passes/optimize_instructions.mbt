@@ -12010,6 +12010,33 @@ fn optimize_instructions_ref_operand_misses_exact_target(
 }
 
 ///|
+fn optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      let source = ref_type.get_heap_type()
+      match (source, target) {
+        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
+        _ => return false
+      }
+      source != target &&
+      (ref_type.is_non_nullable() || !target_nullable) &&
+      optimize_instructions_heap_matches_target(module_ctx, source, target, 512)
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_operand_is_nullable_match_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -12364,8 +12391,13 @@ fn optimize_instructions_try_fold_ref_test_null(
       ) ||
       (
         exact &&
-        optimize_instructions_ref_operand_misses_exact_target(
-          func, operand_id, target, nullable,
+        (
+          optimize_instructions_ref_operand_misses_exact_target(
+            func, operand_id, target, nullable,
+          ) ||
+          optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+            ctx, func, operand_id, target, nullable,
+          )
         )
       ) ||
       (
@@ -12462,8 +12494,13 @@ fn optimize_instructions_try_fold_ref_cast_null(
       ) ||
       (
         exact &&
-        optimize_instructions_ref_operand_misses_exact_target(
-          func, operand_id, target, nullable,
+        (
+          optimize_instructions_ref_operand_misses_exact_target(
+            func, operand_id, target, nullable,
+          ) ||
+          optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+            ctx, func, operand_id, target, nullable,
+          )
         )
       ) ||
       (
