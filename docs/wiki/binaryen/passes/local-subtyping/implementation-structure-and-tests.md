@@ -154,6 +154,7 @@ The earlier broad structural-control list is now either implemented/protected in
 - [`../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md`](../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md)
 - [`../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md`](../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md)
 - [`../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md`](../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md)
+- [`../../../raw/research/1440-2026-07-04-local-subtyping-final-closeout-evidence.md`](../../../raw/research/1440-2026-07-04-local-subtyping-final-closeout-evidence.md)
 - Binaryen `version_129` owner: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
 - Binaryen `version_129` lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LocalSubtyping.cpp>
