@@ -11994,6 +11994,59 @@ fn optimize_instructions_ref_operand_matches_exact_test_target(
 }
 
 ///|
+fn optimize_instructions_heap_is_final(
+  module_ctx : @ir.HotModuleContext,
+  heap : @lib.HeapType,
+) -> Bool {
+  match heap {
+    @lib.HeapType::HeapType(type_idx) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+        Some(@lib.CompTypeSubType(_, _)) => true
+        Some(@lib.SubType(true, _, _, _)) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_ref_operand_has_final_heap(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] =>
+      ref_type.get_heap_type() == target &&
+      optimize_instructions_heap_is_final(module_ctx, target)
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_ref_operand_matches_final_exact_test_target(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] =>
+      (target_nullable || ref_type.is_non_nullable()) &&
+      optimize_instructions_ref_operand_has_final_heap(
+        ctx, func, node_id, target,
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_operand_misses_exact_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -12402,6 +12455,9 @@ fn optimize_instructions_try_fold_ref_test_null(
         not(exact) ||
         optimize_instructions_ref_operand_has_exact_heap(
           func, operand_id, target,
+        ) ||
+        optimize_instructions_ref_operand_has_final_heap(
+          ctx, func, operand_id, target,
         )
       ) &&
       optimize_instructions_ref_operand_is_nullable_match_for_target(
@@ -12421,16 +12477,25 @@ fn optimize_instructions_try_fold_ref_test_null(
       )
       true
     }
-    _ if optimize_instructions_ref_is_known_match_for_target(
-        func, operand_id, target,
-      ) ||
-      (
-        exact &&
-        optimize_instructions_ref_operand_matches_exact_test_target(
-          func, operand_id, target, nullable,
+    _ if (
+        not(exact) &&
+        optimize_instructions_ref_is_known_match_for_target(
+          func, operand_id, target,
         )
       ) ||
       (
+        exact &&
+        (
+          optimize_instructions_ref_operand_matches_exact_test_target(
+            func, operand_id, target, nullable,
+          ) ||
+          optimize_instructions_ref_operand_matches_final_exact_test_target(
+            ctx, func, operand_id, target, nullable,
+          )
+        )
+      ) ||
+      (
+        not(exact) &&
         nullable &&
         optimize_instructions_ref_is_known_match_for_nullable_target(
           func, operand_id, target,

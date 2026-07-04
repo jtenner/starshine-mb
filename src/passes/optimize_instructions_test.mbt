@@ -8343,8 +8343,9 @@ test "optimize-instructions folds exact ref.test on already exact operands" {
   // OI-J exactness positive: Binaryen version_130 folds
   // `ref.test (ref (exact $a))` to true when the tested value is already an
   // exact `$a`, preserving effectful producers as dropped operands. Binaryen
-  // also folds the non-null same-heap inexact local predicate to true here,
-  // unlike exact ref.cast where the runtime trap must remain fail-closed.
+  // also folds the non-null same-heap inexact local predicate to true here when
+  // the heap is final, unlike exact ref.cast where Binaryen keeps the runtime
+  // cast/proof.
   let foo_type = @lib.TypeIdx::new(0U)
   let pure_func_type = @lib.TypeIdx::new(1U)
   let effectful_func_type = @lib.TypeIdx::new(1U)
@@ -8360,7 +8361,7 @@ test "optimize-instructions folds exact ref.test on already exact operands" {
     .with_type_sec(
       @lib.TypeSec::new([
         @lib.RecType::new(
-          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+          @lib.SubType::new(true, [], @lib.CompType::struct_([])),
         ),
         @lib.RecType::new(
           @lib.SubType::comp_type(
@@ -8711,6 +8712,189 @@ test "optimize-instructions folds exact ref.test and ref.cast misses on inexact 
   assert_true(
     effect_cast_pretty.contains("unreachable"),
     msg=effect_cast_pretty,
+  )
+}
+
+///|
+test "optimize-instructions keeps non-final inexact exact ref.test checks" {
+  // OI-J exactness/useful-type-info boundary: an inexact reference to a
+  // non-final heap can hold a future strict-subtype value, so `ref.test` against
+  // the exact same heap is not definitely true. Binaryen version_130 keeps the
+  // predicate for explicit non-final `(sub ...)` heaps; the successful exact
+  // same-heap fold is valid only when the source is already exact or the heap is
+  // final.
+  let open_type = @lib.TypeIdx::new(0U)
+  let test_func_type = @lib.TypeIdx::new(1U)
+  let open_heap = @lib.HeapType::new(open_type)
+  let exact_open_ref_type = @lib.RefType::new(false, open_heap, exact=true)
+  let inexact_open_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, open_heap),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([inexact_open_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(exact_open_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.test"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions folds final heap exact ref.test matches" {
+  // OI-J exactness/useful-type-info slice: Binaryen version_130 treats an
+  // inexact reference to a final heap as exact for `ref.test` because no
+  // concrete strict subtype can exist. Non-null final operands tested against a
+  // non-null exact target and nullable final operands tested against a nullable
+  // exact target fold to true; effectful operands are still evaluated before the
+  // constant. Nullable final operands tested against a non-null exact target
+  // keep only the null check. Exact `ref.cast` is deliberately not widened here
+  // because Binaryen keeps final-heap exact casts.
+  let final_type = @lib.TypeIdx::new(0U)
+  let nonnull_test_func_type = @lib.TypeIdx::new(1U)
+  let nullable_test_func_type = @lib.TypeIdx::new(2U)
+  let final_heap = @lib.HeapType::new(final_type)
+  let nonnull_final_ref_type = @lib.RefType::new(false, final_heap, exact=true)
+  let nullable_final_ref_type = @lib.RefType::new(true, final_heap, exact=true)
+  let nonnull_final_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, final_heap),
+  )
+  let nullable_final_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, final_heap),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(
+            true,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nonnull_final_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_final_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        nonnull_test_func_type, nullable_test_func_type, nullable_test_func_type,
+        nullable_test_func_type,
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(nonnull_final_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(nullable_final_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_final_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_test_type(nullable_final_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(nonnull_final_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let nullable_to_nonnull_pretty = optimized.pretty_print_func(
+    @lib.FuncIdx::new(3U),
+  )
+  assert_false(nonnull_pretty.contains("ref.test"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("I32(1)"), msg=nonnull_pretty)
+  assert_false(nullable_pretty.contains("ref.test"), msg=nullable_pretty)
+  assert_true(nullable_pretty.contains("I32(1)"), msg=nullable_pretty)
+  assert_false(effect_pretty.contains("ref.test"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("global.set"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("I32(1)"), msg=effect_pretty)
+  assert_false(
+    nullable_to_nonnull_pretty.contains("ref.test"),
+    msg=nullable_to_nonnull_pretty,
+  )
+  assert_true(
+    nullable_to_nonnull_pretty.contains("ref.null"),
+    msg=nullable_to_nonnull_pretty,
   )
 }
 
