@@ -11660,6 +11660,129 @@ fn optimize_instructions_abs_struct_array_disjoint(
 }
 
 ///|
+fn optimize_instructions_concrete_comptype_matches_abs(
+  comp : @lib.CompType,
+  abs : @lib.AbsHeapType,
+) -> Bool {
+  match comp {
+    @lib.StructCompType(_) =>
+      abs == @lib.AbsHeapType::struct_() ||
+      abs == @lib.AbsHeapType::eq() ||
+      abs == @lib.AbsHeapType::any()
+    @lib.ArrayCompType(_) =>
+      abs == @lib.AbsHeapType::array() ||
+      abs == @lib.AbsHeapType::eq() ||
+      abs == @lib.AbsHeapType::any()
+    @lib.FuncCompType(_, _) =>
+      abs == @lib.AbsHeapType::func() || abs == @lib.AbsHeapType::any()
+  }
+}
+
+///|
+fn optimize_instructions_heap_matches_target(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  if fuel <= 0 {
+    return false
+  }
+  match (source, target) {
+    (
+      @lib.HeapType::AbsHeapTypeHeapType(source_abs),
+      @lib.HeapType::AbsHeapTypeHeapType(target_abs),
+    ) =>
+      source_abs == target_abs ||
+      (
+        source_abs == @lib.AbsHeapType::i31() &&
+        optimize_instructions_ref_i31_matches_target(target)
+      ) ||
+      optimize_instructions_abs_struct_array_matches_target(source, target) ||
+      (
+        source_abs == @lib.AbsHeapType::eq() &&
+        target_abs == @lib.AbsHeapType::any()
+      ) ||
+      (
+        source_abs == @lib.AbsHeapType::func() &&
+        target_abs == @lib.AbsHeapType::any()
+      )
+    (@lib.HeapType::HeapType(source_idx), _) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+        Some(subtype) =>
+          optimize_instructions_subtype_heap_matches_target(
+            module_ctx,
+            subtype,
+            target,
+            fuel - 1,
+          )
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_subtype_heap_matches_target(
+  module_ctx : @ir.HotModuleContext,
+  subtype : @lib.SubType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if fuel <= 0 {
+    return false
+  }
+  let (_, supers, comp) = match subtype {
+    @lib.CompTypeSubType(_, comp) => (false, [], comp)
+    @lib.SubType(is_final, supers, _, comp) => (is_final, supers, comp)
+  }
+  match target {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
+      if optimize_instructions_concrete_comptype_matches_abs(comp, abs) {
+        return true
+      }
+    _ => ()
+  }
+  for super_idx in supers {
+    if optimize_instructions_heap_matches_target(
+        module_ctx,
+        @lib.HeapType::new(super_idx),
+        target,
+        fuel - 1,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_concrete_final_source_misses_target(
+  module_ctx : @ir.HotModuleContext?,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  let ctx = match module_ctx {
+    Some(ctx) => ctx
+    None => return false
+  }
+  match source {
+    @lib.HeapType::HeapType(source_idx) =>
+      match @ir.hot_module_resolve_subtype(ctx, source_idx) {
+        Some(@lib.SubType(true, _, _, _)) | Some(@lib.CompTypeSubType(_, _)) =>
+          not(
+            optimize_instructions_heap_matches_target(ctx, source, target, 512),
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_local_heap_type(
   func : @ir.HotFunc,
   node_id : Int,
@@ -11698,6 +11821,7 @@ fn optimize_instructions_ref_local_heaps_are_impossible_equal(
 
 ///|
 fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   target : @lib.HeapType,
@@ -11715,6 +11839,11 @@ fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
           optimize_instructions_abs_struct_array_disjoint(
             ref_type.get_heap_type(),
             target,
+          ) ||
+          optimize_instructions_concrete_final_source_misses_target(
+            ctx.module_ctx,
+            ref_type.get_heap_type(),
+            target,
           )
         _ => false
       }
@@ -11724,6 +11853,7 @@ fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
 
 ///|
 fn optimize_instructions_ref_is_known_miss_for_target(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   target : @lib.HeapType,
@@ -11741,6 +11871,11 @@ fn optimize_instructions_ref_is_known_miss_for_target(
               optimize_instructions_ref_i31_cannot_match_target(target)
             ) ||
             optimize_instructions_abs_struct_array_disjoint(
+              ref_type.get_heap_type(),
+              target,
+            ) ||
+            optimize_instructions_concrete_final_source_misses_target(
+              ctx.module_ctx,
               ref_type.get_heap_type(),
               target,
             )
@@ -12204,15 +12339,16 @@ fn optimize_instructions_try_fold_ref_test_null(
       true
     }
     _ if optimize_instructions_ref_is_known_miss_for_target(
-        func, operand_id, target,
+        ctx, func, operand_id, target,
       ) ||
       (
         not(nullable) &&
         optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
-          func, operand_id, target,
+          ctx, func, operand_id, target,
         )
       ) => {
-      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+      if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+        optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
           func,
@@ -12295,15 +12431,16 @@ fn optimize_instructions_try_fold_ref_cast_null(
       true
     }
     _ if optimize_instructions_ref_is_known_miss_for_target(
-        func, operand_id, target,
+        ctx, func, operand_id, target,
       ) ||
       (
         not(nullable) &&
         optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
-          func, operand_id, target,
+          ctx, func, operand_id, target,
         )
       ) =>
-      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+      if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+        optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
         optimize_instructions_replace_with_unreachable(ctx, func, node_id)
         true
       } else {
