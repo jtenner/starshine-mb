@@ -13951,6 +13951,45 @@ fn optimize_instructions_try_replace_ref_cast_unreachable_operand(
 }
 
 ///|
+fn optimize_instructions_try_remove_ref_as_non_null_local_write_trap_check(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+    _ => return false
+  }
+  if node.child_count != 1 {
+    return false
+  }
+  let local_type = match @ir.hot_local_type(func, node.imm0) {
+    Some(ty) => ty
+    None => return false
+  }
+  let non_null_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, non_null_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, non_null_id) != 1 {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, non_null_id, 0)
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
+    [ty] if ty == local_type => ()
+    _ => return false
+  }
+  @ir.hot_child_set(func, node_id, 0, operand_id)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_ref_as_non_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -16025,6 +16064,10 @@ fn optimize_instructions_visit_node(
           }
         }
       }
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      optimize_instructions_try_remove_ref_as_non_null_local_write_trap_check(
+        ctx, func, node_id,
+      )
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
     @ir.HotOp::Drop =>

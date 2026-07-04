@@ -8572,6 +8572,61 @@ test "optimize-instructions folds exact ref.test and ref.cast misses on exact su
 }
 
 ///|
+test "optimize-instructions removes local ref.as_non_null sets under trap-ignoring modes" {
+  // OI-J trap-mode slice: Binaryen version_130 default mode preserves the
+  // implicit null trap in `local.set $x (ref.as_non_null (local.get $x))`, but
+  // both `--ignore-implicit-traps` and `--traps-never-happen` erase the null
+  // check because the target local is nullable and accepts the original value.
+  // This is deliberately limited to local.set/local.tee-compatible children and
+  // does not claim broader ref.as_non_null result-context rewriting.
+  let source =
+    #|(module
+    #|  (func (param $x anyref)
+    #|    (local.set $x (ref.as_non_null (local.get $x)))))
+    #|
+  let default_optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected default ref.as_non_null probe success, got \{err}")
+  }
+  let default_pretty = default_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(default_pretty.contains("ref.as_non_null"), msg=default_pretty)
+
+  let iit_optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(ignore_implicit_traps=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected IIT ref.as_non_null probe success, got \{err}")
+  }
+  let iit_pretty = iit_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(iit_pretty.contains("ref.as_non_null"), msg=iit_pretty)
+  optimize_instructions_assert_strings_in_order(iit_pretty, [
+    "local.get", "local.set",
+  ])
+
+  let tnh_optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected TNH ref.as_non_null probe success, got \{err}")
+  }
+  let tnh_pretty = tnh_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(tnh_pretty.contains("ref.as_non_null"), msg=tnh_pretty)
+  optimize_instructions_assert_strings_in_order(tnh_pretty, [
+    "local.get", "local.set",
+  ])
+}
+
+///|
 test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
   // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
   // two-operand descriptor equality casts under `--enable-custom-descriptors`
