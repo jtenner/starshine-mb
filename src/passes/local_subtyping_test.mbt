@@ -2202,13 +2202,16 @@ test "local-subtyping accepts try_table return_call_ref before unreachable tail 
 }
 
 ///|
-test "local-subtyping boundary no-ops catch_ref skipped block write until handler flow is represented" {
-  // Boundary: local Binaryen v130 narrows this residual to a nullable exact
-  // child local, but Starshine HOT lifting aborts on this catch_ref result-flow
-  // shape today. Keep the pass fail-closed and non-crashing until the handler
-  // payload/post-state representation supports a parity implementation.
+test "local-subtyping narrows catch_ref skipped block write to nullable exact" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_exact_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
   )
   let exn_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
@@ -2226,7 +2229,7 @@ test "local-subtyping boundary no-ops catch_ref skipped block write until handle
           [@lib.Catch::ref_(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U))],
           @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
         ),
-        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::struct_new_default(@lib.TypeIdx::new(1U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
         @lib.Instruction::ref_null_type(noexn_nullable),
       ]),
@@ -2240,24 +2243,27 @@ test "local-subtyping boundary no-ops catch_ref skipped block write until handle
     Ok(mod_) => mod_
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
-  @debug.assert_eq(ls_test_first_body_local(optimized), base_nullable)
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_exact_nullable)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected catch_ref skipped-write fail-closed fallback to validate, got \{err}",
+        "expected catch_ref skipped-write nullable exact narrowing to validate, got \{err}",
       )
   }
 }
 
 ///|
-test "local-subtyping boundary no-ops catch_all_ref skipped block write until handler flow is represented" {
-  // Boundary: local Binaryen v130 narrows this residual to a nullable exact
-  // child local, but Starshine HOT lifting aborts on this catch_all_ref
-  // result-flow shape today. Keep the pass fail-closed and non-crashing until
-  // the handler payload/post-state representation supports parity.
+test "local-subtyping narrows catch_all_ref skipped block write to nullable exact" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_exact_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
   )
   let exn_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
@@ -2275,7 +2281,7 @@ test "local-subtyping boundary no-ops catch_all_ref skipped block write until ha
           [@lib.Catch::all_ref(@lib.LabelIdx::new(0U))],
           @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
         ),
-        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::struct_new_default(@lib.TypeIdx::new(1U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
         @lib.Instruction::ref_null_type(noexn_nullable),
       ]),
@@ -2289,12 +2295,12 @@ test "local-subtyping boundary no-ops catch_all_ref skipped block write until ha
     Ok(mod_) => mod_
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
-  @debug.assert_eq(ls_test_first_body_local(optimized), base_nullable)
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_exact_nullable)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected catch_all_ref skipped-write fail-closed fallback to validate, got \{err}",
+        "expected catch_all_ref skipped-write nullable exact narrowing to validate, got \{err}",
       )
   }
 }
