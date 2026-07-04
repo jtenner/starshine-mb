@@ -125,7 +125,7 @@ The active Starshine tests are small but meaningful.
 This page is not a claim of full Binaryen parity.
 The 2026-07-04 behavior-family matrix reduced the remaining owner/test-map gaps to precise residuals:
 
-- focused EH `catch_ref` / `catch_all_ref` handler-flow and handler post-state local-declaration probes/classification;
+- `catch_ref` / `catch_all_ref` handler-result and skipped-write post-state local-flow parity, currently guarded by fail-closed tests because Starshine HOT lifting cannot yet represent the ref-catch result-flow shapes that Binaryen v130 narrows to nullable exact-child locals;
 - the direct block-return nondefaultable-local unreachable-tail validator/tooling boundary;
 - the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary.
 
@@ -135,6 +135,7 @@ The earlier broad structural-control list is now either implemented/protected in
 
 ## Sources
 
+- [`../../../raw/research/1436-2026-07-04-local-subtyping-ref-catch-handler-flow.md`](../../../raw/research/1436-2026-07-04-local-subtyping-ref-catch-handler-flow.md)
 - [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md)
 - [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md)
 - [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md)

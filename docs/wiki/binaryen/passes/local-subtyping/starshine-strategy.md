@@ -113,7 +113,7 @@ Implemented or protected for the active v0.1.0 audit scope:
 
 Starshine still lacks three precise Binaryen-relevant surfaces:
 
-1. focused EH catch-ref/catch-all-ref handler and handler post-state local-flow probes/classification;
+1. `catch_ref` / `catch_all_ref` handler-result and skipped-write post-state local-flow parity: Binaryen v130 narrows the probed skipped-write shapes to nullable exact-child locals, but Starshine currently fail-closes before HOT lifting those ref-catch result-flow modules;
 2. a validator/tooling solution for the direct block-return nondefaultable-local unreachable-tail family;
 3. a validator/tooling solution for the raw-unreachable-before-write nondefaultable-local tee/get family exposed by Binaryen's retag lit shape.
 
@@ -125,7 +125,7 @@ So the right mental model is:
 
 - **active pass**: yes;
 - **many direct behavior families protected**: yes;
-- **full Binaryen parity**: no, because refinalization, EH handler flow, and two validator/tooling boundaries remain open.
+- **full Binaryen parity**: no, because ref-catch handler-flow remains a precise representation/tooling blocker and two nondefaultable-local validator/tooling boundaries remain open.
 
 ## Validation posture
 
@@ -143,7 +143,7 @@ The newest LS audit slices add focused coverage for direct `local.tee` assignmen
 
 The next full-contract parity tests should cover:
 
-1. EH `catch_ref` / `catch_all_ref` local-flow probes that decide whether handler payload and handler post-state remain nullable boundaries or need a new safe subset;
+1. EH `catch_ref` / `catch_all_ref` local-flow implementation once Starshine can HOT-lift or otherwise analyze ref-catch result-flow shapes; match Binaryen's nullable exact-child narrowing for skipped post-catch writes and keep broad catch-payload joins broad;
 2. the direct block-return nondefaultable-local validator/tooling boundary once Starshine validation can prove Binaryen's unreachable-tail shape;
 3. the raw-unreachable-before-write nondefaultable-local validator/tooling boundary once Starshine validation can prove Binaryen's tee/get retag lit shape;
 4. keeping the ordered GC/local neighborhood residual precisely routed. The raw ordered attempt `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-20260703` for `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` timed out after 3600s with only `200` partial cases (`18` matches, `182` mismatches), but the cleanup-normalized rerun `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-local-cleanup-20260704` compared `10000/10000` with zero failures under `--normalize local-cleanup-debris`. Treat this as a downstream local-cleanup representation owner with LS reopening criteria rather than a broad hidden LS blocker.
