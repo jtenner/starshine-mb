@@ -2146,6 +2146,21 @@ fn typecheck_ref_cast_desc_eq_descriptor_matches(
 }
 
 ///|
+fn typecheck_ref_cast_desc_eq_maybe_descriptor_operand(
+  descriptor : RefType,
+  env : Env,
+) -> Bool {
+  match env.resolve_heaptype_subtype(descriptor.get_heap_type()) {
+    Some(st) =>
+      match st.describes_type() {
+        Some(_) => true
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
 fn typecheck_ref_cast_desc_eq(
   st : TcState,
   nullable : Bool,
@@ -2186,17 +2201,20 @@ fn typecheck_ref_cast_desc_eq(
         match rt_in_opt {
           None => ()
           Some(rt_in) =>
-            if !descriptor_compatible(rt, rt_in, st.env) {
+            if !typecheck_ref_test_or_cast_types_compatible(rt, rt_in, st.env) {
               return Err("ref.cast_desc_eq target does not match operand type")
             }
         }
         Ok(st2.push1(ValType::ref_type(rt)))
       } else {
+        if typecheck_ref_cast_desc_eq_maybe_descriptor_operand(first, st.env) {
+          return Err("ref.cast_desc_eq target does not match operand type")
+        }
         // Compatibility with Starshine's older one-operand descriptor-cast
         // surface. Current custom-descriptor binaries put the descriptor
         // operand on top of the inspected reference; locally built legacy
         // fixtures still model only the inspected reference.
-        if !descriptor_compatible(rt, first, st.env) {
+        if !typecheck_ref_test_or_cast_types_compatible(rt, first, st.env) {
           return Err("ref.cast_desc_eq target does not match operand type")
         }
         Ok(st1.push1(ValType::ref_type(rt)))
@@ -7457,6 +7475,57 @@ test "Typecheck exact RefCastDescEq accepts inexact descriptor operand" {
       RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
     ),
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast_desc_eq_type(
+      RefType::new(true, HeapType::new(TypeIdx::new(0U)), exact=true),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(true, HeapType::new(TypeIdx::new(0U)), exact=true),
+    ),
+  ])
+}
+
+///|
+test "Typecheck exact RefCastDescEq accepts nullable strict-subtype operands" {
+  // OI-J descriptor exactness validation: Binaryen and wasm-tools accept a
+  // nullable strict-subtype reference operand for an exact nullable supertype
+  // descriptor cast. Non-null subtype values may trap at runtime, while null can
+  // still pass the nullable target, so final validation must not reject the
+  // Binaryen-shaped exactified cast.
+  let base = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
+  )
+  let base_descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+  )
+  let subtype = SubType::new(
+    false,
+    [TypeIdx::new(0U)],
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(3U))),
+  )
+  let subtype_descriptor = SubType::new(
+    false,
+    [TypeIdx::new(1U)],
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(2U))),
+  )
+  let env = Env::{
+    ..empty_env(),
+    global_types: [base, base_descriptor, subtype, subtype_descriptor],
+  }
+  let state = make_state(env, [
+    ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(2U)))),
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(1U)), exact=true),
+    ),
   ])
   let result = Typecheck::typecheck(
     Instruction::ref_cast_desc_eq_type(

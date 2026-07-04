@@ -10002,6 +10002,104 @@ test "optimize-instructions rewrites exact-result descriptor cast misses before 
 }
 
 ///|
+test "optimize-instructions exactifies nullable descriptor casts on strict-subtype operands before final validation" {
+  // OI-J descriptor exactness validation slice: Binaryen version_130 rewrites a
+  // nullable descriptor equality cast fed by a nullable strict-subtype operand
+  // plus a fresh exact descriptor for the supertype to `ref.cast_desc_eq (ref
+  // null (exact $base))`. Non-null subtype values still trap and null still
+  // passes; the public Starshine pipeline must accept the exactified cast during
+  // final validation instead of failing after the optimizer does the Binaryen
+  // rewrite. Effectful operands, TNH/IIT, ref.test_desc, and descriptor BrOn
+  // remain out of scope.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let sub_heap = @lib.HeapType::new(subtype)
+  let nullable_base_ref_type = @lib.RefType::new(true, base_heap)
+  let nullable_sub_ref_type = @lib.RefType::new(true, sub_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::ref_type(nullable_sub_ref_type)],
+              [@lib.ValType::ref_type(nullable_base_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(module_, HotPipelineOptions::new(), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nullable strict-subtype descriptor cast to exactify and validate, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  assert_true(pretty.contains("Exact"), msg=pretty)
+}
+
+///|
 test "optimize-instructions exactifies nullable descriptor casts with exact descriptor operands" {
   // OI-J descriptor exactness breadth: Binaryen version_130 rewrites a nullable
   // descriptor equality cast fed by an inexact nullable reference plus an exact
