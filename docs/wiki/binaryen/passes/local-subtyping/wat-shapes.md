@@ -826,7 +826,7 @@ Before:
 (drop (local.get $x))
 ```
 
-Binaryen v130 narrows this direct-return shape to non-null child and the Binaryen output validates with `wasm-tools`, but current Starshine keeps the local nullable:
+Binaryen v130 narrows this direct-return shape to non-null child, but a 2026-07-04 refresh showed the reduced Binaryen output is rejected by `wasm-tools validate --features all` with `uninitialized local: 1`. Current Starshine keeps the local nullable and emits a validating module:
 
 ```wat
 (local $x (ref null $A))
@@ -834,9 +834,9 @@ Binaryen v130 narrows this direct-return shape to non-null child and the Binarye
 
 Why Starshine stays nullable for now:
 
-- the later get is syntactically after a direct `return`, so Binaryen can rely on unreachable-path reasoning;
-- Starshine's current validation pass does not yet prove that unreachable post-return `local.get` uses of non-defaultable locals are initialized;
-- this is a precise representation/tooling blocker, not an accepted semantic win: reopen when Starshine validation models Binaryen's unreachable non-defaultable-local proof or when the LS pass can safely repair/avoid those unreachable gets.
+- the later get is syntactically after a direct `return`, so Binaryen performs unreachable-path narrowing that current validators reject for non-defaultable locals;
+- Starshine validation now has focused boundary coverage for the reduced non-null output shape in `validate_module rejects direct block-return non-defaultable unreachable-tail local get`;
+- this is a precise representation/tooling blocker, not an accepted semantic win: reopen when the reduced non-null output validates, when Starshine validation intentionally adopts a spec-backed proof for this shape, or when LS can safely repair/avoid the unreachable get.
 
 ## Shape 7: loop bodies can preserve entry domination
 

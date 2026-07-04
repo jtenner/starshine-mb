@@ -108,13 +108,13 @@ Implemented or protected for the active v0.1.0 audit scope:
 - body-local assignment LUB narrowing, conservative no-rewrite behavior for non-reference/nondefaultable shapes, and parameter preservation;
 - straight-line and same-scope non-null dominance;
 - unnamed/branch-free block, loop-entry, nested-if, root-if, terminal-branch, return/tail-call/throw/throw_ref, unreachable-tail, and try-body dominated-get subsets that have focused coverage;
-- source/probe-backed nullable fallbacks for named/branch-flow block post-state, branch-skipped writes, loop writes before outside gets, all-arm `if` writes before outside gets, try-body writes before outside gets, and the direct block-return validator/tooling boundary;
+- source/probe-backed nullable fallbacks for named/branch-flow block post-state, branch-skipped writes, loop writes before outside gets, all-arm `if` writes before outside gets, try-body writes before outside gets, and the direct block-return validator/tooling boundary, whose reduced Binaryen non-null output is currently rejected by `wasm-tools` and Starshine validation;
 - cleanup-normalized routing for the direct wasm-smith unreachable-control debris and ordered-neighborhood local-cleanup residuals.
 
 Starshine still lacks three precise Binaryen-relevant surfaces:
 
 1. `catch_ref` / `catch_all_ref` handler-result and skipped-write post-state local-flow parity: Binaryen v130 narrows the probed skipped-write shapes to nullable exact-child locals, but Starshine currently fail-closes before HOT lifting those ref-catch result-flow modules;
-2. a validator/tooling solution for the direct block-return nondefaultable-local unreachable-tail family;
+2. a validator/tooling solution or validating Binaryen output repair for the direct block-return nondefaultable-local unreachable-tail family;
 3. a validator/tooling solution for the raw-unreachable-before-write nondefaultable-local tee/get family exposed by Binaryen's retag lit shape.
 
 The represented zero-param adjacent-local-get `multiple-iterations-refinalize-call-ref` and bottom-call-ref lit surfaces are now implemented. Reopen `call_ref` refinalization for non-adjacent target flow, parameterized bottom-call replacement, argument side-effect preservation, or type-immediate rewrites with non-identical params.
