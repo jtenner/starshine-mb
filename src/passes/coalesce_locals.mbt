@@ -280,6 +280,100 @@ fn cl_instrs_have_local_tee(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn cl_mark_syntactic_local_accesses(
+  instrs : Array[@lib.Instruction],
+  accessed : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        cl_mark_syntactic_local_accesses(body, accessed)
+      @lib.If(_, then_body, else_body) => {
+        cl_mark_syntactic_local_accesses(then_body, accessed)
+        match else_body {
+          Some(body) => cl_mark_syntactic_local_accesses(body, accessed)
+          None => ()
+        }
+      }
+      @lib.LocalGet(local_idx)
+      | @lib.LocalSet(local_idx)
+      | @lib.LocalTee(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < accessed.length() {
+          accessed[raw] = true
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn cl_rewrite_loop_func_unused_locals(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite {
+  let @lib.Func(body_locals, body) = func
+  let types = cl_all_local_types(params, body_locals)
+  let total_locals = types.length()
+  let @lib.Expr(original_instrs) = body
+  let accessed = Array::make(total_locals, false)
+  cl_mark_syntactic_local_accesses(original_instrs, accessed)
+  let old_to_new = Array::make(total_locals, -1)
+  let slot_types : Array[@lib.ValType] = []
+  for idx = 0; idx < params.length(); idx = idx + 1 {
+    old_to_new[idx] = idx
+    slot_types.push(types[idx])
+  }
+  let mut changed = false
+  for idx = params.length(); idx < total_locals; idx = idx + 1 {
+    let ty = types[idx]
+    if accessed[idx] {
+      let next_idx = slot_types.length()
+      old_to_new[idx] = next_idx
+      slot_types.push(ty)
+      if next_idx != idx {
+        changed = true
+      }
+    } else {
+      let mut slot = -1
+      for candidate = 0
+          candidate < slot_types.length()
+          candidate = candidate + 1 {
+        if slot_types[candidate] == ty {
+          slot = candidate
+          break
+        }
+      }
+      if slot < 0 {
+        slot = slot_types.length()
+        slot_types.push(ty)
+      }
+      old_to_new[idx] = slot
+      if slot != idx {
+        changed = true
+      }
+    }
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
+    body_slot_types.push(slot_types[slot])
+  }
+  let rewritten_locals = @lib.Locals::from_types(body_slot_types)
+  if !changed && rewritten_locals == body_locals {
+    return { func, changed: false }
+  }
+  let rewritten_instrs = original_instrs.copy()
+  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
+  {
+    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+    changed: true,
+  }
+}
+
+///|
 fn cl_rewrite_all_local_idxs_in_place(
   instrs : Array[@lib.Instruction],
   old_to_new : Array[Int],
@@ -351,13 +445,6 @@ fn cl_rewrite_func_structured_conservative(
     params.length(),
   )
   cl_add_plain_live_interferences(actions, liveness, interferences)
-  for local_idx = params.length()
-      local_idx < total_locals
-      local_idx = local_idx + 1 {
-    for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
-      cl_add_interference(interferences, local_idx, param_idx)
-    }
-  }
   let weights = cl_copy_weights(actions, total_locals)
   let coloring = cl_pick_coloring(
     types,
@@ -1078,7 +1165,7 @@ fn cl_rewrite_func(
   // enough for loops, and structured local.tee values can be carried through
   // paths that look non-overlapping in the action stream.
   if cl_instrs_have_loop_control(original_instrs) {
-    return { func, changed: false }
+    return cl_rewrite_loop_func_unused_locals(func, params)
   }
   let has_structured_control = cl_instrs_have_structured_control(
     original_instrs,
