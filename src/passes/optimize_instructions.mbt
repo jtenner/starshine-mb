@@ -12136,6 +12136,28 @@ fn optimize_instructions_replace_ref_cast_with_ref_as_non_null(
 }
 
 ///|
+fn optimize_instructions_replace_ref_cast_with_nullref_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_id : Int,
+) -> Bool {
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let nullref = @lib.ValType::ref_null(none_heap)
+  let temp = @ir.hot_build_heap(
+    func,
+    [nullref],
+    @lib.Instruction::ref_cast_type(@lib.RefType::new(true, none_heap)),
+    [operand_id],
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_narrow_null_cast_boundary_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -12513,6 +12535,13 @@ fn optimize_instructions_try_fold_ref_cast_null(
         func, operand_id, target,
       ) =>
       optimize_instructions_replace_ref_cast_with_ref_as_non_null(
+        ctx, func, node_id, operand_id,
+      )
+    _ if exact &&
+      optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
+        ctx, func, operand_id, target, nullable,
+      ) =>
+      optimize_instructions_replace_ref_cast_with_nullref_cast(
         ctx, func, node_id, operand_id,
       )
     _ if (
