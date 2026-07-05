@@ -13772,22 +13772,27 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
       func, operand_id,
     ) ||
     optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+  let ref_operand_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
+    func, operand_id,
+  )
+  let descriptor_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
+    func, descriptor_id,
+  )
   if descriptor_can_erase && ref_operand_can_erase {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
     true
-  } else if descriptor_can_erase &&
-    optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-      func, operand_id,
-    ) {
+  } else if descriptor_can_erase && ref_operand_can_drop_before_unreachable {
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx, func, node_id, operand_id,
     )
-  } else if ref_operand_can_erase &&
-    optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-      func, descriptor_id,
-    ) {
+  } else if ref_operand_can_erase && descriptor_can_drop_before_unreachable {
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx, func, node_id, descriptor_id,
+    )
+  } else if ref_operand_can_drop_before_unreachable &&
+    descriptor_can_drop_before_unreachable {
+    optimize_instructions_replace_with_drop_drop_then_unreachable(
+      ctx, func, node_id, operand_id, descriptor_id,
     )
   } else {
     false
@@ -15002,6 +15007,37 @@ fn optimize_instructions_replace_with_drop_then_unreachable(
   }
   let temp = @ir.hot_build_block(func, block_type, [
     @ir.hot_build_drop(func, drop_id),
+    @ir.hot_build_unreachable(func),
+  ])
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_replace_with_drop_drop_then_unreachable(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  first_drop_id : Int,
+  second_drop_id : Int,
+) -> Bool {
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [] => @lib.BlockType::void_()
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => return false
+  }
+  let temp = @ir.hot_build_block(func, block_type, [
+    @ir.hot_build_drop(func, first_drop_id),
+    @ir.hot_build_drop(func, second_drop_id),
     @ir.hot_build_unreachable(func),
   ])
   let replacement = @ir.hot_node_get(func, temp)
