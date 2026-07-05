@@ -160,6 +160,10 @@ sources:
   - ../../../raw/research/1488-2026-07-05-optimize-instructions-oi-j-mixed-3ref-4desc-call-descriptor-miss.md
   - ../../../raw/research/1489-2026-07-05-optimize-instructions-oi-j-mixed-4ref-3desc-call-descriptor-miss.md
   - ../../../raw/research/1490-2026-07-05-optimize-instructions-oi-j-mixed-5ref-2desc-call-descriptor-miss.md
+  - ../../../raw/research/1491-2026-07-05-optimize-instructions-oi-j-mixed-3ref-5desc-call-descriptor-miss.md
+  - ../../../raw/research/1492-2026-07-05-optimize-instructions-oi-j-mixed-5ref-3desc-call-descriptor-miss.md
+  - ../../../raw/research/1493-2026-07-05-optimize-instructions-oi-j-mixed-4ref-5desc-call-descriptor-miss.md
+  - ../../../raw/research/1494-2026-07-05-optimize-instructions-oi-j-mixed-5ref-4desc-call-descriptor-miss.md
   - ../../../raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md
   - ../../../raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md
   - ../../../raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md

@@ -14115,6 +14115,17 @@ test "optimize-instructions folds descriptor casts with mixed 4-ref 5-desc call 
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with mixed 5-ref 4-desc call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when the reference call takes five pure local
+  // arguments and the descriptor call takes four pure local arguments. This
+  // completes the current <=5-per-call mixed direct-call arity grid without
+  // implying effectful/trapping arguments, indirect/call_ref, return_call*,
+  // multivalue, escaping control/EH, wider calls, or TNH/IIT widening.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(5, 4)
+}
+
+///|
 test "optimize-instructions folds descriptor casts with four-arg call exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 folds the exact
   // descriptor miss when both direct calls take exactly four pure local
