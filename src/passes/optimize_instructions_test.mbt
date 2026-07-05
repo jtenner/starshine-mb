@@ -13846,6 +13846,220 @@ test "optimize-instructions folds descriptor casts with mixed 5-ref 1-desc call 
 }
 
 ///|
+fn optimize_instructions_test_i32_params(count : Int) -> Array[@lib.ValType] {
+  let params : Array[@lib.ValType] = []
+  for arg = 0; arg < count; arg = arg + 1 {
+    params.push(@lib.ValType::i32())
+  }
+  params
+}
+
+///|
+fn optimize_instructions_test_local_sum_then_global_set(
+  arg_count : Int,
+  global_idx : @lib.GlobalIdx,
+) -> Array[@lib.Instruction] {
+  let instrs : Array[@lib.Instruction] = []
+  for arg = 0; arg < arg_count; arg = arg + 1 {
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())))
+    if arg > 0 {
+      instrs.push(@lib.Instruction::i32_add())
+    }
+  }
+  instrs.push(@lib.Instruction::global_set(global_idx))
+  instrs
+}
+
+///|
+fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+) -> @lib.Module {
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let make_ref_func_type = @lib.TypeIdx::new(4U)
+  let make_desc_func_type = @lib.TypeIdx::new(5U)
+  let cast_func_type = @lib.TypeIdx::new(6U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
+  let ref_body = optimize_instructions_test_local_sum_then_global_set(
+    ref_arg_count,
+    @lib.GlobalIdx::new(0U),
+  )
+  ref_body.push(@lib.Instruction::struct_new_default(subtype_descriptor))
+  ref_body.push(@lib.Instruction::struct_new_default_desc(subtype))
+  let desc_body = optimize_instructions_test_local_sum_then_global_set(
+    desc_arg_count,
+    @lib.GlobalIdx::new(1U),
+  )
+  desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
+  let cast_body : Array[@lib.Instruction] = []
+  for arg = 0; arg < ref_arg_count; arg = arg + 1 {
+    cast_body.push(
+      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+    )
+  }
+  cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    cast_body.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+      ),
+    )
+  }
+  cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(base_ref_type))
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::group([
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
+        ),
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+        ),
+        @lib.SubType::new(
+          false,
+          [base_type],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
+            ),
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i64()),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+        ),
+        @lib.SubType::new(
+          false,
+          [base_descriptor_type],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+        ),
+      ]),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            optimize_instructions_test_i32_params(ref_arg_count),
+            [@lib.ValType::ref_type(sub_ref_type)],
+          ),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            optimize_instructions_test_i32_params(desc_arg_count),
+            [@lib.ValType::ref_type(base_descriptor_ref_type)],
+          ),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            optimize_instructions_test_i32_params(
+              ref_arg_count + desc_arg_count,
+            ),
+            [@lib.ValType::ref_type(base_ref_type)],
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([make_ref_func_type, make_desc_func_type, cast_func_type]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(ref_body)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+    ]),
+  )
+}
+
+///|
+fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+) -> Unit raise {
+  let module_ = optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
+    ref_arg_count, desc_arg_count,
+  )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  let expected : Array[@lib.Instruction] = []
+  for arg = 0; arg < ref_arg_count; arg = arg + 1 {
+    expected.push(
+      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+    )
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  expected.push(@lib.Instruction::drop())
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    expected.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+      ),
+    )
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  expected.push(@lib.Instruction::drop())
+  expected.push(@lib.Instruction::unreachable_())
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, expected)
+    _ => fail("expected three-function descriptor-call test module")
+  }
+}
+
+///|
+test "optimize-instructions folds descriptor casts with mixed 3-ref 4-desc call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when the reference call takes three pure local
+  // arguments and the descriptor call takes four pure local arguments. Keep
+  // this narrower than general argument localization: no other mixed arity,
+  // effectful/trapping arguments, indirect/call_ref, return_call*, multivalue,
+  // escaping control/EH, or TNH/IIT widening is implied.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(3, 4)
+}
+
+///|
 test "optimize-instructions folds descriptor casts with four-arg call exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 folds the exact
   // descriptor miss when both direct calls take exactly four pure local
