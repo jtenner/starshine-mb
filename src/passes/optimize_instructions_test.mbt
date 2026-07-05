@@ -14662,6 +14662,18 @@ test "optimize-instructions folds descriptor casts with mixed 6-ref 3-desc call 
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with mixed 3-ref 6-desc call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when the reference call takes three pure local
+  // arguments and the descriptor call takes six pure local arguments. This is
+  // the inverse one-sided >5 mixed-arity slice after the 6-ref/3-desc proof;
+  // it still does not imply arbitrary arity, non-local/effectful arguments,
+  // indirect/call_ref, return_call*, multivalue, escaping control/EH, or
+  // TNH/IIT widening.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(3, 6)
+}
+
+///|
 test "optimize-instructions rewrites exact-result descriptor cast misses before final validation" {
   // OI-J descriptor validation boundary: Binaryen version_130 also rewrites the
   // exact-result spelling of the strict-subtype/exact-descriptor miss to
