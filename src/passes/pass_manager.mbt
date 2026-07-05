@@ -26531,6 +26531,7 @@ fn run_hot_pipeline_raw_optimize_instructions_pure_local_direct_call_descriptor_
   (ref_arg_count == 4 && desc_arg_count == 1) ||
   (ref_arg_count == 1 && desc_arg_count == 5) ||
   (ref_arg_count == 2 && desc_arg_count == 4) ||
+  (ref_arg_count == 4 && desc_arg_count == 2) ||
   (ref_arg_count == 1 && desc_arg_count == 2) ||
   (ref_arg_count == 2 && desc_arg_count == 1)
 }
