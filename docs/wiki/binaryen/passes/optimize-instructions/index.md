@@ -177,6 +177,7 @@ sources:
   - ../../../raw/research/1515-2026-07-05-optimize-instructions-oi-j-mixed-7ref-2desc-call-descriptor-miss.md
   - ../../../raw/research/1516-2026-07-05-optimize-instructions-oi-j-mixed-2ref-7desc-call-descriptor-miss.md
   - ../../../raw/research/1517-2026-07-05-optimize-instructions-oi-j-mixed-7ref-1desc-call-descriptor-miss.md
+  - ../../../raw/research/1518-2026-07-05-optimize-instructions-oi-j-mixed-1ref-7desc-call-descriptor-miss.md
   - ../../../raw/research/1505-2026-07-05-optimize-instructions-oi-j-mixed-1ref-6desc-call-descriptor-miss.md
   - ../../../raw/research/1504-2026-07-05-optimize-instructions-oi-j-mixed-6ref-1desc-call-descriptor-miss.md
   - ../../../raw/research/1503-2026-07-05-optimize-instructions-oi-j-mixed-2ref-6desc-call-descriptor-miss.md
