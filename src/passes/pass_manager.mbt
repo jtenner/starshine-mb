@@ -26451,6 +26451,32 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_struct_new_exactly_desc
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+  module_ctx : @ir.HotModuleContext,
+  descriptor_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+) -> Bool {
+  let target_idx = match target {
+    @lib.HeapType(type_idx) => type_idx
+    _ => return false
+  }
+  let descriptor_type = match
+    @ir.hot_module_resolve_func_type(module_ctx, descriptor_func) {
+    Some(@lib.FuncType([], [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() &&
+      ref_type.is_exact() =>
+      match ref_type.get_heap_type() {
+        @lib.HeapType(type_idx) => type_idx
+        _ => return false
+      }
+    _ => return false
+  }
+  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_type) {
+    Some(subtype) => subtype.describes_type() == Some(target_idx)
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
@@ -26511,6 +26537,23 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
             module_ctx, params, locals, local_idx, target,
           ) => {
+          rewritten.push(@lib.Instruction::unreachable_())
+          changed = true
+          i = i + 3
+          continue
+        }
+        (
+          @lib.LocalGet(local_idx),
+          @lib.Call(descriptor_func),
+          @lib.RefCastDescEq(_, _, target),
+        ) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+            module_ctx, descriptor_func, target,
+          ) &&
+          run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+            module_ctx, params, locals, local_idx, target,
+          ) => {
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+          rewritten.push(@lib.Instruction::drop())
           rewritten.push(@lib.Instruction::unreachable_())
           changed = true
           i = i + 3
@@ -27455,8 +27498,11 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  let (exact_miss_body, exact_miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
+    body, module_ctx, func_idx, locals,
+  )
   let (directized_body, directized_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
-    body,
+    exact_miss_body,
   )
   let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
     directized_body, module_ctx,
@@ -27468,16 +27514,26 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       effectful_sibling_body, module_ctx,
     )
   }
-  let skipped_func = if directized_changed ||
+  let skipped_func = if exact_miss_changed ||
+    directized_changed ||
     effectful_sibling_changed ||
     escaping_ref_get_desc_changed {
     @lib.Func::new(locals, @lib.Expr::new(escaping_ref_get_desc_body))
   } else {
     original
   }
-  let skipped_unchanged = !directized_changed &&
+  let skipped_unchanged = !exact_miss_changed &&
+    !directized_changed &&
     !effectful_sibling_changed &&
     !escaping_ref_get_desc_changed
+  if exact_miss_changed {
+    return Some({
+      reason: "descriptor-exact-miss-fold",
+      func: skipped_func,
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   if escaping_ref_get_desc_changed {
     return Some({
       reason: "raw-partial-optimize-instructions",

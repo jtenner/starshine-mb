@@ -13748,6 +13748,20 @@ fn optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_un
 }
 
 ///|
+fn optimize_instructions_exact_descriptor_miss_descriptor_call_can_drop_before_unreachable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Call => ()
+    _ => return false
+  }
+  optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
+    func, node_id,
+  )
+}
+
+///|
 fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -13795,6 +13809,9 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   let descriptor_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
     func, descriptor_id,
   )
+  let descriptor_call_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_descriptor_call_can_drop_before_unreachable(
+    func, descriptor_id,
+  )
   if descriptor_can_erase && ref_operand_can_erase {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
     true
@@ -13802,7 +13819,11 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx, func, node_id, operand_id,
     )
-  } else if ref_operand_can_erase && descriptor_can_drop_before_unreachable {
+  } else if ref_operand_can_erase &&
+    (
+      descriptor_can_drop_before_unreachable ||
+      descriptor_call_can_drop_before_unreachable
+    ) {
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx, func, node_id, descriptor_id,
     )
@@ -14080,15 +14101,32 @@ fn optimize_instructions_descriptor_operand_exact_described_heap(
     Some(module_ctx) => module_ctx
     None => return None
   }
-  let descriptor_idx = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
-      ref_type.is_exact() =>
-      match ref_type.get_heap_type() {
-        @lib.HeapType(descriptor_idx) => descriptor_idx
+  let node = @ir.hot_node_get(func, node_id)
+  let descriptor_idx = match node.op {
+    @ir.HotOp::Call if node.imm0 >= 0 =>
+      match
+        @ir.hot_module_resolve_func_type(
+          module_ctx,
+          @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+        ) {
+        Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() &&
+          ref_type.is_exact() =>
+          match ref_type.get_heap_type() {
+            @lib.HeapType(descriptor_idx) => descriptor_idx
+            _ => return None
+          }
         _ => return None
       }
-    _ => return None
+    _ =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
+          ref_type.is_exact() =>
+          match ref_type.get_heap_type() {
+            @lib.HeapType(descriptor_idx) => descriptor_idx
+            _ => return None
+          }
+        _ => return None
+      }
   }
   match @ir.hot_module_resolve_subtype(module_ctx, descriptor_idx) {
     Some(subtype) =>
