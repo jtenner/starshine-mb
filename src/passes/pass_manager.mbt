@@ -26693,6 +26693,53 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
         _ => ()
       }
     }
+    if i + 8 < instrs.length() {
+      match
+        (
+          instrs[i],
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+          instrs[i + 5],
+          instrs[i + 6],
+          instrs[i + 7],
+          instrs[i + 8],
+        ) {
+        (
+          @lib.LocalGet(ref_arg0),
+          @lib.LocalGet(ref_arg1),
+          @lib.LocalGet(ref_arg2),
+          @lib.Call(ref_func),
+          @lib.LocalGet(desc_arg0),
+          @lib.LocalGet(desc_arg1),
+          @lib.LocalGet(desc_arg2),
+          @lib.Call(descriptor_func),
+          @lib.RefCastDescEq(_, _, target),
+        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+            module_ctx, ref_func, target, 3,
+          ) &&
+          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+            module_ctx, descriptor_func, target, 3,
+          ) => {
+          rewritten.push(@lib.Instruction::local_get(ref_arg0))
+          rewritten.push(@lib.Instruction::local_get(ref_arg1))
+          rewritten.push(@lib.Instruction::local_get(ref_arg2))
+          rewritten.push(@lib.Instruction::call(ref_func))
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(@lib.Instruction::local_get(desc_arg0))
+          rewritten.push(@lib.Instruction::local_get(desc_arg1))
+          rewritten.push(@lib.Instruction::local_get(desc_arg2))
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(@lib.Instruction::unreachable_())
+          changed = true
+          i = i + 9
+          continue
+        }
+        _ => ()
+      }
+    }
     rewritten.push(instrs[i])
     i = i + 1
   }
