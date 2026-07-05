@@ -14596,6 +14596,15 @@ test "optimize-instructions folds descriptor casts with five-arg call exact desc
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with six-arg call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when both direct calls take exactly six pure local
+  // arguments. This is the first deliberately widened >5-per-call direct-call
+  // slice; it does not imply arbitrary arity or non-local/effectful arguments.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(6, 6)
+}
+
+///|
 test "optimize-instructions rewrites exact-result descriptor cast misses before final validation" {
   // OI-J descriptor validation boundary: Binaryen version_130 also rewrites the
   // exact-result spelling of the strict-subtype/exact-descriptor miss to
