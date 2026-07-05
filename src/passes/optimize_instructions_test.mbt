@@ -14752,6 +14752,17 @@ test "optimize-instructions folds descriptor casts with nine-arg call exact desc
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with mixed 9-ref 8-desc call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when the reference call takes nine pure local
+  // arguments and the descriptor call takes eight pure local arguments. This
+  // only covers the freshly probed mixed-nine reference-argument pair without
+  // implying arbitrary arity, non-local/effectful arguments, indirect/call_ref,
+  // return_call*, multivalue, escaping control/EH, or TNH/IIT widening.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(9, 8)
+}
+
+///|
 test "optimize-instructions folds descriptor casts with mixed 8-ref 7-desc call exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
   // exact descriptor miss when the reference call takes eight pure local
