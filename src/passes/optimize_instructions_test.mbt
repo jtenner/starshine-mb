@@ -14730,6 +14730,17 @@ test "optimize-instructions folds descriptor casts with seven-arg call exact des
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with mixed 7-ref 6-desc call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when the reference call takes seven pure local
+  // arguments and the descriptor call takes six pure local arguments. This keeps
+  // the first mixed seven-reference-argument slice independent from arbitrary
+  // arity, non-local/effectful arguments, indirect/call_ref, return_call*,
+  // multivalue, escaping control/EH, and TNH/IIT widening.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(7, 6)
+}
+
+///|
 test "optimize-instructions rewrites exact-result descriptor cast misses before final validation" {
   // OI-J descriptor validation boundary: Binaryen version_130 also rewrites the
   // exact-result spelling of the strict-subtype/exact-descriptor miss to
