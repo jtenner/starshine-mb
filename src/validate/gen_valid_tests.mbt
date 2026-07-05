@@ -1876,6 +1876,22 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   )
   @debug.assert_eq(gen_valid_profile_name(PassOiTupleProfile), "pass-oi-tuple")
   @debug.assert_eq(
+    gen_valid_profile_name(CoalesceLocalsStraightLineProfile),
+    "coalesce-locals-straight-line",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CoalesceLocalsStructuredProfile),
+    "coalesce-locals-structured",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CoalesceLocalsLoopCopyThroughProfile),
+    "coalesce-locals-loop-copy-through",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CoalesceLocalsAllProfile),
+    "coalesce-locals-all",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(TupleOptimizationSpillProfile),
     "tuple-optimization-spill",
   )
@@ -2031,6 +2047,14 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     Ok(profile) => @debug.assert_eq(profile, TupleOptimizationAllProfile)
     Err(msg) => fail(msg)
   }
+  match gen_valid_profile_by_name("coalesce locals") {
+    Ok(profile) => @debug.assert_eq(profile, CoalesceLocalsAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("cl-closeout") {
+    Ok(profile) => @debug.assert_eq(profile, CoalesceLocalsAllProfile)
+    Err(msg) => fail(msg)
+  }
 }
 
 ///|
@@ -2107,6 +2131,149 @@ fn gen_valid_test_to_module_local_write_count(mod_ : Module) -> Int {
     }
     None => 0
   }
+}
+
+///|
+fn gen_valid_test_instrs_have_local_copy(instrs : Array[Instruction]) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (LocalGet(LocalIdx(src)), LocalSet(LocalIdx(dst))) if src != dst =>
+        return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_local_copy(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_local_copy(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_local_copy(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_loop_local_copy(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Loop(_, Expr(body)) if gen_valid_test_instrs_have_local_copy(body) =>
+        return true
+      Block(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_loop_local_copy(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_loop_local_copy(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_loop_local_copy(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_local_copy(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_have_local_copy(instrs) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_module_has_loop_local_copy(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_have_loop_local_copy(instrs) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+test "coalesce-locals GenValid profiles emit validating local-copy triggers" {
+  let profiles = [
+    CoalesceLocalsStraightLineProfile,
+    CoalesceLocalsStructuredProfile,
+    CoalesceLocalsLoopCopyThroughProfile,
+  ]
+  for profile in profiles {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      gen_valid_test_to_module_local_write_count(generated.wasm_module) >= 2,
+      msg="coalesce-locals profile should emit multiple local writes",
+    )
+    assert_true(
+      gen_valid_test_module_has_local_copy(generated.wasm_module),
+      msg="coalesce-locals profile should emit a local.get/local.set copy",
+    )
+  }
+  let loop_copy = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CoalesceLocalsLoopCopyThroughProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(
+    gen_valid_test_module_has_loop_local_copy(loop_copy.wasm_module),
+    msg="loop-copy-through profile should emit a loop-local copy",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_is_composite(CoalesceLocalsAllProfile),
+    true,
+  )
+  @debug.assert_eq(
+    gen_valid_profile_members(CoalesceLocalsAllProfile).length(),
+    3,
+  )
 }
 
 ///|

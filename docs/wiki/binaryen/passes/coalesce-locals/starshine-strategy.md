@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-04
 sources:
+  - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
   - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
   - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
@@ -59,14 +60,19 @@ See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-
 The fastest read-along path through the current Starshine status is:
 
 - active pass owner
-  - `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057`
-    - value-aware local action scan, liveness/interference analysis, greedy slot coloring, local-index rewrite, redundant-copy cleanup, dead-set cleanup, and local-name-section invalidation
+  - `src/passes/coalesce_locals.mbt`
+    - value-aware local action scan, liveness/interference analysis, greedy slot coloring, effective-copy weighting and copy-connected-first coloring order, bounded structured copy-chain forwarding, derived branch-carrier consume-forwarding with destination-read-after-source-write rejection, source-write/destination-read interference restoration after copy/consume relaxation, path-disjoint branch-result slot reuse with same-path clobber-read guards, branch-aware structured effective-write marking for cleanup, local-index rewrite, redundant-copy cleanup, structured ineffective-write cleanup, immediate `nop; drop` debris cleanup after ineffective tee rewriting, dead-set cleanup, loop unread/write-only scratch coalescing, loop adjacent and non-adjacent single-use copy-through coalescing, a 4096-flattened-local guard around dense non-loop coloring matrices, local-name-section invalidation, and the `[AUDIT006-D]` TypeIdx/RecIdx invariant comment
+- pass-specific generator profile
+  - `src/validate/gen_valid.mbt`
+    - `coalesce-locals-all` aggregate plus straight-line, structured, and loop-copy-through leaves for dedicated closeout fuzzing
+  - `src/validate/gen_valid_tests.mbt`
+    - profile-name/alias and emitted-trigger coverage
 - active pass-name status
   - `src/passes/optimize.mbt:277`
     - `coalesce-locals` is an active module pass, not a removed-name entry
 - direct-pass tests
-  - `src/passes/coalesce_locals_test.mbt:14-341`
-    - registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, ineffective-write cleanup, the exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood, and the exact `reorder-locals -> coalesce-locals -> reorder-locals` neighborhood
+  - `src/passes/coalesce_locals_test.mbt`
+    - registration, non-overlap merge, different-value overlap, later reread liveness, structured param reuse, loop unused-local, unread-local scratch, adjacent copy-chain coalescing, and non-adjacent copy-through coalescing, non-loop structured `local.tee` coalescing, structured self-copy cleanup, bounded structured branch copy-chain forwarding, derived branch-carrier consume-forwarding, branch-aware side-carrier effective writes, effective-copy/copy-connected side-carrier coloring, destination-read-after-source-write guarding, source-write/destination-read interference restoration, path-disjoint branch-result param-slot reuse, structured ineffective copy-set cleanup, ineffective tee debris before immediate drop, the 4097-local dense-coloring boundary, redundant-copy cleanup, ineffective-write cleanup, the exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood, and the exact `reorder-locals -> coalesce-locals -> reorder-locals` neighborhood
 - dispatch and CLI surfaces
   - `src/passes/pass_manager.mbt:8936`
     - explicit `coalesce-locals` module-pass dispatch
@@ -133,7 +139,7 @@ The landed deliverables now cover:
 - compatibility and lifetime analysis
 - exact type-compatibility rules
 - value-aware interference for overlapping same-value locals
-- local-index rewrite, declaration compaction, redundant-copy cleanup, and ineffective-set cleanup
+- local-index rewrite, declaration compaction, redundant-copy cleanup, structured self-copy cleanup, structured `local.tee` coalescing under the non-loop conservative overlay, bounded structured copy-chain forwarding and derived branch-carrier consume-forwarding into dead slots with destination-read-after-source-write rejection, source-write/destination-read interference restoration after copy/consume relaxation, path-disjoint branch-result slot reuse with same-path clobber-read guards, branch-aware structured effective-write marking for cleanup, effective-copy weighting/copy-connected coloring order, loop unread-local scratch coalescing, loop adjacent/non-adjacent copy-through coalescing, structured ineffective-write cleanup, ineffective-set cleanup, and a finite dense-coloring boundary for huge non-loop functions
 - explicit registry, dispatcher, CLI, and harness wiring
 
 The current docs should keep that slice connected to the exact Binaryen contract:
@@ -154,8 +160,8 @@ Upstream Binaryen expects other passes to expose the right shapes first:
 - `local-cse` and full `simplify-locals` profit from the simpler post-coalescing local traffic
 - the later `reorder-locals -> coalesce-locals -> reorder-locals` cluster shows that declaration compaction and slot sharing are meant to interact, not compete
 
-Current Starshine now has the declaration/index rewrite neighbor (`reorder-locals`), the type-tightening neighbor (`local-subtyping`), the downstream cleanup neighbors (`local-cse` and `simplify-locals`), and focused proof for both exact `coalesce-locals` neighborhoods.
-That means the remaining restraint is no longer missing-pass uncertainty inside `coalesce-locals`; it is the separate public `reorder-locals` scheduling policy and broader neighboring-pass work owned elsewhere in the backlog.
+Current Starshine now has the declaration/index rewrite neighbor (`reorder-locals`), the type-tightening neighbor (`local-subtyping`), the downstream cleanup neighbors (`local-cse` and `simplify-locals`), and older focused proof for both exact `coalesce-locals` neighborhoods.
+The refreshed startup-map GC/local prefix replay no longer shows a size-losing CL-owned local-slot drift after the structured `local.tee` cleanup, branch-aware effective-write hardening, effective-copy/copy-connected coloring, loop unread-local scratch, loop adjacent/non-adjacent copy-through improvements, narrow concrete-ref direct-struct-get packing, preferred-first GC-ref ordering, and structured-scalar slot-order preference. The checked drift is now a Starshine raw/code-body size win (`-20` raw bytes at `+ coalesce-locals`, `-18` at `+ local-cse`); per-function splitting still shows first textual diff `defined=3` as locally Starshine-smaller and loop-heavy function 18 as a smaller local residual (`+20` code-body bytes). Direct pass closeout is now green across regular GenValid 100k, dedicated `coalesce-locals-all` 10k, random all-profiles 10k, and cleanup-normalized wasm-smith 10k. Broader preset widening still needs a dedicated preset-scheduling slice with exact ordering tests and artifact evidence, but no active direct CL random-all mismatch family remains: immediate tee/drop debris, nested nonlocal block-escape live-write handling, sampled label-aware `return` / branch-to-block-continuation liveness, sampled top-level tail param reuse after ineffective dead writes, and structured-scalar slot-order drift are fixed for the sampled `ssa-nomerge-smoke` family, and the sampled `heap2local-struct` subfamily is replay-green.
 
 ## The right future Starshine implementation shape
 
@@ -249,7 +255,7 @@ Starshine now has direct-pass implementation and evidence, and it now **does** c
 What it still does **not** claim is that every broader neighboring-pass or public preset policy question is closed. The current repo status is best summarized as:
 
 - active direct pass
-- direct 10k parity refreshed on 2026-07-04 after fixing structured param-slot reuse and loop unused-local coalescing
+- direct 10k parity refreshed on 2026-07-04 after fixing structured param-slot reuse, loop unused-local coalescing, and branch-aware structured effective-write marking
 - both exact scheduler neighborhoods replayed
 - first public slot kept explicit, second slot still focused because public `reorder-locals` scheduling is tracked elsewhere
 
@@ -294,7 +300,7 @@ So the right mental model today is “active direct pass, exact slots proven, br
 It is:
 
 - **active direct transform**
-- **current-head direct parity refreshed after the 2026-07-04 structured/loop unused-local fix**
+- **current-head direct parity refreshed after the 2026-07-04 structured/loop unused-local and branch-aware structured effective-write fixes**
 - **both exact scheduler neighborhoods replayed**
 - **clear neighboring implementation map for broader preset follow-up**
 - **clear warning not to over-claim unrelated neighboring-pass policy as part of direct `coalesce-locals` signoff**

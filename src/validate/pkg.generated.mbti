@@ -1211,6 +1211,10 @@ pub enum GenValidProfile {
   LocalSubtypingStructuredProfile
   LocalSubtypingUnreachableTailProfile
   LocalSubtypingAllProfile
+  CoalesceLocalsStraightLineProfile
+  CoalesceLocalsStructuredProfile
+  CoalesceLocalsLoopCopyThroughProfile
+  CoalesceLocalsAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile

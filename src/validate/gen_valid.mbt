@@ -739,6 +739,10 @@ pub enum GenValidProfile {
   LocalSubtypingStructuredProfile
   LocalSubtypingUnreachableTailProfile
   LocalSubtypingAllProfile
+  CoalesceLocalsStraightLineProfile
+  CoalesceLocalsStructuredProfile
+  CoalesceLocalsLoopCopyThroughProfile
+  CoalesceLocalsAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
@@ -913,6 +917,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     LocalSubtypingStructuredProfile => "local-subtyping-structured"
     LocalSubtypingUnreachableTailProfile => "local-subtyping-unreachable-tail"
     LocalSubtypingAllProfile => "local-subtyping-all"
+    CoalesceLocalsStraightLineProfile => "coalesce-locals-straight-line"
+    CoalesceLocalsStructuredProfile => "coalesce-locals-structured"
+    CoalesceLocalsLoopCopyThroughProfile => "coalesce-locals-loop-copy-through"
+    CoalesceLocalsAllProfile => "coalesce-locals-all"
     RemoveUnusedBrsControlProfile => "remove-unused-brs-control"
     RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
     RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
@@ -967,6 +975,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | DeadCodeEliminationAllProfile
     | Heap2LocalAllProfile
     | LocalSubtypingAllProfile
+    | CoalesceLocalsAllProfile
     | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
     | SimplifyLocalsNostructureAllProfile
@@ -1096,6 +1105,12 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(LocalSubtypingStructuredProfile, 2),
         GenValidProfileMember::new(LocalSubtypingUnreachableTailProfile, 1),
       ]
+    CoalesceLocalsAllProfile =>
+      [
+        GenValidProfileMember::new(CoalesceLocalsStraightLineProfile, 3),
+        GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 2),
+        GenValidProfileMember::new(CoalesceLocalsLoopCopyThroughProfile, 2),
+      ]
     RemoveUnusedBrsAllProfile =>
       [
         GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
@@ -1147,6 +1162,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
       ]
@@ -1302,6 +1318,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     LocalSubtypingStructuredProfile,
     LocalSubtypingUnreachableTailProfile,
     LocalSubtypingAllProfile,
+    CoalesceLocalsStraightLineProfile,
+    CoalesceLocalsStructuredProfile,
+    CoalesceLocalsLoopCopyThroughProfile,
+    CoalesceLocalsAllProfile,
     RemoveUnusedBrsControlProfile,
     RemoveUnusedBrsSwitchProfile,
     RemoveUnusedBrsGcProfile,
@@ -1420,6 +1440,11 @@ pub fn gen_valid_profile_by_name(
     "local-subtyping-all-profiles" => Ok(LocalSubtypingAllProfile)
     "ls" => Ok(LocalSubtypingAllProfile)
     "ls-closeout" => Ok(LocalSubtypingAllProfile)
+    "coalesce-locals" => Ok(CoalesceLocalsAllProfile)
+    "coalesce-locals-closeout" => Ok(CoalesceLocalsAllProfile)
+    "coalesce-locals-all-profiles" => Ok(CoalesceLocalsAllProfile)
+    "cl" => Ok(CoalesceLocalsAllProfile)
+    "cl-closeout" => Ok(CoalesceLocalsAllProfile)
     "remove-unused-brs" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-closeout" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-all-profiles" => Ok(RemoveUnusedBrsAllProfile)
@@ -1881,6 +1906,14 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     LocalSubtypingAllProfile =>
       gen_valid_local_subtyping_profile_config(
         LocalSubtypingStraightLineProfile,
+      )
+    CoalesceLocalsStraightLineProfile
+    | CoalesceLocalsStructuredProfile
+    | CoalesceLocalsLoopCopyThroughProfile =>
+      gen_valid_coalesce_locals_profile_config(profile)
+    CoalesceLocalsAllProfile =>
+      gen_valid_coalesce_locals_profile_config(
+        CoalesceLocalsStraightLineProfile,
       )
     RemoveUnusedBrsControlProfile
     | RemoveUnusedBrsSwitchProfile
@@ -3075,6 +3108,61 @@ fn gen_valid_local_subtyping_profile_config(
 }
 
 ///|
+fn gen_valid_coalesce_locals_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  let max_body_depth = match profile {
+    CoalesceLocalsLoopCopyThroughProfile => 3
+    CoalesceLocalsStructuredProfile => 2
+    _ => 1
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 0,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 4,
+    max_body_statements: 0,
+    max_body_depth,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: profile != CoalesceLocalsStraightLineProfile,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
 fn gen_valid_remove_unused_brs_profile_config(
   profile : GenValidProfile,
 ) -> GenValidConfig {
@@ -3337,6 +3425,13 @@ fn gen_valid_is_local_subtyping_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(LocalSubtypingStraightLineProfile) ||
   config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile) ||
   config == GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile)
+}
+
+///|
+fn gen_valid_is_coalesce_locals_family_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(CoalesceLocalsStraightLineProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsStructuredProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsLoopCopyThroughProfile)
 }
 
 ///|
@@ -6468,6 +6563,15 @@ fn gen_valid_ensure_body_layout_locals(
     }
     if !has_f64 {
       locals.push(ValType::f64())
+    }
+  }
+  if ctx.config.mode == CoverageForced &&
+    gen_valid_is_coalesce_locals_family_config(ctx.config) {
+    while locals.length() < 4 {
+      locals.push(ValType::i32())
+    }
+    for i = 0; i < 4; i = i + 1 {
+      locals[i] = ValType::i32()
     }
   }
   if ctx.config.mode == CoverageForced &&
@@ -12525,6 +12629,81 @@ fn gen_valid_append_return_value_instrs(
 }
 
 ///|
+fn gen_valid_coalesce_locals_has_i32_prefix(
+  env : GenValidBodyEnv,
+  count : Int,
+) -> Bool {
+  if env.local_types.length() < count {
+    return false
+  }
+  for i = 0; i < count; i = i + 1 {
+    if env.local_types[i] != ValType::i32() {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn gen_valid_append_coalesce_locals_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !gen_valid_coalesce_locals_has_i32_prefix(env, 4) {
+    return
+  }
+  let l0 = LocalIdx::new(0U)
+  let l1 = LocalIdx::new(1U)
+  let l2 = LocalIdx::new(2U)
+  if ctx.config == GenValidConfig::for_profile(CoalesceLocalsStructuredProfile) {
+    out.push(Instruction::i32_const(I32(21)))
+    out.push(Instruction::local_set(l0))
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(l0),
+          Instruction::local_set(l1),
+          Instruction::i32_const(I32(0)),
+          Instruction::drop(),
+          Instruction::local_get(l1),
+          Instruction::local_set(l2),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l2))
+    out.push(Instruction::drop())
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsLoopCopyThroughProfile) {
+    out.push(
+      Instruction::loop_(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::i32_const(I32(44)),
+          Instruction::local_set(l0),
+          Instruction::i32_const(I32(5)),
+          Instruction::drop(),
+          Instruction::local_get(l0),
+          Instruction::local_set(l1),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::drop())
+  } else {
+    out.push(Instruction::i32_const(I32(17)))
+    out.push(Instruction::local_set(l0))
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::local_set(l1))
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::local_set(l2))
+    out.push(Instruction::local_get(l2))
+    out.push(Instruction::drop())
+  }
+}
+
+///|
 fn gen_valid_local_subtyping_local(env : GenValidBodyEnv) -> LocalIdx? {
   gen_matching_local_idx(env.local_types, ValType::anyref())
 }
@@ -14183,6 +14362,7 @@ fn gen_valid_build_func(
     !ctx.config.features.allow_heap2local_body_generator &&
     !gen_valid_is_remove_unused_brs_family_config(ctx.config) &&
     !gen_valid_is_local_subtyping_family_config(ctx.config) &&
+    !gen_valid_is_coalesce_locals_family_config(ctx.config) &&
     !gen_valid_is_optimize_casts_family_config(ctx.config) {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
@@ -14206,6 +14386,9 @@ fn gen_valid_build_func(
   }
   if gen_valid_is_local_subtyping_family_config(ctx.config) {
     gen_valid_append_local_subtyping_body_slice(body_instrs, ctx, env)
+  }
+  if gen_valid_is_coalesce_locals_family_config(ctx.config) {
+    gen_valid_append_coalesce_locals_body_slice(body_instrs, ctx, env)
   }
   if gen_valid_is_optimize_casts_family_config(ctx.config) {
     gen_valid_append_optimize_casts_body_slice(body_instrs, ctx, env)
