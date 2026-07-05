@@ -13676,7 +13676,7 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
 }
 
 ///|
-fn optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line(
+fn optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
@@ -13702,7 +13702,7 @@ fn optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if !optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line(
+    if !optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
         func,
         @ir.hot_child_get(func, node_id, slot),
       ) {
@@ -13713,7 +13713,7 @@ fn optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line
 }
 
 ///|
-fn optimize_instructions_exact_descriptor_miss_ref_operand_can_drop_before_unreachable(
+fn optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
@@ -13723,7 +13723,7 @@ fn optimize_instructions_exact_descriptor_miss_ref_operand_can_drop_before_unrea
   }
   let body = @ir.hot_region_body_ref(func, node_id)
   for slot = 0; slot < @ir.hot_region_root_count(func, body); slot = slot + 1 {
-    if !optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line(
+    if !optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
         func,
         @ir.hot_region_get(func, body, slot),
       ) {
@@ -13765,20 +13765,29 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
     )) {
     return false
   }
-  if !optimize_instructions_descriptor_operand_can_erase(
-      ctx, func, dead, descriptor_id,
-    ) {
-    return false
-  }
-  if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-    optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+  let descriptor_can_erase = optimize_instructions_descriptor_operand_can_erase(
+    ctx, func, dead, descriptor_id,
+  )
+  let ref_operand_can_erase = optimize_instructions_is_trivially_pure_operand(
+      func, operand_id,
+    ) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+  if descriptor_can_erase && ref_operand_can_erase {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
     true
-  } else if optimize_instructions_exact_descriptor_miss_ref_operand_can_drop_before_unreachable(
+  } else if descriptor_can_erase &&
+    optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
       func, operand_id,
     ) {
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx, func, node_id, operand_id,
+    )
+  } else if ref_operand_can_erase &&
+    optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
+      func, descriptor_id,
+    ) {
+    optimize_instructions_replace_with_drop_then_unreachable(
+      ctx, func, node_id, descriptor_id,
     )
   } else {
     false
