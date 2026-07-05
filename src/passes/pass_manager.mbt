@@ -26519,6 +26519,15 @@ fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subty
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_pure_local_direct_call_descriptor_miss_arity_is_proven(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+) -> Bool {
+  (ref_arg_count == 2 && desc_arg_count == 3) ||
+  (ref_arg_count == 3 && desc_arg_count == 2)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_miss(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -26543,8 +26552,10 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
             }
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
               match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(_, _, target) if ref_args.length() == 2 &&
-                  desc_args.length() == 3 &&
+                @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_pure_local_direct_call_descriptor_miss_arity_is_proven(
+                    ref_args.length(),
+                    desc_args.length(),
+                  ) &&
                   run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
                     module_ctx,
                     ref_func,
