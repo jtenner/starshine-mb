@@ -9904,6 +9904,120 @@ test "optimize-instructions folds descriptor casts with exact mismatching descri
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with effectful reference exact descriptor misses" {
+  // OI-J descriptor/effect slice: Binaryen version_130 rewrites the same
+  // strict-subtype/exact-descriptor miss to `drop(effectful-ref); unreachable`
+  // when the reference operand has ordered side effects and the descriptor
+  // operand is a fresh erasable exact descriptor. This slice preserves the
+  // reference operand before the unreachable replacement; effectful descriptor
+  // operands, control/EH, TNH/IIT, and nullable null-only descriptor casts remain
+  // fail-closed.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
+  let sub_val_type = @lib.ValType::ref_type(sub_ref_type)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([sub_val_type], [
+              @lib.ValType::ref_type(base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(sub_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(module_, HotPipelineOptions::new(), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful exact descriptor miss fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
 test "optimize-instructions rewrites exact-result descriptor cast misses before final validation" {
   // OI-J descriptor validation boundary: Binaryen version_130 also rewrites the
   // exact-result spelling of the strict-subtype/exact-descriptor miss to

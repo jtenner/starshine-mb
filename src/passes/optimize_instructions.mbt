@@ -13676,6 +13676,64 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
 }
 
 ///|
+fn optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef => return false
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn optimize_instructions_exact_descriptor_miss_ref_operand_can_drop_before_unreachable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body = @ir.hot_region_body_ref(func, node_id)
+  for slot = 0; slot < @ir.hot_region_root_count(func, body); slot = slot + 1 {
+    if !optimize_instructions_exact_descriptor_miss_ref_operand_expr_is_straight_line(
+        func,
+        @ir.hot_region_get(func, body, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -13716,6 +13774,12 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
     optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
     true
+  } else if optimize_instructions_exact_descriptor_miss_ref_operand_can_drop_before_unreachable(
+      func, operand_id,
+    ) {
+    optimize_instructions_replace_with_drop_then_unreachable(
+      ctx, func, node_id, operand_id,
+    )
   } else {
     false
   }
