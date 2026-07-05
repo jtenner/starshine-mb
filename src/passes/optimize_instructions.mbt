@@ -13734,6 +13734,20 @@ fn optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachab
 }
 
 ///|
+fn optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_unreachable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Call => ()
+    _ => return false
+  }
+  optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
+    func, node_id,
+  )
+}
+
+///|
 fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -13773,8 +13787,11 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
     ) ||
     optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
   let ref_operand_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-    func, operand_id,
-  )
+      func, operand_id,
+    ) ||
+    optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_unreachable(
+      func, operand_id,
+    )
   let descriptor_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
     func, descriptor_id,
   )
