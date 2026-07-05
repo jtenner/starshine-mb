@@ -26477,6 +26477,21 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype(
+  module_ctx : @ir.HotModuleContext,
+  ref_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+) -> Bool {
+  let source = match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
+    Some(@lib.FuncType([], [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() =>
+      ref_type.get_heap_type()
+    _ => return false
+  }
+  source != target &&
+  run_hot_pipeline_raw_heap_type_is_subtype(module_ctx, source, target, 64)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
@@ -26552,6 +26567,25 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
             module_ctx, params, locals, local_idx, target,
           ) => {
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(@lib.Instruction::unreachable_())
+          changed = true
+          i = i + 3
+          continue
+        }
+        (
+          @lib.Call(ref_func),
+          @lib.Call(descriptor_func),
+          @lib.RefCastDescEq(_, _, target),
+        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype(
+            module_ctx, ref_func, target,
+          ) &&
+          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+            module_ctx, descriptor_func, target,
+          ) => {
+          rewritten.push(@lib.Instruction::call(ref_func))
+          rewritten.push(@lib.Instruction::drop())
           rewritten.push(@lib.Instruction::call(descriptor_func))
           rewritten.push(@lib.Instruction::drop())
           rewritten.push(@lib.Instruction::unreachable_())

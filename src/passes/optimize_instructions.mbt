@@ -13828,7 +13828,10 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
       ctx, func, node_id, descriptor_id,
     )
   } else if ref_operand_can_drop_before_unreachable &&
-    descriptor_can_drop_before_unreachable {
+    (
+      descriptor_can_drop_before_unreachable ||
+      descriptor_call_can_drop_before_unreachable
+    ) {
     optimize_instructions_replace_with_drop_drop_then_unreachable(
       ctx, func, node_id, operand_id, descriptor_id,
     )
