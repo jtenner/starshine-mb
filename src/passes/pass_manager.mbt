@@ -26525,7 +26525,8 @@ fn run_hot_pipeline_raw_optimize_instructions_pure_local_direct_call_descriptor_
 ) -> Bool {
   (ref_arg_count == 2 && desc_arg_count == 3) ||
   (ref_arg_count == 3 && desc_arg_count == 2) ||
-  (ref_arg_count == 1 && desc_arg_count == 2)
+  (ref_arg_count == 1 && desc_arg_count == 2) ||
+  (ref_arg_count == 2 && desc_arg_count == 1)
 }
 
 ///|
