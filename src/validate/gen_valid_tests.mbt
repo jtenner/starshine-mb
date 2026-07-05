@@ -14582,6 +14582,401 @@ fn gen_valid_test_instrs_contain_array_get(instrs : Array[Instruction]) -> Bool 
 }
 
 ///|
+test "rse gen-valid profiles expose stable family lanes and aliases" {
+  @debug.assert_eq(gen_valid_profile_name(RseAllProfile), "rse")
+  @debug.assert_eq(
+    gen_valid_profile_name(RseCoreSameValueProfile),
+    "rse-core-same-value",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(RseLocalCopySelfSetProfile),
+    "rse-local-copy-self-set",
+  )
+  @debug.assert_eq(gen_valid_profile_name(RseCfgMergeProfile), "rse-cfg-merge")
+  @debug.assert_eq(gen_valid_profile_name(RseLoopFlowProfile), "rse-loop-flow")
+  @debug.assert_eq(
+    gen_valid_profile_name(RseRefinedGetProfile),
+    "rse-refined-get",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(RseRefinementWrappersProfile),
+    "rse-refinement-wrappers",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(RseAggregateRefinalizeProfile),
+    "rse-aggregate-refinalize",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(RseExceptionBoundariesProfile),
+    "rse-exception-boundaries",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(RseHazardBoundaryProfile),
+    "rse-hazard-boundary",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(RseVacuumTailProfile),
+    "rse-vacuum-tail",
+  )
+  assert_true(gen_valid_profile_names().contains("rse"))
+  assert_true(gen_valid_profile_names().contains("rse-core-same-value"))
+  for
+    profile_alias in [
+      "rse", "redundant-set-elimination", "rse-closeout", "rse-all", "rse-all-profiles",
+    ] {
+    match gen_valid_profile_by_name(profile_alias) {
+      Ok(profile) => @debug.assert_eq(profile, RseAllProfile)
+      Err(msg) => fail(msg)
+    }
+  }
+  match gen_valid_profile_by_name("rse_core_same_value") {
+    Ok(profile) => @debug.assert_eq(profile, RseCoreSameValueProfile)
+    Err(msg) => fail(msg)
+  }
+  assert_true(gen_valid_profile_is_composite(RseAllProfile))
+  let members = gen_valid_profile_members(RseAllProfile)
+  @debug.assert_eq(members.length(), 10)
+  @debug.assert_eq(
+    members[0],
+    GenValidProfileMember::new(RseCoreSameValueProfile, 3),
+  )
+  @debug.assert_eq(
+    members[1],
+    GenValidProfileMember::new(RseLocalCopySelfSetProfile, 2),
+  )
+  @debug.assert_eq(
+    members[2],
+    GenValidProfileMember::new(RseCfgMergeProfile, 3),
+  )
+  @debug.assert_eq(
+    members[3],
+    GenValidProfileMember::new(RseLoopFlowProfile, 2),
+  )
+  @debug.assert_eq(
+    members[4],
+    GenValidProfileMember::new(RseRefinedGetProfile, 2),
+  )
+  @debug.assert_eq(
+    members[5],
+    GenValidProfileMember::new(RseRefinementWrappersProfile, 2),
+  )
+  @debug.assert_eq(
+    members[6],
+    GenValidProfileMember::new(RseAggregateRefinalizeProfile, 2),
+  )
+  @debug.assert_eq(
+    members[7],
+    GenValidProfileMember::new(RseExceptionBoundariesProfile, 1),
+  )
+  @debug.assert_eq(
+    members[8],
+    GenValidProfileMember::new(RseHazardBoundaryProfile, 2),
+  )
+  @debug.assert_eq(
+    members[9],
+    GenValidProfileMember::new(RseVacuumTailProfile, 2),
+  )
+  @debug.assert_eq(
+    gen_valid_config_label(GenValidConfig::for_profile(RseAllProfile)),
+    "rse",
+  )
+  @debug.assert_eq(
+    gen_valid_config_label(GenValidConfig::for_profile(RseCoreSameValueProfile)),
+    "rse-core-same-value",
+  )
+}
+
+///|
+test "rse aggregate profile samples every current leaf deterministically" {
+  @debug.assert_eq(
+    gen_valid_profile_leaf_for_case(RseAllProfile, 0x5eedUL, 7),
+    gen_valid_profile_leaf_for_case(RseAllProfile, 0x5eedUL, 7),
+  )
+  @debug.assert_eq(
+    gen_valid_profile_leaf_for_case(RseLoopFlowProfile, 0x5eedUL, 42),
+    RseLoopFlowProfile,
+  )
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 256 {
+    let leaf = gen_valid_profile_leaf_for_case(RseAllProfile, 0x5eedUL, index)
+    assert_false(gen_valid_profile_is_composite(leaf))
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  for
+    leaf in [
+      RseCoreSameValueProfile,
+      RseLocalCopySelfSetProfile,
+      RseCfgMergeProfile,
+      RseLoopFlowProfile,
+      RseRefinedGetProfile,
+      RseRefinementWrappersProfile,
+      RseAggregateRefinalizeProfile,
+      RseExceptionBoundariesProfile,
+      RseHazardBoundaryProfile,
+      RseVacuumTailProfile,
+    ] {
+    assert_true(seen.contains(leaf), msg="missing sampled RSE leaf \\{leaf}")
+  }
+}
+
+///|
+test "rse gen-valid family profiles emit validating trigger scaffolds" {
+  let leaves = [
+    RseCoreSameValueProfile,
+    RseLocalCopySelfSetProfile,
+    RseCfgMergeProfile,
+    RseLoopFlowProfile,
+    RseRefinedGetProfile,
+    RseRefinementWrappersProfile,
+    RseAggregateRefinalizeProfile,
+    RseExceptionBoundariesProfile,
+    RseHazardBoundaryProfile,
+    RseVacuumTailProfile,
+  ]
+  for leaf in leaves {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(leaf),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    match generated.wasm_module.code_sec {
+      Some(CodeSec(funcs)) => assert_true(funcs.length() > 0)
+      None => fail("expected RSE profile to emit code")
+    }
+  }
+
+  let core = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseCoreSameValueProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match core.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(_),
+                LocalSet(_),
+                I32Const(_),
+                LocalSet(_),
+                I32Const(_),
+                LocalTee(_),
+                Drop,
+                ..,
+              ]
+            )
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ => fail("expected rse-core-same-value local.set/local.tee scaffold")
+  }
+
+  let local_copy = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseLocalCopySelfSetProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match local_copy.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr([LocalGet(_), LocalSet(_), LocalGet(_), LocalSet(_), ..])
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ => fail("expected rse-local-copy-self-set copy/self-set scaffold")
+  }
+
+  let cfg = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseCfgMergeProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match cfg.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [Func(_, Expr([LocalGet(_), If(_, _, Some(_)), Block(_, _), ..])), ..]
+      )
+    ) => ()
+    _ => fail("expected rse-cfg-merge if/block branch scaffold")
+  }
+
+  let loop_flow = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseLoopFlowProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match loop_flow.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(_, Expr([Loop(_, _), I32Const(_), LocalSet(_), Loop(_, _), ..])),
+          ..,
+        ]
+      )
+    ) => ()
+    _ => fail("expected rse-loop-flow loop positive and backedge scaffold")
+  }
+
+  let refined = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseRefinedGetProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match refined.wasm_module.type_sec {
+    Some(TypeSec(types)) => assert_true(types.length() >= 2)
+    None => fail("expected rse-refined-get GC type section")
+  }
+
+  let wrappers = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseRefinementWrappersProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match wrappers.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                LocalGet(_),
+                RefAsNonNull,
+                LocalSet(_),
+                LocalGet(_),
+                RefCast(_, _, _),
+                ..,
+              ]
+            )
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ =>
+      fail("expected rse-refinement-wrappers ref.as_non_null/ref.cast scaffold")
+  }
+
+  let aggregate = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseAggregateRefinalizeProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match aggregate.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                StructNewDefault(_),
+                LocalSet(_),
+                LocalGet(_),
+                LocalTee(_),
+                StructGet(_, _),
+                ..,
+              ]
+            )
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ =>
+      fail("expected rse-aggregate-refinalize struct/array accessor scaffold")
+  }
+
+  let exceptions = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseExceptionBoundariesProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match exceptions.wasm_module.tag_sec {
+    Some(TagSec([_])) => ()
+    _ => fail("expected rse-exception-boundaries tag section")
+  }
+
+  let hazard = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseHazardBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match
+    (
+      hazard.wasm_module.mem_sec,
+      hazard.wasm_module.table_sec,
+      hazard.wasm_module.global_sec,
+    ) {
+    (Some(MemSec([_])), Some(TableSec([_])), Some(GlobalSec([_, ..]))) => ()
+    _ => fail("expected rse-hazard-boundary memory/table/global sections")
+  }
+
+  let vacuum_tail = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(RseVacuumTailProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match vacuum_tail.wasm_module.code_sec {
+    Some(
+      CodeSec([Func(_, Expr([Block(_, _), I32Const(_), LocalSet(_), ..])), ..])
+    ) => ()
+    _ => fail("expected rse-vacuum-tail nested cleanup scaffold")
+  }
+}
+
+///|
 test "vacuum gen-valid profiles expose stable family lanes" {
   @debug.assert_eq(gen_valid_profile_name(VacuumProfile), "vacuum")
   @debug.assert_eq(gen_valid_profile_name(VacuumCoreProfile), "vacuum-core")

@@ -829,6 +829,29 @@ test "rse hot path folds post-if set when branch exit agrees with else" {
 }
 
 ///|
+test "rse raw path removes local.get self tee even when value identity is unknown" {
+  let input =
+    #|(module
+    #|  (type $A (struct (field (mut i32))))
+    #|  (func (local (ref null $A))
+    #|    struct.new_default $A
+    #|    local.set 0
+    #|    local.get 0
+    #|    local.tee 0
+    #|    struct.get $A 0
+    #|    drop))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse unknown self-tee fixture success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 test "rse raw path keeps default reset in loop when entry value may differ" {
   let input =
     #|(module

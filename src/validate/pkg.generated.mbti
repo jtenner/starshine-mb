@@ -1125,6 +1125,17 @@ pub enum GenValidProfile {
   VacuumCallPrefixContinuationProfile
   VacuumLocalsetPrefixPreserveProfile
   VacuumHazardBoundaryProfile
+  RseAllProfile
+  RseCoreSameValueProfile
+  RseLocalCopySelfSetProfile
+  RseCfgMergeProfile
+  RseLoopFlowProfile
+  RseRefinedGetProfile
+  RseRefinementWrappersProfile
+  RseAggregateRefinalizeProfile
+  RseExceptionBoundariesProfile
+  RseHazardBoundaryProfile
+  RseVacuumTailProfile
   PassDaeProfile
   PassInliningProfile
   PassMemoryProfile

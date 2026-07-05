@@ -654,6 +654,27 @@ fn rse_raw_push(state : RseRawState, value : String) -> Unit {
 }
 
 ///|
+fn rse_raw_ref_null_result_type(heap_type : @lib.HeapType) -> @lib.RefType {
+  match @lib.Instruction::ref_null(heap_type) {
+    @lib.Instruction::RefNull(ref_type) => ref_type
+    _ => abort("expected ref.null constructor")
+  }
+}
+
+///|
+fn rse_raw_default_ref_null_type(ref_type : @lib.RefType) -> @lib.RefType {
+  match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType) =>
+      rse_raw_ref_null_result_type(
+        @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+      )
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType) =>
+      rse_raw_ref_null_result_type(@lib.HeapType::abs(@lib.AbsHeapType::func()))
+    _ => ref_type.make_nullable()
+  }
+}
+
+///|
 fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
   match ty {
     @lib.NumTypeValType(@lib.I32NumType) => Some("i32:\{@lib.I32::new(0)}")
@@ -661,7 +682,7 @@ fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
     @lib.NumTypeValType(@lib.F32NumType) => Some("f32:\{@lib.F32::new(0.0)}")
     @lib.NumTypeValType(@lib.F64NumType) => Some("f64:\{@lib.F64::new(0.0)}")
     @lib.RefTypeValType(ref_type) if ref_type.is_nullable() =>
-      Some("ref.null:\{ref_type.make_nullable()}")
+      Some("ref.null:\{rse_raw_default_ref_null_type(ref_type)}")
     _ => None
   }
 }
@@ -733,6 +754,97 @@ fn rse_raw_loop_write_counts(
 }
 
 ///|
+fn rse_raw_loop_same_write_value(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> (Int, String) {
+  let mut writes = 0
+  let mut same_value = ""
+  let mut disagreed = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    match instr {
+      @lib.Instruction::LocalSet(local_idx)
+      | @lib.Instruction::LocalTee(local_idx) =>
+        if rse_raw_local_id(local_idx) == local_id {
+          writes += 1
+          let value = if idx > 0 {
+            match rse_raw_default_instr_value(instrs[idx - 1]) {
+              Some(value) => value
+              None => ""
+            }
+          } else {
+            ""
+          }
+          if value == "" {
+            disagreed = true
+          } else if same_value == "" {
+            same_value = value
+          } else if same_value != value {
+            disagreed = true
+          }
+        }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body))
+      | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => {
+        let (nested_writes, nested_value) = rse_raw_loop_same_write_value(
+          body, local_id,
+        )
+        writes += nested_writes
+        if nested_writes > 0 {
+          if nested_value == "" {
+            disagreed = true
+          } else if same_value == "" {
+            same_value = nested_value
+          } else if same_value != nested_value {
+            disagreed = true
+          }
+        }
+      }
+      @lib.Instruction::If(_, then_body, else_body) => {
+        let (then_writes, then_value) = rse_raw_loop_same_write_value(
+          then_body, local_id,
+        )
+        writes += then_writes
+        if then_writes > 0 {
+          if then_value == "" {
+            disagreed = true
+          } else if same_value == "" {
+            same_value = then_value
+          } else if same_value != then_value {
+            disagreed = true
+          }
+        }
+        match else_body {
+          Some(else_instrs) => {
+            let (else_writes, else_value) = rse_raw_loop_same_write_value(
+              else_instrs, local_id,
+            )
+            writes += else_writes
+            if else_writes > 0 {
+              if else_value == "" {
+                disagreed = true
+              } else if same_value == "" {
+                same_value = else_value
+              } else if same_value != else_value {
+                disagreed = true
+              }
+            }
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  if disagreed {
+    (writes, "")
+  } else {
+    (writes, same_value)
+  }
+}
+
+///|
 fn rse_raw_prepare_loop_entry(
   state : RseRawState,
   loop_state : RseRawState,
@@ -753,6 +865,14 @@ fn rse_raw_prepare_loop_entry(
         } else if writes == default_writes &&
           state.local_values[local_id] == default_value {
           loop_state.local_values[local_id] = default_value
+        } else {
+          let (_, same_write_value) = rse_raw_loop_same_write_value(
+            body, local_id,
+          )
+          if same_write_value != "" &&
+            state.local_values[local_id] == same_write_value {
+            loop_state.local_values[local_id] = same_write_value
+          }
         }
       }
       None => ()
@@ -777,6 +897,18 @@ fn rse_raw_local_set(
 ) -> Unit {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id] = value
+  }
+}
+
+///|
+fn rse_raw_out_ends_with_local_get(
+  out : Array[@lib.Instruction],
+  local_id : Int,
+) -> Bool {
+  match out.last() {
+    Some(@lib.Instruction::LocalGet(local_idx)) =>
+      rse_raw_local_id(local_idx) == local_id
+    _ => false
   }
 }
 
@@ -1034,6 +1166,9 @@ fn rse_raw_rewrite_expr_scoped(
         if value != "" && rse_raw_local_get(state, local_id) == value {
           out.push(@lib.Instruction::drop())
           state.changed = true
+        } else if value == "" && rse_raw_out_ends_with_local_get(out, local_id) {
+          out.push(@lib.Instruction::drop())
+          state.changed = true
         } else {
           out.push(instr)
         }
@@ -1046,6 +1181,8 @@ fn rse_raw_rewrite_expr_scoped(
         }
         let local_id = rse_raw_local_id(local_idx)
         if value != "" && rse_raw_local_get(state, local_id) == value {
+          state.changed = true
+        } else if value == "" && rse_raw_out_ends_with_local_get(out, local_id) {
           state.changed = true
         } else {
           out.push(instr)

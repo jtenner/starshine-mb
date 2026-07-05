@@ -653,6 +653,17 @@ pub enum GenValidProfile {
   VacuumCallPrefixContinuationProfile
   VacuumLocalsetPrefixPreserveProfile
   VacuumHazardBoundaryProfile
+  RseAllProfile
+  RseCoreSameValueProfile
+  RseLocalCopySelfSetProfile
+  RseCfgMergeProfile
+  RseLoopFlowProfile
+  RseRefinedGetProfile
+  RseRefinementWrappersProfile
+  RseAggregateRefinalizeProfile
+  RseExceptionBoundariesProfile
+  RseHazardBoundaryProfile
+  RseVacuumTailProfile
   PassDaeProfile
   PassInliningProfile
   PassMemoryProfile
@@ -817,6 +828,17 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     VacuumCallPrefixContinuationProfile => "vacuum-call-prefix-continuation"
     VacuumLocalsetPrefixPreserveProfile => "vacuum-localset-prefix-preserve"
     VacuumHazardBoundaryProfile => "vacuum-hazard-boundary"
+    RseAllProfile => "rse"
+    RseCoreSameValueProfile => "rse-core-same-value"
+    RseLocalCopySelfSetProfile => "rse-local-copy-self-set"
+    RseCfgMergeProfile => "rse-cfg-merge"
+    RseLoopFlowProfile => "rse-loop-flow"
+    RseRefinedGetProfile => "rse-refined-get"
+    RseRefinementWrappersProfile => "rse-refinement-wrappers"
+    RseAggregateRefinalizeProfile => "rse-aggregate-refinalize"
+    RseExceptionBoundariesProfile => "rse-exception-boundaries"
+    RseHazardBoundaryProfile => "rse-hazard-boundary"
+    RseVacuumTailProfile => "rse-vacuum-tail"
     PassDaeProfile => "pass-dae"
     PassInliningProfile => "pass-inlining"
     PassMemoryProfile => "pass-memory"
@@ -967,6 +989,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
 pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
   match profile {
     VacuumProfile
+    | RseAllProfile
     | GsiDescCastAllProfile
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
@@ -999,6 +1022,19 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(VacuumCallPrefixContinuationProfile, 1),
         GenValidProfileMember::new(VacuumLocalsetPrefixPreserveProfile, 1),
         GenValidProfileMember::new(VacuumHazardBoundaryProfile, 1),
+      ]
+    RseAllProfile =>
+      [
+        GenValidProfileMember::new(RseCoreSameValueProfile, 3),
+        GenValidProfileMember::new(RseLocalCopySelfSetProfile, 2),
+        GenValidProfileMember::new(RseCfgMergeProfile, 3),
+        GenValidProfileMember::new(RseLoopFlowProfile, 2),
+        GenValidProfileMember::new(RseRefinedGetProfile, 2),
+        GenValidProfileMember::new(RseRefinementWrappersProfile, 2),
+        GenValidProfileMember::new(RseAggregateRefinalizeProfile, 2),
+        GenValidProfileMember::new(RseExceptionBoundariesProfile, 1),
+        GenValidProfileMember::new(RseHazardBoundaryProfile, 2),
+        GenValidProfileMember::new(RseVacuumTailProfile, 2),
       ]
     GsiDescCastAllProfile =>
       [
@@ -1232,6 +1268,17 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     VacuumCallPrefixContinuationProfile,
     VacuumLocalsetPrefixPreserveProfile,
     VacuumHazardBoundaryProfile,
+    RseAllProfile,
+    RseCoreSameValueProfile,
+    RseLocalCopySelfSetProfile,
+    RseCfgMergeProfile,
+    RseLoopFlowProfile,
+    RseRefinedGetProfile,
+    RseRefinementWrappersProfile,
+    RseAggregateRefinalizeProfile,
+    RseExceptionBoundariesProfile,
+    RseHazardBoundaryProfile,
+    RseVacuumTailProfile,
     PassDaeProfile,
     PassInliningProfile,
     PassMemoryProfile,
@@ -1417,6 +1464,10 @@ pub fn gen_valid_profile_by_name(
     "vacuum-all" => Ok(VacuumProfile)
     "vacuum-all-profiles" => Ok(VacuumProfile)
     "vacuum-current" => Ok(VacuumCoreProfile)
+    "redundant-set-elimination" => Ok(RseAllProfile)
+    "rse-closeout" => Ok(RseAllProfile)
+    "rse-all" => Ok(RseAllProfile)
+    "rse-all-profiles" => Ok(RseAllProfile)
     "pick-load-signs" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
@@ -1602,6 +1653,17 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | VacuumCallPrefixContinuationProfile
     | VacuumLocalsetPrefixPreserveProfile
     | VacuumHazardBoundaryProfile => gen_valid_vacuum_profile_config(profile)
+    RseAllProfile
+    | RseCoreSameValueProfile
+    | RseLocalCopySelfSetProfile
+    | RseCfgMergeProfile
+    | RseLoopFlowProfile
+    | RseRefinedGetProfile
+    | RseRefinementWrappersProfile
+    | RseAggregateRefinalizeProfile
+    | RseExceptionBoundariesProfile
+    | RseHazardBoundaryProfile
+    | RseVacuumTailProfile => gen_valid_rse_profile_config(profile)
     PassDaeProfile => {
       let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
       GenValidConfig::{
@@ -15856,6 +15918,504 @@ fn gen_valid_vacuum_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_rse_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let family_id = match profile {
+    RseCoreSameValueProfile => 1
+    RseLocalCopySelfSetProfile => 2
+    RseCfgMergeProfile => 3
+    RseLoopFlowProfile => 4
+    RseRefinedGetProfile => 5
+    RseRefinementWrappersProfile => 6
+    RseAggregateRefinalizeProfile => 7
+    RseExceptionBoundariesProfile => 8
+    RseHazardBoundaryProfile => 9
+    RseVacuumTailProfile => 10
+    _ => 0
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == RseRefinedGetProfile ||
+      profile == RseAggregateRefinalizeProfile ||
+      profile == RseExceptionBoundariesProfile {
+      4
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: if profile == RseHazardBoundaryProfile {
+      1
+    } else {
+      0
+    },
+    max_mems: if profile == RseHazardBoundaryProfile {
+      1
+    } else {
+      0
+    },
+    max_globals: if profile == RseHazardBoundaryProfile {
+      2
+    } else {
+      0
+    },
+    max_tags: if profile == RseExceptionBoundariesProfile {
+      1
+    } else {
+      0
+    },
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == RseRefinedGetProfile ||
+      profile == RseRefinementWrappersProfile {
+      1
+    } else {
+      0
+    },
+    max_results: 0,
+    max_locals: if profile == RseAggregateRefinalizeProfile ||
+      profile == RseHazardBoundaryProfile {
+      4
+    } else {
+      3
+    },
+    max_body_statements: 18 + family_id,
+    max_body_depth: 4,
+    max_module_byte_size_budget: Some(230000 + family_id),
+    features: GenValidFeatureToggles::{
+      allow_imports: false,
+      allow_tables: profile == RseHazardBoundaryProfile,
+      allow_mems: profile == RseHazardBoundaryProfile,
+      allow_globals: profile == RseHazardBoundaryProfile,
+      allow_tags: profile == RseExceptionBoundariesProfile,
+      allow_start: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: true,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: profile == RseCfgMergeProfile ||
+      profile == RseLoopFlowProfile ||
+      profile == RseExceptionBoundariesProfile ||
+      profile == RseVacuumTailProfile,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: profile == RseAggregateRefinalizeProfile,
+      allow_subtyping_topology: profile == RseRefinedGetProfile ||
+      profile == RseAggregateRefinalizeProfile,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: true,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_rse_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(RseAllProfile) ||
+  config == GenValidConfig::for_profile(RseCoreSameValueProfile) ||
+  config == GenValidConfig::for_profile(RseLocalCopySelfSetProfile) ||
+  config == GenValidConfig::for_profile(RseCfgMergeProfile) ||
+  config == GenValidConfig::for_profile(RseLoopFlowProfile) ||
+  config == GenValidConfig::for_profile(RseRefinedGetProfile) ||
+  config == GenValidConfig::for_profile(RseRefinementWrappersProfile) ||
+  config == GenValidConfig::for_profile(RseAggregateRefinalizeProfile) ||
+  config == GenValidConfig::for_profile(RseExceptionBoundariesProfile) ||
+  config == GenValidConfig::for_profile(RseHazardBoundaryProfile) ||
+  config == GenValidConfig::for_profile(RseVacuumTailProfile)
+}
+
+///|
+fn gen_valid_rse_profile_kind(config : GenValidConfig) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(RseLocalCopySelfSetProfile) {
+    RseLocalCopySelfSetProfile
+  } else if config == GenValidConfig::for_profile(RseCfgMergeProfile) {
+    RseCfgMergeProfile
+  } else if config == GenValidConfig::for_profile(RseLoopFlowProfile) {
+    RseLoopFlowProfile
+  } else if config == GenValidConfig::for_profile(RseRefinedGetProfile) {
+    RseRefinedGetProfile
+  } else if config == GenValidConfig::for_profile(RseRefinementWrappersProfile) {
+    RseRefinementWrappersProfile
+  } else if config == GenValidConfig::for_profile(RseAggregateRefinalizeProfile) {
+    RseAggregateRefinalizeProfile
+  } else if config == GenValidConfig::for_profile(RseExceptionBoundariesProfile) {
+    RseExceptionBoundariesProfile
+  } else if config == GenValidConfig::for_profile(RseHazardBoundaryProfile) {
+    RseHazardBoundaryProfile
+  } else if config == GenValidConfig::for_profile(RseVacuumTailProfile) {
+    RseVacuumTailProfile
+  } else {
+    RseCoreSameValueProfile
+  }
+}
+
+///|
+fn gen_valid_rse_func_type(
+  params : Array[ValType],
+  results : Array[ValType],
+) -> RecType {
+  RecType::new(SubType::comp_type(CompType::func(params, results)))
+}
+
+///|
+fn gen_valid_rse_i32_void_module(
+  locals : Array[ValType],
+  body : Array[Instruction],
+) -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_rse_func_type([], [])]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([Func::new(Locals::from_types(locals), Expr::new(body))]),
+  )
+}
+
+///|
+fn gen_valid_rse_core_same_value_profile_module() -> Module {
+  gen_valid_rse_i32_void_module([ValType::i32(), ValType::i32()], [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(7)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(13)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(14)),
+    Instruction::local_set(LocalIdx::new(1U)),
+  ])
+}
+
+///|
+fn gen_valid_rse_local_copy_self_set_profile_module() -> Module {
+  gen_valid_rse_i32_void_module(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::local_set(LocalIdx::new(1U)),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::local_set(LocalIdx::new(1U)),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::local_set(LocalIdx::new(2U)),
+      Instruction::local_get(LocalIdx::new(2U)),
+      Instruction::drop(),
+    ],
+  )
+}
+
+///|
+fn gen_valid_rse_cfg_merge_profile_module() -> Module {
+  gen_valid_rse_i32_void_module([ValType::i32(), ValType::i32()], [
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ],
+      Some([
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ]),
+    ),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(2)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(2)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ]),
+    ),
+  ])
+}
+
+///|
+fn gen_valid_rse_loop_flow_profile_module() -> Module {
+  gen_valid_rse_i32_void_module([ValType::i32()], [
+    Instruction::loop_(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(3)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(3)),
+        Instruction::local_set(LocalIdx::new(0U)),
+      ]),
+    ),
+    Instruction::i32_const(I32(4)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::loop_(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::i32_const(I32(4)),
+        Instruction::local_set(LocalIdx::new(0U)),
+      ]),
+    ),
+  ])
+}
+
+///|
+fn gen_valid_rse_refined_get_profile_module() -> Module {
+  let base_ty = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let child_ty = RecType::new(
+    SubType::new(false, [TypeIdx::new(0U)], CompType::struct_([])),
+  )
+  let child_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1U))),
+  )
+  let base_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0U))),
+  )
+  let func_ty = gen_valid_rse_func_type([child_ref], [])
+  Module::new()
+  .with_type_sec(TypeSec::new([base_ty, child_ty, func_ty]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([base_ref, child_ref]),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(2U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rse_refinement_wrappers_profile_module() -> Module {
+  let any_heap = HeapType::abs(AbsHeapType::any())
+  let nullable_any = ValType::ref_type(RefType::new(true, any_heap))
+  let func_ty = gen_valid_rse_func_type([nullable_any], [])
+  Module::new()
+  .with_type_sec(TypeSec::new([func_ty]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([nullable_any, nullable_any]),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::ref_as_non_null(),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::ref_cast(true, any_heap),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::local_get(LocalIdx::new(2U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rse_aggregate_refinalize_profile_module() -> Module {
+  let i32_field = FieldType::new(
+    StorageType::val_type(ValType::i32()),
+    Mut::var_(),
+  )
+  let i8_field = FieldType::new(
+    StorageType::pack_type(PackType::i8()),
+    Mut::var_(),
+  )
+  let struct_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([i32_field, i8_field])),
+  )
+  let array_ty = RecType::new(SubType::comp_type(CompType::array(i32_field)))
+  let struct_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0U))),
+  )
+  let array_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1U))),
+  )
+  let func_ty = gen_valid_rse_func_type([], [])
+  Module::new()
+  .with_type_sec(TypeSec::new([struct_ty, array_ty, func_ty]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([struct_ref, array_ref]),
+        Expr::new([
+          Instruction::struct_new_default(TypeIdx::new(0U)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_tee(LocalIdx::new(0U)),
+          Instruction::struct_get(TypeIdx::new(0U), 0U),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::struct_get_s(TypeIdx::new(0U), 1U),
+          Instruction::drop(),
+          Instruction::i32_const(I32(4)),
+          Instruction::array_new_default(TypeIdx::new(1U)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_const(I32(0)),
+          Instruction::array_get(TypeIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_const(I32(1)),
+          Instruction::i32_const(I32(9)),
+          Instruction::array_set(TypeIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rse_exception_boundaries_profile_module() -> Module {
+  let tag_ty = gen_valid_rse_func_type([], [])
+  let func_ty = gen_valid_rse_func_type([], [])
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_ty, func_ty]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32()]),
+        Expr::new([
+          Instruction::i32_const(I32(5)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(5)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::void_(),
+                [Catch::new(TagIdx::new(0U), LabelIdx::new(0U))],
+                Expr::new([Instruction::nop()]),
+              ),
+            ]),
+          ),
+          Instruction::throw_(TagIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rse_hazard_boundary_profile_module() -> Module {
+  let ma = MemArg::new(2U, None, 0UL)
+  gen_valid_rse_i32_void_module(
+    [
+      ValType::i32(),
+      ValType::ref_type(
+        RefType::new(true, HeapType::abs(AbsHeapType::extern_())),
+      ),
+    ],
+    [
+      Instruction::i32_const(I32(6)),
+      Instruction::local_set(LocalIdx::new(0U)),
+      Instruction::i32_const(I32(0)),
+      Instruction::i32_const(I32(11)),
+      Instruction::i32_store(ma),
+      Instruction::i32_const(I32(6)),
+      Instruction::local_set(LocalIdx::new(0U)),
+      Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+      Instruction::local_set(LocalIdx::new(1U)),
+      Instruction::i32_const(I32(0)),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::table_set(TableIdx::new(0U)),
+      Instruction::i32_const(I32(12)),
+      Instruction::global_set(GlobalIdx::new(0U)),
+      Instruction::i32_const(I32(6)),
+      Instruction::local_set(LocalIdx::new(0U)),
+    ],
+  )
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  .with_table_sec(
+    TableSec::new([
+      Table::new(
+        TableType::new(
+          RefType::new(true, HeapType::abs(AbsHeapType::extern_())),
+          Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(1))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rse_vacuum_tail_profile_module() -> Module {
+  gen_valid_rse_i32_void_module([ValType::i32()], [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(8)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(8)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::block(BlockType::void_(), Expr::new([])),
+        Instruction::nop(),
+      ]),
+    ),
+    Instruction::i32_const(I32(8)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(8)),
+    Instruction::local_set(LocalIdx::new(0U)),
+  ])
+}
+
+///|
+fn gen_valid_rse_profile_module(config : GenValidConfig) -> Module {
+  match gen_valid_rse_profile_kind(config) {
+    RseLocalCopySelfSetProfile =>
+      gen_valid_rse_local_copy_self_set_profile_module()
+    RseCfgMergeProfile => gen_valid_rse_cfg_merge_profile_module()
+    RseLoopFlowProfile => gen_valid_rse_loop_flow_profile_module()
+    RseRefinedGetProfile => gen_valid_rse_refined_get_profile_module()
+    RseRefinementWrappersProfile =>
+      gen_valid_rse_refinement_wrappers_profile_module()
+    RseAggregateRefinalizeProfile =>
+      gen_valid_rse_aggregate_refinalize_profile_module()
+    RseExceptionBoundariesProfile =>
+      gen_valid_rse_exception_boundaries_profile_module()
+    RseHazardBoundaryProfile => gen_valid_rse_hazard_boundary_profile_module()
+    RseVacuumTailProfile => gen_valid_rse_vacuum_tail_profile_module()
+    _ => gen_valid_rse_core_same_value_profile_module()
+  }
+}
+
+///|
 fn gen_valid_pick_load_signs_profile_kind(
   config : GenValidConfig,
 ) -> GenValidProfile {
@@ -22374,6 +22934,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_vacuum_profile_config(config) {
     return gen_valid_vacuum_profile_module(config)
+  }
+  if gen_valid_is_rse_profile_config(config) {
+    return gen_valid_rse_profile_module(config)
   }
   if gen_valid_is_pick_load_signs_profile_config(config) {
     return gen_valid_pick_load_signs_profile_module(config)
