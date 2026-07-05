@@ -26542,6 +26542,7 @@ fn run_hot_pipeline_raw_optimize_instructions_pure_local_direct_call_descriptor_
   (ref_arg_count == 4 && desc_arg_count == 5) ||
   (ref_arg_count == 5 && desc_arg_count == 4) ||
   (ref_arg_count == 6 && desc_arg_count == 6) ||
+  (ref_arg_count == 7 && desc_arg_count == 7) ||
   (ref_arg_count == 6 && desc_arg_count == 5) ||
   (ref_arg_count == 5 && desc_arg_count == 6) ||
   (ref_arg_count == 6 && desc_arg_count == 4) ||
