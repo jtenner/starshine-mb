@@ -184,6 +184,7 @@ sources:
   - ../../../raw/research/1522-2026-07-05-optimize-instructions-oi-j-mixed-8ref-6desc-call-descriptor-miss.md
   - ../../../raw/research/1523-2026-07-05-optimize-instructions-oi-j-mixed-6ref-8desc-call-descriptor-miss.md
   - ../../../raw/research/1524-2026-07-05-optimize-instructions-oi-j-mixed-8ref-5desc-call-descriptor-miss.md
+  - ../../../raw/research/1525-2026-07-05-optimize-instructions-oi-j-mixed-5ref-8desc-call-descriptor-miss.md
   - ../../../raw/research/1505-2026-07-05-optimize-instructions-oi-j-mixed-1ref-6desc-call-descriptor-miss.md
   - ../../../raw/research/1504-2026-07-05-optimize-instructions-oi-j-mixed-6ref-1desc-call-descriptor-miss.md
   - ../../../raw/research/1503-2026-07-05-optimize-instructions-oi-j-mixed-2ref-6desc-call-descriptor-miss.md
