@@ -10655,6 +10655,184 @@ test "optimize-instructions folds descriptor casts with both operands call-produ
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with parameterized call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 rewrites the
+  // strict-subtype/exact-descriptor miss to `drop(call $make_ref(local.get));
+  // drop(call $make_desc(local.get)); unreachable` when both direct calls take
+  // pure local arguments. This narrows the direct-call surface beyond the
+  // no-parameter case while still keeping indirect/call_ref, multivalue,
+  // effectful arguments, escaping control/EH, TNH/IIT, and nullable null-only
+  // descriptor casts fail-closed.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let make_ref_func_type = @lib.TypeIdx::new(4U)
+  let make_desc_func_type = @lib.TypeIdx::new(5U)
+  let cast_func_type = @lib.TypeIdx::new(6U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(sub_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(base_descriptor_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::ref_type(base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        make_ref_func_type, make_desc_func_type, cast_func_type,
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(subtype_descriptor),
+            @lib.Instruction::struct_new_default_desc(subtype),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          _,
+          _,
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.LocalGet(arg0),
+                @lib.Call(ref_func),
+                @lib.Drop,
+                @lib.LocalGet(arg1),
+                @lib.Call(desc_func),
+                @lib.Drop,
+                @lib.Unreachable,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(arg0, @lib.LocalIdx::new(0U))
+      @debug.assert_eq(ref_func, @lib.FuncIdx::new(0U))
+      @debug.assert_eq(arg1, @lib.LocalIdx::new(1U))
+      @debug.assert_eq(desc_func, @lib.FuncIdx::new(1U))
+    }
+    _ =>
+      fail(
+        "expected local.get arg0; call ref; drop; local.get arg1; call desc; drop; unreachable",
+      )
+  }
+}
+
+///|
 test "optimize-instructions rewrites exact-result descriptor cast misses before final validation" {
   // OI-J descriptor validation boundary: Binaryen version_130 also rewrites the
   // exact-result spelling of the strict-subtype/exact-descriptor miss to

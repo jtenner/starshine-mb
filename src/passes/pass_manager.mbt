@@ -26451,10 +26451,11 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_struct_new_exactly_desc
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
   module_ctx : @ir.HotModuleContext,
   descriptor_func : @lib.FuncIdx,
   target : @lib.HeapType,
+  param_count : Int,
 ) -> Bool {
   let target_idx = match target {
     @lib.HeapType(type_idx) => type_idx
@@ -26462,7 +26463,9 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
   }
   let descriptor_type = match
     @ir.hot_module_resolve_func_type(module_ctx, descriptor_func) {
-    Some(@lib.FuncType([], [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() &&
+    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+      param_count &&
+      ref_type.is_non_nullable() &&
       ref_type.is_exact() =>
       match ref_type.get_heap_type() {
         @lib.HeapType(type_idx) => type_idx
@@ -26477,18 +26480,42 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+  module_ctx : @ir.HotModuleContext,
+  descriptor_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+) -> Bool {
+  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+    module_ctx, descriptor_func, target, 0,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+  module_ctx : @ir.HotModuleContext,
+  ref_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> Bool {
+  let source = match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
+    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+      param_count &&
+      ref_type.is_non_nullable() => ref_type.get_heap_type()
+    _ => return false
+  }
+  source != target &&
+  run_hot_pipeline_raw_heap_type_is_subtype(module_ctx, source, target, 64)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
 ) -> Bool {
-  let source = match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
-    Some(@lib.FuncType([], [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() =>
-      ref_type.get_heap_type()
-    _ => return false
-  }
-  source != target &&
-  run_hot_pipeline_raw_heap_type_is_subtype(module_ctx, source, target, 64)
+  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+    module_ctx, ref_func, target, 0,
+  )
 }
 
 ///|
@@ -26591,6 +26618,35 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           rewritten.push(@lib.Instruction::unreachable_())
           changed = true
           i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    if i + 4 < instrs.length() {
+      match
+        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+        (
+          @lib.LocalGet(ref_arg),
+          @lib.Call(ref_func),
+          @lib.LocalGet(desc_arg),
+          @lib.Call(descriptor_func),
+          @lib.RefCastDescEq(_, _, target),
+        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+            module_ctx, ref_func, target, 1,
+          ) &&
+          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+            module_ctx, descriptor_func, target, 1,
+          ) => {
+          rewritten.push(@lib.Instruction::local_get(ref_arg))
+          rewritten.push(@lib.Instruction::call(ref_func))
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(@lib.Instruction::local_get(desc_arg))
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(@lib.Instruction::unreachable_())
+          changed = true
+          i = i + 5
           continue
         }
         _ => ()
