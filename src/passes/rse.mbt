@@ -570,7 +570,7 @@ priv enum RseRawLabelKind {
 ///|
 priv struct RseRawLabelScope {
   kind : RseRawLabelKind
-  exits : Array[Array[String]]
+  exits : Array[Array[Int]]
   mut has_loop_branch : Bool
 }
 
@@ -580,11 +580,23 @@ fn RseRawLabelScope::new(kind : RseRawLabelKind) -> RseRawLabelScope {
 }
 
 ///|
+priv struct RseRawInterner {
+  ids : @hashmap.HashMap[String, Int]
+  mut next_value : Int
+}
+
+///|
+fn RseRawInterner::new(capacity : Int) -> RseRawInterner {
+  { ids: @hashmap.new(capacity~), next_value: 0 }
+}
+
+///|
 priv struct RseRawState {
-  local_values : Array[String]
+  local_values : Array[Int]
   local_types : Array[@lib.ValType]
+  interner : RseRawInterner
   env : @validate.Env
-  stack : Array[String]
+  stack : Array[Int]
   mut next_unknown : Int
   mut changed : Bool
   mut reachable : Bool
@@ -597,8 +609,9 @@ fn RseRawState::new(
   env : @validate.Env,
 ) -> RseRawState {
   let state = {
-    local_values: Array::make(local_types.length(), ""),
+    local_values: Array::make(local_types.length(), -1),
     local_types,
+    interner: RseRawInterner::new(local_types.length() * 4 + 17),
     env,
     stack: [],
     next_unknown: 0,
@@ -609,11 +622,11 @@ fn RseRawState::new(
       local_id < state.local_values.length()
       local_id = local_id + 1 {
     state.local_values[local_id] = if local_id < param_count {
-      "local:\{local_id}"
+      rse_raw_intern_value(state, "local:\{local_id}")
     } else {
-      match rse_raw_default_value_for_type(local_types[local_id]) {
+      match rse_raw_default_value_for_type(state, local_types[local_id]) {
         Some(value) => value
-        None => "local:\{local_id}"
+        None => rse_raw_intern_value(state, "local:\{local_id}")
       }
     }
   }
@@ -625,6 +638,7 @@ fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
   {
     local_values: other.local_values.copy(),
     local_types: other.local_types,
+    interner: other.interner,
     env: other.env,
     stack: other.stack.copy(),
     next_unknown: other.next_unknown,
@@ -634,22 +648,35 @@ fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
 }
 
 ///|
-fn rse_raw_fresh(state : RseRawState) -> String {
-  let key = "unknown:\{state.next_unknown}"
-  state.next_unknown += 1
-  key
-}
-
-///|
-fn rse_raw_pop(state : RseRawState) -> String {
-  match state.stack.pop() {
+fn rse_raw_intern_value(state : RseRawState, key : String) -> Int {
+  match state.interner.ids.get(key) {
     Some(value) => value
-    None => ""
+    None => {
+      let value = state.interner.next_value
+      state.interner.next_value += 1
+      state.interner.ids.set(key, value)
+      value
+    }
   }
 }
 
 ///|
-fn rse_raw_push(state : RseRawState, value : String) -> Unit {
+fn rse_raw_fresh(state : RseRawState) -> Int {
+  let value = state.interner.next_value
+  state.interner.next_value += 1
+  value
+}
+
+///|
+fn rse_raw_pop(state : RseRawState) -> Int {
+  match state.stack.pop() {
+    Some(value) => value
+    None => -1
+  }
+}
+
+///|
+fn rse_raw_push(state : RseRawState, value : Int) -> Unit {
   state.stack.push(value)
 }
 
@@ -675,7 +702,7 @@ fn rse_raw_default_ref_null_type(ref_type : @lib.RefType) -> @lib.RefType {
 }
 
 ///|
-fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
+fn rse_raw_default_key_for_type(ty : @lib.ValType) -> String? {
   match ty {
     @lib.NumTypeValType(@lib.I32NumType) => Some("i32:\{@lib.I32::new(0)}")
     @lib.NumTypeValType(@lib.I64NumType) => Some("i64:\{@lib.I64::new(0L)}")
@@ -688,7 +715,18 @@ fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
 }
 
 ///|
-fn rse_raw_default_instr_value(instr : @lib.Instruction) -> String? {
+fn rse_raw_default_value_for_type(
+  state : RseRawState,
+  ty : @lib.ValType,
+) -> Int? {
+  match rse_raw_default_key_for_type(ty) {
+    Some(key) => Some(rse_raw_intern_value(state, key))
+    None => None
+  }
+}
+
+///|
+fn rse_raw_default_instr_key(instr : @lib.Instruction) -> String? {
   match instr {
     @lib.Instruction::I32Const(value) => Some("i32:\{value}")
     @lib.Instruction::I64Const(value) => Some("i64:\{value}")
@@ -700,148 +738,287 @@ fn rse_raw_default_instr_value(instr : @lib.Instruction) -> String? {
 }
 
 ///|
-fn rse_raw_loop_write_counts(
-  instrs : Array[@lib.Instruction],
-  local_id : Int,
-  default_value : String,
-) -> (Int, Int) {
-  let mut writes = 0
-  let mut default_writes = 0
-  for idx = 0; idx < instrs.length(); idx = idx + 1 {
-    let instr = instrs[idx]
-    match instr {
-      @lib.Instruction::LocalSet(local_idx)
-      | @lib.Instruction::LocalTee(local_idx) =>
-        if rse_raw_local_id(local_idx) == local_id {
-          writes += 1
-          if idx > 0 {
-            match rse_raw_default_instr_value(instrs[idx - 1]) {
-              Some(value) if value == default_value => default_writes += 1
-              _ => ()
-            }
-          }
-        }
-      @lib.Instruction::Block(_, @lib.Expr(body))
-      | @lib.Instruction::Loop(_, @lib.Expr(body))
-      | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => {
-        let (nested_writes, nested_default_writes) = rse_raw_loop_write_counts(
-          body, local_id, default_value,
-        )
-        writes += nested_writes
-        default_writes += nested_default_writes
-      }
-      @lib.Instruction::If(_, then_body, else_body) => {
-        let (then_writes, then_default_writes) = rse_raw_loop_write_counts(
-          then_body, local_id, default_value,
-        )
-        writes += then_writes
-        default_writes += then_default_writes
-        match else_body {
-          Some(else_instrs) => {
-            let (else_writes, else_default_writes) = rse_raw_loop_write_counts(
-              else_instrs, local_id, default_value,
-            )
-            writes += else_writes
-            default_writes += else_default_writes
-          }
-          None => ()
-        }
-      }
-      _ => ()
-    }
+fn rse_raw_default_instr_value(
+  state : RseRawState,
+  instr : @lib.Instruction,
+) -> Int? {
+  match rse_raw_default_instr_key(instr) {
+    Some(key) => Some(rse_raw_intern_value(state, key))
+    None => None
   }
-  (writes, default_writes)
 }
 
 ///|
-fn rse_raw_loop_same_write_value(
-  instrs : Array[@lib.Instruction],
+priv struct RseRawLoopSummary {
+  writes : Array[Int]
+  same_values : Array[Int]
+  disagreed : Array[Bool]
+  default_writes : Array[Int]
+  default_values : Array[Int]
+}
+
+///|
+fn RseRawLoopSummary::new(state : RseRawState) -> RseRawLoopSummary {
+  let count = state.local_values.length()
+  let summary : RseRawLoopSummary = {
+    writes: Array::make(count, 0),
+    same_values: Array::make(count, -1),
+    disagreed: Array::make(count, false),
+    default_writes: Array::make(count, 0),
+    default_values: Array::make(count, -1),
+  }
+  for local_id = 0; local_id < count; local_id = local_id + 1 {
+    match rse_raw_default_value_for_type(state, state.local_types[local_id]) {
+      Some(value) => summary.default_values[local_id] = value
+      None => ()
+    }
+  }
+  summary
+}
+
+///|
+fn rse_raw_loop_summary_record_write(
+  summary : RseRawLoopSummary,
   local_id : Int,
-) -> (Int, String) {
-  let mut writes = 0
-  let mut same_value = ""
-  let mut disagreed = false
+  value : Int,
+) -> Unit {
+  if local_id < 0 || local_id >= summary.writes.length() {
+    return
+  }
+  summary.writes[local_id] += 1
+  if value == -1 {
+    summary.disagreed[local_id] = true
+  } else if summary.same_values[local_id] == -1 {
+    summary.same_values[local_id] = value
+  } else if summary.same_values[local_id] != value {
+    summary.disagreed[local_id] = true
+  }
+  if value != -1 && value == summary.default_values[local_id] {
+    summary.default_writes[local_id] += 1
+  }
+}
+
+///|
+fn rse_raw_loop_summary_scan(
+  state : RseRawState,
+  summary : RseRawLoopSummary,
+  instrs : Array[@lib.Instruction],
+) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
     match instr {
       @lib.Instruction::LocalSet(local_idx)
-      | @lib.Instruction::LocalTee(local_idx) =>
-        if rse_raw_local_id(local_idx) == local_id {
-          writes += 1
-          let value = if idx > 0 {
-            match rse_raw_default_instr_value(instrs[idx - 1]) {
-              Some(value) => value
-              None => ""
-            }
-          } else {
-            ""
+      | @lib.Instruction::LocalTee(local_idx) => {
+        let value = if idx > 0 {
+          match rse_raw_default_instr_value(state, instrs[idx - 1]) {
+            Some(value) => value
+            None => -1
           }
-          if value == "" {
-            disagreed = true
-          } else if same_value == "" {
-            same_value = value
-          } else if same_value != value {
-            disagreed = true
-          }
+        } else {
+          -1
         }
+        rse_raw_loop_summary_record_write(
+          summary,
+          rse_raw_local_id(local_idx),
+          value,
+        )
+      }
       @lib.Instruction::Block(_, @lib.Expr(body))
       | @lib.Instruction::Loop(_, @lib.Expr(body))
-      | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => {
-        let (nested_writes, nested_value) = rse_raw_loop_same_write_value(
-          body, local_id,
-        )
-        writes += nested_writes
-        if nested_writes > 0 {
-          if nested_value == "" {
-            disagreed = true
-          } else if same_value == "" {
-            same_value = nested_value
-          } else if same_value != nested_value {
-            disagreed = true
-          }
-        }
-      }
+      | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        rse_raw_loop_summary_scan(state, summary, body)
       @lib.Instruction::If(_, then_body, else_body) => {
-        let (then_writes, then_value) = rse_raw_loop_same_write_value(
-          then_body, local_id,
-        )
-        writes += then_writes
-        if then_writes > 0 {
-          if then_value == "" {
-            disagreed = true
-          } else if same_value == "" {
-            same_value = then_value
-          } else if same_value != then_value {
-            disagreed = true
-          }
-        }
+        rse_raw_loop_summary_scan(state, summary, then_body)
         match else_body {
-          Some(else_instrs) => {
-            let (else_writes, else_value) = rse_raw_loop_same_write_value(
-              else_instrs, local_id,
-            )
-            writes += else_writes
-            if else_writes > 0 {
-              if else_value == "" {
-                disagreed = true
-              } else if same_value == "" {
-                same_value = else_value
-              } else if same_value != else_value {
-                disagreed = true
-              }
-            }
-          }
+          Some(else_instrs) =>
+            rse_raw_loop_summary_scan(state, summary, else_instrs)
           None => ()
         }
       }
       _ => ()
     }
   }
-  if disagreed {
-    (writes, "")
+}
+
+///|
+fn rse_raw_loop_summary(
+  state : RseRawState,
+  body : Array[@lib.Instruction],
+) -> RseRawLoopSummary {
+  let summary = RseRawLoopSummary::new(state)
+  rse_raw_loop_summary_scan(state, summary, body)
+  summary
+}
+
+///|
+fn rse_raw_loop_summary_same_value(
+  summary : RseRawLoopSummary,
+  local_id : Int,
+) -> Int {
+  if summary.disagreed[local_id] {
+    -1
   } else {
-    (writes, same_value)
+    summary.same_values[local_id]
   }
+}
+
+///|
+fn rse_raw_probe_push_binary_value(
+  state : RseRawState,
+  instr : @lib.Instruction,
+) -> Bool {
+  let rhs = rse_raw_pop(state)
+  let lhs = rse_raw_pop(state)
+  match rse_raw_fast_binary_tag(instr) {
+    Some(tag) =>
+      rse_raw_push(state, rse_raw_binary_tag_key(state, tag, lhs, rhs))
+    None =>
+      match instr {
+        @lib.Instruction::I32LtS
+        | @lib.Instruction::I32LtU
+        | @lib.Instruction::I32GtS
+        | @lib.Instruction::I32GtU
+        | @lib.Instruction::I32LeS
+        | @lib.Instruction::I32LeU
+        | @lib.Instruction::I32GeS
+        | @lib.Instruction::I32GeU
+        | @lib.Instruction::I64LtS
+        | @lib.Instruction::I64LtU
+        | @lib.Instruction::I64GtS
+        | @lib.Instruction::I64GtU
+        | @lib.Instruction::I64LeS
+        | @lib.Instruction::I64LeU
+        | @lib.Instruction::I64GeS
+        | @lib.Instruction::I64GeU => rse_raw_push(state, rse_raw_fresh(state))
+        _ => return false
+      }
+  }
+  true
+}
+
+///|
+fn rse_raw_probe_expr_scoped(
+  instrs : Array[@lib.Instruction],
+  state : RseRawState,
+  scopes : Array[RseRawLabelScope],
+) -> Bool {
+  for instr in instrs {
+    if !state.reachable {
+      continue
+    }
+    match instr {
+      @lib.Instruction::I32Const(_)
+      | @lib.Instruction::I64Const(_)
+      | @lib.Instruction::F32Const(_)
+      | @lib.Instruction::F64Const(_)
+      | @lib.Instruction::RefNull(_) =>
+        match rse_raw_default_instr_value(state, instr) {
+          Some(value) => rse_raw_push(state, value)
+          None => return false
+        }
+      @lib.Instruction::LocalGet(local_idx) => {
+        let local_id = rse_raw_local_id(local_idx)
+        let value = match rse_raw_local_get(state, local_id) {
+          -1 => {
+            let fresh = rse_raw_fresh(state)
+            rse_raw_local_set(state, local_id, fresh)
+            fresh
+          }
+          known => known
+        }
+        rse_raw_push(state, value)
+      }
+      @lib.Instruction::LocalSet(local_idx) => {
+        let value = rse_raw_pop(state)
+        rse_raw_local_set(state, rse_raw_local_id(local_idx), value)
+      }
+      @lib.Instruction::LocalTee(local_idx) => {
+        let value = match state.stack.last() {
+          Some(v) => v
+          None => -1
+        }
+        rse_raw_local_set(state, rse_raw_local_id(local_idx), value)
+      }
+      @lib.Instruction::Drop => ignore(rse_raw_pop(state))
+      @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => {
+        ignore(rse_raw_pop(state))
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::Br(label_idx) => {
+        rse_raw_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = false
+      }
+      @lib.Instruction::BrIf(label_idx)
+      | @lib.Instruction::BrOnNull(label_idx)
+      | @lib.Instruction::BrOnNonNull(label_idx)
+      | @lib.Instruction::BrOnCast(label_idx, _, _, _)
+      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _) => {
+        ignore(rse_raw_pop(state))
+        rse_raw_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        state.stack.clear()
+      }
+      @lib.Instruction::Return | @lib.Instruction::Unreachable => {
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = false
+      }
+      _ => if !rse_raw_probe_push_binary_value(state, instr) { return false }
+    }
+  }
+  true
+}
+
+///|
+fn rse_raw_loop_stable_entry_values(
+  state : RseRawState,
+  body : Array[@lib.Instruction],
+) -> Array[Bool] {
+  let stable = Array::make(state.local_values.length(), false)
+  let probe = RseRawState::clone_from(state)
+  probe.stack.clear()
+  let probe_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+  let probe_scopes : Array[RseRawLabelScope] = [probe_scope]
+  let scope = if rse_raw_probe_expr_scoped(body, probe, probe_scopes) {
+    probe_scope
+  } else {
+    let fallback_probe = RseRawState::clone_from(state)
+    fallback_probe.stack.clear()
+    let fallback_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+    let fallback_scopes : Array[RseRawLabelScope] = [fallback_scope]
+    ignore(rse_raw_rewrite_expr_scoped(body, fallback_probe, fallback_scopes))
+    fallback_scope
+  }
+  if !scope.has_loop_branch {
+    return stable
+  }
+  for local_id = 0
+      local_id < state.local_values.length()
+      local_id = local_id + 1 {
+    let entry_value = state.local_values[local_id]
+    if entry_value == -1 {
+      continue
+    }
+    let mut agrees = true
+    for exit in scope.exits {
+      if exit[local_id] != entry_value {
+        agrees = false
+      }
+    }
+    if agrees {
+      stable[local_id] = true
+    }
+  }
+  stable
 }
 
 ///|
@@ -849,52 +1026,43 @@ fn rse_raw_prepare_loop_entry(
   state : RseRawState,
   loop_state : RseRawState,
   body : Array[@lib.Instruction],
+  summary : RseRawLoopSummary,
 ) -> Unit {
   rse_raw_clear_values(loop_state)
   loop_state.stack.clear()
+  let stable_entry = rse_raw_loop_stable_entry_values(state, body)
   for local_id = 0
       local_id < loop_state.local_values.length()
       local_id = local_id + 1 {
-    match rse_raw_default_value_for_type(loop_state.local_types[local_id]) {
-      Some(default_value) => {
-        let (writes, default_writes) = rse_raw_loop_write_counts(
-          body, local_id, default_value,
-        )
-        if writes == 0 {
-          loop_state.local_values[local_id] = state.local_values[local_id]
-        } else if writes == default_writes &&
-          state.local_values[local_id] == default_value {
-          loop_state.local_values[local_id] = default_value
-        } else {
-          let (_, same_write_value) = rse_raw_loop_same_write_value(
-            body, local_id,
-          )
-          if same_write_value != "" &&
-            state.local_values[local_id] == same_write_value {
-            loop_state.local_values[local_id] = same_write_value
-          }
-        }
+    let writes = summary.writes[local_id]
+    let same_write_value = rse_raw_loop_summary_same_value(summary, local_id)
+    if writes == 0 || stable_entry[local_id] {
+      loop_state.local_values[local_id] = state.local_values[local_id]
+    } else {
+      let default_value = summary.default_values[local_id]
+      if default_value != -1 &&
+        writes == summary.default_writes[local_id] &&
+        state.local_values[local_id] == default_value {
+        loop_state.local_values[local_id] = default_value
+      } else if same_write_value != -1 &&
+        state.local_values[local_id] == same_write_value {
+        loop_state.local_values[local_id] = same_write_value
       }
-      None => ()
     }
   }
 }
 
 ///|
-fn rse_raw_local_get(state : RseRawState, local_id : Int) -> String {
+fn rse_raw_local_get(state : RseRawState, local_id : Int) -> Int {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id]
   } else {
-    ""
+    -1
   }
 }
 
 ///|
-fn rse_raw_local_set(
-  state : RseRawState,
-  local_id : Int,
-  value : String,
-) -> Unit {
+fn rse_raw_local_set(state : RseRawState, local_id : Int, value : Int) -> Unit {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id] = value
   }
@@ -955,9 +1123,9 @@ fn rse_raw_concrete_ref_type_idx(ty : @lib.ValType) -> @lib.TypeIdx? {
 fn rse_raw_refined_aggregate_receiver_type(
   state : RseRawState,
   base_type : @lib.TypeIdx,
-  receiver_value : String,
+  receiver_value : Int,
 ) -> @lib.TypeIdx? {
-  if receiver_value == "" {
+  if receiver_value == -1 {
     return None
   }
   let original = @lib.ValType::ref_type(
@@ -989,7 +1157,7 @@ fn rse_raw_refined_aggregate_receiver_type(
 ///|
 fn rse_raw_refined_get_local(state : RseRawState, local_id : Int) -> Int {
   let value = rse_raw_local_get(state, local_id)
-  if value == "" {
+  if value == -1 {
     return local_id
   }
   for candidate_id = 0
@@ -1008,14 +1176,14 @@ fn rse_raw_clear_values(state : RseRawState) -> Unit {
   for local_id = 0
       local_id < state.local_values.length()
       local_id = local_id + 1 {
-    state.local_values[local_id] = ""
+    state.local_values[local_id] = -1
   }
 }
 
 ///|
 fn rse_raw_merge_sources(
   state : RseRawState,
-  sources : Array[Array[String]],
+  sources : Array[Array[Int]],
 ) -> Unit {
   state.stack.clear()
   if sources.length() == 0 {
@@ -1027,13 +1195,13 @@ fn rse_raw_merge_sources(
   for local_id = 0
       local_id < state.local_values.length()
       local_id = local_id + 1 {
-    let mut first_known = ""
+    let mut first_known = -1
     let mut saw_known = false
     let mut saw_unknown = false
     let mut disagreement = false
     for source in sources {
       let value = source[local_id]
-      if value == "" {
+      if value == -1 {
         saw_unknown = true
         continue
       }
@@ -1046,14 +1214,14 @@ fn rse_raw_merge_sources(
     }
     state.local_values[local_id] = if disagreement {
       if saw_unknown {
-        ""
+        -1
       } else {
         rse_raw_fresh(state)
       }
     } else if saw_known && !saw_unknown {
       first_known
     } else {
-      ""
+      -1
     }
   }
 }
@@ -1081,26 +1249,102 @@ fn rse_raw_record_branch_exit(
   }
   let scope = scopes[scopes.length() - 1 - label_depth]
   match scope.kind {
-    RseRawLabelKind::LoopLabel => scope.has_loop_branch = true
+    RseRawLabelKind::LoopLabel => {
+      scope.has_loop_branch = true
+      scope.exits.push(state.local_values.copy())
+    }
     _ => scope.exits.push(state.local_values.copy())
   }
 }
 
 ///|
-fn rse_raw_unary_key(op : String, value : String) -> String {
-  if value == "" {
-    ""
+fn rse_raw_unary_key(state : RseRawState, op : String, value : Int) -> Int {
+  if value == -1 {
+    -1
   } else {
-    "\{op}(\{value})"
+    rse_raw_intern_value(state, "\{op}(\{value})")
   }
 }
 
 ///|
-fn rse_raw_binary_key(op : String, lhs : String, rhs : String) -> String {
-  if lhs == "" || rhs == "" {
-    ""
+fn rse_raw_binary_key(
+  state : RseRawState,
+  op : String,
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  if lhs == -1 || rhs == -1 {
+    -1
   } else {
-    "\{op}(\{lhs},\{rhs})"
+    rse_raw_intern_value(state, "\{op}(\{lhs},\{rhs})")
+  }
+}
+
+///|
+fn rse_raw_unary_tag_key(state : RseRawState, tag : Int, value : Int) -> Int {
+  if value == -1 {
+    -1
+  } else {
+    rse_raw_intern_value(state, "u\{tag}:\{value}")
+  }
+}
+
+///|
+fn rse_raw_binary_tag_key(
+  state : RseRawState,
+  tag : Int,
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  if lhs == -1 || rhs == -1 {
+    -1
+  } else {
+    rse_raw_intern_value(state, "b\{tag}:\{lhs}:\{rhs}")
+  }
+}
+
+///|
+fn rse_raw_fast_binary_tag(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.Instruction::I32Add => Some(1)
+    @lib.Instruction::I32Sub => Some(2)
+    @lib.Instruction::I32Mul => Some(3)
+    @lib.Instruction::I32And => Some(4)
+    @lib.Instruction::I32Or => Some(5)
+    @lib.Instruction::I32Xor => Some(6)
+    @lib.Instruction::I32Shl => Some(7)
+    @lib.Instruction::I32ShrS => Some(8)
+    @lib.Instruction::I32ShrU => Some(9)
+    @lib.Instruction::I64Add => Some(10)
+    @lib.Instruction::I64Sub => Some(11)
+    @lib.Instruction::I64Mul => Some(12)
+    @lib.Instruction::I64And => Some(13)
+    @lib.Instruction::I64Or => Some(14)
+    @lib.Instruction::I64Xor => Some(15)
+    @lib.Instruction::I64Shl => Some(16)
+    @lib.Instruction::I64ShrS => Some(17)
+    @lib.Instruction::I64ShrU => Some(18)
+    @lib.Instruction::I32Eq => Some(19)
+    @lib.Instruction::I32Ne => Some(20)
+    @lib.Instruction::I64Eq => Some(21)
+    @lib.Instruction::I64Ne => Some(22)
+    @lib.Instruction::I32LtS => Some(23)
+    @lib.Instruction::I32LtU => Some(24)
+    @lib.Instruction::I32GtS => Some(25)
+    @lib.Instruction::I32GtU => Some(26)
+    @lib.Instruction::I32LeS => Some(27)
+    @lib.Instruction::I32LeU => Some(28)
+    @lib.Instruction::I32GeS => Some(29)
+    @lib.Instruction::I32GeU => Some(30)
+    @lib.Instruction::I64LtS => Some(31)
+    @lib.Instruction::I64LtU => Some(32)
+    @lib.Instruction::I64GtS => Some(33)
+    @lib.Instruction::I64GtU => Some(34)
+    @lib.Instruction::I64LeS => Some(35)
+    @lib.Instruction::I64LeU => Some(36)
+    @lib.Instruction::I64GeS => Some(37)
+    @lib.Instruction::I64GeU => Some(38)
+    _ => None
   }
 }
 
@@ -1119,31 +1363,34 @@ fn rse_raw_rewrite_expr_scoped(
     match instr {
       @lib.Instruction::I32Const(value) => {
         out.push(instr)
-        rse_raw_push(state, "i32:\{value}")
+        rse_raw_push(state, rse_raw_intern_value(state, "i32:\{value}"))
       }
       @lib.Instruction::I64Const(value) => {
         out.push(instr)
-        rse_raw_push(state, "i64:\{value}")
+        rse_raw_push(state, rse_raw_intern_value(state, "i64:\{value}"))
       }
       @lib.Instruction::F32Const(value) => {
         out.push(instr)
-        rse_raw_push(state, "f32:\{value}")
+        rse_raw_push(state, rse_raw_intern_value(state, "f32:\{value}"))
       }
       @lib.Instruction::F64Const(value) => {
         out.push(instr)
-        rse_raw_push(state, "f64:\{value}")
+        rse_raw_push(state, rse_raw_intern_value(state, "f64:\{value}"))
       }
       @lib.Instruction::RefNull(ref_type) => {
         out.push(instr)
-        rse_raw_push(state, "ref.null:\{ref_type}")
+        rse_raw_push(state, rse_raw_intern_value(state, "ref.null:\{ref_type}"))
       }
       @lib.Instruction::StringConst(bytes) => {
         out.push(instr)
-        rse_raw_push(state, "string.const:\{@debug.to_string(bytes)}")
+        rse_raw_push(
+          state,
+          rse_raw_intern_value(state, "string.const:\{@debug.to_string(bytes)}"),
+        )
       }
       @lib.Instruction::RefFunc(func_idx) => {
         out.push(instr)
-        rse_raw_push(state, "ref.func:\{func_idx}")
+        rse_raw_push(state, rse_raw_intern_value(state, "ref.func:\{func_idx}"))
       }
       @lib.Instruction::LocalGet(local_idx) => {
         let local_id = rse_raw_local_id(local_idx)
@@ -1158,15 +1405,23 @@ fn rse_raw_rewrite_expr_scoped(
         } else {
           out.push(instr)
         }
-        rse_raw_push(state, rse_raw_local_get(state, local_id))
+        let value = match rse_raw_local_get(state, local_id) {
+          -1 => {
+            let fresh = rse_raw_fresh(state)
+            rse_raw_local_set(state, local_id, fresh)
+            fresh
+          }
+          known => known
+        }
+        rse_raw_push(state, value)
       }
       @lib.Instruction::LocalSet(local_idx) => {
         let value = rse_raw_pop(state)
         let local_id = rse_raw_local_id(local_idx)
-        if value != "" && rse_raw_local_get(state, local_id) == value {
+        if value != -1 && rse_raw_local_get(state, local_id) == value {
           out.push(@lib.Instruction::drop())
           state.changed = true
-        } else if value == "" && rse_raw_out_ends_with_local_get(out, local_id) {
+        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
           out.push(@lib.Instruction::drop())
           state.changed = true
         } else {
@@ -1177,12 +1432,12 @@ fn rse_raw_rewrite_expr_scoped(
       @lib.Instruction::LocalTee(local_idx) => {
         let value = match state.stack.last() {
           Some(v) => v
-          None => ""
+          None => -1
         }
         let local_id = rse_raw_local_id(local_idx)
-        if value != "" && rse_raw_local_get(state, local_id) == value {
+        if value != -1 && rse_raw_local_get(state, local_id) == value {
           state.changed = true
-        } else if value == "" && rse_raw_out_ends_with_local_get(out, local_id) {
+        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
           state.changed = true
         } else {
           out.push(instr)
@@ -1203,7 +1458,7 @@ fn rse_raw_rewrite_expr_scoped(
       @lib.Instruction::AnyConvertExtern | @lib.Instruction::ExternConvertAny => {
         let value = rse_raw_pop(state)
         out.push(instr)
-        rse_raw_push(state, rse_raw_unary_key(instr.to_string(), value))
+        rse_raw_push(state, rse_raw_unary_key(state, instr.to_string(), value))
       }
       @lib.Instruction::StructGet(type_idx, field_idx) => {
         let receiver = rse_raw_pop(state)
@@ -1331,7 +1586,7 @@ fn rse_raw_rewrite_expr_scoped(
       @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => {
         let value = rse_raw_pop(state)
         out.push(instr)
-        rse_raw_push(state, rse_raw_unary_key(instr.to_string(), value))
+        rse_raw_push(state, rse_raw_unary_key(state, instr.to_string(), value))
       }
       @lib.Instruction::I32Add
       | @lib.Instruction::I32Sub
@@ -1358,7 +1613,10 @@ fn rse_raw_rewrite_expr_scoped(
         let rhs = rse_raw_pop(state)
         let lhs = rse_raw_pop(state)
         out.push(instr)
-        rse_raw_push(state, rse_raw_binary_key(instr.to_string(), lhs, rhs))
+        rse_raw_push(
+          state,
+          rse_raw_binary_key(state, instr.to_string(), lhs, rhs),
+        )
       }
       @lib.Instruction::If(block_type, then_body, else_body) => {
         ignore(rse_raw_pop(state))
@@ -1391,7 +1649,7 @@ fn rse_raw_rewrite_expr_scoped(
         if then_state.changed || else_state.changed {
           state.changed = true
         }
-        let sources : Array[Array[String]] = []
+        let sources : Array[Array[Int]] = []
         if then_state.reachable {
           sources.push(then_state.local_values.copy())
         }
@@ -1432,7 +1690,7 @@ fn rse_raw_rewrite_expr_scoped(
         scopes.push(scope)
         let next = rse_raw_rewrite_expr_scoped(body, state, scopes)
         ignore(scopes.pop())
-        let sources : Array[Array[String]] = []
+        let sources : Array[Array[Int]] = []
         if state.reachable {
           sources.push(state.local_values.copy())
         }
@@ -1446,8 +1704,9 @@ fn rse_raw_rewrite_expr_scoped(
         }
       }
       @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let loop_summary = rse_raw_loop_summary(state, body)
         let loop_state = RseRawState::clone_from(state)
-        rse_raw_prepare_loop_entry(state, loop_state, body)
+        rse_raw_prepare_loop_entry(state, loop_state, body, loop_summary)
         let scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
         scopes.push(scope)
         let next = rse_raw_rewrite_expr_scoped(body, loop_state, scopes)
@@ -1469,7 +1728,30 @@ fn rse_raw_rewrite_expr_scoped(
           rse_raw_clear_values(state)
           state.reachable = false
         } else {
+          let entry_values = state.local_values.copy()
           rse_raw_clear_values(state)
+          for local_id = 0
+              local_id < state.local_values.length()
+              local_id = local_id + 1 {
+            let entry_value = entry_values[local_id]
+            if loop_summary.writes[local_id] == 0 {
+              state.local_values[local_id] = entry_value
+            } else if entry_value != -1 {
+              let mut agrees = true
+              if loop_state.reachable &&
+                loop_state.local_values[local_id] != entry_value {
+                agrees = false
+              }
+              for exit in scope.exits {
+                if exit[local_id] != entry_value {
+                  agrees = false
+                }
+              }
+              if agrees {
+                state.local_values[local_id] = entry_value
+              }
+            }
+          }
           state.reachable = true
         }
         out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
@@ -1539,6 +1821,928 @@ fn rse_raw_rewrite_expr(
 }
 
 ///|
+priv struct RseRawI32UnaryKey {
+  tag : Int
+  value : Int
+} derive(Eq, Hash)
+
+///|
+fn RseRawI32UnaryKey::new(tag : Int, value : Int) -> RseRawI32UnaryKey {
+  { tag, value }
+}
+
+///|
+priv struct RseRawI32Interner {
+  const_ids : @hashmap.HashMap[Int, Int]
+  unary_ids : @hashmap.HashMap[RseRawI32UnaryKey, Int]
+  mut next_value : Int
+}
+
+///|
+fn RseRawI32Interner::new(capacity : Int) -> RseRawI32Interner {
+  {
+    const_ids: @hashmap.new(capacity~),
+    unary_ids: @hashmap.new(capacity=capacity * 2 + 1),
+    next_value: 0,
+  }
+}
+
+///|
+priv struct RseRawI32State {
+  local_values : Array[Int]
+  stack : Array[Int]
+  interner : RseRawI32Interner
+  mut changed : Bool
+  mut reachable : Bool
+}
+
+///|
+fn RseRawI32State::new(local_count : Int, param_count : Int) -> RseRawI32State {
+  let state = {
+    local_values: Array::make(local_count, -1),
+    stack: [],
+    interner: RseRawI32Interner::new(local_count * 4 + 17),
+    changed: false,
+    reachable: true,
+  }
+  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+    state.local_values[local_id] = if local_id < param_count {
+      rse_raw_i32_fresh(state)
+    } else {
+      rse_raw_i32_const_value(state, 0)
+    }
+  }
+  state
+}
+
+///|
+fn RseRawI32State::clone_from(other : RseRawI32State) -> RseRawI32State {
+  {
+    local_values: other.local_values.copy(),
+    stack: other.stack.copy(),
+    interner: other.interner,
+    changed: other.changed,
+    reachable: other.reachable,
+  }
+}
+
+///|
+fn rse_raw_i32_fresh(state : RseRawI32State) -> Int {
+  let value = state.interner.next_value
+  state.interner.next_value += 1
+  value
+}
+
+///|
+fn rse_raw_i32_const_value(state : RseRawI32State, raw : Int) -> Int {
+  match state.interner.const_ids.get(raw) {
+    Some(value) => value
+    None => {
+      let value = rse_raw_i32_fresh(state)
+      state.interner.const_ids.set(raw, value)
+      value
+    }
+  }
+}
+
+///|
+fn rse_raw_i32_unary_value(
+  state : RseRawI32State,
+  tag : Int,
+  value : Int,
+) -> Int {
+  if value == -1 {
+    -1
+  } else {
+    let key = RseRawI32UnaryKey::new(tag, value)
+    match state.interner.unary_ids.get(key) {
+      Some(result) => result
+      None => {
+        let result = rse_raw_i32_fresh(state)
+        state.interner.unary_ids.set(key, result)
+        result
+      }
+    }
+  }
+}
+
+///|
+fn rse_raw_i32_value_code(value : Int) -> Int? {
+  let base = 4096
+  if value >= 0 && value < base {
+    Some(value)
+  } else if value <= -2 {
+    let code = 0 - value - 2
+    if code < base {
+      Some(base + code)
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn rse_raw_i32_binary_value(
+  state : RseRawI32State,
+  tag : Int,
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  if lhs == -1 || rhs == -1 {
+    -1
+  } else {
+    match (rse_raw_i32_value_code(lhs), rse_raw_i32_value_code(rhs)) {
+      (Some(lhs_code), Some(rhs_code)) => {
+        let base = 8192
+        0 - 2 - (tag * base * base + lhs_code * base + rhs_code)
+      }
+      _ => rse_raw_i32_fresh(state)
+    }
+  }
+}
+
+///|
+fn rse_raw_i32_pop(state : RseRawI32State) -> Int {
+  match state.stack.pop() {
+    Some(value) => value
+    None => -1
+  }
+}
+
+///|
+fn rse_raw_i32_push(state : RseRawI32State, value : Int) -> Unit {
+  state.stack.push(value)
+}
+
+///|
+fn rse_raw_i32_local_get(state : RseRawI32State, local_id : Int) -> Int {
+  if local_id >= 0 && local_id < state.local_values.length() {
+    state.local_values[local_id]
+  } else {
+    -1
+  }
+}
+
+///|
+fn rse_raw_i32_local_set(
+  state : RseRawI32State,
+  local_id : Int,
+  value : Int,
+) -> Unit {
+  if local_id >= 0 && local_id < state.local_values.length() {
+    state.local_values[local_id] = value
+  }
+}
+
+///|
+fn rse_raw_i32_clear_values(state : RseRawI32State) -> Unit {
+  for local_id = 0
+      local_id < state.local_values.length()
+      local_id = local_id + 1 {
+    state.local_values[local_id] = -1
+  }
+}
+
+///|
+fn rse_raw_i32_record_branch_exit(
+  state : RseRawI32State,
+  scopes : Array[RseRawLabelScope],
+  label_depth : Int,
+) -> Unit {
+  if label_depth < 0 || label_depth >= scopes.length() {
+    return
+  }
+  let scope = scopes[scopes.length() - 1 - label_depth]
+  match scope.kind {
+    RseRawLabelKind::LoopLabel => {
+      scope.has_loop_branch = true
+      scope.exits.push(state.local_values.copy())
+    }
+    _ => scope.exits.push(state.local_values.copy())
+  }
+}
+
+///|
+fn rse_raw_i32_const_instr_value(
+  state : RseRawI32State,
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.Instruction::I32Const(@lib.I32(raw)) =>
+      Some(rse_raw_i32_const_value(state, raw))
+    _ => None
+  }
+}
+
+///|
+priv struct RseRawI32LoopSummary {
+  writes : Array[Int]
+  same_values : Array[Int]
+  disagreed : Array[Bool]
+  default_writes : Array[Int]
+  default_values : Array[Int]
+}
+
+///|
+fn RseRawI32LoopSummary::new(state : RseRawI32State) -> RseRawI32LoopSummary {
+  let count = state.local_values.length()
+  let zero = rse_raw_i32_const_value(state, 0)
+  {
+    writes: Array::make(count, 0),
+    same_values: Array::make(count, -1),
+    disagreed: Array::make(count, false),
+    default_writes: Array::make(count, 0),
+    default_values: Array::make(count, zero),
+  }
+}
+
+///|
+fn rse_raw_i32_loop_summary_record_write(
+  summary : RseRawI32LoopSummary,
+  local_id : Int,
+  value : Int,
+) -> Unit {
+  if local_id < 0 || local_id >= summary.writes.length() {
+    return
+  }
+  summary.writes[local_id] += 1
+  if value == -1 {
+    summary.disagreed[local_id] = true
+  } else if summary.same_values[local_id] == -1 {
+    summary.same_values[local_id] = value
+  } else if summary.same_values[local_id] != value {
+    summary.disagreed[local_id] = true
+  }
+  if value != -1 && value == summary.default_values[local_id] {
+    summary.default_writes[local_id] += 1
+  }
+}
+
+///|
+fn rse_raw_i32_loop_summary_same_value(
+  summary : RseRawI32LoopSummary,
+  local_id : Int,
+) -> Int {
+  if summary.disagreed[local_id] {
+    -1
+  } else {
+    summary.same_values[local_id]
+  }
+}
+
+///|
+fn rse_raw_i32_binary_tag(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.Instruction::I32Add => Some(1)
+    @lib.Instruction::I32Sub => Some(2)
+    @lib.Instruction::I32Mul => Some(3)
+    @lib.Instruction::I32And => Some(4)
+    @lib.Instruction::I32Or => Some(5)
+    @lib.Instruction::I32Xor => Some(6)
+    @lib.Instruction::I32Shl => Some(7)
+    @lib.Instruction::I32ShrS => Some(8)
+    @lib.Instruction::I32ShrU => Some(9)
+    @lib.Instruction::I32Eq => Some(10)
+    @lib.Instruction::I32Ne => Some(11)
+    @lib.Instruction::I32LtS => Some(12)
+    @lib.Instruction::I32LtU => Some(13)
+    @lib.Instruction::I32GtS => Some(14)
+    @lib.Instruction::I32GtU => Some(15)
+    @lib.Instruction::I32LeS => Some(16)
+    @lib.Instruction::I32LeU => Some(17)
+    @lib.Instruction::I32GeS => Some(18)
+    @lib.Instruction::I32GeU => Some(19)
+    _ => None
+  }
+}
+
+///|
+fn rse_raw_i32_probe_expr_scoped(
+  instrs : Array[@lib.Instruction],
+  state : RseRawI32State,
+  scopes : Array[RseRawLabelScope],
+  summary : RseRawI32LoopSummary?,
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    if !state.reachable {
+      continue
+    }
+    match instr {
+      @lib.Instruction::I32Const(@lib.I32(raw)) =>
+        rse_raw_i32_push(state, rse_raw_i32_const_value(state, raw))
+      @lib.Instruction::LocalGet(local_idx) => {
+        let local_id = rse_raw_local_id(local_idx)
+        let value = match rse_raw_i32_local_get(state, local_id) {
+          -1 => {
+            let fresh = rse_raw_i32_fresh(state)
+            rse_raw_i32_local_set(state, local_id, fresh)
+            fresh
+          }
+          known => known
+        }
+        rse_raw_i32_push(state, value)
+      }
+      @lib.Instruction::LocalSet(local_idx) => {
+        let value = rse_raw_i32_pop(state)
+        match summary {
+          Some(summary) => {
+            let summary_value = if idx > 0 {
+              match rse_raw_i32_const_instr_value(state, instrs[idx - 1]) {
+                Some(value) => value
+                None => -1
+              }
+            } else {
+              -1
+            }
+            rse_raw_i32_loop_summary_record_write(
+              summary,
+              rse_raw_local_id(local_idx),
+              summary_value,
+            )
+          }
+          None => ()
+        }
+        rse_raw_i32_local_set(state, rse_raw_local_id(local_idx), value)
+      }
+      @lib.Instruction::LocalTee(local_idx) => {
+        let value = match state.stack.last() {
+          Some(v) => v
+          None => -1
+        }
+        match summary {
+          Some(summary) => {
+            let summary_value = if idx > 0 {
+              match rse_raw_i32_const_instr_value(state, instrs[idx - 1]) {
+                Some(value) => value
+                None => -1
+              }
+            } else {
+              -1
+            }
+            rse_raw_i32_loop_summary_record_write(
+              summary,
+              rse_raw_local_id(local_idx),
+              summary_value,
+            )
+          }
+          None => ()
+        }
+        rse_raw_i32_local_set(state, rse_raw_local_id(local_idx), value)
+      }
+      @lib.Instruction::Drop => ignore(rse_raw_i32_pop(state))
+      @lib.Instruction::I32Eqz => {
+        let value = rse_raw_i32_pop(state)
+        rse_raw_i32_push(state, rse_raw_i32_unary_value(state, 1, value))
+      }
+      @lib.Instruction::Loop(_, @lib.Expr(body)) => {
+        let loop_state = RseRawI32State::clone_from(state)
+        let loop_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+        scopes.push(loop_scope)
+        if !rse_raw_i32_probe_expr_scoped(body, loop_state, scopes, summary) {
+          return false
+        }
+        ignore(scopes.pop())
+        rse_raw_i32_clear_values(state)
+        state.stack.clear()
+        state.reachable = true
+        rse_raw_i32_push(state, rse_raw_i32_fresh(state))
+      }
+      @lib.Instruction::Br(label_idx) => {
+        rse_raw_i32_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        state.stack.clear()
+        rse_raw_i32_clear_values(state)
+        state.reachable = false
+      }
+      @lib.Instruction::BrIf(label_idx) => {
+        ignore(rse_raw_i32_pop(state))
+        rse_raw_i32_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        state.stack.clear()
+      }
+      @lib.Instruction::Return | @lib.Instruction::Unreachable => {
+        state.stack.clear()
+        rse_raw_i32_clear_values(state)
+        state.reachable = false
+      }
+      _ =>
+        match rse_raw_i32_binary_tag(instr) {
+          Some(tag) => {
+            let rhs = rse_raw_i32_pop(state)
+            let lhs = rse_raw_i32_pop(state)
+            rse_raw_i32_push(
+              state,
+              rse_raw_i32_binary_value(state, tag, lhs, rhs),
+            )
+          }
+          None => return false
+        }
+    }
+  }
+  true
+}
+
+///|
+priv struct RseRawI32LoopEntryAnalysis {
+  summary : RseRawI32LoopSummary
+  stable_entry : Array[Bool]
+}
+
+///|
+fn RseRawI32LoopEntryAnalysis::new(
+  summary : RseRawI32LoopSummary,
+  stable_entry : Array[Bool],
+) -> RseRawI32LoopEntryAnalysis {
+  { summary, stable_entry }
+}
+
+///|
+fn rse_raw_i32_loop_entry_analysis(
+  state : RseRawI32State,
+  body : Array[@lib.Instruction],
+) -> RseRawI32LoopEntryAnalysis? {
+  let stable = Array::make(state.local_values.length(), false)
+  let summary = RseRawI32LoopSummary::new(state)
+  let probe = RseRawI32State::clone_from(state)
+  probe.stack.clear()
+  let probe_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+  let probe_scopes : Array[RseRawLabelScope] = [probe_scope]
+  if !rse_raw_i32_probe_expr_scoped(body, probe, probe_scopes, Some(summary)) {
+    return None
+  }
+  if probe_scope.has_loop_branch {
+    for local_id = 0
+        local_id < state.local_values.length()
+        local_id = local_id + 1 {
+      let entry_value = state.local_values[local_id]
+      if entry_value == -1 {
+        continue
+      }
+      let mut agrees = true
+      for exit in probe_scope.exits {
+        if exit[local_id] != entry_value {
+          agrees = false
+        }
+      }
+      if agrees {
+        stable[local_id] = true
+      }
+    }
+  }
+  Some(RseRawI32LoopEntryAnalysis::new(summary, stable))
+}
+
+///|
+fn rse_raw_i32_prepare_loop_entry(
+  state : RseRawI32State,
+  loop_state : RseRawI32State,
+  stable_entry : Array[Bool],
+  summary : RseRawI32LoopSummary,
+) -> Unit {
+  rse_raw_i32_clear_values(loop_state)
+  loop_state.stack.clear()
+  for local_id = 0
+      local_id < loop_state.local_values.length()
+      local_id = local_id + 1 {
+    let writes = summary.writes[local_id]
+    let same_write_value = rse_raw_i32_loop_summary_same_value(
+      summary, local_id,
+    )
+    if writes == 0 || stable_entry[local_id] {
+      loop_state.local_values[local_id] = state.local_values[local_id]
+    } else {
+      let default_value = summary.default_values[local_id]
+      if writes == summary.default_writes[local_id] &&
+        state.local_values[local_id] == default_value {
+        loop_state.local_values[local_id] = default_value
+      } else if same_write_value != -1 &&
+        state.local_values[local_id] == same_write_value {
+        loop_state.local_values[local_id] = same_write_value
+      }
+    }
+  }
+}
+
+///|
+fn rse_raw_i32_rewrite_expr_scoped(
+  instrs : Array[@lib.Instruction],
+  state : RseRawI32State,
+  scopes : Array[RseRawLabelScope],
+) -> Array[@lib.Instruction]? {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    if !state.reachable {
+      out.push(instr)
+      continue
+    }
+    match instr {
+      @lib.Instruction::I32Const(@lib.I32(raw)) => {
+        out.push(instr)
+        rse_raw_i32_push(state, rse_raw_i32_const_value(state, raw))
+      }
+      @lib.Instruction::LocalGet(local_idx) => {
+        out.push(instr)
+        let local_id = rse_raw_local_id(local_idx)
+        let value = match rse_raw_i32_local_get(state, local_id) {
+          -1 => {
+            let fresh = rse_raw_i32_fresh(state)
+            rse_raw_i32_local_set(state, local_id, fresh)
+            fresh
+          }
+          known => known
+        }
+        rse_raw_i32_push(state, value)
+      }
+      @lib.Instruction::LocalSet(local_idx) => {
+        let value = rse_raw_i32_pop(state)
+        let local_id = rse_raw_local_id(local_idx)
+        if value != -1 && rse_raw_i32_local_get(state, local_id) == value {
+          out.push(@lib.Instruction::drop())
+          state.changed = true
+        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
+          out.push(@lib.Instruction::drop())
+          state.changed = true
+        } else {
+          out.push(instr)
+        }
+        rse_raw_i32_local_set(state, local_id, value)
+      }
+      @lib.Instruction::LocalTee(local_idx) => {
+        let value = match state.stack.last() {
+          Some(v) => v
+          None => -1
+        }
+        let local_id = rse_raw_local_id(local_idx)
+        if value != -1 && rse_raw_i32_local_get(state, local_id) == value {
+          state.changed = true
+        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
+          state.changed = true
+        } else {
+          out.push(instr)
+        }
+        rse_raw_i32_local_set(state, local_id, value)
+      }
+      @lib.Instruction::Drop => {
+        ignore(rse_raw_i32_pop(state))
+        out.push(instr)
+      }
+      @lib.Instruction::I32Eqz => {
+        let value = rse_raw_i32_pop(state)
+        out.push(instr)
+        rse_raw_i32_push(state, rse_raw_i32_unary_value(state, 1, value))
+      }
+      @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let loop_analysis = match rse_raw_i32_loop_entry_analysis(state, body) {
+          Some(analysis) => analysis
+          None => return None
+        }
+        let loop_summary = loop_analysis.summary
+        let loop_state = RseRawI32State::clone_from(state)
+        rse_raw_i32_prepare_loop_entry(
+          state,
+          loop_state,
+          loop_analysis.stable_entry,
+          loop_summary,
+        )
+        let scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+        scopes.push(scope)
+        let next = match
+          rse_raw_i32_rewrite_expr_scoped(body, loop_state, scopes) {
+          Some(next) => next
+          None => return None
+        }
+        ignore(scopes.pop())
+        if loop_state.changed {
+          state.changed = true
+        }
+        if loop_state.reachable && !scope.has_loop_branch {
+          for local_id = 0
+              local_id < state.local_values.length()
+              local_id = local_id + 1 {
+            state.local_values[local_id] = loop_state.local_values[local_id]
+          }
+          state.reachable = true
+        } else if !loop_state.reachable && !scope.has_loop_branch {
+          rse_raw_i32_clear_values(state)
+          state.reachable = false
+        } else {
+          let entry_values = state.local_values.copy()
+          rse_raw_i32_clear_values(state)
+          for local_id = 0
+              local_id < state.local_values.length()
+              local_id = local_id + 1 {
+            let entry_value = entry_values[local_id]
+            if loop_summary.writes[local_id] == 0 {
+              state.local_values[local_id] = entry_value
+            } else if entry_value != -1 {
+              let mut agrees = true
+              if loop_state.reachable &&
+                loop_state.local_values[local_id] != entry_value {
+                agrees = false
+              }
+              for exit in scope.exits {
+                if exit[local_id] != entry_value {
+                  agrees = false
+                }
+              }
+              if agrees {
+                state.local_values[local_id] = entry_value
+              }
+            }
+          }
+          state.reachable = true
+        }
+        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
+        if state.reachable {
+          rse_raw_i32_push(state, rse_raw_i32_fresh(state))
+        }
+      }
+      @lib.Instruction::Br(label_idx) => {
+        rse_raw_i32_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        out.push(instr)
+        state.stack.clear()
+        rse_raw_i32_clear_values(state)
+        state.reachable = false
+      }
+      @lib.Instruction::BrIf(label_idx) => {
+        ignore(rse_raw_i32_pop(state))
+        rse_raw_i32_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        out.push(instr)
+        state.stack.clear()
+      }
+      @lib.Instruction::Return | @lib.Instruction::Unreachable => {
+        out.push(instr)
+        state.stack.clear()
+        rse_raw_i32_clear_values(state)
+        state.reachable = false
+      }
+      _ =>
+        match rse_raw_i32_binary_tag(instr) {
+          Some(tag) => {
+            let rhs = rse_raw_i32_pop(state)
+            let lhs = rse_raw_i32_pop(state)
+            out.push(instr)
+            rse_raw_i32_push(
+              state,
+              rse_raw_i32_binary_value(state, tag, lhs, rhs),
+            )
+          }
+          None => return None
+        }
+    }
+  }
+  Some(out)
+}
+
+///|
+fn rse_raw_i32_rewrite_expr(
+  instrs : Array[@lib.Instruction],
+  state : RseRawI32State,
+) -> Array[@lib.Instruction]? {
+  let scopes : Array[RseRawLabelScope] = []
+  rse_raw_i32_rewrite_expr_scoped(instrs, state, scopes)
+}
+
+///|
+fn rse_raw_i32_types_ok(local_types : Array[@lib.ValType]) -> Bool {
+  for ty in local_types {
+    match ty {
+      @lib.NumTypeValType(@lib.I32NumType) => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn rse_raw_fast_type_ok(ty : @lib.ValType) -> Bool {
+  match ty {
+    @lib.NumTypeValType(_) => true
+    _ => false
+  }
+}
+
+///|
+fn rse_raw_fast_types_ok(local_types : Array[@lib.ValType]) -> Bool {
+  for ty in local_types {
+    if !rse_raw_fast_type_ok(ty) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn rse_raw_fast_rewrite_expr_scoped(
+  instrs : Array[@lib.Instruction],
+  state : RseRawState,
+  scopes : Array[RseRawLabelScope],
+) -> Array[@lib.Instruction]? {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    if !state.reachable {
+      out.push(instr)
+      continue
+    }
+    match instr {
+      @lib.Instruction::I32Const(_)
+      | @lib.Instruction::I64Const(_)
+      | @lib.Instruction::F32Const(_)
+      | @lib.Instruction::F64Const(_) => {
+        out.push(instr)
+        match rse_raw_default_instr_value(state, instr) {
+          Some(value) => rse_raw_push(state, value)
+          None => rse_raw_push(state, rse_raw_fresh(state))
+        }
+      }
+      @lib.Instruction::LocalGet(local_idx) => {
+        out.push(instr)
+        let local_id = rse_raw_local_id(local_idx)
+        let value = match rse_raw_local_get(state, local_id) {
+          -1 => {
+            let fresh = rse_raw_fresh(state)
+            rse_raw_local_set(state, local_id, fresh)
+            fresh
+          }
+          known => known
+        }
+        rse_raw_push(state, value)
+      }
+      @lib.Instruction::LocalSet(local_idx) => {
+        let value = rse_raw_pop(state)
+        let local_id = rse_raw_local_id(local_idx)
+        if value != -1 && rse_raw_local_get(state, local_id) == value {
+          out.push(@lib.Instruction::drop())
+          state.changed = true
+        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
+          out.push(@lib.Instruction::drop())
+          state.changed = true
+        } else {
+          out.push(instr)
+        }
+        rse_raw_local_set(state, local_id, value)
+      }
+      @lib.Instruction::LocalTee(local_idx) => {
+        let value = match state.stack.last() {
+          Some(v) => v
+          None => -1
+        }
+        let local_id = rse_raw_local_id(local_idx)
+        if value != -1 && rse_raw_local_get(state, local_id) == value {
+          state.changed = true
+        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
+          state.changed = true
+        } else {
+          out.push(instr)
+        }
+        rse_raw_local_set(state, local_id, value)
+      }
+      @lib.Instruction::Drop => {
+        ignore(rse_raw_pop(state))
+        out.push(instr)
+      }
+      @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => {
+        let value = rse_raw_pop(state)
+        out.push(instr)
+        let tag = match instr {
+          @lib.Instruction::I32Eqz => 1
+          _ => 2
+        }
+        rse_raw_push(state, rse_raw_unary_tag_key(state, tag, value))
+      }
+      @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let loop_summary = rse_raw_loop_summary(state, body)
+        let loop_state = RseRawState::clone_from(state)
+        rse_raw_prepare_loop_entry(state, loop_state, body, loop_summary)
+        let scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+        scopes.push(scope)
+        let next = match
+          rse_raw_fast_rewrite_expr_scoped(body, loop_state, scopes) {
+          Some(next) => next
+          None => return None
+        }
+        ignore(scopes.pop())
+        if loop_state.changed {
+          state.changed = true
+        }
+        if loop_state.next_unknown > state.next_unknown {
+          state.next_unknown = loop_state.next_unknown
+        }
+        if loop_state.reachable && !scope.has_loop_branch {
+          for local_id = 0
+              local_id < state.local_values.length()
+              local_id = local_id + 1 {
+            state.local_values[local_id] = loop_state.local_values[local_id]
+          }
+          state.reachable = true
+        } else if !loop_state.reachable && !scope.has_loop_branch {
+          rse_raw_clear_values(state)
+          state.reachable = false
+        } else {
+          let entry_values = state.local_values.copy()
+          rse_raw_clear_values(state)
+          for local_id = 0
+              local_id < state.local_values.length()
+              local_id = local_id + 1 {
+            let entry_value = entry_values[local_id]
+            if loop_summary.writes[local_id] == 0 {
+              state.local_values[local_id] = entry_value
+            } else if entry_value != -1 {
+              let mut agrees = true
+              if loop_state.reachable &&
+                loop_state.local_values[local_id] != entry_value {
+                agrees = false
+              }
+              for exit in scope.exits {
+                if exit[local_id] != entry_value {
+                  agrees = false
+                }
+              }
+              if agrees {
+                state.local_values[local_id] = entry_value
+              }
+            }
+          }
+          state.reachable = true
+        }
+        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
+        if state.reachable {
+          rse_raw_push(state, rse_raw_fresh(state))
+        }
+      }
+      @lib.Instruction::Br(label_idx) => {
+        rse_raw_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        out.push(instr)
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = false
+      }
+      @lib.Instruction::BrIf(label_idx)
+      | @lib.Instruction::BrOnNull(label_idx)
+      | @lib.Instruction::BrOnNonNull(label_idx)
+      | @lib.Instruction::BrOnCast(label_idx, _, _, _)
+      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _) => {
+        ignore(rse_raw_pop(state))
+        rse_raw_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        out.push(instr)
+        state.stack.clear()
+      }
+      @lib.Instruction::Return | @lib.Instruction::Unreachable => {
+        out.push(instr)
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = false
+      }
+      _ => {
+        let rhs = rse_raw_pop(state)
+        let lhs = rse_raw_pop(state)
+        out.push(instr)
+        match rse_raw_fast_binary_tag(instr) {
+          Some(tag) =>
+            rse_raw_push(state, rse_raw_binary_tag_key(state, tag, lhs, rhs))
+          None => return None
+        }
+      }
+    }
+  }
+  Some(out)
+}
+
+///|
+fn rse_raw_fast_rewrite_expr(
+  instrs : Array[@lib.Instruction],
+  state : RseRawState,
+) -> Array[@lib.Instruction]? {
+  let scopes : Array[RseRawLabelScope] = []
+  rse_raw_fast_rewrite_expr_scoped(instrs, state, scopes)
+}
+
+///|
 fn rse_raw_local_types(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -1557,13 +2761,36 @@ fn rse_run_raw_func(
   env : @validate.Env,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  let state = RseRawState::new(
-    rse_raw_local_types(params, locals),
-    params.length(),
-    env,
-  )
-  let rewritten = rse_raw_rewrite_expr(instrs, state)
-  if state.changed {
+  let local_types = rse_raw_local_types(params, locals)
+  let (rewritten, changed) = if rse_raw_i32_types_ok(local_types) {
+    let i32_state = RseRawI32State::new(local_types.length(), params.length())
+    match rse_raw_i32_rewrite_expr(instrs, i32_state) {
+      Some(rewritten) => (rewritten, i32_state.changed)
+      None => {
+        let fast_state = RseRawState::new(local_types, params.length(), env)
+        match rse_raw_fast_rewrite_expr(instrs, fast_state) {
+          Some(rewritten) => (rewritten, fast_state.changed)
+          None => {
+            let slow_state = RseRawState::new(local_types, params.length(), env)
+            (rse_raw_rewrite_expr(instrs, slow_state), slow_state.changed)
+          }
+        }
+      }
+    }
+  } else if rse_raw_fast_types_ok(local_types) {
+    let fast_state = RseRawState::new(local_types, params.length(), env)
+    match rse_raw_fast_rewrite_expr(instrs, fast_state) {
+      Some(rewritten) => (rewritten, fast_state.changed)
+      None => {
+        let slow_state = RseRawState::new(local_types, params.length(), env)
+        (rse_raw_rewrite_expr(instrs, slow_state), slow_state.changed)
+      }
+    }
+  } else {
+    let state = RseRawState::new(local_types, params.length(), env)
+    (rse_raw_rewrite_expr(instrs, state), state.changed)
+  }
+  if changed {
     (@lib.Func::new(locals, @lib.Expr::new(rewritten)), true)
   } else {
     (func, false)

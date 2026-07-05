@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-11
+last_reviewed: 2026-07-05
 sources:
+  - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
@@ -37,7 +38,7 @@ The 2026-05-05 current-main recheck keeps the same teaching split and only refre
 
 ## Current readiness verdict
 
-Starshine now has an **accepted active direct `redundant-set-elimination` port** for v0.1.0. The direct slice covers the known CFG/value-flow and refined-get parity surface without becoming a full general fixed-point CFG implementation.
+Starshine has an active direct `redundant-set-elimination` port with broad same-value, CFG, refined-get, and GenValid evidence. The 2026-07-04 transform-family matrix reopened the audit for official Binaryen loop/default/fixed-point precision gaps; the 2026-07-05 closure reduced and fixed those residuals, replayed the official all-features fixture with an empty Binaryen-vs-Starshine diff, and refreshed the dedicated direct RSE GenValid lane with zero mismatches/failures.
 
 The implemented surface:
 
@@ -50,11 +51,17 @@ The implemented surface:
 - relies on paired vacuum cleanup for pure `drop` / `nop` debris exposed by redundant set removal;
 - keeps the direct compare-pass lane semantic-green and keeps the `rse -> vacuum` exact replay on the already-classified inherited direct-`vacuum` frontier, with the later 2026-05-11 `vacuum` raw precleaner fixing the separate large-function pure debris size gap without reopening `[RSE]002`.
 
-Future non-blocking parity work remains:
+Current follow-up parity work:
 
-- implement broader Binaryen-style loop fixed-point CFG merge values only if a new direct semantic/parity case needs more than the landed safe loop-invariant default-write subset;
-- broaden strict-subtype equivalent-local `local.get` retargeting if additional official `rse-gc.wast` families become locally representable beyond the landed reduced abs-heap, concrete-heap `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` wrapper fixtures, and aggregate-accessor refinalization-style fixtures;
-- keep the classified `rse -> vacuum` cleanup-slot replay from regressing before scheduling the late no-DWARF slot.
+- broaden strict-subtype equivalent-local `local.get` retargeting only if additional official `rse-gc.wast` families become locally representable beyond the landed reduced abs-heap, concrete-heap `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` wrapper fixtures, and aggregate-accessor refinalization-style fixtures;
+- keep the classified `rse -> vacuum` cleanup-slot replay from regressing before scheduling the late no-DWARF slot;
+- reopen loop/fixed-point work only for a new source-backed Binaryen family or generated true RSE-owned mismatch beyond the now-covered official `$loop`, `$merge`, `$many-merges`, and `$fuzz-nan` cases.
+
+Current performance status:
+
+- the user-requested direct pass-local 1x Binaryen timing follow-up is complete on the established `.tmp/rse-timing/` synthetic fixtures;
+- the initial 2026-07-05 probe measured Starshine traced direct-pass pipeline medians at 3.5x-7.0x Binaryen pass-local time, then the follow-up slices reduced the final medians to 0.93x/0.95x Binaryen on the 1000-function straight/loop-heavy fixtures and 0.89x/0.91x on the 3000-function probes;
+- reopen performance only if these fixtures regress above Binaryen or a representative direct RSE workload exposes a new pass-local owner.
 
 ## Exact local status
 
@@ -123,11 +130,11 @@ Only then should the pass enter public preset scheduling.
 - [x] Raw block-exit disagreement negative keeps the final const set after `br_if` exits a block on one path and a later fallthrough path writes the same const.
 - [x] Raw GC branch-exit disagreement negative keeps the final const set after `br_on_null` exits a block on one path and a later fallthrough path writes the same const; the implementation now records `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as conditional label exits while conservatively clearing expression-stack facts on fallthrough.
 - [x] HOT block/if label-exit coverage: positives fold post-block/post-if same-value sets when reachable fallthrough and label-exit sources agree, while negatives keep final const sets after `br_if` / `br` exits can bypass the local write.
-- [x] Branch-free loop fallthrough facts for raw and HOT paths fold post-loop same-value sets when no loop backedge is seen; loop-backedge / outer-exit behavior remains conservative unless the raw loop writes a local exclusively with its default value, which safely preserves Binaryen-like default tee removal for loop-invariant locals while keeping mutating-backedge tees alive.
+- [x] Full audited Binaryen loop fixed-point/default preservation for the current source/test surface: raw/HOT branch-free loop fallthrough, safe same-write/default subsets, untouched-local preservation, stable-entry backedge probes, post-loop source agreement, and unknown `local.get` materialization now cover the 2026-07-04 official `$loop`, `$merge`, `$many-merges`, and `$fuzz-nan` misses; the 2026-07-05 all-features diff is empty. See [`./transform-family-matrix.md`](./transform-family-matrix.md).
 - [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
 - [x] Concrete-heap refined local-get retargeting through `ref.as_non_null` value-preserving wrappers, including a branch-merge positive and a strict-subtype negative where the nullable local must not replace the non-null source.
 - [x] Programmatic concrete-heap refined local-get retargeting through `ref.cast` and `ref.cast_desc_eq` value-preserving wrappers, avoiding current WAT parser gaps while still validating the lowered instruction behavior.
-- [x] `rse-gc.wast` `needs-refinalize`-style raw coverage: redundant tee removal can retarget following `struct.get` / `array.get` accessors from a base type to a strict-subtype receiver so the refined field/element type is preserved.
+- [x] `rse-gc.wast` `needs-refinalize`-style raw coverage: redundant tee removal can retarget following `struct.get` / `array.get` accessors from a base type to a strict-subtype receiver so the refined field/element type is preserved; 2026-07-04 also added focused `struct.atomic.get` subtype-retargeting coverage after a local Binaryen probe.
 - [x] Raw string and conversion identities: repeated `string.const` local writes and repeated `any.convert_extern` writes from the same `externref` source now fold instead of losing stack facts.
 - [x] One-armed terminating `if` fallthrough facts preserve default-local identities before later loop conditions.
 - [x] Paired vacuum removes nested pure `drop` / `nop` debris exposed by RSE in small value-expression control regions.

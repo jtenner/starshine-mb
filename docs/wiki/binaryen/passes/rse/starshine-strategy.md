@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-11
+last_reviewed: 2026-07-05
 sources:
+  - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
@@ -46,7 +47,7 @@ The most important teaching point remains the same: the future Starshine port ne
 
 Current local behavior:
 
-- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, raw strict-subtype local-get retargeting, raw identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`, raw `string.const` / `any.convert_extern` identities, conservative `try_table` fact barriers, and the safe loop-invariant default-write subset.
+- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, raw strict-subtype local-get retargeting, raw identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`, raw `string.const` / `any.convert_extern` identities, conservative `try_table` fact barriers, safe loop-invariant/default/same-write subsets, loop untouched-local preservation, stable-entry backedge probes, post-loop source agreement, and unknown `local.get` value materialization for local-copy equality. The 2026-07-05 family-matrix closure replayed the official `rse_all-features.wast` probe with an empty Binaryen-vs-Starshine diff for the prior `$loop`, `$merge`, `$many-merges`, and `$fuzz-nan` residuals.
 - `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
 - `src/passes/pass_manager.mbt` dispatches the hot pass, constructs the module validation environment needed for raw subtype checks, and runs the raw fast path before hot lift for lowered functions.
 - `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, raw branch-merge/default/refined-get behavior, and registry classification.
@@ -177,7 +178,8 @@ If the project wants them later, document them as separate Starshine-local exten
 
 ## Current uncertainty
 
-Two local design decisions remain open:
+Three local design decisions remain open:
 
 - **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine exposes the long CLI/registry name and maps `--rse` inside compare harnesses.
-- **CFG/value substrate:** Binaryen has fuller general fixed-point CFG flow than Starshine's targeted direct-pass substrate. `[RSE]002` now has no known direct semantic blocker after the safe loop-invariant default-write subset and `try_table` barrier; future work should only add broader fixed-point flow when a real parity case needs it, without widening into liveness-backed dead-store elimination.
+- **CFG/value substrate:** Binaryen still uses a fuller work-queue fixed-point implementation, while Starshine uses targeted source-faithful raw loop probes and merge tracking. The 2026-07-05 official all-features replay closes the known source/test residuals without widening into liveness-backed dead-store elimination. Reopen this question only for a new Binaryen source/test family, generated true RSE-owned mismatch, or a loop/control case not covered by the current matrix.
+- **Performance owner:** the 2026-07-05 timing note [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md) records the initial pass-local miss and the completed i32 fast-path follow-up. Starshine is now below Binaryen's `BINARYEN_PASS_DEBUG=1` direct `--rse` pass medians on the established 1000-function and 3000-function straight/loop-heavy synthetic fixtures; reopen only for a regression on those fixtures or a representative direct RSE workload with a new pass-local owner.

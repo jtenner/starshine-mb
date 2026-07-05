@@ -43,6 +43,38 @@ fn rse_expect_op(func : @ir.HotFunc, node_id : Int, expected : String) -> Unit {
 }
 
 ///|
+test "rse traces raw changed functions as aggregate skip count" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local i32) i32.const 1 local.set 0 i32.const 1 local.set 0)
+        #|  (func (local i32) i32.const 2 local.set 0 i32.const 2 local.set 0)
+        #|)
+      ),
+      ["redundant-set-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced rse success, got \{err}")
+  }
+  assert_true(
+    trace.contains(
+      "pass[redundant-set-elimination]:skip-raw reason=raw-same-value-local-write count=2",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line ==
+      "pass[redundant-set-elimination]:skip-raw reason=raw-same-value-local-write"
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "rse replaces same-value local.set shell with drop" {
   let func = rse_test_run_hot(
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.set 0))",
@@ -216,6 +248,64 @@ fn rse_test_needs_refinalize_module() -> @lib.Module {
           @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
           @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
           @lib.Instruction::struct_get(a_idx, 0U),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rse_test_struct_atomic_get_refinalize_module() -> @lib.Module {
+  let a_idx = @lib.TypeIdx::new(0U)
+  let b_idx = @lib.TypeIdx::new(1U)
+  let a_heap = @lib.HeapType::new(a_idx)
+  let b_heap = @lib.HeapType::new(b_idx)
+  let nullable_a_ref = @lib.ValType::ref_type(@lib.RefType::new(true, a_heap))
+  let b_ref = @lib.ValType::ref_type(@lib.RefType::new(false, b_heap))
+  let a = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [],
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i64()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let b = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [a_idx],
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i64()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([b_ref], [@lib.ValType::i64()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([a, b, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([nullable_a_ref]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::struct_atomic_get(
+            @lib.AtomicOrder::acq_rel(),
+            a_idx,
+            0U,
+          ),
         ]),
       ),
     ]),
@@ -583,6 +673,34 @@ test "rse retargets struct.get after redundant tee removal for refinalized field
     other =>
       fail(
         "expected redundant tee to be removed and struct.get retargeted to subtype, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse retargets struct.atomic.get after redundant tee removal" {
+  let optimized = rse_test_run_module(
+    rse_test_struct_atomic_get_refinalize_module(),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(first_get)),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(second_get)),
+      @lib.Instruction::StructAtomicGet(
+        _,
+        @lib.TypeIdx(struct_type),
+        @lib.U32(0U)
+      ),
+    ] => {
+      @debug.assert_eq(first_get, 0U)
+      @debug.assert_eq(second_get, 0U)
+      @debug.assert_eq(struct_type, 1U)
+    }
+    other =>
+      fail(
+        "expected redundant tee to be removed and struct.atomic.get retargeted to subtype, got \{@debug.to_string(other)}",
       )
   }
 }
@@ -1055,6 +1173,152 @@ test "rse hot path folds post-loop set after branch-free loop fallthrough" {
 
   @debug.assert_eq(@ir.hot_root_count(func), 2)
   rse_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+}
+
+///|
+test "rse raw path folds stable loop-entry and post-loop same-value sets" {
+  let input =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 2
+    #|    local.set 0
+    #|    loop
+    #|      i32.const 2
+    #|      local.set 0
+    #|      i32.const 3
+    #|      local.set 0
+    #|      i32.const 2
+    #|      local.set 0
+    #|      i32.const 1
+    #|      br_if 0
+    #|    end
+    #|    i32.const 2
+    #|    local.set 0))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse stable loop value fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::I32Const(@lib.I32(2)),
+      @lib.Instruction::LocalSet(@lib.LocalIdx(0U)),
+      @lib.Instruction::Loop(_, @lib.Expr(loop_body)),
+      @lib.Instruction::I32Const(@lib.I32(2)),
+      @lib.Instruction::Drop,
+    ] =>
+      match loop_body {
+        [
+          @lib.Instruction::I32Const(@lib.I32(2)),
+          @lib.Instruction::Drop,
+          @lib.Instruction::I32Const(@lib.I32(3)),
+          @lib.Instruction::LocalSet(@lib.LocalIdx(0U)),
+          @lib.Instruction::I32Const(@lib.I32(2)),
+          @lib.Instruction::LocalSet(@lib.LocalIdx(0U)),
+          @lib.Instruction::I32Const(@lib.I32(1)),
+          @lib.Instruction::BrIf(@lib.LabelIdx(0U)),
+        ] => ()
+        other =>
+          fail(
+            "expected loop-entry set to become drop while later writes remain, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected post-loop stable same-value set to become drop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse raw path folds one-arm copy after merged locals are made equal" {
+  let input =
+    #|(module
+    #|  (func (local i32 i32)
+    #|    block
+    #|      i32.const 0
+    #|      br_if 0
+    #|      loop
+    #|        local.get 0
+    #|        local.set 1
+    #|        i32.const 99
+    #|        local.set 0
+    #|        i32.const 1
+    #|        br_if 0
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    local.set 0
+    #|    i32.const 0
+    #|    if
+    #|      local.get 0
+    #|      local.set 1
+    #|    end))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected rse one-arm copy fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Block(_, _),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(1U)),
+      @lib.Instruction::LocalSet(@lib.LocalIdx(0U)),
+      @lib.Instruction::I32Const(@lib.I32(0)),
+      @lib.Instruction::If(_, then_body, None),
+    ] =>
+      match then_body {
+        [@lib.Instruction::LocalGet(@lib.LocalIdx(0U)), @lib.Instruction::Drop] =>
+          ()
+        other =>
+          fail(
+            "expected one-arm copy set to become drop, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected one-arm merged-copy fixture shape, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse raw path preserves untouched default locals across loop backedges" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    loop
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 1
+    #|      local.set 1
+    #|    end
+    #|    i32.const 0
+    #|    local.set 2))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse untouched-default loop fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Loop(_, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::Drop,
+    ] => ()
+    other =>
+      fail(
+        "expected untouched default local set after loop backedge to become drop, got \{@debug.to_string(other)}",
+      )
+  }
 }
 
 ///|

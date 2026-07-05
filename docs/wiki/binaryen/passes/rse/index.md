@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-11
+last_reviewed: 2026-07-05
 sources:
+  - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
@@ -27,6 +28,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./transform-family-matrix.md
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -103,7 +105,13 @@ A write of `1` followed by a write of `2` is not removed by this pass merely bec
 - **Plain set vs tee:** `local.set` has no result, so Binaryen keeps the RHS evaluation through a `drop`-style replacement; `local.tee` already has the RHS result.
 - **Copied locals:** a `local.set $b (local.get $a)` can cause `$a` and `$b` to carry the same value number; later gets may prefer the more precise typed local.
 - **GC/ref types:** the dedicated GC test surface is about refined local-get retargeting and type safety, not field-store deletion.
-- **Starshine status:** Starshine now exposes `"redundant-set-elimination"` as an active direct hot pass with a raw fast path and HOT fallback. The landed surface covers same-value `local.set` / `local.tee` shell removal, default body-local identities, structured branch agreement plus disagreement merge identities for self-set folding, raw structured block/if label-exit merge tracking with unreachable-tail skipping, GC conditional branch-exit tracking for `br_on_null` / `br_on_non_null` / `br_on_cast` / `br_on_cast_fail`, HOT block/if label-exit merge tracking with reachable fallthrough sources, branch-free loop fallthrough facts, conservative loop-backedge / outer-exit regressions, terminating one-armed `if` fallthrough facts, RHS preservation, raw strict-subtype equivalent-local `local.get` retargeting, identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` so concrete-heap refined gets can survive straight-line and branch-merge scans, and raw `struct.get` / `array.get` retargeting after redundant tee removal for the `rse-gc.wast` `needs-refinalize` family, plus raw `string.const` and `any.convert_extern` identities for repeated local writes, conservative raw `try_table` fact barriers, and a safe loop-backedge subset that only removes default loop writes when the target local is otherwise loop-invariant. CLI/registry/harness wiring, paired vacuum cleanup for nested pure debris, vacuum empty-then/live-else inversion, and direct pass-fuzz parity are also landed. Full general loop fixed-point flow, broader official `rse-gc.wast` breadth, and preset scheduling remain future work, but `[RSE]002` is accepted for v0.1.0 direct-pass signoff; the latest `rse -> vacuum` residual is classified as an inherited direct-`vacuum` representation frontier rather than an RSE-specific blocker. The separate large-function pure-debris size gap exposed in `defined=518` was fixed in `vacuum` on 2026-05-11 without reopening `[RSE]002`.
+- **Starshine status:** Starshine exposes `"redundant-set-elimination"` as an active direct hot pass with a raw fast path and HOT fallback. The landed surface covers same-value `local.set` / `local.tee` shell removal, default body-local identities, structured branch agreement plus disagreement merge identities for self-set folding, raw structured block/if label-exit merge tracking with unreachable-tail skipping, GC conditional branch-exit tracking for `br_on_null` / `br_on_non_null` / `br_on_cast` / `br_on_cast_fail`, HOT block/if label-exit merge tracking with reachable fallthrough sources, branch-free loop fallthrough facts, conservative loop-backedge / outer-exit regressions, terminating one-armed `if` fallthrough facts, RHS preservation, raw strict-subtype equivalent-local `local.get` retargeting, identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`, and raw `struct.get` / `struct.atomic.get` / `array.get` retargeting after redundant tee removal for `rse-gc.wast`-style refinalization families, plus raw `string.const` and `any.convert_extern` identities, conservative raw `try_table` fact barriers, loop untouched-local preservation, stable-entry backedge probes, post-loop source agreement, and unknown `local.get` identity materialization for local-copy equality. The 2026-07-05 official all-features replay closes the reopened `$loop`, `$merge`, `$many-merges`, and `$fuzz-nan` residuals with an empty Binaryen-vs-Starshine diff. CLI/registry/harness wiring, paired vacuum cleanup for nested pure debris, vacuum empty-then/live-else inversion, and direct pass-fuzz parity are also landed. Broader official `rse-gc.wast` breadth and preset scheduling remain future work; the latest `rse -> vacuum` residual is classified as an inherited direct-`vacuum` representation frontier rather than an RSE-specific blocker. The separate large-function pure-debris size gap exposed in `defined=518` was fixed in `vacuum` on 2026-05-11 without reopening RSE.
+
+## Performance status
+
+The 2026-07-05 timing probe in [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md) found that the official all-features fixture is too small/noisy for timing claims, so it generated larger RSE-heavy fixtures under `.tmp/rse-timing/`. The first post-audit run missed the direct pass-local target by 3.53x/4.12x on the 1000-function straight/loop-heavy fixtures and 7.00x/6.42x on the 3000-function probes.
+
+The follow-up performance slices are complete for the user-requested 1x Binaryen target on those established fixtures. After integer value ids, numeric env elision, aggregated RSE trace output, combined loop summaries, and an i32-only raw fast path, `.tmp/rse-timing/rse-i32coded-final-1000-summary.json` records Starshine/Binaryen traced pass-local medians of 11.88/12.77 ms on `rse-straight-heavy-1000f.wasm` (0.93x) and 18.93/19.84 ms on `rse-loop-heavy-1000f.wasm` (0.95x). The 3000-function probe in `.tmp/rse-timing/rse-i32coded-3000-summary.json` also stays under Binaryen at 34.38/38.67 ms straight-heavy (0.89x) and 58.61/64.67 ms loop-heavy (0.91x). Decode, final validation, and encode remain separate `[WALL]001` owners unless a pass-local cause is demonstrated.
 
 ## Validation guidance
 
@@ -131,9 +139,11 @@ The current durable claim is:
 - [`./wat-shapes.md`](./wat-shapes.md) - beginner-friendly before/after and bailout shapes.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - current active direct-pass status, exact Starshine code-map anchors, and accepted direct-pass scope.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - landed evidence, exact local registry/dispatcher/test anchors, accepted direct-pass scope, and validation ladder.
+- [`./transform-family-matrix.md`](./transform-family-matrix.md) - live family-by-family audit ledger and current Binaryen/Starshine classification.
 
 ## Sources
 
+- [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md)
 - [`../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md`](../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md)
 - [`../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md`](../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md)

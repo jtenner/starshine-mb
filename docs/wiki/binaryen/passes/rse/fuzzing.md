@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-05
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -49,6 +49,13 @@ Recommended closeout lane:
 moon build --target native --release src/cmd
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass rse --gen-valid-profile rse --out-dir .tmp/pass-fuzz-rse-profile --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
+
+Final closeout matrix refresh on 2026-07-05 with rebuilt `_build/native/release/build/cmd/cmd.exe`:
+
+- Regular GenValid `.tmp/pass-fuzz-rse-genvalid-100000-closeout-20260705`: `100000/100000` compared, `100000` normalized matches, `0` mismatches/failures.
+- External wasm-smith `.tmp/pass-fuzz-rse-wasm-smith-10000-closeout-20260705`: `9956/10000` compared, `9955` normalized matches, `44` Binaryen/tool command failures, and `1` raw mismatch. The mismatch is classified as non-RSE unreachable-control debris (`drop(unreachable)` before `unreachable`) from a no-local-candidate input; supplementary `.tmp/pass-fuzz-rse-wasm-smith-10000-closeout-20260705-unreachable-normalized` with `--normalize unreachable-control-debris` reports `1` compare-normalized match and `0` remaining mismatches.
+- Dedicated profile `.tmp/pass-fuzz-rse-genvalid-profile-10000-closeout-20260705`: `10000/10000` compared, `10000` normalized matches, `0` mismatches/failures.
+- Random all-profiles `.tmp/pass-fuzz-rse-genvalid-random-all-profiles-10000-closeout-20260705`: `10000/10000` compared, `10000` normalized matches, `0` mismatches/failures.
 
 Latest dedicated-profile evidence:
 

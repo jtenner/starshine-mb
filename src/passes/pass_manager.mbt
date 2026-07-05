@@ -28325,6 +28325,26 @@ fn run_hot_pipeline_raw_precompute(
 }
 
 ///|
+fn run_hot_pipeline_raw_rse_needs_module_env(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+) -> Bool {
+  for param in params {
+    match param {
+      @lib.RefTypeValType(_) => return true
+      _ => ()
+    }
+  }
+  for local_id = 0; local_id < locals.length(); local_id = local_id + 1 {
+    match locals.get(local_id) {
+      @lib.RefTypeValType(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_rse(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -28335,13 +28355,30 @@ fn run_hot_pipeline_raw_rse(
   if descriptor.name != "redundant-set-elimination" {
     return None
   }
+  let setup_start_us = perf_start_timer_opt(options.perf, "detail:rse:setup")
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
-  let env = @validate.Env::new().with_module(mod_)
+  let @lib.Func(locals, _) = original
+  let env = if run_hot_pipeline_raw_rse_needs_module_env(params, locals) {
+    @validate.Env::new().with_module(mod_)
+  } else {
+    @validate.Env::new()
+  }
+  perf_stop_timer_accumulate_opt(
+    options.perf,
+    "detail:rse:setup",
+    setup_start_us,
+  )
+  let rse_start_us = perf_start_timer_opt(options.perf, "detail:rse:raw-func")
   let (rewritten, changed) = rse_run_raw_func(original, params, env)
+  perf_stop_timer_accumulate_opt(
+    options.perf,
+    "detail:rse:raw-func",
+    rse_start_us,
+  )
   Some({
     reason: if changed {
       "raw-same-value-local-write"
@@ -50944,6 +50981,8 @@ fn run_hot_pipeline_apply_hot_pass(
       let mut vacuum_hot_func_count = 0
       let mut vacuum_hot_changed_count = 0
       let mut vacuum_mutated_func_trace_count = 0
+      let mut rse_raw_changed_count = 0
+      let mut rse_raw_no_candidate_count = 0
       let pass_options = if descriptor.name == "vacuum" {
         {
           verify_policy: options.verify_policy,
@@ -51014,12 +51053,25 @@ fn run_hot_pipeline_apply_hot_pass(
           next_type_sec: current_mod.type_sec,
           type_sec_changed: false,
         }
+        let func_result_start_us = if descriptor.name ==
+          "redundant-set-elimination" {
+          perf_start_timer_opt(options.perf, "detail:rse:func-result")
+        } else {
+          0UL
+        }
         let result = match
           run_hot_pipeline_func(
             current_mod, func_idx, descriptor, module_state, lower_state, pass_options,
           ) {
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
+        }
+        if descriptor.name == "redundant-set-elimination" {
+          perf_stop_timer_accumulate_opt(
+            options.perf,
+            "detail:rse:func-result",
+            func_result_start_us,
+          )
         }
         let validation_mod = if lower_state.type_sec_changed {
           current_mod.with_type_sec(lower_state.next_type_sec.unwrap())
@@ -51034,6 +51086,12 @@ fn run_hot_pipeline_apply_hot_pass(
         } else {
           0UL
         }
+        let rse_guard_start_us = if descriptor.name ==
+          "redundant-set-elimination" {
+          perf_start_timer_opt(options.perf, "detail:rse:writeback-guard")
+        } else {
+          0UL
+        }
         let skip_invalid_lower_reason = if defer_this_vacuum_writeback_guard {
           None
         } else {
@@ -51043,6 +51101,13 @@ fn run_hot_pipeline_apply_hot_pass(
             code_idx,
             descriptor.name,
             result,
+          )
+        }
+        if descriptor.name == "redundant-set-elimination" {
+          perf_stop_timer_accumulate_opt(
+            options.perf,
+            "detail:rse:writeback-guard",
+            rse_guard_start_us,
           )
         }
         if descriptor.name == "vacuum" && !defer_this_vacuum_writeback_guard {
@@ -51076,6 +51141,12 @@ fn run_hot_pipeline_apply_hot_pass(
             vacuum_hot_changed_count += 1
           }
         }
+        let rse_trace_writeback_start_us = if descriptor.name ==
+          "redundant-set-elimination" {
+          perf_start_timer_opt(options.perf, "detail:rse:trace-writeback")
+        } else {
+          0UL
+        }
         if result.trace_skip_raw {
           if descriptor.name == "heap-store-optimization" &&
             result.reason == "no-heap-store-candidates" {
@@ -51092,6 +51163,12 @@ fn run_hot_pipeline_apply_hot_pass(
           } else if descriptor.name == "vacuum" &&
             result.reason == "raw-vacuum-preclean" {
             vacuum_raw_preclean_skip_count += 1
+          } else if descriptor.name == "redundant-set-elimination" &&
+            result.reason == "raw-same-value-local-write" {
+            rse_raw_changed_count += 1
+          } else if descriptor.name == "redundant-set-elimination" &&
+            result.reason == "no-rse-candidates" {
+            rse_raw_no_candidate_count += 1
           } else {
             pipeline_trace_hook(
               options.trace,
@@ -51110,6 +51187,20 @@ fn run_hot_pipeline_apply_hot_pass(
               lowered = Some(defs_copy)
             }
         }
+        if descriptor.name == "redundant-set-elimination" {
+          perf_stop_timer_accumulate_opt(
+            options.perf,
+            "detail:rse:trace-writeback",
+            rse_trace_writeback_start_us,
+          )
+        }
+      }
+      if descriptor.name == "redundant-set-elimination" {
+        perf_emit_timer_total_opt(options.perf, "detail:rse:setup")
+        perf_emit_timer_total_opt(options.perf, "detail:rse:raw-func")
+        perf_emit_timer_total_opt(options.perf, "detail:rse:func-result")
+        perf_emit_timer_total_opt(options.perf, "detail:rse:writeback-guard")
+        perf_emit_timer_total_opt(options.perf, "detail:rse:trace-writeback")
       }
       if hso_raw_skip_count > 0 {
         pipeline_trace_hook(
@@ -51151,6 +51242,22 @@ fn run_hot_pipeline_apply_hot_pass(
           payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
         )
       }
+      if rse_raw_changed_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=raw-same-value-local-write count=\{rse_raw_changed_count}",
+        )
+      }
+      if rse_raw_no_candidate_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-rse-candidates count=\{rse_raw_no_candidate_count}",
+        )
+      }
       if vacuum_mutated_func_trace_count > 0 {
         pipeline_trace_hook(
           options.trace,
@@ -51170,12 +51277,32 @@ fn run_hot_pipeline_apply_hot_pass(
       if descriptor.name == "vacuum" {
         run_hot_pipeline_emit_vacuum_aggregate_timers(options, module_state)
       }
-      match lowered {
+      let rse_code_sec_start_us = if descriptor.name ==
+        "redundant-set-elimination" {
+        perf_start_timer_opt(options.perf, "detail:rse:code-sec")
+      } else {
+        0UL
+      }
+      let built_code_sec = match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))
         None => None
       }
+      if descriptor.name == "redundant-set-elimination" {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:rse:code-sec",
+          rse_code_sec_start_us,
+        )
+      }
+      built_code_sec
     }
     None => None
+  }
+  let rse_module_copy_start_us = if descriptor.name ==
+    "redundant-set-elimination" {
+    perf_start_timer_opt(options.perf, "detail:rse:module-copy")
+  } else {
+    0UL
   }
   let next_mod = match next_code_sec {
     Some(code_sec) => {
@@ -51195,6 +51322,13 @@ fn run_hot_pipeline_apply_hot_pass(
       }
     }
     None => current_mod
+  }
+  if descriptor.name == "redundant-set-elimination" {
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:rse:module-copy",
+      rse_module_copy_start_us,
+    )
   }
   if defer_this_vacuum_writeback_guard && next_code_sec is Some(_) {
     let batch_guard_start_us = perf_start_timer_opt(
