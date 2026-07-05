@@ -44,7 +44,7 @@ drop
 unreachable
 ```
 
-Starshine now covers this narrow 7-reference-argument / 5-descriptor-argument pure-local direct-call default-mode slice in the public raw dispatcher. This continues the source-probed seven-reference-argument descent and does not prove arbitrary arity, the inverse `(5,7)` shape, or non-local/effectful call arguments.
+Starshine now covers this narrow 7-reference-argument / 5-descriptor-argument pure-local direct-call default-mode slice in the public raw dispatcher. This continues the source-probed seven-reference-argument descent and does not prove arbitrary arity or non-local/effectful call arguments. The inverse `(5,7)` shape was probed and implemented later in research note 1510.
 
 ## Probe evidence
 
@@ -69,7 +69,7 @@ Local probe: `.tmp/oi-j-next-probes/desc-mixed-7ref-5desc-call-base-on-subtype.w
 
 This slice is deliberately narrow. It does **not** claim parity for:
 
-- arbitrary arity direct calls, the inverse `(5,7)` shape, or broader mixed arities beyond the explicitly probed whitelist;
+- arbitrary arity direct calls or broader mixed arities beyond the explicitly probed whitelist;
 - non-local, effectful, trapping, or multivalue call arguments;
 - `call_indirect`, `call_ref`, `return_call*`, or multivalue call producers;
 - descriptor operands with escaping control, EH, branch payloads, or nested control not represented by the direct-call shape;
