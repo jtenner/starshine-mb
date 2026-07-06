@@ -26663,6 +26663,21 @@ fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_call_returns_nullable_target_with_param_count(
+  module_ctx : @ir.HotModuleContext,
+  ref_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> Bool {
+  match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
+    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+      param_count &&
+      ref_type.is_nullable() => ref_type.get_heap_type() == target
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -27322,11 +27337,20 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                 (@lib.CallRef(type_idx), @lib.RefCastDescEq(nullable, exact, target)) if (
                     nullable || !exact
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
+                  (
+                    run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+                      module_ctx,
+                      ref_func,
+                      target,
+                      ref_args.length(),
+                    ) ||
+                    (nullable && !exact &&
+                      run_hot_pipeline_raw_optimize_instructions_call_returns_nullable_target_with_param_count(
+                        module_ctx,
+                        ref_func,
+                        target,
+                        ref_args.length(),
+                      ))
                   ) &&
                   run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
                     module_ctx,
@@ -27351,7 +27375,16 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                   rewritten.push(@lib.Instruction::call(descriptor_func))
                   rewritten.push(
                     @lib.Instruction::ref_cast_desc_eq_type(
-                      @lib.RefType::new(false, target, exact=true),
+                      @lib.RefType::new(
+                        !run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+                          module_ctx,
+                          ref_func,
+                          target,
+                          ref_args.length(),
+                        ),
+                        target,
+                        exact=true,
+                      ),
                     ),
                   )
                   return Some((rewritten, desc_scan + 3))
