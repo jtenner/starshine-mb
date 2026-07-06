@@ -27036,6 +27036,37 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
                 }
                 _ => return None
               }
+            @lib.TableGet(table_idx) if desc_args.length() > 0 &&
+              desc_scan + 2 < instrs.length() =>
+              match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
+                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+                    module_ctx,
+                    ref_func,
+                    target,
+                    ref_args.length(),
+                  ) &&
+                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                    module_ctx,
+                    type_idx,
+                    target,
+                    desc_args.length() - 1,
+                  ) => {
+                  let rewritten : Array[@lib.Instruction] = []
+                  for arg in ref_args {
+                    rewritten.push(arg)
+                  }
+                  rewritten.push(@lib.Instruction::call(ref_func))
+                  rewritten.push(@lib.Instruction::drop())
+                  for arg in desc_args {
+                    rewritten.push(arg)
+                  }
+                  rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+                  rewritten.push(@lib.Instruction::drop())
+                  rewritten.push(@lib.Instruction::unreachable_())
+                  return Some((rewritten, desc_scan + 3))
+                }
+                _ => return None
+              }
             _ => return None
           }
         }
@@ -27196,6 +27227,29 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
               rewritten.push(arg)
             }
             rewritten.push(@lib.Instruction::call(descriptor_func))
+            rewritten.push(@lib.Instruction::drop())
+            rewritten.push(@lib.Instruction::unreachable_())
+            return Some((rewritten, scan + 3))
+          }
+          _ => return None
+        }
+      @lib.TableGet(table_idx) if desc_arg_count > 0 &&
+        scan + 2 < instrs.length() =>
+        match (instrs[scan + 1], instrs[scan + 2]) {
+          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+              module_ctx,
+              type_idx,
+              target,
+              desc_arg_count - 1,
+            ) &&
+            run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+              module_ctx, params, locals, local_idx, target,
+            ) => {
+            let rewritten : Array[@lib.Instruction] = []
+            for arg in desc_args {
+              rewritten.push(arg)
+            }
+            rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
             rewritten.push(@lib.Instruction::drop())
             rewritten.push(@lib.Instruction::unreachable_())
             return Some((rewritten, scan + 3))
