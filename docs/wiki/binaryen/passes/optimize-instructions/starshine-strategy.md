@@ -292,6 +292,7 @@ The implemented center of gravity is:
 - duplicate-branch collapse in then-regions
 - the OI-J pure-local direct-call exact descriptor-miss family under semantic preconditions: ordered `local.get*` ref args, direct strict-subtype ref call, ordered `local.get*` descriptor args, direct exact-descriptor call, and source-order-preserving call/drop/unreachable output
 - the sibling OI-J pure-local direct-call exact descriptor-success family under semantic preconditions: ordered `local.get*` ref args, direct exact non-null target ref call, ordered `local.get*` descriptor args, direct exact target descriptor call, and source-order-preserving `ref args; call ref; desc args; call desc; drop` output
+- the adjacent OI-J pure-local direct-call descriptor exactification family under semantic preconditions: ordered `local.get*` ref args, direct same-heap non-null ref call, ordered `local.get*` descriptor args, direct exact target descriptor call, and source-order-preserving cast target exactification without skipping the descriptor check
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
 That is a meaningful implemented pass.
