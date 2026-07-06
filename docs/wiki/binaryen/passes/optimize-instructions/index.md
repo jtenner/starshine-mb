@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-06
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
@@ -207,6 +207,7 @@ sources:
   - ../../../raw/research/1545-2026-07-05-optimize-instructions-oi-j-mixed-9ref-3desc-call-descriptor-miss.md
   - ../../../raw/research/1546-2026-07-05-optimize-instructions-oi-j-mixed-3ref-9desc-call-descriptor-miss.md
   - ../../../raw/research/1547-2026-07-05-optimize-instructions-oi-j-mixed-9ref-2desc-call-descriptor-miss.md
+  - ../../../raw/research/1548-2026-07-06-optimize-instructions-oi-j-mixed-2ref-9desc-call-descriptor-miss.md
   - ../../../raw/research/1505-2026-07-05-optimize-instructions-oi-j-mixed-1ref-6desc-call-descriptor-miss.md
   - ../../../raw/research/1504-2026-07-05-optimize-instructions-oi-j-mixed-6ref-1desc-call-descriptor-miss.md
   - ../../../raw/research/1503-2026-07-05-optimize-instructions-oi-j-mixed-2ref-6desc-call-descriptor-miss.md

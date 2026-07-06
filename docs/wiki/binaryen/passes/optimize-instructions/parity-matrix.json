@@ -3,7 +3,7 @@
   "kind": "starshine.optimize-instructions.parity-matrix",
   "pass": "optimize-instructions",
   "binaryenVersion": "version_130",
-  "lastReviewed": "2026-07-05",
+  "lastReviewed": "2026-07-06",
   "statusVocabulary": [
     "covered",
     "mismatch",
@@ -145,6 +145,7 @@
     "docs/wiki/raw/research/1545-2026-07-05-optimize-instructions-oi-j-mixed-9ref-3desc-call-descriptor-miss.md",
     "docs/wiki/raw/research/1546-2026-07-05-optimize-instructions-oi-j-mixed-3ref-9desc-call-descriptor-miss.md",
     "docs/wiki/raw/research/1547-2026-07-05-optimize-instructions-oi-j-mixed-9ref-2desc-call-descriptor-miss.md",
+    "docs/wiki/raw/research/1548-2026-07-06-optimize-instructions-oi-j-mixed-2ref-9desc-call-descriptor-miss.md",
     "docs/wiki/raw/research/1496-2026-07-05-optimize-instructions-oi-j-mixed-6ref-5desc-call-descriptor-miss.md",
     "docs/wiki/raw/research/1497-2026-07-05-optimize-instructions-oi-j-mixed-5ref-6desc-call-descriptor-miss.md",
     "docs/wiki/raw/research/1498-2026-07-05-optimize-instructions-oi-j-mixed-6ref-4desc-call-descriptor-miss.md",
@@ -4261,7 +4262,9 @@
         "docs/wiki/raw/research/1546-2026-07-05-optimize-instructions-oi-j-mixed-3ref-9desc-call-descriptor-miss.md",
         "2026-07-05 mixed 3-ref/9-desc direct-call exact descriptor miss slice: .tmp/oi-j-next-probes/desc-mixed-3ref-9desc-call-base-on-subtype.wat validated with wasm-tools --features all; Binaryen version_130 rewrote a pure-local three-argument strict-subtype reference call plus a pure-local nine-argument exact supertype descriptor call to local.get x3; call(ref); drop; local.get x9; call(desc); drop; unreachable; src/passes/optimize_instructions_test.mbt::optimize-instructions folds descriptor casts with mixed 3-ref 9-desc call exact descriptor misses failed red-first with residual ref.cast_desc_eq, then passed after src/passes/pass_manager.mbt admitted only the (3,9) arity; moon fmt, moon info, moon test (7736/7736), moon build --target native --release src/cmd, Starshine probe replay/wasm-tools validate/no residual ref.cast_desc_eq, and .tmp/oi-j-mixed-3ref-9desc-call-descriptor-miss-genvalid-10000-20260705 compare-pass 10000/10000 normalized with zero failures/mismatches passed.",
         "docs/wiki/raw/research/1547-2026-07-05-optimize-instructions-oi-j-mixed-9ref-2desc-call-descriptor-miss.md",
-        "2026-07-05 mixed 9-ref/2-desc direct-call exact descriptor miss slice: .tmp/oi-j-next-probes/desc-mixed-9ref-2desc-call-base-on-subtype.wat validated with wasm-tools --features all; Binaryen version_130 rewrote a pure-local nine-argument strict-subtype reference call plus a pure-local two-argument exact supertype descriptor call to local.get x9; call(ref); drop; local.get x2; call(desc); drop; unreachable; src/passes/optimize_instructions_test.mbt::optimize-instructions folds descriptor casts with mixed 9-ref 2-desc call exact descriptor misses failed red-first with residual ref.cast_desc_eq, then passed after src/passes/pass_manager.mbt admitted only the (9,2) arity; moon fmt, moon info, moon test (7737/7737), moon build --target native --release src/cmd, Starshine probe replay/wasm-tools validate/no residual ref.cast_desc_eq, and .tmp/oi-j-mixed-9ref-2desc-call-descriptor-miss-genvalid-10000-20260705 compare-pass 10000/10000 normalized with zero failures/mismatches passed."
+        "2026-07-05 mixed 9-ref/2-desc direct-call exact descriptor miss slice: .tmp/oi-j-next-probes/desc-mixed-9ref-2desc-call-base-on-subtype.wat validated with wasm-tools --features all; Binaryen version_130 rewrote a pure-local nine-argument strict-subtype reference call plus a pure-local two-argument exact supertype descriptor call to local.get x9; call(ref); drop; local.get x2; call(desc); drop; unreachable; src/passes/optimize_instructions_test.mbt::optimize-instructions folds descriptor casts with mixed 9-ref 2-desc call exact descriptor misses failed red-first with residual ref.cast_desc_eq, then passed after src/passes/pass_manager.mbt admitted only the (9,2) arity; moon fmt, moon info, moon test (7737/7737), moon build --target native --release src/cmd, Starshine probe replay/wasm-tools validate/no residual ref.cast_desc_eq, and .tmp/oi-j-mixed-9ref-2desc-call-descriptor-miss-genvalid-10000-20260705 compare-pass 10000/10000 normalized with zero failures/mismatches passed.",
+        "docs/wiki/raw/research/1548-2026-07-06-optimize-instructions-oi-j-mixed-2ref-9desc-call-descriptor-miss.md",
+        "2026-07-06 mixed 2-ref/9-desc direct-call exact descriptor miss slice: .tmp/oi-j-next-probes/desc-mixed-2ref-9desc-call-base-on-subtype.wat validated with wasm-tools --features all; Binaryen version_130 rewrote a pure-local two-argument strict-subtype reference call plus a pure-local nine-argument exact supertype descriptor call to local.get x2; call(ref); drop; local.get x9; call(desc); drop; unreachable; src/passes/optimize_instructions_test.mbt::optimize-instructions folds descriptor casts with mixed 2-ref 9-desc call exact descriptor misses failed red-first with residual ref.cast_desc_eq, then passed after src/passes/pass_manager.mbt admitted only the (2,9) arity; moon fmt, moon info, moon test (7738/7738), moon build --target native --release src/cmd, Starshine probe replay/wasm-tools validate/no residual ref.cast_desc_eq, and .tmp/oi-j-mixed-2ref-9desc-call-descriptor-miss-genvalid-10000-20260705 compare-pass 10000/10000 normalized with zero failures/mismatches passed."
       ],
       "genValidProfiles": [
         "pass-oi-ref-gc",
