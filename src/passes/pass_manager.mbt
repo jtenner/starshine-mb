@@ -27040,7 +27040,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_success(
+fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_descriptor_success(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
@@ -27195,7 +27195,7 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
   let mut i = 0
   while i < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_success(
+      run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_descriptor_success(
         instrs, i, module_ctx,
       ) {
       Some((direct_call_rewrite, next_i)) => {
