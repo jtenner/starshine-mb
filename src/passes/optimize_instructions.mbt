@@ -469,6 +469,127 @@ fn OiRefTestFact::known_null_result(self : OiRefTestFact) -> @lib.I32 {
 }
 
 ///|
+priv struct OiRefTestResultFact {
+  known_const_result : @lib.I32?
+  rewrite_to_ref_is_non_null : Bool
+  rewrite_to_ref_is_null : Bool
+}
+
+///|
+fn OiRefTestResultFact::from_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  test_fact : OiRefTestFact,
+) -> OiRefTestResultFact {
+  let operand_id = test_fact.operand_id
+  let nullable = test_fact.nullable
+  let exact = test_fact.exact
+  let target = test_fact.target
+  let ref_fact = OiRefFact::from_node(func, operand_id)
+  if ref_fact.is_known_null() {
+    return {
+      known_const_result: Some(test_fact.known_null_result()),
+      rewrite_to_ref_is_non_null: false,
+      rewrite_to_ref_is_null: false,
+    }
+  }
+  if test_fact.descriptor_style {
+    match
+      OiRefProducerFact::from_node(ctx, func, operand_id).matches_or_subtypes_heap(
+        ctx, target,
+      ) {
+      Some((operand_nullable, _)) =>
+        if !nullable && operand_nullable {
+          return {
+            known_const_result: None,
+            rewrite_to_ref_is_non_null: true,
+            rewrite_to_ref_is_null: false,
+          }
+        } else {
+          return {
+            known_const_result: Some(@lib.I32(1)),
+            rewrite_to_ref_is_non_null: false,
+            rewrite_to_ref_is_null: false,
+          }
+        }
+      None =>
+        return {
+          known_const_result: None,
+          rewrite_to_ref_is_non_null: false,
+          rewrite_to_ref_is_null: false,
+        }
+    }
+  }
+  let rewrite_to_ref_is_non_null = not(nullable) &&
+    (
+      not(exact) ||
+      optimize_instructions_ref_operand_has_exact_heap(func, operand_id, target) ||
+      optimize_instructions_ref_operand_has_final_heap(
+        ctx, func, operand_id, target,
+      )
+    ) &&
+    optimize_instructions_ref_operand_is_nullable_match_for_target(
+      func, operand_id, target,
+    )
+  let rewrite_to_ref_is_null = exact &&
+    optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
+      ctx, func, operand_id, target, nullable,
+    )
+  let known_success = (
+      not(exact) &&
+      optimize_instructions_ref_is_known_match_for_target(
+        func, operand_id, target,
+      )
+    ) ||
+    (
+      exact &&
+      (
+        optimize_instructions_ref_operand_matches_exact_test_target(
+          func, operand_id, target, nullable,
+        ) ||
+        optimize_instructions_ref_operand_matches_final_exact_test_target(
+          ctx, func, operand_id, target, nullable,
+        )
+      )
+    ) ||
+    (
+      not(exact) &&
+      nullable &&
+      optimize_instructions_ref_is_known_match_for_nullable_target(
+        func, operand_id, target,
+      )
+    )
+  let known_failure = optimize_instructions_ref_is_known_miss_for_target(
+      ctx, func, operand_id, target,
+    ) ||
+    (
+      exact &&
+      (
+        optimize_instructions_ref_operand_misses_exact_target(
+          func, operand_id, target, nullable,
+        ) ||
+        optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+          ctx, func, operand_id, target, nullable,
+        )
+      )
+    ) ||
+    (
+      not(nullable) &&
+      optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
+        ctx, func, operand_id, target,
+      )
+    )
+  let known_const_result = if known_success {
+    Some(@lib.I32(1))
+  } else if known_failure {
+    Some(@lib.I32(0))
+  } else {
+    None
+  }
+  { known_const_result, rewrite_to_ref_is_non_null, rewrite_to_ref_is_null }
+}
+
+///|
 priv struct OiDescriptorCastFact {
   nullable : Bool
   exact : Bool
@@ -13620,130 +13741,42 @@ fn optimize_instructions_try_fold_ref_test_null(
     Some(fact) => fact
     None => return false
   }
+  let result_fact = OiRefTestResultFact::from_test(ctx, func, test_fact)
   let operand_id = test_fact.operand_id
-  let nullable = test_fact.nullable
-  let exact = test_fact.exact
-  let target = test_fact.target
-  match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::RefNull => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        test_fact.known_null_result(),
-      )
-      true
-    }
-    _ if test_fact.descriptor_style => false
-    _ if not(nullable) &&
-      (
-        not(exact) ||
-        optimize_instructions_ref_operand_has_exact_heap(
-          func, operand_id, target,
+  if result_fact.rewrite_to_ref_is_non_null {
+    optimize_instructions_replace_with_ref_is_non_null_test(
+      ctx, func, node_id, operand_id,
+    )
+    return true
+  }
+  if result_fact.rewrite_to_ref_is_null {
+    optimize_instructions_replace_with_ref_is_null(
+      ctx, func, node_id, operand_id,
+    )
+    return true
+  }
+  match result_fact.known_const_result {
+    Some(value) => {
+      if (
+          value == @lib.I32(0) &&
+          (
+            optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+            optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+          )
         ) ||
-        optimize_instructions_ref_operand_has_final_heap(
-          ctx, func, operand_id, target,
-        )
-      ) &&
-      optimize_instructions_ref_operand_is_nullable_match_for_target(
-        func, operand_id, target,
-      ) => {
-      optimize_instructions_replace_with_ref_is_non_null_test(
-        ctx, func, node_id, operand_id,
-      )
-      true
-    }
-    _ if exact &&
-      optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
-        ctx, func, operand_id, target, nullable,
-      ) => {
-      optimize_instructions_replace_with_ref_is_null(
-        ctx, func, node_id, operand_id,
-      )
-      true
-    }
-    _ if (
-        not(exact) &&
-        optimize_instructions_ref_is_known_match_for_target(
-          func, operand_id, target,
-        )
-      ) ||
-      (
-        exact &&
         (
-          optimize_instructions_ref_operand_matches_exact_test_target(
-            func, operand_id, target, nullable,
-          ) ||
-          optimize_instructions_ref_operand_matches_final_exact_test_target(
-            ctx, func, operand_id, target, nullable,
-          )
-        )
-      ) ||
-      (
-        not(exact) &&
-        nullable &&
-        optimize_instructions_ref_is_known_match_for_nullable_target(
-          func, operand_id, target,
-        )
-      ) => {
-      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(1),
-        )
+          value != @lib.I32(0) &&
+          optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+        ) {
+        optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
       } else {
         optimize_instructions_replace_with_drop_then_const_i32(
-          ctx,
-          func,
-          node_id,
-          operand_id,
-          @lib.I32(1),
+          ctx, func, node_id, operand_id, value,
         )
       }
       true
     }
-    _ if optimize_instructions_ref_is_known_miss_for_target(
-        ctx, func, operand_id, target,
-      ) ||
-      (
-        exact &&
-        (
-          optimize_instructions_ref_operand_misses_exact_target(
-            func, operand_id, target, nullable,
-          ) ||
-          optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
-            ctx, func, operand_id, target, nullable,
-          )
-        )
-      ) ||
-      (
-        not(nullable) &&
-        optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
-          ctx, func, operand_id, target,
-        )
-      ) => {
-      if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-        optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(0),
-        )
-      } else {
-        optimize_instructions_replace_with_drop_then_const_i32(
-          ctx,
-          func,
-          node_id,
-          operand_id,
-          @lib.I32(0),
-        )
-      }
-      true
-    }
-    _ => false
+    None => false
   }
 }
 

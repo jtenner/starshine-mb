@@ -9537,6 +9537,57 @@ test "optimize-instructions folds ref.test_desc null operands from descriptor te
 }
 
 ///|
+test "optimize-instructions folds same-heap ref.test_desc successes from descriptor test facts" {
+  // OI-J descriptor-test fact slice: Binaryen version_130 evaluates
+  // `ref.test_desc` through the RefTest cast-check path. A non-null operand
+  // whose fallthrough type already matches the descriptor-test target succeeds
+  // without a runtime descriptor-test check; the operand's construction/effects
+  // are still preserved as the dropped payload when needed.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+            @lib.Instruction::ref_test_desc(false, described_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.test_desc"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
   // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
   // two-operand descriptor equality casts under `--enable-custom-descriptors`
