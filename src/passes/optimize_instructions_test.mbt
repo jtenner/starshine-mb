@@ -8119,17 +8119,128 @@ test "optimize-instructions directizes call_ref from local.tee ref.func target f
     Err(err) => fail("expected call_ref target fact success, got \{err}")
   }
   let root = @ir.hot_root_get(func, 0)
-  match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::Block => ()
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::Call => @debug.assert_eq(root_node.imm0, 0)
     other =>
-      fail("expected fallthrough-target call_ref to become block, got \{other}")
+      fail(
+        "expected fallthrough-target call_ref to become direct call, got \{other}",
+      )
   }
-  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(root_node.child_count, 1)
+  let interposed_arg = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, interposed_arg).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected target/drop block on last operand, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, interposed_arg)
   @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
-  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 2)).op {
-    @ir.HotOp::Call => ()
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected target drop before reloaded operand, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions interposes fallthrough call_ref target at last operand fact" {
+  // OI-H call_ref operand-order fact slice: Binaryen version_130 localizes only
+  // the last call_ref operand when a fallthrough target directizes, then runs the
+  // target/drop before reloading that last operand. Earlier operands remain
+  // direct call operands. This keeps the fact source-backed by
+  // `OptimizeInstructions::visitCallRef` instead of broad all-argument
+  // localization.
+  let sig_type = @lib.TypeIdx::new(0U)
+  let nullable_sig_ref = @lib.RefType::new(true, @lib.HeapType::new(sig_type))
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([sig_type, sig_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::ref_type(nullable_sig_ref)),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::call_ref(sig_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected call_ref last-operand fact success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::Call => @debug.assert_eq(root_node.imm0, 0)
     other =>
-      fail("expected direct call after fallthrough-target fact, got \{other}")
+      fail("expected fallthrough-target call_ref to direct call, got \{other}")
+  }
+  @debug.assert_eq(root_node.child_count, 2)
+  let first_arg = @ir.hot_child_get(func, root, 0)
+  let first_arg_node = @ir.hot_node_get(func, first_arg)
+  match first_arg_node.op {
+    @ir.HotOp::LocalGet => @debug.assert_eq(first_arg_node.imm0, 0)
+    other =>
+      fail(
+        "expected first direct-call arg to remain original local.get, got \{other}",
+      )
+  }
+  let interposed_arg = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, interposed_arg).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected last arg to carry target/drop block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, interposed_arg)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+    @ir.HotOp::LocalSet => ()
+    other =>
+      fail("expected last operand local.set before target drop, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+    @ir.HotOp::Drop => ()
+    other =>
+      fail("expected target drop after last operand local.set, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 2)).op {
+    @ir.HotOp::LocalGet => ()
+    other =>
+      fail("expected last operand reload after target drop, got \{other}")
   }
 }
 

@@ -2519,6 +2519,12 @@ fn OiCallRefTargetFact::has_select_direct_funcs(
 
 ///|
 priv struct OiCallRefOperandFact {
+  args : Array[Int]
+  arg_types : Array[@lib.ValType]
+}
+
+///|
+priv struct OiCallRefLocalizedOperandFact {
   prefix : Array[Int]
   local_ids : Array[Int]
 }
@@ -2528,6 +2534,7 @@ fn OiCallRefOperandFact::from_args(
   func : @ir.HotFunc,
   args : Array[Int],
 ) -> OiCallRefOperandFact? {
+  let fact_args : Array[Int] = []
   let arg_types : Array[@lib.ValType] = []
   for arg in args {
     let arg_node = @ir.hot_node_get(func, arg)
@@ -2535,21 +2542,30 @@ fn OiCallRefOperandFact::from_args(
     if arg_results.length() != 1 {
       return None
     }
+    fact_args.push(arg)
     arg_types.push(arg_results[0])
   }
-  let prefix : Array[Int] = []
-  let local_ids : Array[Int] = []
-  for i = 0; i < args.length(); i = i + 1 {
-    let local_id = @ir.hot_append_body_local(func, arg_types[i])
-    prefix.push(@ir.hot_build_local_set(func, local_id, args[i]))
-    local_ids.push(local_id)
-  }
-  Some({ prefix, local_ids })
+  Some({ args: fact_args, arg_types })
 }
 
 ///|
-fn OiCallRefOperandFact::local_gets(
+fn OiCallRefOperandFact::localize_all(
   self : OiCallRefOperandFact,
+  func : @ir.HotFunc,
+) -> OiCallRefLocalizedOperandFact {
+  let prefix : Array[Int] = []
+  let local_ids : Array[Int] = []
+  for i = 0; i < self.args.length(); i = i + 1 {
+    let local_id = @ir.hot_append_body_local(func, self.arg_types[i])
+    prefix.push(@ir.hot_build_local_set(func, local_id, self.args[i]))
+    local_ids.push(local_id)
+  }
+  { prefix, local_ids }
+}
+
+///|
+fn OiCallRefLocalizedOperandFact::local_gets(
+  self : OiCallRefLocalizedOperandFact,
   func : @ir.HotFunc,
 ) -> Array[Int] {
   let gets : Array[Int] = []
@@ -2557,6 +2573,36 @@ fn OiCallRefOperandFact::local_gets(
     gets.push(@ir.hot_build_local_get(func, local_id))
   }
   gets
+}
+
+///|
+fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
+  self : OiCallRefOperandFact,
+  func : @ir.HotFunc,
+  callee_ref_id : Int,
+) -> Array[Int]? {
+  let arg_count = self.args.length()
+  if arg_count == 0 {
+    return Some([])
+  }
+  let last_index = arg_count - 1
+  let operands : Array[Int] = []
+  for i = 0; i < last_index; i = i + 1 {
+    operands.push(self.args[i])
+  }
+  let temp_local = @ir.hot_append_body_local(func, self.arg_types[last_index])
+  operands.push(
+    @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(self.arg_types[last_index]),
+      [
+        @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
+        @ir.hot_build_drop(func, callee_ref_id),
+        @ir.hot_build_local_get(func, temp_local),
+      ],
+    ),
+  )
+  Some(operands)
 }
 
 ///|
@@ -2583,8 +2629,6 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
   if !target_fact.has_fallthrough_func() {
     return None
   }
-  let replacement_body = operand_fact.prefix.copy()
-  replacement_body.push(@ir.hot_build_drop(func, callee_ref_id))
   match node.op {
     @ir.HotOp::CallRef => {
       let block_type = match
@@ -2592,26 +2636,52 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
         Some(block_type) => block_type
         None => return None
       }
-      replacement_body.push(
-        @ir.hot_build_call(
-          func,
-          target_fact.fallthrough_func,
-          @ir.hot_type_results(func, node.ty),
-          operand_fact.local_gets(func),
-        ),
-      )
-      Some(@ir.hot_build_block(func, block_type, replacement_body))
+      let results = @ir.hot_type_results(func, node.ty)
+      match
+        operand_fact.args_with_fallthrough_target_after_last_operand(
+          func, callee_ref_id,
+        ) {
+        Some([]) =>
+          Some(
+            @ir.hot_build_block(func, block_type, [
+              @ir.hot_build_drop(func, callee_ref_id),
+              @ir.hot_build_call(func, target_fact.fallthrough_func, results, []),
+            ]),
+          )
+        Some(operands) =>
+          Some(
+            @ir.hot_build_call(
+              func,
+              target_fact.fallthrough_func,
+              results,
+              operands,
+            ),
+          )
+        None => None
+      }
     }
-    @ir.HotOp::ReturnCallRef => {
-      replacement_body.push(
-        @ir.hot_build_return_call(
-          func,
-          target_fact.fallthrough_func,
-          operand_fact.local_gets(func),
-        ),
-      )
-      Some(@ir.hot_build_block(func, @lib.BlockType::void_(), replacement_body))
-    }
+    @ir.HotOp::ReturnCallRef =>
+      match
+        operand_fact.args_with_fallthrough_target_after_last_operand(
+          func, callee_ref_id,
+        ) {
+        Some([]) =>
+          Some(
+            @ir.hot_build_block(func, @lib.BlockType::void_(), [
+              @ir.hot_build_drop(func, callee_ref_id),
+              @ir.hot_build_return_call(func, target_fact.fallthrough_func, []),
+            ]),
+          )
+        Some(operands) =>
+          Some(
+            @ir.hot_build_return_call(
+              func,
+              target_fact.fallthrough_func,
+              operands,
+            ),
+          )
+        None => None
+      }
     _ => None
   }
 }
@@ -2701,6 +2771,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
       Some(fact) => fact
       None => return false
     }
+    let localized_operands = operand_fact.localize_all(func)
     let replacement_if = match node.op {
       @ir.HotOp::CallRef =>
         @ir.hot_build_if(
@@ -2712,7 +2783,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
               func,
               target_fact.select_true_func,
               @ir.hot_type_results(func, node.ty),
-              operand_fact.local_gets(func),
+              localized_operands.local_gets(func),
             ),
           ],
           else_body=Some([
@@ -2720,7 +2791,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
               func,
               target_fact.select_false_func,
               @ir.hot_type_results(func, node.ty),
-              operand_fact.local_gets(func),
+              localized_operands.local_gets(func),
             ),
           ]),
         )
@@ -2733,23 +2804,23 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
             @ir.hot_build_return_call(
               func,
               target_fact.select_true_func,
-              operand_fact.local_gets(func),
+              localized_operands.local_gets(func),
             ),
           ],
           else_body=Some([
             @ir.hot_build_return_call(
               func,
               target_fact.select_false_func,
-              operand_fact.local_gets(func),
+              localized_operands.local_gets(func),
             ),
           ]),
         )
       _ => abort("unreachable call_ref directization op")
     }
-    if operand_fact.prefix.length() == 0 {
+    if localized_operands.prefix.length() == 0 {
       replacement_if
     } else {
-      let body = operand_fact.prefix.copy()
+      let body = localized_operands.prefix.copy()
       body.push(replacement_if)
       @ir.hot_build_block(func, block_type, body)
     }
