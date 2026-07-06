@@ -14055,6 +14055,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   exact_ref_result? : Bool = true,
   exact_cast_target? : Bool = true,
   nullable_cast_target? : Bool = false,
+  const_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -14087,17 +14088,25 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
   let cast_body : Array[@lib.Instruction] = []
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
-    cast_body.push(
-      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
-    )
+    if const_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else {
+      cast_body.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+      )
+    }
   }
   cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
-    cast_body.push(
-      @lib.Instruction::local_get(
-        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
-      ),
-    )
+    if const_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else {
+      cast_body.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+        ),
+      )
+    }
   }
   cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
   cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(cast_target_ref_type))
@@ -14105,6 +14114,11 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     exact_base_ref_type
   } else {
     base_ref_type
+  }
+  let cast_params = if const_call_args {
+    []
+  } else {
+    optimize_instructions_test_i32_params(ref_arg_count + desc_arg_count)
   }
   @lib.Module::new()
   .with_type_sec(
@@ -14147,9 +14161,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
       @lib.RecType::new(
         @lib.SubType::comp_type(
           @lib.CompType::func(
-            optimize_instructions_test_i32_params(
-              ref_arg_count + desc_arg_count,
-            ),
+            cast_params,
             [@lib.ValType::ref_type(cast_target_ref_type)],
           ),
         ),
@@ -14221,6 +14233,7 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   exact_ref_result? : Bool = true,
   exact_cast_target? : Bool = false,
   nullable_cast_target? : Bool = false,
+  const_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     ref_arg_count,
@@ -14228,21 +14241,30 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
     exact_ref_result~,
     exact_cast_target~,
     nullable_cast_target~,
+    const_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let expected : Array[@lib.Instruction] = []
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
-    expected.push(
-      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
-    )
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+      )
+    }
   }
   expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
-    expected.push(
-      @lib.Instruction::local_get(
-        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
-      ),
-    )
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+        ),
+      )
+    }
   }
   expected.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
   expected.push(
@@ -14259,6 +14281,36 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
       @debug.assert_eq(body, expected)
     _ => fail("expected three-function descriptor-exactification test module")
   }
+}
+
+///|
+test "optimize-instructions exactifies direct-call descriptor success with constant arguments" {
+  // OI-J pure-argument direct-call descriptor exactification: the reference and
+  // descriptor operands are direct calls whose arguments are stack-local pure
+  // i32 constants instead of `local.get*`. Binaryen keeps the descriptor check
+  // and exactifies the cast target, so this extends the same semantic family to
+  // pure constant argument localization without claiming effectful, trapping,
+  // control/EH, indirect/call_ref, return_call*, TNH, or IIT behavior.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    2,
+    1,
+    const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions narrows nullable direct-call descriptor success with constant arguments" {
+  // Same-family nullable proof: constants may feed the direct calls, but a
+  // nullable source cast still keeps `ref.cast_desc_eq` and narrows it to a
+  // non-null exact target instead of entering the exact-success skip path.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    1,
+    2,
+    exact_ref_result=false,
+    exact_cast_target=false,
+    nullable_cast_target=true,
+    const_call_args=true,
+  )
 }
 
 ///|
