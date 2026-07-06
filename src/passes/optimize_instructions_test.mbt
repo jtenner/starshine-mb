@@ -12169,7 +12169,9 @@ test "optimize-instructions folds descriptor casts with typed-table call_ref des
   match @validate.validate_module(module_) {
     Ok(_) => ()
     Err(err) =>
-      abort("unexpected invalid typed-table call_ref descriptor fixture: \{err}")
+      abort(
+        "unexpected invalid typed-table call_ref descriptor fixture: \{err}",
+      )
   }
   let expected = [
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),

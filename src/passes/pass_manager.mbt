@@ -27060,7 +27060,9 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
                   for arg in desc_args {
                     rewritten.push(arg)
                   }
-                  rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+                  rewritten.push(
+                    @lib.Instruction::call_indirect(type_idx, table_idx),
+                  )
                   rewritten.push(@lib.Instruction::drop())
                   rewritten.push(@lib.Instruction::unreachable_())
                   return Some((rewritten, desc_scan + 3))
