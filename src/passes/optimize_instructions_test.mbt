@@ -10373,6 +10373,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   i64_const_call_args? : Bool = false,
   global_call_args? : Bool = false,
   effectful_block_call_args? : Bool = false,
+  direct_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -10380,6 +10381,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   let subtype_descriptor = @lib.TypeIdx::new(3U)
   let make_desc_func_type = @lib.TypeIdx::new(4U)
   let cast_func_type = @lib.TypeIdx::new(5U)
+  let direct_arg_func_type = @lib.TypeIdx::new(6U)
   let base_heap = @lib.HeapType::new(base_type)
   let base_ref_type = @lib.RefType::new(false, base_heap)
   let base_descriptor_ref_type = @lib.RefType::new(
@@ -10404,7 +10406,8 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   if !const_call_args &&
     !i64_const_call_args &&
     !global_call_args &&
-    !effectful_block_call_args {
+    !effectful_block_call_args &&
+    !direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       cast_params.push(@lib.ValType::i32())
     }
@@ -10439,6 +10442,10 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
           ]),
         ),
       )
+    } else if direct_call_args {
+      cast_body.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
     } else {
       cast_body.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
@@ -10447,66 +10454,91 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   }
   cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
   cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(base_ref_type))
-  @lib.Module::new()
-  .with_type_sec(
-    @lib.TypeSec::new([
-      @lib.RecType::group([
-        @lib.SubType::new(
-          false,
-          [],
-          @lib.CompType::struct_([
-            @lib.FieldType::new(
-              @lib.StorageType::val_type(@lib.ValType::i32()),
-              @lib.Mut::const_(),
-            ),
-          ]),
-          metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
-        ),
-        @lib.SubType::new(
-          false,
-          [],
-          @lib.CompType::struct_([]),
-          metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
-        ),
-        @lib.SubType::new(
-          false,
-          [base_type],
-          @lib.CompType::struct_([
-            @lib.FieldType::new(
-              @lib.StorageType::val_type(@lib.ValType::i32()),
-              @lib.Mut::const_(),
-            ),
-            @lib.FieldType::new(
-              @lib.StorageType::val_type(@lib.ValType::i64()),
-              @lib.Mut::const_(),
-            ),
-          ]),
-          metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
-        ),
-        @lib.SubType::new(
-          false,
-          [base_descriptor_type],
-          @lib.CompType::struct_([]),
-          metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
-        ),
-      ]),
-      @lib.RecType::new(
-        @lib.SubType::comp_type(
-          @lib.CompType::func(desc_call_params, [
-            @lib.ValType::ref_type(base_descriptor_ref_type),
-          ]),
-        ),
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::group([
+      @lib.SubType::new(
+        false,
+        [],
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i32()),
+            @lib.Mut::const_(),
+          ),
+        ]),
+        metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
       ),
-      @lib.RecType::new(
-        @lib.SubType::comp_type(
-          @lib.CompType::func(cast_params, [
-            @lib.ValType::ref_type(base_ref_type),
-          ]),
-        ),
+      @lib.SubType::new(
+        false,
+        [],
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+      ),
+      @lib.SubType::new(
+        false,
+        [base_type],
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i32()),
+            @lib.Mut::const_(),
+          ),
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i64()),
+            @lib.Mut::const_(),
+          ),
+        ]),
+        metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+      ),
+      @lib.SubType::new(
+        false,
+        [base_descriptor_type],
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
       ),
     ]),
-  )
-  .with_func_sec(@lib.FuncSec::new([make_desc_func_type, cast_func_type]))
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func(desc_call_params, [
+          @lib.ValType::ref_type(base_descriptor_ref_type),
+        ]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func(cast_params, [@lib.ValType::ref_type(base_ref_type)]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+    ),
+  ])
+  let func_types : Array[@lib.TypeIdx] = [make_desc_func_type, cast_func_type]
+  if direct_call_args {
+    for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+      ignore(arg)
+      func_types.push(direct_arg_func_type)
+    }
+  }
+  let code_funcs : Array[@lib.Func] = [
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+  ]
+  if direct_call_args {
+    for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+      code_funcs.push(
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(300 + arg)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(200 + arg)),
+          ]),
+        ),
+      )
+    }
+  }
+  @lib.Module::new()
+  .with_type_sec(type_sec)
+  .with_func_sec(@lib.FuncSec::new(func_types))
   .with_global_sec(
     @lib.GlobalSec::new([
       @lib.Global::new(
@@ -10519,12 +10551,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
       ),
     ]),
   )
-  .with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
-      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
-    ]),
-  )
+  .with_code_sec(@lib.CodeSec::new(code_funcs))
 }
 
 ///|
@@ -10534,6 +10561,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   i64_const_call_args? : Bool = false,
   global_call_args? : Bool = false,
   effectful_block_call_args? : Bool = false,
+  direct_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
     desc_arg_count,
@@ -10541,6 +10569,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
     i64_const_call_args~,
     global_call_args~,
     effectful_block_call_args~,
+    direct_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -10568,6 +10597,10 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
           ]),
         ),
       )
+    } else if direct_call_args {
+      expected.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
     } else {
       expected.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
@@ -10578,9 +10611,11 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   expected.push(@lib.Instruction::drop())
   expected.push(@lib.Instruction::unreachable_())
   match optimized.code_sec {
-    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) =>
-      @debug.assert_eq(body, expected)
-    _ => fail("expected two-function descriptor-call operand miss module")
+    Some(@lib.CodeSec(funcs)) if funcs.length() >= 2 =>
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr(body)) => @debug.assert_eq(body, expected)
+      }
+    _ => fail("expected descriptor-call operand miss module with cast function")
   }
 }
 
@@ -10638,6 +10673,21 @@ test "optimize-instructions folds descriptor operand call misses with effectful 
   optimize_instructions_test_assert_descriptor_call_operand_miss(
     2,
     effectful_block_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with direct call arguments" {
+  // Same pure-reference/direct-descriptor-call descriptor-miss family for
+  // ordered no-parameter direct descriptor-call arguments. Binaryen preserves
+  // the argument calls in source order before dropping the exact descriptor call
+  // result and replacing the impossible descriptor equality cast with
+  // unreachable. This does not claim parameterized, indirect, call_ref,
+  // return_call*, multivalue, control, EH, exact-success, or both-direct-call
+  // breadth.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    direct_call_args=true,
   )
 }
 
