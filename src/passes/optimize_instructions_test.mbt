@@ -32040,6 +32040,60 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
 }
 
 ///|
+test "optimize-instructions drops zero-size stack bulk-memory under trap-relaxed facts" {
+  // OI-G stack-operand fact slice: Binaryen version_130 drops zero-size
+  // `memory.copy` / `memory.fill` under `--traps-never-happen` even when the
+  // destination, source, and value operands are stack-carried calls, preserving
+  // the call effects as drops. This is the trap-relaxed zero-size counterpart to
+  // the tiny stack bulk-memory raw-gate fact.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "env" "dst" (func $dst (result i32)))
+        #|  (import "env" "src" (func $src (result i32)))
+        #|  (import "env" "val" (func $val (result i32)))
+        #|  (memory 1)
+        #|  (func
+        #|    call $dst
+        #|    call $src
+        #|    i32.const 0
+        #|    memory.copy
+        #|    call $dst
+        #|    call $val
+        #|    i32.const 0
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(
+        traps_never_happen=true,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected zero-size stack bulk-memory TNH success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "drop", "call (Func 1)", "drop", "call (Func 0)", "drop", "call (Func 2)",
+    "drop",
+  ])
+}
+
+///|
 test "optimize-instructions keeps zero-size bulk-memory with effectful operands" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` keeps zero-size memory.copy/fill even when the
@@ -32116,6 +32170,42 @@ test "optimize-instructions drops same-address memory.copy under trap-relaxed fa
   optimize_instructions_assert_strings_in_order(pretty, [
     "local.get (Local 0)", "drop", "local.get (Local 0)", "drop", "local.get (Local 1)",
     "drop",
+  ])
+}
+
+///|
+test "optimize-instructions drops localtee same-address memory.copy under trap-relaxed facts" {
+  // OI-G same-input fact breadth: Binaryen version_130 treats adjacent
+  // `local.tee` + matching `local.get` operands as equal for
+  // `areConsecutiveInputsEqual` under `--traps-never-happen`, replacing
+  // `memory.copy(local.tee x, local.get x, size)` with operand drops. This is a
+  // source-backed widening beyond the initial same-local-get subset without
+  // claiming broader fallthrough/control equality yet.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32) (local $tmp i32)
+        #|    local.get $addr
+        #|    local.tee $tmp
+        #|    local.get $tmp
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected localtee same-address memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.tee", "drop", "local.get (Local 2)", "drop", "local.get (Local 1)", "drop",
   ])
 }
 

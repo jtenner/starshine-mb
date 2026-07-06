@@ -24855,6 +24855,17 @@ fn run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_zero_memory_size(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(@lib.I32(raw)) => raw == 0
+    @lib.I64Const(@lib.I64(raw)) => raw == 0L
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -24967,6 +24978,45 @@ fn run_hot_pipeline_optimize_instructions_is_tiny_stack_bulk_memory(
     i = second_end + 2
   }
   saw_call
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_memory(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  let mut i = 0
+  let mut saw_bulk = false
+  while i < instrs.length() {
+    let first_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+      instrs, i, module_ctx,
+    )
+    if first_end < 0 {
+      return false
+    }
+    let second_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+      instrs, first_end, module_ctx,
+    )
+    if second_end < 0 || second_end + 1 >= instrs.length() {
+      return false
+    }
+    let is_zero_size = run_hot_pipeline_optimize_instructions_instr_is_zero_memory_size(
+      instrs[second_end],
+    )
+    let is_bulk = match instrs[second_end + 1] {
+      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) => true
+      _ => false
+    }
+    if !is_zero_size || !is_bulk {
+      return false
+    }
+    saw_bulk = true
+    i = second_end + 2
+  }
+  saw_bulk
 }
 
 ///|
@@ -26108,9 +26158,43 @@ fn run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+fn run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memory_copy(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
+  if instrs.length() != 5 {
+    return false
+  }
+  match (instrs[0], instrs[1], instrs[2], instrs[3], instrs[4]) {
+    (
+      addr,
+      @lib.LocalTee(tee_local),
+      @lib.LocalGet(get_local),
+      size,
+      @lib.MemoryCopy(dst_mem, src_mem),
+    ) =>
+      tee_local == get_local &&
+      dst_mem == src_mem &&
+      run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
+        addr,
+      ) &&
+      run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
+        size,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+  instrs : Array[@lib.Instruction],
+  allow_tnh_localtee_same_address_memory_copy : Bool,
+) -> Bool {
+  if allow_tnh_localtee_same_address_memory_copy &&
+    run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memory_copy(
+      instrs,
+    ) {
+    return false
+  }
   let mut i = 0
   while i < instrs.length() {
     match instrs[i] {
@@ -26118,20 +26202,20 @@ fn run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
-            body,
+            body, allow_tnh_localtee_same_address_memory_copy,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
-            then_body,
+            then_body, allow_tnh_localtee_same_address_memory_copy,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
-                body,
+                body, allow_tnh_localtee_same_address_memory_copy,
               ) {
               return true
             }
@@ -29174,8 +29258,17 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+  let trap_relaxed = options.traps_never_happen || options.ignore_implicit_traps
+  let localtee_same_address_memory_copy = trap_relaxed &&
+    run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memory_copy(
       body,
+    )
+  let zero_size_stack_bulk_memory = trap_relaxed &&
+    run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_memory(
+      body, module_ctx,
+    )
+  if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+      body, localtee_same_address_memory_copy,
     ) {
     return Some({
       reason: "memory-localtee-optimize-instructions",
@@ -29204,6 +29297,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !run_hot_pipeline_optimize_instructions_is_tiny_stack_bulk_memory(
       body, module_ctx,
     ) &&
+    !localtee_same_address_memory_copy &&
+    !zero_size_stack_bulk_memory &&
     !run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
       body, module_ctx,
     ) &&

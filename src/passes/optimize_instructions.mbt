@@ -4794,7 +4794,7 @@ fn OiBulkMemoryFact::has_same_memory(self : OiBulkMemoryFact) -> Bool {
 }
 
 ///|
-fn OiBulkMemoryFact::dest_and_source_are_same_local(
+fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   self : OiBulkMemoryFact,
   func : @ir.HotFunc,
 ) -> Bool {
@@ -4802,6 +4802,12 @@ fn OiBulkMemoryFact::dest_and_source_are_same_local(
   let src = @ir.hot_node_get(func, self.src_or_value_id)
   match (dst.op, src.op) {
     (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => dst.imm0 == src.imm0
+    // Binaryen v130 `areConsecutiveInputsEqual` has a deliberate fast path for
+    // a fallthrough `local.tee` immediately followed by a matching `local.get`.
+    // Keep the OI-G fact narrow to that source-backed adjacent-input subset;
+    // broader fallthrough/control equality still needs effect-interference
+    // facts before it can replace the remaining scanner gates.
+    (@ir.HotOp::LocalTee, @ir.HotOp::LocalGet) => dst.imm0 == src.imm0
     _ => false
   }
 }
@@ -4814,7 +4820,7 @@ fn OiBulkMemoryFact::can_drop_same_address_copy_trap_relaxed(
 ) -> Bool {
   (ctx.traps_never_happen || ctx.ignore_implicit_traps) &&
   self.has_same_memory() &&
-  self.dest_and_source_are_same_local(func)
+  self.dest_and_source_are_consecutive_equal_address(func)
 }
 
 ///|
