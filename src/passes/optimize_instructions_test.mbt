@@ -17341,6 +17341,121 @@ test "optimize-instructions moves standalone ref.get_desc select and if null che
 }
 
 ///|
+test "optimize-instructions traps standalone ref.get_desc known-null children" {
+  // OI-J standalone ref.get_desc known-null child slice: Binaryen version_130
+  // rewrites `ref.get_desc(ref.as_non_null(ref.null))` and the same known-null
+  // result through local.tee / branch-free block children to a trap-producing
+  // unreachable shape. This is separate from nullable-child null-check movement:
+  // the result is not `ref.get_desc(child)`, and only the direct ref.null,
+  // local.tee(ref.null), and branch-free block ending in ref.null families are
+  // covered here. It does not claim generalized known-null dataflow, nested
+  // call/control/EH operands, descriptor operands, ref.test_desc,
+  // ref.cast_desc_eq exactness paths, indirect/call_ref/return_call*, or TNH/IIT
+  // mode behavior beyond Binaryen's same observed trap-producing shape.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let descriptor_val_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [descriptor_val_type]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, nullable_described_val_type),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::ref_null_type(nullable_described_ref_type),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let direct_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(direct_pretty.contains("ref.get_desc"), msg=direct_pretty)
+  assert_false(direct_pretty.contains("ref.as_non_null"), msg=direct_pretty)
+  assert_true(direct_pretty.contains("unreachable"), msg=direct_pretty)
+  let tee_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(tee_pretty.contains("ref.get_desc"), msg=tee_pretty)
+  assert_false(tee_pretty.contains("ref.as_non_null"), msg=tee_pretty)
+  optimize_instructions_assert_strings_in_order(tee_pretty, [
+    "ref.null", "local.tee", "unreachable",
+  ])
+  let block_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(block_pretty.contains("ref.get_desc"), msg=block_pretty)
+  assert_false(block_pretty.contains("ref.as_non_null"), msg=block_pretty)
+  optimize_instructions_assert_strings_in_order(block_pretty, [
+    "I32(1)", "global.set", "ref.null", "unreachable",
+  ])
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc global and tee null checks" {
   // OI-J standalone ref.get_desc nullable leaf/chunk slice: Binaryen version_130
   // default/TNH simplify `ref.get_desc(ref.as_non_null(child))` to keep the
