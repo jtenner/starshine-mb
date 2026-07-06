@@ -27154,6 +27154,19 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_n
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_supported(
+  module_ctx : @ir.HotModuleContext,
+  instr : @lib.Instruction,
+) -> Bool {
+  run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
+    instr,
+  ) ||
+  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
+    module_ctx, instr,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_exactification(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -27163,7 +27176,8 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
   let mut scan = start
   while scan < instrs.length() {
     match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_supported(
+          module_ctx,
           arg,
         ) => {
         ref_args.push(instrs[scan])
@@ -27174,7 +27188,8 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
           match instrs[desc_scan] {
-            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
+            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_supported(
+                module_ctx,
                 arg,
               ) => {
               desc_args.push(instrs[desc_scan])
