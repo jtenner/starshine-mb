@@ -32083,6 +32083,43 @@ test "optimize-instructions keeps zero-size bulk-memory with effectful operands"
 }
 
 ///|
+test "optimize-instructions drops same-address memory.copy under trap-relaxed facts" {
+  // OI-G trap-relaxed bulk fact slice: Binaryen version_130 drops
+  // `memory.copy(x, x, size)` under `--traps-never-happen` or
+  // `--ignore-implicit-traps`, even when size is dynamic, because the only
+  // remaining observable behavior is evaluating and dropping the three operands.
+  // This locks a fact-driven same-input/dynamic-size path before widening to
+  // Binaryen's full fallthrough/effect equality helper.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    local.get $addr
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-address memory.copy trap-relaxed success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "drop", "local.get (Local 0)", "drop", "local.get (Local 1)",
+    "drop",
+  ])
+}
+
+///|
 test "optimize-instructions keeps nonconstant bulk-memory with effectful size" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` keeps memory.copy/fill with call-backed dynamic
