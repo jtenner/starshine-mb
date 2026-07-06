@@ -26771,7 +26771,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
   let mut scan = start
   while scan < instrs.length() {
     match instrs[scan] {
-      @lib.LocalGet(_) | @lib.I32Const(_) => {
+      @lib.LocalGet(_) | @lib.GlobalGet(_) | @lib.I32Const(_) => {
         ref_args.push(instrs[scan])
         scan = scan + 1
       }
@@ -26780,7 +26780,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
           match instrs[desc_scan] {
-            @lib.LocalGet(_) | @lib.I32Const(_) => {
+            @lib.LocalGet(_) | @lib.GlobalGet(_) | @lib.I32Const(_) => {
               desc_args.push(instrs[desc_scan])
               desc_scan = desc_scan + 1
             }
