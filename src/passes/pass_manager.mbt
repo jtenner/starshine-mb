@@ -29151,6 +29151,9 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(
     @lib.GlobalGet(@lib.GlobalIdx(raw)) =>
       Some("global.get:\{raw.reinterpret_as_int()}")
     @lib.I32Const(@lib.I32(raw)) => Some("i32.const:\{raw}")
+    @lib.I64Const(@lib.I64(raw)) => Some("i64.const:\{raw}")
+    @lib.F32Const(@lib.F32(raw)) => Some("f32.const:\{raw}")
+    @lib.F64Const(@lib.F64(raw)) => Some("f64.const:\{raw}")
     _ => None
   }
 }
@@ -29197,6 +29200,18 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
     @lib.I64LeU => Some("i64.le_u")
     @lib.I64GeS => Some("i64.ge_s")
     @lib.I64GeU => Some("i64.ge_u")
+    @lib.F32Eq => Some("f32.eq")
+    @lib.F32Ne => Some("f32.ne")
+    @lib.F32Lt => Some("f32.lt")
+    @lib.F32Gt => Some("f32.gt")
+    @lib.F32Le => Some("f32.le")
+    @lib.F32Ge => Some("f32.ge")
+    @lib.F64Eq => Some("f64.eq")
+    @lib.F64Ne => Some("f64.ne")
+    @lib.F64Lt => Some("f64.lt")
+    @lib.F64Gt => Some("f64.gt")
+    @lib.F64Le => Some("f64.le")
+    @lib.F64Ge => Some("f64.ge")
     _ => None
   }
 }

@@ -32877,6 +32877,102 @@ test "optimize-instructions drops same-order flat relational same-address memory
 }
 
 ///|
+test "optimize-instructions drops i64 const flat compare same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 treats repeated
+  // i64 compare trees with `i64.const` leaves as equal under the same
+  // `ExpressionAnalyzer::equal` path as local leaves. Swapped relational trees
+  // remain outside this ordered fact and are covered by the boundary below.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "i64-eq-const") (param $a i64) (param $size i32)
+        #|    local.get $a
+        #|    i64.const 42
+        #|    i64.eq
+        #|    local.get $a
+        #|    i64.const 42
+        #|    i64.eq
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i64-lt-const") (param $a i64) (param $size i32)
+        #|    local.get $a
+        #|    i64.const 42
+        #|    i64.lt_s
+        #|    local.get $a
+        #|    i64.const 42
+        #|    i64.lt_s
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected i64 const flat compare memory.copy TNH success, got \{err}",
+      )
+  }
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions drops float flat compare same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 treats repeated
+  // same-order float compare trees with float-constant leaves as equal under
+  // `ExpressionAnalyzer::equal`. Like integer relationals, float relations stay
+  // ordered; swapped/counterpart normalization remains outside this slice.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f32-eq-same") (param $a f32) (param $size i32)
+        #|    local.get $a
+        #|    f32.const 1.5
+        #|    f32.eq
+        #|    local.get $a
+        #|    f32.const 1.5
+        #|    f32.eq
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "f64-lt-same") (param $a f64) (param $size i32)
+        #|    local.get $a
+        #|    f64.const 2.25
+        #|    f64.lt
+        #|    local.get $a
+        #|    f64.const 2.25
+        #|    f64.lt
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected float flat compare memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions keeps swapped flat relational memory.copy outside equality fact" {
   // Boundary guard for the explicit commutative equality fact: Binaryen v130
   // keeps swapped `i32.lt_u` operands as a live `memory.copy` under the dynamic
