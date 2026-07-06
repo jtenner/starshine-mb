@@ -17341,6 +17341,187 @@ test "optimize-instructions moves standalone ref.get_desc select and if null che
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc global and tee null checks" {
+  // OI-J standalone ref.get_desc nullable leaf/chunk slice: Binaryen version_130
+  // default/TNH simplify `ref.get_desc(ref.as_non_null(child))` to keep the
+  // nullable `global.get` or `local.tee` child directly under `ref.get_desc`.
+  // The local.tee subset is limited to nontrapping nullable reference leaves
+  // (`local.get` / `global.get`) so it does not claim ref.null-to-unreachable,
+  // nested call/control operands, descriptor operands, ref.test_desc,
+  // ref.cast_desc_eq exactness paths, effect localization, or broader TNH/IIT.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let descriptor_val_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let no_param_func_type = @lib.TypeIdx::new(2U)
+  let param_func_type = @lib.TypeIdx::new(3U)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [descriptor_val_type]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_described_val_type], [
+              descriptor_val_type,
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        no_param_func_type,
+        no_param_func_type,
+        param_func_type,
+        no_param_func_type,
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(nullable_described_val_type, false),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(nullable_described_val_type, true),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, nullable_described_val_type),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, nullable_described_val_type),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let immutable_global_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(
+    immutable_global_pretty.contains("ref.as_non_null"),
+    msg=immutable_global_pretty,
+  )
+  optimize_instructions_assert_strings_in_order(immutable_global_pretty, [
+    "global.get", "ref.get_desc",
+  ])
+  let mutable_global_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(
+    mutable_global_pretty.contains("ref.as_non_null"),
+    msg=mutable_global_pretty,
+  )
+  optimize_instructions_assert_strings_in_order(mutable_global_pretty, [
+    "global.get", "ref.get_desc",
+  ])
+  let tee_local_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(tee_local_pretty.contains("ref.as_non_null"), msg=tee_local_pretty)
+  optimize_instructions_assert_strings_in_order(tee_local_pretty, [
+    "local.get", "local.tee", "ref.get_desc",
+  ])
+  let tee_global_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(
+    tee_global_pretty.contains("ref.as_non_null"),
+    msg=tee_global_pretty,
+  )
+  optimize_instructions_assert_strings_in_order(tee_global_pretty, [
+    "global.get", "local.tee", "ref.get_desc",
+  ])
+
+  let tnh_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  let tnh_global_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  match hot_pass_run(tnh_ctx, tnh_global_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected TNH standalone global.get ref.get_desc success, got \{err}",
+      )
+  }
+  let tnh_global_root = @ir.hot_root_get(tnh_global_func, 0)
+  let tnh_global_child = @ir.hot_child_get(tnh_global_func, tnh_global_root, 0)
+  match @ir.hot_node_get(tnh_global_func, tnh_global_child).op {
+    @ir.HotOp::GlobalGet => ()
+    other => fail("expected TNH standalone global.get child, got \{other}")
+  }
+  let tnh_tee_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(2U))
+  match hot_pass_run(tnh_ctx, tnh_tee_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected TNH standalone local.tee ref.get_desc success, got \{err}",
+      )
+  }
+  let tnh_tee_root = @ir.hot_root_get(tnh_tee_func, 0)
+  let tnh_tee_child = @ir.hot_child_get(tnh_tee_func, tnh_tee_root, 0)
+  match @ir.hot_node_get(tnh_tee_func, tnh_tee_child).op {
+    @ir.HotOp::LocalTee => ()
+    other => fail("expected TNH standalone local.tee child, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc direct-call null checks" {
   // OI-J standalone ref.get_desc direct-call child slice: Binaryen version_130
   // default/TNH simplify `ref.get_desc(ref.as_non_null(call ...))` to put the
