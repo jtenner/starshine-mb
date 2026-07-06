@@ -258,12 +258,18 @@ fn OiRefFallthroughFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> OiRefFallthroughFact {
-  ignore(ctx)
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return { ref_type: None }
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::LocalTee if node.child_count == 1 => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type {
+        Some(ref_type) => return { ref_type: Some(ref_type) }
+        None => ()
+      }
+    }
     @ir.HotOp::Block =>
       if !optimize_instructions_descriptor_expr_has_branch_control(
           func, node_id,
@@ -278,13 +284,9 @@ fn OiRefFallthroughFact::from_node(
           )
           if @ir.hot_node_is_live(func, fallthrough_id) {
             match
-              @ir.hot_type_results(
-                func,
-                @ir.hot_node_type(func, fallthrough_id),
-              ) {
-              [@lib.ValType::RefTypeValType(ref_type)] =>
-                return { ref_type: Some(ref_type) }
-              _ => ()
+              OiRefFallthroughFact::from_node(ctx, func, fallthrough_id).ref_type {
+              Some(ref_type) => return { ref_type: Some(ref_type) }
+              None => ()
             }
           }
         }

@@ -8467,6 +8467,59 @@ test "optimize-instructions folds ref.test from precise fallthrough block facts"
 }
 
 ///|
+test "optimize-instructions folds ref.test from local.tee fallthrough facts" {
+  // OI-J fallthrough-type fact slice: Binaryen version_130
+  // `Properties::getImmediateFallthrough` looks through `local.tee` for cast
+  // checks, so a tee into a broad local preserves the precise producer type for
+  // the following `ref.test`. This locks local.tee fallthrough as a reusable
+  // fact, not a ref.test-specific scanner.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(true, eq_heap))
+  let i31_ref_type = @lib.RefType::new(false, i31_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([eq_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let @lib.Func(_, @lib.Expr(body)) = match optimized.code_sec {
+    Some(@lib.CodeSec([func])) => func
+    _ => fail("expected optimized local.tee fallthrough function")
+  }
+  let rendered = "\{body}"
+  assert_false(
+    body.any(fn(instr) {
+      instr == @lib.Instruction::ref_test_type(i31_ref_type)
+    }),
+    msg="expected local.tee fallthrough ref.test to fold, got \{body}",
+  )
+  assert_true(
+    rendered.contains("I32(1)"),
+    msg="expected folded true constant, got \{body}",
+  )
+}
+
+///|
 test "optimize-instructions folds exact ref.test on already exact operands" {
   // OI-J exactness positive: Binaryen version_130 folds
   // `ref.test (ref (exact $a))` to true when the tested value is already an
