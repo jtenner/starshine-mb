@@ -280,19 +280,62 @@ fn optimize_instructions_region_explicitly_does_not_fallthrough(
 }
 
 ///|
+fn optimize_instructions_node_is_br_on_fallthrough_tail(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => @ir.hot_child_count(func, node_id) > 0
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_region_has_branch_control_before_tail(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count <= 1 {
+    return false
+  }
+  for slot = 0; slot < root_count - 1; slot = slot + 1 {
+    if optimize_instructions_descriptor_expr_has_branch_control(
+        func,
+        @ir.hot_region_get(func, region_ref, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_region_ref_fallthrough_type(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> @lib.RefType? {
-  if optimize_instructions_descriptor_region_has_branch_control(
-      func, region_ref,
-    ) {
-    return None
-  }
   match optimize_instructions_region_tail_id(func, region_ref) {
-    Some(tail_id) =>
+    Some(tail_id) => {
+      if optimize_instructions_descriptor_region_has_branch_control(
+          func, region_ref,
+        ) {
+        if !optimize_instructions_node_is_br_on_fallthrough_tail(func, tail_id) ||
+          optimize_instructions_region_has_branch_control_before_tail(
+            func, region_ref,
+          ) {
+          return None
+        }
+      }
       OiRefFallthroughFact::from_node(ctx, func, tail_id).ref_type
+    }
     None => None
   }
 }
@@ -397,6 +440,25 @@ fn OiRefFallthroughFact::from_node(
       match OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type {
         Some(ref_type) => return { ref_type: Some(ref_type) }
         None => ()
+      }
+    }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail if node.child_count > 0 => {
+      let child_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
+      match
+        (
+          optimize_instructions_node_ref_result_type(func, node_id),
+          OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type,
+        ) {
+        (Some(outer), Some(inner)) =>
+          match
+            optimize_instructions_ref_fallthrough_lower_bound(ctx, outer, inner) {
+            Some(ref_type) => return { ref_type: Some(ref_type) }
+            None => ()
+          }
+        _ => ()
       }
     }
     @ir.HotOp::Block | @ir.HotOp::Loop => {

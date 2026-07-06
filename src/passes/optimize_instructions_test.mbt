@@ -8654,6 +8654,89 @@ test "optimize-instructions folds ref.test from loop fallthrough facts" {
 }
 
 ///|
+test "optimize-instructions folds ref.test from br_on_null fallthrough facts" {
+  // OI-J fallthrough-type fact slice: Binaryen version_130
+  // `Properties::getImmediateFallthrough` returns `BrOn::ref`, so a direct HOT
+  // `br_on_null` fallthrough value can expose the precise producer type to
+  // `visitRefTest`. Public stack-prefix coverage remains blocked by HOT's
+  // multi-result branch representation: a valid WAT prefix payload makes the
+  // br_on node produce `(payload, ref)`, and ref.test folding needs a separate
+  // lane-localization repair before it may drop/replace that shared producer.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let eq_ref_val = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))
+  let i31_ref_type = @lib.RefType::new(false, i31_heap)
+  let i31_ref_val = @lib.ValType::ref_type(i31_ref_type)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ref_test = @ir.hot_root_get(func, 0)
+  let ref_i31 = @ir.hot_child_get(func, ref_test, 0)
+  let target = @ir.hot_control_node_label(
+    func,
+    @ir.hot_build_block(func, @lib.BlockType::void_(), []),
+  )
+  let br_on_null = @ir.hot_build_node(
+    func,
+    @ir.HotOp::br_on_null(),
+    @ir.hot_type_intern_value(func, i31_ref_val),
+    imm0=target,
+    children=[ref_i31],
+  )
+  let fallthrough_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(eq_ref_val),
+    [br_on_null],
+  )
+  @ir.hot_child_set(func, ref_test, 0, fallthrough_block)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    ignore,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected br_on_null fallthrough ref.test HOT success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected folded br_on_null ref.test block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+    @ir.HotOp::Const => ()
+    other =>
+      fail("expected folded true constant after br_on_null drop, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions folds ref.test through ref cast fallthrough facts" {
   // OI-J fallthrough-type fact slice: Binaryen version_130
   // `Properties::getImmediateFallthrough` looks through `ref.cast` and
