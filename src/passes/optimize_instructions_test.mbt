@@ -32811,6 +32811,72 @@ test "optimize-instructions drops commuted flat equality same-address memory.cop
 }
 
 ///|
+test "optimize-instructions drops same-order flat relational same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 treats repeated
+  // same-order integer relational compare operands as equal under
+  // `ExpressionAnalyzer::equal`, so trap-relaxed same-address `memory.copy`
+  // collapses. Relational predicates stay ordered facts: swapped/counterpart
+  // normalization remains outside this slice and is guarded below.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "i32-lt-same") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.lt_u
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.lt_u
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i32-gt-same") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.gt_s
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.gt_s
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i64-le-same") (param $a i64) (param $b i64) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.le_u
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.le_u
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i64-ge-same") (param $a i64) (param $b i64) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.ge_s
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.ge_s
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-order relational memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 4; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions keeps swapped flat relational memory.copy outside equality fact" {
   // Boundary guard for the explicit commutative equality fact: Binaryen v130
   // keeps swapped `i32.lt_u` operands as a live `memory.copy` under the dynamic
