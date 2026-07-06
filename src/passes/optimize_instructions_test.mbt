@@ -10379,6 +10379,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   parameterized_reference_direct_call_args? : Bool = false,
   local_tee_call_args? : Bool = false,
   trapping_scalar_call_args? : Bool = false,
+  select_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -10420,12 +10421,17 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     !reference_direct_call_args &&
     !parameterized_reference_direct_call_args &&
     !local_tee_call_args &&
-    !trapping_scalar_call_args {
+    !trapping_scalar_call_args &&
+    !select_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       cast_params.push(@lib.ValType::i32())
     }
   } else if trapping_scalar_call_args {
     cast_params.push(@lib.ValType::i32())
+  } else if select_call_args {
+    for arg = 0; arg < desc_arg_count * 3; arg = arg + 1 {
+      cast_params.push(@lib.ValType::i32())
+    }
   }
   let desc_call_params = if i64_const_call_args {
     optimize_instructions_test_i64_params(desc_arg_count)
@@ -10492,6 +10498,22 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(600 + arg)))
       cast_body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
       cast_body.push(@lib.Instruction::i32_div_s())
+    } else if select_call_args {
+      let base_local = arg * 3 + 1
+      cast_body.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(base_local.to_uint())),
+      )
+      cast_body.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((base_local + 1).to_uint()),
+        ),
+      )
+      cast_body.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((base_local + 2).to_uint()),
+        ),
+      )
+      cast_body.push(@lib.Instruction::select(types=Some([@lib.ValType::i32()])))
     } else {
       cast_body.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
@@ -10658,6 +10680,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   parameterized_reference_direct_call_args? : Bool = false,
   local_tee_call_args? : Bool = false,
   trapping_scalar_call_args? : Bool = false,
+  select_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
     desc_arg_count,
@@ -10671,6 +10694,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
     parameterized_reference_direct_call_args~,
     local_tee_call_args~,
     trapping_scalar_call_args~,
+    select_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -10725,6 +10749,22 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
       expected.push(@lib.Instruction::i32_const(@lib.I32(600 + arg)))
       expected.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
       expected.push(@lib.Instruction::i32_div_s())
+    } else if select_call_args {
+      let base_local = arg * 3 + 1
+      expected.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(base_local.to_uint())),
+      )
+      expected.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((base_local + 1).to_uint()),
+        ),
+      )
+      expected.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((base_local + 2).to_uint()),
+        ),
+      )
+      expected.push(@lib.Instruction::select(types=Some([@lib.ValType::i32()])))
     } else {
       expected.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
@@ -10884,6 +10924,20 @@ test "optimize-instructions folds descriptor operand call misses with trapping s
   optimize_instructions_test_assert_descriptor_call_operand_miss(
     2,
     trapping_scalar_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with pure select arguments" {
+  // Same pure-reference/direct-descriptor-call descriptor-miss family for
+  // ordered side-effect-free select expressions. Binaryen preserves each
+  // select's local leaves in source order as descriptor-call arguments, drops
+  // the exact descriptor result, and replaces the impossible descriptor equality
+  // cast with unreachable. This does not claim nested control/EH, multivalue,
+  // TNH/IIT, exact-success, or both-direct-call descriptor breadth.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    select_call_args=true,
   )
 }
 
