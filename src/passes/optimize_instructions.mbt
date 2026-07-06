@@ -425,6 +425,50 @@ fn OiDescriptorOperandFact::from_operand(
 }
 
 ///|
+priv struct OiRefTestFact {
+  nullable : Bool
+  exact : Bool
+  target : @lib.HeapType
+  operand_id : Int
+  descriptor_style : Bool
+}
+
+///|
+fn OiRefTestFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefTestFact? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let (nullable, exact, target, descriptor_style) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefTest(nullable, exact, target)) =>
+      (nullable, exact, target, false)
+    Some(@lib.Instruction::RefTestDesc(nullable, target)) =>
+      (nullable, false, target, true)
+    _ => return None
+  }
+  Some({
+    nullable,
+    exact,
+    target,
+    operand_id: @ir.hot_child_get(func, node_id, 0),
+    descriptor_style,
+  })
+}
+
+///|
+fn OiRefTestFact::known_null_result(self : OiRefTestFact) -> @lib.I32 {
+  ignore(self.descriptor_style)
+  if self.nullable {
+    @lib.I32(1)
+  } else {
+    @lib.I32(0)
+  }
+}
+
+///|
 priv struct OiDescriptorCastFact {
   nullable : Bool
   exact : Bool
@@ -453,6 +497,80 @@ fn OiDescriptorCastFact::from_node(
     target,
     operand_id: @ir.hot_child_get(func, node_id, 0),
     descriptor_id: @ir.hot_child_get(func, node_id, 1),
+  })
+}
+
+///|
+priv struct OiDescriptorExactMissFact {
+  cast_fact : OiDescriptorCastFact
+  descriptor_exactly_describes_target : Bool
+  ref_operand_misses_target : Bool
+  descriptor_can_erase : Bool
+  ref_operand_can_erase : Bool
+  ref_operand_can_drop_before_unreachable : Bool
+  descriptor_can_drop_before_unreachable : Bool
+  descriptor_call_can_drop_before_unreachable : Bool
+}
+
+///|
+fn OiDescriptorExactMissFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDescriptorExactMissFact? {
+  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({
+    cast_fact,
+    descriptor_exactly_describes_target: optimize_instructions_descriptor_operand_exactly_describes_target(
+      ctx,
+      func,
+      cast_fact.descriptor_id,
+      cast_fact.target,
+    ),
+    ref_operand_misses_target: optimize_instructions_ref_operand_misses_exact_target(
+      func,
+      cast_fact.operand_id,
+      cast_fact.target,
+      cast_fact.nullable,
+    ) ||
+    optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+      ctx,
+      func,
+      cast_fact.operand_id,
+      cast_fact.target,
+      cast_fact.nullable,
+    ),
+    descriptor_can_erase: optimize_instructions_descriptor_operand_can_erase(
+      ctx,
+      func,
+      dead,
+      cast_fact.descriptor_id,
+    ),
+    ref_operand_can_erase: optimize_instructions_is_trivially_pure_operand(
+      func,
+      cast_fact.operand_id,
+    ) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, cast_fact.operand_id),
+    ref_operand_can_drop_before_unreachable: optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
+      func,
+      cast_fact.operand_id,
+    ) ||
+    optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_unreachable(
+      func,
+      cast_fact.operand_id,
+    ),
+    descriptor_can_drop_before_unreachable: optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
+      func,
+      cast_fact.descriptor_id,
+    ),
+    descriptor_call_can_drop_before_unreachable: optimize_instructions_exact_descriptor_miss_descriptor_call_can_drop_before_unreachable(
+      func,
+      cast_fact.descriptor_id,
+    ),
   })
 }
 
@@ -13498,30 +13616,25 @@ fn optimize_instructions_try_fold_ref_test_null(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
+  let test_fact = match OiRefTestFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  let (nullable, exact, target) = match
-    @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefTest(nullable, exact, target)) =>
-      (nullable, exact, target)
-    _ => return false
-  }
-  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let operand_id = test_fact.operand_id
+  let nullable = test_fact.nullable
+  let exact = test_fact.exact
+  let target = test_fact.target
   match @ir.hot_node_get(func, operand_id).op {
     @ir.HotOp::RefNull => {
       optimize_instructions_replace_with_const_i32(
         ctx,
         func,
         node_id,
-        if nullable {
-          @lib.I32(1)
-        } else {
-          @lib.I32(0)
-        },
+        test_fact.known_null_result(),
       )
       true
     }
+    _ if test_fact.descriptor_style => false
     _ if not(nullable) &&
       (
         not(exact) ||
@@ -15165,74 +15278,31 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   if ctx.traps_never_happen || ctx.ignore_implicit_traps {
     return false
   }
-  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+  let miss_fact = match
+    OiDescriptorExactMissFact::from_node(ctx, func, dead, node_id) {
     Some(fact) => fact
     None => return false
   }
-  if !optimize_instructions_descriptor_operand_exactly_describes_target(
-      ctx,
-      func,
-      cast_fact.descriptor_id,
-      cast_fact.target,
-    ) {
+  if !miss_fact.descriptor_exactly_describes_target ||
+    !miss_fact.ref_operand_misses_target {
     return false
   }
-  if !(optimize_instructions_ref_operand_misses_exact_target(
-      func,
-      cast_fact.operand_id,
-      cast_fact.target,
-      cast_fact.nullable,
-    ) ||
-    optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
-      ctx,
-      func,
-      cast_fact.operand_id,
-      cast_fact.target,
-      cast_fact.nullable,
-    )) {
-    return false
-  }
-  let descriptor_can_erase = optimize_instructions_descriptor_operand_can_erase(
-    ctx,
-    func,
-    dead,
-    cast_fact.descriptor_id,
-  )
-  let ref_operand_can_erase = optimize_instructions_is_trivially_pure_operand(
-      func,
-      cast_fact.operand_id,
-    ) ||
-    optimize_instructions_node_effects_are_pure(ctx, func, cast_fact.operand_id)
-  let ref_operand_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-      func,
-      cast_fact.operand_id,
-    ) ||
-    optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_unreachable(
-      func,
-      cast_fact.operand_id,
-    )
-  let descriptor_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-    func,
-    cast_fact.descriptor_id,
-  )
-  let descriptor_call_can_drop_before_unreachable = optimize_instructions_exact_descriptor_miss_descriptor_call_can_drop_before_unreachable(
-    func,
-    cast_fact.descriptor_id,
-  )
-  if descriptor_can_erase && ref_operand_can_erase {
+  let cast_fact = miss_fact.cast_fact
+  if miss_fact.descriptor_can_erase && miss_fact.ref_operand_can_erase {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
     true
-  } else if descriptor_can_erase && ref_operand_can_drop_before_unreachable {
+  } else if miss_fact.descriptor_can_erase &&
+    miss_fact.ref_operand_can_drop_before_unreachable {
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx,
       func,
       node_id,
       cast_fact.operand_id,
     )
-  } else if ref_operand_can_erase &&
+  } else if miss_fact.ref_operand_can_erase &&
     (
-      descriptor_can_drop_before_unreachable ||
-      descriptor_call_can_drop_before_unreachable
+      miss_fact.descriptor_can_drop_before_unreachable ||
+      miss_fact.descriptor_call_can_drop_before_unreachable
     ) {
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx,
@@ -15240,10 +15310,10 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
       node_id,
       cast_fact.descriptor_id,
     )
-  } else if ref_operand_can_drop_before_unreachable &&
+  } else if miss_fact.ref_operand_can_drop_before_unreachable &&
     (
-      descriptor_can_drop_before_unreachable ||
-      descriptor_call_can_drop_before_unreachable
+      miss_fact.descriptor_can_drop_before_unreachable ||
+      miss_fact.descriptor_call_can_drop_before_unreachable
     ) {
     optimize_instructions_replace_with_drop_drop_then_unreachable(
       ctx,
@@ -18051,7 +18121,7 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::RefIsNull =>
       optimize_instructions_try_fold_ref_is_null(ctx, func, node_id)
-    @ir.HotOp::RefTest =>
+    @ir.HotOp::RefTest | @ir.HotOp::RefTestDesc =>
       optimize_instructions_try_fold_ref_test_null(ctx, func, node_id)
     @ir.HotOp::RefCast =>
       optimize_instructions_try_fold_ref_cast_null(ctx, func, node_id) ||

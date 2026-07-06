@@ -9468,6 +9468,75 @@ test "optimize-instructions traps standalone ref.get_desc on known-null child" {
 }
 
 ///|
+test "optimize-instructions folds ref.test_desc null operands from descriptor test facts" {
+  // OI-J descriptor-test fact slice: Binaryen version_130 routes ref.test_desc
+  // through the same RefTest cast-check family. Null operands fold entirely from
+  // the nullable target fact before any broader descriptor producer or
+  // fallthrough-type lattice is needed.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_func_type = @lib.TypeIdx::new(2U)
+  let nonnull_func_type = @lib.TypeIdx::new(3U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([nullable_func_type, nonnull_func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(described_heap),
+            @lib.Instruction::ref_test_desc(true, described_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(described_heap),
+            @lib.Instruction::ref_test_desc(false, described_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(nullable_body)) = match optimized.code_sec {
+    Some(@lib.CodeSec([func, _])) => func
+    _ => fail("expected optimized nullable ref.test_desc function")
+  }
+  let @lib.Func(_, @lib.Expr(nonnull_body)) = match optimized.code_sec {
+    Some(@lib.CodeSec([_, func])) => func
+    _ => fail("expected optimized non-null ref.test_desc function")
+  }
+  @debug.assert_eq(nullable_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+  @debug.assert_eq(nonnull_body, [@lib.Instruction::i32_const(@lib.I32(0))])
+}
+
+///|
 test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
   // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
   // two-operand descriptor equality casts under `--enable-custom-descriptors`
