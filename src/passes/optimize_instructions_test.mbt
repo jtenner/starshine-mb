@@ -14773,6 +14773,79 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_success(
 }
 
 ///|
+fn optimize_instructions_test_assert_nonlocal_direct_call_exact_descriptor_success_boundary(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+  const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
+) -> Unit raise {
+  let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
+    ref_arg_count,
+    desc_arg_count,
+    const_call_args~,
+    i64_const_call_args~,
+    global_call_args~,
+  )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  let expected : Array[@lib.Instruction] = []
+  for arg = 0; arg < ref_arg_count; arg = arg + 1 {
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((100 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+      )
+    }
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+        ),
+      )
+    }
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  expected.push(
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        exact=true,
+      ),
+    ),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, expected)
+    _ => fail("expected three-function exact descriptor-success boundary module")
+  }
+}
+
+///|
 fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
   ref_arg_count : Int,
   desc_arg_count : Int,
@@ -14847,6 +14920,31 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
       @debug.assert_eq(body, expected)
     _ => fail("expected three-function descriptor-exactification test module")
   }
+}
+
+///|
+test "optimize-instructions keeps non-local exact descriptor successes" {
+  // OI-J exact descriptor-success boundary: Binaryen removes the descriptor
+  // equality cast only for the already-covered pure-local direct-call argument
+  // family. If the same exact-success calls are fed by scalar constants or
+  // global reads, Binaryen keeps the explicit descriptor check, so Starshine must
+  // not reuse the broader exactification/miss nontrapping-argument predicate for
+  // exact-success skipping.
+  optimize_instructions_test_assert_nonlocal_direct_call_exact_descriptor_success_boundary(
+    2,
+    1,
+    const_call_args=true,
+  )
+  optimize_instructions_test_assert_nonlocal_direct_call_exact_descriptor_success_boundary(
+    2,
+    1,
+    i64_const_call_args=true,
+  )
+  optimize_instructions_test_assert_nonlocal_direct_call_exact_descriptor_success_boundary(
+    2,
+    1,
+    global_call_args=true,
+  )
 }
 
 ///|
