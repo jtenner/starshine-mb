@@ -26603,6 +26603,22 @@ fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subty
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target_with_param_count(
+  module_ctx : @ir.HotModuleContext,
+  ref_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> Bool {
+  match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
+    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+      param_count &&
+      ref_type.is_non_nullable() &&
+      ref_type.is_exact() => ref_type.get_heap_type() == target
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_miss(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -26664,6 +26680,99 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
     }
   }
   None
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_success(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Int)? {
+  let ref_args : Array[@lib.LocalIdx] = []
+  let mut scan = start
+  while scan < instrs.length() {
+    match instrs[scan] {
+      @lib.LocalGet(arg) => {
+        ref_args.push(arg)
+        scan = scan + 1
+      }
+      @lib.Call(ref_func) => {
+        let desc_args : Array[@lib.LocalIdx] = []
+        let mut desc_scan = scan + 1
+        while desc_scan < instrs.length() {
+          match instrs[desc_scan] {
+            @lib.LocalGet(arg) => {
+              desc_args.push(arg)
+              desc_scan = desc_scan + 1
+            }
+            @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
+              match instrs[desc_scan + 1] {
+                @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
+                  exact &&
+                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target_with_param_count(
+                    module_ctx,
+                    ref_func,
+                    target,
+                    ref_args.length(),
+                  ) &&
+                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                    module_ctx,
+                    descriptor_func,
+                    target,
+                    desc_args.length(),
+                  ) => {
+                  let rewritten : Array[@lib.Instruction] = []
+                  for arg in ref_args {
+                    rewritten.push(@lib.Instruction::local_get(arg))
+                  }
+                  rewritten.push(@lib.Instruction::call(ref_func))
+                  for arg in desc_args {
+                    rewritten.push(@lib.Instruction::local_get(arg))
+                  }
+                  rewritten.push(@lib.Instruction::call(descriptor_func))
+                  rewritten.push(@lib.Instruction::drop())
+                  return Some((rewritten, desc_scan + 2))
+                }
+                _ => return None
+              }
+            _ => return None
+          }
+        }
+        return None
+      }
+      _ => return None
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match
+      run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_success(
+        instrs, i, module_ctx,
+      ) {
+      Some((direct_call_rewrite, next_i)) => {
+        for instr in direct_call_rewrite {
+          rewritten.push(instr)
+        }
+        changed = true
+        i = next_i
+        continue
+      }
+      None => ()
+    }
+    rewritten.push(instrs[i])
+    i = i + 1
+  }
+  (rewritten, changed)
 }
 
 ///|
@@ -27950,8 +28059,11 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+    body, module_ctx,
+  )
   let (exact_miss_body, exact_miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-    body, module_ctx, func_idx, locals,
+    exact_success_body, module_ctx, func_idx, locals,
   )
   let (directized_body, directized_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
     exact_miss_body,
@@ -27966,7 +28078,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       effectful_sibling_body, module_ctx,
     )
   }
-  let skipped_func = if exact_miss_changed ||
+  let skipped_func = if exact_success_changed ||
+    exact_miss_changed ||
     directized_changed ||
     effectful_sibling_changed ||
     escaping_ref_get_desc_changed {
@@ -27974,10 +28087,19 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   } else {
     original
   }
-  let skipped_unchanged = !exact_miss_changed &&
+  let skipped_unchanged = !exact_success_changed &&
+    !exact_miss_changed &&
     !directized_changed &&
     !effectful_sibling_changed &&
     !escaping_ref_get_desc_changed
+  if exact_success_changed {
+    return Some({
+      reason: "descriptor-exact-success-skip",
+      func: skipped_func,
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   if exact_miss_changed {
     return Some({
       reason: "descriptor-exact-miss-fold",
@@ -50008,8 +50130,19 @@ fn run_hot_pipeline_func(
       if descriptor.name == "optimize-instructions" {
         let original = run_hot_pipeline_original_func(mod_, func_idx)
         let @lib.Func(locals, @lib.Expr(body)) = original
+        let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+          body, module_ctx,
+        )
+        if exact_success_changed {
+          return Ok({
+            reason: "descriptor-exact-success-skip",
+            func: @lib.Func::new(locals, @lib.Expr::new(exact_success_body)),
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        }
         let (exact_miss_body, exact_miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-          body, module_ctx, func_idx, locals,
+          exact_success_body, module_ctx, func_idx, locals,
         )
         if exact_miss_changed {
           return Ok({
