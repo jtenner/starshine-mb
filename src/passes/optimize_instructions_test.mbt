@@ -18425,6 +18425,129 @@ test "optimize-instructions moves standalone ref.get_desc br_table block null ch
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc escaping branch block null checks" {
+  // OI-J standalone escaping-branch block slice: Binaryen version_130 default
+  // mode simplifies `ref.get_desc(ref.as_non_null(block ...))` to
+  // `ref.get_desc(block ...)` even when a direct `br` or value `br_table`
+  // exits the descriptor child block to an outer label. The branch payloads and
+  // conditions stay in source order and bypass the moved null check exactly as
+  // they bypassed the original `ref.as_non_null`. This finite family does not
+  // claim escaping `br_if`, `br_on_*`, nested control/EH, descriptor-cast
+  // descriptor operands, or generalized label localization.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(3U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br_table(
+                      [@lib.LabelIdx::new(1U)],
+                      @lib.LabelIdx::new(1U),
+                    ),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let br_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(br_pretty.contains("ref.get_desc"), msg=br_pretty)
+  assert_true(br_pretty.contains("br"), msg=br_pretty)
+  assert_false(br_pretty.contains("ref.as_non_null"), msg=br_pretty)
+  optimize_instructions_assert_strings_in_order(br_pretty, [
+    "local.get", "br", "ref.get_desc", "drop", "local.get",
+  ])
+  let br_table_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(br_table_pretty.contains("ref.get_desc"), msg=br_table_pretty)
+  assert_true(br_table_pretty.contains("br_table"), msg=br_table_pretty)
+  assert_false(br_table_pretty.contains("ref.as_non_null"), msg=br_table_pretty)
+  optimize_instructions_assert_strings_in_order(br_table_pretty, [
+    "br_table", "ref.get_desc", "drop", "local.get",
+  ])
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc br_on_non_null block null checks" {
   // OI-J standalone self-contained reference-branch slice: Binaryen version_130
   // default/IIT/TNH simplify `ref.get_desc(ref.as_non_null(block ...
