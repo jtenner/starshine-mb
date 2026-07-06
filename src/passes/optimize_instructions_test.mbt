@@ -14049,6 +14049,184 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
 }
 
 ///|
+fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+  exact_ref_result? : Bool = true,
+) -> @lib.Module {
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let make_ref_func_type = @lib.TypeIdx::new(2U)
+  let make_desc_func_type = @lib.TypeIdx::new(3U)
+  let cast_func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let exact_base_ref_type = @lib.RefType::new(false, base_heap, exact=true)
+  let base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let ref_body = optimize_instructions_test_local_sum_then_global_set(
+    ref_arg_count,
+    @lib.GlobalIdx::new(0U),
+  )
+  ref_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
+  ref_body.push(@lib.Instruction::struct_new_default_desc(base_type))
+  let desc_body = optimize_instructions_test_local_sum_then_global_set(
+    desc_arg_count,
+    @lib.GlobalIdx::new(1U),
+  )
+  desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
+  let cast_body : Array[@lib.Instruction] = []
+  for arg = 0; arg < ref_arg_count; arg = arg + 1 {
+    cast_body.push(
+      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+    )
+  }
+  cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    cast_body.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+      ),
+    )
+  }
+  cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type))
+  let ref_result_type = if exact_ref_result {
+    exact_base_ref_type
+  } else {
+    base_ref_type
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::group([
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
+        ),
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+        ),
+      ]),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            optimize_instructions_test_i32_params(ref_arg_count),
+            [@lib.ValType::ref_type(ref_result_type)],
+          ),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            optimize_instructions_test_i32_params(desc_arg_count),
+            [@lib.ValType::ref_type(base_descriptor_ref_type)],
+          ),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            optimize_instructions_test_i32_params(
+              ref_arg_count + desc_arg_count,
+            ),
+            [@lib.ValType::ref_type(base_ref_type)],
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([make_ref_func_type, make_desc_func_type, cast_func_type]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(ref_body)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+    ]),
+  )
+}
+
+///|
+fn optimize_instructions_test_assert_mixed_direct_call_descriptor_success(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+) -> Unit raise {
+  let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
+    ref_arg_count, desc_arg_count,
+  )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  let expected : Array[@lib.Instruction] = []
+  for arg = 0; arg < ref_arg_count; arg = arg + 1 {
+    expected.push(
+      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+    )
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    expected.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+      ),
+    )
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  expected.push(@lib.Instruction::drop())
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, expected)
+    _ => fail("expected three-function descriptor-success test module")
+  }
+}
+
+///|
+test "optimize-instructions skips descriptor casts with semantic family mixed 10-ref 1-desc exact descriptor success" {
+  // OI-J direct-call descriptor-success family: ordered pure `local.get*`
+  // reference arguments feed a direct call that returns an exact non-null
+  // instance of the cast target, and ordered pure descriptor arguments feed a
+  // direct call returning the exact descriptor for that target. The descriptor
+  // equality check cannot fail and does not add exactness, so the pass may
+  // preserve ref args; call ref; desc args; call desc; drop, leaving the
+  // original reference result on the stack.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_success(10, 1)
+}
+
+///|
+test "optimize-instructions skips descriptor casts with semantic family mixed 1-ref 10-desc exact descriptor success" {
+  // Inverse same-family proof for direct-call descriptor success. Coverage is
+  // by semantic precondition, not by one-off arity whitelisting.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_success(1, 10)
+}
+
+///|
 test "optimize-instructions folds descriptor casts with semantic family mixed 10-ref 1-desc exact descriptor miss" {
   // OI-J direct-call descriptor-miss family: this previously-unlisted arity
   // pair has the same semantic shape as the covered grid: ordered pure
