@@ -12675,6 +12675,84 @@ fn optimize_instructions_try_fold_ref_cast_null(
 }
 
 ///|
+fn optimize_instructions_direct_call_ref_result_exact_heap(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  heap : @lib.HeapType,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call if node.imm0 >= 0 => ()
+    _ => return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match
+    @ir.hot_module_resolve_func_type(
+      module_ctx,
+      @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+    ) {
+    Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
+      ref_type.is_non_nullable() &&
+      ref_type.is_exact() &&
+      ref_type.get_heap_type() == heap
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_direct_call_descriptor_exactly_describes_heap(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  heap : @lib.HeapType,
+) -> Bool {
+  match
+    optimize_instructions_descriptor_operand_exact_described_heap(
+      ctx, func, node_id,
+    ) {
+    Some(described_heap) => described_heap == heap
+    None => false
+  }
+}
+
+///|
+fn optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !ctx.traps_never_happen || @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) =>
+      (nullable, exact, target)
+    _ => return false
+  }
+  if nullable || !exact {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  if !optimize_instructions_direct_call_ref_result_exact_heap(
+      ctx, func, operand_id, target,
+    ) ||
+    !optimize_instructions_direct_call_descriptor_exactly_describes_heap(
+      ctx, func, descriptor_id, target,
+    ) {
+    return false
+  }
+  optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
+    ctx, func, node_id, operand_id, descriptor_id,
+  )
+}
+
+///|
 fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -12711,7 +12789,7 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
           ctx, described_heap, target,
         ) &&
         !optimize_instructions_ref_operand_is_exact_heap(
-          func, operand_id, described_heap,
+          ctx, func, operand_id, described_heap,
         ) &&
         !optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
           func, descriptor_id,
@@ -13206,6 +13284,7 @@ fn optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
 fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
@@ -13216,10 +13295,26 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
     _ => return false
   }
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
-  match @ir.hot_node_exact_instr(func, descriptor_id) {
+  let directized_descriptor = match @ir.hot_node_get(func, descriptor_id).op {
+    @ir.HotOp::CallRef =>
+      optimize_instructions_try_directize_ref_func_call_ref(
+        ctx, func, dead, descriptor_id,
+      )
+    _ => false
+  }
+  if optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
+      ctx, func, node_id,
+    ) ||
+    optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
+      ctx, func, dead, node_id,
+    ) {
+    return true
+  }
+  match @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, node_id, 1)) {
     Some(@lib.Instruction::RefAsNonNull) => {
+      let descriptor_id = @ir.hot_child_get(func, node_id, 1)
       if @ir.hot_child_count(func, descriptor_id) != 1 {
-        return false
+        return directized_descriptor
       }
       @ir.hot_child_set(
         func,
@@ -13232,9 +13327,12 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
     }
     Some(@lib.Instruction::RefGetDesc(_)) =>
       optimize_instructions_try_move_ref_get_desc_child_null_check(
-        ctx, func, descriptor_id,
-      )
-    _ => false
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, 1),
+      ) ||
+      directized_descriptor
+    _ => directized_descriptor
   }
 }
 
@@ -13688,6 +13786,16 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_know
   }
   for slot = 0; slot < root_count - 1; slot = slot + 1 {
     let root_id = @ir.hot_region_get(func, body, slot)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Br
+      | @ir.HotOp::BrIf
+      | @ir.HotOp::BrTable
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail => return false
+      _ => ()
+    }
     if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
         func, root_id,
       ) ||
@@ -14201,8 +14309,31 @@ fn optimize_instructions_ref_operand_matches_or_subtypes_heap(
   node_id : Int,
   target : @lib.HeapType,
 ) -> (Bool, Bool)? {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => {
+  let ref_type = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Call if @ir.hot_node_get(func, node_id).imm0 >= 0 =>
+      match ctx.module_ctx {
+        Some(module_ctx) =>
+          match
+            @ir.hot_module_resolve_func_type(
+              module_ctx,
+              @lib.FuncIdx::new(
+                @ir.hot_node_get(func, node_id).imm0.reinterpret_as_uint(),
+              ),
+            ) {
+            Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
+              Some(ref_type)
+            _ => None
+          }
+        None => None
+      }
+    _ =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
+        _ => None
+      }
+  }
+  match ref_type {
+    Some(ref_type) => {
       let source = ref_type.get_heap_type()
       if source == target {
         Some((ref_type.is_nullable(), ref_type.is_exact()))
@@ -14214,7 +14345,7 @@ fn optimize_instructions_ref_operand_matches_or_subtypes_heap(
         None
       }
     }
-    _ => None
+    None => None
   }
 }
 
@@ -14418,14 +14549,37 @@ fn optimize_instructions_descriptor_operand_exact_described_heap(
 
 ///|
 fn optimize_instructions_ref_operand_is_exact_heap(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   heap : @lib.HeapType,
 ) -> Bool {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] =>
-      ref_type.is_exact() && ref_type.get_heap_type() == heap
-    _ => false
+  let ref_type = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Call if @ir.hot_node_get(func, node_id).imm0 >= 0 =>
+      match ctx.module_ctx {
+        Some(module_ctx) =>
+          match
+            @ir.hot_module_resolve_func_type(
+              module_ctx,
+              @lib.FuncIdx::new(
+                @ir.hot_node_get(func, node_id).imm0.reinterpret_as_uint(),
+              ),
+            ) {
+            Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
+              Some(ref_type)
+            _ => None
+          }
+        None => None
+      }
+    _ =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
+        _ => None
+      }
+  }
+  match ref_type {
+    Some(ref_type) => ref_type.is_exact() && ref_type.get_heap_type() == heap
+    None => false
   }
 }
 
@@ -14643,6 +14797,10 @@ fn optimize_instructions_descriptor_operand_should_localize_when_skipped(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Call | @ir.HotOp::CallRef => return true
+    _ => ()
+  }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefGetDesc(_)) => true
     _ => false
@@ -17015,6 +17173,9 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operand(
         ctx, func, node_id,
       ) ||
+      optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
         ctx, func, dead, node_id,
       ) ||
@@ -17025,7 +17186,7 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
-        ctx, func, node_id,
+        ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
         ctx, func, node_id,
