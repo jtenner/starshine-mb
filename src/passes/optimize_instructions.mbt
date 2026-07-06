@@ -5508,129 +5508,208 @@ fn optimize_instructions_tuple_extract_append_discarded_child(
 }
 
 ///|
-fn optimize_instructions_try_fold_tuple_extract_tuple_make(
+priv struct OiTupleLaneFact {
+  node_id : Int
+  results : Array[@lib.ValType]
+  direct_localizable : Bool
+  must_preserve : Bool
+}
+
+///|
+fn OiTupleLaneFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiTupleLaneFact {
+  let direct_localizable = optimize_instructions_tuple_extract_lane_is_direct_localizable(
+    func, node_id,
+  )
+  {
+    node_id,
+    results: @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)),
+    direct_localizable,
+    must_preserve: if direct_localizable {
+      optimize_instructions_tuple_extract_lane_must_preserve(ctx, func, node_id)
+    } else {
+      true
+    },
+  }
+}
+
+///|
+priv struct OiTupleExtractFact {
+  selected_slot : Int
+  selected_lane : Int
+  selected_id : Int
+  selected_results : Array[@lib.ValType]
+  lane_facts : Array[OiTupleLaneFact]
+  has_effectful_sibling : Bool
+  has_later_effectful_sibling : Bool
+}
+
+///|
+fn OiTupleExtractFact::from_extract(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiTupleExtractFact? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::TupleExtract if node.child_count == 1 => ()
-    _ => return false
+    _ => return None
   }
   let tuple_id = @ir.hot_child_get(func, node_id, 0)
   if !optimize_instructions_node_is_live(func, dead, tuple_id) ||
     pass_node_use_count(ctx, func, tuple_id) != 1 {
-    return false
+    return None
   }
   let tuple = @ir.hot_node_get(func, tuple_id)
   match tuple.op {
     @ir.HotOp::TupleMake => ()
-    _ => return false
+    _ => return None
   }
   let index = node.imm0
   if index < 0 {
-    return false
+    return None
   }
+  let lane_facts : Array[OiTupleLaneFact] = []
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
-    if !optimize_instructions_tuple_extract_lane_is_direct_localizable(
-        func,
-        @ir.hot_child_get(func, tuple_id, slot),
-      ) {
-      return false
+    let lane_fact = OiTupleLaneFact::from_node(
+      ctx,
+      func,
+      @ir.hot_child_get(func, tuple_id, slot),
+    )
+    if !lane_fact.direct_localizable {
+      return None
     }
+    lane_facts.push(lane_fact)
   }
   let (selected_slot, selected_lane) = match
     optimize_instructions_tuple_extract_child_for_flat_index(
       func, tuple_id, index,
     ) {
     Some(value) => value
-    None => return false
+    None => return None
   }
-  let selected_id = @ir.hot_child_get(func, tuple_id, selected_slot)
-  let selected_results = @ir.hot_type_results(
-    func,
-    @ir.hot_node_get(func, selected_id).ty,
-  )
-  if selected_results.length() == 0 {
-    return false
+  let selected_fact = lane_facts[selected_slot]
+  if selected_fact.results.length() == 0 {
+    return None
   }
   let mut has_effectful_sibling = false
   let mut has_later_effectful_sibling = false
-  for slot = 0; slot < tuple.child_count; slot = slot + 1 {
+  for slot = 0; slot < lane_facts.length(); slot = slot + 1 {
     if slot == selected_slot {
       continue
     }
-    let sibling_id = @ir.hot_child_get(func, tuple_id, slot)
-    if optimize_instructions_tuple_extract_lane_must_preserve(
-        ctx, func, sibling_id,
-      ) {
+    if lane_facts[slot].must_preserve {
       has_effectful_sibling = true
       if slot > selected_slot {
         has_later_effectful_sibling = true
       }
     }
   }
-  if !has_effectful_sibling && selected_results.length() == 1 {
-    optimize_instructions_replace_with_node_id(ctx, func, node_id, selected_id)
+  Some({
+    selected_slot,
+    selected_lane,
+    selected_id: selected_fact.node_id,
+    selected_results: selected_fact.results,
+    lane_facts,
+    has_effectful_sibling,
+    has_later_effectful_sibling,
+  })
+}
+
+///|
+fn OiTupleExtractFact::can_forward_selected_directly(
+  self : OiTupleExtractFact,
+) -> Bool {
+  !self.has_effectful_sibling && self.selected_results.length() == 1
+}
+
+///|
+fn optimize_instructions_try_fold_tuple_extract_tuple_make(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let tuple_fact = match
+    OiTupleExtractFact::from_extract(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return false
+  }
+  if tuple_fact.can_forward_selected_directly() {
+    optimize_instructions_replace_with_node_id(
+      ctx,
+      func,
+      node_id,
+      tuple_fact.selected_id,
+    )
     return true
   }
   let body : Array[Int] = []
   let mut selected_local : Int = -1
   let selected_result_locals : Array[Int] = []
-  if selected_results.length() > 1 {
-    for result in selected_results {
+  if tuple_fact.selected_results.length() > 1 {
+    for result in tuple_fact.selected_results {
       selected_result_locals.push(@ir.hot_append_body_local(func, result))
     }
-  } else if has_later_effectful_sibling {
-    selected_local = @ir.hot_append_body_local(func, selected_results[0])
+  } else if tuple_fact.has_later_effectful_sibling {
+    selected_local = @ir.hot_append_body_local(
+      func,
+      tuple_fact.selected_results[0],
+    )
   }
-  for slot = 0; slot < tuple.child_count; slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, tuple_id, slot)
-    if slot == selected_slot {
-      if selected_results.length() > 1 {
-        let mut lane = selected_results.length()
+  for slot = 0; slot < tuple_fact.lane_facts.length(); slot = slot + 1 {
+    let lane_fact = tuple_fact.lane_facts[slot]
+    if slot == tuple_fact.selected_slot {
+      if tuple_fact.selected_results.length() > 1 {
+        let mut lane = tuple_fact.selected_results.length()
         while lane > 0 {
           lane = lane - 1
           body.push(
             @ir.hot_build_local_set(
               func,
               selected_result_locals[lane],
-              selected_id,
+              tuple_fact.selected_id,
             ),
           )
         }
-      } else if has_later_effectful_sibling {
-        body.push(@ir.hot_build_local_set(func, selected_local, selected_id))
+      } else if tuple_fact.has_later_effectful_sibling {
+        body.push(
+          @ir.hot_build_local_set(func, selected_local, tuple_fact.selected_id),
+        )
       }
       continue
     }
-    if !optimize_instructions_tuple_extract_lane_must_preserve(
-        ctx, func, child_id,
-      ) {
+    if !lane_fact.must_preserve {
       continue
     }
-    let child_results = @ir.hot_type_results(
-      func,
-      @ir.hot_node_get(func, child_id).ty,
-    )
     optimize_instructions_tuple_extract_append_discarded_child(
-      func, child_id, child_results, body,
+      func,
+      lane_fact.node_id,
+      lane_fact.results,
+      body,
     )
   }
-  if selected_results.length() > 1 {
+  if tuple_fact.selected_results.length() > 1 {
     body.push(
-      @ir.hot_build_local_get(func, selected_result_locals[selected_lane]),
+      @ir.hot_build_local_get(
+        func,
+        selected_result_locals[tuple_fact.selected_lane],
+      ),
     )
-  } else if has_later_effectful_sibling {
+  } else if tuple_fact.has_later_effectful_sibling {
     body.push(@ir.hot_build_local_get(func, selected_local))
   } else {
-    body.push(selected_id)
+    body.push(tuple_fact.selected_id)
   }
   let replacement = @ir.hot_build_block(
     func,
-    @lib.BlockType::val_type(selected_results[selected_lane]),
+    @lib.BlockType::val_type(
+      tuple_fact.selected_results[tuple_fact.selected_lane],
+    ),
     body,
   )
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
