@@ -696,6 +696,83 @@ fn OiDescriptorExactMissFact::from_node(
 }
 
 ///|
+priv struct OiDescriptorTnhSkipFact {
+  cast_fact : OiDescriptorCastFact
+  descriptor_fact : OiDescriptorOperandFact
+  operand_matches_target : Bool
+  operand_nullable : Bool
+  operand_exact : Bool
+}
+
+///|
+fn OiDescriptorTnhSkipFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDescriptorTnhSkipFact? {
+  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let (operand_matches_target, operand_nullable, operand_exact) = match
+    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).matches_or_subtypes_heap(
+      ctx,
+      cast_fact.target,
+    ) {
+    Some((nullable, exact)) => (true, nullable, exact)
+    None => (false, false, false)
+  }
+  Some({
+    cast_fact,
+    descriptor_fact: OiDescriptorOperandFact::from_operand(
+      ctx,
+      func,
+      dead,
+      cast_fact.descriptor_id,
+    ),
+    operand_matches_target,
+    operand_nullable,
+    operand_exact,
+  })
+}
+
+///|
+fn OiDescriptorTnhSkipFact::can_skip(
+  self : OiDescriptorTnhSkipFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  if !ctx.traps_never_happen || !self.operand_matches_target {
+    return false
+  }
+  let cast_fact = self.cast_fact
+  if (!cast_fact.nullable && self.operand_nullable) ||
+    (cast_fact.exact && !self.operand_exact) {
+    return false
+  }
+  match self.descriptor_fact.type_fact.exact_described_heap {
+    Some(described_heap) =>
+      if optimize_instructions_heap_is_known_subtype(
+          ctx,
+          described_heap,
+          cast_fact.target,
+        ) &&
+        !optimize_instructions_ref_operand_is_exact_heap(
+          ctx,
+          func,
+          cast_fact.operand_id,
+          described_heap,
+        ) &&
+        !self.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
+        return false
+      }
+    None => ()
+  }
+  true
+}
+
+///|
 priv struct OiRefGetDescFact {
   child_id : Int
   nullable_child_id : Int
@@ -13950,51 +14027,16 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if !ctx.traps_never_happen {
-    return false
-  }
-  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+  let skip_fact = match
+    OiDescriptorTnhSkipFact::from_node(ctx, func, dead, node_id) {
     Some(fact) => fact
     None => return false
   }
-  let (operand_nullable, operand_exact) = match
-    optimize_instructions_ref_operand_matches_or_subtypes_heap(
-      ctx,
-      func,
-      cast_fact.operand_id,
-      cast_fact.target,
-    ) {
-    Some(info) => info
-    None => return false
-  }
-  if (!cast_fact.nullable && operand_nullable) ||
-    (cast_fact.exact && !operand_exact) {
+  if !skip_fact.can_skip(ctx, func) {
     return false
   }
-  let descriptor_fact = OiDescriptorOperandFact::from_operand(
-    ctx,
-    func,
-    dead,
-    cast_fact.descriptor_id,
-  )
-  match descriptor_fact.type_fact.exact_described_heap {
-    Some(described_heap) =>
-      if optimize_instructions_heap_is_known_subtype(
-          ctx,
-          described_heap,
-          cast_fact.target,
-        ) &&
-        !optimize_instructions_ref_operand_is_exact_heap(
-          ctx,
-          func,
-          cast_fact.operand_id,
-          described_heap,
-        ) &&
-        !descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
-        return false
-      }
-    None => ()
-  }
+  let cast_fact = skip_fact.cast_fact
+  let descriptor_fact = skip_fact.descriptor_fact
   if descriptor_fact.can_erase {
     optimize_instructions_replace_with_node_id(
       ctx,
