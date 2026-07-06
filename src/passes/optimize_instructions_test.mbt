@@ -19040,6 +19040,163 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc call_ref null checks" {
+  // OI-J standalone ref.get_desc call_ref child slice: Binaryen version_130
+  // default/TNH/IIT directize `ref.func` + `call_ref` children and simplify
+  // `ref.get_desc(ref.as_non_null(call_ref ...))` to put the direct call result
+  // under `ref.get_desc`. This is deliberately just the exact `ref.func`
+  // target family; return_call_ref, table/indirect targets, multivalue,
+  // argument-bearing call_ref, escaping control/EH, descriptor-cast operands,
+  // and ref.test_desc remain separate surfaces.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_call_ref_type = @lib.TypeIdx::new(2U)
+  let nonnull_call_ref_type = @lib.TypeIdx::new(3U)
+  let get_desc_type = @lib.TypeIdx::new(4U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(descriptor_type),
+  )
+  let descriptor_val_type = @lib.ValType::ref_type(descriptor_ref_type)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nonnull_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [descriptor_val_type]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        nullable_call_ref_type, nonnull_call_ref_type, get_desc_type, get_desc_type,
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(nullable_call_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(nonnull_call_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let assert_call_ref_ref_get_desc = fn(
+    mod_ : @lib.Module,
+    label : String,
+  ) -> Unit raise {
+    match mod_.code_sec {
+      Some(
+        @lib.CodeSec(
+          [
+            _,
+            _,
+            @lib.Func(_, @lib.Expr(nullable_body)),
+            @lib.Func(_, @lib.Expr(nonnull_body)),
+          ]
+        )
+      ) => {
+        @debug.assert_eq(
+          nullable_body,
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_get_desc(described_type),
+          ],
+          msg="\{label} nullable call_ref descriptor child",
+        )
+        @debug.assert_eq(
+          nonnull_body,
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_get_desc(described_type),
+          ],
+          msg="\{label} nonnull call_ref descriptor child: \{nonnull_body}",
+        )
+      }
+      other =>
+        fail("expected optimized call_ref ref.get_desc funcs, got \{other}")
+    }
+  }
+  assert_call_ref_ref_get_desc(
+    optimize_instructions_test_run_module(module_),
+    "default",
+  )
+  let iit_optimized = match
+    run_hot_pipeline(
+      module_,
+      HotPipelineOptions::new(ignore_implicit_traps=true),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected IIT call_ref ref.get_desc success, got \{err}")
+  }
+  assert_call_ref_ref_get_desc(iit_optimized, "IIT")
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc branch-free block null checks" {
   // OI-J finite block-child slice: Binaryen version_130 simplifies standalone
   // `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)` for the
