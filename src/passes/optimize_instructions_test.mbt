@@ -32679,6 +32679,106 @@ test "optimize-instructions drops commuted flat add same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops nested flat stack same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 parses the
+  // fallthrough address operands as expression trees for `areConsecutiveInputsEqual`.
+  // Repeated nested pure scalar stack expressions and nested expressions whose
+  // inner `i32.add` operands are commuted are equal under that source-backed
+  // `ExpressionAnalyzer::equal` path; keep the raw bridge fact-shaped while the
+  // public WAT path still lowers these operands to flat stack instructions.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "nested-same") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.sub
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.sub
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "nested-commuted-add") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.sub
+        #|    i32.const 4
+        #|    local.get $addr
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.sub
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested flat stack memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions keeps different nested flat stack memory.copy outside equality fact" {
+  // Boundary guard for the bounded flat expression-tree fact: Binaryen v130
+  // keeps nested pure scalar address trees with different constant payloads, so
+  // same outer operators are not enough to prove equal runtime addresses.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "nested-different") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.sub
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 9
+        #|    i32.sub
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected different nested flat stack memory.copy boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "i32.const I32(4)", "i32.add", "i32.const I32(8)", "i32.sub",
+    "local.get (Local 0)", "i32.const I32(4)", "i32.add", "i32.const I32(9)", "i32.sub",
+    "local.get (Local 1)", "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions keeps swapped flat sub memory.copy outside equality fact" {
   // Boundary guard for the flat raw expression fact: Binaryen v130 keeps
   // noncommutative swapped `i32.sub` operands, so the raw fact must not treat

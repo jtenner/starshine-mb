@@ -29122,6 +29122,15 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
 }
 
 ///|
+priv struct RawOiFlatPureScalarStackValueFact {
+  key : String
+  binary_op : String
+  left_key : String
+  right_key : String
+  commutative : Bool
+}
+
+///|
 priv struct RawOiFlatPureScalarAddressFact {
   start : Int
   end : Int
@@ -29168,64 +29177,107 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
 }
 
 ///|
-fn RawOiFlatPureScalarAddressFact::from_instrs(
+fn run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
+  op_key : String,
+  left_key : String,
+  right_key : String,
+  commutative : Bool,
+) -> String {
+  if commutative && right_key < left_key {
+    "\{op_key}(\{right_key},\{left_key})"
+  } else {
+    "\{op_key}(\{left_key},\{right_key})"
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(
+  key : String,
+) -> RawOiFlatPureScalarStackValueFact {
+  { key, binary_op: "", left_key: "", right_key: "", commutative: false }
+}
+
+///|
+fn RawOiFlatPureScalarAddressFact::from_value(
+  start : Int,
+  end : Int,
+  value : RawOiFlatPureScalarStackValueFact,
+) -> RawOiFlatPureScalarAddressFact {
+  {
+    start,
+    end,
+    key: value.key,
+    binary_op: value.binary_op,
+    left_key: value.left_key,
+    right_key: value.right_key,
+    commutative: value.commutative,
+  }
+}
+
+///|
+fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> RawOiFlatPureScalarAddressFact? {
-  if start >= instrs.length() {
-    return None
-  }
-  let left_key = match
-    run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(instrs[start]) {
-    Some(key) => key
-    None => return None
-  }
-  if start + 1 < instrs.length() {
-    match
-      run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(instrs[start + 1]) {
-      Some(op_key) =>
-        return Some({
-          start,
-          end: start + 2,
-          key: "\{op_key}(\{left_key})",
-          binary_op: "",
-          left_key: "",
-          right_key: "",
-          commutative: false,
-        })
-      None => ()
+) -> Array[RawOiFlatPureScalarAddressFact] {
+  let facts : Array[RawOiFlatPureScalarAddressFact] = []
+  let stack : Array[RawOiFlatPureScalarStackValueFact] = []
+  let mut idx = start
+  while idx < instrs.length() && idx - start < 16 {
+    match run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(instrs[idx]) {
+      Some(key) =>
+        stack.push(run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(key))
+      None =>
+        match run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(instrs[idx]) {
+          Some(op_key) => {
+            if stack.length() < 1 {
+              break
+            }
+            let child = stack.pop().unwrap()
+            stack.push({
+              key: "\{op_key}(\{child.key})",
+              binary_op: "",
+              left_key: "",
+              right_key: "",
+              commutative: false,
+            })
+          }
+          None =>
+            match
+              run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(instrs[idx]) {
+              Some(op_key) => {
+                if stack.length() < 2 {
+                  break
+                }
+                let right = stack.pop().unwrap()
+                let left = stack.pop().unwrap()
+                let commutative = op_key == "i32.add"
+                stack.push({
+                  key: run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
+                    op_key,
+                    left.key,
+                    right.key,
+                    commutative,
+                  ),
+                  binary_op: op_key,
+                  left_key: left.key,
+                  right_key: right.key,
+                  commutative,
+                })
+              }
+              None => break
+            }
+        }
     }
-  }
-  if start + 2 < instrs.length() {
-    let right_key = match
-      run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(instrs[start + 1]) {
-      Some(key) => key
-      None => return None
+    if stack.length() == 1 {
+      facts.push(
+        RawOiFlatPureScalarAddressFact::from_value(start, idx + 1, stack[0]),
+      )
+    } else if stack.length() > 4 {
+      break
     }
-    match
-      run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(instrs[start + 2]) {
-      Some(op_key) =>
-        return Some({
-          start,
-          end: start + 3,
-          key: "\{op_key}(\{left_key},\{right_key})",
-          binary_op: op_key,
-          left_key,
-          right_key,
-          commutative: op_key == "i32.add",
-        })
-      None => ()
-    }
+    idx = idx + 1
   }
-  Some({
-    start,
-    end: start + 1,
-    key: left_key,
-    binary_op: "",
-    left_key: "",
-    right_key: "",
-    commutative: false,
-  })
+  facts
 }
 
 ///|
@@ -29316,40 +29368,54 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    match RawOiFlatPureScalarAddressFact::from_instrs(instrs, i) {
-      Some(dst_fact) =>
-        match
-          RawOiFlatPureScalarAddressFact::from_instrs(instrs, dst_fact.end) {
-          Some(src_fact) if src_fact.end + 1 < instrs.length() &&
-            dst_fact.proves_equal(src_fact) &&
-            run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-              instrs[src_fact.end],
-            ) =>
-            match instrs[src_fact.end + 1] {
-              @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem => {
-                run_hot_pipeline_raw_oi_push_dropped_range(
-                  out,
-                  instrs,
-                  dst_fact.start,
-                  dst_fact.end,
-                )
-                run_hot_pipeline_raw_oi_push_dropped_range(
-                  out,
-                  instrs,
-                  src_fact.start,
-                  src_fact.end,
-                )
-                out.push(instrs[src_fact.end])
-                out.push(@lib.Instruction::drop())
-                changed = true
-                i = src_fact.end + 2
-                continue
-              }
-              _ => ()
-            }
-          _ => ()
+    let mut matched = false
+    let dst_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
+      instrs, i,
+    )
+    for dst_fact in dst_facts {
+      if matched {
+        break
+      }
+      let src_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
+        instrs,
+        dst_fact.end,
+      )
+      for src_fact in src_facts {
+        if matched {
+          break
         }
-      None => ()
+        if src_fact.end + 1 < instrs.length() &&
+          dst_fact.proves_equal(src_fact) &&
+          run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
+            instrs[src_fact.end],
+          ) {
+          match instrs[src_fact.end + 1] {
+            @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem => {
+              run_hot_pipeline_raw_oi_push_dropped_range(
+                out,
+                instrs,
+                dst_fact.start,
+                dst_fact.end,
+              )
+              run_hot_pipeline_raw_oi_push_dropped_range(
+                out,
+                instrs,
+                src_fact.start,
+                src_fact.end,
+              )
+              out.push(instrs[src_fact.end])
+              out.push(@lib.Instruction::drop())
+              changed = true
+              matched = true
+              i = src_fact.end + 2
+            }
+            _ => ()
+          }
+        }
+      }
+    }
+    if matched {
+      continue
     }
     let (rewritten, instr_changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_instr(
       instrs[i],
