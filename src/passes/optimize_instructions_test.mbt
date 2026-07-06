@@ -19393,7 +19393,9 @@ test "optimize-instructions moves standalone ref.get_desc indirect call_ref null
         )
       }
       other =>
-        fail("expected optimized indirect call_ref ref.get_desc funcs, got \{other}")
+        fail(
+          "expected optimized indirect call_ref ref.get_desc funcs, got \{other}",
+        )
     }
   }
   assert_indirect_ref_get_desc(
@@ -19407,7 +19409,8 @@ test "optimize-instructions moves standalone ref.get_desc indirect call_ref null
       ["optimize-instructions"],
     ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected IIT indirect call_ref ref.get_desc success, got \{err}")
+    Err(err) =>
+      fail("expected IIT indirect call_ref ref.get_desc success, got \{err}")
   }
   assert_indirect_ref_get_desc(iit_optimized, "IIT")
 }
