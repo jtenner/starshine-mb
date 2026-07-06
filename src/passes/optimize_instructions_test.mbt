@@ -15090,6 +15090,153 @@ test "optimize-instructions narrows nullable direct-call descriptor success with
 }
 
 ///|
+test "optimize-instructions exactifies direct-call descriptor success with value-call arguments" {
+  // OI-J direct-call descriptor exactification family: Binaryen exactifies an
+  // inexact or nullable descriptor-success cast even when the direct reference
+  // and descriptor calls are fed by ordered no-parameter direct scalar calls.
+  // The value-producing calls are effectful call chunks that must stay in source
+  // order before the owning reference/descriptor calls and the residual
+  // descriptor equality check. This does not widen exact-success skipping,
+  // descriptor misses, indirect/call_ref, return_call*, multivalue, control/EH,
+  // TNH, or IIT behavior.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let make_i32_func_type = @lib.TypeIdx::new(2U)
+  let make_ref_func_type = @lib.TypeIdx::new(3U)
+  let make_desc_func_type = @lib.TypeIdx::new(4U)
+  let exactify_func_type = @lib.TypeIdx::new(5U)
+  let narrow_func_type = @lib.TypeIdx::new(6U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let nullable_base_ref_type = @lib.RefType::new(true, base_heap)
+  let exact_base_ref_type = @lib.RefType::new(false, base_heap, exact=true)
+  let exact_base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(base_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(exact_base_descriptor_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(base_ref_type)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        make_i32_func_type,
+        make_ref_func_type,
+        make_desc_func_type,
+        exactify_func_type,
+        narrow_func_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+            @lib.Instruction::struct_new_default_desc(base_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_base_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let expected = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+  ]
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, _, @lib.Func(_, @lib.Expr(exactify_body)), @lib.Func(_, @lib.Expr(narrow_body))])) => {
+      @debug.assert_eq(exactify_body, expected)
+      @debug.assert_eq(narrow_body, expected)
+    }
+    _ => fail("expected five-function descriptor value-call exactification module")
+  }
+}
+
+///|
 test "optimize-instructions narrows nullable direct-call descriptor success with exact same-heap result" {
   // OI-J nullable direct-call descriptor-success family: Binaryen keeps the
   // explicit descriptor equality cast for a nullable target even when the
