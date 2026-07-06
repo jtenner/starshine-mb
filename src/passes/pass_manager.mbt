@@ -26648,6 +26648,22 @@ fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_call_type_returns_non_null_exact_target_with_param_count(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> Bool {
+  match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+      param_count &&
+      ref_type.is_non_nullable() &&
+      ref_type.is_exact() => ref_type.get_heap_type() == target
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
@@ -27254,6 +27270,84 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_d
     }
   }
   None
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descriptor_success(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Int)? {
+  let ref_inputs : Array[@lib.Instruction] = []
+  let mut scan = start
+  while scan < instrs.length() {
+    match instrs[scan] {
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+          arg,
+        ) => {
+        ref_inputs.push(arg)
+        scan = scan + 1
+      }
+      @lib.CallIndirect(type_idx, table_idx) if ref_inputs.length() > 0 &&
+        scan + 2 < instrs.length() => {
+        let ref_param_count = ref_inputs.length() - 1
+        match (instrs[scan + 1], instrs[scan + 2]) {
+          (
+            @lib.Call(descriptor_func),
+            @lib.RefCastDescEq(nullable, exact, target),
+          ) if !nullable &&
+            exact &&
+            run_hot_pipeline_raw_optimize_instructions_call_type_returns_non_null_exact_target_with_param_count(
+              module_ctx, type_idx, target, ref_param_count,
+            ) &&
+            run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+              module_ctx, descriptor_func, target, 0,
+            ) => {
+            let rewritten : Array[@lib.Instruction] = []
+            for input in ref_inputs {
+              rewritten.push(input)
+            }
+            rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+            rewritten.push(@lib.Instruction::call(descriptor_func))
+            rewritten.push(@lib.Instruction::drop())
+            return Some((rewritten, scan + 3))
+          }
+          _ => return None
+        }
+      }
+      _ => return None
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor_success_body(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match
+      run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descriptor_success(
+        instrs, i, module_ctx,
+      ) {
+      Some((indirect_rewrite, next_i)) => {
+        for instr in indirect_rewrite {
+          rewritten.push(instr)
+        }
+        changed = true
+        i = next_i
+        continue
+      }
+      None => ()
+    }
+    rewritten.push(instrs[i])
+    i = i + 1
+  }
+  (rewritten, changed)
 }
 
 ///|
@@ -28837,8 +28931,15 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   } else {
     (directized_body, false)
   }
+  let (tnh_indirect_exact_success_body, tnh_indirect_exact_success_changed) = if options.traps_never_happen {
+    run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor_success_body(
+      tnh_exact_success_body, module_ctx,
+    )
+  } else {
+    (tnh_exact_success_body, false)
+  }
   let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
-    tnh_exact_success_body, module_ctx,
+    tnh_indirect_exact_success_body, module_ctx,
   )
   let (escaping_ref_get_desc_body, escaping_ref_get_desc_changed) = if options.traps_never_happen {
     (effectful_sibling_body, false)
@@ -28852,6 +28953,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     exact_miss_changed ||
     directized_changed ||
     tnh_exact_success_changed ||
+    tnh_indirect_exact_success_changed ||
     effectful_sibling_changed ||
     escaping_ref_get_desc_changed {
     @lib.Func::new(locals, @lib.Expr::new(escaping_ref_get_desc_body))
@@ -28863,9 +28965,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !exact_miss_changed &&
     !directized_changed &&
     !tnh_exact_success_changed &&
+    !tnh_indirect_exact_success_changed &&
     !effectful_sibling_changed &&
     !escaping_ref_get_desc_changed
-  if exact_success_changed || tnh_exact_success_changed {
+  if exact_success_changed ||
+    tnh_exact_success_changed ||
+    tnh_indirect_exact_success_changed {
     return Some({
       reason: "descriptor-exact-success-skip",
       func: skipped_func,

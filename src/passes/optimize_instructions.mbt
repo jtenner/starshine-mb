@@ -12682,25 +12682,39 @@ fn optimize_instructions_direct_call_ref_result_exact_heap(
   heap : @lib.HeapType,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Call if node.imm0 >= 0 => ()
+  let ref_type = match node.op {
+    @ir.HotOp::Call if node.imm0 >= 0 => {
+      let module_ctx = match ctx.module_ctx {
+        Some(module_ctx) => module_ctx
+        None => return false
+      }
+      match
+        @ir.hot_module_resolve_func_type(
+          module_ctx,
+          @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+        ) {
+        Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
+          ref_type
+        _ => return false
+      }
+    }
+    @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => {
+      let module_ctx = match ctx.module_ctx {
+        Some(module_ctx) => module_ctx
+        None => return false
+      }
+      let sig = @ir.hot_call_sig_get(func, node.imm0)
+      match @ir.hot_module_resolve_type_func_type(module_ctx, sig.type_idx) {
+        Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
+          ref_type
+        _ => return false
+      }
+    }
     _ => return false
   }
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return false
-  }
-  match
-    @ir.hot_module_resolve_func_type(
-      module_ctx,
-      @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
-    ) {
-    Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
-      ref_type.is_non_nullable() &&
-      ref_type.is_exact() &&
-      ref_type.get_heap_type() == heap
-    _ => false
-  }
+  ref_type.is_non_nullable() &&
+  ref_type.is_exact() &&
+  ref_type.get_heap_type() == heap
 }
 
 ///|
@@ -13294,6 +13308,14 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
     Some(@lib.Instruction::RefCastDescEq(_, _, _)) => ()
     _ => return false
   }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let directized_operand = match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::CallRef =>
+      optimize_instructions_try_directize_ref_func_call_ref(
+        ctx, func, dead, operand_id,
+      )
+    _ => false
+  }
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
   let directized_descriptor = match @ir.hot_node_get(func, descriptor_id).op {
     @ir.HotOp::CallRef =>
@@ -13314,7 +13336,7 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
     Some(@lib.Instruction::RefAsNonNull) => {
       let descriptor_id = @ir.hot_child_get(func, node_id, 1)
       if @ir.hot_child_count(func, descriptor_id) != 1 {
-        return directized_descriptor
+        return directized_operand || directized_descriptor
       }
       @ir.hot_child_set(
         func,
@@ -13331,8 +13353,9 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
         func,
         @ir.hot_child_get(func, node_id, 1),
       ) ||
+      directized_operand ||
       directized_descriptor
-    _ => directized_descriptor
+    _ => directized_operand || directized_descriptor
   }
 }
 
@@ -14553,21 +14576,33 @@ fn optimize_instructions_ref_operand_is_exact_heap(
   node_id : Int,
   heap : @lib.HeapType,
 ) -> Bool {
-  let ref_type = match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Call if @ir.hot_node_get(func, node_id).imm0 >= 0 =>
+  let node = @ir.hot_node_get(func, node_id)
+  let ref_type = match node.op {
+    @ir.HotOp::Call if node.imm0 >= 0 =>
       match ctx.module_ctx {
         Some(module_ctx) =>
           match
             @ir.hot_module_resolve_func_type(
               module_ctx,
-              @lib.FuncIdx::new(
-                @ir.hot_node_get(func, node_id).imm0.reinterpret_as_uint(),
-              ),
+              @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
             ) {
             Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
               Some(ref_type)
             _ => None
           }
+        None => None
+      }
+    @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+      match ctx.module_ctx {
+        Some(module_ctx) => {
+          let sig = @ir.hot_call_sig_get(func, node.imm0)
+          match
+            @ir.hot_module_resolve_type_func_type(module_ctx, sig.type_idx) {
+            Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) =>
+              Some(ref_type)
+            _ => None
+          }
+        }
         None => None
       }
     _ =>
