@@ -32575,6 +32575,97 @@ test "optimize-instructions drops pure binary same-address memory.copy under tra
 }
 
 ///|
+test "optimize-instructions drops flat pure scalar same-address memory.copy" {
+  // OI-G raw stack-expression fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` delegates to `ExpressionAnalyzer::equal`, so
+  // repeated flat pure scalar address operands beyond the first i32.add/local
+  // const bridge are equal too. Keep this source-backed bridge fact-shaped while
+  // public WAT lowering represents these operands as flat stack instructions.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "sub") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.sub
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.sub
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "eqz") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.eqz
+        #|    local.get $addr
+        #|    i32.eqz
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "local-local-add") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.add
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected flat pure scalar memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 3; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions keeps swapped flat sub memory.copy outside equality fact" {
+  // Boundary guard for the flat raw expression fact: Binaryen v130 keeps
+  // noncommutative swapped `i32.sub` operands, so the raw fact must not treat
+  // every binary tree as commutative while expanding the flat-stack bridge.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "sub-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.sub
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.sub
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected swapped sub memory.copy boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "local.get (Local 1)", "i32.sub", "local.get (Local 1)",
+    "local.get (Local 0)", "i32.sub", "local.get (Local 2)", "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions keeps different pure binary memory.copy outside equality fact" {
   // Boundary guard for the pure scalar expression equality fact: Binaryen's
   // structural equality does not equate different constant payloads nested
