@@ -4119,6 +4119,83 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 }
 
 ///|
+priv struct OiBulkMemoryFact {
+  dst_id : Int
+  src_or_value_id : Int
+  size_id : Int
+  size : Int
+  dst_mem_idx : Int
+  src_mem_idx : Int
+}
+
+///|
+fn OiBulkMemoryFact::from_copy(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBulkMemoryFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 3 {
+    return None
+  }
+  let size_id = @ir.hot_child_get(func, node_id, 2)
+  let size = match
+    optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(size) => size
+    None => return None
+  }
+  Some({
+    dst_id: @ir.hot_child_get(func, node_id, 0),
+    src_or_value_id: @ir.hot_child_get(func, node_id, 1),
+    size_id,
+    size,
+    dst_mem_idx: node.imm0,
+    src_mem_idx: node.imm1,
+  })
+}
+
+///|
+fn OiBulkMemoryFact::from_fill(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBulkMemoryFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 3 {
+    return None
+  }
+  let size_id = @ir.hot_child_get(func, node_id, 2)
+  let size = match
+    optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(size) => size
+    None => return None
+  }
+  Some({
+    dst_id: @ir.hot_child_get(func, node_id, 0),
+    src_or_value_id: @ir.hot_child_get(func, node_id, 1),
+    size_id,
+    size,
+    dst_mem_idx: node.imm0,
+    src_mem_idx: node.imm0,
+  })
+}
+
+///|
+fn OiBulkMemoryFact::dst_memarg(self : OiBulkMemoryFact) -> @lib.MemArg {
+  optimize_instructions_memarg_for_mem_idx(self.dst_mem_idx)
+}
+
+///|
+fn OiBulkMemoryFact::src_memarg(self : OiBulkMemoryFact) -> @lib.MemArg {
+  optimize_instructions_memarg_for_mem_idx(self.src_mem_idx)
+}
+
+///|
+fn OiBulkMemoryFact::has_const_size_operand(self : OiBulkMemoryFact) -> Bool {
+  self.size_id >= 0 && self.size >= 0
+}
+
+///|
 priv struct OiTinyMemoryCopyFact {
   size : Int
 }
@@ -5628,6 +5705,44 @@ fn OiTupleExtractFact::can_forward_selected_directly(
 }
 
 ///|
+priv struct OiTupleScratchFact {
+  selected_local : Int
+  selected_result_locals : Array[Int]
+}
+
+///|
+fn OiTupleScratchFact::from_extract(
+  func : @ir.HotFunc,
+  tuple_fact : OiTupleExtractFact,
+) -> OiTupleScratchFact {
+  let mut selected_local = -1
+  let selected_result_locals : Array[Int] = []
+  if tuple_fact.selected_results.length() > 1 {
+    for result in tuple_fact.selected_results {
+      selected_result_locals.push(@ir.hot_append_body_local(func, result))
+    }
+  } else if tuple_fact.has_later_effectful_sibling {
+    selected_local = @ir.hot_append_body_local(
+      func,
+      tuple_fact.selected_results[0],
+    )
+  }
+  { selected_local, selected_result_locals }
+}
+
+///|
+fn OiTupleScratchFact::needs_selected_local(self : OiTupleScratchFact) -> Bool {
+  self.selected_local >= 0
+}
+
+///|
+fn OiTupleScratchFact::has_selected_result_locals(
+  self : OiTupleScratchFact,
+) -> Bool {
+  self.selected_result_locals.length() > 0
+}
+
+///|
 fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5649,36 +5764,29 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
     return true
   }
   let body : Array[Int] = []
-  let mut selected_local : Int = -1
-  let selected_result_locals : Array[Int] = []
-  if tuple_fact.selected_results.length() > 1 {
-    for result in tuple_fact.selected_results {
-      selected_result_locals.push(@ir.hot_append_body_local(func, result))
-    }
-  } else if tuple_fact.has_later_effectful_sibling {
-    selected_local = @ir.hot_append_body_local(
-      func,
-      tuple_fact.selected_results[0],
-    )
-  }
+  let scratch_fact = OiTupleScratchFact::from_extract(func, tuple_fact)
   for slot = 0; slot < tuple_fact.lane_facts.length(); slot = slot + 1 {
     let lane_fact = tuple_fact.lane_facts[slot]
     if slot == tuple_fact.selected_slot {
-      if tuple_fact.selected_results.length() > 1 {
+      if scratch_fact.has_selected_result_locals() {
         let mut lane = tuple_fact.selected_results.length()
         while lane > 0 {
           lane = lane - 1
           body.push(
             @ir.hot_build_local_set(
               func,
-              selected_result_locals[lane],
+              scratch_fact.selected_result_locals[lane],
               tuple_fact.selected_id,
             ),
           )
         }
-      } else if tuple_fact.has_later_effectful_sibling {
+      } else if scratch_fact.needs_selected_local() {
         body.push(
-          @ir.hot_build_local_set(func, selected_local, tuple_fact.selected_id),
+          @ir.hot_build_local_set(
+            func,
+            scratch_fact.selected_local,
+            tuple_fact.selected_id,
+          ),
         )
       }
       continue
@@ -5693,15 +5801,15 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       body,
     )
   }
-  if tuple_fact.selected_results.length() > 1 {
+  if scratch_fact.has_selected_result_locals() {
     body.push(
       @ir.hot_build_local_get(
         func,
-        selected_result_locals[tuple_fact.selected_lane],
+        scratch_fact.selected_result_locals[tuple_fact.selected_lane],
       ),
     )
-  } else if tuple_fact.has_later_effectful_sibling {
-    body.push(@ir.hot_build_local_get(func, selected_local))
+  } else if scratch_fact.needs_selected_local() {
+    body.push(@ir.hot_build_local_get(func, scratch_fact.selected_local))
   } else {
     body.push(tuple_fact.selected_id)
   }
@@ -6830,27 +6938,27 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 3 {
-    return false
-  }
-  let size_id = @ir.hot_child_get(func, node_id, 2)
-  let size = match
-    optimize_instructions_const_memory_size(func, dead, size_id) {
-    Some(size) => size
-    _ => return false
-  }
-  let copy_fact = match OiTinyMemoryCopyFact::from_size(size) {
+  let bulk_fact = match OiBulkMemoryFact::from_copy(func, dead, node_id) {
     Some(fact) => fact
     None => return false
   }
-  let dst_id = @ir.hot_child_get(func, node_id, 0)
-  let src_id = @ir.hot_child_get(func, node_id, 1)
-  let src_memarg = optimize_instructions_memarg_for_mem_idx(node.imm1)
-  let load = @ir.hot_build_load(func, copy_fact.load_type(), src_memarg, src_id)
+  if !bulk_fact.has_const_size_operand() {
+    return false
+  }
+  let copy_fact = match OiTinyMemoryCopyFact::from_size(bulk_fact.size) {
+    Some(fact) => fact
+    None => return false
+  }
+  let src_memarg = bulk_fact.src_memarg()
+  let load = @ir.hot_build_load(
+    func,
+    copy_fact.load_type(),
+    src_memarg,
+    bulk_fact.src_or_value_id,
+  )
   @ir.hot_node_exact_instr_set(func, load, copy_fact.load_instr(src_memarg))
-  let dst_memarg = optimize_instructions_memarg_for_mem_idx(node.imm0)
-  let temp = @ir.hot_build_store(func, dst_memarg, dst_id, load)
+  let dst_memarg = bulk_fact.dst_memarg()
+  let temp = @ir.hot_build_store(func, dst_memarg, bulk_fact.dst_id, load)
   @ir.hot_node_exact_instr_set(func, temp, copy_fact.store_instr(dst_memarg))
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
@@ -6866,30 +6974,26 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 3 {
-    return false
+  let bulk_fact = match OiBulkMemoryFact::from_fill(func, dead, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  let size_id = @ir.hot_child_get(func, node_id, 2)
-  let size = match
-    optimize_instructions_const_memory_size(func, dead, size_id) {
-    Some(size) => size
-    _ => return false
+  if !bulk_fact.has_const_size_operand() {
+    return false
   }
   let fill_fact = match
     OiTinyMemoryFillFact::from_size_and_value(
       ctx,
       func,
       dead,
-      size,
-      @ir.hot_child_get(func, node_id, 1),
+      bulk_fact.size,
+      bulk_fact.src_or_value_id,
     ) {
     Some(fact) => fact
     None => return false
   }
-  let dst_id = @ir.hot_child_get(func, node_id, 0)
-  let value_id = @ir.hot_child_get(func, node_id, 1)
-  let stored_id = match fill_fact.build_store_value(func, value_id) {
+  let stored_id = match
+    fill_fact.build_store_value(func, bulk_fact.src_or_value_id) {
     Some(stored_id) => stored_id
     None => return false
   }
@@ -6897,8 +7001,8 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     ctx,
     func,
     node_id,
-    node.imm0,
-    dst_id,
+    bulk_fact.dst_mem_idx,
+    bulk_fact.dst_id,
     stored_id,
     fn(memarg) { fill_fact.store_instr(memarg) },
   )
