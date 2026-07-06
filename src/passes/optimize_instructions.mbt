@@ -248,6 +248,56 @@ fn OiNullTrapFact::can_skip_explicit_non_null_check(
 }
 
 ///|
+fn optimize_instructions_region_tail_id(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Int? {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return None
+  }
+  let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+  if @ir.hot_node_is_live(func, tail_id) {
+    Some(tail_id)
+  } else {
+    None
+  }
+}
+
+///|
+fn optimize_instructions_region_explicitly_does_not_fallthrough(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  match optimize_instructions_region_tail_id(func, region_ref) {
+    Some(tail_id) =>
+      match @ir.hot_node_get(func, tail_id).op {
+        @ir.HotOp::Unreachable => true
+        _ => false
+      }
+    None => false
+  }
+}
+
+///|
+fn optimize_instructions_region_ref_fallthrough_type(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> @lib.RefType? {
+  if optimize_instructions_descriptor_region_has_branch_control(
+      func, region_ref,
+    ) {
+    return None
+  }
+  match optimize_instructions_region_tail_id(func, region_ref) {
+    Some(tail_id) =>
+      OiRefFallthroughFact::from_node(ctx, func, tail_id).ref_type
+    None => None
+  }
+}
+
+///|
 priv struct OiRefFallthroughFact {
   ref_type : @lib.RefType?
 }
@@ -270,26 +320,43 @@ fn OiRefFallthroughFact::from_node(
         None => ()
       }
     }
-    @ir.HotOp::Block =>
-      if !optimize_instructions_descriptor_expr_has_branch_control(
-          func, node_id,
-        ) {
-        let body_ref = @ir.hot_region_body_ref(func, node_id)
-        let root_count = @ir.hot_region_root_count(func, body_ref)
-        if root_count > 0 {
-          let fallthrough_id = @ir.hot_region_get(
-            func,
-            body_ref,
-            root_count - 1,
+    @ir.HotOp::Block => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      match
+        optimize_instructions_region_ref_fallthrough_type(ctx, func, body_ref) {
+        Some(ref_type) => return { ref_type: Some(ref_type) }
+        None => ()
+      }
+    }
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => {
+          let then_ref = @ir.hot_region_then_ref(func, node_id)
+          let then_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+            func, then_ref,
           )
-          if @ir.hot_node_is_live(func, fallthrough_id) {
+          let else_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+            func, else_ref,
+          )
+          if then_stops && !else_stops {
             match
-              OiRefFallthroughFact::from_node(ctx, func, fallthrough_id).ref_type {
+              optimize_instructions_region_ref_fallthrough_type(
+                ctx, func, else_ref,
+              ) {
+              Some(ref_type) => return { ref_type: Some(ref_type) }
+              None => ()
+            }
+          } else if else_stops && !then_stops {
+            match
+              optimize_instructions_region_ref_fallthrough_type(
+                ctx, func, then_ref,
+              ) {
               Some(ref_type) => return { ref_type: Some(ref_type) }
               None => ()
             }
           }
         }
+        None => ()
       }
     _ => ()
   }
