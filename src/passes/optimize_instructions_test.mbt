@@ -14054,6 +14054,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   desc_arg_count : Int,
   exact_ref_result? : Bool = true,
   exact_cast_target? : Bool = true,
+  nullable_cast_target? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -14069,7 +14070,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     exact=true,
   )
   let cast_target_ref_type = @lib.RefType::new(
-    false,
+    nullable_cast_target,
     base_heap,
     exact=exact_cast_target,
   )
@@ -14149,7 +14150,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
             optimize_instructions_test_i32_params(
               ref_arg_count + desc_arg_count,
             ),
-            [@lib.ValType::ref_type(base_ref_type)],
+            [@lib.ValType::ref_type(cast_target_ref_type)],
           ),
         ),
       ),
@@ -14218,12 +14219,15 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   ref_arg_count : Int,
   desc_arg_count : Int,
   exact_ref_result? : Bool = true,
+  exact_cast_target? : Bool = false,
+  nullable_cast_target? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     ref_arg_count,
     desc_arg_count,
     exact_ref_result~,
-    exact_cast_target=false,
+    exact_cast_target~,
+    nullable_cast_target~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let expected : Array[@lib.Instruction] = []
@@ -14255,6 +14259,36 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
       @debug.assert_eq(body, expected)
     _ => fail("expected three-function descriptor-exactification test module")
   }
+}
+
+///|
+test "optimize-instructions narrows nullable direct-call descriptor success with exact same-heap result" {
+  // OI-J nullable direct-call descriptor-success family: Binaryen keeps the
+  // explicit descriptor equality cast for a nullable target even when the
+  // direct reference call already returns exact non-null `$base`, but it narrows
+  // the cast result to non-null exact `$base`. This is not the exact non-null
+  // skip family because the nullable source spelling still preserves the
+  // descriptor check.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    10,
+    1,
+    exact_cast_target=true,
+    nullable_cast_target=true,
+  )
+}
+
+///|
+test "optimize-instructions exactifies nullable direct-call descriptor success with inexact same-heap result" {
+  // Sibling same-family proof: an inexact non-null same-heap direct-call result
+  // with an exact descriptor call narrows from nullable inexact `$base` to
+  // non-null exact `$base` while keeping `ref.cast_desc_eq` in source order.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    1,
+    10,
+    exact_ref_result=false,
+    exact_cast_target=false,
+    nullable_cast_target=true,
+  )
 }
 
 ///|
