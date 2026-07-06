@@ -29122,6 +29122,155 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
 }
 
 ///|
+priv struct RawOiI32AddLocalConstAddressFact {
+  start : Int
+  end : Int
+  local_idx : @lib.LocalIdx
+  const_value : @lib.I32
+}
+
+///|
+fn RawOiI32AddLocalConstAddressFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiI32AddLocalConstAddressFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (@lib.LocalGet(local_idx), @lib.I32Const(const_value), @lib.I32Add) =>
+      Some({ start, end: start + 3, local_idx, const_value })
+    _ => None
+  }
+}
+
+///|
+fn RawOiI32AddLocalConstAddressFact::proves_equal(
+  self : RawOiI32AddLocalConstAddressFact,
+  other : RawOiI32AddLocalConstAddressFact,
+) -> Bool {
+  self.local_idx == other.local_idx && self.const_value == other.const_value
+}
+
+///|
+fn run_hot_pipeline_raw_oi_push_dropped_range(
+  out : Array[@lib.Instruction],
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+) -> Unit {
+  for idx = start; idx < end; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out.push(@lib.Instruction::drop())
+}
+
+///|
+fn run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+        body,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), changed)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+        body,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), changed)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+        body,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        ),
+        changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (next_then, then_changed) = run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+        then_body,
+      )
+      let (next_else, else_changed) = match else_body {
+        Some(body) => {
+          let (rewritten, changed) = run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+            body,
+          )
+          (Some(rewritten), changed)
+        }
+        None => (None, false)
+      }
+      (
+        @lib.Instruction::if_(block_type, next_then, next_else),
+        then_changed || else_changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match RawOiI32AddLocalConstAddressFact::from_instrs(instrs, i) {
+      Some(dst_fact) =>
+        match
+          RawOiI32AddLocalConstAddressFact::from_instrs(instrs, dst_fact.end) {
+          Some(src_fact) if src_fact.end + 1 < instrs.length() &&
+            dst_fact.proves_equal(src_fact) &&
+            run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
+              instrs[src_fact.end],
+            ) =>
+            match instrs[src_fact.end + 1] {
+              @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem => {
+                run_hot_pipeline_raw_oi_push_dropped_range(
+                  out,
+                  instrs,
+                  dst_fact.start,
+                  dst_fact.end,
+                )
+                run_hot_pipeline_raw_oi_push_dropped_range(
+                  out,
+                  instrs,
+                  src_fact.start,
+                  src_fact.end,
+                )
+                out.push(instrs[src_fact.end])
+                out.push(@lib.Instruction::drop())
+                changed = true
+                i = src_fact.end + 2
+                continue
+              }
+              _ => ()
+            }
+          _ => ()
+        }
+      None => ()
+    }
+    let (rewritten, instr_changed) = run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_instr(
+      instrs[i],
+    )
+    out.push(rewritten)
+    changed = changed || instr_changed
+    i = i + 1
+  }
+  (out, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -29166,11 +29315,19 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
     tnh_indirect_exact_success_body, module_ctx,
   )
-  let (escaping_ref_get_desc_body, escaping_ref_get_desc_changed) = if options.traps_never_happen {
+  let (same_i32_add_memory_copy_body, same_i32_add_memory_copy_changed) = if options.traps_never_happen ||
+    options.ignore_implicit_traps {
+    run_hot_pipeline_raw_oi_drop_same_i32_add_memory_copy_body(
+      effectful_sibling_body,
+    )
+  } else {
     (effectful_sibling_body, false)
+  }
+  let (escaping_ref_get_desc_body, escaping_ref_get_desc_changed) = if options.traps_never_happen {
+    (same_i32_add_memory_copy_body, false)
   } else {
     run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-      effectful_sibling_body, module_ctx,
+      same_i32_add_memory_copy_body, module_ctx,
     )
   }
   let skipped_func = if exact_success_changed ||
@@ -29180,6 +29337,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     tnh_exact_success_changed ||
     tnh_indirect_exact_success_changed ||
     effectful_sibling_changed ||
+    same_i32_add_memory_copy_changed ||
     escaping_ref_get_desc_changed {
     @lib.Func::new(locals, @lib.Expr::new(escaping_ref_get_desc_body))
   } else {
@@ -29192,6 +29350,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !tnh_exact_success_changed &&
     !tnh_indirect_exact_success_changed &&
     !effectful_sibling_changed &&
+    !same_i32_add_memory_copy_changed &&
     !escaping_ref_get_desc_changed
   if exact_success_changed ||
     tnh_exact_success_changed ||
@@ -29219,7 +29378,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if escaping_ref_get_desc_changed {
+  if escaping_ref_get_desc_changed || same_i32_add_memory_copy_changed {
     return Some({
       reason: "raw-partial-optimize-instructions",
       func: skipped_func,

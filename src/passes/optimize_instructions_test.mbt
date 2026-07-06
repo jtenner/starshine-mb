@@ -32529,6 +32529,130 @@ test "optimize-instructions drops right block const same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops pure binary same-address memory.copy under trap-relaxed facts" {
+  // OI-G same-input equality fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` delegates to `ExpressionAnalyzer::equal` after
+  // peeling adjacent operand fallthroughs. Identical pure scalar expression
+  // trees, such as repeated `i32.add(local.get, const)` address operands, are
+  // equal and let the trap-relaxed same-address `memory.copy` collapse to drops.
+  // Starshine currently sees this public WAT shape as flat stack code, so the
+  // route is a narrow raw fact bridge backed by the same equality contract.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected pure binary same-address memory.copy TNH success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "i32.add"),
+    2,
+  )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "i32.const I32(4)", "i32.add", "drop", "local.get (Local 0)",
+    "i32.const I32(4)", "i32.add", "drop", "local.get (Local 1)", "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps different pure binary memory.copy outside equality fact" {
+  // Boundary guard for the pure scalar expression equality fact: Binaryen's
+  // structural equality does not equate different constant payloads nested
+  // under otherwise matching binary address trees, so the bulk copy remains.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    local.get $addr
+        #|    i32.const 8
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected different pure binary memory.copy boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "i32.const I32(4)", "i32.add", "local.get (Local 0)",
+    "i32.const I32(8)", "i32.add", "local.get (Local 1)", "memory.copy",
+  ])
+}
+
+///|
+test "optimize-instructions keeps right-prefix write pure binary memory.copy" {
+  // Boundary guard for source-backed `orderedBefore(effects(right))` parity:
+  // if the code between the left and right fallthroughs writes a local read by
+  // the right expression tree, the repeated binary shape is not enough to prove
+  // equal runtime addresses, so the trap-relaxed bulk copy must remain.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32)
+        #|    (memory.copy
+        #|      (i32.add (local.get $addr) (i32.const 4))
+        #|      (block (result i32)
+        #|        i32.const 99
+        #|        local.set $addr
+        #|        (i32.add (local.get $addr) (i32.const 4)))
+        #|      (local.get $size))))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected right-prefix write pure binary memory.copy boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "i32.const I32(4)", "i32.add", "i32.const I32(99)", "local.set (Local 0)",
+    "local.get (Local 0)", "i32.const I32(4)", "i32.add", "local.get (Local 1)",
+    "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions keeps different-const memory.copy outside equality fact" {
   // Boundary guard for the constant equality fact: different constants are not
   // equal under Binaryen's `ExpressionAnalyzer::equal`, so a dynamic-size

@@ -4736,6 +4736,7 @@ priv struct OiConsecutiveInputEqualityFact {
   left_fallthrough_id : Int
   right_fallthrough_id : Int
   matching_tee_and_get : Bool
+  matching_pure_scalar_tree : Bool
   intervening_effects_interfere : Bool
 }
 
@@ -4868,6 +4869,59 @@ fn optimize_instructions_mask_without_global_state(mask : UInt) -> UInt {
     mask ^ @ir.EFFECT_MASK_GLOBAL_STATE
   } else {
     mask
+  }
+}
+
+///|
+fn optimize_instructions_is_pure_scalar_equal_tree_op(op : @ir.HotOp) -> Bool {
+  match op {
+    @ir.HotOp::Unary
+    | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Convert => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_pure_scalar_tree_equal(
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+  depth? : Int = 0,
+) -> Bool {
+  if depth > 16 {
+    return false
+  }
+  let left = @ir.hot_node_get(func, left_id)
+  let right = @ir.hot_node_get(func, right_id)
+  match (left.op, right.op) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
+    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
+    (@ir.HotOp::Const, @ir.HotOp::Const) =>
+      @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
+    _ => {
+      if left.op != right.op ||
+        !optimize_instructions_is_pure_scalar_equal_tree_op(left.op) ||
+        left.ty != right.ty ||
+        left.flags != right.flags ||
+        left.imm0 != right.imm0 ||
+        left.imm1 != right.imm1 ||
+        left.child_count != right.child_count {
+        return false
+      }
+      for slot = 0; slot < left.child_count; slot = slot + 1 {
+        if !optimize_instructions_pure_scalar_tree_equal(
+            func,
+            @ir.hot_child_get(func, left_id, slot),
+            @ir.hot_child_get(func, right_id, slot),
+            depth=depth + 1,
+          ) {
+          return false
+        }
+      }
+      true
+    }
   }
 }
 
@@ -5106,6 +5160,9 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     (@ir.HotOp::LocalTee, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
     _ => false
   }
+  let matching_pure_scalar_tree = optimize_instructions_pure_scalar_tree_equal(
+    func, left_fallthrough_id, right_fallthrough_id,
+  )
   let intervening_local_writes : Array[Int] = []
   optimize_instructions_append_local_writes(
     intervening_local_writes,
@@ -5141,6 +5198,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     left_fallthrough_id,
     right_fallthrough_id,
     matching_tee_and_get,
+    matching_pure_scalar_tree,
     intervening_effects_interfere,
   }
 }
@@ -5150,21 +5208,16 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   self : OiConsecutiveInputEqualityFact,
   func : @ir.HotFunc,
 ) -> Bool {
+  ignore(func)
+  ignore(self.left_fallthrough_id)
+  ignore(self.right_fallthrough_id)
   if self.intervening_effects_interfere {
     return false
   }
-  if self.matching_tee_and_get {
+  if self.matching_tee_and_get || self.matching_pure_scalar_tree {
     return true
   }
-  let left = @ir.hot_node_get(func, self.left_fallthrough_id)
-  let right = @ir.hot_node_get(func, self.right_fallthrough_id)
-  match (left.op, right.op) {
-    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
-    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
-    (@ir.HotOp::Const, @ir.HotOp::Const) =>
-      @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
-    _ => false
-  }
+  false
 }
 
 ///|
@@ -5261,8 +5314,10 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // this fact intentionally narrower than Binaryen's full effect-interference
   // helper: right-operand peeling and non-matching left `local.tee` peeling carry
   // accumulated intervening effects, including precise local-write ids for the
-  // local/global-get fallthrough subset. Equality currently covers direct
-  // local.get, direct global.get, direct constants, or matching tee/get.
+  // direct local/global-get fallthrough subset and conservative closure for
+  // nested pure scalar trees. Equality currently covers matching tee/get or
+  // structurally identical scalar trees made of local.get, global.get,
+  // constants, unary, binary, compare, and convert nodes.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,
