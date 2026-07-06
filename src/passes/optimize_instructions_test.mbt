@@ -14056,6 +14056,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   exact_cast_target? : Bool = true,
   nullable_cast_target? : Bool = false,
   const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -14090,6 +14091,10 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
     if const_call_args {
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if global_call_args {
+      cast_body.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
     } else {
       cast_body.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
@@ -14100,6 +14105,10 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
     if const_call_args {
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if global_call_args {
+      cast_body.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
     } else {
       cast_body.push(
         @lib.Instruction::local_get(
@@ -14115,7 +14124,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   } else {
     base_ref_type
   }
-  let cast_params = if const_call_args {
+  let cast_params = if const_call_args || global_call_args {
     []
   } else {
     optimize_instructions_test_i32_params(ref_arg_count + desc_arg_count)
@@ -14233,6 +14242,7 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   exact_cast_target? : Bool = false,
   nullable_cast_target? : Bool = false,
   const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     ref_arg_count,
@@ -14241,12 +14251,17 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
     exact_cast_target~,
     nullable_cast_target~,
     const_call_args~,
+    global_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let expected : Array[@lib.Instruction] = []
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
     if const_call_args {
       expected.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
     } else {
       expected.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
@@ -14257,6 +14272,10 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
     if const_call_args {
       expected.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
     } else {
       expected.push(
         @lib.Instruction::local_get(
@@ -14309,6 +14328,35 @@ test "optimize-instructions narrows nullable direct-call descriptor success with
     exact_cast_target=false,
     nullable_cast_target=true,
     const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions exactifies direct-call descriptor success with global arguments" {
+  // OI-J pure-argument direct-call descriptor exactification: `global.get`
+  // operands read ordered i32 globals for direct-call arguments. Binaryen keeps
+  // the descriptor equality check for this stack form and exactifies the cast,
+  // so this extends the non-trapping argument family without merging into the
+  // local-only exact-success skip path.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    2,
+    1,
+    global_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions narrows nullable direct-call descriptor success with global arguments" {
+  // Same-family nullable proof for global.get arguments: preserve source order
+  // and the descriptor check while narrowing the residual cast to non-null
+  // exact, not skipping it as an exact descriptor success.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    1,
+    2,
+    exact_ref_result=false,
+    exact_cast_target=false,
+    nullable_cast_target=true,
+    global_call_args=true,
   )
 }
 
