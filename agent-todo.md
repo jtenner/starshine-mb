@@ -18,12 +18,12 @@
 ### OI fact-driven Binaryen port recursion
 
 - [OI-FACTS]001 - Replace scanner families with source-backed fact structures
-  - Status: active recursive handoff goal started 2026-07-06. First slice landed a shared `OptimizeInstructionsLocalFacts` store and moved sign-extension plus unsigned-max local reasoning to Binaryen `LocalScanner`-shaped whole-function facts with red-first conflicting/widened-local regressions.
+  - Status: active recursive handoff goal started 2026-07-06. First slice landed a shared `OptimizeInstructionsLocalFacts` store and moved sign-extension plus unsigned-max local reasoning to Binaryen `LocalScanner`-shaped whole-function facts with red-first conflicting/widened-local regressions. Current slice started the OI-J fact substrate with `OiRefFact`, `OiNullTrapFact`, `OiDescriptorTypeFact`, and `OiDescriptorOperandFact`, including a red-first direct `ref.get_desc(ref.null)` null-trap regression and descriptor operand routing for exact-described-heap, erase, trap, and localization decisions.
   - Goal: implement `optimize-instructions` in almost the exact way Binaryen implements it by adding durable fact data structures for each OI family first, then replacing the ad hoc scanner families with those facts.
   - Why: recent OI work was drifting into brute-force one-off scanners. Binaryen's `OptimizeInstructions.cpp` relies on source-level facts (`LocalScanner`, Bits/Properties/Effects, GC cast/null-trap facts, call_ref target facts, localize/order facts, and repair/refinalization facts), and Starshine should mirror that structure before widening behavior.
   - Deliverables:
     - [x] Introduce local fact storage and use whole-function local sign-extension / unsigned-max facts instead of straight-line per-`local.get` scanner facts.
-    - [ ] Add explicit reference/descriptor/null-trap fact structures that can drive OI-I/OI-J/OI-K rewrites without arity/name whitelists.
+    - [ ] Add explicit reference/descriptor/null-trap fact structures that can drive OI-I/OI-J/OI-K rewrites without arity/name whitelists. Partial: `OiRefFact`, `OiNullTrapFact`, `OiDescriptorTypeFact`, and `OiDescriptorOperandFact` now back several OI-J null/descriptor decisions, but broad cast/test/null-trap families and scanner/arity replacement remain active.
     - [ ] Add call_ref target/operand fact structures for direct, table, descriptor-producer, argument-order, and return_call_ref families.
     - [ ] Add memory/bulk/store/load facts for OI-G so tiny lowering, low-byte masks, load-result, and stored-value rewrites share one proof substrate.
     - [ ] Add tuple/multivalue/localization facts for OI-M before replacing remaining tuple scratch scanners.
