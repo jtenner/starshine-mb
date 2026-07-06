@@ -26649,6 +26649,67 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nont
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_block_body_is_branch_free(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.is_empty() {
+    return false
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Return
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_branch_free_effectful_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
+      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_block_body_is_branch_free(
+        body,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
+  instr : @lib.Instruction,
+) -> Bool {
+  run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+    instr,
+  ) ||
+  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_branch_free_effectful_block(
+    instr,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descriptor_miss(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -26732,7 +26793,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
   let mut scan = start + 1
   while scan < instrs.length() {
     match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
           arg,
         ) => {
         desc_args.push(instrs[scan])
