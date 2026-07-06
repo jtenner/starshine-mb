@@ -11451,6 +11451,194 @@ test "optimize-instructions exactifies nullable-result descriptor casts with cal
 }
 
 ///|
+test "optimize-instructions keeps exact descriptor successes with call_ref exact descriptor producers" {
+  // OI-J call_ref descriptor-producer exact-success boundary: Binaryen
+  // version_130 directizes the `ref.func` + `call_ref` descriptor producer to
+  // the underlying descriptor call, but keeps the explicit exact descriptor
+  // equality cast in default mode. This is deliberately not the pure-local
+  // direct-call exact-success skip family and does not claim TNH/IIT,
+  // return_call_ref, indirect descriptors, multivalue, or control/EH breadth.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let make_desc0_func_type = @lib.TypeIdx::new(2U)
+  let make_ref0_func_type = @lib.TypeIdx::new(3U)
+  let make_desc1_func_type = @lib.TypeIdx::new(4U)
+  let make_ref1_func_type = @lib.TypeIdx::new(5U)
+  let cast0_func_type = @lib.TypeIdx::new(6U)
+  let cast1_func_type = @lib.TypeIdx::new(7U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let exact_base_ref_type = @lib.RefType::new(false, base_heap, exact=true)
+  let exact_base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(exact_base_descriptor_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(exact_base_ref_type)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([
+              @lib.ValType::i32(),
+            ], [@lib.ValType::ref_type(exact_base_descriptor_ref_type)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([
+              @lib.ValType::i32(),
+            ], [@lib.ValType::ref_type(exact_base_ref_type)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(exact_base_ref_type)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([
+              @lib.ValType::i32(),
+              @lib.ValType::i32(),
+            ], [@lib.ValType::ref_type(exact_base_ref_type)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        make_desc0_func_type,
+        make_ref0_func_type,
+        make_desc1_func_type,
+        make_ref1_func_type,
+        cast0_func_type,
+        cast1_func_type,
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(2U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::struct_new_default_desc(base_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::struct_new_default_desc(base_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(make_desc0_func_type),
+            @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::call_ref(make_desc1_func_type),
+            @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          _,
+          _,
+          _,
+          _,
+          @lib.Func(_, @lib.Expr(no_arg_body)),
+          @lib.Func(_, @lib.Expr(param_body)),
+        ],
+      ),
+    ) => {
+      @debug.assert_eq(
+        no_arg_body,
+        [
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+        ],
+      )
+      @debug.assert_eq(
+        param_body,
+        [
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+          @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+        ],
+      )
+    }
+    _ => fail("expected call_ref exact descriptor-success boundary module")
+  }
+}
+
+///|
 test "optimize-instructions folds descriptor casts with both operands call-produced exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 rewrites the
   // strict-subtype/exact-descriptor miss to `drop(call-produced-ref);
