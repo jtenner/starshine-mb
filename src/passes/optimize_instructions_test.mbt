@@ -32630,6 +32630,55 @@ test "optimize-instructions drops flat pure scalar same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops commuted flat add same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 delegates the
+  // trap-relaxed same-address `memory.copy` check to `ExpressionAnalyzer::equal`,
+  // and the local probe showed reordered one-level `i32.add` address operands
+  // are equal while noncommutative `i32.sub` is not. Keep this fact-shaped until
+  // the public WAT path can carry the operands as HOT expression children.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "add-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.add
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "const-add-swap") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 4
+        #|    local.get $addr
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected commuted flat add memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("i32.add"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions keeps swapped flat sub memory.copy outside equality fact" {
   // Boundary guard for the flat raw expression fact: Binaryen v130 keeps
   // noncommutative swapped `i32.sub` operands, so the raw fact must not treat

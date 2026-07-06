@@ -29126,6 +29126,10 @@ priv struct RawOiFlatPureScalarAddressFact {
   start : Int
   end : Int
   key : String
+  binary_op : String
+  left_key : String
+  right_key : String
+  commutative : Bool
 }
 
 ///|
@@ -29180,7 +29184,15 @@ fn RawOiFlatPureScalarAddressFact::from_instrs(
     match
       run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(instrs[start + 1]) {
       Some(op_key) =>
-        return Some({ start, end: start + 2, key: "\{op_key}(\{left_key})" })
+        return Some({
+          start,
+          end: start + 2,
+          key: "\{op_key}(\{left_key})",
+          binary_op: "",
+          left_key: "",
+          right_key: "",
+          commutative: false,
+        })
       None => ()
     }
   }
@@ -29197,11 +29209,23 @@ fn RawOiFlatPureScalarAddressFact::from_instrs(
           start,
           end: start + 3,
           key: "\{op_key}(\{left_key},\{right_key})",
+          binary_op: op_key,
+          left_key,
+          right_key,
+          commutative: op_key == "i32.add",
         })
       None => ()
     }
   }
-  Some({ start, end: start + 1, key: left_key })
+  Some({
+    start,
+    end: start + 1,
+    key: left_key,
+    binary_op: "",
+    left_key: "",
+    right_key: "",
+    commutative: false,
+  })
 }
 
 ///|
@@ -29209,7 +29233,14 @@ fn RawOiFlatPureScalarAddressFact::proves_equal(
   self : RawOiFlatPureScalarAddressFact,
   other : RawOiFlatPureScalarAddressFact,
 ) -> Bool {
-  self.key == other.key
+  self.key == other.key ||
+  (
+    self.commutative &&
+    other.commutative &&
+    self.binary_op == other.binary_op &&
+    self.left_key == other.right_key &&
+    self.right_key == other.left_key
+  )
 }
 
 ///|
