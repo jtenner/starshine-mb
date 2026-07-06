@@ -4712,10 +4712,19 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 }
 
 ///|
+priv struct OiRightFallthroughInputFact {
+  fallthrough_id : Int
+  prefix_effect_mask : UInt
+  prefix_write_mask : UInt
+  unsupported_prefix_control : Bool
+}
+
+///|
 priv struct OiConsecutiveInputEqualityFact {
   left_fallthrough_id : Int
   right_fallthrough_id : Int
   matching_tee_and_get : Bool
+  right_prefix_interferes : Bool
 }
 
 ///|
@@ -4736,30 +4745,80 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
 
 ///|
 fn optimize_instructions_right_fallthrough_input_for_equality(
-  ctx : HotPassContext,
   func : @ir.HotFunc,
+  node_masks : Array[UInt],
   node_id : Int,
-) -> Int {
+) -> OiRightFallthroughInputFact {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block if node.child_count > 0 => {
+      let mut prefix_effect_mask = 0U
+      let mut prefix_write_mask = 0U
       for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
-        if !optimize_instructions_node_effects_are_pure(
-            ctx,
-            func,
-            @ir.hot_child_get(func, node_id, slot),
-          ) {
-          return node_id
+        let child_id = @ir.hot_child_get(func, node_id, slot)
+        let child_mask = node_masks[child_id]
+        if (child_mask & @ir.EFFECT_MASK_CONTROL) != 0U {
+          return {
+            fallthrough_id: node_id,
+            prefix_effect_mask: 0U,
+            prefix_write_mask: 0U,
+            unsupported_prefix_control: true,
+          }
         }
+        prefix_effect_mask = prefix_effect_mask | child_mask
+        prefix_write_mask = prefix_write_mask |
+          optimize_instructions_subtree_write_mask(func, node_masks, child_id)
       }
-      optimize_instructions_right_fallthrough_input_for_equality(
-        ctx,
+      let nested = optimize_instructions_right_fallthrough_input_for_equality(
         func,
+        node_masks,
         @ir.hot_child_get(func, node_id, node.child_count - 1),
       )
+      {
+        fallthrough_id: nested.fallthrough_id,
+        prefix_effect_mask: prefix_effect_mask | nested.prefix_effect_mask,
+        prefix_write_mask: prefix_write_mask | nested.prefix_write_mask,
+        unsupported_prefix_control: nested.unsupported_prefix_control,
+      }
     }
-    _ => node_id
+    _ =>
+      {
+        fallthrough_id: node_id,
+        prefix_effect_mask: 0U,
+        prefix_write_mask: 0U,
+        unsupported_prefix_control: false,
+      }
   }
+}
+
+///|
+fn optimize_instructions_prefix_effects_ordered_before_right_fallthrough(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  prefix_effect_mask : UInt,
+  prefix_write_mask : UInt,
+  right_id : Int,
+) -> Bool {
+  let right_mask = node_masks[right_id]
+  let right_write_mask = optimize_instructions_subtree_write_mask(
+    func, node_masks, right_id,
+  )
+  let read_bits = optimize_instructions_reorder_read_effects()
+  let prefix_reads = prefix_effect_mask & read_bits
+  let right_reads = right_mask & read_bits
+  let region_conflict = ((prefix_reads | prefix_write_mask) & right_write_mask) !=
+    0U ||
+    ((right_reads | right_write_mask) & prefix_write_mask) != 0U
+  if region_conflict {
+    return true
+  }
+  let prefix_disrupts = (
+      prefix_effect_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)
+    ) !=
+    0U
+  let right_side_effect = right_write_mask != 0U ||
+    (right_mask & @ir.EFFECT_MASK_THROW) != 0U
+  prefix_disrupts && right_side_effect
 }
 
 ///|
@@ -4769,19 +4828,36 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   left_id : Int,
   right_id : Int,
 ) -> OiConsecutiveInputEqualityFact {
+  let effects = pass_require_effects(ctx, func)
   let left_fallthrough_id = optimize_instructions_left_fallthrough_input_for_equality(
     func, left_id,
   )
-  let right_fallthrough_id = optimize_instructions_right_fallthrough_input_for_equality(
-    ctx, func, right_id,
+  let right_fallthrough = optimize_instructions_right_fallthrough_input_for_equality(
+    func,
+    effects.node_masks,
+    right_id,
   )
+  let right_fallthrough_id = right_fallthrough.fallthrough_id
   let left = @ir.hot_node_get(func, left_fallthrough_id)
   let right = @ir.hot_node_get(func, right_fallthrough_id)
   let matching_tee_and_get = match (left.op, right.op) {
     (@ir.HotOp::LocalTee, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
     _ => false
   }
-  { left_fallthrough_id, right_fallthrough_id, matching_tee_and_get }
+  let right_prefix_interferes = right_fallthrough.unsupported_prefix_control ||
+    optimize_instructions_prefix_effects_ordered_before_right_fallthrough(
+      func,
+      effects.node_masks,
+      right_fallthrough.prefix_effect_mask,
+      right_fallthrough.prefix_write_mask,
+      right_fallthrough_id,
+    )
+  {
+    left_fallthrough_id,
+    right_fallthrough_id,
+    matching_tee_and_get,
+    right_prefix_interferes,
+  }
 }
 
 ///|
@@ -4789,6 +4865,9 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   self : OiConsecutiveInputEqualityFact,
   func : @ir.HotFunc,
 ) -> Bool {
+  if self.right_prefix_interferes {
+    return false
+  }
   if self.matching_tee_and_get {
     return true
   }
@@ -4892,9 +4971,9 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // fallthrough facts, plus a deliberate fast path for a fallthrough
   // `local.tee` immediately followed by a matching `local.get`. Starshine keeps
   // this fact intentionally narrower than Binaryen's full effect-interference
-  // helper: right-operand peeling is currently limited to block prefixes proven
-  // effect-pure by HOT effects, and only local-get equality or matching tee/get
-  // is accepted.
+  // helper: right-operand peeling accepts block prefixes whose accumulated
+  // effects are not ordered before the right fallthrough value. Equality remains
+  // limited to local-get equality or matching tee/get.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,
