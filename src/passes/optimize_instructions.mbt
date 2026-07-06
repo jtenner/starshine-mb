@@ -13590,6 +13590,20 @@ fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_ch
       optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
         func, nullable_child,
       )
+    @ir.HotOp::Select =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, nullable_child,
+      ) &&
+      !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+        func, nullable_child,
+      )
+    @ir.HotOp::If =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, nullable_child,
+      ) &&
+      optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+        func, nullable_child,
+      )
     @ir.HotOp::Block =>
       optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
         func, nullable_child,
