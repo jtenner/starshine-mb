@@ -13509,7 +13509,7 @@ fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_null_trampoli
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
+fn optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check(
   func : @ir.HotFunc,
   block_id : Int,
 ) -> Bool {
@@ -13760,7 +13760,7 @@ fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_ch
         func, nullable_child,
       )
     @ir.HotOp::Block =>
-      optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
+      optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check(
         func, nullable_child,
       )
     _ => false
