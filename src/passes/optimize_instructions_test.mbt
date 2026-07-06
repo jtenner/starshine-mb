@@ -32973,6 +32973,77 @@ test "optimize-instructions drops float flat compare same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops wide flat numeric same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 routes
+  // repeated flat stack numeric trees through `ExpressionAnalyzer::equal` for
+  // trap-relaxed same-address `memory.copy`. This extends the explicit raw
+  // bridge facts beyond compares to source-backed same-order numeric unary,
+  // conversion, shift, float arithmetic, and commuted integer i64 arithmetic
+  // trees while preserving ordered/noncommutative boundaries.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "i64-add-swap") (param $a i64) (param $b i64) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.add
+        #|    i64.const 10
+        #|    i64.eq
+        #|    local.get $b
+        #|    local.get $a
+        #|    i64.add
+        #|    i64.const 10
+        #|    i64.eq
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i32-shr-same") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.shr_u
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.shr_u
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i32-popcnt-same") (param $a i32) (param $size i32)
+        #|    local.get $a
+        #|    i32.popcnt
+        #|    local.get $a
+        #|    i32.popcnt
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "f32-add-trunc-same") (param $a f32) (param $b f32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    f32.add
+        #|    i32.trunc_f32_s
+        #|    local.get $a
+        #|    local.get $b
+        #|    f32.add
+        #|    i32.trunc_f32_s
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected wide flat numeric memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 4; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions keeps swapped flat relational memory.copy outside equality fact" {
   // Boundary guard for the explicit commutative equality fact: Binaryen v130
   // keeps swapped `i32.lt_u` operands as a live `memory.copy` under the dynamic
