@@ -17201,6 +17201,146 @@ test "optimize-instructions erases nontrapping ref.get_desc descriptor operands 
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc select and if null checks" {
+  // OI-J standalone ref.get_desc trapOnNull breadth: Binaryen version_130
+  // default and TNH modes simplify `ref.get_desc(ref.as_non_null(select ...))`
+  // and `ref.get_desc(ref.as_non_null(if ...))` to leave the select/if as the
+  // nullable child of `ref.get_desc`. This is a narrow branch-free nullable
+  // value-child family and does not claim nested control, escaping branches,
+  // descriptor operands, ref.test_desc, or generalized effect localization.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, described_heap),
+  )
+  let descriptor_val_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+              ],
+              [descriptor_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(2U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::select(types=Some([nullable_described_val_type])),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+              Some([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(select_body)), @lib.Func(_, @lib.Expr(if_body))]
+      )
+    ) => {
+      @debug.assert_eq(select_body.length(), 5)
+      match select_body[3] {
+        @lib.Select(_) => ()
+        other => fail("expected select child before ref.get_desc, got \{other}")
+      }
+      match select_body[4] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected select-produced ref.get_desc, got \{other}")
+      }
+      @debug.assert_eq(if_body.length(), 3)
+      match if_body[1] {
+        @lib.If(_, _, _) => ()
+        other => fail("expected if child before ref.get_desc, got \{other}")
+      }
+      match if_body[2] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected if-produced ref.get_desc, got \{other}")
+      }
+    }
+    other => fail("expected two optimized ref.get_desc funcs, got \{other}")
+  }
+
+  let tnh_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  let tnh_select_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  match hot_pass_run(tnh_ctx, tnh_select_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH standalone select ref.get_desc success, got \{err}")
+  }
+  let tnh_select_root = @ir.hot_root_get(tnh_select_func, 0)
+  let tnh_select_child = @ir.hot_child_get(tnh_select_func, tnh_select_root, 0)
+  match @ir.hot_node_get(tnh_select_func, tnh_select_child).op {
+    @ir.HotOp::Select => ()
+    other => fail("expected TNH standalone select child, got \{other}")
+  }
+  let tnh_if_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  match hot_pass_run(tnh_ctx, tnh_if_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH standalone if ref.get_desc success, got \{err}")
+  }
+  let tnh_if_root = @ir.hot_root_get(tnh_if_func, 0)
+  let tnh_if_child = @ir.hot_child_get(tnh_if_func, tnh_if_root, 0)
+  match @ir.hot_node_get(tnh_if_func, tnh_if_child).op {
+    @ir.HotOp::If => ()
+    other => fail("expected TNH standalone if child, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc branch-free block null checks" {
   // OI-J finite block-child slice: Binaryen version_130 simplifies standalone
   // `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)` for the
