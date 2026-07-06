@@ -32412,6 +32412,89 @@ test "optimize-instructions drops left localtee payload same-address memory.copy
 }
 
 ///|
+test "optimize-instructions drops right block unrelated global.set global-address memory.copy" {
+  // OI-G same-input global-interference fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` also treats `global.get` fallthrough values as
+  // equal when intervening effects are not ordered before that specific global
+  // read. A right-block prefix writing an unrelated global cannot change the
+  // copied address, so the trap-relaxed same-address `memory.copy` is removed
+  // while preserving the unrelated write inside the dropped source operand.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (global $addr (mut i32) (i32.const 16))
+        #|  (global $tmp (mut i32) (i32.const 0))
+        #|  (func (export "f") (param $size i32)
+        #|    global.get $addr
+        #|    (block (result i32)
+        #|      i32.const 1
+        #|      global.set $tmp
+        #|      global.get $addr)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unrelated right global.set memory.copy TNH success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "global.get (Global 0)", "drop", "i32.const I32(1)", "global.set (Global 1)",
+    "global.get (Global 0)", "drop", "local.get (Local 0)", "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps interfering right global.set global-address memory.copy" {
+  // Boundary guard for the OI-G right-prefix global-interference fact:
+  // Binaryen v130's `orderedBefore(effects(right))` rejects a right block whose
+  // prefix writes the global later read by the fallthrough address. The
+  // addresses are not provably equal after the write, so Starshine must keep the
+  // `memory.copy`.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (global $addr (mut i32) (i32.const 16))
+        #|  (func (export "f") (param $size i32)
+        #|    global.get $addr
+        #|    (block (result i32)
+        #|      i32.const 1
+        #|      global.set $addr
+        #|      global.get $addr)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected interfering right global.set memory.copy success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "global.get (Global 0)", "i32.const I32(1)", "global.set (Global 0)", "global.get (Global 0)",
+    "local.get (Local 0)", "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions keeps interfering right local.set same-address memory.copy" {
   // Boundary guard for the OI-G right-prefix interference fact: Binaryen v130's
   // `orderedBefore(effects(right))` rejects a right block whose prefix writes the

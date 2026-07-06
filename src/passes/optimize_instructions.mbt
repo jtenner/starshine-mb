@@ -4717,6 +4717,7 @@ priv struct OiLeftFallthroughInputFact {
   after_value_effect_mask : UInt
   after_value_write_mask : UInt
   after_value_local_writes : Array[Int]
+  after_value_global_writes : Array[Int]
   unsupported_after_value_control : Bool
 }
 
@@ -4726,6 +4727,7 @@ priv struct OiRightFallthroughInputFact {
   prefix_effect_mask : UInt
   prefix_write_mask : UInt
   prefix_local_writes : Array[Int]
+  prefix_global_writes : Array[Int]
   unsupported_prefix_control : Bool
 }
 
@@ -4751,6 +4753,19 @@ fn optimize_instructions_local_writes_append_unique(
 }
 
 ///|
+fn optimize_instructions_global_writes_append_unique(
+  writes : Array[Int],
+  global_idx : Int,
+) -> Unit {
+  for value in writes {
+    if value == global_idx {
+      return
+    }
+  }
+  writes.push(global_idx)
+}
+
+///|
 fn optimize_instructions_subtree_local_writes(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4772,12 +4787,43 @@ fn optimize_instructions_subtree_local_writes(
 }
 
 ///|
+fn optimize_instructions_subtree_global_writes(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Array[Int] {
+  let writes : Array[Int] = []
+  fn walk(id : Int) -> Unit {
+    let node = @ir.hot_node_get(func, id)
+    match node.op {
+      @ir.HotOp::GlobalSet =>
+        optimize_instructions_global_writes_append_unique(writes, node.imm0)
+      _ => ()
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
+      walk(@ir.hot_child_get(func, id, slot))
+    }
+  }
+  walk(node_id)
+  writes
+}
+
+///|
 fn optimize_instructions_append_local_writes(
   dst : Array[Int],
   src : Array[Int],
 ) -> Unit {
   for local_idx in src {
     optimize_instructions_local_writes_append_unique(dst, local_idx)
+  }
+}
+
+///|
+fn optimize_instructions_append_global_writes(
+  dst : Array[Int],
+  src : Array[Int],
+) -> Unit {
+  for global_idx in src {
+    optimize_instructions_global_writes_append_unique(dst, global_idx)
   }
 }
 
@@ -4795,9 +4841,31 @@ fn optimize_instructions_local_writes_include(
 }
 
 ///|
+fn optimize_instructions_global_writes_include(
+  writes : Array[Int],
+  global_idx : Int,
+) -> Bool {
+  for value in writes {
+    if value == global_idx {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_mask_without_local_state(mask : UInt) -> UInt {
   if (mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U {
     mask ^ @ir.EFFECT_MASK_LOCAL_STATE
+  } else {
+    mask
+  }
+}
+
+///|
+fn optimize_instructions_mask_without_global_state(mask : UInt) -> UInt {
+  if (mask & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U {
+    mask ^ @ir.EFFECT_MASK_GLOBAL_STATE
   } else {
     mask
   }
@@ -4828,6 +4896,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
             after_value_effect_mask: 0U,
             after_value_write_mask: 0U,
             after_value_local_writes: [],
+            after_value_global_writes: [],
             unsupported_after_value_control: false,
           }
         _ => ()
@@ -4842,6 +4911,11 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
         nested.after_value_local_writes,
       )
       optimize_instructions_local_writes_append_unique(local_writes, node.imm0)
+      let global_writes : Array[Int] = []
+      optimize_instructions_append_global_writes(
+        global_writes,
+        nested.after_value_global_writes,
+      )
       {
         fallthrough_id: nested.fallthrough_id,
         after_value_effect_mask: nested.after_value_effect_mask |
@@ -4849,6 +4923,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
         after_value_write_mask: nested.after_value_write_mask |
         @ir.EFFECT_MASK_LOCAL_STATE,
         after_value_local_writes: local_writes,
+        after_value_global_writes: global_writes,
         unsupported_after_value_control: nested.unsupported_after_value_control,
       }
     }
@@ -4858,6 +4933,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
         after_value_effect_mask: 0U,
         after_value_write_mask: 0U,
         after_value_local_writes: [],
+        after_value_global_writes: [],
         unsupported_after_value_control: false,
       }
   }
@@ -4875,6 +4951,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
       let mut prefix_effect_mask = 0U
       let mut prefix_write_mask = 0U
       let prefix_local_writes : Array[Int] = []
+      let prefix_global_writes : Array[Int] = []
       for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)
         let child_mask = node_masks[child_id]
@@ -4884,6 +4961,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
             prefix_effect_mask: 0U,
             prefix_write_mask: 0U,
             prefix_local_writes: [],
+            prefix_global_writes: [],
             unsupported_prefix_control: true,
           }
         }
@@ -4893,6 +4971,10 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         optimize_instructions_append_local_writes(
           prefix_local_writes,
           optimize_instructions_subtree_local_writes(func, child_id),
+        )
+        optimize_instructions_append_global_writes(
+          prefix_global_writes,
+          optimize_instructions_subtree_global_writes(func, child_id),
         )
       }
       let nested = optimize_instructions_right_fallthrough_input_for_equality(
@@ -4904,11 +4986,16 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         prefix_local_writes,
         nested.prefix_local_writes,
       )
+      optimize_instructions_append_global_writes(
+        prefix_global_writes,
+        nested.prefix_global_writes,
+      )
       {
         fallthrough_id: nested.fallthrough_id,
         prefix_effect_mask: prefix_effect_mask | nested.prefix_effect_mask,
         prefix_write_mask: prefix_write_mask | nested.prefix_write_mask,
         prefix_local_writes,
+        prefix_global_writes,
         unsupported_prefix_control: nested.unsupported_prefix_control,
       }
     }
@@ -4918,6 +5005,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         prefix_effect_mask: 0U,
         prefix_write_mask: 0U,
         prefix_local_writes: [],
+        prefix_global_writes: [],
         unsupported_prefix_control: false,
       }
   }
@@ -4930,6 +5018,7 @@ fn optimize_instructions_effects_ordered_before_right_fallthrough(
   effect_mask : UInt,
   write_mask : UInt,
   local_writes : Array[Int],
+  global_writes : Array[Int],
   right_id : Int,
 ) -> Bool {
   let right_mask = node_masks[right_id]
@@ -4955,6 +5044,19 @@ fn optimize_instructions_effects_ordered_before_right_fallthrough(
       )
       right_reads = optimize_instructions_mask_without_local_state(right_reads)
       effective_right_write_mask = optimize_instructions_mask_without_local_state(
+        effective_right_write_mask,
+      )
+    }
+    @ir.HotOp::GlobalGet if (effect_mask & @ir.EFFECT_MASK_CALL) == 0U &&
+      !optimize_instructions_global_writes_include(global_writes, right.imm0) => {
+      effective_write_mask = optimize_instructions_mask_without_global_state(
+        effective_write_mask,
+      )
+      effect_reads = optimize_instructions_mask_without_global_state(
+        effect_reads,
+      )
+      right_reads = optimize_instructions_mask_without_global_state(right_reads)
+      effective_right_write_mask = optimize_instructions_mask_without_global_state(
         effective_right_write_mask,
       )
     }
@@ -5013,6 +5115,15 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     intervening_local_writes,
     right_fallthrough.prefix_local_writes,
   )
+  let intervening_global_writes : Array[Int] = []
+  optimize_instructions_append_global_writes(
+    intervening_global_writes,
+    left_fallthrough.after_value_global_writes,
+  )
+  optimize_instructions_append_global_writes(
+    intervening_global_writes,
+    right_fallthrough.prefix_global_writes,
+  )
   let intervening_effects_interfere = left_fallthrough.unsupported_after_value_control ||
     right_fallthrough.unsupported_prefix_control ||
     optimize_instructions_effects_ordered_before_right_fallthrough(
@@ -5023,6 +5134,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
       left_fallthrough.after_value_write_mask |
       right_fallthrough.prefix_write_mask,
       intervening_local_writes,
+      intervening_global_writes,
       right_fallthrough_id,
     )
   {
@@ -5048,6 +5160,7 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   let right = @ir.hot_node_get(func, self.right_fallthrough_id)
   match (left.op, right.op) {
     (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
+    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
     _ => false
   }
 }
