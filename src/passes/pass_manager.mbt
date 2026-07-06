@@ -27317,6 +27317,46 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                 }
                 _ => return None
               }
+            @lib.RefFunc(descriptor_func) if desc_scan + 2 < instrs.length() =>
+              match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
+                (@lib.CallRef(type_idx), @lib.RefCastDescEq(nullable, exact, target)) if !nullable &&
+                  !exact &&
+                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+                    module_ctx,
+                    ref_func,
+                    target,
+                    ref_args.length(),
+                  ) &&
+                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                    module_ctx,
+                    descriptor_func,
+                    target,
+                    desc_args.length(),
+                  ) &&
+                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                    module_ctx,
+                    type_idx,
+                    target,
+                    desc_args.length(),
+                  ) => {
+                  let rewritten : Array[@lib.Instruction] = []
+                  for arg in ref_args {
+                    rewritten.push(arg)
+                  }
+                  rewritten.push(@lib.Instruction::call(ref_func))
+                  for arg in desc_args {
+                    rewritten.push(arg)
+                  }
+                  rewritten.push(@lib.Instruction::call(descriptor_func))
+                  rewritten.push(
+                    @lib.Instruction::ref_cast_desc_eq_type(
+                      @lib.RefType::new(false, target, exact=true),
+                    ),
+                  )
+                  return Some((rewritten, desc_scan + 3))
+                }
+                _ => return None
+              }
             _ => return None
           }
         }
