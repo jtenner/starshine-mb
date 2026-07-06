@@ -26717,6 +26717,38 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_di
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
+  module_ctx : @ir.HotModuleContext,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Int? {
+  let mut scan = start
+  let mut param_count = 0
+  while scan < instrs.length() {
+    match instrs[scan] {
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+          arg,
+        ) => {
+        param_count = param_count + 1
+        scan = scan + 1
+      }
+      @lib.Call(func_idx) if param_count > 0 =>
+        match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(params, [result])) if params.length() ==
+            param_count =>
+            match result {
+              @lib.ValType::RefTypeValType(_) => return None
+              _ => return Some(scan + 1)
+            }
+          _ => return None
+        }
+      _ => return None
+    }
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
@@ -26813,22 +26845,37 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
     _ => return None
   }
   let desc_args : Array[@lib.Instruction] = []
+  let mut desc_arg_count = 0
   let mut scan = start + 1
   while scan < instrs.length() {
+    match
+      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
+        module_ctx, instrs, scan,
+      ) {
+      Some(next_scan) => {
+        let mut arg_scan = scan
+        while arg_scan < next_scan {
+          desc_args.push(instrs[arg_scan])
+          arg_scan = arg_scan + 1
+        }
+        desc_arg_count = desc_arg_count + 1
+        scan = next_scan
+        continue
+      }
+      None => ()
+    }
     match instrs[scan] {
       arg if run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
           module_ctx, arg,
         ) => {
         desc_args.push(instrs[scan])
+        desc_arg_count = desc_arg_count + 1
         scan = scan + 1
       }
       @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
         match instrs[scan + 1] {
           @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
-              module_ctx,
-              descriptor_func,
-              target,
-              desc_args.length(),
+              module_ctx, descriptor_func, target, desc_arg_count,
             ) &&
             run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,

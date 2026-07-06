@@ -10517,7 +10517,11 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     @lib.RecType::new(
       @lib.SubType::comp_type(
         @lib.CompType::func(
-          if parameterized_direct_call_args { [@lib.ValType::i32()] } else { [] },
+          if parameterized_direct_call_args {
+            [@lib.ValType::i32()]
+          } else {
+            []
+          },
           [@lib.ValType::i32()],
         ),
       ),
