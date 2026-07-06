@@ -32745,6 +32745,105 @@ test "optimize-instructions drops commuted flat integer op same-address memory.c
 }
 
 ///|
+test "optimize-instructions drops commuted flat equality same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 treats swapped
+  // integer equality/inequality operands as equal under `ExpressionAnalyzer::equal`,
+  // so trap-relaxed same-address `memory.copy` collapses. This is intentionally
+  // an explicit compare fact extension, not a broad compare/operator scanner:
+  // ordered relational predicates remain outside the commutative fact below.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "i32-eq-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.eq
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.eq
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i32-ne-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.ne
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.ne
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i64-eq-swap") (param $a i64) (param $b i64) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.eq
+        #|    local.get $b
+        #|    local.get $a
+        #|    i64.eq
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "i64-ne-swap") (param $a i64) (param $b i64) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i64.ne
+        #|    local.get $b
+        #|    local.get $a
+        #|    i64.ne
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected commuted equality memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 4; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions keeps swapped flat relational memory.copy outside equality fact" {
+  // Boundary guard for the explicit commutative equality fact: Binaryen v130
+  // keeps swapped `i32.lt_u` operands as a live `memory.copy` under the dynamic
+  // trap-relaxed probe. Do not classify all comparisons as commutative.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "ltu-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.lt_u
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.lt_u
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected relational memory.copy boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("i32.lt_u"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps swapped flat shift memory.copy outside equality fact" {
   // Boundary guard for the explicit commutative-op fact: Binaryen v130 keeps
   // swapped `i32.shl` address operands under the same trap-relaxed probe, so the

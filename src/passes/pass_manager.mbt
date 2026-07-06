@@ -29175,8 +29175,12 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
     @lib.I32And => Some("i32.and")
     @lib.I32Or => Some("i32.or")
     @lib.I32Xor => Some("i32.xor")
+    @lib.I32Eq => Some("i32.eq")
+    @lib.I32Ne => Some("i32.ne")
     @lib.I32Sub => Some("i32.sub")
     @lib.I32Shl => Some("i32.shl")
+    @lib.I64Eq => Some("i64.eq")
+    @lib.I64Ne => Some("i64.ne")
     _ => None
   }
 }
@@ -29186,7 +29190,15 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
   op_key : String,
 ) -> Bool {
   match op_key {
-    "i32.add" | "i32.mul" | "i32.and" | "i32.or" | "i32.xor" => true
+    "i32.add"
+    | "i32.mul"
+    | "i32.and"
+    | "i32.or"
+    | "i32.xor"
+    | "i32.eq"
+    | "i32.ne"
+    | "i64.eq"
+    | "i64.ne" => true
     _ => false
   }
 }
