@@ -5980,9 +5980,21 @@ priv struct OiTinyMemoryCopyFact {
 }
 
 ///|
-fn OiTinyMemoryCopyFact::from_size(size : Int) -> OiTinyMemoryCopyFact? {
+fn OiTinyMemoryCopyFact::from_size(
+  ctx : HotPassContext,
+  size : Int,
+) -> OiTinyMemoryCopyFact? {
   match size {
-    1 | 2 | 4 | 8 | 16 => Some({ size, })
+    1 | 2 | 4 | 8 => Some({ size, })
+    16 =>
+      // Binaryen v130 `optimizeMemoryCopy` only emits the SIMD 16-byte
+      // load/store lane when `shrinkLevel == 0`; higher shrink levels keep the
+      // bulk-memory spelling to avoid the extra bytes.
+      if ctx.shrink_level == 0 {
+        Some({ size, })
+      } else {
+        None
+      }
     _ => None
   }
 }
@@ -8961,7 +8973,7 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
   if !bulk_fact.has_const_size_operand() {
     return false
   }
-  let copy_fact = match OiTinyMemoryCopyFact::from_size(bulk_fact.size) {
+  let copy_fact = match OiTinyMemoryCopyFact::from_size(ctx, bulk_fact.size) {
     Some(fact) => fact
     None => return false
   }

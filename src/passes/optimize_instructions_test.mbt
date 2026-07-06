@@ -32249,6 +32249,36 @@ test "optimize-instructions expands stack-carried effectful v128 memory.copy" {
 }
 
 ///|
+test "optimize-instructions keeps size-16 memory.copy at shrink level one" {
+  // OI-G tiny memory.copy fact: Binaryen version_130 `optimizeMemoryCopy`
+  // lowers the 16-byte SIMD lane only when `shrinkLevel == 0`. At shrink level
+  // one, the pass keeps `memory.copy` instead of introducing `v128.load` /
+  // `v128.store` (`.tmp/oi-g-copy16-shrink-probe.wat`).
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 16
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shrink-level memory.copy success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("v128.load"), msg=pretty)
+  assert_false(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands stack-carried parameterized tiny memory.copy" {
   let trace : Array[String] = []
   let optimized = match
