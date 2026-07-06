@@ -19236,12 +19236,12 @@ test "optimize-instructions moves standalone ref.get_desc br_table block null ch
 test "optimize-instructions moves standalone ref.get_desc escaping branch block null checks" {
   // OI-J standalone escaping-branch block slice: Binaryen version_130 default
   // mode simplifies `ref.get_desc(ref.as_non_null(block ...))` to
-  // `ref.get_desc(block ...)` even when a direct `br` or value `br_table`
-  // exits the descriptor child block to an outer label. The branch payloads and
-  // conditions stay in source order and bypass the moved null check exactly as
-  // they bypassed the original `ref.as_non_null`. This finite family does not
-  // claim escaping `br_if`, `br_on_*`, nested control/EH, descriptor-cast
-  // descriptor operands, or generalized label localization.
+  // `ref.get_desc(block ...)` when direct `br`, value `br_if`, or value
+  // `br_table` exits the descriptor child block to an outer label. The branch
+  // payloads and conditions stay in source order and bypass the moved null
+  // check exactly as they bypassed the original `ref.as_non_null`. This finite
+  // family does not claim escaping `br_on_*`, nested control/EH,
+  // descriptor-cast descriptor operands, or generalized label localization.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let described_heap = @lib.HeapType::new(described_type)
@@ -19285,7 +19285,11 @@ test "optimize-instructions moves standalone ref.get_desc escaping branch block 
       ]),
     )
     .with_func_sec(
-      @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(3U)]),
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(3U),
+      ]),
     )
     .with_code_sec(
       @lib.CodeSec::new([
@@ -19300,6 +19304,30 @@ test "optimize-instructions moves standalone ref.get_desc escaping branch block 
                   @lib.Expr::new([
                     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
                     @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::drop(),
                     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
                   ]),
                 ),
@@ -19346,7 +19374,14 @@ test "optimize-instructions moves standalone ref.get_desc escaping branch block 
   optimize_instructions_assert_strings_in_order(br_pretty, [
     "local.get", "br", "ref.get_desc", "drop", "local.get",
   ])
-  let br_table_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let br_if_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(br_if_pretty.contains("ref.get_desc"), msg=br_if_pretty)
+  assert_true(br_if_pretty.contains("br_if"), msg=br_if_pretty)
+  assert_false(br_if_pretty.contains("ref.as_non_null"), msg=br_if_pretty)
+  optimize_instructions_assert_strings_in_order(br_if_pretty, [
+    "br_if", "drop", "local.get", "ref.get_desc", "drop", "local.get",
+  ])
+  let br_table_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(br_table_pretty.contains("ref.get_desc"), msg=br_table_pretty)
   assert_true(br_table_pretty.contains("br_table"), msg=br_table_pretty)
   assert_false(br_table_pretty.contains("ref.as_non_null"), msg=br_table_pretty)
