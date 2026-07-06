@@ -26634,26 +26634,45 @@ fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_miss(
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descriptor_miss(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Int)? {
-  let ref_args : Array[@lib.LocalIdx] = []
+  let ref_args : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
     match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        ref_args.push(arg)
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+          arg,
+        ) => {
+        ref_args.push(instrs[scan])
         scan = scan + 1
       }
       @lib.Call(ref_func) => {
-        let desc_args : Array[@lib.LocalIdx] = []
+        let desc_args : Array[@lib.Instruction] = []
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
           match instrs[desc_scan] {
-            @lib.LocalGet(arg) => {
-              desc_args.push(arg)
+            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+                arg,
+              ) => {
+              desc_args.push(instrs[desc_scan])
               desc_scan = desc_scan + 1
             }
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
@@ -26672,12 +26691,12 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                   ) => {
                   let rewritten : Array[@lib.Instruction] = []
                   for arg in ref_args {
-                    rewritten.push(@lib.Instruction::local_get(arg))
+                    rewritten.push(arg)
                   }
                   rewritten.push(@lib.Instruction::call(ref_func))
                   rewritten.push(@lib.Instruction::drop())
                   for arg in desc_args {
-                    rewritten.push(@lib.Instruction::local_get(arg))
+                    rewritten.push(arg)
                   }
                   rewritten.push(@lib.Instruction::call(descriptor_func))
                   rewritten.push(@lib.Instruction::drop())
@@ -26765,15 +26784,9 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
   instr : @lib.Instruction,
 ) -> Bool {
-  match instr {
-    @lib.LocalGet(_)
-    | @lib.GlobalGet(_)
-    | @lib.I32Const(_)
-    | @lib.I64Const(_)
-    | @lib.F32Const(_)
-    | @lib.F64Const(_) => true
-    _ => false
-  }
+  run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+    instr,
+  )
 }
 
 ///|
@@ -26955,7 +26968,7 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
   let mut i = 0
   while i < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_miss(
+      run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descriptor_miss(
         instrs, i, module_ctx,
       ) {
       Some((direct_call_rewrite, next_i)) => {

@@ -14093,9 +14093,10 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
         "optimize-instructions",
       ]) {
       Ok(mod_) => mod_
-      Err(err) => fail(
-        "expected descriptor miss nontrapping-argument pipeline success, got \{err}",
-      )
+      Err(err) =>
+        fail(
+          "expected descriptor miss nontrapping-argument pipeline success, got \{err}",
+        )
     }
   } else {
     optimize_instructions_test_run_module(module_)
