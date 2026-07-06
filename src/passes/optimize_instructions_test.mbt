@@ -10372,6 +10372,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   const_call_args? : Bool = false,
   i64_const_call_args? : Bool = false,
   global_call_args? : Bool = false,
+  effectful_block_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -10400,7 +10401,10 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   }
   desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
   let cast_params : Array[@lib.ValType] = [@lib.ValType::ref_type(sub_ref_type)]
-  if !const_call_args && !i64_const_call_args && !global_call_args {
+  if !const_call_args &&
+    !i64_const_call_args &&
+    !global_call_args &&
+    !effectful_block_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       cast_params.push(@lib.ValType::i32())
     }
@@ -10423,6 +10427,17 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     } else if global_call_args {
       cast_body.push(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else if effectful_block_call_args {
+      cast_body.push(
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(300 + arg)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(200 + arg)),
+          ]),
+        ),
       )
     } else {
       cast_body.push(
@@ -10518,12 +10533,14 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   const_call_args? : Bool = false,
   i64_const_call_args? : Bool = false,
   global_call_args? : Bool = false,
+  effectful_block_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
     desc_arg_count,
     const_call_args~,
     i64_const_call_args~,
     global_call_args~,
+    effectful_block_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -10539,6 +10556,17 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
     } else if global_call_args {
       expected.push(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else if effectful_block_call_args {
+      expected.push(
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(300 + arg)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(200 + arg)),
+          ]),
+        ),
       )
     } else {
       expected.push(
@@ -10596,6 +10624,20 @@ test "optimize-instructions folds descriptor operand call misses with global arg
   optimize_instructions_test_assert_descriptor_call_operand_miss(
     3,
     global_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with effectful block arguments" {
+  // Same descriptor-operand miss family for a pure strict-subtype reference
+  // operand plus ordered branch-free effectful descriptor-call argument blocks.
+  // The argument blocks remain call arguments, preserving their effects/traps
+  // before the direct descriptor call result is dropped and the cast becomes
+  // unreachable. This does not widen exact-success skipping or both-direct-call
+  // descriptor miss scanning.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    effectful_block_call_args=true,
   )
 }
 
