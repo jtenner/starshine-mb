@@ -10375,6 +10375,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   effectful_block_call_args? : Bool = false,
   direct_call_args? : Bool = false,
   parameterized_direct_call_args? : Bool = false,
+  local_tee_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -10409,7 +10410,8 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     !global_call_args &&
     !effectful_block_call_args &&
     !direct_call_args &&
-    !parameterized_direct_call_args {
+    !parameterized_direct_call_args &&
+    !local_tee_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       cast_params.push(@lib.ValType::i32())
     }
@@ -10452,6 +10454,11 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(400 + arg)))
       cast_body.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if local_tee_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(500 + arg)))
+      cast_body.push(
+        @lib.Instruction::local_tee(@lib.LocalIdx::new((arg + 1).to_uint())),
       )
     } else {
       cast_body.push(
@@ -10534,9 +10541,14 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
       func_types.push(direct_arg_func_type)
     }
   }
+  let cast_locals = if local_tee_call_args {
+    @lib.Locals::single(desc_arg_count.to_uint(), @lib.ValType::i32())
+  } else {
+    @lib.Locals::empty()
+  }
   let code_funcs : Array[@lib.Func] = [
     @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
-    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+    @lib.Func::new(cast_locals, @lib.Expr::new(cast_body)),
   ]
   if direct_call_args || parameterized_direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
@@ -10583,6 +10595,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   effectful_block_call_args? : Bool = false,
   direct_call_args? : Bool = false,
   parameterized_direct_call_args? : Bool = false,
+  local_tee_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
     desc_arg_count,
@@ -10592,6 +10605,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
     effectful_block_call_args~,
     direct_call_args~,
     parameterized_direct_call_args~,
+    local_tee_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -10627,6 +10641,11 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
       expected.push(@lib.Instruction::i32_const(@lib.I32(400 + arg)))
       expected.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if local_tee_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(500 + arg)))
+      expected.push(
+        @lib.Instruction::local_tee(@lib.LocalIdx::new((arg + 1).to_uint())),
       )
     } else {
       expected.push(
@@ -10729,6 +10748,20 @@ test "optimize-instructions folds descriptor operand call misses with parameteri
   optimize_instructions_test_assert_descriptor_call_operand_miss(
     2,
     parameterized_direct_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with local.tee arguments" {
+  // Same pure-reference/direct-descriptor-call descriptor-miss family for
+  // ordered local.tee descriptor-call arguments. The tee's scalar producer and
+  // local write stay in source order before the descriptor call result is
+  // dropped and the impossible cast becomes unreachable. This covers local
+  // state-preserving value arguments without widening exact-success,
+  // both-direct-call, nested-control, EH, multivalue, or TNH/IIT behavior.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    local_tee_call_args=true,
   )
 }
 
