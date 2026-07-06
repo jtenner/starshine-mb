@@ -32679,6 +32679,108 @@ test "optimize-instructions drops commuted flat add same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops commuted flat integer op same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 treats commuted
+  // pure-scalar integer operators (`i32.mul`, `i32.and`, `i32.or`, `i32.xor`)
+  // like commuted `i32.add` under `ExpressionAnalyzer::equal`, so same-address
+  // `memory.copy` collapses under `--traps-never-happen`. Keep the set explicit
+  // and source-backed; noncommutative shifts remain outside this fact below.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "mul-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.mul
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.mul
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "and-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.and
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.and
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "or-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.or
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.or
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "xor-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.xor
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.xor
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected commuted integer op memory.copy TNH success, got \{err}")
+  }
+  for func_idx = 0; func_idx < 4; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions keeps swapped flat shift memory.copy outside equality fact" {
+  // Boundary guard for the explicit commutative-op fact: Binaryen v130 keeps
+  // swapped `i32.shl` address operands under the same trap-relaxed probe, so the
+  // raw bridge must not classify all binary operators as commutative.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "shl-swap") (param $a i32) (param $b i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    i32.shl
+        #|    local.get $b
+        #|    local.get $a
+        #|    i32.shl
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected shifted memory.copy boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "local.get (Local 1)", "i32.shl", "local.get (Local 1)",
+    "local.get (Local 0)", "i32.shl", "local.get (Local 2)", "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions drops nested flat stack same-address memory.copy" {
   // OI-G raw stack-expression equality breadth: Binaryen v130 parses the
   // fallthrough address operands as expression trees for `areConsecutiveInputsEqual`.

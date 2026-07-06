@@ -29171,8 +29171,23 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
 ) -> String? {
   match instr {
     @lib.I32Add => Some("i32.add")
+    @lib.I32Mul => Some("i32.mul")
+    @lib.I32And => Some("i32.and")
+    @lib.I32Or => Some("i32.or")
+    @lib.I32Xor => Some("i32.xor")
     @lib.I32Sub => Some("i32.sub")
+    @lib.I32Shl => Some("i32.shl")
     _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
+  op_key : String,
+) -> Bool {
+  match op_key {
+    "i32.add" | "i32.mul" | "i32.and" | "i32.or" | "i32.xor" => true
+    _ => false
   }
 }
 
@@ -29250,7 +29265,9 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
                 }
                 let right = stack.pop().unwrap()
                 let left = stack.pop().unwrap()
-                let commutative = op_key == "i32.add"
+                let commutative = run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
+                  op_key,
+                )
                 stack.push({
                   key: run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
                     op_key,
