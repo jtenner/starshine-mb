@@ -399,7 +399,7 @@ fn OiRefFallthroughFact::from_node(
         None => ()
       }
     }
-    @ir.HotOp::Block => {
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       match
         optimize_instructions_region_ref_fallthrough_type(ctx, func, body_ref) {
