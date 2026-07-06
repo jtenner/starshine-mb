@@ -13857,10 +13857,9 @@ fn optimize_instructions_standalone_ref_get_desc_direct_call_child_can_move_null
     @ir.HotOp::Call => ()
     _ => return false
   }
-  if !optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-      func, call_id,
-    ) {
-    return false
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, call_id)) {
+    [@lib.ValType::RefTypeValType(_)] => ()
+    _ => return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, call_id); slot = slot + 1 {
     if !optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_leaf(
