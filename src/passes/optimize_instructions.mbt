@@ -4336,11 +4336,82 @@ fn optimize_instructions_build_i32_binary(
 }
 
 ///|
-fn optimize_instructions_memory_access_with_memarg(
+priv struct OiMemoryAccessFact {
+  instr : @lib.Instruction
+  load_result_type : @lib.ValType?
+  store_value_bits : Int?
+  store_value_is_i64 : Bool
+}
+
+///|
+fn OiMemoryAccessFact::from_instr(
   instr : @lib.Instruction,
+) -> OiMemoryAccessFact? {
+  let load_result_type = match instr {
+    @lib.Instruction::I32Load(_)
+    | @lib.Instruction::I32Load8S(_)
+    | @lib.Instruction::I32Load8U(_)
+    | @lib.Instruction::I32Load16S(_)
+    | @lib.Instruction::I32Load16U(_) => Some(@lib.ValType::i32())
+    @lib.Instruction::I64Load(_)
+    | @lib.Instruction::I64Load8S(_)
+    | @lib.Instruction::I64Load8U(_)
+    | @lib.Instruction::I64Load16S(_)
+    | @lib.Instruction::I64Load16U(_)
+    | @lib.Instruction::I64Load32S(_)
+    | @lib.Instruction::I64Load32U(_) => Some(@lib.ValType::i64())
+    @lib.Instruction::F32Load(_) => Some(@lib.ValType::f32())
+    @lib.Instruction::F64Load(_) => Some(@lib.ValType::f64())
+    _ => None
+  }
+  let store_value_bits = match instr {
+    @lib.Instruction::I32Store8(_) | @lib.Instruction::I64Store8(_) => Some(8)
+    @lib.Instruction::I32Store16(_) | @lib.Instruction::I64Store16(_) =>
+      Some(16)
+    @lib.Instruction::I64Store32(_) => Some(32)
+    _ => None
+  }
+  let store_value_is_i64 = match instr {
+    @lib.Instruction::I64Store8(_)
+    | @lib.Instruction::I64Store16(_)
+    | @lib.Instruction::I64Store32(_) => true
+    _ => false
+  }
+  match instr {
+    @lib.Instruction::I32Load(_)
+    | @lib.Instruction::I64Load(_)
+    | @lib.Instruction::F32Load(_)
+    | @lib.Instruction::F64Load(_)
+    | @lib.Instruction::I32Load8S(_)
+    | @lib.Instruction::I32Load8U(_)
+    | @lib.Instruction::I32Load16S(_)
+    | @lib.Instruction::I32Load16U(_)
+    | @lib.Instruction::I64Load8S(_)
+    | @lib.Instruction::I64Load8U(_)
+    | @lib.Instruction::I64Load16S(_)
+    | @lib.Instruction::I64Load16U(_)
+    | @lib.Instruction::I64Load32S(_)
+    | @lib.Instruction::I64Load32U(_)
+    | @lib.Instruction::I32Store(_)
+    | @lib.Instruction::I64Store(_)
+    | @lib.Instruction::F32Store(_)
+    | @lib.Instruction::F64Store(_)
+    | @lib.Instruction::I32Store8(_)
+    | @lib.Instruction::I32Store16(_)
+    | @lib.Instruction::I64Store8(_)
+    | @lib.Instruction::I64Store16(_)
+    | @lib.Instruction::I64Store32(_) =>
+      Some({ instr, load_result_type, store_value_bits, store_value_is_i64 })
+    _ => None
+  }
+}
+
+///|
+fn OiMemoryAccessFact::with_memarg(
+  self : OiMemoryAccessFact,
   memarg : @lib.MemArg,
 ) -> @lib.Instruction? {
-  match instr {
+  match self.instr {
     @lib.Instruction::I32Load(_) => Some(@lib.Instruction::i32_load(memarg))
     @lib.Instruction::I64Load(_) => Some(@lib.Instruction::i64_load(memarg))
     @lib.Instruction::F32Load(_) => Some(@lib.Instruction::f32_load(memarg))
@@ -4378,11 +4449,39 @@ fn optimize_instructions_memory_access_with_memarg(
 }
 
 ///|
-fn optimize_instructions_atomic_access_with_memarg(
+priv struct OiAtomicAccessFact {
+  instr : @lib.Instruction
+}
+
+///|
+fn OiAtomicAccessFact::from_instr(
   instr : @lib.Instruction,
+) -> OiAtomicAccessFact? {
+  match instr {
+    @lib.Instruction::I32AtomicLoad(_)
+    | @lib.Instruction::I64AtomicLoad(_)
+    | @lib.Instruction::I32AtomicLoad8U(_)
+    | @lib.Instruction::I32AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad8U(_)
+    | @lib.Instruction::I64AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad32U(_)
+    | @lib.Instruction::I32AtomicStore(_)
+    | @lib.Instruction::I64AtomicStore(_)
+    | @lib.Instruction::I32AtomicStore8(_)
+    | @lib.Instruction::I32AtomicStore16(_)
+    | @lib.Instruction::I64AtomicStore8(_)
+    | @lib.Instruction::I64AtomicStore16(_)
+    | @lib.Instruction::I64AtomicStore32(_) => Some({ instr, })
+    _ => None
+  }
+}
+
+///|
+fn OiAtomicAccessFact::with_memarg(
+  self : OiAtomicAccessFact,
   memarg : @lib.MemArg,
 ) -> @lib.Instruction? {
-  match instr {
+  match self.instr {
     @lib.Instruction::I32AtomicLoad(_) =>
       Some(@lib.Instruction::i32_atomic_load(memarg))
     @lib.Instruction::I64AtomicLoad(_) =>
@@ -4411,29 +4510,6 @@ fn optimize_instructions_atomic_access_with_memarg(
       Some(@lib.Instruction::i64_atomic_store16(memarg))
     @lib.Instruction::I64AtomicStore32(_) =>
       Some(@lib.Instruction::i64_atomic_store32(memarg))
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_load_result_type(
-  instr : @lib.Instruction,
-) -> @lib.ValType? {
-  match instr {
-    @lib.Instruction::I32Load(_)
-    | @lib.Instruction::I32Load8S(_)
-    | @lib.Instruction::I32Load8U(_)
-    | @lib.Instruction::I32Load16S(_)
-    | @lib.Instruction::I32Load16U(_) => Some(@lib.ValType::i32())
-    @lib.Instruction::I64Load(_)
-    | @lib.Instruction::I64Load8S(_)
-    | @lib.Instruction::I64Load8U(_)
-    | @lib.Instruction::I64Load16S(_)
-    | @lib.Instruction::I64Load16U(_)
-    | @lib.Instruction::I64Load32S(_)
-    | @lib.Instruction::I64Load32U(_) => Some(@lib.ValType::i64())
-    @lib.Instruction::F32Load(_) => Some(@lib.ValType::f32())
-    @lib.Instruction::F64Load(_) => Some(@lib.ValType::f64())
     _ => None
   }
 }
@@ -5018,8 +5094,11 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
       if node.child_count != 1 && node.child_count != 2 {
         return false
       }
-      let new_instr = match
-        optimize_instructions_atomic_access_with_memarg(instr, new_memarg) {
+      let atomic_fact = match OiAtomicAccessFact::from_instr(instr) {
+        Some(fact) => fact
+        None => return false
+      }
+      let new_instr = match atomic_fact.with_memarg(new_memarg) {
         Some(instr) => instr
         None => return false
       }
@@ -5030,14 +5109,17 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
     }
     _ => ()
   }
-  let new_instr = match
-    optimize_instructions_memory_access_with_memarg(instr, new_memarg) {
+  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+    Some(fact) => fact
+    None => return false
+  }
+  let new_instr = match access_fact.with_memarg(new_memarg) {
     Some(instr) => instr
     None => return false
   }
   let temp = match node.op {
     @ir.HotOp::Load => {
-      let result_type = match optimize_instructions_load_result_type(instr) {
+      let result_type = match access_fact.load_result_type {
         Some(result_type) => result_type
         None => return false
       }
@@ -5058,27 +5140,6 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
   @ir.hot_replace_node(func, node_id, replacement)
   pass_mark_mutated(ctx, func)
   true
-}
-
-///|
-fn optimize_instructions_store_value_bits(instr : @lib.Instruction) -> Int? {
-  match instr {
-    @lib.Instruction::I32Store8(_) | @lib.Instruction::I64Store8(_) => Some(8)
-    @lib.Instruction::I32Store16(_) | @lib.Instruction::I64Store16(_) =>
-      Some(16)
-    @lib.Instruction::I64Store32(_) => Some(32)
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_store_value_is_i64(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.Instruction::I64Store8(_)
-    | @lib.Instruction::I64Store16(_)
-    | @lib.Instruction::I64Store32(_) => true
-    _ => false
-  }
 }
 
 ///|
@@ -6336,12 +6397,16 @@ fn optimize_instructions_try_truncate_narrow_store_const_value(
     Some(instr) => instr
     None => return false
   }
-  let bits = match optimize_instructions_store_value_bits(instr) {
+  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+    Some(fact) => fact
+    None => return false
+  }
+  let bits = match access_fact.store_value_bits {
     Some(bits) => bits
     None => return false
   }
   let value_id = @ir.hot_child_get(func, node_id, 1)
-  let new_value_id = if optimize_instructions_store_value_is_i64(instr) {
+  let new_value_id = if access_fact.store_value_is_i64 {
     let raw = match optimize_instructions_i64_const(func, dead, value_id) {
       Some(@lib.I64(raw)) => raw
       _ => return false
@@ -6386,7 +6451,11 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
     Some(instr) => instr
     None => return false
   }
-  let bits = match optimize_instructions_store_value_bits(instr) {
+  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+    Some(fact) => fact
+    None => return false
+  }
+  let bits = match access_fact.store_value_bits {
     Some(bits) => bits
     None => return false
   }
@@ -6405,7 +6474,7 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
   // Binaryen version_130 only drops exact i32 low-bit masks before i32 narrow
   // stores. It preserves superset masks and all i64 masks before i64 narrow
   // stores, even though those masks are semantically redundant for the store.
-  if optimize_instructions_store_value_is_i64(instr) {
+  if access_fact.store_value_is_i64 {
     return false
   }
   if @ir.hot_node_exact_instr(func, value_id) !=
