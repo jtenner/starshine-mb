@@ -8588,6 +8588,104 @@ test "optimize-instructions folds ref.test from one-unreachable-arm if fallthrou
 }
 
 ///|
+test "optimize-instructions folds ref.test through ref cast fallthrough facts" {
+  // OI-J fallthrough-type fact slice: Binaryen version_130
+  // `Properties::getImmediateFallthrough` looks through `ref.cast` and
+  // non-conversion `ref.as_non_null`, then `getFallthroughType` intersects the
+  // wrapper type with the wrapped producer. A broad cast/null-check wrapper must
+  // therefore still expose the precise fallthrough producer to `visitRefTest`.
+  // This HOT-only fixture follows the existing block/if fallthrough tests until
+  // public validation accepts subtype block-result shapes.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let non_null_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, eq_heap),
+  )
+  let nullable_eq_ref = @lib.ValType::ref_type(@lib.RefType::new(true, eq_heap))
+  let i31_ref_type = @lib.RefType::new(false, i31_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(non_null_eq_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::ref_i31(),
+              ]),
+            ),
+            @lib.Instruction::ref_cast(false, eq_heap),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_eq_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(8)),
+                @lib.Instruction::ref_i31(),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let func = @ir.hot_lift_func(
+      module_,
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    let ctx = HotPassContext::new(
+      optimize_instructions_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::final_module_only(),
+      false,
+      ignore,
+    )
+    match hot_pass_run(ctx, func) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected cast fallthrough ref.test HOT success, got \{err}")
+    }
+    let @lib.Func(_, @lib.Expr(body)) = @ir.hot_lower_func_unverified(func)
+    let rendered = "\{body}"
+    assert_false(
+      body.any(fn(instr) {
+        instr == @lib.Instruction::ref_test_type(i31_ref_type)
+      }),
+      msg="expected cast fallthrough ref.test to fold, got \{body}",
+    )
+    assert_true(
+      rendered.contains("I32(1)"),
+      msg="expected folded true constant, got \{body}",
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds exact ref.test on already exact operands" {
   // OI-J exactness positive: Binaryen version_130 folds
   // `ref.test (ref (exact $a))` to true when the tested value is already an

@@ -303,6 +303,47 @@ priv struct OiRefFallthroughFact {
 }
 
 ///|
+fn optimize_instructions_node_ref_result_type(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.RefType? {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_ref_fallthrough_lower_bound(
+  ctx : HotPassContext,
+  outer : @lib.RefType,
+  inner : @lib.RefType,
+) -> @lib.RefType? {
+  let outer_heap = outer.get_heap_type()
+  let inner_heap = inner.get_heap_type()
+  let nullable = outer.is_nullable() && inner.is_nullable()
+  if inner_heap == outer_heap {
+    return Some(
+      @lib.RefType::new(
+        nullable,
+        inner_heap,
+        exact=outer.is_exact() || inner.is_exact(),
+      ),
+    )
+  }
+  if outer.is_exact() || inner.is_exact() {
+    return None
+  }
+  if optimize_instructions_ref_type_heap_matches_target(ctx, inner, outer_heap) {
+    return Some(@lib.RefType::new(nullable, inner_heap, exact=inner.is_exact()))
+  }
+  if optimize_instructions_ref_type_heap_matches_target(ctx, outer, inner_heap) {
+    return Some(@lib.RefType::new(nullable, outer_heap, exact=outer.is_exact()))
+  }
+  None
+}
+
+///|
 fn OiRefFallthroughFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -313,6 +354,44 @@ fn OiRefFallthroughFact::from_node(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::RefCast if node.child_count == 1 => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match
+        (
+          optimize_instructions_node_ref_result_type(func, node_id),
+          OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type,
+        ) {
+        (Some(outer), Some(inner)) =>
+          match
+            optimize_instructions_ref_fallthrough_lower_bound(ctx, outer, inner) {
+            Some(ref_type) => return { ref_type: Some(ref_type) }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    @ir.HotOp::Heap if node.child_count == 1 =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefAsNonNull) => {
+          let child_id = @ir.hot_child_get(func, node_id, 0)
+          match
+            (
+              optimize_instructions_node_ref_result_type(func, node_id),
+              OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type,
+            ) {
+            (Some(outer), Some(inner)) =>
+              match
+                optimize_instructions_ref_fallthrough_lower_bound(
+                  ctx, outer, inner,
+                ) {
+                Some(ref_type) => return { ref_type: Some(ref_type) }
+                None => ()
+              }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
     @ir.HotOp::LocalTee if node.child_count == 1 => {
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type {
@@ -360,12 +439,7 @@ fn OiRefFallthroughFact::from_node(
       }
     _ => ()
   }
-  let ref_type = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
-    _ => None
-  }
-  { ref_type, }
+  { ref_type: optimize_instructions_node_ref_result_type(func, node_id) }
 }
 
 ///|
