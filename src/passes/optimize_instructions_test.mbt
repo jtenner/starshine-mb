@@ -17341,6 +17341,182 @@ test "optimize-instructions moves standalone ref.get_desc select and if null che
 }
 
 ///|
+test "optimize-instructions moves standalone ref.get_desc direct-call null checks" {
+  // OI-J standalone ref.get_desc direct-call child slice: Binaryen version_130
+  // default/TNH simplify `ref.get_desc(ref.as_non_null(call ...))` to put the
+  // nullable direct-call result directly under `ref.get_desc` for no-parameter
+  // calls and for parameterized direct calls whose operands are nontrapping
+  // leaves. This narrow family does not include indirect/call_ref/return_call,
+  // multivalue, nested call/control operands, escaping control/EH, descriptor
+  // operands, ref.test_desc, or generalized effect localization.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_described_ref_type = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(described_type),
+  )
+  let descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(descriptor_type),
+  )
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let descriptor_val_type = @lib.ValType::ref_type(descriptor_ref_type)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [nullable_described_val_type]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, @lib.ValType::i32()],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [descriptor_val_type]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type],
+              [descriptor_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(4U),
+        @lib.TypeIdx::new(5U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [_, _, @lib.Func(_, @lib.Expr(no_param_body)), @lib.Func(_, @lib.Expr(param_body))]
+      )
+    ) => {
+      @debug.assert_eq(no_param_body.length(), 2)
+      match no_param_body[0] {
+        @lib.Call(func_idx) => @debug.assert_eq(func_idx, @lib.FuncIdx::new(0U))
+        other => fail("expected no-param direct call child, got \{other}")
+      }
+      match no_param_body[1] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected no-param call-produced ref.get_desc, got \{other}")
+      }
+      @debug.assert_eq(param_body.length(), 4)
+      match param_body[0] {
+        @lib.LocalGet(arg) => @debug.assert_eq(arg, @lib.LocalIdx::new(0U))
+        other => fail("expected parameterized call local operand, got \{other}")
+      }
+      match param_body[1] {
+        @lib.I32Const(@lib.I32(7)) => ()
+        other => fail("expected parameterized call const operand, got \{other}")
+      }
+      match param_body[2] {
+        @lib.Call(func_idx) => @debug.assert_eq(func_idx, @lib.FuncIdx::new(1U))
+        other => fail("expected parameterized direct call child, got \{other}")
+      }
+      match param_body[3] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected parameterized call-produced ref.get_desc, got \{other}")
+      }
+    }
+    other => fail("expected optimized direct-call ref.get_desc funcs, got \{other}")
+  }
+
+  let tnh_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  let tnh_no_param_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(2U))
+  match hot_pass_run(tnh_ctx, tnh_no_param_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH standalone no-param call ref.get_desc success, got \{err}")
+  }
+  let tnh_no_param_root = @ir.hot_root_get(tnh_no_param_func, 0)
+  let tnh_no_param_child = @ir.hot_child_get(tnh_no_param_func, tnh_no_param_root, 0)
+  match @ir.hot_node_get(tnh_no_param_func, tnh_no_param_child).op {
+    @ir.HotOp::Call => ()
+    other => fail("expected TNH standalone no-param call child, got \{other}")
+  }
+  let tnh_param_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(3U))
+  match hot_pass_run(tnh_ctx, tnh_param_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH standalone parameterized call ref.get_desc success, got \{err}")
+  }
+  let tnh_param_root = @ir.hot_root_get(tnh_param_func, 0)
+  let tnh_param_child = @ir.hot_child_get(tnh_param_func, tnh_param_root, 0)
+  match @ir.hot_node_get(tnh_param_func, tnh_param_child).op {
+    @ir.HotOp::Call => ()
+    other => fail("expected TNH standalone parameterized call child, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions moves standalone ref.get_desc branch-free block null checks" {
   // OI-J finite block-child slice: Binaryen version_130 simplifies standalone
   // `ref.get_desc(ref.as_non_null(child))` to `ref.get_desc(child)` for the
