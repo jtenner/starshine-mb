@@ -15,6 +15,21 @@
 
 ## v0.1.0 Active Slices
 
+### OI fact-driven Binaryen port recursion
+
+- [OI-FACTS]001 - Replace scanner families with source-backed fact structures
+  - Status: active recursive handoff goal started 2026-07-06. First slice landed a shared `OptimizeInstructionsLocalFacts` store and moved sign-extension plus unsigned-max local reasoning to Binaryen `LocalScanner`-shaped whole-function facts with red-first conflicting/widened-local regressions.
+  - Goal: implement `optimize-instructions` in almost the exact way Binaryen implements it by adding durable fact data structures for each OI family first, then replacing the ad hoc scanner families with those facts.
+  - Why: recent OI work was drifting into brute-force one-off scanners. Binaryen's `OptimizeInstructions.cpp` relies on source-level facts (`LocalScanner`, Bits/Properties/Effects, GC cast/null-trap facts, call_ref target facts, localize/order facts, and repair/refinalization facts), and Starshine should mirror that structure before widening behavior.
+  - Deliverables:
+    - [x] Introduce local fact storage and use whole-function local sign-extension / unsigned-max facts instead of straight-line per-`local.get` scanner facts.
+    - [ ] Add explicit reference/descriptor/null-trap fact structures that can drive OI-I/OI-J/OI-K rewrites without arity/name whitelists.
+    - [ ] Add call_ref target/operand fact structures for direct, table, descriptor-producer, argument-order, and return_call_ref families.
+    - [ ] Add memory/bulk/store/load facts for OI-G so tiny lowering, low-byte masks, load-result, and stored-value rewrites share one proof substrate.
+    - [ ] Add tuple/multivalue/localization facts for OI-M before replacing remaining tuple scratch scanners.
+    - [ ] Add final repair/refinalization/EH-pop tracking facts or document the local representation blocker.
+  - Suggested tests: focused red-first `src/passes/optimize_instructions_test.mbt` regressions for each fact-family boundary, `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt`, `moon test src/passes`, native cmd build, and targeted `bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --gen-valid-profile pass-oi-local-facts --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` when changing fact behavior.
+
 ### OI-M closeout boundary
 
 OI-M is no longer an active/P0 closeout blocker after the 2026-07-03 closeout note `docs/wiki/raw/research/1429-2026-07-03-optimize-instructions-oi-m-closeout.md`. ACCEL001-ACCEL004 are complete and no further acceleration work is scheduled. SB001 direct one-use selected-child arbitrary arity and SB002 straight-line direct-HOT multi-result non-selected siblings are implemented under explicit preconditions; SB003 tuple-valued local-carried/local.tee/multi-use producers are a Binaryen-probed no-rewrite boundary; SB004 branch/EH/control siblings are fail-closed except for the implemented branch-free pure block subset, with Binaryen probes and reopening criteria; SB005 currently sampled tuple-scratch residual labels are accepted as measured Starshine-win representation boundaries after direct/grouped count132 runtime/opcode/size evidence; SB006 summary tooling is covered. Reopen OI-M only for the matrix criteria: validation/runtime failure, semantic mismatch or unequal trap, lost/reordered effect/trap/local/branch/EH behavior, raw/canonical Starshine size loss without a measured win, new unclassified tuple labels/wrappers, or source-backed HOT control/EH reconstruction becoming available. Do not infer OI-G, OI-I, OI-J, or OI-K closure from OI-M evidence.

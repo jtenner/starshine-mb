@@ -6233,6 +6233,36 @@ test "optimize-instructions folds unsigned load maxBits compares" {
 }
 
 ///|
+test "optimize-instructions keeps unsigned compares after widened local facts" {
+  // Binaryen's LocalScanner merges maxBits for the whole local. A later wider
+  // write prevents an earlier local.get from using a narrower straight-line
+  // unsigned fact.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local $x i32)
+        #|    i32.const 127
+        #|    local.set $x
+        #|    local.get $x
+        #|    i32.const 256
+        #|    i32.lt_u
+        #|    drop
+        #|    i32.const 65535
+        #|    local.set $x))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions unsigned fact success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.lt_u"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds local unsigned maxBits compares" {
   let optimized = match
     pass_test_run_pipeline(
