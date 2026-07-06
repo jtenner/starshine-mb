@@ -13581,6 +13581,46 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_mov
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_leaf(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc => @ir.hot_child_count(func, node_id) == 0
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_direct_call_child_can_move_null_check(
+  func : @ir.HotFunc,
+  call_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, call_id).op {
+    @ir.HotOp::Call => ()
+    _ => return false
+  }
+  if !optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+      func, call_id,
+    ) {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, call_id); slot = slot + 1 {
+    if !optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_leaf(
+        func,
+        @ir.hot_child_get(func, call_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
   func : @ir.HotFunc,
   nullable_child : Int,
@@ -13588,6 +13628,10 @@ fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_ch
   match @ir.hot_node_get(func, nullable_child).op {
     @ir.HotOp::LocalGet =>
       optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, nullable_child,
+      )
+    @ir.HotOp::Call =>
+      optimize_instructions_standalone_ref_get_desc_direct_call_child_can_move_null_check(
         func, nullable_child,
       )
     @ir.HotOp::Select =>

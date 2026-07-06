@@ -17396,10 +17396,9 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
         ),
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func(
-              [nullable_described_val_type],
-              [descriptor_val_type],
-            ),
+            @lib.CompType::func([nullable_described_val_type], [
+              descriptor_val_type,
+            ]),
           ),
         ),
       ]),
@@ -17448,7 +17447,12 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
   match optimized.code_sec {
     Some(
       @lib.CodeSec(
-        [_, _, @lib.Func(_, @lib.Expr(no_param_body)), @lib.Func(_, @lib.Expr(param_body))]
+        [
+          _,
+          _,
+          @lib.Func(_, @lib.Expr(no_param_body)),
+          @lib.Func(_, @lib.Expr(param_body)),
+        ]
       )
     ) => {
       @debug.assert_eq(no_param_body.length(), 2)
@@ -17458,7 +17462,8 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
       }
       match no_param_body[1] {
         @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
-        other => fail("expected no-param call-produced ref.get_desc, got \{other}")
+        other =>
+          fail("expected no-param call-produced ref.get_desc, got \{other}")
       }
       @debug.assert_eq(param_body.length(), 4)
       match param_body[0] {
@@ -17475,10 +17480,14 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
       }
       match param_body[3] {
         @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
-        other => fail("expected parameterized call-produced ref.get_desc, got \{other}")
+        other =>
+          fail(
+            "expected parameterized call-produced ref.get_desc, got \{other}",
+          )
       }
     }
-    other => fail("expected optimized direct-call ref.get_desc funcs, got \{other}")
+    other =>
+      fail("expected optimized direct-call ref.get_desc funcs, got \{other}")
   }
 
   let tnh_ctx = HotPassContext::new(
@@ -17494,10 +17503,14 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
   match hot_pass_run(tnh_ctx, tnh_no_param_func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected TNH standalone no-param call ref.get_desc success, got \{err}")
+      fail(
+        "expected TNH standalone no-param call ref.get_desc success, got \{err}",
+      )
   }
   let tnh_no_param_root = @ir.hot_root_get(tnh_no_param_func, 0)
-  let tnh_no_param_child = @ir.hot_child_get(tnh_no_param_func, tnh_no_param_root, 0)
+  let tnh_no_param_child = @ir.hot_child_get(
+    tnh_no_param_func, tnh_no_param_root, 0,
+  )
   match @ir.hot_node_get(tnh_no_param_func, tnh_no_param_child).op {
     @ir.HotOp::Call => ()
     other => fail("expected TNH standalone no-param call child, got \{other}")
@@ -17506,13 +17519,16 @@ test "optimize-instructions moves standalone ref.get_desc direct-call null check
   match hot_pass_run(tnh_ctx, tnh_param_func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected TNH standalone parameterized call ref.get_desc success, got \{err}")
+      fail(
+        "expected TNH standalone parameterized call ref.get_desc success, got \{err}",
+      )
   }
   let tnh_param_root = @ir.hot_root_get(tnh_param_func, 0)
   let tnh_param_child = @ir.hot_child_get(tnh_param_func, tnh_param_root, 0)
   match @ir.hot_node_get(tnh_param_func, tnh_param_child).op {
     @ir.HotOp::Call => ()
-    other => fail("expected TNH standalone parameterized call child, got \{other}")
+    other =>
+      fail("expected TNH standalone parameterized call child, got \{other}")
   }
 }
 
