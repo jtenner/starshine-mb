@@ -26750,6 +26750,31 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_loca
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_pure_select(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Int? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  if !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+      instrs[start],
+    ) ||
+    !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+      instrs[start + 1],
+    ) ||
+    !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+      instrs[start + 2],
+    ) {
+    return None
+  }
+  match instrs[start + 3] {
+    @lib.Select(_) => Some(start + 4)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_trapping_scalar_binary(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -26944,6 +26969,22 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
   while scan < instrs.length() {
     match
       run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_local_tee(
+        instrs, scan,
+      ) {
+      Some(next_scan) => {
+        let mut arg_scan = scan
+        while arg_scan < next_scan {
+          desc_args.push(instrs[arg_scan])
+          arg_scan = arg_scan + 1
+        }
+        desc_arg_count = desc_arg_count + 1
+        scan = next_scan
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_pure_select(
         instrs, scan,
       ) {
       Some(next_scan) => {
