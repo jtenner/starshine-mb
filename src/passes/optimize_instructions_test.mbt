@@ -32250,6 +32250,46 @@ test "optimize-instructions drops block-fallthrough same-address memory.copy und
 }
 
 ///|
+test "optimize-instructions drops right block-fallthrough same-address memory.copy under trap-relaxed facts" {
+  // OI-G same-input fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` also peels the fallthrough value of the right
+  // operand while accumulating non-fallthrough prefix effects. This focused
+  // subset accepts a right block only when the prefix is pure, proving the same
+  // local address without claiming full Binaryen br_if/effect-interference
+  // parity yet.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    (block (result i32)
+        #|      i32.const 9
+        #|      drop
+        #|      local.get $addr)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected right block-fallthrough same-address memory.copy TNH success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "drop", "i32.const I32(9)", "drop", "local.get (Local 0)",
+    "drop", "local.get (Local 1)", "drop",
+  ])
+}
+
+///|
 test "optimize-instructions drops zero-size bulk-memory under trap-relaxed facts" {
   // OI-G trap-relaxed bulk fact slice: Binaryen version_130 drops
   // `memory.copy(dest, source, 0)` and `memory.fill(dest, value, 0)` under

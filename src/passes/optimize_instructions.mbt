@@ -4719,14 +4719,14 @@ priv struct OiConsecutiveInputEqualityFact {
 }
 
 ///|
-fn optimize_instructions_fallthrough_input_for_equality(
+fn optimize_instructions_left_fallthrough_input_for_equality(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Int {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block if node.child_count > 0 =>
-      optimize_instructions_fallthrough_input_for_equality(
+      optimize_instructions_left_fallthrough_input_for_equality(
         func,
         @ir.hot_child_get(func, node_id, node.child_count - 1),
       )
@@ -4735,15 +4735,46 @@ fn optimize_instructions_fallthrough_input_for_equality(
 }
 
 ///|
+fn optimize_instructions_right_fallthrough_input_for_equality(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block if node.child_count > 0 => {
+      for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
+        if !optimize_instructions_node_effects_are_pure(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return node_id
+        }
+      }
+      optimize_instructions_right_fallthrough_input_for_equality(
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, node.child_count - 1),
+      )
+    }
+    _ => node_id
+  }
+}
+
+///|
 fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   left_id : Int,
   right_id : Int,
 ) -> OiConsecutiveInputEqualityFact {
-  let left_fallthrough_id = optimize_instructions_fallthrough_input_for_equality(
+  let left_fallthrough_id = optimize_instructions_left_fallthrough_input_for_equality(
     func, left_id,
   )
-  let right_fallthrough_id = right_id
+  let right_fallthrough_id = optimize_instructions_right_fallthrough_input_for_equality(
+    ctx, func, right_id,
+  )
   let left = @ir.hot_node_get(func, left_fallthrough_id)
   let right = @ir.hot_node_get(func, right_fallthrough_id)
   let matching_tee_and_get = match (left.op, right.op) {
@@ -4854,15 +4885,18 @@ fn OiBulkMemoryFact::has_same_memory(self : OiBulkMemoryFact) -> Bool {
 ///|
 fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   self : OiBulkMemoryFact,
+  ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Bool {
   // Binaryen v130 `areConsecutiveInputsEqual` compares adjacent operands via
   // fallthrough facts, plus a deliberate fast path for a fallthrough
   // `local.tee` immediately followed by a matching `local.get`. Starshine keeps
   // this fact intentionally narrower than Binaryen's full effect-interference
-  // helper: the right operand is not peeled through arbitrary containers yet,
-  // and only local-get equality or matching tee/get is accepted.
+  // helper: right-operand peeling is currently limited to block prefixes proven
+  // effect-pure by HOT effects, and only local-get equality or matching tee/get
+  // is accepted.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
+    ctx,
     func,
     self.dst_id,
     self.src_or_value_id,
@@ -4877,7 +4911,7 @@ fn OiBulkMemoryFact::can_drop_same_address_copy_trap_relaxed(
 ) -> Bool {
   (ctx.traps_never_happen || ctx.ignore_implicit_traps) &&
   self.has_same_memory() &&
-  self.dest_and_source_are_consecutive_equal_address(func)
+  self.dest_and_source_are_consecutive_equal_address(ctx, func)
 }
 
 ///|
