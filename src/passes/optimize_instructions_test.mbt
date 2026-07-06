@@ -19046,8 +19046,8 @@ test "optimize-instructions moves standalone ref.get_desc call_ref null checks" 
   // `ref.get_desc(ref.as_non_null(call_ref ...))` to put the direct call result
   // under `ref.get_desc`. This is deliberately just the exact `ref.func`
   // target family; return_call_ref, table/indirect targets, multivalue,
-  // argument-bearing call_ref, escaping control/EH, descriptor-cast operands,
-  // and ref.test_desc remain separate surfaces.
+  // escaping control/EH, descriptor-cast operands, and ref.test_desc remain
+  // separate surfaces.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let nullable_call_ref_type = @lib.TypeIdx::new(2U)
@@ -19194,6 +19194,222 @@ test "optimize-instructions moves standalone ref.get_desc call_ref null checks" 
     Err(err) => fail("expected IIT call_ref ref.get_desc success, got \{err}")
   }
   assert_call_ref_ref_get_desc(iit_optimized, "IIT")
+}
+
+///|
+test "optimize-instructions moves standalone ref.get_desc indirect call_ref null checks" {
+  // OI-J standalone ref.get_desc table-target call_ref child slice: Binaryen
+  // version_130 default/TNH/IIT directize typed-table `call_ref` children to
+  // `call_indirect` and simplify `ref.get_desc(ref.as_non_null(call_ref ...))`
+  // to put the indirect call result under `ref.get_desc`. This is deliberately
+  // a bounded typed-table family with nontrapping leaf arguments and table
+  // indexes; return_call_ref, select/block targets, multivalue, nested
+  // effectful/trapping operands, escaping control/EH, descriptor-cast operands,
+  // and ref.test_desc remain separate surfaces.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_call_ref_type = @lib.TypeIdx::new(2U)
+  let nonnull_call_ref_type = @lib.TypeIdx::new(3U)
+  let get_desc_type = @lib.TypeIdx::new(4U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let nullable_func_ref_type = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(nullable_call_ref_type),
+  )
+  let nonnull_func_ref_type = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(nonnull_call_ref_type),
+  )
+  let descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(descriptor_type),
+  )
+  let descriptor_val_type = @lib.ValType::ref_type(descriptor_ref_type)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(nonnull_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [descriptor_val_type]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        nullable_call_ref_type, nonnull_call_ref_type, get_desc_type, get_desc_type,
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            nullable_func_ref_type,
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+        @lib.Table::new(
+          @lib.TableType::new(
+            nonnull_func_ref_type,
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::typed_exprs(nullable_func_ref_type, [
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+          ]),
+        ),
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(1U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::typed_exprs(nonnull_func_ref_type, [
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::call_ref(nullable_call_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(1U)),
+            @lib.Instruction::call_ref(nonnull_call_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+          ]),
+        ),
+      ]),
+    )
+  let assert_indirect_ref_get_desc = fn(
+    mod_ : @lib.Module,
+    label : String,
+  ) -> Unit raise {
+    match mod_.code_sec {
+      Some(
+        @lib.CodeSec(
+          [
+            _,
+            _,
+            @lib.Func(_, @lib.Expr(nullable_body)),
+            @lib.Func(_, @lib.Expr(nonnull_body)),
+          ]
+        )
+      ) => {
+        @debug.assert_eq(
+          nullable_body,
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::call_indirect(
+              nullable_call_ref_type,
+              @lib.TableIdx::new(0U),
+            ),
+            @lib.Instruction::ref_get_desc(described_type),
+          ],
+          msg="\{label} nullable indirect call_ref descriptor child: \{nullable_body}",
+        )
+        @debug.assert_eq(
+          nonnull_body,
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::call_indirect(
+              nonnull_call_ref_type,
+              @lib.TableIdx::new(1U),
+            ),
+            @lib.Instruction::ref_get_desc(described_type),
+          ],
+          msg="\{label} nonnull indirect call_ref descriptor child: \{nonnull_body}",
+        )
+      }
+      other =>
+        fail("expected optimized indirect call_ref ref.get_desc funcs, got \{other}")
+    }
+  }
+  assert_indirect_ref_get_desc(
+    optimize_instructions_test_run_module(module_),
+    "default",
+  )
+  let iit_optimized = match
+    run_hot_pipeline(
+      module_,
+      HotPipelineOptions::new(ignore_implicit_traps=true),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected IIT indirect call_ref ref.get_desc success, got \{err}")
+  }
+  assert_indirect_ref_get_desc(iit_optimized, "IIT")
 }
 
 ///|
