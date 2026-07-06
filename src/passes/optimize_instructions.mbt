@@ -1294,7 +1294,7 @@ fn OiCallRefTargetFact::from_target(
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
   match callee_ref.op {
-    @ir.HotOp::RefFunc => {
+    @ir.HotOp::RefFunc =>
       {
         direct_func: callee_ref.imm0,
         table_idx: -1,
@@ -1304,7 +1304,6 @@ fn OiCallRefTargetFact::from_target(
         select_false_func: -1,
         select_condition_id: -1,
       }
-    }
     @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
       if optimize_instructions_node_is_live(func, dead, table_index_id) {
@@ -1322,9 +1321,7 @@ fn OiCallRefTargetFact::from_target(
       }
     }
     @ir.HotOp::Block =>
-      OiCallRefTargetFact::from_fallthrough_block(
-        func, dead, callee_ref_id,
-      )
+      OiCallRefTargetFact::from_fallthrough_block(func, dead, callee_ref_id)
     @ir.HotOp::Select if callee_ref.child_count == 3 =>
       OiCallRefTargetFact::from_select(func, dead, callee_ref_id)
     _ => OiCallRefTargetFact::unknown()
@@ -1348,7 +1345,7 @@ fn OiCallRefTargetFact::from_fallthrough_block(
   }
   let target = @ir.hot_node_get(func, target_id)
   match target.op {
-    @ir.HotOp::RefFunc => {
+    @ir.HotOp::RefFunc =>
       {
         direct_func: -1,
         table_idx: -1,
@@ -1358,7 +1355,6 @@ fn OiCallRefTargetFact::from_fallthrough_block(
         select_false_func: -1,
         select_condition_id: -1,
       }
-    }
     _ => OiCallRefTargetFact::unknown()
   }
 }
@@ -1380,7 +1376,7 @@ fn OiCallRefTargetFact::from_select(
   let true_ref = @ir.hot_node_get(func, true_ref_id)
   let false_ref = @ir.hot_node_get(func, false_ref_id)
   match (true_ref.op, false_ref.op) {
-    (@ir.HotOp::RefFunc, @ir.HotOp::RefFunc) => {
+    (@ir.HotOp::RefFunc, @ir.HotOp::RefFunc) =>
       {
         direct_func: -1,
         table_idx: -1,
@@ -1390,7 +1386,6 @@ fn OiCallRefTargetFact::from_select(
         select_false_func: false_ref.imm0,
         select_condition_id: condition_id,
       }
-    }
     _ => OiCallRefTargetFact::unknown()
   }
 }
@@ -1416,7 +1411,8 @@ fn OiCallRefTargetFact::has_fallthrough_func(
 fn OiCallRefTargetFact::has_select_direct_funcs(
   self : OiCallRefTargetFact,
 ) -> Bool {
-  self.select_true_func >= 0 && self.select_false_func >= 0 &&
+  self.select_true_func >= 0 &&
+  self.select_false_func >= 0 &&
   self.select_condition_id >= 0
 }
 
@@ -6680,9 +6676,7 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
   let dst_id = @ir.hot_child_get(func, node_id, 0)
   let src_id = @ir.hot_child_get(func, node_id, 1)
   let src_memarg = optimize_instructions_memarg_for_mem_idx(node.imm1)
-  let load = @ir.hot_build_load(
-    func, copy_fact.load_type(), src_memarg, src_id,
-  )
+  let load = @ir.hot_build_load(func, copy_fact.load_type(), src_memarg, src_id)
   @ir.hot_node_exact_instr_set(func, load, copy_fact.load_instr(src_memarg))
   let dst_memarg = optimize_instructions_memarg_for_mem_idx(node.imm0)
   let temp = @ir.hot_build_store(func, dst_memarg, dst_id, load)
