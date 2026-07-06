@@ -14752,6 +14752,17 @@ test "optimize-instructions folds descriptor casts with nine-arg call exact desc
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with ten-arg call exact descriptor misses" {
+  // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
+  // exact descriptor miss when both direct calls take exactly ten pure local
+  // arguments. This is only the freshly probed equal-arity >9 direct-call
+  // slice; it does not imply arbitrary arity, non-local/effectful arguments,
+  // indirect/call_ref, return_call*, multivalue, escaping control/EH, or
+  // TNH/IIT widening.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(10, 10)
+}
+
+///|
 test "optimize-instructions folds descriptor casts with mixed 9-ref 8-desc call exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
   // exact descriptor miss when the reference call takes nine pure local
