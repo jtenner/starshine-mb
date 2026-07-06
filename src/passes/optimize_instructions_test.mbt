@@ -32120,6 +32120,50 @@ test "optimize-instructions drops same-address memory.copy under trap-relaxed fa
 }
 
 ///|
+test "optimize-instructions drops zero-size bulk-memory under trap-relaxed facts" {
+  // OI-G trap-relaxed bulk fact slice: Binaryen version_130 drops
+  // `memory.copy(dest, source, 0)` and `memory.fill(dest, value, 0)` under
+  // `--traps-never-happen` or `--ignore-implicit-traps`, preserving only
+  // destination/source or destination/value evaluation. The size constant itself
+  // is not retained, matching the upstream `optimizeMemoryCopy` /
+  // `optimizeMemoryFill` zero-size block rewrites. This HOT slice is deliberately
+  // local-backed; stack-carried call operands still need a raw-gate escape before
+  // the same fact can fire there.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32) (param $val i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 0
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $val
+        #|    i32.const 0
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected zero-size bulk-memory trap-relaxed success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "drop", "local.get (Local 1)", "drop", "local.get (Local 0)",
+    "drop", "local.get (Local 2)", "drop",
+  ])
+}
+
+///|
 test "optimize-instructions keeps nonconstant bulk-memory with effectful size" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` keeps memory.copy/fill with call-backed dynamic

@@ -4818,6 +4818,24 @@ fn OiBulkMemoryFact::can_drop_same_address_copy_trap_relaxed(
 }
 
 ///|
+fn OiBulkMemoryFact::can_drop_zero_size_trap_relaxed(
+  self : OiBulkMemoryFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
+    return false
+  }
+  if self.size == 0 {
+    return true
+  }
+  match optimize_instructions_const_memory_size_exact(func, self.size_id) {
+    Some(0) => true
+    _ => false
+  }
+}
+
+///|
 priv struct OiTinyMemoryCopyFact {
   size : Int
 }
@@ -7554,24 +7572,62 @@ fn optimize_instructions_try_widen_store_of_wrap_i64(
 }
 
 ///|
+fn optimize_instructions_replace_with_dropped_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operands : Array[Int],
+) -> Unit {
+  let body : Array[Int] = []
+  for operand in operands {
+    body.push(@ir.hot_build_drop(func, operand))
+  }
+  let temp = @ir.hot_build_block(func, @lib.BlockType::void_(), body)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_try_drop_trap_relaxed_memory_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   bulk_fact : OiBulkMemoryFact,
   node_id : Int,
 ) -> Bool {
-  if !bulk_fact.can_drop_same_address_copy_trap_relaxed(ctx, func) {
+  if bulk_fact.can_drop_same_address_copy_trap_relaxed(ctx, func) {
+    optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
+      bulk_fact.dst_id,
+      bulk_fact.src_or_value_id,
+      bulk_fact.size_id,
+    ])
+    return true
+  }
+  if bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
+    optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
+      bulk_fact.dst_id,
+      bulk_fact.src_or_value_id,
+    ])
+    return true
+  }
+  false
+}
+
+///|
+fn optimize_instructions_try_drop_trap_relaxed_memory_fill(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  bulk_fact : OiBulkMemoryFact,
+  node_id : Int,
+) -> Bool {
+  if !bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
     return false
   }
-  let temp = @ir.hot_build_block(func, @lib.BlockType::void_(), [
-    @ir.hot_build_drop(func, bulk_fact.dst_id),
-    @ir.hot_build_drop(func, bulk_fact.src_or_value_id),
-    @ir.hot_build_drop(func, bulk_fact.size_id),
+  optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
+    bulk_fact.dst_id,
+    bulk_fact.src_or_value_id,
   ])
-  let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
-  pass_mark_mutated(ctx, func)
   true
 }
 
@@ -7626,6 +7682,11 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
   let bulk_fact = match OiBulkMemoryFact::from_fill(func, dead, node_id) {
     Some(fact) => fact
     None => return false
+  }
+  if optimize_instructions_try_drop_trap_relaxed_memory_fill(
+      ctx, func, bulk_fact, node_id,
+    ) {
+    return true
   }
   if !bulk_fact.has_const_size_operand() {
     return false
