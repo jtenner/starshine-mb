@@ -2461,6 +2461,44 @@ fn OiCallRefTargetFact::from_fallthrough_block(
 }
 
 ///|
+priv struct OiCallRefSelectArmFact {
+  direct_func : Int
+}
+
+///|
+fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
+  { direct_func: -1 }
+}
+
+///|
+fn OiCallRefSelectArmFact::from_target_arm(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  arm_id : Int,
+) -> OiCallRefSelectArmFact {
+  if !optimize_instructions_node_is_live(func, dead, arm_id) {
+    return OiCallRefSelectArmFact::unknown()
+  }
+  let arm = @ir.hot_node_get(func, arm_id)
+  match arm.op {
+    // Binaryen v130 `OptimizeInstructions::visitCallRef` passes
+    // `CallUtils::convertToDirectCalls` a classifier whose only known target is
+    // a direct `RefFunc`. Table targets, fallthrough targets, nested selects,
+    // and descriptor producers intentionally stay out of this select-arm fact
+    // until a source-backed helper proves the broader shape.
+    @ir.HotOp::RefFunc => { direct_func: arm.imm0 }
+    _ => OiCallRefSelectArmFact::unknown()
+  }
+}
+
+///|
+fn OiCallRefSelectArmFact::has_direct_func(
+  self : OiCallRefSelectArmFact,
+) -> Bool {
+  self.direct_func >= 0
+}
+
+///|
 fn OiCallRefTargetFact::from_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -2469,25 +2507,27 @@ fn OiCallRefTargetFact::from_select(
   let true_ref_id = @ir.hot_child_get(func, callee_ref_id, 0)
   let false_ref_id = @ir.hot_child_get(func, callee_ref_id, 1)
   let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
-  if !optimize_instructions_node_is_live(func, dead, true_ref_id) ||
-    !optimize_instructions_node_is_live(func, dead, false_ref_id) ||
-    !optimize_instructions_node_is_live(func, dead, condition_id) {
+  if !optimize_instructions_node_is_live(func, dead, condition_id) {
     return OiCallRefTargetFact::unknown()
   }
-  let true_ref = @ir.hot_node_get(func, true_ref_id)
-  let false_ref = @ir.hot_node_get(func, false_ref_id)
-  match (true_ref.op, false_ref.op) {
-    (@ir.HotOp::RefFunc, @ir.HotOp::RefFunc) =>
-      {
-        direct_func: -1,
-        table_idx: -1,
-        table_index_id: -1,
-        fallthrough_func: -1,
-        select_true_func: true_ref.imm0,
-        select_false_func: false_ref.imm0,
-        select_condition_id: condition_id,
-      }
-    _ => OiCallRefTargetFact::unknown()
+  let true_fact = OiCallRefSelectArmFact::from_target_arm(
+    func, dead, true_ref_id,
+  )
+  let false_fact = OiCallRefSelectArmFact::from_target_arm(
+    func, dead, false_ref_id,
+  )
+  if true_fact.has_direct_func() && false_fact.has_direct_func() {
+    {
+      direct_func: -1,
+      table_idx: -1,
+      table_index_id: -1,
+      fallthrough_func: -1,
+      select_true_func: true_fact.direct_func,
+      select_false_func: false_fact.direct_func,
+      select_condition_id: condition_id,
+    }
+  } else {
+    OiCallRefTargetFact::unknown()
   }
 }
 
