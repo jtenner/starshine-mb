@@ -9423,6 +9423,51 @@ test "optimize-instructions folds same-local nullable ref.cast equality under tr
 }
 
 ///|
+test "optimize-instructions traps standalone ref.get_desc on known-null child" {
+  // OI-J null-trap fact slice: Binaryen version_130 routes ref.get_desc
+  // through trapOnNull, so a known-null reference operand becomes unreachable
+  // without preserving the descriptor read. This locks a reusable ref fact before
+  // widening descriptor-cast rewrites that depend on the same null evidence.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(@lib.HeapType::new(described_type)),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+}
+
+///|
 test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
   // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
   // two-operand descriptor equality casts under `--enable-custom-descriptors`

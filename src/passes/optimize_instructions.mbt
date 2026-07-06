@@ -158,6 +158,194 @@ fn OptimizeInstructionsLocalFacts::merge_i64_unsigned_max_for_local(
 }
 
 ///|
+priv struct OiRefFact {
+  ref_type : @lib.RefType?
+  known_null : Bool
+  known_non_null : Bool
+}
+
+///|
+fn OiRefFact::unknown() -> OiRefFact {
+  { ref_type: None, known_null: false, known_non_null: false }
+}
+
+///|
+fn OiRefFact::from_node(func : @ir.HotFunc, node_id : Int) -> OiRefFact {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiRefFact::unknown()
+  }
+  let ref_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
+    _ => None
+  }
+  let known_null = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+  let known_non_null = if known_null {
+    false
+  } else {
+    match ref_type {
+      Some(ref_type) if ref_type.is_non_nullable() => true
+      _ => optimize_instructions_ref_is_known_non_null(func, node_id)
+    }
+  }
+  { ref_type, known_null, known_non_null }
+}
+
+///|
+fn OiRefFact::is_known_null(self : OiRefFact) -> Bool {
+  self.known_null
+}
+
+///|
+fn OiRefFact::is_known_non_null(self : OiRefFact) -> Bool {
+  self.known_non_null
+}
+
+///|
+fn OiRefFact::type_is_non_nullable(self : OiRefFact) -> Bool {
+  match self.ref_type {
+    Some(ref_type) => ref_type.is_non_nullable()
+    None => false
+  }
+}
+
+///|
+priv struct OiNullTrapFact {
+  traps_on_null : Bool
+  operand_known_null : Bool
+  operand_known_non_null : Bool
+}
+
+///|
+fn OiNullTrapFact::for_operand(
+  func : @ir.HotFunc,
+  operand_id : Int,
+  traps_on_null~ : Bool,
+) -> OiNullTrapFact {
+  let ref_fact = OiRefFact::from_node(func, operand_id)
+  {
+    traps_on_null,
+    operand_known_null: ref_fact.is_known_null(),
+    operand_known_non_null: ref_fact.is_known_non_null(),
+  }
+}
+
+///|
+fn OiNullTrapFact::can_replace_parent_with_unreachable(
+  self : OiNullTrapFact,
+) -> Bool {
+  self.traps_on_null && self.operand_known_null
+}
+
+///|
+fn OiNullTrapFact::can_skip_explicit_non_null_check(
+  self : OiNullTrapFact,
+) -> Bool {
+  self.operand_known_non_null
+}
+
+///|
+priv struct OiDescriptorTypeFact {
+  exact_described_heap : @lib.HeapType?
+}
+
+///|
+fn OiDescriptorTypeFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorTypeFact {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return { exact_described_heap: None }
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let descriptor_idx = match node.op {
+    @ir.HotOp::Call if node.imm0 >= 0 =>
+      match
+        @ir.hot_module_resolve_func_type(
+          module_ctx,
+          @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+        ) {
+        Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() &&
+          ref_type.is_exact() =>
+          match ref_type.get_heap_type() {
+            @lib.HeapType(descriptor_idx) => descriptor_idx
+            _ => return { exact_described_heap: None }
+          }
+        _ => return { exact_described_heap: None }
+      }
+    _ =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
+          ref_type.is_exact() =>
+          match ref_type.get_heap_type() {
+            @lib.HeapType(descriptor_idx) => descriptor_idx
+            _ => return { exact_described_heap: None }
+          }
+        _ => return { exact_described_heap: None }
+      }
+  }
+  let exact_described_heap = match
+    @ir.hot_module_resolve_subtype(module_ctx, descriptor_idx) {
+    Some(subtype) =>
+      match subtype.describes_type() {
+        Some(described_idx) => Some(@lib.HeapType::new(described_idx))
+        None => None
+      }
+    None => None
+  }
+  { exact_described_heap, }
+}
+
+///|
+fn OiDescriptorTypeFact::exactly_describes(
+  self : OiDescriptorTypeFact,
+  heap : @lib.HeapType,
+) -> Bool {
+  match self.exact_described_heap {
+    Some(described_heap) => described_heap == heap
+    None => false
+  }
+}
+
+///|
+priv struct OiDescriptorOperandFact {
+  type_fact : OiDescriptorTypeFact
+  traps_without_effects : Bool
+  can_erase : Bool
+  should_localize_when_skipped : Bool
+  may_drop_exactness_for_tnh_escaping_ref_get_desc : Bool
+}
+
+///|
+fn OiDescriptorOperandFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDescriptorOperandFact {
+  {
+    type_fact: OiDescriptorTypeFact::from_node(ctx, func, node_id),
+    traps_without_effects: optimize_instructions_descriptor_operand_traps_without_effects(
+      func, node_id,
+    ),
+    can_erase: optimize_instructions_descriptor_operand_can_erase(
+      ctx, func, dead, node_id,
+    ),
+    should_localize_when_skipped: optimize_instructions_descriptor_operand_should_localize_when_skipped(
+      func, node_id,
+    ),
+    may_drop_exactness_for_tnh_escaping_ref_get_desc: optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
+      func, node_id,
+    ),
+  }
+}
+
+///|
 priv struct OptimizeInstructionsScratch {
   cross_seen_stamps : Array[Int]
   loop_input_nodes : @bitset.BitSet
@@ -12668,7 +12856,7 @@ fn optimize_instructions_try_fold_ref_is_null(
       )
       true
     }
-    _ if optimize_instructions_ref_is_known_non_null(func, operand_id) => {
+    _ if OiRefFact::from_node(func, operand_id).is_known_non_null() => {
       if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
@@ -12983,13 +13171,7 @@ fn optimize_instructions_direct_call_descriptor_exactly_describes_heap(
   node_id : Int,
   heap : @lib.HeapType,
 ) -> Bool {
-  match
-    optimize_instructions_descriptor_operand_exact_described_heap(
-      ctx, func, node_id,
-    ) {
-    Some(described_heap) => described_heap == heap
-    None => false
-  }
+  OiDescriptorTypeFact::from_node(ctx, func, node_id).exactly_describes(heap)
 }
 
 ///|
@@ -13053,10 +13235,10 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   if (!nullable && operand_nullable) || (exact && !operand_exact) {
     return false
   }
-  let descriptor_described_heap = optimize_instructions_descriptor_operand_exact_described_heap(
-    ctx, func, descriptor_id,
+  let descriptor_fact = OiDescriptorOperandFact::from_operand(
+    ctx, func, dead, descriptor_id,
   )
-  match descriptor_described_heap {
+  match descriptor_fact.type_fact.exact_described_heap {
     Some(described_heap) =>
       if optimize_instructions_heap_is_known_subtype(
           ctx, described_heap, target,
@@ -13064,16 +13246,12 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
         !optimize_instructions_ref_operand_is_exact_heap(
           ctx, func, operand_id, described_heap,
         ) &&
-        !optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
-          func, descriptor_id,
-        ) {
+        !descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
         return false
       }
     None => ()
   }
-  if optimize_instructions_descriptor_operand_can_erase(
-      ctx, func, dead, descriptor_id,
-    ) {
+  if descriptor_fact.can_erase {
     optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
     true
   } else {
@@ -13091,9 +13269,7 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
       optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
         ctx, func, node_id, operand_id, descriptor_id,
       )
-    } else if optimize_instructions_descriptor_operand_should_localize_when_skipped(
-        func, descriptor_id,
-      ) {
+    } else if descriptor_fact.should_localize_when_skipped {
       optimize_instructions_replace_with_local_set_then_node_id(
         ctx, func, node_id, descriptor_id, operand_id,
       )
@@ -13154,6 +13330,7 @@ fn optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_ha
 fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
@@ -13169,9 +13346,7 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
     @ir.HotOp::RefNull => ()
     _ => return false
   }
-  if !optimize_instructions_descriptor_operand_traps_without_effects(
-      func, descriptor_id,
-    ) {
+  if !OiDescriptorOperandFact::from_operand(ctx, func, dead, descriptor_id).traps_without_effects {
     return false
   }
   optimize_instructions_replace_with_unreachable(ctx, func, node_id)
@@ -14208,6 +14383,15 @@ fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
     return false
   }
   let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
+  let null_trap_fact = OiNullTrapFact::for_operand(
+    func,
+    get_desc_child,
+    traps_on_null=true,
+  )
+  if null_trap_fact.can_replace_parent_with_unreachable() {
+    optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
+    return true
+  }
   match @ir.hot_node_exact_instr(func, get_desc_child) {
     Some(@lib.Instruction::RefAsNonNull) => ()
     _ => return false
@@ -14772,13 +14956,7 @@ fn optimize_instructions_descriptor_operand_exactly_describes_target(
   node_id : Int,
   target : @lib.HeapType,
 ) -> Bool {
-  match
-    optimize_instructions_descriptor_operand_exact_described_heap(
-      ctx, func, node_id,
-    ) {
-    Some(described_heap) => described_heap == target
-    None => false
-  }
+  OiDescriptorTypeFact::from_node(ctx, func, node_id).exactly_describes(target)
 }
 
 ///|
@@ -14787,45 +14965,7 @@ fn optimize_instructions_descriptor_operand_exact_described_heap(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> @lib.HeapType? {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return None
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  let descriptor_idx = match node.op {
-    @ir.HotOp::Call if node.imm0 >= 0 =>
-      match
-        @ir.hot_module_resolve_func_type(
-          module_ctx,
-          @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
-        ) {
-        Some(@lib.FuncType(_, [@lib.ValType::RefTypeValType(ref_type)])) if ref_type.is_non_nullable() &&
-          ref_type.is_exact() =>
-          match ref_type.get_heap_type() {
-            @lib.HeapType(descriptor_idx) => descriptor_idx
-            _ => return None
-          }
-        _ => return None
-      }
-    _ =>
-      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-        [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
-          ref_type.is_exact() =>
-          match ref_type.get_heap_type() {
-            @lib.HeapType(descriptor_idx) => descriptor_idx
-            _ => return None
-          }
-        _ => return None
-      }
-  }
-  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_idx) {
-    Some(subtype) =>
-      match subtype.describes_type() {
-        Some(described_idx) => Some(@lib.HeapType::new(described_idx))
-        None => None
-      }
-    None => None
-  }
+  OiDescriptorTypeFact::from_node(ctx, func, node_id).exact_described_heap
 }
 
 ///|
@@ -15151,15 +15291,8 @@ fn optimize_instructions_ref_get_desc_operand_can_erase(
     return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
-  let operand_non_null = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => ref_type.is_non_nullable()
-    _ => false
-  }
-  (
-    operand_non_null ||
-    optimize_instructions_ref_is_known_non_null(func, operand_id)
-  ) &&
+  let operand_fact = OiRefFact::from_node(func, operand_id)
+  (operand_fact.type_is_non_nullable() || operand_fact.is_known_non_null()) &&
   optimize_instructions_is_side_effect_free_expr(func, dead, operand_id)
 }
 
@@ -15349,16 +15482,19 @@ fn optimize_instructions_try_fold_ref_as_non_null(
     ) {
     return true
   }
-  match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::RefNull => {
-      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-      true
-    }
-    _ if optimize_instructions_ref_is_known_non_null(func, operand_id) => {
-      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
-      true
-    }
-    _ => false
+  let null_trap_fact = OiNullTrapFact::for_operand(
+    func,
+    operand_id,
+    traps_on_null=true,
+  )
+  if null_trap_fact.can_replace_parent_with_unreachable() {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    true
+  } else if null_trap_fact.can_skip_explicit_non_null_check() {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+    true
+  } else {
+    false
   }
 }
 
@@ -17464,7 +17600,7 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::RefCastDescEq =>
       optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operand(
-        ctx, func, node_id,
+        ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
         ctx, func, node_id,
