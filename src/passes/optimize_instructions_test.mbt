@@ -10374,6 +10374,7 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   global_call_args? : Bool = false,
   effectful_block_call_args? : Bool = false,
   direct_call_args? : Bool = false,
+  parameterized_direct_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -10407,7 +10408,8 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     !i64_const_call_args &&
     !global_call_args &&
     !effectful_block_call_args &&
-    !direct_call_args {
+    !direct_call_args &&
+    !parameterized_direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       cast_params.push(@lib.ValType::i32())
     }
@@ -10443,6 +10445,11 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
         ),
       )
     } else if direct_call_args {
+      cast_body.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if parameterized_direct_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(400 + arg)))
       cast_body.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
       )
@@ -10508,11 +10515,16 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
       ),
     ),
     @lib.RecType::new(
-      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      @lib.SubType::comp_type(
+        @lib.CompType::func(
+          if parameterized_direct_call_args { [@lib.ValType::i32()] } else { [] },
+          [@lib.ValType::i32()],
+        ),
+      ),
     ),
   ])
   let func_types : Array[@lib.TypeIdx] = [make_desc_func_type, cast_func_type]
-  if direct_call_args {
+  if direct_call_args || parameterized_direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       ignore(arg)
       func_types.push(direct_arg_func_type)
@@ -10522,13 +10534,17 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
     @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
   ]
-  if direct_call_args {
+  if direct_call_args || parameterized_direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       code_funcs.push(
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
-            @lib.Instruction::i32_const(@lib.I32(300 + arg)),
+            if parameterized_direct_call_args {
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+            } else {
+              @lib.Instruction::i32_const(@lib.I32(300 + arg))
+            },
             @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
             @lib.Instruction::i32_const(@lib.I32(200 + arg)),
           ]),
@@ -10562,6 +10578,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   global_call_args? : Bool = false,
   effectful_block_call_args? : Bool = false,
   direct_call_args? : Bool = false,
+  parameterized_direct_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
     desc_arg_count,
@@ -10570,6 +10587,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
     global_call_args~,
     effectful_block_call_args~,
     direct_call_args~,
+    parameterized_direct_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -10598,6 +10616,11 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
         ),
       )
     } else if direct_call_args {
+      expected.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if parameterized_direct_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(400 + arg)))
       expected.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
       )
@@ -10682,12 +10705,26 @@ test "optimize-instructions folds descriptor operand call misses with direct cal
   // ordered no-parameter direct descriptor-call arguments. Binaryen preserves
   // the argument calls in source order before dropping the exact descriptor call
   // result and replacing the impossible descriptor equality cast with
-  // unreachable. This does not claim parameterized, indirect, call_ref,
-  // return_call*, multivalue, control, EH, exact-success, or both-direct-call
-  // breadth.
+  // unreachable. This does not claim indirect, call_ref, return_call*,
+  // multivalue, control, EH, exact-success, or both-direct-call breadth.
   optimize_instructions_test_assert_descriptor_call_operand_miss(
     2,
     direct_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with parameterized direct call arguments" {
+  // Same pure-reference/direct-descriptor-call descriptor-miss family for
+  // ordered parameterized direct descriptor-call arguments whose own operands
+  // are nontrapping constants. Binaryen preserves each argument operand before
+  // its direct call, then drops the exact descriptor call result before the
+  // impossible cast becomes unreachable. This does not claim reference-result,
+  // indirect, call_ref, return_call*, multivalue, control, EH, TNH/IIT,
+  // exact-success, or both-direct-call breadth.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    parameterized_direct_call_args=true,
   )
 }
 
