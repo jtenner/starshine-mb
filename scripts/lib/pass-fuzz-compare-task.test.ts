@@ -85,6 +85,24 @@ describe("pass-fuzz persistent cache options", () => {
       expect(withoutCache.options.cacheDir).toBeNull();
     }
   });
+
+  test("can disable GenValid mismatch reduction for broad triage lanes", () => {
+    const defaultParsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
+    const disabledParsed = parsePassFuzzCompareArgs([
+      "--pass",
+      "remove-unused-brs",
+      "--no-reduce-mismatches",
+    ]);
+
+    expect(defaultParsed.kind).toBe("run");
+    if (defaultParsed.kind === "run") {
+      expect(defaultParsed.options.reduceMismatches).toBe(true);
+    }
+    expect(disabledParsed.kind).toBe("run");
+    if (disabledParsed.kind === "run") {
+      expect(disabledParsed.options.reduceMismatches).toBe(false);
+    }
+  });
 });
 
 function wasmFromWat(wat: string): string {
@@ -376,6 +394,30 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("local-cleanup-debris erases standalone empty const-if debris", () => {
+    const binaryenWat = `(module
+ (func $0
+  (if
+   (i32.const 1)
+   (then
+   )
+   (else
+   )
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"]),
+    );
+  });
+
   test("unreachable-control-debris normalizes constant self-branch blocks and loops", () => {
     const binaryenWat = `(module
  (func $0
@@ -510,6 +552,47 @@ describe("pass-fuzz compare normalizers", () => {
     expect(applyCompareNormalizersForTest(binaryenWat, ["drop-consts", "local-cleanup-debris"])).toBe(
       applyCompareNormalizersForTest(starshineWat, ["drop-consts", "local-cleanup-debris"]),
     );
+  });
+
+  test("drop-consts erases pure float and conversion debris while preserving trapping truncs", () => {
+    const wat = `(module
+ (func $0
+  (drop
+   (f32.div
+    (f32.const 9.25)
+    (f32.const 2.5)
+   )
+  )
+  (drop
+   (f64.promote_f32
+    (f32.const 12)
+   )
+  )
+  (drop
+   (i64.extend_i32_s
+    (i32.const 12)
+   )
+  )
+  (drop
+   (f32.convert_i64_s
+    (i64.const 12)
+   )
+  )
+  (drop
+   (i32.trunc_f32_s
+    (f32.const 12)
+   )
+  )
+ )
+)
+`;
+
+    const normalized = applyCompareNormalizersForTest(wat, ["drop-consts"]);
+    expect(normalized).not.toContain("f32.div");
+    expect(normalized).not.toContain("f64.promote_f32");
+    expect(normalized).not.toContain("i64.extend_i32_s");
+    expect(normalized).not.toContain("f32.convert_i64_s");
+    expect(normalized).toContain("i32.trunc_f32_s");
   });
 
   test("ssa-local-allocation-debris normalizes equivalent fresh temp vs reused straight-line islands", () => {
