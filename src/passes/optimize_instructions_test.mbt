@@ -13855,6 +13855,15 @@ fn optimize_instructions_test_i32_params(count : Int) -> Array[@lib.ValType] {
 }
 
 ///|
+fn optimize_instructions_test_i64_params(count : Int) -> Array[@lib.ValType] {
+  let params : Array[@lib.ValType] = []
+  for arg = 0; arg < count; arg = arg + 1 {
+    params.push(@lib.ValType::i64())
+  }
+  params
+}
+
+///|
 fn optimize_instructions_test_local_sum_then_global_set(
   arg_count : Int,
   global_idx : @lib.GlobalIdx,
@@ -14056,6 +14065,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   exact_cast_target? : Bool = true,
   nullable_cast_target? : Bool = false,
   const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
   global_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
@@ -14076,21 +14086,39 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     base_heap,
     exact=exact_cast_target,
   )
-  let ref_body = optimize_instructions_test_local_sum_then_global_set(
-    ref_arg_count,
-    @lib.GlobalIdx::new(0U),
-  )
+  let ref_body = if i64_const_call_args {
+    [
+      @lib.Instruction::i32_const(@lib.I32(11)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    ]
+  } else {
+    optimize_instructions_test_local_sum_then_global_set(
+      ref_arg_count,
+      @lib.GlobalIdx::new(0U),
+    )
+  }
   ref_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
   ref_body.push(@lib.Instruction::struct_new_default_desc(base_type))
-  let desc_body = optimize_instructions_test_local_sum_then_global_set(
-    desc_arg_count,
-    @lib.GlobalIdx::new(1U),
-  )
+  let desc_body = if i64_const_call_args {
+    [
+      @lib.Instruction::i32_const(@lib.I32(17)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+    ]
+  } else {
+    optimize_instructions_test_local_sum_then_global_set(
+      desc_arg_count,
+      @lib.GlobalIdx::new(1U),
+    )
+  }
   desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
   let cast_body : Array[@lib.Instruction] = []
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
     if const_call_args {
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if i64_const_call_args {
+      cast_body.push(
+        @lib.Instruction::i64_const(@lib.I64((100 + arg).to_int64())),
+      )
     } else if global_call_args {
       cast_body.push(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
@@ -14105,6 +14133,10 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
     if const_call_args {
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      cast_body.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
     } else if global_call_args {
       cast_body.push(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
@@ -14124,10 +14156,22 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   } else {
     base_ref_type
   }
-  let cast_params = if const_call_args || global_call_args {
+  let cast_params = if const_call_args ||
+    i64_const_call_args ||
+    global_call_args {
     []
   } else {
     optimize_instructions_test_i32_params(ref_arg_count + desc_arg_count)
+  }
+  let ref_call_params = if i64_const_call_args {
+    optimize_instructions_test_i64_params(ref_arg_count)
+  } else {
+    optimize_instructions_test_i32_params(ref_arg_count)
+  }
+  let desc_call_params = if i64_const_call_args {
+    optimize_instructions_test_i64_params(desc_arg_count)
+  } else {
+    optimize_instructions_test_i32_params(desc_arg_count)
   }
   @lib.Module::new()
   .with_type_sec(
@@ -14153,18 +14197,16 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
       ]),
       @lib.RecType::new(
         @lib.SubType::comp_type(
-          @lib.CompType::func(
-            optimize_instructions_test_i32_params(ref_arg_count),
-            [@lib.ValType::ref_type(ref_result_type)],
-          ),
+          @lib.CompType::func(ref_call_params, [
+            @lib.ValType::ref_type(ref_result_type),
+          ]),
         ),
       ),
       @lib.RecType::new(
         @lib.SubType::comp_type(
-          @lib.CompType::func(
-            optimize_instructions_test_i32_params(desc_arg_count),
-            [@lib.ValType::ref_type(base_descriptor_ref_type)],
-          ),
+          @lib.CompType::func(desc_call_params, [
+            @lib.ValType::ref_type(base_descriptor_ref_type),
+          ]),
         ),
       ),
       @lib.RecType::new(
@@ -14242,6 +14284,7 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   exact_cast_target? : Bool = false,
   nullable_cast_target? : Bool = false,
   const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
   global_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
@@ -14251,6 +14294,7 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
     exact_cast_target~,
     nullable_cast_target~,
     const_call_args~,
+    i64_const_call_args~,
     global_call_args~,
   )
   let optimized = optimize_instructions_test_run_module(module_)
@@ -14258,6 +14302,10 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
     if const_call_args {
       expected.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((100 + arg).to_int64())),
+      )
     } else if global_call_args {
       expected.push(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
@@ -14272,6 +14320,10 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
     if const_call_args {
       expected.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
     } else if global_call_args {
       expected.push(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
@@ -14328,6 +14380,35 @@ test "optimize-instructions narrows nullable direct-call descriptor success with
     exact_cast_target=false,
     nullable_cast_target=true,
     const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions exactifies direct-call descriptor success with i64 constant arguments" {
+  // OI-J pure-argument direct-call descriptor exactification: `i64.const`
+  // operands are the same nontrapping argument family as the earlier `i32.const`
+  // probes. The direct calls still own the descriptor-success proof, so the pass
+  // preserves both calls and exactifies the residual descriptor cast instead of
+  // skipping it or depending on i32-only arity history.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    2,
+    1,
+    i64_const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions narrows nullable direct-call descriptor success with i64 constant arguments" {
+  // Same-family nullable proof for wider scalar constants: source order and the
+  // descriptor equality check are preserved while the nullable/inexact cast is
+  // rebuilt as non-null exact.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    1,
+    2,
+    exact_ref_result=false,
+    exact_cast_target=false,
+    nullable_cast_target=true,
+    i64_const_call_args=true,
   )
 }
 
