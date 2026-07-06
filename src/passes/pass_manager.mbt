@@ -26762,6 +26762,21 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_) => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_exactification(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -26771,7 +26786,9 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
   let mut scan = start
   while scan < instrs.length() {
     match instrs[scan] {
-      @lib.LocalGet(_) | @lib.GlobalGet(_) | @lib.I32Const(_) => {
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
+          arg,
+        ) => {
         ref_args.push(instrs[scan])
         scan = scan + 1
       }
@@ -26780,7 +26797,9 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
           match instrs[desc_scan] {
-            @lib.LocalGet(_) | @lib.GlobalGet(_) | @lib.I32Const(_) => {
+            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
+                arg,
+              ) => {
               desc_args.push(instrs[desc_scan])
               desc_scan = desc_scan + 1
             }
