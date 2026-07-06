@@ -199,11 +199,18 @@ fn optimize_instructions_sign_ext_bits_for_value(
 fn optimize_instructions_mark_local_writes_unknown(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  seen : @bitset.BitSet,
   node_id : Int,
   local_bits : Array[Int],
 ) -> Unit {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
     return
+  }
+  if node_id >= 0 && node_id < seen.length() {
+    if seen[node_id] {
+      return
+    }
+    seen[node_id] = true
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -217,6 +224,7 @@ fn optimize_instructions_mark_local_writes_unknown(
     optimize_instructions_mark_local_writes_unknown(
       func,
       dead,
+      seen,
       func.children[node.child_base + slot],
       local_bits,
     )
@@ -228,6 +236,7 @@ fn optimize_instructions_mark_local_writes_unknown(
         optimize_instructions_mark_local_writes_unknown(
           func,
           dead,
+          seen,
           @ir.hot_region_get(func, body, i),
           local_bits,
         )
@@ -239,6 +248,7 @@ fn optimize_instructions_mark_local_writes_unknown(
         optimize_instructions_mark_local_writes_unknown(
           func,
           dead,
+          seen,
           @ir.hot_region_get(func, then_region, i),
           local_bits,
         )
@@ -249,6 +259,7 @@ fn optimize_instructions_mark_local_writes_unknown(
             optimize_instructions_mark_local_writes_unknown(
               func,
               dead,
+              seen,
               @ir.hot_region_get(func, else_region, i),
               local_bits,
             )
@@ -285,8 +296,9 @@ fn optimize_instructions_scan_sign_ext_expr(
         local_bits[node.imm0] = 0
       }
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If => {
+      let seen = @bitset.BitSet::new(func.nodes.length())
       optimize_instructions_mark_local_writes_unknown(
-        func, dead, node_id, local_bits,
+        func, dead, seen, node_id, local_bits,
       )
       return
     }
@@ -16902,8 +16914,30 @@ fn optimize_instructions_run(
       dead[free_id] = true
     }
   }
+  let sign_ext_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:scan-sign-ext-facts",
+  )
   optimize_instructions_scan_sign_ext_facts(func, dead, scratch)
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:scan-sign-ext-facts",
+    sign_ext_start_us,
+  )
+  let unsigned_max_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:scan-unsigned-max-facts",
+  )
   optimize_instructions_scan_unsigned_max_facts(func, dead, scratch)
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:scan-unsigned-max-facts",
+    unsigned_max_start_us,
+  )
+  let visit_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:visit-roots",
+  )
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     changed = optimize_instructions_visit_node(
         ctx,
@@ -16915,6 +16949,15 @@ fn optimize_instructions_run(
       ) ||
       changed
   }
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:visit-roots",
+    visit_start_us,
+  )
+  let dead_suffix_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:collapse-root-dead-suffix",
+  )
   changed = optimize_instructions_try_collapse_dead_region_suffix(
       ctx,
       func,
@@ -16923,6 +16966,11 @@ fn optimize_instructions_run(
       -1,
     ) ||
     changed
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:collapse-root-dead-suffix",
+    dead_suffix_start_us,
+  )
   if changed {
     HotPassResult::changed()
   } else {

@@ -24,6 +24,8 @@ Starshine's `inlining-optimizing` is an active partial module pass whose standar
 
 ## Latest evidence
 
+2026-07-05 performance correction: user closeout requires direct pass-local Starshine time `<=` Binaryen pass-local time, not the repo-default `<=2x`. The reopened timing slice established `.tmp/io-perf-20260705/measure_io_perf.py` as the local helper-chain measurement method and fixed the nested-cleanup scaling cliff. Initial quick timings were failing badly (`20` helpers ~`82ms` Starshine vs ~`0.93ms` Binaryen; `50` helpers timed out after `>20s`), attributed to nested `optimize-instructions` sign-extension local-write marking after nested cleanup created deep block chains. Current `.tmp/io-perf-20260705/measurements/summary.json` medians satisfy `1x` on the established sizes: `1` helper `0.286ms` Starshine vs `0.645170ms` Binaryen, `5` `0.450ms` vs `0.612569ms`, `10` `0.549ms` vs `0.688842ms`, `20` `0.791ms` vs `0.815382ms`, `50` `1.671ms` vs `3.123630ms`, and `100` `3.135ms` vs `12.754000ms`. Focused guardrails: `inlining_test.mbt` includes the pure i32 accumulator fold, `passes_perf_long` includes the nested-block OI scan perf regression, pass-specific compare `.tmp/pass-fuzz-inlining-optimizing-all-10000-perf-fastpath-20260705` is `10000/10000` normalized, and ordinary all-normalizer compare `.tmp/pass-fuzz-inlining-optimizing-ordinary-10000-allnorm-perf-fastpath-20260705` is `10000/10000` compare-normalized with zero failures/mismatches.
+
 Standard direct lane now green:
 
 ```text
