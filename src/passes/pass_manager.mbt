@@ -26172,7 +26172,7 @@ fn run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memor
       size,
       @lib.MemoryCopy(dst_mem, src_mem),
     ) =>
-      tee_local == get_local &&
+      (tee_local == get_local || addr == @lib.Instruction::local_get(get_local)) &&
       dst_mem == src_mem &&
       run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
         addr,

@@ -32332,6 +32332,86 @@ test "optimize-instructions drops right block unrelated-state same-address memor
 }
 
 ///|
+test "optimize-instructions drops right block unrelated local.set same-address memory.copy" {
+  // OI-G same-input local-interference fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` only rejects prefix effects that are ordered
+  // before the right fallthrough value. A right block prefix writing a different
+  // local from the fallthrough `local.get` cannot change the address, so the
+  // trap-relaxed same-address `memory.copy` is removed while preserving the
+  // unrelated write inside the dropped source operand.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32) (local $tmp i32)
+        #|    local.get $addr
+        #|    (block (result i32)
+        #|      i32.const 7
+        #|      local.set $tmp
+        #|      local.get $addr)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unrelated right local.set memory.copy TNH success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "drop", "i32.const I32(7)", "local.set (Local 2)", "local.get (Local 0)",
+    "drop", "local.get (Local 1)", "drop",
+  ])
+}
+
+///|
+test "optimize-instructions drops left localtee payload same-address memory.copy" {
+  // OI-G same-input left-tee fact breadth: Binaryen version_130 descends through
+  // a non-matching left `local.tee` to compare its payload with the adjacent
+  // right operand, while treating the tee write as an intervening effect. When
+  // that write targets a different local than the right `local.get`, the
+  // trap-relaxed same-address `memory.copy` can be removed.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32) (local $tmp i32)
+        #|    local.get $addr
+        #|    local.tee $tmp
+        #|    local.get $addr
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected left localtee payload memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  // Starshine's HOT dropped-operand cleanup canonicalizes `drop(local.tee tmp x)`
+  // to `local.set tmp x`, a smaller effect-preserving spelling than Binaryen's
+  // raw text while preserving the same source-backed same-address fold.
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "local.set (Local 2)", "local.get (Local 0)", "drop",
+    "local.get (Local 1)", "drop",
+  ])
+}
+
+///|
 test "optimize-instructions keeps interfering right local.set same-address memory.copy" {
   // Boundary guard for the OI-G right-prefix interference fact: Binaryen v130's
   // `orderedBefore(effects(right))` rejects a right block whose prefix writes the

@@ -4712,10 +4712,20 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 }
 
 ///|
+priv struct OiLeftFallthroughInputFact {
+  fallthrough_id : Int
+  after_value_effect_mask : UInt
+  after_value_write_mask : UInt
+  after_value_local_writes : Array[Int]
+  unsupported_after_value_control : Bool
+}
+
+///|
 priv struct OiRightFallthroughInputFact {
   fallthrough_id : Int
   prefix_effect_mask : UInt
   prefix_write_mask : UInt
+  prefix_local_writes : Array[Int]
   unsupported_prefix_control : Bool
 }
 
@@ -4724,22 +4734,132 @@ priv struct OiConsecutiveInputEqualityFact {
   left_fallthrough_id : Int
   right_fallthrough_id : Int
   matching_tee_and_get : Bool
-  right_prefix_interferes : Bool
+  intervening_effects_interfere : Bool
+}
+
+///|
+fn optimize_instructions_local_writes_append_unique(
+  writes : Array[Int],
+  local_idx : Int,
+) -> Unit {
+  for value in writes {
+    if value == local_idx {
+      return
+    }
+  }
+  writes.push(local_idx)
+}
+
+///|
+fn optimize_instructions_subtree_local_writes(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Array[Int] {
+  let writes : Array[Int] = []
+  fn walk(id : Int) -> Unit {
+    let node = @ir.hot_node_get(func, id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        optimize_instructions_local_writes_append_unique(writes, node.imm0)
+      _ => ()
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
+      walk(@ir.hot_child_get(func, id, slot))
+    }
+  }
+  walk(node_id)
+  writes
+}
+
+///|
+fn optimize_instructions_append_local_writes(
+  dst : Array[Int],
+  src : Array[Int],
+) -> Unit {
+  for local_idx in src {
+    optimize_instructions_local_writes_append_unique(dst, local_idx)
+  }
+}
+
+///|
+fn optimize_instructions_local_writes_include(
+  writes : Array[Int],
+  local_idx : Int,
+) -> Bool {
+  for value in writes {
+    if value == local_idx {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_mask_without_local_state(mask : UInt) -> UInt {
+  if (mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U {
+    mask ^ @ir.EFFECT_MASK_LOCAL_STATE
+  } else {
+    mask
+  }
 }
 
 ///|
 fn optimize_instructions_left_fallthrough_input_for_equality(
   func : @ir.HotFunc,
+  node_masks : Array[UInt],
   node_id : Int,
-) -> Int {
+  right_fallthrough_id : Int,
+) -> OiLeftFallthroughInputFact {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block if node.child_count > 0 =>
       optimize_instructions_left_fallthrough_input_for_equality(
         func,
+        node_masks,
         @ir.hot_child_get(func, node_id, node.child_count - 1),
+        right_fallthrough_id,
       )
-    _ => node_id
+    @ir.HotOp::LocalTee if node.child_count > 0 => {
+      let right = @ir.hot_node_get(func, right_fallthrough_id)
+      match right.op {
+        @ir.HotOp::LocalGet if node.imm0 == right.imm0 =>
+          return {
+            fallthrough_id: node_id,
+            after_value_effect_mask: 0U,
+            after_value_write_mask: 0U,
+            after_value_local_writes: [],
+            unsupported_after_value_control: false,
+          }
+        _ => ()
+      }
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      let nested = optimize_instructions_left_fallthrough_input_for_equality(
+        func, node_masks, child_id, right_fallthrough_id,
+      )
+      let local_writes : Array[Int] = []
+      optimize_instructions_append_local_writes(
+        local_writes,
+        nested.after_value_local_writes,
+      )
+      optimize_instructions_local_writes_append_unique(local_writes, node.imm0)
+      {
+        fallthrough_id: nested.fallthrough_id,
+        after_value_effect_mask: nested.after_value_effect_mask |
+        @ir.EFFECT_MASK_LOCAL_STATE,
+        after_value_write_mask: nested.after_value_write_mask |
+        @ir.EFFECT_MASK_LOCAL_STATE,
+        after_value_local_writes: local_writes,
+        unsupported_after_value_control: nested.unsupported_after_value_control,
+      }
+    }
+    _ =>
+      {
+        fallthrough_id: node_id,
+        after_value_effect_mask: 0U,
+        after_value_write_mask: 0U,
+        after_value_local_writes: [],
+        unsupported_after_value_control: false,
+      }
   }
 }
 
@@ -4754,6 +4874,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
     @ir.HotOp::Block if node.child_count > 0 => {
       let mut prefix_effect_mask = 0U
       let mut prefix_write_mask = 0U
+      let prefix_local_writes : Array[Int] = []
       for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)
         let child_mask = node_masks[child_id]
@@ -4762,22 +4883,32 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
             fallthrough_id: node_id,
             prefix_effect_mask: 0U,
             prefix_write_mask: 0U,
+            prefix_local_writes: [],
             unsupported_prefix_control: true,
           }
         }
         prefix_effect_mask = prefix_effect_mask | child_mask
         prefix_write_mask = prefix_write_mask |
           optimize_instructions_subtree_write_mask(func, node_masks, child_id)
+        optimize_instructions_append_local_writes(
+          prefix_local_writes,
+          optimize_instructions_subtree_local_writes(func, child_id),
+        )
       }
       let nested = optimize_instructions_right_fallthrough_input_for_equality(
         func,
         node_masks,
         @ir.hot_child_get(func, node_id, node.child_count - 1),
       )
+      optimize_instructions_append_local_writes(
+        prefix_local_writes,
+        nested.prefix_local_writes,
+      )
       {
         fallthrough_id: nested.fallthrough_id,
         prefix_effect_mask: prefix_effect_mask | nested.prefix_effect_mask,
         prefix_write_mask: prefix_write_mask | nested.prefix_write_mask,
+        prefix_local_writes,
         unsupported_prefix_control: nested.unsupported_prefix_control,
       }
     }
@@ -4786,17 +4917,19 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         fallthrough_id: node_id,
         prefix_effect_mask: 0U,
         prefix_write_mask: 0U,
+        prefix_local_writes: [],
         unsupported_prefix_control: false,
       }
   }
 }
 
 ///|
-fn optimize_instructions_prefix_effects_ordered_before_right_fallthrough(
+fn optimize_instructions_effects_ordered_before_right_fallthrough(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
-  prefix_effect_mask : UInt,
-  prefix_write_mask : UInt,
+  effect_mask : UInt,
+  write_mask : UInt,
+  local_writes : Array[Int],
   right_id : Int,
 ) -> Bool {
   let right_mask = node_masks[right_id]
@@ -4804,21 +4937,44 @@ fn optimize_instructions_prefix_effects_ordered_before_right_fallthrough(
     func, node_masks, right_id,
   )
   let read_bits = optimize_instructions_reorder_read_effects()
-  let prefix_reads = prefix_effect_mask & read_bits
-  let right_reads = right_mask & read_bits
-  let region_conflict = ((prefix_reads | prefix_write_mask) & right_write_mask) !=
+  let mut effect_reads = effect_mask & read_bits
+  let mut effective_write_mask = write_mask
+  let mut right_reads = right_mask & read_bits
+  let mut effective_right_write_mask = right_write_mask
+  let right = @ir.hot_node_get(func, right_id)
+  match right.op {
+    @ir.HotOp::LocalGet if !optimize_instructions_local_writes_include(
+        local_writes,
+        right.imm0,
+      ) => {
+      effective_write_mask = optimize_instructions_mask_without_local_state(
+        effective_write_mask,
+      )
+      effect_reads = optimize_instructions_mask_without_local_state(
+        effect_reads,
+      )
+      right_reads = optimize_instructions_mask_without_local_state(right_reads)
+      effective_right_write_mask = optimize_instructions_mask_without_local_state(
+        effective_right_write_mask,
+      )
+    }
+    _ => ()
+  }
+  let region_conflict = (
+      (effect_reads | effective_write_mask) & effective_right_write_mask
+    ) !=
     0U ||
-    ((right_reads | right_write_mask) & prefix_write_mask) != 0U
+    ((right_reads | effective_right_write_mask) & effective_write_mask) != 0U
   if region_conflict {
     return true
   }
-  let prefix_disrupts = (
-      prefix_effect_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)
+  let effects_disrupt = (
+      effect_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)
     ) !=
     0U
   let right_side_effect = right_write_mask != 0U ||
     (right_mask & @ir.EFFECT_MASK_THROW) != 0U
-  prefix_disrupts && right_side_effect
+  effects_disrupt && right_side_effect
 }
 
 ///|
@@ -4829,34 +4985,51 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   right_id : Int,
 ) -> OiConsecutiveInputEqualityFact {
   let effects = pass_require_effects(ctx, func)
-  let left_fallthrough_id = optimize_instructions_left_fallthrough_input_for_equality(
-    func, left_id,
-  )
   let right_fallthrough = optimize_instructions_right_fallthrough_input_for_equality(
     func,
     effects.node_masks,
     right_id,
   )
   let right_fallthrough_id = right_fallthrough.fallthrough_id
+  let left_fallthrough = optimize_instructions_left_fallthrough_input_for_equality(
+    func,
+    effects.node_masks,
+    left_id,
+    right_fallthrough_id,
+  )
+  let left_fallthrough_id = left_fallthrough.fallthrough_id
   let left = @ir.hot_node_get(func, left_fallthrough_id)
   let right = @ir.hot_node_get(func, right_fallthrough_id)
   let matching_tee_and_get = match (left.op, right.op) {
     (@ir.HotOp::LocalTee, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
     _ => false
   }
-  let right_prefix_interferes = right_fallthrough.unsupported_prefix_control ||
-    optimize_instructions_prefix_effects_ordered_before_right_fallthrough(
+  let intervening_local_writes : Array[Int] = []
+  optimize_instructions_append_local_writes(
+    intervening_local_writes,
+    left_fallthrough.after_value_local_writes,
+  )
+  optimize_instructions_append_local_writes(
+    intervening_local_writes,
+    right_fallthrough.prefix_local_writes,
+  )
+  let intervening_effects_interfere = left_fallthrough.unsupported_after_value_control ||
+    right_fallthrough.unsupported_prefix_control ||
+    optimize_instructions_effects_ordered_before_right_fallthrough(
       func,
       effects.node_masks,
+      left_fallthrough.after_value_effect_mask |
       right_fallthrough.prefix_effect_mask,
+      left_fallthrough.after_value_write_mask |
       right_fallthrough.prefix_write_mask,
+      intervening_local_writes,
       right_fallthrough_id,
     )
   {
     left_fallthrough_id,
     right_fallthrough_id,
     matching_tee_and_get,
-    right_prefix_interferes,
+    intervening_effects_interfere,
   }
 }
 
@@ -4865,7 +5038,7 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   self : OiConsecutiveInputEqualityFact,
   func : @ir.HotFunc,
 ) -> Bool {
-  if self.right_prefix_interferes {
+  if self.intervening_effects_interfere {
     return false
   }
   if self.matching_tee_and_get {
@@ -4971,9 +5144,10 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // fallthrough facts, plus a deliberate fast path for a fallthrough
   // `local.tee` immediately followed by a matching `local.get`. Starshine keeps
   // this fact intentionally narrower than Binaryen's full effect-interference
-  // helper: right-operand peeling accepts block prefixes whose accumulated
-  // effects are not ordered before the right fallthrough value. Equality remains
-  // limited to local-get equality or matching tee/get.
+  // helper: right-operand peeling and non-matching left `local.tee` peeling carry
+  // accumulated intervening effects, including precise local-write ids for the
+  // local-get fallthrough subset. Equality remains limited to local-get equality
+  // or matching tee/get.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,
