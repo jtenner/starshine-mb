@@ -4123,6 +4123,58 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 }
 
 ///|
+priv struct OiTinyMemoryCopyFact {
+  size : Int
+}
+
+///|
+fn OiTinyMemoryCopyFact::from_size(size : Int) -> OiTinyMemoryCopyFact? {
+  match size {
+    1 | 2 | 4 | 8 | 16 => Some({ size, })
+    _ => None
+  }
+}
+
+///|
+fn OiTinyMemoryCopyFact::load_type(self : OiTinyMemoryCopyFact) -> @lib.ValType {
+  match self.size {
+    8 => @lib.ValType::i64()
+    16 => @lib.ValType::v128()
+    _ => @lib.ValType::i32()
+  }
+}
+
+///|
+fn OiTinyMemoryCopyFact::load_instr(
+  self : OiTinyMemoryCopyFact,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction {
+  match self.size {
+    1 => @lib.Instruction::i32_load8u(memarg)
+    2 => @lib.Instruction::i32_load16u(memarg)
+    4 => @lib.Instruction::i32_load(memarg)
+    8 => @lib.Instruction::i64_load(memarg)
+    16 => @lib.Instruction::v128_load(memarg)
+    _ => abort("unreachable tiny memory.copy load fact")
+  }
+}
+
+///|
+fn OiTinyMemoryCopyFact::store_instr(
+  self : OiTinyMemoryCopyFact,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction {
+  match self.size {
+    1 => @lib.Instruction::i32_store8(memarg)
+    2 => @lib.Instruction::i32_store16(memarg)
+    4 => @lib.Instruction::i32_store(memarg)
+    8 => @lib.Instruction::i64_store(memarg)
+    16 => @lib.Instruction::v128_store(memarg)
+    _ => abort("unreachable tiny memory.copy store fact")
+  }
+}
+
+///|
 fn optimize_instructions_replace_with_store_exact(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6621,53 +6673,24 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
     Some(size) => size
     _ => return false
   }
+  let copy_fact = match OiTinyMemoryCopyFact::from_size(size) {
+    Some(fact) => fact
+    None => return false
+  }
   let dst_id = @ir.hot_child_get(func, node_id, 0)
   let src_id = @ir.hot_child_get(func, node_id, 1)
   let src_memarg = optimize_instructions_memarg_for_mem_idx(node.imm1)
-  let (load_ty, load_instr, store_instr) = match size {
-    1 =>
-      (
-        @lib.ValType::i32(),
-        @lib.Instruction::i32_load8u,
-        @lib.Instruction::i32_store8,
-      )
-    2 =>
-      (
-        @lib.ValType::i32(),
-        @lib.Instruction::i32_load16u,
-        @lib.Instruction::i32_store16,
-      )
-    4 =>
-      (
-        @lib.ValType::i32(),
-        @lib.Instruction::i32_load,
-        @lib.Instruction::i32_store,
-      )
-    8 =>
-      (
-        @lib.ValType::i64(),
-        @lib.Instruction::i64_load,
-        @lib.Instruction::i64_store,
-      )
-    16 =>
-      (
-        @lib.ValType::v128(),
-        @lib.Instruction::v128_load,
-        @lib.Instruction::v128_store,
-      )
-    _ => return false
-  }
-  let load = @ir.hot_build_load(func, load_ty, src_memarg, src_id)
-  @ir.hot_node_exact_instr_set(func, load, load_instr(src_memarg))
-  optimize_instructions_replace_with_store_exact(
-    ctx,
-    func,
-    node_id,
-    node.imm0,
-    dst_id,
-    load,
-    store_instr,
+  let load = @ir.hot_build_load(
+    func, copy_fact.load_type(), src_memarg, src_id,
   )
+  @ir.hot_node_exact_instr_set(func, load, copy_fact.load_instr(src_memarg))
+  let dst_memarg = optimize_instructions_memarg_for_mem_idx(node.imm0)
+  let temp = @ir.hot_build_store(func, dst_memarg, dst_id, load)
+  @ir.hot_node_exact_instr_set(func, temp, copy_fact.store_instr(dst_memarg))
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
   true
 }
 
