@@ -6305,6 +6305,294 @@ fn OiMemoryAccessFact::with_memarg(
 }
 
 ///|
+priv struct OiStoredValueFact {
+  instr : @lib.Instruction
+  address_id : Int
+  value_id : Int
+  access_fact : OiMemoryAccessFact
+}
+
+///|
+fn OiStoredValueFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiStoredValueFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Store => ()
+    _ => return None
+  }
+  if node.child_count != 2 {
+    return None
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({
+    instr,
+    address_id: @ir.hot_child_get(func, node_id, 0),
+    value_id: @ir.hot_child_get(func, node_id, 1),
+    access_fact,
+  })
+}
+
+///|
+fn OiStoredValueFact::build_truncated_const_value(
+  self : OiStoredValueFact,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Int? {
+  let bits = match self.access_fact.store_value_bits {
+    Some(bits) => bits
+    None => return None
+  }
+  if self.access_fact.store_value_is_i64 {
+    let raw = match optimize_instructions_i64_const(func, dead, self.value_id) {
+      Some(@lib.I64(raw)) => raw
+      _ => return None
+    }
+    let mask = (1L << bits) - 1L
+    let truncated = raw & mask
+    if truncated == raw {
+      return None
+    }
+    Some(@ir.hot_build_const_i64(func, @lib.I64(truncated)))
+  } else {
+    let raw = match optimize_instructions_i32_const(func, dead, self.value_id) {
+      Some(@lib.I32(raw)) => raw
+      _ => return None
+    }
+    let mask = (1 << bits) - 1
+    let truncated = raw & mask
+    if truncated == raw {
+      return None
+    }
+    Some(@ir.hot_build_const_i32(func, @lib.I32(truncated)))
+  }
+}
+
+///|
+fn OiStoredValueFact::low_bit_mask_unmasked_value(
+  self : OiStoredValueFact,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Int? {
+  let bits = match self.access_fact.store_value_bits {
+    Some(bits) => bits
+    None => return None
+  }
+  // Binaryen version_130 `optimizeStoredValue` only drops exact i32 low-bit
+  // masks before i32 narrow stores. It preserves superset masks and all i64
+  // masks before i64 narrow stores, even though those masks are semantically
+  // redundant for the store.
+  if self.access_fact.store_value_is_i64 {
+    return None
+  }
+  if !optimize_instructions_node_is_live(func, dead, self.value_id) {
+    return None
+  }
+  let value = @ir.hot_node_get(func, self.value_id)
+  match value.op {
+    @ir.HotOp::Binary => ()
+    _ => return None
+  }
+  if value.child_count != 2 {
+    return None
+  }
+  if @ir.hot_node_exact_instr(func, self.value_id) !=
+    Some(@lib.Instruction::i32_and()) {
+    return None
+  }
+  let lhs_id = @ir.hot_child_get(func, self.value_id, 0)
+  let rhs_id = @ir.hot_child_get(func, self.value_id, 1)
+  let (mask, unmasked_id) = match
+    optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => (raw, lhs_id)
+    _ =>
+      match optimize_instructions_i32_const(func, dead, lhs_id) {
+        Some(@lib.I32(raw)) => (raw, rhs_id)
+        _ => return None
+      }
+  }
+  let required_mask = (1 << bits) - 1
+  if mask == required_mask {
+    Some(unmasked_id)
+  } else {
+    None
+  }
+}
+
+///|
+fn OiStoredValueFact::reinterpret_rewrite(
+  self : OiStoredValueFact,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> (@lib.Instruction, Int)? {
+  if !optimize_instructions_node_is_live(func, dead, self.value_id) {
+    return None
+  }
+  let value = @ir.hot_node_get(func, self.value_id)
+  if value.child_count != 1 {
+    return None
+  }
+  let new_instr = match
+    (self.instr, @ir.hot_node_exact_instr(func, self.value_id)) {
+    (
+      @lib.Instruction::F32Store(memarg),
+      Some(@lib.Instruction::F32ReinterpretI32),
+    ) => @lib.Instruction::i32_store(memarg)
+    (
+      @lib.Instruction::F64Store(memarg),
+      Some(@lib.Instruction::F64ReinterpretI64),
+    ) => @lib.Instruction::i64_store(memarg)
+    (
+      @lib.Instruction::I32Store(memarg),
+      Some(@lib.Instruction::I32ReinterpretF32),
+    ) => @lib.Instruction::f32_store(memarg)
+    (
+      @lib.Instruction::I64Store(memarg),
+      Some(@lib.Instruction::I64ReinterpretF64),
+    ) => @lib.Instruction::f64_store(memarg)
+    _ => return None
+  }
+  Some((new_instr, @ir.hot_child_get(func, self.value_id, 0)))
+}
+
+///|
+fn OiStoredValueFact::wrap_i64_widen_rewrite(
+  self : OiStoredValueFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> (@lib.Instruction, Int)? {
+  // Storing the low N bits of (i32.wrap_i64 x) is equivalent to storing the low
+  // N bits of x directly via the matching i64 narrow store, so a direct one-use
+  // wrap value child can be dropped by widening the store.
+  let new_instr = match self.instr {
+    @lib.Instruction::I32Store8(ma) => @lib.Instruction::i64_store8(ma)
+    @lib.Instruction::I32Store16(ma) => @lib.Instruction::i64_store16(ma)
+    @lib.Instruction::I32Store(ma) => @lib.Instruction::i64_store32(ma)
+    _ => return None
+  }
+  if !optimize_instructions_node_is_live(func, dead, self.value_id) {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, self.value_id) {
+    Some(@lib.Instruction::I32WrapI64) => ()
+    _ => return None
+  }
+  let value = @ir.hot_node_get(func, self.value_id)
+  if value.child_count != 1 {
+    return None
+  }
+  // Only drop the wrap when this store is its sole use, so the wrap node can be
+  // cleaned up instead of leaving a dangling i32 producer.
+  if pass_node_use_count(ctx, func, self.value_id) != 1 {
+    return None
+  }
+  Some((new_instr, @ir.hot_child_get(func, self.value_id, 0)))
+}
+
+///|
+priv struct OiLoadResultFact {
+  consumer_instr : @lib.Instruction
+  load_instr : @lib.Instruction
+  address_id : Int
+}
+
+///|
+fn OiLoadResultFact::from_unary_consumer(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiLoadResultFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 1 {
+    return None
+  }
+  let load_id = @ir.hot_child_get(func, node_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, load_id) ||
+    pass_node_use_count(ctx, func, load_id) != 1 {
+    return None
+  }
+  let load = @ir.hot_node_get(func, load_id)
+  match load.op {
+    @ir.HotOp::Load => ()
+    _ => return None
+  }
+  if load.child_count != 1 {
+    return None
+  }
+  let consumer_instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  let load_instr = match @ir.hot_node_exact_instr(func, load_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({
+    consumer_instr,
+    load_instr,
+    address_id: @ir.hot_child_get(func, load_id, 0),
+  })
+}
+
+///|
+fn OiLoadResultFact::reinterpret_load_instr(
+  self : OiLoadResultFact,
+) -> @lib.Instruction? {
+  // Binaryen v130 `visitUnary` rewrites one-use non-atomic representation loads
+  // through reinterpret consumers by mutating the load type in place.
+  match (self.load_instr, self.consumer_instr) {
+    (@lib.Instruction::I32Load(memarg), @lib.Instruction::F32ReinterpretI32) =>
+      Some(@lib.Instruction::f32_load(memarg))
+    (@lib.Instruction::I64Load(memarg), @lib.Instruction::F64ReinterpretI64) =>
+      Some(@lib.Instruction::f64_load(memarg))
+    (@lib.Instruction::F32Load(memarg), @lib.Instruction::I32ReinterpretF32) =>
+      Some(@lib.Instruction::i32_load(memarg))
+    (@lib.Instruction::F64Load(memarg), @lib.Instruction::I64ReinterpretF64) =>
+      Some(@lib.Instruction::i64_load(memarg))
+    _ => None
+  }
+}
+
+///|
+fn OiLoadResultFact::i64_extend_i32_load_instr(
+  self : OiLoadResultFact,
+) -> @lib.Instruction? {
+  // Binaryen v130 rewrites one-use i32 loads under i64.extend_i32 when the
+  // signedness/atomic constraints are represented by an equivalent i64 load.
+  match (self.load_instr, self.consumer_instr) {
+    (@lib.Instruction::I32Load(memarg), @lib.Instruction::I64ExtendI32U) =>
+      Some(@lib.Instruction::i64_load32u(memarg))
+    (@lib.Instruction::I32Load(memarg), @lib.Instruction::I64ExtendI32S) =>
+      Some(@lib.Instruction::i64_load32s(memarg))
+    (
+      @lib.Instruction::I32Load8U(memarg),
+      @lib.Instruction::I64ExtendI32U
+      | @lib.Instruction::I64ExtendI32S,
+    ) => Some(@lib.Instruction::i64_load8u(memarg))
+    (
+      @lib.Instruction::I32Load16U(memarg),
+      @lib.Instruction::I64ExtendI32U
+      | @lib.Instruction::I64ExtendI32S,
+    ) => Some(@lib.Instruction::i64_load16u(memarg))
+    (@lib.Instruction::I32Load8S(memarg), @lib.Instruction::I64ExtendI32S) =>
+      Some(@lib.Instruction::i64_load8s(memarg))
+    (@lib.Instruction::I32Load16S(memarg), @lib.Instruction::I64ExtendI32S) =>
+      Some(@lib.Instruction::i64_load16s(memarg))
+    _ => None
+  }
+}
+
+///|
 priv struct OiAtomicAccessFact {
   instr : @lib.Instruction
 }
@@ -8447,50 +8735,21 @@ fn optimize_instructions_try_truncate_narrow_store_const_value(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 2 {
-    return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
-    None => return false
-  }
-  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
     Some(fact) => fact
     None => return false
   }
-  let bits = match access_fact.store_value_bits {
-    Some(bits) => bits
+  let new_value_id = match stored_fact.build_truncated_const_value(func, dead) {
+    Some(value_id) => value_id
     None => return false
   }
-  let value_id = @ir.hot_child_get(func, node_id, 1)
-  let new_value_id = if access_fact.store_value_is_i64 {
-    let raw = match optimize_instructions_i64_const(func, dead, value_id) {
-      Some(@lib.I64(raw)) => raw
-      _ => return false
-    }
-    let mask = (1L << bits) - 1L
-    let truncated = raw & mask
-    if truncated == raw {
-      return false
-    }
-    @ir.hot_build_const_i64(func, @lib.I64(truncated))
-  } else {
-    let raw = match optimize_instructions_i32_const(func, dead, value_id) {
-      Some(@lib.I32(raw)) => raw
-      _ => return false
-    }
-    let mask = (1 << bits) - 1
-    let truncated = raw & mask
-    if truncated == raw {
-      return false
-    }
-    @ir.hot_build_const_i32(func, @lib.I32(truncated))
-  }
-  optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
-    @ir.hot_child_get(func, node_id, 0),
-    new_value_id,
-  ])
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    node_id,
+    stored_fact.instr,
+    [stored_fact.address_id, new_value_id],
+  )
   true
 }
 
@@ -8501,63 +8760,21 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 2 {
-    return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
-    None => return false
-  }
-  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
     Some(fact) => fact
     None => return false
   }
-  let bits = match access_fact.store_value_bits {
-    Some(bits) => bits
+  let unmasked_id = match stored_fact.low_bit_mask_unmasked_value(func, dead) {
+    Some(value_id) => value_id
     None => return false
   }
-  let value_id = @ir.hot_child_get(func, node_id, 1)
-  if !optimize_instructions_node_is_live(func, dead, value_id) {
-    return false
-  }
-  let value = @ir.hot_node_get(func, value_id)
-  match value.op {
-    @ir.HotOp::Binary => ()
-    _ => return false
-  }
-  if value.child_count != 2 {
-    return false
-  }
-  // Binaryen version_130 only drops exact i32 low-bit masks before i32 narrow
-  // stores. It preserves superset masks and all i64 masks before i64 narrow
-  // stores, even though those masks are semantically redundant for the store.
-  if access_fact.store_value_is_i64 {
-    return false
-  }
-  if @ir.hot_node_exact_instr(func, value_id) !=
-    Some(@lib.Instruction::i32_and()) {
-    return false
-  }
-  let lhs_id = @ir.hot_child_get(func, value_id, 0)
-  let rhs_id = @ir.hot_child_get(func, value_id, 1)
-  let (mask, unmasked_id) = match
-    optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(raw)) => (raw, lhs_id)
-    _ =>
-      match optimize_instructions_i32_const(func, dead, lhs_id) {
-        Some(@lib.I32(raw)) => (raw, rhs_id)
-        _ => return false
-      }
-  }
-  let required_mask = (1 << bits) - 1
-  if mask != required_mask {
-    return false
-  }
-  optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
-    @ir.hot_child_get(func, node_id, 0),
-    unmasked_id,
-  ])
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    node_id,
+    stored_fact.instr,
+    [stored_fact.address_id, unmasked_id],
+  )
   true
 }
 
@@ -8568,47 +8785,21 @@ fn optimize_instructions_try_rewrite_reinterpret_store_value(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 2 {
-    return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
+    Some(fact) => fact
     None => return false
   }
-  let value_id = @ir.hot_child_get(func, node_id, 1)
-  if !optimize_instructions_node_is_live(func, dead, value_id) {
-    return false
-  }
-  let value = @ir.hot_node_get(func, value_id)
-  if value.child_count != 1 {
-    return false
-  }
-  let new_instr = match (instr, @ir.hot_node_exact_instr(func, value_id)) {
-    (
-      @lib.Instruction::F32Store(memarg),
-      Some(@lib.Instruction::F32ReinterpretI32),
-    ) => @lib.Instruction::i32_store(memarg)
-    (
-      @lib.Instruction::F64Store(memarg),
-      Some(@lib.Instruction::F64ReinterpretI64),
-    ) => @lib.Instruction::i64_store(memarg)
-    (
-      @lib.Instruction::I32Store(memarg),
-      Some(@lib.Instruction::I32ReinterpretF32),
-    ) => @lib.Instruction::f32_store(memarg)
-    (
-      @lib.Instruction::I64Store(memarg),
-      Some(@lib.Instruction::I64ReinterpretF64),
-    ) => @lib.Instruction::f64_store(memarg)
-    _ => return false
+  let (new_instr, new_value_id) = match
+    stored_fact.reinterpret_rewrite(func, dead) {
+    Some(rewrite) => rewrite
+    None => return false
   }
   optimize_instructions_rewrite_exact_with_children(
     ctx,
     func,
     node_id,
     new_instr,
-    [@ir.hot_child_get(func, node_id, 0), @ir.hot_child_get(func, value_id, 0)],
+    [stored_fact.address_id, new_value_id],
   )
   true
 }
@@ -8620,48 +8811,21 @@ fn optimize_instructions_try_rewrite_reinterpret_load_result(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 1 {
-    return false
+  let load_fact = match
+    OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  let load_id = @ir.hot_child_get(func, node_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, load_id) ||
-    pass_node_use_count(ctx, func, load_id) != 1 {
-    return false
-  }
-  let load = @ir.hot_node_get(func, load_id)
-  if load.child_count != 1 {
-    return false
-  }
-  let new_instr = match
-    (
-      @ir.hot_node_exact_instr(func, load_id),
-      @ir.hot_node_exact_instr(func, node_id),
-    ) {
-    (
-      Some(@lib.Instruction::I32Load(memarg)),
-      Some(@lib.Instruction::F32ReinterpretI32),
-    ) => @lib.Instruction::f32_load(memarg)
-    (
-      Some(@lib.Instruction::I64Load(memarg)),
-      Some(@lib.Instruction::F64ReinterpretI64),
-    ) => @lib.Instruction::f64_load(memarg)
-    (
-      Some(@lib.Instruction::F32Load(memarg)),
-      Some(@lib.Instruction::I32ReinterpretF32),
-    ) => @lib.Instruction::i32_load(memarg)
-    (
-      Some(@lib.Instruction::F64Load(memarg)),
-      Some(@lib.Instruction::I64ReinterpretF64),
-    ) => @lib.Instruction::i64_load(memarg)
-    _ => return false
+  let new_instr = match load_fact.reinterpret_load_instr() {
+    Some(instr) => instr
+    None => return false
   }
   optimize_instructions_rewrite_exact_with_children(
     ctx,
     func,
     node_id,
     new_instr,
-    [@ir.hot_child_get(func, load_id, 0)],
+    [load_fact.address_id],
   )
   true
 }
@@ -8673,56 +8837,21 @@ fn optimize_instructions_try_rewrite_i64_extend_i32_load_result(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 1 {
-    return false
+  let load_fact = match
+    OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  let load_id = @ir.hot_child_get(func, node_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, load_id) ||
-    pass_node_use_count(ctx, func, load_id) != 1 {
-    return false
-  }
-  let load = @ir.hot_node_get(func, load_id)
-  if load.child_count != 1 {
-    return false
-  }
-  let new_instr = match
-    (
-      @ir.hot_node_exact_instr(func, load_id),
-      @ir.hot_node_exact_instr(func, node_id),
-    ) {
-    (
-      Some(@lib.Instruction::I32Load(memarg)),
-      Some(@lib.Instruction::I64ExtendI32U),
-    ) => @lib.Instruction::i64_load32u(memarg)
-    (
-      Some(@lib.Instruction::I32Load(memarg)),
-      Some(@lib.Instruction::I64ExtendI32S),
-    ) => @lib.Instruction::i64_load32s(memarg)
-    (
-      Some(@lib.Instruction::I32Load8U(memarg)),
-      Some(@lib.Instruction::I64ExtendI32U | @lib.Instruction::I64ExtendI32S),
-    ) => @lib.Instruction::i64_load8u(memarg)
-    (
-      Some(@lib.Instruction::I32Load16U(memarg)),
-      Some(@lib.Instruction::I64ExtendI32U | @lib.Instruction::I64ExtendI32S),
-    ) => @lib.Instruction::i64_load16u(memarg)
-    (
-      Some(@lib.Instruction::I32Load8S(memarg)),
-      Some(@lib.Instruction::I64ExtendI32S),
-    ) => @lib.Instruction::i64_load8s(memarg)
-    (
-      Some(@lib.Instruction::I32Load16S(memarg)),
-      Some(@lib.Instruction::I64ExtendI32S),
-    ) => @lib.Instruction::i64_load16s(memarg)
-    _ => return false
+  let new_instr = match load_fact.i64_extend_i32_load_instr() {
+    Some(instr) => instr
+    None => return false
   }
   optimize_instructions_rewrite_exact_with_children(
     ctx,
     func,
     node_id,
     new_instr,
-    [@ir.hot_child_get(func, load_id, 0)],
+    [load_fact.address_id],
   )
   true
 }
@@ -8734,43 +8863,21 @@ fn optimize_instructions_try_widen_store_of_wrap_i64(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 2 {
-    return false
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  // Storing the low N bits of (i32.wrap_i64 x) is equivalent to storing the low
-  // N bits of x directly via the matching i64 narrow store, so a direct one-use
-  // wrap value child can be dropped by widening the store.
-  let new_instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32Store8(ma)) => @lib.Instruction::i64_store8(ma)
-    Some(@lib.Instruction::I32Store16(ma)) => @lib.Instruction::i64_store16(ma)
-    Some(@lib.Instruction::I32Store(ma)) => @lib.Instruction::i64_store32(ma)
-    _ => return false
+  let (new_instr, wide_value_id) = match
+    stored_fact.wrap_i64_widen_rewrite(ctx, func, dead) {
+    Some(rewrite) => rewrite
+    None => return false
   }
-  let value_id = @ir.hot_child_get(func, node_id, 1)
-  if !optimize_instructions_node_is_live(func, dead, value_id) {
-    return false
-  }
-  match @ir.hot_node_exact_instr(func, value_id) {
-    Some(@lib.Instruction::I32WrapI64) => ()
-    _ => return false
-  }
-  let value = @ir.hot_node_get(func, value_id)
-  if value.child_count != 1 {
-    return false
-  }
-  // Only drop the wrap when this store is its sole use, so the wrap node can be
-  // cleaned up instead of leaving a dangling i32 producer.
-  if pass_node_use_count(ctx, func, value_id) != 1 {
-    return false
-  }
-  let wide_value_id = @ir.hot_child_get(func, value_id, 0)
   optimize_instructions_rewrite_exact_with_children(
     ctx,
     func,
     node_id,
     new_instr,
-    [@ir.hot_child_get(func, node_id, 0), wide_value_id],
+    [stored_fact.address_id, wide_value_id],
   )
   true
 }
