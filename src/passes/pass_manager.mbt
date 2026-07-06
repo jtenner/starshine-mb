@@ -26767,21 +26767,21 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Int)? {
-  let ref_args : Array[@lib.LocalIdx] = []
+  let ref_args : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
     match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        ref_args.push(arg)
+      @lib.LocalGet(_) | @lib.I32Const(_) => {
+        ref_args.push(instrs[scan])
         scan = scan + 1
       }
       @lib.Call(ref_func) => {
-        let desc_args : Array[@lib.LocalIdx] = []
+        let desc_args : Array[@lib.Instruction] = []
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
           match instrs[desc_scan] {
-            @lib.LocalGet(arg) => {
-              desc_args.push(arg)
+            @lib.LocalGet(_) | @lib.I32Const(_) => {
+              desc_args.push(instrs[desc_scan])
               desc_scan = desc_scan + 1
             }
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
@@ -26803,11 +26803,11 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                   ) => {
                   let rewritten : Array[@lib.Instruction] = []
                   for arg in ref_args {
-                    rewritten.push(@lib.Instruction::local_get(arg))
+                    rewritten.push(arg)
                   }
                   rewritten.push(@lib.Instruction::call(ref_func))
                   for arg in desc_args {
-                    rewritten.push(@lib.Instruction::local_get(arg))
+                    rewritten.push(arg)
                   }
                   rewritten.push(@lib.Instruction::call(descriptor_func))
                   rewritten.push(

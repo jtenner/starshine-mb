@@ -14160,10 +14160,9 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
       ),
       @lib.RecType::new(
         @lib.SubType::comp_type(
-          @lib.CompType::func(
-            cast_params,
-            [@lib.ValType::ref_type(cast_target_ref_type)],
-          ),
+          @lib.CompType::func(cast_params, [
+            @lib.ValType::ref_type(cast_target_ref_type),
+          ]),
         ),
       ),
     ]),
