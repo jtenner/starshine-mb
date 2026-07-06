@@ -6371,6 +6371,121 @@ fn OiAtomicAccessFact::with_memarg(
 }
 
 ///|
+// Binaryen v130 `optimizeMemoryAccess` folds a constant address plus a static
+// memory offset into a zero-offset access under memory32/memory64 overflow
+// guards. Keep that proof in one OI-G fact instead of open-coding the
+// load/store/atomic scanner at each rewrite site.
+priv struct OiMemoryOffsetFoldFact {
+  instr : @lib.Instruction
+  address_id : Int
+  new_memarg : @lib.MemArg
+  folded_i32_address : @lib.I32?
+  folded_i64_address : @lib.I64?
+}
+
+///|
+fn OiMemoryOffsetFoldFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMemoryOffsetFoldFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 0 {
+    return None
+  }
+  match node.op {
+    @ir.HotOp::Load | @ir.HotOp::Store | @ir.HotOp::Atomic => ()
+    _ => return None
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  match instr {
+    @lib.Instruction::StructAtomicGet(_, _, _)
+    | @lib.Instruction::StructAtomicGetS(_, _, _)
+    | @lib.Instruction::StructAtomicGetU(_, _, _)
+    | @lib.Instruction::StructAtomicRmw(_, _, _)
+    | @lib.Instruction::StructAtomicCmpxchg(_, _)
+    | @lib.Instruction::ArrayAtomicRmw(_, _)
+    | @lib.Instruction::ArrayAtomicCmpxchg(_) => return None
+    _ => ()
+  }
+  let @lib.MemArg(align, mem, @lib.U64(offset)) = @ir.hot_memarg_get(
+      func,
+      node.imm0,
+    ).memarg
+  if offset == 0UL {
+    return None
+  }
+  let address_id = @ir.hot_child_get(func, node_id, 0)
+  let address = @ir.hot_node_get(func, address_id)
+  match address.op {
+    @ir.HotOp::Const => ()
+    _ => return None
+  }
+  let (folded_i32_address, folded_i64_address) = match
+    @ir.hot_const_get(func, address.imm0) {
+    @ir.HotConstPayload::I32Const(@lib.I32(raw)) => {
+      if raw < 0 {
+        return None
+      }
+      let raw_u = raw.reinterpret_as_uint()
+      if raw_u > 2147483647U {
+        return None
+      }
+      let sum = raw_u.to_uint64() + offset
+      if sum > 2147483647UL {
+        return None
+      }
+      (Some(@lib.I32(sum.to_uint().reinterpret_as_int())), None)
+    }
+    @ir.HotConstPayload::I64Const(@lib.I64(raw)) => {
+      let raw_u = raw.reinterpret_as_uint64()
+      if raw_u > 18446744073709551615UL - offset {
+        return None
+      }
+      let sum = raw_u + offset
+      (None, Some(@lib.I64(sum.reinterpret_as_int64())))
+    }
+    _ => return None
+  }
+  Some({
+    instr,
+    address_id,
+    new_memarg: @lib.MemArg::new(align, mem, @lib.U64(0UL)),
+    folded_i32_address,
+    folded_i64_address,
+  })
+}
+
+///|
+fn OiMemoryOffsetFoldFact::build_address_const(
+  self : OiMemoryOffsetFoldFact,
+  func : @ir.HotFunc,
+) -> Int? {
+  ignore(self.address_id)
+  match (self.folded_i32_address, self.folded_i64_address) {
+    (Some(value), None) => Some(@ir.hot_build_const_i32(func, value))
+    (None, Some(value)) => Some(@ir.hot_build_const_i64(func, value))
+    _ => None
+  }
+}
+
+///|
+fn OiMemoryOffsetFoldFact::access_fact(
+  self : OiMemoryOffsetFoldFact,
+) -> OiMemoryAccessFact? {
+  OiMemoryAccessFact::from_instr(self.instr)
+}
+
+///|
+fn OiMemoryOffsetFoldFact::atomic_fact(
+  self : OiMemoryOffsetFoldFact,
+) -> OiAtomicAccessFact? {
+  OiAtomicAccessFact::from_instr(self.instr)
+}
+
+///|
 fn optimize_instructions_struct_atomic_field_type(
   ctx : HotPassContext,
   type_idx : @lib.TypeIdx,
@@ -6882,79 +6997,24 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
 ) -> Bool {
   ignore(dead)
   let node = @ir.hot_node_get(func, node_id)
-  if node.child_count == 0 {
-    return false
-  }
-  match node.op {
-    @ir.HotOp::Load | @ir.HotOp::Store | @ir.HotOp::Atomic => ()
-    _ => return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
+  let offset_fact = match OiMemoryOffsetFoldFact::from_node(func, node_id) {
+    Some(fact) => fact
     None => return false
   }
-  match instr {
-    @lib.Instruction::StructAtomicGet(_, _, _)
-    | @lib.Instruction::StructAtomicGetS(_, _, _)
-    | @lib.Instruction::StructAtomicGetU(_, _, _)
-    | @lib.Instruction::StructAtomicRmw(_, _, _)
-    | @lib.Instruction::StructAtomicCmpxchg(_, _)
-    | @lib.Instruction::ArrayAtomicRmw(_, _)
-    | @lib.Instruction::ArrayAtomicCmpxchg(_) => return false
-    _ => ()
+  let new_address_id = match offset_fact.build_address_const(func) {
+    Some(address_id) => address_id
+    None => return false
   }
-  let @lib.MemArg(align, mem, @lib.U64(offset)) = @ir.hot_memarg_get(
-      func,
-      node.imm0,
-    ).memarg
-  if offset == 0UL {
-    return false
-  }
-  let address_id = @ir.hot_child_get(func, node_id, 0)
-  let address = @ir.hot_node_get(func, address_id)
-  match address.op {
-    @ir.HotOp::Const => ()
-    _ => return false
-  }
-  let new_address_id = match @ir.hot_const_get(func, address.imm0) {
-    @ir.HotConstPayload::I32Const(@lib.I32(raw)) => {
-      if raw < 0 {
-        return false
-      }
-      let raw_u = raw.reinterpret_as_uint()
-      if raw_u > 2147483647U {
-        return false
-      }
-      let sum = raw_u.to_uint64() + offset
-      if sum > 2147483647UL {
-        return false
-      }
-      @ir.hot_build_const_i32(
-        func,
-        @lib.I32(sum.to_uint().reinterpret_as_int()),
-      )
-    }
-    @ir.HotConstPayload::I64Const(@lib.I64(raw)) => {
-      let raw_u = raw.reinterpret_as_uint64()
-      if raw_u > 18446744073709551615UL - offset {
-        return false
-      }
-      let sum = raw_u + offset
-      @ir.hot_build_const_i64(func, @lib.I64(sum.reinterpret_as_int64()))
-    }
-    _ => return false
-  }
-  let new_memarg = @lib.MemArg::new(align, mem, @lib.U64(0UL))
   match node.op {
     @ir.HotOp::Atomic => {
       if node.child_count != 1 && node.child_count != 2 {
         return false
       }
-      let atomic_fact = match OiAtomicAccessFact::from_instr(instr) {
+      let atomic_fact = match offset_fact.atomic_fact() {
         Some(fact) => fact
         None => return false
       }
-      let new_instr = match atomic_fact.with_memarg(new_memarg) {
+      let new_instr = match atomic_fact.with_memarg(offset_fact.new_memarg) {
         Some(instr) => instr
         None => return false
       }
@@ -6965,11 +7025,11 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
     }
     _ => ()
   }
-  let access_fact = match OiMemoryAccessFact::from_instr(instr) {
+  let access_fact = match offset_fact.access_fact() {
     Some(fact) => fact
     None => return false
   }
-  let new_instr = match access_fact.with_memarg(new_memarg) {
+  let new_instr = match access_fact.with_memarg(offset_fact.new_memarg) {
     Some(instr) => instr
     None => return false
   }
@@ -6979,12 +7039,17 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
         Some(result_type) => result_type
         None => return false
       }
-      @ir.hot_build_load(func, result_type, new_memarg, new_address_id)
+      @ir.hot_build_load(
+        func,
+        result_type,
+        offset_fact.new_memarg,
+        new_address_id,
+      )
     }
     @ir.HotOp::Store =>
       @ir.hot_build_store(
         func,
-        new_memarg,
+        offset_fact.new_memarg,
         new_address_id,
         @ir.hot_child_get(func, node_id, 1),
       )
