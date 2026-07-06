@@ -13883,6 +13883,9 @@ fn optimize_instructions_test_local_sum_then_global_set(
 fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
   ref_arg_count : Int,
   desc_arg_count : Int,
+  const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -13899,33 +13902,86 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
     exact=true,
   )
   let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
-  let ref_body = optimize_instructions_test_local_sum_then_global_set(
-    ref_arg_count,
-    @lib.GlobalIdx::new(0U),
-  )
+  let ref_body = if i64_const_call_args {
+    [
+      @lib.Instruction::i32_const(@lib.I32(11)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    ]
+  } else {
+    optimize_instructions_test_local_sum_then_global_set(
+      ref_arg_count,
+      @lib.GlobalIdx::new(0U),
+    )
+  }
   ref_body.push(@lib.Instruction::struct_new_default(subtype_descriptor))
   ref_body.push(@lib.Instruction::struct_new_default_desc(subtype))
-  let desc_body = optimize_instructions_test_local_sum_then_global_set(
-    desc_arg_count,
-    @lib.GlobalIdx::new(1U),
-  )
+  let desc_body = if i64_const_call_args {
+    [
+      @lib.Instruction::i32_const(@lib.I32(17)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+    ]
+  } else {
+    optimize_instructions_test_local_sum_then_global_set(
+      desc_arg_count,
+      @lib.GlobalIdx::new(1U),
+    )
+  }
   desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
   let cast_body : Array[@lib.Instruction] = []
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
-    cast_body.push(
-      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
-    )
+    if const_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if i64_const_call_args {
+      cast_body.push(
+        @lib.Instruction::i64_const(@lib.I64((100 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      cast_body.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      cast_body.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+      )
+    }
   }
   cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
-    cast_body.push(
-      @lib.Instruction::local_get(
-        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
-      ),
-    )
+    if const_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      cast_body.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      cast_body.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      cast_body.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+        ),
+      )
+    }
   }
   cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
   cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(base_ref_type))
+  let cast_params = if i64_const_call_args {
+    optimize_instructions_test_i64_params(ref_arg_count + desc_arg_count)
+  } else {
+    optimize_instructions_test_i32_params(ref_arg_count + desc_arg_count)
+  }
+  let ref_call_params = if i64_const_call_args {
+    optimize_instructions_test_i64_params(ref_arg_count)
+  } else {
+    optimize_instructions_test_i32_params(ref_arg_count)
+  }
+  let desc_call_params = if i64_const_call_args {
+    optimize_instructions_test_i64_params(desc_arg_count)
+  } else {
+    optimize_instructions_test_i32_params(desc_arg_count)
+  }
   @lib.Module::new()
   .with_type_sec(
     @lib.TypeSec::new([
@@ -13971,28 +14027,23 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
       ]),
       @lib.RecType::new(
         @lib.SubType::comp_type(
-          @lib.CompType::func(
-            optimize_instructions_test_i32_params(ref_arg_count),
-            [@lib.ValType::ref_type(sub_ref_type)],
-          ),
+          @lib.CompType::func(ref_call_params, [
+            @lib.ValType::ref_type(sub_ref_type),
+          ]),
         ),
       ),
       @lib.RecType::new(
         @lib.SubType::comp_type(
-          @lib.CompType::func(
-            optimize_instructions_test_i32_params(desc_arg_count),
-            [@lib.ValType::ref_type(base_descriptor_ref_type)],
-          ),
+          @lib.CompType::func(desc_call_params, [
+            @lib.ValType::ref_type(base_descriptor_ref_type),
+          ]),
         ),
       ),
       @lib.RecType::new(
         @lib.SubType::comp_type(
-          @lib.CompType::func(
-            optimize_instructions_test_i32_params(
-              ref_arg_count + desc_arg_count,
-            ),
-            [@lib.ValType::ref_type(base_ref_type)],
-          ),
+          @lib.CompType::func(cast_params, [
+            @lib.ValType::ref_type(base_ref_type),
+          ]),
         ),
       ),
     ]),
@@ -14025,27 +14076,70 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
 fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
   ref_arg_count : Int,
   desc_arg_count : Int,
+  const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
-    ref_arg_count, desc_arg_count,
+    ref_arg_count,
+    desc_arg_count,
+    const_call_args~,
+    i64_const_call_args~,
+    global_call_args~,
   )
-  let optimized = optimize_instructions_test_run_module(module_)
+  let optimized = if const_call_args || i64_const_call_args || global_call_args {
+    match
+      run_hot_pipeline(module_, HotPipelineOptions::new(), [
+        "optimize-instructions",
+      ]) {
+      Ok(mod_) => mod_
+      Err(err) => fail(
+        "expected descriptor miss nontrapping-argument pipeline success, got \{err}",
+      )
+    }
+  } else {
+    optimize_instructions_test_run_module(module_)
+  }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
   let expected : Array[@lib.Instruction] = []
   for arg = 0; arg < ref_arg_count; arg = arg + 1 {
-    expected.push(
-      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
-    )
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(100 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((100 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+      )
+    }
   }
   expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
   expected.push(@lib.Instruction::drop())
   for arg = 0; arg < desc_arg_count; arg = arg + 1 {
-    expected.push(
-      @lib.Instruction::local_get(
-        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
-      ),
-    )
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+        ),
+      )
+    }
   }
   expected.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
   expected.push(@lib.Instruction::drop())
@@ -14543,6 +14637,47 @@ test "optimize-instructions folds descriptor casts with semantic family 11-arg e
   // indirect calls, return_call*, multivalue, escaping control/EH, and TNH/IIT
   // behavior out of scope for this narrow direct-call descriptor-miss fold.
   optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(11, 11)
+}
+
+///|
+test "optimize-instructions folds direct-call descriptor misses with i32 constant arguments" {
+  // OI-J direct-call descriptor-miss argument family: scalar i32 constants are
+  // nontrapping ordered operands for the reference and descriptor calls. A
+  // strict-subtype reference result plus an exact target descriptor still means
+  // the descriptor cast cannot succeed, so the fold preserves constants, calls,
+  // drops, and the final unreachable rather than relying on local-only arity
+  // history.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
+    2,
+    1,
+    const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds direct-call descriptor misses with i64 constant arguments" {
+  // Same semantic miss family for wider nontrapping scalar constants. This is
+  // deliberately separate from exact-success skipping: the reference call
+  // returns a strict subtype, so the explicit descriptor equality check is known
+  // to fail after both direct calls and their i64 arguments are evaluated.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
+    1,
+    2,
+    i64_const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds direct-call descriptor misses with global arguments" {
+  // Same semantic miss family for ordered global.get operands. The globals are
+  // read before their direct calls, then both call results are dropped before
+  // unreachable; this does not widen to effectful/trapping argument expressions,
+  // indirect/call_ref producers, return_call*, control/EH, TNH, or IIT behavior.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
+    2,
+    1,
+    global_call_args=true,
+  )
 }
 
 ///|
