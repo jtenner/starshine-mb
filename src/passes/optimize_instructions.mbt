@@ -457,6 +457,172 @@ fn OiDescriptorCastFact::from_node(
 }
 
 ///|
+priv struct OiRefGetDescFact {
+  child_id : Int
+  nullable_child_id : Int
+}
+
+///|
+fn OiRefGetDescFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefGetDescFact? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  let nullable_child_id = match @ir.hot_node_exact_instr(func, child_id) {
+    Some(@lib.Instruction::RefAsNonNull) if @ir.hot_child_count(func, child_id) ==
+      1 => @ir.hot_child_get(func, child_id, 0)
+    _ => -1
+  }
+  Some({ child_id, nullable_child_id })
+}
+
+///|
+fn OiRefGetDescFact::explicit_nullable_child(self : OiRefGetDescFact) -> Int? {
+  if self.nullable_child_id >= 0 {
+    Some(self.nullable_child_id)
+  } else {
+    None
+  }
+}
+
+///|
+fn OiRefGetDescFact::standalone_known_null_preserve_child(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+) -> Int? {
+  let nullable_child = match self.explicit_nullable_child() {
+    Some(child) => child
+    None => return None
+  }
+  match @ir.hot_node_get(func, nullable_child).op {
+    @ir.HotOp::RefNull =>
+      if optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
+          func, nullable_child,
+        ) {
+        Some(-1)
+      } else {
+        None
+      }
+    @ir.HotOp::LocalTee =>
+      if optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
+          func, nullable_child,
+        ) {
+        Some(nullable_child)
+      } else {
+        None
+      }
+    @ir.HotOp::Block =>
+      if optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
+          func, nullable_child,
+        ) {
+        Some(nullable_child)
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiRefGetDescFact::can_move_standalone_null_check(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+) -> Bool {
+  match self.explicit_nullable_child() {
+    Some(nullable_child) =>
+      optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
+        func, nullable_child,
+      )
+    None => false
+  }
+}
+
+///|
+fn OiRefGetDescFact::can_move_descriptor_operand_null_check(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+) -> Bool {
+  let nullable_child = match self.explicit_nullable_child() {
+    Some(child) => child
+    None => return false
+  }
+  match @ir.hot_node_get(func, nullable_child).op {
+    @ir.HotOp::LocalGet => true
+    @ir.HotOp::Block | @ir.HotOp::Select =>
+      !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+        func, nullable_child,
+      )
+    @ir.HotOp::If =>
+      optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+        func, nullable_child,
+      )
+    _ => false
+  }
+}
+
+///|
+fn OiRefGetDescFact::child_is_unreachable(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+) -> Bool {
+  match @ir.hot_node_get(func, self.child_id).op {
+    @ir.HotOp::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn OiRefGetDescFact::operand_can_erase(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Bool {
+  let operand_fact = OiRefFact::from_node(func, self.child_id)
+  (operand_fact.type_is_non_nullable() || operand_fact.is_known_non_null()) &&
+  optimize_instructions_is_side_effect_free_expr(func, dead, self.child_id)
+}
+
+///|
+fn OiRefGetDescFact::operand_can_erase_traps_never_happen(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Bool {
+  match self.explicit_nullable_child() {
+    Some(nullable_child) =>
+      optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
+        func, dead, nullable_child,
+      )
+    None => false
+  }
+}
+
+///|
+fn OiRefGetDescFact::traps_without_effects(
+  self : OiRefGetDescFact,
+  func : @ir.HotFunc,
+) -> Bool {
+  if self.child_is_unreachable(func) {
+    return true
+  }
+  match self.explicit_nullable_child() {
+    Some(nullable_child) =>
+      match @ir.hot_node_get(func, nullable_child).op {
+        @ir.HotOp::RefNull => true
+        _ => false
+      }
+    None => false
+  }
+}
+
+///|
 priv struct OptimizeInstructionsScratch {
   cross_seen_stamps : Array[Int]
   loop_input_nodes : @bitset.BitSet
@@ -13740,12 +13906,12 @@ fn optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref
   func : @ir.HotFunc,
   descriptor_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, descriptor_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) =>
+  match OiRefGetDescFact::from_node(func, descriptor_id) {
+    Some(_) =>
       optimize_instructions_descriptor_expr_has_escaping_branch_control(
         func, descriptor_id,
       )
-    _ => false
+    None => false
   }
 }
 
@@ -13755,27 +13921,15 @@ fn optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_ha
   func : @ir.HotFunc,
   descriptor_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, descriptor_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
+    Some(fact) => fact
+    None => return false
   }
-  if @ir.hot_child_count(func, descriptor_id) != 1 {
-    return false
+  let nullable_child = match get_desc_fact.explicit_nullable_child() {
+    Some(child) => child
+    None => return false
   }
-  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
-  match @ir.hot_node_exact_instr(func, get_desc_child) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, get_desc_child) != 1 {
-    return false
-  }
-  @ir.hot_child_set(
-    func,
-    descriptor_id,
-    0,
-    @ir.hot_child_get(func, get_desc_child, 0),
-  )
+  @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
   pass_mark_mutated(ctx, func)
   true
 }
@@ -14831,62 +14985,29 @@ fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
   func : @ir.HotFunc,
   descriptor_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, descriptor_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
+    Some(fact) => fact
+    None => return false
   }
-  if @ir.hot_child_count(func, descriptor_id) != 1 {
-    return false
-  }
-  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
   let null_trap_fact = OiNullTrapFact::for_operand(
     func,
-    get_desc_child,
+    get_desc_fact.child_id,
     traps_on_null=true,
   )
   if null_trap_fact.can_replace_parent_with_unreachable() {
     optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
     return true
   }
-  match @ir.hot_node_exact_instr(func, get_desc_child) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, get_desc_child) != 1 {
-    return false
-  }
-  let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
-  match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::RefNull =>
-      if optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
-          func, nullable_child,
-        ) {
-        optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
-        true
-      } else {
-        false
-      }
-    @ir.HotOp::LocalTee =>
-      if optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
-          func, nullable_child,
-        ) {
-        optimize_instructions_replace_with_drop_then_unreachable(
-          ctx, func, descriptor_id, nullable_child,
-        )
-      } else {
-        false
-      }
-    @ir.HotOp::Block =>
-      if optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
-          func, nullable_child,
-        ) {
-        optimize_instructions_replace_with_drop_then_unreachable(
-          ctx, func, descriptor_id, nullable_child,
-        )
-      } else {
-        false
-      }
-    _ => false
+  match get_desc_fact.standalone_known_null_preserve_child(func) {
+    Some(-1) => {
+      optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
+      true
+    }
+    Some(nullable_child) =>
+      optimize_instructions_replace_with_drop_then_unreachable(
+        ctx, func, descriptor_id, nullable_child,
+      )
+    None => false
   }
 }
 
@@ -14896,22 +15017,14 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
   func : @ir.HotFunc,
   descriptor_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, descriptor_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
+    Some(fact) => fact
+    None => return false
   }
-  if @ir.hot_child_count(func, descriptor_id) != 1 {
-    return false
+  let nullable_child = match get_desc_fact.explicit_nullable_child() {
+    Some(child) => child
+    None => return false
   }
-  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
-  match @ir.hot_node_exact_instr(func, get_desc_child) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, get_desc_child) != 1 {
-    return false
-  }
-  let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
   if ctx.traps_never_happen {
     let mut is_standalone_root = false
     for root_idx = 0
@@ -14926,9 +15039,7 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
       return false
     }
   }
-  if !optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
-      func, nullable_child,
-    ) {
+  if !get_desc_fact.can_move_standalone_null_check(func) {
     return false
   }
   @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
@@ -14942,37 +15053,16 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
   func : @ir.HotFunc,
   descriptor_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, descriptor_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
+    Some(fact) => fact
+    None => return false
   }
-  if @ir.hot_child_count(func, descriptor_id) != 1 {
+  let nullable_child = match get_desc_fact.explicit_nullable_child() {
+    Some(child) => child
+    None => return false
+  }
+  if !get_desc_fact.can_move_descriptor_operand_null_check(func) {
     return false
-  }
-  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
-  match @ir.hot_node_exact_instr(func, get_desc_child) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, get_desc_child) != 1 {
-    return false
-  }
-  let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
-  match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::LocalGet => ()
-    @ir.HotOp::Block | @ir.HotOp::Select =>
-      if optimize_instructions_descriptor_expr_has_escaping_branch_control(
-          func, nullable_child,
-        ) {
-        return false
-      }
-    @ir.HotOp::If =>
-      if !optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
-          func, nullable_child,
-        ) {
-        return false
-      }
-    _ => return false
   }
   @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
   pass_mark_mutated(ctx, func)
@@ -15648,9 +15738,9 @@ fn optimize_instructions_descriptor_operand_should_localize_when_skipped(
     @ir.HotOp::Call | @ir.HotOp::CallRef => return true
     _ => ()
   }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => true
-    _ => false
+  match OiRefGetDescFact::from_node(func, node_id) {
+    Some(_) => true
+    None => false
   }
 }
 
@@ -15697,17 +15787,10 @@ fn optimize_instructions_ref_get_desc_operand_can_erase(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
+  match OiRefGetDescFact::from_node(func, node_id) {
+    Some(fact) => fact.operand_can_erase(func, dead)
+    None => false
   }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  let operand_id = @ir.hot_child_get(func, node_id, 0)
-  let operand_fact = OiRefFact::from_node(func, operand_id)
-  (operand_fact.type_is_non_nullable() || operand_fact.is_known_non_null()) &&
-  optimize_instructions_is_side_effect_free_expr(func, dead, operand_id)
 }
 
 ///|
@@ -15736,25 +15819,9 @@ fn optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  let operand_id = @ir.hot_child_get(func, node_id, 0)
-  match @ir.hot_node_exact_instr(func, operand_id) {
-    Some(@lib.Instruction::RefAsNonNull) => {
-      if @ir.hot_child_count(func, operand_id) != 1 {
-        return false
-      }
-      let nullable_operand_id = @ir.hot_child_get(func, operand_id, 0)
-      optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
-        func, dead, nullable_operand_id,
-      )
-    }
-    _ => false
+  match OiRefGetDescFact::from_node(func, node_id) {
+    Some(fact) => fact.operand_can_erase_traps_never_happen(func, dead)
+    None => false
   }
 }
 
@@ -15767,30 +15834,9 @@ fn optimize_instructions_descriptor_operand_traps_without_effects(
     @ir.HotOp::Unreachable => return true
     _ => ()
   }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  let child_id = @ir.hot_child_get(func, node_id, 0)
-  match @ir.hot_node_get(func, child_id).op {
-    @ir.HotOp::Unreachable => true
-    _ =>
-      match @ir.hot_node_exact_instr(func, child_id) {
-        Some(@lib.Instruction::RefAsNonNull) => {
-          if @ir.hot_child_count(func, child_id) != 1 {
-            return false
-          }
-          match
-            @ir.hot_node_get(func, @ir.hot_child_get(func, child_id, 0)).op {
-            @ir.HotOp::RefNull => true
-            _ => false
-          }
-        }
-        _ => false
-      }
+  match OiRefGetDescFact::from_node(func, node_id) {
+    Some(fact) => fact.traps_without_effects(func)
+    None => false
   }
 }
 
@@ -15800,19 +15846,15 @@ fn optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefGetDesc(_)) => ()
-    _ => return false
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  match @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op {
-    @ir.HotOp::Unreachable => {
-      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-      true
-    }
-    _ => false
+  if get_desc_fact.child_is_unreachable(func) {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    true
+  } else {
+    false
   }
 }
 
