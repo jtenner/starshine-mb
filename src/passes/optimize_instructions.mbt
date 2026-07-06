@@ -6098,10 +6098,81 @@ fn optimize_instructions_build_repeated_fill_v128_const(
 }
 
 ///|
+priv enum OiTinyMemoryFillStoreFact {
+  Store8
+  Store16
+  Store32
+  Store64
+  StoreV128
+}
+
+///|
+priv enum OiTinyMemoryFillValueFact {
+  RepeatedByte(Int)
+  OriginalI32Value
+}
+
+///|
 priv struct OiTinyMemoryFillFact {
   size : Int
-  repeated_byte : Int?
-  use_original_value : Bool
+  store_fact : OiTinyMemoryFillStoreFact
+  value_fact : OiTinyMemoryFillValueFact
+}
+
+///|
+fn OiTinyMemoryFillStoreFact::from_size(
+  size : Int,
+) -> OiTinyMemoryFillStoreFact? {
+  match size {
+    1 => Some(Store8)
+    2 => Some(Store16)
+    4 => Some(Store32)
+    8 => Some(Store64)
+    16 => Some(StoreV128)
+    _ => None
+  }
+}
+
+///|
+fn OiTinyMemoryFillStoreFact::instruction(
+  self : OiTinyMemoryFillStoreFact,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction {
+  match self {
+    Store8 => @lib.Instruction::i32_store8(memarg)
+    Store16 => @lib.Instruction::i32_store16(memarg)
+    Store32 => @lib.Instruction::i32_store(memarg)
+    Store64 => @lib.Instruction::i64_store(memarg)
+    StoreV128 => @lib.Instruction::v128_store(memarg)
+  }
+}
+
+///|
+fn OiTinyMemoryFillFact::from_repeated_byte(
+  ctx : HotPassContext,
+  size : Int,
+  byte : Int,
+) -> OiTinyMemoryFillFact? {
+  let store_fact = match OiTinyMemoryFillStoreFact::from_size(size) {
+    Some(fact) => fact
+    None => return None
+  }
+  // Binaryen v130 `optimizeMemoryFill` always lowers constant sizes 1/2, only
+  // lowers constant sizes 4/8 for zero bytes or `shrinkLevel == 0`, and only
+  // lowers constant size 16 at `shrinkLevel == 0` (with a SIMD store when the
+  // module feature set permits it; Starshine currently has no module feature
+  // fact, so the no-SIMD two-i64-store fallback stays documented as open).
+  let may_lower = match size {
+    1 | 2 => true
+    4 | 8 => byte == 0 || ctx.shrink_level == 0
+    16 => ctx.shrink_level == 0
+    _ => false
+  }
+  if may_lower {
+    Some({ size, store_fact, value_fact: RepeatedByte(byte) })
+  } else {
+    None
+  }
 }
 
 ///|
@@ -6115,27 +6186,11 @@ fn OiTinyMemoryFillFact::from_size_and_value(
   match optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
     Some(@lib.I32(raw)) => {
       let byte = (raw.reinterpret_as_uint() & 0xff).reinterpret_as_int()
-      match size {
-        1 | 2 =>
-          Some({ size, repeated_byte: Some(byte), use_original_value: false })
-        4 | 8 =>
-          if byte == 0 || ctx.shrink_level == 0 {
-            Some({ size, repeated_byte: Some(byte), use_original_value: false })
-          } else {
-            None
-          }
-        16 =>
-          if ctx.shrink_level == 0 {
-            Some({ size, repeated_byte: Some(byte), use_original_value: false })
-          } else {
-            None
-          }
-        _ => None
-      }
+      OiTinyMemoryFillFact::from_repeated_byte(ctx, size, byte)
     }
     None =>
       if size == 1 {
-        Some({ size, repeated_byte: None, use_original_value: true })
+        Some({ size, store_fact: Store8, value_fact: OriginalI32Value })
       } else {
         None
       }
@@ -6147,14 +6202,7 @@ fn OiTinyMemoryFillFact::store_instr(
   self : OiTinyMemoryFillFact,
   memarg : @lib.MemArg,
 ) -> @lib.Instruction {
-  match self.size {
-    1 => @lib.Instruction::i32_store8(memarg)
-    2 => @lib.Instruction::i32_store16(memarg)
-    4 => @lib.Instruction::i32_store(memarg)
-    8 => @lib.Instruction::i64_store(memarg)
-    16 => @lib.Instruction::v128_store(memarg)
-    _ => abort("unreachable tiny memory.fill store fact")
-  }
+  self.store_fact.instruction(memarg)
 }
 
 ///|
@@ -6163,27 +6211,26 @@ fn OiTinyMemoryFillFact::build_store_value(
   func : @ir.HotFunc,
   original_value_id : Int,
 ) -> Int? {
-  match self.repeated_byte {
-    Some(raw) =>
-      match self.size {
-        1 | 2 | 4 =>
+  match self.value_fact {
+    RepeatedByte(raw) =>
+      match self.store_fact {
+        Store8 | Store16 | Store32 =>
           match optimize_instructions_repeated_fill_i32(raw, self.size) {
             Some(value) => Some(@ir.hot_build_const_i32(func, value))
             None => None
           }
-        8 =>
+        Store64 =>
           Some(
             @ir.hot_build_const_i64(
               func,
               optimize_instructions_repeated_fill_i64(raw),
             ),
           )
-        16 =>
+        StoreV128 =>
           Some(optimize_instructions_build_repeated_fill_v128_const(func, raw))
-        _ => None
       }
-    None =>
-      if self.use_original_value && self.size == 1 {
+    OriginalI32Value =>
+      if self.size == 1 {
         Some(original_value_id)
       } else {
         None

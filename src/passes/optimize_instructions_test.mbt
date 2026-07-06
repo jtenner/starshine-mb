@@ -35075,6 +35075,61 @@ test "optimize-instructions expands constant sixteen-byte memory.fill to v128.st
 }
 
 ///|
+test "optimize-instructions keeps shrink-level one memory.fill size/value boundaries" {
+  // OI-G tiny memory.fill fact: Binaryen version_130 `optimizeMemoryFill`
+  // keeps nonzero 4/8-byte fills and all 16-byte fills at shrink level one,
+  // while still lowering zero 4/8-byte fills and constant 1/2-byte fills.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 171
+        #|    i32.const 4
+        #|    memory.fill
+        #|    local.get $dst
+        #|    i32.const 171
+        #|    i32.const 8
+        #|    memory.fill
+        #|    local.get $dst
+        #|    i32.const 0
+        #|    i32.const 16
+        #|    memory.fill
+        #|    local.get $dst
+        #|    i32.const 0
+        #|    i32.const 4
+        #|    memory.fill
+        #|    local.get $dst
+        #|    i32.const 0
+        #|    i32.const 8
+        #|    memory.fill
+        #|    local.get $dst
+        #|    i32.const 171
+        #|    i32.const 2
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shrink-level memory.fill success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.fill"),
+    3,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("i64.store"), msg=pretty)
+  assert_false(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps local two-byte memory.fill for Binaryen parity" {
   let optimized = match
     pass_test_run_pipeline(
