@@ -31705,7 +31705,55 @@ test "optimize-instructions expands memory64 tiny memory.copy preserving i64 add
 }
 
 ///|
-test "optimize-instructions expands memory64 tiny memory.fill preserving i64 address and length" {
+test "optimize-instructions keeps nonconstant larger tiny memory.fill for Binaryen parity" {
+  // Binaryen v130 `optimizeMemoryFill` only lowers nonconstant fill values for
+  // size 1. Larger tiny fills require a constant byte value; Starshine should
+  // not synthesize repeated-byte multiply trees for size 2/4/8 without a
+  // measured Starshine win.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $val i32)
+        #|    local.get $dst
+        #|    local.get $val
+        #|    i32.const 1
+        #|    memory.fill
+        #|    local.get $dst
+        #|    local.get $val
+        #|    i32.const 2
+        #|    memory.fill
+        #|    local.get $dst
+        #|    local.get $val
+        #|    i32.const 4
+        #|    memory.fill
+        #|    local.get $dst
+        #|    local.get $val
+        #|    i32.const 8
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nonconstant memory.fill parity success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.fill"),
+    3,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_false(pretty.contains("i32.store16"), msg=pretty)
+  assert_false(pretty.contains("i32.mul"), msg=pretty)
+  assert_false(pretty.contains("i64.mul"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps memory64 nonconstant larger tiny memory.fill" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
       @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::i32()], []),
@@ -31745,10 +31793,16 @@ test "optimize-instructions expands memory64 tiny memory.fill preserving i64 add
       fail("expected memory64 memory.fill optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.fill"),
+    1,
+    msg=pretty,
+  )
   optimize_instructions_assert_strings_in_order(pretty, [
-    "(local.get (Local 0))", "i32.store8", "(local.get (Local 0))", "i64.store",
+    "(local.get (Local 0))", "i32.store8", "(local.get (Local 0))", "(local.get (Local 1))",
+    "memory.fill",
   ])
+  assert_false(pretty.contains("i64.store"), msg=pretty)
 }
 
 ///|
@@ -32787,7 +32841,7 @@ test "optimize-instructions expands constant sixteen-byte memory.fill to v128.st
 }
 
 ///|
-test "optimize-instructions expands local two-byte memory.fill to store16" {
+test "optimize-instructions keeps local two-byte memory.fill for Binaryen parity" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -32807,12 +32861,10 @@ test "optimize-instructions expands local two-byte memory.fill to store16" {
       fail("expected local two-byte memory.fill optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.fill"), msg=pretty)
-  assert_true(pretty.contains("i32.store16"), msg=pretty)
-  assert_true(pretty.contains("i32.and"), msg=pretty)
-  assert_true(pretty.contains("I32(255)"), msg=pretty)
-  assert_true(pretty.contains("i32.mul"), msg=pretty)
-  assert_true(pretty.contains("I32(257)"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("i32.store16"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i32.mul"), msg=pretty)
 }
 
 ///|
@@ -34305,7 +34357,7 @@ test "optimize-instructions keeps size-39 bulk-memory outside exact lowering bou
 }
 
 ///|
-test "optimize-instructions expands local four-byte memory.fill to store" {
+test "optimize-instructions keeps local four-byte memory.fill for Binaryen parity" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -34325,16 +34377,14 @@ test "optimize-instructions expands local four-byte memory.fill to store" {
       fail("expected local four-byte memory.fill optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.fill"), msg=pretty)
-  assert_true(pretty.contains("i32.store"), msg=pretty)
-  assert_true(pretty.contains("i32.and"), msg=pretty)
-  assert_true(pretty.contains("I32(255)"), msg=pretty)
-  assert_true(pretty.contains("i32.mul"), msg=pretty)
-  assert_true(pretty.contains("I32(16843009)"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("i32.store"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i32.mul"), msg=pretty)
 }
 
 ///|
-test "optimize-instructions expands local eight-byte memory.fill to store" {
+test "optimize-instructions keeps local eight-byte memory.fill for Binaryen parity" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -34354,13 +34404,10 @@ test "optimize-instructions expands local eight-byte memory.fill to store" {
       fail("expected local eight-byte memory.fill optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.fill"), msg=pretty)
-  assert_true(pretty.contains("i64.store"), msg=pretty)
-  assert_true(pretty.contains("i32.and"), msg=pretty)
-  assert_true(pretty.contains("I32(255)"), msg=pretty)
-  assert_true(pretty.contains("i64.extend_i32u"), msg=pretty)
-  assert_true(pretty.contains("i64.mul"), msg=pretty)
-  assert_true(pretty.contains("I64(72340172838076673)"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("i64.store"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i64.mul"), msg=pretty)
 }
 
 ///|
@@ -34369,9 +34416,8 @@ test "optimize-instructions intentionally keeps non-local wider memory.fill valu
   // here, including call-backed and local.get-backed size-16 SIMD-width fills
   // in `.tmp/oi-g-stack-call-memory-fill-16-probe.wat` and
   // `.tmp/oi-g-local-v128-memory-fill-boundary-probe.wat`. The covered
-  // positive lowering remains limited to constants and direct local.get values
-  // below SIMD width, so this boundary is not counted as a missing OI-G
-  // materialization gap.
+  // positive lowering remains limited to constants plus size-1 dynamic values,
+  // so this boundary is not counted as a missing OI-G materialization gap.
   let optimized = match
     pass_test_run_pipeline(
       (

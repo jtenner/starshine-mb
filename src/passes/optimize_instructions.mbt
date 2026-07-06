@@ -4190,26 +4190,6 @@ fn optimize_instructions_replace_with_store_exact(
 }
 
 ///|
-fn optimize_instructions_replace_with_store8(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  mem_idx : Int,
-  address_id : Int,
-  value_id : Int,
-) -> Unit {
-  optimize_instructions_replace_with_store_exact(
-    ctx,
-    func,
-    node_id,
-    mem_idx,
-    address_id,
-    value_id,
-    @lib.Instruction::i32_store8,
-  )
-}
-
-///|
 fn optimize_instructions_repeated_fill_i32(raw : Int, size : Int) -> @lib.I32? {
   let byte = raw.reinterpret_as_uint() & 0xff
   match size {
@@ -4250,6 +4230,100 @@ fn optimize_instructions_build_repeated_fill_v128_const(
 }
 
 ///|
+priv struct OiTinyMemoryFillFact {
+  size : Int
+  repeated_byte : Int?
+  use_original_value : Bool
+}
+
+///|
+fn OiTinyMemoryFillFact::from_size_and_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  size : Int,
+  value_id : Int,
+) -> OiTinyMemoryFillFact? {
+  match optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
+    Some(@lib.I32(raw)) => {
+      let byte = (raw.reinterpret_as_uint() & 0xff).reinterpret_as_int()
+      match size {
+        1 | 2 =>
+          Some({ size, repeated_byte: Some(byte), use_original_value: false })
+        4 | 8 =>
+          if byte == 0 || ctx.shrink_level == 0 {
+            Some({ size, repeated_byte: Some(byte), use_original_value: false })
+          } else {
+            None
+          }
+        16 =>
+          if ctx.shrink_level == 0 {
+            Some({ size, repeated_byte: Some(byte), use_original_value: false })
+          } else {
+            None
+          }
+        _ => None
+      }
+    }
+    None =>
+      if size == 1 {
+        Some({ size, repeated_byte: None, use_original_value: true })
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn OiTinyMemoryFillFact::store_instr(
+  self : OiTinyMemoryFillFact,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction {
+  match self.size {
+    1 => @lib.Instruction::i32_store8(memarg)
+    2 => @lib.Instruction::i32_store16(memarg)
+    4 => @lib.Instruction::i32_store(memarg)
+    8 => @lib.Instruction::i64_store(memarg)
+    16 => @lib.Instruction::v128_store(memarg)
+    _ => abort("unreachable tiny memory.fill store fact")
+  }
+}
+
+///|
+fn OiTinyMemoryFillFact::build_store_value(
+  self : OiTinyMemoryFillFact,
+  func : @ir.HotFunc,
+  original_value_id : Int,
+) -> Int? {
+  match self.repeated_byte {
+    Some(raw) =>
+      match self.size {
+        1 | 2 | 4 =>
+          match optimize_instructions_repeated_fill_i32(raw, self.size) {
+            Some(value) => Some(@ir.hot_build_const_i32(func, value))
+            None => None
+          }
+        8 =>
+          Some(
+            @ir.hot_build_const_i64(
+              func,
+              optimize_instructions_repeated_fill_i64(raw),
+            ),
+          )
+        16 =>
+          Some(optimize_instructions_build_repeated_fill_v128_const(func, raw))
+        _ => None
+      }
+    None =>
+      if self.use_original_value && self.size == 1 {
+        Some(original_value_id)
+      } else {
+        None
+      }
+  }
+}
+
+///|
 fn optimize_instructions_build_i32_binary(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
@@ -4259,84 +4333,6 @@ fn optimize_instructions_build_i32_binary(
   let node_id = @ir.hot_build_binary(func, @lib.ValType::i32(), lhs_id, rhs_id)
   @ir.hot_node_exact_instr_set(func, node_id, instr)
   node_id
-}
-
-///|
-fn optimize_instructions_build_i64_binary(
-  func : @ir.HotFunc,
-  instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
-) -> Int {
-  let node_id = @ir.hot_build_binary(func, @lib.ValType::i64(), lhs_id, rhs_id)
-  @ir.hot_node_exact_instr_set(func, node_id, instr)
-  node_id
-}
-
-///|
-fn optimize_instructions_build_exact_unary(
-  func : @ir.HotFunc,
-  result_ty : @lib.ValType,
-  instr : @lib.Instruction,
-  operand_id : Int,
-) -> Int {
-  let node_id = @ir.hot_build_unary(func, result_ty, operand_id)
-  @ir.hot_node_exact_instr_set(func, node_id, instr)
-  node_id
-}
-
-///|
-fn optimize_instructions_repeated_fill_i32_for_local_get(
-  func : @ir.HotFunc,
-  local_id : Int,
-  size : Int,
-) -> Int? {
-  let multiplier = match size {
-    2 => @lib.I32(257)
-    4 => @lib.I32(16843009)
-    _ => return None
-  }
-  let value = @ir.hot_build_local_get(func, local_id)
-  let masked = optimize_instructions_build_i32_binary(
-    func,
-    @lib.Instruction::i32_and(),
-    value,
-    @ir.hot_build_const_i32(func, @lib.I32(255)),
-  )
-  Some(
-    optimize_instructions_build_i32_binary(
-      func,
-      @lib.Instruction::i32_mul(),
-      masked,
-      @ir.hot_build_const_i32(func, multiplier),
-    ),
-  )
-}
-
-///|
-fn optimize_instructions_repeated_fill_i64_for_local_get(
-  func : @ir.HotFunc,
-  local_id : Int,
-) -> Int {
-  let value = @ir.hot_build_local_get(func, local_id)
-  let masked = optimize_instructions_build_i32_binary(
-    func,
-    @lib.Instruction::i32_and(),
-    value,
-    @ir.hot_build_const_i32(func, @lib.I32(255)),
-  )
-  let extended = optimize_instructions_build_exact_unary(
-    func,
-    @lib.ValType::i64(),
-    @lib.Instruction::i64_extend_i32u(),
-    masked,
-  )
-  optimize_instructions_build_i64_binary(
-    func,
-    @lib.Instruction::i64_mul(),
-    extended,
-    @ir.hot_build_const_i64(func, @lib.I64(72340172838076673L)),
-  )
 }
 
 ///|
@@ -6705,117 +6701,32 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     Some(size) => size
     _ => return false
   }
+  let fill_fact = match
+    OiTinyMemoryFillFact::from_size_and_value(
+      ctx,
+      func,
+      dead,
+      size,
+      @ir.hot_child_get(func, node_id, 1),
+    ) {
+    Some(fact) => fact
+    None => return false
+  }
   let dst_id = @ir.hot_child_get(func, node_id, 0)
   let value_id = @ir.hot_child_get(func, node_id, 1)
-  match size {
-    1 => {
-      let stored_id = match
-        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
-        Some(@lib.I32(raw)) =>
-          match optimize_instructions_repeated_fill_i32(raw, 1) {
-            Some(value) => @ir.hot_build_const_i32(func, value)
-            None => return false
-          }
-        _ => value_id
-      }
-      optimize_instructions_replace_with_store8(
-        ctx,
-        func,
-        node_id,
-        node.imm0,
-        dst_id,
-        stored_id,
-      )
-    }
-    2 | 4 => {
-      let repeated_id = match
-        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
-        Some(@lib.I32(raw)) =>
-          match optimize_instructions_repeated_fill_i32(raw, size) {
-            Some(value) => @ir.hot_build_const_i32(func, value)
-            None => return false
-          }
-        _ => {
-          let value = @ir.hot_node_get(func, value_id)
-          match value.op {
-            @ir.HotOp::LocalGet =>
-              match
-                optimize_instructions_repeated_fill_i32_for_local_get(
-                  func,
-                  value.imm0,
-                  size,
-                ) {
-                Some(repeated_id) => repeated_id
-                None => return false
-              }
-            _ => return false
-          }
-        }
-      }
-      let instr_for_memarg = match size {
-        2 => @lib.Instruction::i32_store16
-        4 => @lib.Instruction::i32_store
-        _ => return false
-      }
-      optimize_instructions_replace_with_store_exact(
-        ctx,
-        func,
-        node_id,
-        node.imm0,
-        dst_id,
-        repeated_id,
-        instr_for_memarg,
-      )
-    }
-    8 => {
-      let repeated_id = match
-        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
-        Some(@lib.I32(raw)) =>
-          @ir.hot_build_const_i64(
-            func,
-            optimize_instructions_repeated_fill_i64(raw),
-          )
-        _ => {
-          let value = @ir.hot_node_get(func, value_id)
-          match value.op {
-            @ir.HotOp::LocalGet =>
-              optimize_instructions_repeated_fill_i64_for_local_get(
-                func,
-                value.imm0,
-              )
-            _ => return false
-          }
-        }
-      }
-      optimize_instructions_replace_with_store_exact(
-        ctx,
-        func,
-        node_id,
-        node.imm0,
-        dst_id,
-        repeated_id,
-        @lib.Instruction::i64_store,
-      )
-    }
-    16 => {
-      let repeated_id = match
-        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
-        Some(@lib.I32(raw)) =>
-          optimize_instructions_build_repeated_fill_v128_const(func, raw)
-        _ => return false
-      }
-      optimize_instructions_replace_with_store_exact(
-        ctx,
-        func,
-        node_id,
-        node.imm0,
-        dst_id,
-        repeated_id,
-        @lib.Instruction::v128_store,
-      )
-    }
-    _ => return false
+  let stored_id = match fill_fact.build_store_value(func, value_id) {
+    Some(stored_id) => stored_id
+    None => return false
   }
+  optimize_instructions_replace_with_store_exact(
+    ctx,
+    func,
+    node_id,
+    node.imm0,
+    dst_id,
+    stored_id,
+    fn(memarg) { fill_fact.store_instr(memarg) },
+  )
   true
 }
 
