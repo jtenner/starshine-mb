@@ -26717,6 +26717,22 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_di
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_reference_call(
+  module_ctx : @ir.HotModuleContext,
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+          0 => ref_type.is_non_nullable()
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_local_tee(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -26795,6 +26811,35 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameteriz
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_reference_call(
+  module_ctx : @ir.HotModuleContext,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Int? {
+  let mut scan = start
+  let mut param_count = 0
+  while scan < instrs.length() {
+    match instrs[scan] {
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+          arg,
+        ) => {
+        param_count = param_count + 1
+        scan = scan + 1
+      }
+      @lib.Call(func_idx) if param_count > 0 =>
+        match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
+            param_count &&
+            ref_type.is_non_nullable() => return Some(scan + 1)
+          _ => return None
+        }
+      _ => return None
+    }
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
@@ -26806,6 +26851,9 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_i
     instr,
   ) ||
   run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
+    module_ctx, instr,
+  ) ||
+  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_reference_call(
     module_ctx, instr,
   )
 }
@@ -26928,6 +26976,22 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
     }
     match
       run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
+        module_ctx, instrs, scan,
+      ) {
+      Some(next_scan) => {
+        let mut arg_scan = scan
+        while arg_scan < next_scan {
+          desc_args.push(instrs[arg_scan])
+          arg_scan = arg_scan + 1
+        }
+        desc_arg_count = desc_arg_count + 1
+        scan = next_scan
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_reference_call(
         module_ctx, instrs, scan,
       ) {
       Some(next_scan) => {
