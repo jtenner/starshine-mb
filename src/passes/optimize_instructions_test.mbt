@@ -38275,6 +38275,85 @@ test "optimize-instructions folds tuple.extract of one-use tuple.make" {
 }
 
 ///|
+test "optimize-instructions preserves unselected pure-trapping tuple lane facts" {
+  // OI-M tuple lane fact coverage: Binaryen v130 `visitTupleExtract` stores the
+  // selected lane and then calls `getDroppedChildrenAndAppend(make, get)`, so an
+  // unselected `ref.as_non_null` lane is still dropped to preserve its null
+  // trap. This guards the explicit `OiTupleLaneTrapFact` / discard fact split.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nullable_eq_ref = @lib.ValType::ref_type(@lib.RefType::new(true, eq_heap))
+  let non_null_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, eq_heap),
+  )
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[nullable_eq_ref]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected_const = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let trapping_ref = @ir.hot_build_unary(
+    func,
+    non_null_eq_ref,
+    @ir.hot_build_local_get(func, 0),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    trapping_ref,
+    @lib.Instruction::ref_as_non_null(),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), non_null_eq_ref],
+    [selected_const, trapping_ref],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected pure-trapping tuple lane preservation success, got \{err}")
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected pure-trapping tuple lane to force a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let trapping_drop = @ir.hot_region_get(func, body, 1)
+  let selected_get = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected lane to be stored before dropped trap lane")
+  }
+  match @ir.hot_node_get(func, trapping_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected unselected pure-trapping lane to be dropped")
+  }
+  let dropped_child = @ir.hot_child_get(func, trapping_drop, 0)
+  match @ir.hot_node_exact_instr(func, dropped_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => fail("expected dropped tuple lane to keep ref.as_non_null trap")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected lane reload after dropped trap lane")
+  }
+}
+
+///|
 test "optimize-instructions preserves selected trapping tuple.extract lane" {
   // OI-M selected-lane trap coverage: Binaryen `version_130`
   // `--optimize-instructions` preserves a selected `i32.load` lane from

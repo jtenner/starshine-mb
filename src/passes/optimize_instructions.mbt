@@ -7594,23 +7594,44 @@ fn optimize_instructions_replace_with_packed_i32_value(
 }
 
 ///|
-fn optimize_instructions_tuple_extract_lane_is_direct_localizable(
+priv enum OiTupleLaneLocalizeFact {
+  TupleLaneDirectLocalizable
+  TupleLaneControlBoundary
+}
+
+///|
+fn OiTupleLaneLocalizeFact::allows_direct(
+  self : OiTupleLaneLocalizeFact,
+) -> Bool {
+  match self {
+    TupleLaneDirectLocalizable => true
+    TupleLaneControlBoundary => false
+  }
+}
+
+///|
+fn OiTupleLaneLocalizeFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> Bool {
+) -> OiTupleLaneLocalizeFact {
+  // Binaryen v130 `visitTupleExtract` delegates discarded-value sequencing to
+  // `getDroppedChildrenAndAppend(make, get)`, which can localize expression
+  // children but must not synthesize through structured control, branches,
+  // returns, or EH roots. Keep that boundary as an explicit tuple-lane fact
+  // instead of an open-ended tuple scanner whitelist.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block => {
       let body = @ir.hot_region_body_ref(func, node_id)
       for i = 0; i < @ir.hot_region_root_count(func, body); i = i + 1 {
-        if !optimize_instructions_tuple_extract_lane_is_direct_localizable(
+        if !OiTupleLaneLocalizeFact::from_node(
             func,
             @ir.hot_region_get(func, body, i),
-          ) {
-          return false
+          ).allows_direct() {
+          return TupleLaneControlBoundary
         }
       }
-      return true
+      return TupleLaneDirectLocalizable
     }
     @ir.HotOp::Loop
     | @ir.HotOp::If
@@ -7632,26 +7653,41 @@ fn optimize_instructions_tuple_extract_lane_is_direct_localizable(
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate
     | @ir.HotOp::Catch
-    | @ir.HotOp::CatchAll => return false
+    | @ir.HotOp::CatchAll => return TupleLaneControlBoundary
     _ => ()
   }
   for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
     let child_id = @ir.hot_child_get(func, node_id, child_idx)
     if child_id >= 0 &&
-      !optimize_instructions_tuple_extract_lane_is_direct_localizable(
-        func, child_id,
-      ) {
-      return false
+      !OiTupleLaneLocalizeFact::from_node(func, child_id).allows_direct() {
+      return TupleLaneControlBoundary
     }
   }
-  true
+  TupleLaneDirectLocalizable
 }
 
 ///|
-fn optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
+priv enum OiTupleLaneTrapFact {
+  TupleLaneMayTrapWithoutEffectMask
+  TupleLaneNoKnownTrapWithoutEffectMask
+}
+
+///|
+fn OiTupleLaneTrapFact::may_trap(self : OiTupleLaneTrapFact) -> Bool {
+  match self {
+    TupleLaneMayTrapWithoutEffectMask => true
+    TupleLaneNoKnownTrapWithoutEffectMask => false
+  }
+}
+
+///|
+fn OiTupleLaneTrapFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> Bool {
+) -> OiTupleLaneTrapFact {
+  // This is the tuple-local Binaryen `getDroppedChildrenAndAppend` preservation
+  // fact for pure instructions that still may trap when dropped as an unselected
+  // lane. It intentionally remains narrower than general EffectAnalyzer facts.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(
       @lib.Instruction::I32DivS
@@ -7665,43 +7701,57 @@ fn optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
       | @lib.Instruction::RefAsNonNull
       | @lib.Instruction::I31GetS
       | @lib.Instruction::I31GetU
-    ) => return true
+    ) => return TupleLaneMayTrapWithoutEffectMask
     _ => ()
   }
   let node = @ir.hot_node_get(func, node_id)
   for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
     let child_id = @ir.hot_child_get(func, node_id, child_idx)
     if child_id >= 0 &&
-      optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
-        func, child_id,
-      ) {
-      return true
+      OiTupleLaneTrapFact::from_node(func, child_id).may_trap() {
+      return TupleLaneMayTrapWithoutEffectMask
     }
   }
-  false
+  TupleLaneNoKnownTrapWithoutEffectMask
 }
 
 ///|
-fn optimize_instructions_tuple_extract_lane_must_preserve(
+priv enum OiTupleLaneDiscardFact {
+  TupleLaneCanEraseWhenDiscarded
+  TupleLaneMustPreserveWhenDiscarded
+}
+
+///|
+fn OiTupleLaneDiscardFact::must_preserve(self : OiTupleLaneDiscardFact) -> Bool {
+  match self {
+    TupleLaneCanEraseWhenDiscarded => false
+    TupleLaneMustPreserveWhenDiscarded => true
+  }
+}
+
+///|
+fn OiTupleLaneDiscardFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
-) -> Bool {
+  localize_fact : OiTupleLaneLocalizeFact,
+) -> OiTupleLaneDiscardFact {
+  if !localize_fact.allows_direct() {
+    return TupleLaneMustPreserveWhenDiscarded
+  }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block => {
       let body = @ir.hot_region_body_ref(func, node_id)
       for i = 0; i < @ir.hot_region_root_count(func, body); i = i + 1 {
         let child_id = @ir.hot_region_get(func, body, i)
-        if !optimize_instructions_tuple_extract_lane_is_direct_localizable(
-            func, child_id,
-          ) ||
-          optimize_instructions_tuple_extract_lane_must_preserve(
-            ctx, func, child_id,
-          ) {
-          return true
+        let child_localize = OiTupleLaneLocalizeFact::from_node(func, child_id)
+        if OiTupleLaneDiscardFact::from_node(
+            ctx, func, child_id, child_localize,
+          ).must_preserve() {
+          return TupleLaneMustPreserveWhenDiscarded
         }
       }
-      return false
+      return TupleLaneCanEraseWhenDiscarded
     }
     @ir.HotOp::Br
     | @ir.HotOp::BrIf
@@ -7719,13 +7769,15 @@ fn optimize_instructions_tuple_extract_lane_must_preserve(
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate
     | @ir.HotOp::Catch
-    | @ir.HotOp::CatchAll => return true
+    | @ir.HotOp::CatchAll => return TupleLaneMustPreserveWhenDiscarded
     _ => ()
   }
-  !optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
-  optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
-    func, node_id,
-  )
+  if !optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
+    OiTupleLaneTrapFact::from_node(func, node_id).may_trap() {
+    TupleLaneMustPreserveWhenDiscarded
+  } else {
+    TupleLaneCanEraseWhenDiscarded
+  }
 }
 
 ///|
@@ -7779,8 +7831,8 @@ fn optimize_instructions_tuple_extract_append_discarded_child(
 priv struct OiTupleLaneFact {
   node_id : Int
   results : Array[@lib.ValType]
-  direct_localizable : Bool
-  must_preserve : Bool
+  localize_fact : OiTupleLaneLocalizeFact
+  discard_fact : OiTupleLaneDiscardFact
 }
 
 ///|
@@ -7789,18 +7841,14 @@ fn OiTupleLaneFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> OiTupleLaneFact {
-  let direct_localizable = optimize_instructions_tuple_extract_lane_is_direct_localizable(
-    func, node_id,
-  )
+  let localize_fact = OiTupleLaneLocalizeFact::from_node(func, node_id)
   {
     node_id,
     results: @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)),
-    direct_localizable,
-    must_preserve: if direct_localizable {
-      optimize_instructions_tuple_extract_lane_must_preserve(ctx, func, node_id)
-    } else {
-      true
-    },
+    localize_fact,
+    discard_fact: OiTupleLaneDiscardFact::from_node(
+      ctx, func, node_id, localize_fact,
+    ),
   }
 }
 
@@ -7848,7 +7896,7 @@ fn OiTupleExtractFact::from_extract(
       func,
       @ir.hot_child_get(func, tuple_id, slot),
     )
-    if !lane_fact.direct_localizable {
+    if !lane_fact.localize_fact.allows_direct() {
       return None
     }
     lane_facts.push(lane_fact)
@@ -7870,7 +7918,7 @@ fn OiTupleExtractFact::from_extract(
     if slot == selected_slot {
       continue
     }
-    if lane_facts[slot].must_preserve {
+    if lane_facts[slot].discard_fact.must_preserve() {
       has_effectful_sibling = true
       if slot > selected_slot {
         has_later_effectful_sibling = true
@@ -7982,7 +8030,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       }
       continue
     }
-    if !lane_fact.must_preserve {
+    if !lane_fact.discard_fact.must_preserve() {
       continue
     }
     optimize_instructions_tuple_extract_append_discarded_child(
