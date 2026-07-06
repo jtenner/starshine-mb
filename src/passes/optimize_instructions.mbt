@@ -13849,12 +13849,12 @@ fn optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_c
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_direct_call_child_can_move_null_check(
+fn optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
   func : @ir.HotFunc,
   call_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, call_id).op {
-    @ir.HotOp::Call => ()
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect => ()
     _ => return false
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, call_id)) {
@@ -13886,8 +13886,8 @@ fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_ch
       optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
         func, nullable_child,
       )
-    @ir.HotOp::Call =>
-      optimize_instructions_standalone_ref_get_desc_direct_call_child_can_move_null_check(
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect =>
+      optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
         func, nullable_child,
       )
     @ir.HotOp::Select =>
