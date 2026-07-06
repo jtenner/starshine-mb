@@ -8059,6 +8059,81 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
 }
 
 ///|
+test "optimize-instructions directizes call_ref from local.tee ref.func target facts" {
+  // OI-H call_ref target fact slice: Binaryen version_130
+  // `visitCallRef` calls `getFallthrough(curr->target)`, so a `local.tee` target
+  // whose value is a direct `ref.func` still directizes to `call` while keeping
+  // the target-side tee/drop effects. This locks target fallthrough as a
+  // reusable fact, not a one-off call_ref scanner. Keep this HOT-only because
+  // Starshine's current public validation/parser surface rejects the typed
+  // function-reference local spelling used by the Binaryen probe.
+  let sig_type = @lib.TypeIdx::new(0U)
+  let nullable_sig_ref = @lib.RefType::new(true, @lib.HeapType::new(sig_type))
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([sig_type, sig_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::ref_type(nullable_sig_ref)),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::call_ref(sig_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected call_ref target fact success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail("expected fallthrough-target call_ref to become block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 2)).op {
+    @ir.HotOp::Call => ()
+    other =>
+      fail("expected direct call after fallthrough-target fact, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful prefix while folding known-null ref.eq" {
   let source =
     #|(module

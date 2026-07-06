@@ -2279,6 +2279,71 @@ fn optimize_instructions_rewrite_exact_with_children(
 }
 
 ///|
+priv struct OiCallRefFallthroughTargetFact {
+  direct_func : Int
+}
+
+///|
+fn OiCallRefFallthroughTargetFact::unknown() -> OiCallRefFallthroughTargetFact {
+  { direct_func: -1 }
+}
+
+///|
+fn OiCallRefFallthroughTargetFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth? : Int = 0,
+) -> OiCallRefFallthroughTargetFact {
+  if depth > 8 || !optimize_instructions_node_is_live(func, dead, node_id) {
+    return OiCallRefFallthroughTargetFact::unknown()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::RefFunc => { direct_func: node.imm0 }
+    @ir.HotOp::LocalTee if node.child_count == 1 =>
+      OiCallRefFallthroughTargetFact::from_node(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 0),
+        depth=depth + 1,
+      )
+    @ir.HotOp::Heap if node.child_count == 1 =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefAsNonNull) =>
+          OiCallRefFallthroughTargetFact::from_node(
+            func,
+            dead,
+            @ir.hot_child_get(func, node_id, 0),
+            depth=depth + 1,
+          )
+        _ => OiCallRefFallthroughTargetFact::unknown()
+      }
+    @ir.HotOp::Block => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count < 1 {
+        return OiCallRefFallthroughTargetFact::unknown()
+      }
+      OiCallRefFallthroughTargetFact::from_node(
+        func,
+        dead,
+        @ir.hot_region_get(func, body_ref, root_count - 1),
+        depth=depth + 1,
+      )
+    }
+    _ => OiCallRefFallthroughTargetFact::unknown()
+  }
+}
+
+///|
+fn OiCallRefFallthroughTargetFact::has_direct_func(
+  self : OiCallRefFallthroughTargetFact,
+) -> Bool {
+  self.direct_func >= 0
+}
+
+///|
 priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
@@ -2343,7 +2408,24 @@ fn OiCallRefTargetFact::from_target(
       OiCallRefTargetFact::from_fallthrough_block(func, dead, callee_ref_id)
     @ir.HotOp::Select if callee_ref.child_count == 3 =>
       OiCallRefTargetFact::from_select(func, dead, callee_ref_id)
-    _ => OiCallRefTargetFact::unknown()
+    _ => {
+      let fallthrough = OiCallRefFallthroughTargetFact::from_node(
+        func, dead, callee_ref_id,
+      )
+      if fallthrough.has_direct_func() {
+        {
+          direct_func: -1,
+          table_idx: -1,
+          table_index_id: -1,
+          fallthrough_func: fallthrough.direct_func,
+          select_true_func: -1,
+          select_false_func: -1,
+          select_condition_id: -1,
+        }
+      } else {
+        OiCallRefTargetFact::unknown()
+      }
+    }
   }
 }
 
@@ -2362,19 +2444,19 @@ fn OiCallRefTargetFact::from_fallthrough_block(
   if !optimize_instructions_node_is_live(func, dead, target_id) {
     return OiCallRefTargetFact::unknown()
   }
-  let target = @ir.hot_node_get(func, target_id)
-  match target.op {
-    @ir.HotOp::RefFunc =>
-      {
-        direct_func: -1,
-        table_idx: -1,
-        table_index_id: -1,
-        fallthrough_func: target.imm0,
-        select_true_func: -1,
-        select_false_func: -1,
-        select_condition_id: -1,
-      }
-    _ => OiCallRefTargetFact::unknown()
+  let target = OiCallRefFallthroughTargetFact::from_node(func, dead, target_id)
+  if target.has_direct_func() {
+    {
+      direct_func: -1,
+      table_idx: -1,
+      table_index_id: -1,
+      fallthrough_func: target.direct_func,
+      select_true_func: -1,
+      select_false_func: -1,
+      select_condition_id: -1,
+    }
+  } else {
+    OiCallRefTargetFact::unknown()
   }
 }
 
