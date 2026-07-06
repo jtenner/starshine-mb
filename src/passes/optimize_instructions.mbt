@@ -22,7 +22,7 @@ pub fn optimize_instructions_summary() -> String {
 
 ///|
 priv struct OptimizeInstructionsLocalFacts {
-  sign_ext_bits_by_node : Array[Int]
+  sign_ext_bits_by_local : Array[Int]
   i32_unsigned_max_by_node : Array[Int]
   i64_unsigned_max_by_node : Array[Int64]
   mut sign_ext_ready : Bool
@@ -32,9 +32,10 @@ priv struct OptimizeInstructionsLocalFacts {
 ///|
 fn OptimizeInstructionsLocalFacts::new(
   node_count : Int,
+  local_count : Int,
 ) -> OptimizeInstructionsLocalFacts {
   {
-    sign_ext_bits_by_node: Array::make(node_count, 0),
+    sign_ext_bits_by_local: Array::make(local_count, 0),
     i32_unsigned_max_by_node: Array::make(node_count, -1),
     i64_unsigned_max_by_node: Array::make(node_count, -1L),
     sign_ext_ready: false,
@@ -45,23 +46,41 @@ fn OptimizeInstructionsLocalFacts::new(
 ///|
 fn OptimizeInstructionsLocalFacts::sign_ext_bits_for_get(
   self : OptimizeInstructionsLocalFacts,
-  node_id : Int,
+  local_id : Int,
 ) -> Int {
-  if node_id >= 0 && node_id < self.sign_ext_bits_by_node.length() {
-    self.sign_ext_bits_by_node[node_id]
+  if local_id >= 0 && local_id < self.sign_ext_bits_by_local.length() {
+    self.sign_ext_bits_by_local[local_id]
   } else {
     0
   }
 }
 
 ///|
-fn OptimizeInstructionsLocalFacts::set_sign_ext_bits_for_get(
+fn OptimizeInstructionsLocalFacts::merge_sign_ext_bits_for_local(
   self : OptimizeInstructionsLocalFacts,
-  node_id : Int,
+  local_id : Int,
   bits : Int,
 ) -> Unit {
-  if node_id >= 0 && node_id < self.sign_ext_bits_by_node.length() {
-    self.sign_ext_bits_by_node[node_id] = bits
+  if local_id < 0 || local_id >= self.sign_ext_bits_by_local.length() {
+    return
+  }
+  let candidate = if bits > 0 { bits } else { -1 }
+  let current = self.sign_ext_bits_by_local[local_id]
+  if current == 0 {
+    self.sign_ext_bits_by_local[local_id] = candidate
+  } else if current != candidate {
+    self.sign_ext_bits_by_local[local_id] = -1
+  }
+}
+
+///|
+fn OptimizeInstructionsLocalFacts::finalize_sign_ext_bits(
+  self : OptimizeInstructionsLocalFacts,
+) -> Unit {
+  for i = 0; i < self.sign_ext_bits_by_local.length(); i = i + 1 {
+    if self.sign_ext_bits_by_local[i] < 0 {
+      self.sign_ext_bits_by_local[i] = 0
+    }
   }
 }
 
@@ -126,12 +145,13 @@ priv struct OptimizeInstructionsScratch {
 ///|
 fn OptimizeInstructionsScratch::new(
   node_count : Int,
+  local_count : Int,
 ) -> OptimizeInstructionsScratch {
   {
     cross_seen_stamps: Array::make(node_count, -1),
     loop_input_nodes: @bitset.BitSet::new(node_count),
     if_condition_nodes: @bitset.BitSet::new(node_count),
-    local_facts: OptimizeInstructionsLocalFacts::new(node_count),
+    local_facts: OptimizeInstructionsLocalFacts::new(node_count, local_count),
     loop_input_nodes_ready: false,
     if_condition_nodes_ready: false,
     next_cross_seen_stamp: 0,
@@ -265,7 +285,7 @@ fn optimize_instructions_sign_ext_bits_for_value(
           optimize_instructions_i64_sign_ext_bits_for_const(raw)
         _ => 0
       }
-    @ir.HotOp::LocalGet => scratch.local_facts.sign_ext_bits_for_get(node_id)
+    @ir.HotOp::LocalGet => scratch.local_facts.sign_ext_bits_for_get(node.imm0)
     @ir.HotOp::Load | @ir.HotOp::Unary =>
       optimize_instructions_sign_ext_bits_for_exact_instr(
         func.instr_payloads[node.imm0].instr,
@@ -275,125 +295,107 @@ fn optimize_instructions_sign_ext_bits_for_value(
 }
 
 ///|
-fn optimize_instructions_mark_local_writes_unknown(
+fn optimize_instructions_sign_ext_bits_for_scanner_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
   node_id : Int,
-  local_bits : Array[Int],
-) -> Unit {
+) -> Int {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return
-  }
-  if node_id >= 0 && node_id < seen.length() {
-    if seen[node_id] {
-      return
-    }
-    seen[node_id] = true
+    return 0
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-      if node.imm0 >= 0 && node.imm0 < local_bits.length() {
-        local_bits[node.imm0] = 0
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(raw)) =>
+          optimize_instructions_i32_sign_ext_bits_for_const(raw)
+        @ir.HotConstPayload::I64Const(@lib.I64(raw)) =>
+          optimize_instructions_i64_sign_ext_bits_for_const(raw)
+        _ => 0
       }
-    _ => ()
-  }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    optimize_instructions_mark_local_writes_unknown(
-      func,
-      dead,
-      seen,
-      func.children[node.child_base + slot],
-      local_bits,
-    )
-  }
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop => {
-      let body = @ir.hot_region_body_ref(func, node_id)
-      for i = 0; i < @ir.hot_region_root_count(func, body); i = i + 1 {
-        optimize_instructions_mark_local_writes_unknown(
-          func,
-          dead,
-          seen,
-          @ir.hot_region_get(func, body, i),
-          local_bits,
-        )
-      }
-    }
-    @ir.HotOp::If => {
-      let then_region = @ir.hot_region_then_ref(func, node_id)
-      for i = 0; i < @ir.hot_region_root_count(func, then_region); i = i + 1 {
-        optimize_instructions_mark_local_writes_unknown(
-          func,
-          dead,
-          seen,
-          @ir.hot_region_get(func, then_region, i),
-          local_bits,
-        )
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          for i = 0; i < @ir.hot_region_root_count(func, else_region); i = i + 1 {
-            optimize_instructions_mark_local_writes_unknown(
-              func,
-              dead,
-              seen,
-              @ir.hot_region_get(func, else_region, i),
-              local_bits,
-            )
-          }
-        None => ()
-      }
-    }
-    _ => ()
+    @ir.HotOp::Load | @ir.HotOp::Unary =>
+      optimize_instructions_sign_ext_bits_for_exact_instr(
+        func.instr_payloads[node.imm0].instr,
+      )
+    _ => 0
   }
 }
 
 ///|
-fn optimize_instructions_scan_sign_ext_expr(
+fn optimize_instructions_scan_sign_ext_local_sets_region(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  region : @ir.HotRegionRef,
+) -> Unit {
+  for i = 0; i < @ir.hot_region_root_count(func, region); i = i + 1 {
+    optimize_instructions_scan_sign_ext_local_sets_expr(
+      func,
+      dead,
+      scratch,
+      @ir.hot_region_get(func, region, i),
+    )
+  }
+}
+
+///|
+fn optimize_instructions_scan_sign_ext_local_sets_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
-  local_bits : Array[Int],
 ) -> Unit {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
     return
   }
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      if node.imm0 >= 0 &&
-        node.imm0 < local_bits.length() &&
-        node_id >= 0 &&
-        node_id < func.nodes.length() {
-        scratch.local_facts.set_sign_ext_bits_for_get(
-          node_id,
-          local_bits[node.imm0],
-        )
-      }
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-      if node.imm0 >= 0 && node.imm0 < local_bits.length() {
-        local_bits[node.imm0] = 0
-      }
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If => {
-      let seen = @bitset.BitSet::new(func.nodes.length())
-      optimize_instructions_mark_local_writes_unknown(
-        func, dead, seen, node_id, local_bits,
-      )
-      return
-    }
-    _ => ()
-  }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    optimize_instructions_scan_sign_ext_expr(
+    optimize_instructions_scan_sign_ext_local_sets_expr(
       func,
       dead,
       scratch,
       func.children[node.child_base + slot],
-      local_bits,
     )
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      optimize_instructions_scan_sign_ext_local_sets_region(
+        func,
+        dead,
+        scratch,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      optimize_instructions_scan_sign_ext_local_sets_region(
+        func,
+        dead,
+        scratch,
+        @ir.hot_region_then_ref(func, node_id),
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_scan_sign_ext_local_sets_region(
+            func, dead, scratch, else_region,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.child_count == 1 &&
+      node.imm0 >= @ir.hot_local_param_count(func) =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(val_type) if val_type == @lib.ValType::i32() ||
+          val_type == @lib.ValType::i64() =>
+          scratch.local_facts.merge_sign_ext_bits_for_local(
+            node.imm0,
+            optimize_instructions_sign_ext_bits_for_scanner_value(
+              func,
+              dead,
+              func.children[node.child_base],
+            ),
+          )
+        _ => ()
+      }
+    _ => ()
   }
 }
 
@@ -406,37 +408,15 @@ fn optimize_instructions_scan_sign_ext_facts(
   if scratch.local_facts.sign_ext_ready {
     return
   }
-  let local_bits = Array::make(@ir.hot_local_count(func), 0)
-  for local_id = @ir.hot_local_param_count(func)
-      local_id < local_bits.length()
-      local_id = local_id + 1 {
-    match @ir.hot_local_type(func, local_id) {
-      Some(val_type) if val_type == @lib.ValType::i32() =>
-        local_bits[local_id] = 8
-      Some(val_type) if val_type == @lib.ValType::i64() =>
-        local_bits[local_id] = 8
-      _ => ()
-    }
-  }
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
-    let root = func.roots[slot]
-    optimize_instructions_scan_sign_ext_expr(
-      func, dead, scratch, root, local_bits,
+    optimize_instructions_scan_sign_ext_local_sets_expr(
+      func,
+      dead,
+      scratch,
+      func.roots[slot],
     )
-    let node = @ir.hot_node_get(func, root)
-    match node.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.child_count == 1 &&
-        node.imm0 >= 0 &&
-        node.imm0 < local_bits.length() =>
-        local_bits[node.imm0] = optimize_instructions_sign_ext_bits_for_value(
-          func,
-          dead,
-          scratch,
-          func.children[node.child_base],
-        )
-      _ => ()
-    }
   }
+  scratch.local_facts.finalize_sign_ext_bits()
   scratch.local_facts.sign_ext_ready = true
 }
 
@@ -17434,7 +17414,10 @@ fn optimize_instructions_run(
   let node_count = @ir.hot_node_count(func)
   let seen = @bitset.BitSet::new(node_count)
   let dead = @bitset.BitSet::new(node_count)
-  let scratch = OptimizeInstructionsScratch::new(node_count)
+  let scratch = OptimizeInstructionsScratch::new(
+    node_count,
+    @ir.hot_local_count(func),
+  )
   for free_id in func.free_nodes {
     if free_id >= 0 && free_id < dead.length() {
       dead[free_id] = true

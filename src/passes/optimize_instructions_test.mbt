@@ -251,6 +251,35 @@ test "optimize-instructions raw skip removes local-carried add-zero before sign 
 }
 
 ///|
+test "optimize-instructions keeps sign extends after conflicting local facts" {
+  // Binaryen's LocalScanner records one conservative fact per local for the
+  // whole function. If the same local is written with incompatible sign-width
+  // evidence, later local.gets cannot use a more precise straight-line fact.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local $x i32)
+        #|    i32.const 127
+        #|    local.set $x
+        #|    local.get $x
+        #|    i32.extend8_s
+        #|    drop
+        #|    i32.const 32767
+        #|    local.set $x))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions sign-ext fact success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.extend8s"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant local-carried unsigned mask facts" {
   // OI-E wide local-carried mask residual: if LocalScanner facts prove an i32
   // local is already within an all-ones mask, the mask is redundant. Keep the
