@@ -26786,8 +26786,9 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
             }
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
               match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
-                  !exact &&
+                @lib.RefCastDescEq(nullable, exact, target) if (
+                    nullable || !exact
+                  ) &&
                   run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
                     module_ctx,
                     ref_func,
