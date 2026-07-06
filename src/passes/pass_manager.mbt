@@ -26698,7 +26698,27 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_branch_free
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
+  module_ctx : @ir.HotModuleContext,
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, [result])) if params.length() == 0 =>
+          match result {
+            @lib.ValType::RefTypeValType(_) => false
+            _ => true
+          }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
+  module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
 ) -> Bool {
   run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
@@ -26706,6 +26726,9 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_i
   ) ||
   run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_branch_free_effectful_block(
     instr,
+  ) ||
+  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
+    module_ctx, instr,
   )
 }
 
@@ -26794,7 +26817,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
   while scan < instrs.length() {
     match instrs[scan] {
       arg if run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
-          arg,
+          module_ctx, arg,
         ) => {
         desc_args.push(instrs[scan])
         scan = scan + 1
