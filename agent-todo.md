@@ -24,7 +24,7 @@
   - Deliverables:
     - [x] Introduce local fact storage and use whole-function local sign-extension / unsigned-max facts instead of straight-line per-`local.get` scanner facts.
     - [ ] Add explicit reference/descriptor/null-trap fact structures that can drive OI-I/OI-J/OI-K rewrites without arity/name whitelists. Partial: `OiRefFact`, `OiNullTrapFact`, `OiDescriptorTypeFact`, and `OiDescriptorOperandFact` now back several OI-J null/descriptor decisions, but broad cast/test/null-trap families and scanner/arity replacement remain active.
-    - [ ] Add call_ref target/operand fact structures for direct, table, descriptor-producer, argument-order, and return_call_ref families.
+    - [ ] Add call_ref target/operand fact structures for direct, table, descriptor-producer, argument-order, and return_call_ref families. Partial: `OiCallRefTargetFact` now represents direct `ref.func` and table/index targets for directization, while fallthrough/select target facts, descriptor-producer facts, argument-order facts, and multivalue/return_call_ref breadth remain open.
     - [ ] Add memory/bulk/store/load facts for OI-G so tiny lowering, low-byte masks, load-result, and stored-value rewrites share one proof substrate.
     - [ ] Add tuple/multivalue/localization facts for OI-M before replacing remaining tuple scratch scanners.
     - [ ] Add final repair/refinalization/EH-pop tracking facts or document the local representation blocker.
