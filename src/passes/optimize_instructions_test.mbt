@@ -12225,6 +12225,192 @@ test "optimize-instructions folds descriptor casts with typed-table call_ref des
 }
 
 ///|
+test "optimize-instructions localizes typed-table call_ref descriptor successes under traps-never-happen" {
+  // OI-J descriptor-side typed-table call_ref exact-success family: Binaryen
+  // version_130 directizes the descriptor operand's table-target `call_ref` to
+  // `call_indirect`, keeps the exact descriptor equality cast in default/IIT
+  // modes, and removes only that descriptor trap under `--traps-never-happen`.
+  // This complements the strict-subtype descriptor-miss slice above; descriptor
+  // exactification/narrowing, return_call_ref, multivalue, control/EH, and
+  // broader effectful operands remain separate semantic work.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let make_desc_type = @lib.TypeIdx::new(2U)
+  let make_ref_type = @lib.TypeIdx::new(3U)
+  let cast_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let exact_base_ref_type = @lib.RefType::new(false, base_heap, exact=true)
+  let exact_base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let nullable_make_desc_ref_type = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(make_desc_type),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(exact_base_descriptor_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(exact_base_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_type(exact_base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([make_desc_type, make_ref_type, cast_type]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            nullable_make_desc_ref_type,
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::typed_exprs(nullable_make_desc_ref_type, [
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+            @lib.Instruction::struct_new_default_desc(base_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::call_ref(make_desc_type),
+            @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid typed-table call_ref descriptor success fixture: \{err}",
+      )
+  }
+  let default_expected = [
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::call_indirect(make_desc_type, @lib.TableIdx::new(0U)),
+    @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+  ]
+  let default_optimized = optimize_instructions_test_run_module(module_)
+  match default_optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(default_body))])) =>
+      @debug.assert_eq(default_body, default_expected)
+    _ => fail("expected typed-table call_ref descriptor default success module")
+  }
+  let iit_optimized = match
+    run_hot_pipeline(
+      module_,
+      HotPipelineOptions::new(ignore_implicit_traps=true),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected typed-table call_ref descriptor success IIT pipeline success, got \{err}",
+      )
+  }
+  match iit_optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(iit_body))])) =>
+      @debug.assert_eq(iit_body, default_expected)
+    _ => fail("expected typed-table call_ref descriptor IIT success module")
+  }
+  let tnh_optimized = match
+    run_hot_pipeline(
+      module_,
+      HotPipelineOptions::new(traps_never_happen=true),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected typed-table call_ref descriptor success TNH pipeline success, got \{err}",
+      )
+  }
+  match tnh_optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(tnh_body))])) =>
+      @debug.assert_eq(tnh_body, [
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call_indirect(make_desc_type, @lib.TableIdx::new(0U)),
+        @lib.Instruction::drop(),
+      ])
+    _ => fail("expected typed-table call_ref descriptor TNH success module")
+  }
+}
+
+///|
 test "optimize-instructions folds descriptor casts with both operands call-produced exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 rewrites the
   // strict-subtype/exact-descriptor miss to `drop(call-produced-ref);
