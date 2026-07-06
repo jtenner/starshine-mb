@@ -248,6 +248,58 @@ fn OiNullTrapFact::can_skip_explicit_non_null_check(
 }
 
 ///|
+priv struct OiRefFallthroughFact {
+  ref_type : @lib.RefType?
+}
+
+///|
+fn OiRefFallthroughFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefFallthroughFact {
+  ignore(ctx)
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return { ref_type: None }
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block =>
+      if !optimize_instructions_descriptor_expr_has_branch_control(
+          func, node_id,
+        ) {
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        let root_count = @ir.hot_region_root_count(func, body_ref)
+        if root_count > 0 {
+          let fallthrough_id = @ir.hot_region_get(
+            func,
+            body_ref,
+            root_count - 1,
+          )
+          if @ir.hot_node_is_live(func, fallthrough_id) {
+            match
+              @ir.hot_type_results(
+                func,
+                @ir.hot_node_type(func, fallthrough_id),
+              ) {
+              [@lib.ValType::RefTypeValType(ref_type)] =>
+                return { ref_type: Some(ref_type) }
+              _ => ()
+            }
+          }
+        }
+      }
+    _ => ()
+  }
+  let ref_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
+    _ => None
+  }
+  { ref_type, }
+}
+
+///|
 priv struct OiRefProducerFact {
   ref_type : @lib.RefType?
 }
@@ -287,13 +339,162 @@ fn OiRefProducerFact::from_node(
         }
         None => None
       }
-    _ =>
-      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-        [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
-        _ => None
-      }
+    _ => OiRefFallthroughFact::from_node(ctx, func, node_id).ref_type
   }
   { ref_type, }
+}
+
+///|
+fn OiRefProducerFact::non_null_matches_target(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.ref_type {
+    Some(ref_type) =>
+      ref_type.is_non_nullable() &&
+      optimize_instructions_ref_type_heap_matches_target(ctx, ref_type, target)
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::nullable_matches_target(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.ref_type {
+    Some(ref_type) =>
+      ref_type.is_nullable() &&
+      optimize_instructions_ref_type_heap_matches_target(ctx, ref_type, target)
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::matches_exact_test_target(
+  self : OiRefProducerFact,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match self.ref_type {
+    Some(ref_type) =>
+      ref_type.is_exact() &&
+      ref_type.get_heap_type() == target &&
+      (target_nullable || ref_type.is_non_nullable())
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::misses_exact_target(
+  self : OiRefProducerFact,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match self.ref_type {
+    Some(ref_type) =>
+      ref_type.is_exact() &&
+      ref_type.get_heap_type() != target &&
+      (ref_type.is_non_nullable() || !target_nullable)
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::misses_exact_target_by_strict_subtype(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match self.ref_type {
+    Some(ref_type) => {
+      let source = ref_type.get_heap_type()
+      match (source, target) {
+        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
+        _ => return false
+      }
+      source != target &&
+      (ref_type.is_non_nullable() || !target_nullable) &&
+      optimize_instructions_heap_matches_target(module_ctx, source, target, 512)
+    }
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::matches_nullable_exact_target_only_as_null(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  if !target_nullable {
+    return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match self.ref_type {
+    Some(ref_type) => {
+      if ref_type.is_non_nullable() {
+        return false
+      }
+      let source = ref_type.get_heap_type()
+      match (source, target) {
+        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
+        _ => return false
+      }
+      source != target &&
+      (
+        ref_type.is_exact() ||
+        optimize_instructions_heap_matches_target(
+          module_ctx, source, target, 512,
+        )
+      )
+    }
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::has_final_heap(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match self.ref_type {
+    Some(ref_type) =>
+      ref_type.get_heap_type() == target &&
+      optimize_instructions_heap_is_final(module_ctx, target)
+    None => false
+  }
+}
+
+///|
+fn OiRefProducerFact::matches_final_exact_test_target(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match self.ref_type {
+    Some(ref_type) =>
+      (target_nullable || ref_type.is_non_nullable()) &&
+      self.has_final_heap(ctx, target)
+    None => false
+  }
 }
 
 ///|
@@ -486,6 +687,7 @@ fn OiRefTestResultFact::from_test(
   let exact = test_fact.exact
   let target = test_fact.target
   let ref_fact = OiRefFact::from_node(func, operand_id)
+  let producer_fact = OiRefProducerFact::from_node(ctx, func, operand_id)
   if ref_fact.is_known_null() {
     return {
       known_const_result: Some(test_fact.known_null_result()),
@@ -494,10 +696,7 @@ fn OiRefTestResultFact::from_test(
     }
   }
   if test_fact.descriptor_style {
-    match
-      OiRefProducerFact::from_node(ctx, func, operand_id).matches_or_subtypes_heap(
-        ctx, target,
-      ) {
+    match producer_fact.matches_or_subtypes_heap(ctx, target) {
       Some((operand_nullable, _)) =>
         if !nullable && operand_nullable {
           return {
@@ -526,19 +725,32 @@ fn OiRefTestResultFact::from_test(
       optimize_instructions_ref_operand_has_exact_heap(func, operand_id, target) ||
       optimize_instructions_ref_operand_has_final_heap(
         ctx, func, operand_id, target,
-      )
+      ) ||
+      producer_fact.exact_heap(target) ||
+      producer_fact.has_final_heap(ctx, target)
     ) &&
-    optimize_instructions_ref_operand_is_nullable_match_for_target(
-      func, operand_id, target,
+    (
+      optimize_instructions_ref_operand_is_nullable_match_for_target(
+        func, operand_id, target,
+      ) ||
+      producer_fact.nullable_matches_target(ctx, target)
     )
   let rewrite_to_ref_is_null = exact &&
-    optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
-      ctx, func, operand_id, target, nullable,
+    (
+      optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
+        ctx, func, operand_id, target, nullable,
+      ) ||
+      producer_fact.matches_nullable_exact_target_only_as_null(
+        ctx, target, nullable,
+      )
     )
   let known_success = (
       not(exact) &&
-      optimize_instructions_ref_is_known_match_for_target(
-        func, operand_id, target,
+      (
+        optimize_instructions_ref_is_known_match_for_target(
+          func, operand_id, target,
+        ) ||
+        producer_fact.non_null_matches_target(ctx, target)
       )
     ) ||
     (
@@ -549,14 +761,19 @@ fn OiRefTestResultFact::from_test(
         ) ||
         optimize_instructions_ref_operand_matches_final_exact_test_target(
           ctx, func, operand_id, target, nullable,
-        )
+        ) ||
+        producer_fact.matches_exact_test_target(target, nullable) ||
+        producer_fact.matches_final_exact_test_target(ctx, target, nullable)
       )
     ) ||
     (
       not(exact) &&
       nullable &&
-      optimize_instructions_ref_is_known_match_for_nullable_target(
-        func, operand_id, target,
+      (
+        optimize_instructions_ref_is_known_match_for_nullable_target(
+          func, operand_id, target,
+        ) ||
+        producer_fact.nullable_matches_target(ctx, target)
       )
     )
   let known_failure = optimize_instructions_ref_is_known_miss_for_target(
@@ -570,6 +787,10 @@ fn OiRefTestResultFact::from_test(
         ) ||
         optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
           ctx, func, operand_id, target, nullable,
+        ) ||
+        producer_fact.misses_exact_target(target, nullable) ||
+        producer_fact.misses_exact_target_by_strict_subtype(
+          ctx, target, nullable,
         )
       )
     ) ||
@@ -13605,6 +13826,28 @@ fn optimize_instructions_ref_func_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
     @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::func()
     _ => false
+  }
+}
+
+///|
+fn optimize_instructions_ref_type_heap_matches_target(
+  ctx : HotPassContext,
+  ref_type : @lib.RefType,
+  target : @lib.HeapType,
+) -> Bool {
+  let source = ref_type.get_heap_type()
+  if source == target ||
+    (
+      source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+      optimize_instructions_ref_i31_matches_target(target)
+    ) ||
+    optimize_instructions_abs_struct_array_matches_target(source, target) {
+    return true
+  }
+  match ctx.module_ctx {
+    Some(module_ctx) =>
+      optimize_instructions_heap_matches_target(module_ctx, source, target, 512)
+    None => false
   }
 }
 

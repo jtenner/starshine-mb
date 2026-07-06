@@ -8398,6 +8398,75 @@ test "optimize-instructions folds exact ref.cast on already exact locals" {
 }
 
 ///|
+test "optimize-instructions folds ref.test from precise fallthrough block facts" {
+  // OI-J fallthrough-type fact slice: Binaryen version_130 `visitRefTest`
+  // calls `getFallthroughType(curr->ref)` before evaluating the cast check, so
+  // a block whose declared result is a supertype still folds when the actual
+  // fallthrough producer is a precise subtype. This locks a reusable
+  // Binaryen-style fallthrough ref fact instead of adding a block-name scanner.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))
+  let i31_ref_type = @lib.RefType::new(false, i31_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(eq_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::ref_i31(),
+              ]),
+            ),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  // Starshine's current validator rejects this Binaryen-valid block-result
+  // subtype fixture before OI can run, so this test exercises the HOT pass
+  // directly and skips final module validation. Reopen the public-pipeline
+  // shape when validator subtype support accepts the equivalent WAT.
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    ignore,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected fallthrough ref.test HOT success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = @ir.hot_lower_func_unverified(func)
+  let rendered = "\{body}"
+  assert_false(
+    body.any(fn(instr) {
+      instr == @lib.Instruction::ref_test_type(i31_ref_type)
+    }),
+    msg="expected fallthrough ref.test to fold, got \{body}",
+  )
+  assert_true(
+    rendered.contains("I32(1)"),
+    msg="expected folded true constant, got \{body}",
+  )
+}
+
+///|
 test "optimize-instructions folds exact ref.test on already exact operands" {
   // OI-J exactness positive: Binaryen version_130 folds
   // `ref.test (ref (exact $a))` to true when the tested value is already an
