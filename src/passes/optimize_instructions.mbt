@@ -13596,6 +13596,79 @@ fn optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_lea
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefNull =>
+      @ir.hot_child_count(func, node_id) == 0 &&
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, node_id,
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
+  func : @ir.HotFunc,
+  tee_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, tee_id).op {
+    @ir.HotOp::LocalTee => ()
+    _ => return false
+  }
+  optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, tee_id,
+  ) &&
+  @ir.hot_child_count(func, tee_id) == 1 &&
+  optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
+    func,
+    @ir.hot_child_get(func, tee_id, 0),
+  )
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if !optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+      func, block_id,
+    ) {
+    return false
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  let root_count = @ir.hot_region_root_count(func, body)
+  if root_count == 0 {
+    return false
+  }
+  for slot = 0; slot < root_count - 1; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, body, slot)
+    if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+        func, root_id,
+      ) ||
+      optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func, block_id, root_id,
+      ) {
+      return false
+    }
+  }
+  let final_id = @ir.hot_region_get(func, body, root_count - 1)
+  optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
+    func, final_id,
+  ) &&
+  !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+    func, block_id, final_id,
+  )
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
   func : @ir.HotFunc,
   node_id : Int,
@@ -13690,6 +13763,62 @@ fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_ch
       optimize_instructions_standalone_ref_get_desc_branch_free_block_child_can_move_null_check(
         func, nullable_child,
       )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, descriptor_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, descriptor_id) != 1 {
+    return false
+  }
+  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
+  match @ir.hot_node_exact_instr(func, get_desc_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, get_desc_child) != 1 {
+    return false
+  }
+  let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
+  match @ir.hot_node_get(func, nullable_child).op {
+    @ir.HotOp::RefNull =>
+      if optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
+          func, nullable_child,
+        ) {
+        optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
+        true
+      } else {
+        false
+      }
+    @ir.HotOp::LocalTee =>
+      if optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
+          func, nullable_child,
+        ) {
+        optimize_instructions_replace_with_drop_then_unreachable(
+          ctx, func, descriptor_id, nullable_child,
+        )
+      } else {
+        false
+      }
+    @ir.HotOp::Block =>
+      if optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
+          func, nullable_child,
+        ) {
+        optimize_instructions_replace_with_drop_then_unreachable(
+          ctx, func, descriptor_id, nullable_child,
+        )
+      } else {
+        false
+      }
     _ => false
   }
 }
@@ -16865,6 +16994,9 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::Heap =>
       optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
+        ctx, func, node_id,
+      ) ||
+      optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
         ctx, func, node_id,
       ) ||
       optimize_instructions_try_move_standalone_ref_get_desc_null_check(

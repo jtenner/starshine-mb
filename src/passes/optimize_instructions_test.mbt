@@ -17445,7 +17445,7 @@ test "optimize-instructions traps standalone ref.get_desc known-null children" {
   assert_false(tee_pretty.contains("ref.get_desc"), msg=tee_pretty)
   assert_false(tee_pretty.contains("ref.as_non_null"), msg=tee_pretty)
   optimize_instructions_assert_strings_in_order(tee_pretty, [
-    "ref.null", "local.tee", "unreachable",
+    "ref.null", "local.set", "unreachable",
   ])
   let block_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(block_pretty.contains("ref.get_desc"), msg=block_pretty)
