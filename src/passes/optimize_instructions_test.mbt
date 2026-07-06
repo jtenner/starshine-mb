@@ -10367,14 +10367,12 @@ test "optimize-instructions folds descriptor casts with call-produced exact desc
 }
 
 ///|
-test "optimize-instructions folds descriptor casts with call-produced exact descriptor operands" {
-  // OI-J descriptor/effect slice: Binaryen version_130 rewrites the
-  // strict-subtype/exact-descriptor miss to `drop(call-produced-descriptor);
-  // unreachable` when the reference operand is pure and the descriptor operand
-  // is a direct call with side effects. This preserves the descriptor call after
-  // the pure reference operand and before the descriptor-cast trap, while
-  // leaving indirect/call_ref/control/EH/multivalue and both-call operand
-  // combinations for separate evidence-backed slices.
+fn optimize_instructions_test_descriptor_call_operand_miss_module(
+  desc_arg_count : Int,
+  const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
+) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
   let subtype = @lib.TypeIdx::new(2U)
@@ -10389,101 +10387,216 @@ test "optimize-instructions folds descriptor casts with call-produced exact desc
     exact=true,
   )
   let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
-  let module_ = @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::group([
-          @lib.SubType::new(
-            false,
-            [],
-            @lib.CompType::struct_([
-              @lib.FieldType::new(
-                @lib.StorageType::val_type(@lib.ValType::i32()),
-                @lib.Mut::const_(),
-              ),
-            ]),
-            metadata=@lib.TypeMetadata::new(
-              descriptor=Some(base_descriptor_type),
+  let desc_body = if i64_const_call_args || desc_arg_count == 0 {
+    [
+      @lib.Instruction::i32_const(@lib.I32(17)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    ]
+  } else {
+    optimize_instructions_test_local_sum_then_global_set(
+      desc_arg_count,
+      @lib.GlobalIdx::new(0U),
+    )
+  }
+  desc_body.push(@lib.Instruction::struct_new_default(base_descriptor_type))
+  let cast_params : Array[@lib.ValType] = [@lib.ValType::ref_type(sub_ref_type)]
+  if !const_call_args && !i64_const_call_args && !global_call_args {
+    for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+      cast_params.push(@lib.ValType::i32())
+    }
+  }
+  let desc_call_params = if i64_const_call_args {
+    optimize_instructions_test_i64_params(desc_arg_count)
+  } else {
+    optimize_instructions_test_i32_params(desc_arg_count)
+  }
+  let cast_body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ]
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    if const_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      cast_body.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      cast_body.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      cast_body.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
+      )
+    }
+  }
+  cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(base_ref_type))
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::group([
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
             ),
-          ),
-          @lib.SubType::new(
-            false,
-            [],
-            @lib.CompType::struct_([]),
-            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
-          ),
-          @lib.SubType::new(
-            false,
-            [base_type],
-            @lib.CompType::struct_([
-              @lib.FieldType::new(
-                @lib.StorageType::val_type(@lib.ValType::i32()),
-                @lib.Mut::const_(),
-              ),
-              @lib.FieldType::new(
-                @lib.StorageType::val_type(@lib.ValType::i64()),
-                @lib.Mut::const_(),
-              ),
-            ]),
-            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
-          ),
-          @lib.SubType::new(
-            false,
-            [base_descriptor_type],
-            @lib.CompType::struct_([]),
-            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
-          ),
-        ]),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([], [
-              @lib.ValType::ref_type(base_descriptor_ref_type),
-            ]),
-          ),
+          ]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
         ),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([@lib.ValType::ref_type(sub_ref_type)], [
-              @lib.ValType::ref_type(base_ref_type),
-            ]),
-          ),
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+        ),
+        @lib.SubType::new(
+          false,
+          [base_type],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
+            ),
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i64()),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+        ),
+        @lib.SubType::new(
+          false,
+          [base_descriptor_type],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
         ),
       ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([make_desc_func_type, cast_func_type]))
-    .with_global_sec(
-      @lib.GlobalSec::new([
-        @lib.Global::new(
-          @lib.GlobalType::new(@lib.ValType::i32(), true),
-          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::i32_const(@lib.I32(9)),
-            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
-            @lib.Instruction::struct_new_default(base_descriptor_type),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(desc_call_params, [
+            @lib.ValType::ref_type(base_descriptor_ref_type),
           ]),
         ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
-            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(cast_params, [
+            @lib.ValType::ref_type(base_ref_type),
           ]),
         ),
-      ]),
-    )
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([make_desc_func_type, cast_func_type]))
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+    ]),
+  )
+}
+
+///|
+fn optimize_instructions_test_assert_descriptor_call_operand_miss(
+  desc_arg_count : Int,
+  const_call_args? : Bool = false,
+  i64_const_call_args? : Bool = false,
+  global_call_args? : Bool = false,
+) -> Unit raise {
+  let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
+    desc_arg_count,
+    const_call_args~,
+    i64_const_call_args~,
+    global_call_args~,
+  )
   let optimized = optimize_instructions_test_run_module(module_)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("call"), msg=pretty)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  let expected : Array[@lib.Instruction] = []
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    if const_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(200 + arg)))
+    } else if i64_const_call_args {
+      expected.push(
+        @lib.Instruction::i64_const(@lib.I64((200 + arg).to_int64())),
+      )
+    } else if global_call_args {
+      expected.push(
+        @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
+      )
+    } else {
+      expected.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
+      )
+    }
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  expected.push(@lib.Instruction::drop())
+  expected.push(@lib.Instruction::unreachable_())
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, expected)
+    _ => fail("expected two-function descriptor-call operand miss module")
+  }
+}
+
+///|
+test "optimize-instructions folds descriptor casts with call-produced exact descriptor operands" {
+  // OI-J descriptor/effect slice: Binaryen version_130 rewrites the
+  // strict-subtype/exact-descriptor miss to `drop(call-produced-descriptor);
+  // unreachable` when the reference operand is pure and the descriptor operand
+  // is a direct call with side effects. This preserves the descriptor call after
+  // the pure reference operand and before the descriptor-cast trap, while
+  // leaving indirect/call_ref/control/EH/multivalue and both-call operand
+  // combinations for separate evidence-backed slices.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(0)
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with local arguments" {
+  // Same semantic miss family for a strict-subtype pure reference operand plus
+  // ordered pure local.get descriptor-call arguments. The local reference is
+  // erased as pure; descriptor arguments and the effectful direct descriptor
+  // call stay before unreachable.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(3)
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with i64 constant arguments" {
+  // Same descriptor-operand miss family for ordered nontrapping i64 constants.
+  // This covers scalar constants without treating exact-success skipping or
+  // both-call descriptor misses as the same semantic shape.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    3,
+    i64_const_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with global arguments" {
+  // Same descriptor-operand miss family for ordered global.get arguments. The
+  // globals are read before the descriptor call, then the call result is dropped
+  // before the known-failing descriptor equality cast becomes unreachable.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    3,
+    global_call_args=true,
+  )
 }
 
 ///|
