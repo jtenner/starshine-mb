@@ -14220,7 +14220,10 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_suc
   exact_ref_result? : Bool = true,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
-    ref_arg_count, desc_arg_count, exact_ref_result~, exact_cast_target=false,
+    ref_arg_count,
+    desc_arg_count,
+    exact_ref_result~,
+    exact_cast_target=false,
   )
   let optimized = optimize_instructions_test_run_module(module_)
   let expected : Array[@lib.Instruction] = []
@@ -14275,7 +14278,9 @@ test "optimize-instructions exactifies direct-call descriptor success with inexa
   // strict-subtype miss, effectful/non-local argument, indirect/call_ref,
   // return_call*, multivalue, control/EH, TNH, or IIT behavior.
   optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
-    1, 10, exact_ref_result=false,
+    1,
+    10,
+    exact_ref_result=false,
   )
 }
 
