@@ -13347,6 +13347,39 @@ fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_is_escaping_br_if_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  root_id : Int,
+) -> Bool {
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if optimize_instructions_descriptor_label_is_internal_to_expr(
+      func,
+      block_id,
+      root.imm0,
+    ) ||
+    !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+      func, root_id,
+    ) {
+    return false
+  }
+  for slot = 0; slot < root.child_count; slot = slot + 1 {
+    if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+        func,
+        block_id,
+        @ir.hot_child_get(func, root_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
   func : @ir.HotFunc,
   block_id : Int,
@@ -13535,6 +13568,11 @@ fn optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check
         func, block_id, root_id,
       ) {
       saw_internal_ref_branch = true
+      continue
+    }
+    if optimize_instructions_standalone_ref_get_desc_is_escaping_br_if_root(
+        func, block_id, root_id,
+      ) {
       continue
     }
     if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
