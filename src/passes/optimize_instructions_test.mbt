@@ -10375,6 +10375,8 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   effectful_block_call_args? : Bool = false,
   direct_call_args? : Bool = false,
   parameterized_direct_call_args? : Bool = false,
+  reference_direct_call_args? : Bool = false,
+  parameterized_reference_direct_call_args? : Bool = false,
   local_tee_call_args? : Bool = false,
   trapping_scalar_call_args? : Bool = false,
 ) -> @lib.Module {
@@ -10393,7 +10395,10 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     exact=true,
   )
   let sub_ref_type = @lib.RefType::new(false, @lib.HeapType::new(subtype))
-  let desc_body = if i64_const_call_args || desc_arg_count == 0 {
+  let desc_body = if i64_const_call_args ||
+    reference_direct_call_args ||
+    parameterized_reference_direct_call_args ||
+    desc_arg_count == 0 {
     [
       @lib.Instruction::i32_const(@lib.I32(17)),
       @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
@@ -10412,6 +10417,8 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     !effectful_block_call_args &&
     !direct_call_args &&
     !parameterized_direct_call_args &&
+    !reference_direct_call_args &&
+    !parameterized_reference_direct_call_args &&
     !local_tee_call_args &&
     !trapping_scalar_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
@@ -10422,6 +10429,14 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
   }
   let desc_call_params = if i64_const_call_args {
     optimize_instructions_test_i64_params(desc_arg_count)
+  } else if reference_direct_call_args ||
+    parameterized_reference_direct_call_args {
+    let params : Array[@lib.ValType] = []
+    for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+      ignore(arg)
+      params.push(@lib.ValType::ref_type(base_descriptor_ref_type))
+    }
+    params
   } else {
     optimize_instructions_test_i32_params(desc_arg_count)
   }
@@ -10456,6 +10471,15 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
       )
     } else if parameterized_direct_call_args {
       cast_body.push(@lib.Instruction::i32_const(@lib.I32(400 + arg)))
+      cast_body.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if reference_direct_call_args {
+      cast_body.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if parameterized_reference_direct_call_args {
+      cast_body.push(@lib.Instruction::i32_const(@lib.I32(450 + arg)))
       cast_body.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
       )
@@ -10532,18 +10556,27 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     @lib.RecType::new(
       @lib.SubType::comp_type(
         @lib.CompType::func(
-          if parameterized_direct_call_args {
+          if parameterized_direct_call_args ||
+            parameterized_reference_direct_call_args {
             [@lib.ValType::i32()]
           } else {
             []
           },
-          [@lib.ValType::i32()],
+          if reference_direct_call_args ||
+            parameterized_reference_direct_call_args {
+            [@lib.ValType::ref_type(base_descriptor_ref_type)]
+          } else {
+            [@lib.ValType::i32()]
+          },
         ),
       ),
     ),
   ])
   let func_types : Array[@lib.TypeIdx] = [make_desc_func_type, cast_func_type]
-  if direct_call_args || parameterized_direct_call_args {
+  if direct_call_args ||
+    parameterized_direct_call_args ||
+    reference_direct_call_args ||
+    parameterized_reference_direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       ignore(arg)
       func_types.push(direct_arg_func_type)
@@ -10558,20 +10591,38 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
     @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(desc_body)),
     @lib.Func::new(cast_locals, @lib.Expr::new(cast_body)),
   ]
-  if direct_call_args || parameterized_direct_call_args {
+  if direct_call_args ||
+    parameterized_direct_call_args ||
+    reference_direct_call_args ||
+    parameterized_reference_direct_call_args {
     for arg = 0; arg < desc_arg_count; arg = arg + 1 {
       code_funcs.push(
         @lib.Func::new(
           @lib.Locals::empty(),
-          @lib.Expr::new([
-            if parameterized_direct_call_args {
-              @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+          @lib.Expr::new(
+            if reference_direct_call_args ||
+              parameterized_reference_direct_call_args {
+              [
+                if parameterized_reference_direct_call_args {
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+                } else {
+                  @lib.Instruction::i32_const(@lib.I32(300 + arg))
+                },
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::struct_new_default(base_descriptor_type),
+              ]
             } else {
-              @lib.Instruction::i32_const(@lib.I32(300 + arg))
+              [
+                if parameterized_direct_call_args {
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+                } else {
+                  @lib.Instruction::i32_const(@lib.I32(300 + arg))
+                },
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(200 + arg)),
+              ]
             },
-            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
-            @lib.Instruction::i32_const(@lib.I32(200 + arg)),
-          ]),
+          ),
         ),
       )
     }
@@ -10603,6 +10654,8 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
   effectful_block_call_args? : Bool = false,
   direct_call_args? : Bool = false,
   parameterized_direct_call_args? : Bool = false,
+  reference_direct_call_args? : Bool = false,
+  parameterized_reference_direct_call_args? : Bool = false,
   local_tee_call_args? : Bool = false,
   trapping_scalar_call_args? : Bool = false,
 ) -> Unit raise {
@@ -10614,6 +10667,8 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
     effectful_block_call_args~,
     direct_call_args~,
     parameterized_direct_call_args~,
+    reference_direct_call_args~,
+    parameterized_reference_direct_call_args~,
     local_tee_call_args~,
     trapping_scalar_call_args~,
   )
@@ -10649,6 +10704,15 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
       )
     } else if parameterized_direct_call_args {
       expected.push(@lib.Instruction::i32_const(@lib.I32(400 + arg)))
+      expected.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if reference_direct_call_args {
+      expected.push(
+        @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
+      )
+    } else if parameterized_reference_direct_call_args {
+      expected.push(@lib.Instruction::i32_const(@lib.I32(450 + arg)))
       expected.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
       )
@@ -10762,6 +10826,36 @@ test "optimize-instructions folds descriptor operand call misses with parameteri
   optimize_instructions_test_assert_descriptor_call_operand_miss(
     2,
     parameterized_direct_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with reference-result direct call arguments" {
+  // Same pure-reference/direct-descriptor-call descriptor-miss family for
+  // descriptor-call arguments produced by ordered no-parameter direct calls
+  // returning non-null references. Binaryen preserves each direct call before
+  // dropping the exact descriptor result and replacing the impossible descriptor
+  // equality cast with unreachable. This does not claim indirect, call_ref,
+  // return_call*, multivalue, control, EH, TNH/IIT, exact-success, or both-call
+  // descriptor miss breadth.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    reference_direct_call_args=true,
+  )
+}
+
+///|
+test "optimize-instructions folds descriptor operand call misses with parameterized reference-result direct call arguments" {
+  // Same pure-reference/direct-descriptor-call descriptor-miss family for
+  // reference-result direct descriptor-call arguments whose operands are
+  // nontrapping scalar leaves. The scalar operands and direct reference calls
+  // stay in source order before the exact descriptor call result is dropped.
+  // This keeps nested call/control operands, indirect/call_ref/return_call*,
+  // multivalue, control/EH, TNH/IIT, exact-success, and both-call descriptor
+  // miss breadth separate.
+  optimize_instructions_test_assert_descriptor_call_operand_miss(
+    2,
+    parameterized_reference_direct_call_args=true,
   )
 }
 
