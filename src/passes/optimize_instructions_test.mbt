@@ -11335,6 +11335,122 @@ test "optimize-instructions narrows nullable descriptor casts with call_ref exac
 }
 
 ///|
+test "optimize-instructions exactifies nullable-result descriptor casts with call_ref exact descriptor producers" {
+  // OI-J descriptor-producer nullable reference-result family: Binaryen
+  // version_130 directizes a `ref.func` + `call_ref` descriptor producer and
+  // exactifies a nullable same-heap descriptor cast to nullable exact when the
+  // reference producer's static result may be null. This is separate from the
+  // non-null reference-result narrowing family above: the residual descriptor
+  // equality check stays nullable because the source call can still produce null.
+  // Keep exact-success skipping, return_call_ref, indirect calls, multivalue,
+  // control/EH, TNH, IIT, and broader effectful/trapping operands separate.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let make_desc_func_type = @lib.TypeIdx::new(2U)
+  let make_ref_func_type = @lib.TypeIdx::new(3U)
+  let cast_func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let nullable_base_ref_type = @lib.RefType::new(true, base_heap)
+  let nullable_exact_base_ref_type = @lib.RefType::new(true, base_heap, exact=true)
+  let exact_base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(exact_base_descriptor_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_base_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([make_desc_func_type, make_ref_func_type, cast_func_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::struct_new_default_desc(base_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(make_desc_func_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_base_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(
+        body,
+        [
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::ref_cast_desc_eq_type(nullable_exact_base_ref_type),
+        ],
+      )
+    _ => fail("expected nullable-result call_ref descriptor exactification module")
+  }
+}
+
+///|
 test "optimize-instructions folds descriptor casts with both operands call-produced exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 rewrites the
   // strict-subtype/exact-descriptor miss to `drop(call-produced-ref);
