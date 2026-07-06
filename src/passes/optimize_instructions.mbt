@@ -13596,6 +13596,40 @@ fn optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_lea
 }
 
 ///|
+fn optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
+      @ir.hot_child_count(func, node_id) == 0 &&
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, node_id,
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
+  func : @ir.HotFunc,
+  tee_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, tee_id).op {
+    @ir.HotOp::LocalTee => ()
+    _ => return false
+  }
+  optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, tee_id,
+  ) &&
+  @ir.hot_child_count(func, tee_id) == 1 &&
+  optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
+    func,
+    @ir.hot_child_get(func, tee_id, 0),
+  )
+}
+
+///|
 fn optimize_instructions_standalone_ref_get_desc_direct_call_child_can_move_null_check(
   func : @ir.HotFunc,
   call_id : Int,
@@ -13626,8 +13660,12 @@ fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_ch
   nullable_child : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::LocalGet =>
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
+      optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
+        func, nullable_child,
+      )
+    @ir.HotOp::LocalTee =>
+      optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
         func, nullable_child,
       )
     @ir.HotOp::Call =>

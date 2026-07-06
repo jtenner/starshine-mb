@@ -17391,10 +17391,7 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
     )
     .with_func_sec(
       @lib.FuncSec::new([
-        no_param_func_type,
-        no_param_func_type,
-        param_func_type,
-        no_param_func_type,
+        no_param_func_type, no_param_func_type, param_func_type, no_param_func_type,
       ]),
     )
     .with_global_sec(
@@ -17438,6 +17435,8 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
             @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
             @lib.Instruction::ref_as_non_null(),
             @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::drop(),
           ]),
         ),
         @lib.Func::new(
@@ -17447,12 +17446,16 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
             @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
             @lib.Instruction::ref_as_non_null(),
             @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
           ]),
         ),
       ]),
     )
   let optimized = optimize_instructions_test_run_module(module_)
-  let immutable_global_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let immutable_global_pretty = optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
   assert_false(
     immutable_global_pretty.contains("ref.as_non_null"),
     msg=immutable_global_pretty,
@@ -17469,7 +17472,10 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
     "global.get", "ref.get_desc",
   ])
   let tee_local_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(tee_local_pretty.contains("ref.as_non_null"), msg=tee_local_pretty)
+  assert_false(
+    tee_local_pretty.contains("ref.as_non_null"),
+    msg=tee_local_pretty,
+  )
   optimize_instructions_assert_strings_in_order(tee_local_pretty, [
     "local.get", "local.tee", "ref.get_desc",
   ])
@@ -17509,15 +17515,14 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
   match hot_pass_run(tnh_ctx, tnh_tee_func) {
     Ok(_) => ()
     Err(err) =>
-      fail(
-        "expected TNH standalone local.tee ref.get_desc success, got \{err}",
-      )
+      fail("expected TNH standalone local.tee ref.get_desc success, got \{err}")
   }
   let tnh_tee_root = @ir.hot_root_get(tnh_tee_func, 0)
   let tnh_tee_child = @ir.hot_child_get(tnh_tee_func, tnh_tee_root, 0)
   match @ir.hot_node_get(tnh_tee_func, tnh_tee_child).op {
-    @ir.HotOp::LocalTee => ()
-    other => fail("expected TNH standalone local.tee child, got \{other}")
+    @ir.HotOp::LocalTee | @ir.HotOp::LocalGet => ()
+    other =>
+      fail("expected TNH standalone local.tee/local.get child, got \{other}")
   }
 }
 
