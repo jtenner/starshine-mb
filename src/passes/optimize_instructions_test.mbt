@@ -33113,6 +33113,69 @@ test "optimize-instructions keeps swapped flat shift memory.copy outside equalit
 }
 
 ///|
+test "optimize-instructions drops long flat stack same-address memory.copy" {
+  // OI-G raw stack-expression equality breadth: Binaryen v130 keeps using
+  // `ExpressionAnalyzer::equal` for a repeated 17-instruction left-associated
+  // pure scalar address tree. This raises the raw bridge's bounded candidate
+  // fact budget without changing the operator set; deeper/non-flat/control
+  // operands remain separate source-backed work.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "long-flat") (param $addr i32) (param $size i32)
+        #|    local.get $addr
+        #|    i32.const 1
+        #|    i32.add
+        #|    i32.const 2
+        #|    i32.add
+        #|    i32.const 3
+        #|    i32.add
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 5
+        #|    i32.add
+        #|    i32.const 6
+        #|    i32.add
+        #|    i32.const 7
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.add
+        #|    local.get $addr
+        #|    i32.const 1
+        #|    i32.add
+        #|    i32.const 2
+        #|    i32.add
+        #|    i32.const 3
+        #|    i32.add
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.const 5
+        #|    i32.add
+        #|    i32.const 6
+        #|    i32.add
+        #|    i32.const 7
+        #|    i32.add
+        #|    i32.const 8
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected long flat stack memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "optimize-instructions drops nested flat stack same-address memory.copy" {
   // OI-G raw stack-expression equality breadth: Binaryen v130 parses the
   // fallthrough address operands as expression trees for `areConsecutiveInputsEqual`.

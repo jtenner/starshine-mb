@@ -29365,6 +29365,16 @@ fn RawOiFlatPureScalarAddressFact::from_value(
 }
 
 ///|
+fn run_hot_pipeline_raw_oi_flat_pure_scalar_instr_budget() -> Int {
+  32
+}
+
+///|
+fn run_hot_pipeline_raw_oi_flat_pure_scalar_stack_budget() -> Int {
+  8
+}
+
+///|
 fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -29372,7 +29382,8 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   let facts : Array[RawOiFlatPureScalarAddressFact] = []
   let stack : Array[RawOiFlatPureScalarStackValueFact] = []
   let mut idx = start
-  while idx < instrs.length() && idx - start < 16 {
+  while idx < instrs.length() &&
+        idx - start < run_hot_pipeline_raw_oi_flat_pure_scalar_instr_budget() {
     match run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(instrs[idx]) {
       Some(key) =>
         stack.push(run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(key))
@@ -29424,7 +29435,8 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
       facts.push(
         RawOiFlatPureScalarAddressFact::from_value(start, idx + 1, stack[0]),
       )
-    } else if stack.length() > 4 {
+    } else if stack.length() >
+      run_hot_pipeline_raw_oi_flat_pure_scalar_stack_budget() {
       break
     }
     idx = idx + 1
