@@ -1842,6 +1842,26 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(gen_valid_profile_name(PassCleanupProfile), "pass-cleanup")
   @debug.assert_eq(gen_valid_profile_name(PassDaeProfile), "pass-dae")
   @debug.assert_eq(gen_valid_profile_name(PassInliningProfile), "pass-inlining")
+  @debug.assert_eq(
+    gen_valid_profile_name(InliningOptimizingDirectWrapperProfile),
+    "inlining-optimizing-direct-wrapper",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(InliningOptimizingParamSpillProfile),
+    "inlining-optimizing-param-spill",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(InliningOptimizingReturnCallProfile),
+    "inlining-optimizing-return-call",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(InliningOptimizingCleanupPayoffProfile),
+    "inlining-optimizing-cleanup-payoff",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(InliningOptimizingAllProfile),
+    "inlining-optimizing-all",
+  )
   @debug.assert_eq(gen_valid_profile_name(PassMemoryProfile), "pass-memory")
   @debug.assert_eq(gen_valid_profile_name(PassGcRefProfile), "pass-gc-ref")
   @debug.assert_eq(gen_valid_profile_name(PassControlProfile), "pass-control")
@@ -1925,7 +1945,38 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   assert_true(inlining.features.allow_calls)
   assert_true(inlining.features.allow_tail_calls)
   assert_false(inlining.features.allow_call_indirect)
+  assert_false(
+    inlining.features.allow_const_expr_variants,
+    msg="pass-inlining profile must stay wasm-tools-compatible and avoid stringrefs section 14",
+  )
+  assert_false(
+    inlining.features.allow_ref_types,
+    msg="pass-inlining profile is the scalar direct-call smoke; ref survival belongs in focused inlining-optimizing leaves",
+  )
   assert_true(inlining.max_defined_funcs >= 8)
+
+  let io_all = GenValidConfig::for_profile(InliningOptimizingAllProfile)
+  @debug.assert_eq(gen_valid_config_label(io_all), "inlining-optimizing-all")
+  assert_true(io_all.features.allow_calls)
+  assert_true(io_all.features.allow_tail_calls)
+  assert_true(io_all.features.allow_typed_body_generator)
+  assert_false(io_all.features.allow_imports)
+  assert_false(io_all.features.allow_call_indirect)
+  @debug.assert_eq(
+    gen_valid_profile_is_composite(InliningOptimizingAllProfile),
+    true,
+  )
+  @debug.assert_eq(
+    gen_valid_profile_members(InliningOptimizingAllProfile).length(),
+    4,
+  )
+  @debug.assert_eq(
+    match gen_valid_profile_by_name("inlining-optimizing-closeout") {
+      Ok(profile) => profile
+      Err(msg) => fail(msg)
+    },
+    InliningOptimizingAllProfile,
+  )
 
   let memory = GenValidConfig::for_profile(PassMemoryProfile)
   assert_true(memory.features.allow_mems)
@@ -2222,6 +2273,297 @@ fn gen_valid_test_module_has_loop_local_copy(mod_ : Module) -> Bool {
     }
     None => false
   }
+}
+
+///|
+fn gen_valid_test_instrs_have_string_const(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      StringConst(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_string_const(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_string_const(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_string_const(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_exported_run(mod_ : Module) -> Bool {
+  gen_valid_test_has_func_export(mod_, "run")
+}
+
+///|
+fn gen_valid_test_instrs_have_direct_call(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      Call(_) | ReturnCall(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_direct_call(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_direct_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_direct_call(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_direct_call(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_direct_call(body) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_return_call(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      ReturnCall(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_return_call(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_return_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_return_call(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_return_call(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_return_call(body) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_cleanup_payoff(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (I32Const(_), I32Const(_), I32Add) => return true
+      (I32Const(_), Drop, _) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_cleanup_payoff(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_cleanup_payoff(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_cleanup_payoff(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_cleanup_payoff(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_cleanup_payoff(body) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_string_const(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          Func(_, Expr(body)) if gen_valid_test_instrs_have_string_const(body) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+test "inlining-optimizing GenValid aggregate samples focused inline cleanup leaves" {
+  let expected = [
+    InliningOptimizingDirectWrapperProfile,
+    InliningOptimizingParamSpillProfile,
+    InliningOptimizingReturnCallProfile,
+    InliningOptimizingCleanupPayoffProfile,
+  ]
+  let mut seen = 0
+  for i = 1; i <= 64; i = i + 1 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      InliningOptimizingAllProfile,
+      0x5eedUL,
+      i,
+    )
+    for j = 0; j < expected.length(); j = j + 1 {
+      if leaf == expected[j] {
+        seen = seen | (1 << j)
+      }
+    }
+  }
+  @debug.assert_eq(seen, 0b1111)
+  @debug.assert_eq(
+    gen_valid_inlining_optimizing_profile_case_label(
+      InliningOptimizingDirectWrapperProfile,
+      0x5eedUL,
+    ),
+    Some("inlining-optimizing:direct-wrapper"),
+  )
+  @debug.assert_eq(
+    gen_valid_inlining_optimizing_profile_case_label(
+      InliningOptimizingParamSpillProfile,
+      0x5eedUL,
+    ),
+    Some("inlining-optimizing:param-spill"),
+  )
+  @debug.assert_eq(
+    gen_valid_inlining_optimizing_profile_case_label(
+      InliningOptimizingReturnCallProfile,
+      0x5eedUL,
+    ),
+    Some("inlining-optimizing:return-call"),
+  )
+  @debug.assert_eq(
+    gen_valid_inlining_optimizing_profile_case_label(
+      InliningOptimizingCleanupPayoffProfile,
+      0x5eedUL,
+    ),
+    Some("inlining-optimizing:cleanup-payoff"),
+  )
+}
+
+///|
+test "inlining-optimizing focused GenValid leaves emit direct inline cleanup triggers" {
+  let profiles = [
+    InliningOptimizingDirectWrapperProfile,
+    InliningOptimizingParamSpillProfile,
+    InliningOptimizingReturnCallProfile,
+    InliningOptimizingCleanupPayoffProfile,
+  ]
+  for profile in profiles {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      gen_valid_test_module_has_exported_run(generated.wasm_module),
+      msg="inlining-optimizing leaf should export a touched caller named run for runtime smoke",
+    )
+    assert_true(
+      gen_valid_test_module_has_direct_call(generated.wasm_module),
+      msg="inlining-optimizing leaf should contain a direct callsite for the inliner",
+    )
+    assert_true(
+      gen_valid_test_module_has_cleanup_payoff(generated.wasm_module),
+      msg="inlining-optimizing leaf should include post-inline cleanup debris in the touched caller",
+    )
+  }
+  let return_call = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(InliningOptimizingReturnCallProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(
+    gen_valid_test_module_has_return_call(return_call.wasm_module),
+    msg="return-call leaf should keep direct return_call coverage separate from ordinary call coverage",
+  )
+}
+
+///|
+test "pass-inlining gen-valid profile avoids stringrefs section 14" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x1e11eUL,
+      GenValidConfig::for_profile(PassInliningProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_false(
+    gen_valid_test_module_has_string_const(generated.wasm_module),
+    msg="pass-inlining profile must not emit string.const because the encoder lowers it to stringrefs section 14 and compare-pass validates generated inputs with wasm-tools",
+  )
 }
 
 ///|

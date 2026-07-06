@@ -666,6 +666,11 @@ pub enum GenValidProfile {
   RseVacuumTailProfile
   PassDaeProfile
   PassInliningProfile
+  InliningOptimizingDirectWrapperProfile
+  InliningOptimizingParamSpillProfile
+  InliningOptimizingReturnCallProfile
+  InliningOptimizingCleanupPayoffProfile
+  InliningOptimizingAllProfile
   PassMemoryProfile
   PassGcRefProfile
   PassControlProfile
@@ -841,6 +846,13 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RseVacuumTailProfile => "rse-vacuum-tail"
     PassDaeProfile => "pass-dae"
     PassInliningProfile => "pass-inlining"
+    InliningOptimizingDirectWrapperProfile =>
+      "inlining-optimizing-direct-wrapper"
+    InliningOptimizingParamSpillProfile => "inlining-optimizing-param-spill"
+    InliningOptimizingReturnCallProfile => "inlining-optimizing-return-call"
+    InliningOptimizingCleanupPayoffProfile =>
+      "inlining-optimizing-cleanup-payoff"
+    InliningOptimizingAllProfile => "inlining-optimizing-all"
     PassMemoryProfile => "pass-memory"
     PassGcRefProfile => "pass-gc-ref"
     PassControlProfile => "pass-control"
@@ -1004,6 +1016,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | SimplifyLocalsNostructureAllProfile
     | ReorderLocalsAllProfile
     | OptimizeCastsAllProfile
+    | InliningOptimizingAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1191,6 +1204,13 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(OptimizeCastsStaticFoldsProfile, 1),
         GenValidProfileMember::new(OptimizeCastsNeighborhoodProfile, 1),
       ]
+    InliningOptimizingAllProfile =>
+      [
+        GenValidProfileMember::new(InliningOptimizingDirectWrapperProfile, 3),
+        GenValidProfileMember::new(InliningOptimizingParamSpillProfile, 3),
+        GenValidProfileMember::new(InliningOptimizingReturnCallProfile, 2),
+        GenValidProfileMember::new(InliningOptimizingCleanupPayoffProfile, 2),
+      ]
     RandomAllProfilesProfile =>
       [
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
@@ -1281,6 +1301,11 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RseVacuumTailProfile,
     PassDaeProfile,
     PassInliningProfile,
+    InliningOptimizingDirectWrapperProfile,
+    InliningOptimizingParamSpillProfile,
+    InliningOptimizingReturnCallProfile,
+    InliningOptimizingCleanupPayoffProfile,
+    InliningOptimizingAllProfile,
     PassMemoryProfile,
     PassGcRefProfile,
     PassControlProfile,
@@ -1518,6 +1543,11 @@ pub fn gen_valid_profile_by_name(
     "optimize-casts" => Ok(OptimizeCastsAllProfile)
     "optimize-casts-closeout" => Ok(OptimizeCastsAllProfile)
     "optimize-casts-all-profiles" => Ok(OptimizeCastsAllProfile)
+    "inlining-optimizing" => Ok(InliningOptimizingAllProfile)
+    "inlining-optimizing-closeout" => Ok(InliningOptimizingAllProfile)
+    "inlining-optimizing-all-profiles" => Ok(InliningOptimizingAllProfile)
+    "io" => Ok(InliningOptimizingAllProfile)
+    "io-closeout" => Ok(InliningOptimizingAllProfile)
     "oc" => Ok(OptimizeCastsAllProfile)
     "oc-closeout" => Ok(OptimizeCastsAllProfile)
     "rl" => Ok(ReorderLocalsAllProfile)
@@ -1709,16 +1739,24 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           allow_start: false,
           allow_elems: false,
           allow_datas: false,
+          allow_ref_types: false,
           allow_v128: false,
           allow_relaxed_simd: false,
           allow_call_indirect: false,
           allow_memory64: false,
           allow_atomics: false,
+          allow_const_expr_variants: false,
           allow_name_custom_sections: false,
           allow_typed_body_generator: true,
         },
       }
     }
+    InliningOptimizingDirectWrapperProfile
+    | InliningOptimizingParamSpillProfile
+    | InliningOptimizingReturnCallProfile
+    | InliningOptimizingCleanupPayoffProfile
+    | InliningOptimizingAllProfile =>
+      gen_valid_inlining_optimizing_profile_config(profile)
     PassMemoryProfile => {
       let base = GenValidConfig::coverage_forced_default()
       GenValidConfig::{
@@ -6782,9 +6820,11 @@ fn gen_valid_gc_type_defs(
       ctx.config.mode == CoverageForced ||
       ctx.random_int_from(TypeStream, 3) == 0
     )
-  let want_string_wtf16_array = remaining_type_budget - defs.length() > 0 &&
+  let want_string_wtf16_array = ctx.config.features.allow_const_expr_variants &&
+    remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_bool_from(TypeStream))
-  let want_string_utf8_array = remaining_type_budget - defs.length() > 0 &&
+  let want_string_utf8_array = ctx.config.features.allow_const_expr_variants &&
+    remaining_type_budget - defs.length() > 0 &&
     (
       ctx.config.mode == CoverageForced ||
       ctx.config.mode == Natural ||
@@ -15485,6 +15525,282 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_inlining_optimizing_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  let family_id = match profile {
+    InliningOptimizingDirectWrapperProfile => 1
+    InliningOptimizingParamSpillProfile => 2
+    InliningOptimizingReturnCallProfile => 3
+    InliningOptimizingCleanupPayoffProfile => 4
+    _ => 5
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 2,
+    max_imports: 0,
+    max_defined_funcs: 3,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == InliningOptimizingParamSpillProfile {
+      2
+    } else {
+      1
+    },
+    max_results: 1,
+    max_locals: if profile == InliningOptimizingParamSpillProfile {
+      2
+    } else {
+      0
+    },
+    max_body_statements: 8 + family_id,
+    max_body_depth: 1,
+    max_module_byte_size_budget: Some(20000 + family_id),
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_start: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: true,
+      allow_call_indirect: false,
+      allow_tail_calls: true,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: true,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_inlining_optimizing_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(InliningOptimizingDirectWrapperProfile) ||
+  config == GenValidConfig::for_profile(InliningOptimizingParamSpillProfile) ||
+  config == GenValidConfig::for_profile(InliningOptimizingReturnCallProfile) ||
+  config == GenValidConfig::for_profile(InliningOptimizingCleanupPayoffProfile) ||
+  config == GenValidConfig::for_profile(InliningOptimizingAllProfile)
+}
+
+///|
+fn gen_valid_inlining_optimizing_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(InliningOptimizingParamSpillProfile) {
+    InliningOptimizingParamSpillProfile
+  } else if config ==
+    GenValidConfig::for_profile(InliningOptimizingReturnCallProfile) {
+    InliningOptimizingReturnCallProfile
+  } else if config ==
+    GenValidConfig::for_profile(InliningOptimizingCleanupPayoffProfile) {
+    InliningOptimizingCleanupPayoffProfile
+  } else {
+    InliningOptimizingDirectWrapperProfile
+  }
+}
+
+///|
+pub fn gen_valid_inlining_optimizing_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    InliningOptimizingDirectWrapperProfile =>
+      Some("inlining-optimizing:direct-wrapper")
+    InliningOptimizingParamSpillProfile =>
+      Some("inlining-optimizing:param-spill")
+    InliningOptimizingReturnCallProfile =>
+      Some("inlining-optimizing:return-call")
+    InliningOptimizingCleanupPayoffProfile =>
+      Some("inlining-optimizing:cleanup-payoff")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_inlining_optimizing_i32_result_type(
+  params : Array[ValType],
+) -> RecType {
+  RecType::new(SubType::comp_type(CompType::func(params, [ValType::i32()])))
+}
+
+///|
+fn gen_valid_inlining_optimizing_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_inlining_optimizing_profile_module(
+  config : GenValidConfig,
+) -> Module {
+  let kind = gen_valid_inlining_optimizing_profile_kind(config)
+  let run_export = ExportSec::new([
+    Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(1U))),
+  ])
+  match kind {
+    InliningOptimizingParamSpillProfile =>
+      Module::new()
+      .with_type_sec(
+        TypeSec::new([
+          gen_valid_inlining_optimizing_i32_result_type([
+            ValType::i32(),
+            ValType::i32(),
+          ]),
+          gen_valid_inlining_optimizing_i32_result_type([]),
+        ]),
+      )
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+      .with_export_sec(run_export)
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::local_get(LocalIdx::new(1U)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          Func::new(
+            Locals::from_types([ValType::i32(), ValType::i32()]),
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_add(),
+              Instruction::drop(),
+              Instruction::i32_const(I32(20)),
+              Instruction::local_set(LocalIdx::new(0U)),
+              Instruction::i32_const(I32(22)),
+              Instruction::local_set(LocalIdx::new(1U)),
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::local_get(LocalIdx::new(1U)),
+              Instruction::call(FuncIdx::new(0U)),
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_add(),
+            ]),
+          ),
+        ]),
+      )
+    InliningOptimizingReturnCallProfile =>
+      Module::new()
+      .with_type_sec(
+        TypeSec::new([
+          gen_valid_inlining_optimizing_i32_result_type([ValType::i32()]),
+          gen_valid_inlining_optimizing_i32_result_type([]),
+        ]),
+      )
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+      .with_export_sec(run_export)
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_add(),
+              Instruction::drop(),
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_add(),
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::i32_const(I32(40)),
+              Instruction::return_call(FuncIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      )
+    InliningOptimizingCleanupPayoffProfile =>
+      Module::new()
+      .with_type_sec(
+        TypeSec::new([
+          gen_valid_inlining_optimizing_void_type(),
+          gen_valid_inlining_optimizing_i32_result_type([]),
+        ]),
+      )
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+      .with_export_sec(run_export)
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([Instruction::i32_const(I32(9)), Instruction::drop()]),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_add(),
+              Instruction::drop(),
+              Instruction::call(FuncIdx::new(0U)),
+              Instruction::i32_const(I32(41)),
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_add(),
+            ]),
+          ),
+        ]),
+      )
+    _ =>
+      Module::new()
+      .with_type_sec(
+        TypeSec::new([
+          gen_valid_inlining_optimizing_i32_result_type([]),
+          gen_valid_inlining_optimizing_i32_result_type([]),
+        ]),
+      )
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+      .with_export_sec(run_export)
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::i32_const(I32(40)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::call(FuncIdx::new(0U)),
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_add(),
+            ]),
+          ),
+        ]),
+      )
+  }
+}
+
+///|
 fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let family_id = match profile {
@@ -22931,6 +23247,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_precompute_profile_config(config) {
     return gen_valid_precompute_profile_module(config)
+  }
+  if gen_valid_is_inlining_optimizing_profile_config(config) {
+    return gen_valid_inlining_optimizing_profile_module(config)
   }
   if gen_valid_is_vacuum_profile_config(config) {
     return gen_valid_vacuum_profile_module(config)
