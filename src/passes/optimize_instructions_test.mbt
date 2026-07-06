@@ -14049,6 +14049,34 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
 }
 
 ///|
+test "optimize-instructions folds descriptor casts with semantic family mixed 10-ref 1-desc exact descriptor miss" {
+  // OI-J direct-call descriptor-miss family: this previously-unlisted arity
+  // pair has the same semantic shape as the covered grid: ordered pure
+  // `local.get*` reference arguments, a direct reference call returning a
+  // non-null strict subtype of the cast target, ordered pure `local.get*`
+  // descriptor arguments, and a direct descriptor call that exactly describes
+  // the target. The fold must preserve ref-args; call-ref; drop; desc-args;
+  // call-desc; drop; unreachable evaluation order.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(10, 1)
+}
+
+///|
+test "optimize-instructions folds descriptor casts with semantic family mixed 1-ref 10-desc exact descriptor miss" {
+  // Inverse same-family proof for the direct-call descriptor miss. Coverage is
+  // by semantic precondition, not by one-off arity whitelisting.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(1, 10)
+}
+
+///|
+test "optimize-instructions folds descriptor casts with semantic family 11-arg exact descriptor miss" {
+  // Same-family equal-arity case beyond the old evidence-history ceiling.
+  // This guards the family predicate while keeping non-local/effectful args,
+  // indirect calls, return_call*, multivalue, escaping control/EH, and TNH/IIT
+  // behavior out of scope for this narrow direct-call descriptor-miss fold.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(11, 11)
+}
+
+///|
 test "optimize-instructions folds descriptor casts with mixed 3-ref 4-desc call exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 also folds the
   // exact descriptor miss when the reference call takes three pure local
