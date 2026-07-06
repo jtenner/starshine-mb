@@ -27378,6 +27378,77 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descri
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_exact_success(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Int)? {
+  let ref_inputs : Array[@lib.Instruction] = []
+  let mut scan = start
+  while scan < instrs.length() {
+    match instrs[scan] {
+      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+          arg,
+        ) => {
+        ref_inputs.push(arg)
+        scan = scan + 1
+      }
+      @lib.Call(ref_func) => {
+        let desc_inputs : Array[@lib.Instruction] = []
+        let mut desc_scan = scan + 1
+        while desc_scan < instrs.length() {
+          match instrs[desc_scan] {
+            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+                arg,
+              ) => {
+              desc_inputs.push(arg)
+              desc_scan = desc_scan + 1
+            }
+            @lib.CallIndirect(type_idx, table_idx) if desc_inputs.length() > 0 &&
+              desc_scan + 1 < instrs.length() =>
+              match instrs[desc_scan + 1] {
+                @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
+                  exact &&
+                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target_with_param_count(
+                    module_ctx,
+                    ref_func,
+                    target,
+                    ref_inputs.length(),
+                  ) &&
+                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                    module_ctx,
+                    type_idx,
+                    target,
+                    desc_inputs.length() - 1,
+                  ) => {
+                  let rewritten : Array[@lib.Instruction] = []
+                  for input in ref_inputs {
+                    rewritten.push(input)
+                  }
+                  rewritten.push(@lib.Instruction::call(ref_func))
+                  for input in desc_inputs {
+                    rewritten.push(input)
+                  }
+                  rewritten.push(
+                    @lib.Instruction::call_indirect(type_idx, table_idx),
+                  )
+                  rewritten.push(@lib.Instruction::drop())
+                  return Some((rewritten, desc_scan + 2))
+                }
+                _ => return None
+              }
+            _ => return None
+          }
+        }
+        return None
+      }
+      _ => return None
+    }
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor_success_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -27386,6 +27457,20 @@ fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
+    match
+      run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_exact_success(
+        instrs, i, module_ctx,
+      ) {
+      Some((indirect_rewrite, next_i)) => {
+        for instr in indirect_rewrite {
+          rewritten.push(instr)
+        }
+        changed = true
+        i = next_i
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descriptor_success(
         instrs, i, module_ctx,
