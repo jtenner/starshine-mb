@@ -5161,6 +5161,8 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   match (left.op, right.op) {
     (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
     (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
+    (@ir.HotOp::Const, @ir.HotOp::Const) =>
+      @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
     _ => false
   }
 }
@@ -5259,8 +5261,8 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // this fact intentionally narrower than Binaryen's full effect-interference
   // helper: right-operand peeling and non-matching left `local.tee` peeling carry
   // accumulated intervening effects, including precise local-write ids for the
-  // local-get fallthrough subset. Equality remains limited to local-get equality
-  // or matching tee/get.
+  // local/global-get fallthrough subset. Equality currently covers direct
+  // local.get, direct global.get, direct constants, or matching tee/get.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,

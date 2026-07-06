@@ -32455,6 +32455,112 @@ test "optimize-instructions drops right block unrelated global.set global-addres
 }
 
 ///|
+test "optimize-instructions drops const same-address memory.copy under trap-relaxed facts" {
+  // OI-G same-input equality fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` uses `ExpressionAnalyzer::equal` after peeling
+  // fallthroughs, so identical constant address operands are equal even without
+  // local/global state facts. A dynamic size avoids the separate tiny-copy
+  // lowering and proves the trap-relaxed same-address bulk drop directly.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $size i32)
+        #|    i32.const 16
+        #|    i32.const 16
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected const same-address memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("i32.store"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.const I32(16)", "drop", "i32.const I32(16)", "drop", "local.get (Local 0)",
+    "drop",
+  ])
+}
+
+///|
+test "optimize-instructions drops right block const same-address memory.copy" {
+  // OI-G same-input constant equality plus right fallthrough facts: Binaryen
+  // v130 accepts a right block whose fallthrough constant equals the left
+  // constant when prefix effects are not ordered before the constant value.
+  // Starshine should preserve the prefix call in the dropped source operand and
+  // remove the trap-relaxed same-address bulk copy.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $side)
+        #|  (func (export "f") (param $size i32)
+        #|    i32.const 16
+        #|    (block (result i32)
+        #|      call $side
+        #|      i32.const 16)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected right block const memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.const I32(16)", "drop", "call (Func 0)", "i32.const I32(16)", "drop", "local.get (Local 0)",
+    "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps different-const memory.copy outside equality fact" {
+  // Boundary guard for the constant equality fact: different constants are not
+  // equal under Binaryen's `ExpressionAnalyzer::equal`, so a dynamic-size
+  // trap-relaxed `memory.copy` must remain a bulk copy rather than being
+  // rewritten to operand drops.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $size i32)
+        #|    i32.const 16
+        #|    i32.const 32
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected different-const memory.copy boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.const I32(16)", "i32.const I32(32)", "local.get (Local 0)", "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions keeps interfering right global.set global-address memory.copy" {
   // Boundary guard for the OI-G right-prefix global-interference fact:
   // Binaryen v130's `orderedBefore(effects(right))` rejects a right block whose
