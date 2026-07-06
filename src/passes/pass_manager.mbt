@@ -26717,6 +26717,23 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_di
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_local_tee(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Int? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1]) {
+    (@lib.I32Const(_), @lib.LocalTee(_))
+    | (@lib.I64Const(_), @lib.LocalTee(_))
+    | (@lib.F32Const(_), @lib.LocalTee(_))
+    | (@lib.F64Const(_), @lib.LocalTee(_)) => Some(start + 2)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
   module_ctx : @ir.HotModuleContext,
   instrs : Array[@lib.Instruction],
@@ -26848,6 +26865,22 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
   let mut desc_arg_count = 0
   let mut scan = start + 1
   while scan < instrs.length() {
+    match
+      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_local_tee(
+        instrs, scan,
+      ) {
+      Some(next_scan) => {
+        let mut arg_scan = scan
+        while arg_scan < next_scan {
+          desc_args.push(instrs[arg_scan])
+          arg_scan = arg_scan + 1
+        }
+        desc_arg_count = desc_arg_count + 1
+        scan = next_scan
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
         module_ctx, instrs, scan,
