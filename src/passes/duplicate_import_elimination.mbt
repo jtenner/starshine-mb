@@ -379,6 +379,8 @@ fn die_plan_remap(
                       canonical_import_func[func_idx] = prev.func_idx
                       removed_funcs[func_idx] = true
                       changed = true
+                    } else {
+                      seen.set(key, { func_idx, func_type })
                     }
                   None => seen.set(key, { func_idx, func_type })
                 }

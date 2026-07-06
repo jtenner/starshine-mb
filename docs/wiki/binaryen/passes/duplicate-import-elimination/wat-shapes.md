@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-06
 sources:
+  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
@@ -17,12 +18,12 @@ related:
 
 # `duplicate-import-elimination` WAT and module shape guide
 
-This page is the beginner-friendly shape catalog for the real Binaryen `version_129` `duplicate-import-elimination` pass.
-The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**. A 2026-05-04 current-`main` recheck in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md) found no teaching-relevant drift from the shapes below.
+This page is the beginner-friendly shape catalog for the real Binaryen `version_130` `duplicate-import-elimination` pass.
+The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**. A 2026-05-04 current-`main` recheck in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md) found no teaching-relevant drift from the shapes below. A 2026-07-06 `version_130` / `main` refresh in [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md) corrected the bucket representative rule for mixed-type runs.
 
 The main question to keep asking is:
 
-- “are these two imported **functions** really the same host function request, and if so, did Binaryen rewrite every later function-name use to the first import name?”
+- “are these two imported **functions** really the same host function request and same current-representative type, and if so, did Binaryen rewrite every later function-name use to the current representative import name?”
 
 That emphasis on **functions** is the main source-confirmed correction.
 
@@ -33,8 +34,8 @@ The real pass has three broad shape zones:
 | Zone | Typical shape | Main safety idea |
 | --- | --- | --- |
 | Duplicate detection | two imported functions with same module/base and same function type | they are alias declarations for the same imported function |
-| User retargeting | direct `call`, `ref.func`, start, export, or module-level function reference uses the later alias name | later users can point at the first canonical import instead |
-| Removal | later duplicate imported function declaration deleted | one declaration is enough once all function-name users point at it |
+| User retargeting | direct `call`, `ref.func`, start, export, or module-level function reference uses the later alias name | later users can point at the current canonical import instead |
+| Removal | later duplicate imported function declaration deleted | one declaration for that current representative type is enough once all function-name users point at it |
 
 ## Positive shapes Binaryen really rewrites
 
@@ -63,7 +64,29 @@ Why it works:
 
 - same module/base
 - same function type
-- Binaryen keeps the first imported function name `$foo`
+- Binaryen keeps the first imported function name `$foo` because this all-same-type bucket never resets the representative
+
+## 1a. Mixed signatures reset the current representative
+
+Before:
+
+```wat
+(import "mod" "foo" (func $first (param i32)))
+(import "mod" "foo" (func $second))
+(import "mod" "foo" (func $third))
+```
+
+After conceptually:
+
+```wat
+(import "mod" "foo" (func $first (param i32)))
+(import "mod" "foo" (func $second))
+```
+
+Why it works:
+
+- `$second` has the same module/base but a different type than `$first`, so Binaryen keeps `$second` and makes it the current representative
+- `$third` then has the same type as `$second`, so it is removed as a duplicate of `$second`
 
 ## 2. Duplicate imported function used by `ref.func`
 
@@ -205,7 +228,7 @@ Preserved because:
 ## 4. Imported globals, tables, memories, and tags are not current positive shapes
 
 The older dossier treated these as current merge families with caveats.
-The source-confirmed `version_129` story is simpler:
+The source-confirmed `version_130` story is simpler:
 
 - they are outside the current implemented scope of this pass.
 
@@ -231,7 +254,7 @@ So do **not** teach shapes like these as current positives:
 (import "mod" "tag" (tag $b (param i32)))
 ```
 
-Those are possible future-expansion stories, not current `version_129` `duplicate-import-elimination` behavior.
+Those are possible future-expansion stories, not current `version_130` `duplicate-import-elimination` behavior.
 
 ## Interaction shapes worth remembering
 
@@ -267,7 +290,7 @@ Beginner shorthand:
 ## 3. This is not a generic import-cleanup pass
 
 A useful anti-shape is anything that would require rewriting non-function import users.
-Current `version_129` does not do that here.
+Current `version_130` does not do that here.
 
 ## Easy mental checklist for future Starshine work
 
@@ -279,4 +302,4 @@ When deciding whether a shape should rewrite, ask:
 4. Is the use one of the real rewritten function-name surfaces?
 5. After retargeting, can the later imported function declaration be removed entirely?
 
-That checklist matches the real `version_129` source much better than “duplicate imports disappear.”
+That checklist matches the real `version_130` source much better than “duplicate imports disappear.”

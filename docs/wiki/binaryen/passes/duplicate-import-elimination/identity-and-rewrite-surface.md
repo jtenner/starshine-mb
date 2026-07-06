@@ -18,13 +18,13 @@ related:
 
 # `duplicate-import-elimination`: identity key and rewrite surface
 
-This page focuses on the two most important implementation questions for Binaryen `version_129` `duplicate-import-elimination`:
+This page focuses on the two most important implementation questions for Binaryen `version_130` `duplicate-import-elimination`:
 
 1. **when are two imports considered duplicates?**
 2. **which uses must be retargeted before the later import can be removed?**
 
 The source-confirmed answer is smaller than the earlier dossier taught.
-Current Binaryen `version_129` answers both questions only for imported **functions**.
+Current Binaryen `version_130` answers both questions only for imported **functions**.
 
 ## Identity key: what must match
 
@@ -53,8 +53,9 @@ Binaryen does not create a fresh merged import.
 
 Instead:
 
-- the first imported function seen for a `(module, base)` bucket becomes canonical,
-- each later matching imported function is retargeted to that first name,
+- the current kept function for a `(module, base)` bucket becomes canonical,
+- each later matching imported function is retargeted to that current representative name,
+- a different-type kept import resets the representative for later same-type aliases,
 - the later declaration is then removed.
 
 That means Starshine's active implementation and any future maintenance should preserve:
@@ -133,7 +134,7 @@ These do not share a bucket either.
 
 ## What the pass does not currently compare because it does not handle those kinds
 
-For Binaryen `version_129`, do **not** teach this page in terms of current merge rules for:
+For Binaryen `version_130`, do **not** teach this page in terms of current merge rules for:
 
 - imported globals,
 - imported tables,
@@ -156,7 +157,7 @@ Binaryen rewrites:
 
 - `Call.target`
 
-So if a function body calls the later duplicate import, the call target is retargeted to the first imported function name.
+So if a function body calls the later duplicate import, the call target is retargeted to the current representative imported function name.
 
 ## `ref.func`
 
@@ -184,7 +185,7 @@ Binaryen explicitly rewrites:
 
 - `module.start`
 
-So if the start function was the later duplicate import, it is retargeted to the canonical first import. After retargeting, the shared start validator still requires the canonical import's type to be empty; see [`../../../validate/start-section.md`](../../../validate/start-section.md).
+So if the start function was the later duplicate import, it is retargeted to the canonical current representative import. After retargeting, the shared start validator still requires the canonical import's type to be empty; see [`../../../validate/start-section.md`](../../../validate/start-section.md).
 
 ## Function exports
 
@@ -206,7 +207,7 @@ Because the pass uses only `replaceFunctions(...)`, it does **not** currently re
 - memory exports
 - segment target-name fields as non-function declarations
 
-Those broader surfaces belonged to the earlier overgeneralized dossier, not to the real `version_129` pass.
+Those broader surfaces belonged to the earlier overgeneralized dossier, not to the real `version_130` pass.
 
 ## Imported tags are not a caveat here; they are outside the implemented scope
 
@@ -219,7 +220,7 @@ The same is true for imported globals, tables, and memories.
 
 ## Practical porting checklist
 
-When maintaining Binaryen `version_129` parity for this pass in Starshine, verify all of these are true:
+When maintaining Binaryen `version_130` parity for this pass in Starshine, verify all of these are true:
 
 1. Only imported functions are considered.
 2. Duplicate buckets are keyed by `(module, base)`.
@@ -234,4 +235,4 @@ When maintaining Binaryen `version_129` parity for this pass in Starshine, verif
 6. Duplicate imported functions are actually removed after retargeting.
 7. Globals/tables/memories/tags are left untouched unless a future deliberate divergence is documented.
 
-That checklist is the shortest faithful implementation summary of the real `version_129` pass.
+That checklist is the shortest faithful implementation summary of the real `version_130` pass.

@@ -131,7 +131,7 @@ test "duplicate-import-elimination preserves non-function and different-signatur
 }
 
 ///|
-test "duplicate-import-elimination compares later aliases only against the first import in a bucket" {
+test "duplicate-import-elimination resets the bucket representative after a type mismatch" {
   let source =
     #|(module
     #|  (type $i (func (param i32)))
@@ -143,5 +143,5 @@ test "duplicate-import-elimination compares later aliases only against the first
     #|,
   let optimized = try! die_test_run(source)
 
-  @debug.assert_eq(die_test_imported_func_count(optimized), 3)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
 }

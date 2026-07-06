@@ -7573,6 +7573,66 @@ test "gen_valid segment payload cap bounds generated data payloads" {
 }
 
 ///|
+fn gen_valid_test_die_duplicate_func_import_count(mod_ : Module) -> Int {
+  let expected_module = Name::from_string("env")
+  let expected_base = Name::from_string("die.dup")
+  match mod_.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut count = 0
+      for import_ in imports {
+        let Import(module_name, base_name, extern_type) = import_
+        if module_name == expected_module && base_name == expected_base {
+          match extern_type {
+            FuncExternType(_) => count += 1
+            _ => ()
+          }
+        }
+      }
+      count
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_test_die_duplicate_nonfunc_import_count(mod_ : Module) -> Int {
+  let expected_module = Name::from_string("env")
+  let expected_base = Name::from_string("die.global")
+  match mod_.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut count = 0
+      for import_ in imports {
+        let Import(module_name, base_name, extern_type) = import_
+        if module_name == expected_module && base_name == expected_base {
+          match extern_type {
+            GlobalExternType(_) => count += 1
+            _ => ()
+          }
+        }
+      }
+      count
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_test_has_start(mod_ : Module) -> Bool {
+  match mod_.start_sec {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_elem_sec(mod_ : Module) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => elems.length() > 0
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_total_func_count(mod_ : Module) -> Int {
   let import_funcs = match mod_.import_sec {
     Some(ImportSec(imports)) => {
@@ -13847,6 +13907,108 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
   )
   assert_false(config.features.allow_imports)
   assert_false(config.features.allow_mems)
+}
+
+///|
+test "duplicate-import-elimination gen-valid profiles resolve and emit pass opportunities" {
+  @debug.assert_eq(
+    gen_valid_profile_name(DuplicateImportEliminationFunctionsProfile),
+    "duplicate-import-elimination-functions",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DuplicateImportEliminationNonfunctionProfile),
+    "duplicate-import-elimination-nonfunction",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DuplicateImportEliminationAllProfile),
+    "duplicate-import-elimination",
+  )
+  assert_true(
+    gen_valid_profile_names().contains("duplicate-import-elimination"),
+  )
+  match gen_valid_profile_by_name("die") {
+    Ok(profile) =>
+      @debug.assert_eq(profile, DuplicateImportEliminationAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("duplicate-import-elimination-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, DuplicateImportEliminationAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            DuplicateImportEliminationFunctionsProfile,
+            3,
+          ),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            DuplicateImportEliminationNonfunctionProfile,
+            1,
+          ),
+        ),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+
+  let func_config = GenValidConfig::for_profile(
+    DuplicateImportEliminationFunctionsProfile,
+  )
+  @debug.assert_eq(
+    gen_valid_config_label(func_config),
+    "duplicate-import-elimination-functions",
+  )
+  let generated = match
+    gen_valid_module_result_from_seed(0x5eedUL, func_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(generated.facts.has_imports)
+  assert_true(generated.facts.has_elems)
+  assert_true(generated.facts.has_start)
+  assert_true(
+    gen_valid_test_has_func_export(generated.wasm_module, "die.export"),
+  )
+  assert_true(gen_valid_test_has_start(generated.wasm_module))
+  assert_true(gen_valid_test_has_elem_sec(generated.wasm_module))
+  @debug.assert_eq(
+    gen_valid_test_die_duplicate_func_import_count(generated.wasm_module),
+    3,
+  )
+
+  let nonfunc_config = GenValidConfig::for_profile(
+    DuplicateImportEliminationNonfunctionProfile,
+  )
+  let nonfunc_generated = match
+    gen_valid_module_result_from_seed(0x5eedUL, nonfunc_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(nonfunc_generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(
+    gen_valid_test_die_duplicate_nonfunc_import_count(
+      nonfunc_generated.wasm_module,
+    ),
+    2,
+  )
+  @debug.assert_eq(
+    gen_valid_test_die_duplicate_func_import_count(
+      nonfunc_generated.wasm_module,
+    ),
+    0,
+  )
 }
 
 ///|

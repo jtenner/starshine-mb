@@ -2203,6 +2203,43 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
 }
 
 ///|
+test "gen-valid batch manifest labels duplicate-import-elimination profile leaves" {
+  let args = EmitGenValidBatchArgs::new(
+    8,
+    0x5eedUL,
+    "tmp/gen-valid",
+    profile="duplicate-import-elimination",
+    max_attempts=8,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(selection.selected, 8)
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(
+    manifest.contains(
+      "\"selected_profile\":\"duplicate-import-elimination-functions\"",
+    ),
+  )
+  assert_true(
+    manifest.contains(
+      "\"selected_profile\":\"duplicate-import-elimination-nonfunction\"",
+    ),
+  )
+  assert_true(
+    manifest.contains(
+      "\"profile_case_label\":\"duplicate-import-elimination:functions\"",
+    ),
+  )
+  assert_true(
+    manifest.contains(
+      "\"profile_case_label\":\"duplicate-import-elimination:nonfunction-negative\"",
+    ),
+  )
+}
+
+///|
 test "gen-valid batch treats table-size transform without table as skipped candidate" {
   let args = EmitGenValidBatchArgs::new(
     1,

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-06
 sources:
+  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
   - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
@@ -26,12 +28,12 @@ related:
 
 # Starshine Strategy For `duplicate-import-elimination`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md) and [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md).
+Use this page together with the current `version_130` / `main` refresh in [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md) and the older raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md) and [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas future maintenance or late-preset work must hook into.
 
 ## The honest current status
 
-As of 2026-05-06, `duplicate-import-elimination` is implemented in Starshine as a small active module pass with the source-confirmed Binaryen `version_129` function-import-only contract and refreshed direct parity evidence.
+As of 2026-07-06, `duplicate-import-elimination` is implemented and signed off in Starshine as a small active module pass with the source-confirmed Binaryen `version_130` function-import-only contract and a refreshed type-mismatch representative fix. The required direct-pass matrix is complete: regular GenValid 100,000, explicit wasm-smith 10,000, dedicated `duplicate-import-elimination` GenValid profile 10,000, and `random-all-profiles` 10,000. The initial direct pass-local timing fixtures meet the user-requested 1x Binaryen target, so `[O4Z-AUDIT-DIE]` is closed for direct `--pass duplicate-import-elimination` behavior parity.
 
 The current local strategy is no longer boundary-only tracking. The pass now:
 
@@ -48,7 +50,7 @@ The fastest read-along path through the current Starshine status is:
 
 - implementation owner
   - [`src/passes/duplicate_import_elimination.mbt#L340-L410`](../../../../../src/passes/duplicate_import_elimination.mbt#L340-L410)
-    - plans imported-function duplicate buckets, first-import-wins canonicalization, and defined-function index shifts
+    - plans imported-function duplicate buckets, current-representative canonicalization, and defined-function index shifts
   - [`src/passes/duplicate_import_elimination.mbt#L414-L584`](../../../../../src/passes/duplicate_import_elimination.mbt#L414-L584)
     - rewrites function-name users, metadata, module-code expressions, and removes duplicate imported-function declarations
   - [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md)
@@ -61,7 +63,7 @@ The fastest read-along path through the current Starshine status is:
     - `run_hot_pipeline_apply_module_pass(...)` calls `die_run_module_pass(...)`
 - focused local proof surface
   - [`src/passes/duplicate_import_elimination_test.mbt#L60-L163`](../../../../../src/passes/duplicate_import_elimination_test.mbt#L60-L163)
-    - duplicate collapse, non-function/different-signature preservation, and first-import bucket rule regressions
+    - duplicate collapse, non-function/different-signature preservation, and current-representative bucket rule regressions
   - [`src/passes/registry_test.mbt#L58-L62`](../../../../../src/passes/registry_test.mbt#L58-L62)
     - registry category coverage
   - [`src/cmd/cmd_wbtest.mbt#L4084-L4125`](../../../../../src/cmd/cmd_wbtest.mbt#L4084-L4125)
@@ -94,24 +96,36 @@ That means:
 
 ### 2. The current transform is intentionally function-import-only
 
-The implementation follows the corrected Binaryen `version_129` contract:
+The implementation follows the corrected Binaryen `version_130` contract:
 
 - scan imported functions only
 - bucket by `(module, base)`
-- compare later aliases only against the first import in that bucket
+- compare later aliases against the current kept representative in that bucket; a type mismatch keeps the new import and resets the representative
 - require exact resolved function-type equality
 - rewrite direct `call`, `return_call`, `ref.func`, start, function exports, element contents, and module-code expressions that can carry function references
 - preserve non-function imports and mismatched signatures
 
 ### 3. Remaining follow-up is late-tail and future-drift work
 
-`agent-todo.md` now gives the pass a real `DIE` follow-up slice that matches the reviewed Binaryen `version_129` contract:
+`[O4Z-AUDIT-DIE]` is closed for the direct pass, but two non-direct concerns remain outside that audit:
 
-- the direct module pass is active
-- full late-tail preset replay is still future work
+- full late-tail preset/neighborhood replay remains future preset work rather than a direct `--pass duplicate-import-elimination` blocker
 - non-function import deduplication is explicitly gated on future Binaryen evidence or deliberate Starshine divergence
 
+The direct-pass signoff evidence is recorded in [`./fuzzing.md`](./fuzzing.md) and [`../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md`](../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md).
+
 That matters because older local planning text used to be broader than upstream and described table/global/memory import-user patching as if it belonged to the reviewed contract. The 2026-05-04 current-main recheck keeps that older broad interpretation stale: the upstream pass is still function-import-only, keyed by `(module, base)`, gated by exact function-type equality, and limited to the function-name rewrite surface described in [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md).
+
+## Current direct pass-local timing evidence
+
+The 2026-07-06 timing probe in [`../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md`](../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md) created two `.tmp/die-timing/` synthetic fixtures with duplicate function imports and user rewrites, then compared Starshine pass tracing against `BINARYEN_PASS_DEBUG=1 wasm-opt --all-features --duplicate-import-elimination`. Each fixture used `35` repeats with `5` warmups discarded:
+
+| Fixture | Starshine median | Binaryen median | Ratio |
+| --- | ---: | ---: | ---: |
+| `.tmp/die-timing/die-import-heavy-2000i-128u.wasm` | `0.447 ms` | `2.00646 ms` | `0.223x` |
+| `.tmp/die-timing/die-user-heavy-800i-4000u.wasm` | `0.2835 ms` | `0.946297 ms` | `0.300x` |
+
+This satisfies the stricter user-requested 1x direct pass-local target on the established DIE timing fixtures. Reopen performance if either fixture regresses above Binaryen under the same method, if a representative direct DIE workload exposes a slower pass-local owner, or if upstream Binaryen widens the pass contract beyond function imports.
 
 ## The right Starshine implementation shape
 
@@ -129,7 +143,7 @@ So the local strategy is:
 1. scan imported functions only
 2. bucket candidates by `(module, base)`
 3. require exact function-type equality before merging
-4. preserve first-import-wins canonicalization
+4. preserve current-representative canonicalization: all-same-type buckets remain first-import-wins, while type mismatches reset the representative for later aliases
 5. rewrite only the actual Binaryen function-name surfaces
 6. remove duplicate imported functions immediately
 7. leave broader all-import deduplication as future divergence work unless upstream itself widens the contract
@@ -191,7 +205,7 @@ A future contributor should be careful not to overread the current local surface
 Starshine now has:
 
 - `src/passes/duplicate_import_elimination.mbt`
-- imported-function bucketing and first-import canonicalization logic
+- imported-function bucketing and current-representative canonicalization logic
 - a local function-reference rewrite surface for direct calls, return calls, refs, start, exports, element payloads, global/table/data offset expressions, names, and function annotations
 - focused pass regressions in `src/passes/duplicate_import_elimination_test.mbt`
 - CLI dispatch coverage in `src/cmd/cmd_wbtest.mbt`
@@ -216,7 +230,7 @@ The landed implementation should continue to validate in this order:
    - `ref.func` and element-payload rewrites
    - `start` and export retargeting
 2. scope-boundary negatives
-   - imported globals, tables, memories, and tags remain untouched for strict `version_129` parity
+   - imported globals, tables, memories, and tags remain untouched for strict `version_130` parity
 3. scheduler-neighborhood interaction tests
    - the late boundary segment around `duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`
 4. artifact and oracle comparison
@@ -231,13 +245,14 @@ Current Starshine `duplicate-import-elimination` strategy is an active module-pa
 
 - the pass owner is [`src/passes/duplicate_import_elimination.mbt`](../../../../../src/passes/duplicate_import_elimination.mbt)
 - the registry and dispatcher surfaces are [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-- [`agent-todo.md`](../../../../../agent-todo.md) now keeps only late-tail / future-drift follow-up under `DIE`
+- `[O4Z-AUDIT-DIE]` no longer remains in `agent-todo.md`; direct DIE audit evidence lives in this folder and the raw research note
 - the canonical slot is still documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
-- the surrounding [`duplicate-function-elimination`](../duplicate-function-elimination/index.md), [`simplify-globals-optimizing`](../simplify-globals-optimizing/index.md), and [`remove-unused-module-elements`](../remove-unused-module-elements/index.md) dossiers define the remaining late-tail landing zone
+- the surrounding [`duplicate-function-elimination`](../duplicate-function-elimination/index.md), [`simplify-globals-optimizing`](../simplify-globals-optimizing/index.md), and [`remove-unused-module-elements`](../remove-unused-module-elements/index.md) dossiers define the separate late-tail landing zone
 
 The right mental model today is:
 
 - **direct transform landed**
 - **function-import-only parity scope**
-- **green direct fuzz / artifact evidence**
-- **late preset replay still future work**
+- **green direct four-lane fuzz matrix plus classified wasm-smith unreachable-control-debris drift**
+- **1x direct pass-local timing evidence on the established fixtures**
+- **late preset replay still future work outside the direct DIE audit**

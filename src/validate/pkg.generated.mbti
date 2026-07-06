@@ -1238,6 +1238,9 @@ pub enum GenValidProfile {
   RemoveUnusedBrsGcProfile
   RemoveUnusedBrsCleanupProfile
   RemoveUnusedBrsAllProfile
+  DuplicateImportEliminationFunctionsProfile
+  DuplicateImportEliminationNonfunctionProfile
+  DuplicateImportEliminationAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile

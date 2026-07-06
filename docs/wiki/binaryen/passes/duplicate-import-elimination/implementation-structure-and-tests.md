@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-06
 sources:
+  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
@@ -18,7 +20,7 @@ related:
 
 # `duplicate-import-elimination`: implementation structure and tests
 
-This page is the compact source-confirmed map for how Binaryen `version_129` actually implements `duplicate-import-elimination` and where the shipped tests pin that behavior down.
+This page is the compact source-confirmed map for how Binaryen `version_130` actually implements `duplicate-import-elimination` and where the shipped tests pin that behavior down.
 The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
 
 ## Why this page exists
@@ -31,7 +33,7 @@ The folder already had a useful dossier, but it still missed one compact page an
 - and which shipped tests prove the contract.
 
 That gap mattered because the earlier folder also overgeneralized the pass into a broad all-import deduplicator.
-The real `version_129` implementation is much smaller.
+The real `version_130` implementation is much smaller.
 
 ## Official owner files
 
@@ -43,7 +45,7 @@ It contains essentially the whole pass contract:
 - imported-function scan,
 - `(module, base)` bucket detection,
 - exact function-type equality check,
-- first-import-wins replacement planning,
+- current-representative replacement planning,
 - function-user rewrites through `OptUtils::replaceFunctions(...)`,
 - duplicate imported-function removal.
 
@@ -51,7 +53,7 @@ The file's own top comment includes the most important scope correction:
 
 - `TODO: non-function imports too`
 
-That is the clearest source-backed proof that current `version_129` is function-import-only here.
+That is the clearest source-backed proof that current `version_130` is function-import-only here.
 
 ## `src/passes/opt-utils.h`
 
@@ -134,7 +136,7 @@ Only then does it treat the later import as a duplicate alias.
 So the real duplicate rule is:
 
 - same module/base pair,
-- same function type as the first-seen import in that pair bucket.
+- same function type as the current kept representative in that pair bucket.
 
 ## Phase 3: build the replacement and removal sets
 
@@ -147,7 +149,7 @@ The canonical representative is therefore:
 
 - not a synthetic import,
 - not a lexicographically chosen one,
-- simply the first imported function seen for the bucket.
+- the current kept import for the bucket: all-same-type buckets are first-import-wins, while type mismatches reset the representative.
 
 ## Phase 4: update maps and rewrite users
 
@@ -241,16 +243,18 @@ It is another reason the earlier broad dossier needed correction.
 
 | File | What it proves |
 | --- | --- |
-| `src/passes/DuplicateImportElimination.cpp` | The whole real algorithm: imported-function-only scan, `(module, base)` buckets, exact function-type check, first-import-wins replacement map, and duplicate imported-function removal |
+| `src/passes/DuplicateImportElimination.cpp` | The whole real algorithm: imported-function-only scan, `(module, base)` buckets, exact function-type check, current-representative replacement map, and duplicate imported-function removal |
 | `src/passes/opt-utils.h` | The exact function-only rewrite surface: `call`, `ref.func`, module-code `call/ref.func`, start, and function exports |
 | `src/ir/import-utils.h` | Only the imported-function collection surface actually used here |
 | `src/passes/pass.cpp` | Public pass registration and late post-pass scheduler placement |
 | `test/passes/duplicate-import-elimination.wast` | Function-only positive and negative input shapes |
 | `test/passes/duplicate-import-elimination.txt` | The expected canonicalized output for those shapes |
+| `src/validate/gen_valid.mbt` / `src/validate/gen_valid_tests.mbt` | Starshine's dedicated `duplicate-import-elimination` GenValid profile, including mixed-signature representative-reset duplicates, function-user rewrites, and nonfunction negative imports |
+| `src/fuzz/main.mbt` | Manifest `profile_case_label` metadata for the dedicated DIE profile |
 
 ## Current-main drift check
 
-A spot check against current Binaryen `main` re-confirmed on **2026-05-04** found no teaching-relevant drift in the reviewed implementation, helper, registration, or dedicated-test surfaces relative to the `version_129` contract. The recheck is captured in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md).
+A spot check against current Binaryen `main` re-confirmed on **2026-05-04** found no teaching-relevant drift in the reviewed implementation, helper, registration, or dedicated-test surfaces relative to the `version_129` contract. A 2026-07-06 refresh found `version_130` and current `main` byte-identical for `DuplicateImportElimination.cpp` and corrected the mixed-type bucket representative rule; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
 
 So the corrected story on this page is not just tag-specific historical trivia.
 It still describes the current upstream implementation on the reviewed surface.

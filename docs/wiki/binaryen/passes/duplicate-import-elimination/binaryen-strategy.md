@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-06
 sources:
+  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
@@ -21,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Use Binaryen `version_130` plus the current `main` refresh as the current source oracle for this pass; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
 - The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
@@ -31,7 +32,14 @@ related:
   - `test/passes/duplicate-import-elimination.wast`
   - `test/passes/duplicate-import-elimination.txt`
 
-Primary source URLs captured on 2026-04-23 and rechecked against current `main` on 2026-05-04:
+Current primary source URLs refreshed on 2026-07-06:
+
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/duplicate-import-elimination.wast>
+
+Historical primary source URLs captured on 2026-04-23 and rechecked against current `main` on 2026-05-04:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateImportElimination.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
@@ -40,13 +48,13 @@ Primary source URLs captured on 2026-04-23 and rechecked against current `main` 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
 
-A narrow 2026-05-04 spot check of current Binaryen `main`, captured in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md), did not surface teaching-relevant drift on the reviewed implementation, helper, registration, or dedicated-test surfaces.
+A narrow 2026-05-04 spot check of current Binaryen `main`, captured in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md), did not surface teaching-relevant drift on the reviewed implementation, helper, registration, or dedicated-test surfaces. The 2026-07-06 refresh found `version_130` and current `main` byte-identical for the pass source, but corrected this dossier's representative wording for mixed-type buckets.
 
 ## Main correction
 
 The most important source-confirmed fact is simple:
 
-- Binaryen `version_129` `duplicate-import-elimination` is a **function-import-only** pass.
+- Binaryen `version_130` / current `main` `duplicate-import-elimination` is a **function-import-only** pass.
 
 The implementation file says:
 
@@ -67,7 +75,7 @@ The actual implementation is a very small late module planner with three stages:
 | Stage | What Binaryen does | Why it exists |
 | --- | --- | --- |
 | Scan imported functions | Group imported functions by `(module, base)` and compare their function types | Detect which later imported functions are really duplicate aliases |
-| Retarget users | Rewrite later direct function-name users to the first canonical import | Preserve behavior while collapsing aliases |
+| Retarget users | Rewrite later direct function-name users to the current canonical representative import | Preserve behavior while collapsing aliases |
 | Remove duplicates | Delete the redundant imported function declarations | Leave the late pipeline with one canonical imported function per matching alias class |
 
 That means the pass is not:
@@ -139,7 +147,7 @@ So the first step of duplicate detection is not a rich cross-kind type object. I
 
 ## 3. Check exact function-type equality
 
-When a later imported function hits an existing `(module, base)` bucket, the pass fetches the first-seen function for that bucket and checks:
+When a later imported function hits an existing `(module, base)` bucket, the pass fetches the current kept representative for that bucket and checks:
 
 - `previousFunc->type == func->type`
 
@@ -147,19 +155,17 @@ That is the merge gate.
 
 Beginner translation:
 
-- same host module + same host field + same function type => merge
-- same host module + same host field + different function type => keep both
+- same host module + same host field + same current-representative function type => merge
+- same host module + same host field + different current-representative function type => keep the new import and make it the current representative for later aliases
 
-## 4. Keep the first import seen
+## 4. Keep the current representative
 
 If the function matches, Binaryen records:
 
-- replacement from later function name to first function name
+- replacement from later function name to current representative function name
 - later function name in `toRemove`
 
-So the canonical representative is just the first imported function seen for the bucket.
-
-This is deterministic and worth preserving in Starshine's active implementation.
+So all-same-type buckets behave as first-import-wins, but a different-type kept import resets the bucket representative. This deterministic current-representative behavior is worth preserving in Starshine's active implementation.
 
 ## 5. Rewrite function-name users via `replaceFunctions(...)`
 
@@ -248,17 +254,17 @@ Because the pass uses only `replaceFunctions(...)`, the real rewrite surface is 
 ## 4. The public name is broader than the current implementation
 
 `duplicate-import-elimination` sounds like it handles every import kind.
-The source-confirmed reality in `version_129` is smaller.
+The source-confirmed reality in `version_130` / current `main` is smaller.
 
 ## Starshine parity checklist
 
 Starshine now has an active module-pass implementation, so read this as the ongoing parity/maintenance checklist rather than future-port scaffolding.
 
 - Keep this a late module pass.
-- Keep duplicate imported-function elimination as the Binaryen `version_129` parity scope.
+- Keep duplicate imported-function elimination as the Binaryen `version_130` parity scope.
 - Bucket candidates by `(module, base)`.
 - Require exact function-type equality before merging.
-- Preserve first-import-wins canonicalization.
+- Preserve current-representative canonicalization; all-same-type buckets are first-import-wins, while type mismatches reset the representative.
 - Rewrite only the function-name surface Binaryen actually rewrites:
   - `call`
   - `ref.func`
@@ -266,4 +272,4 @@ Starshine now has an active module-pass implementation, so read this as the ongo
   - start
   - function exports
 - Remove duplicate imported functions immediately.
-- If Starshine later widens the pass to globals/tables/memories, document that as a deliberate divergence or future-upstream drift, not as current `version_129` behavior.
+- If Starshine later widens the pass to globals/tables/memories, document that as a deliberate divergence or future-upstream drift, not as current `version_130` behavior.

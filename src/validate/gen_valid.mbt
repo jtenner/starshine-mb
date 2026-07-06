@@ -764,6 +764,9 @@ pub enum GenValidProfile {
   RemoveUnusedBrsGcProfile
   RemoveUnusedBrsCleanupProfile
   RemoveUnusedBrsAllProfile
+  DuplicateImportEliminationFunctionsProfile
+  DuplicateImportEliminationNonfunctionProfile
+  DuplicateImportEliminationAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -960,6 +963,11 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
     RemoveUnusedBrsCleanupProfile => "remove-unused-brs-cleanup"
     RemoveUnusedBrsAllProfile => "remove-unused-brs-all"
+    DuplicateImportEliminationFunctionsProfile =>
+      "duplicate-import-elimination-functions"
+    DuplicateImportEliminationNonfunctionProfile =>
+      "duplicate-import-elimination-nonfunction"
+    DuplicateImportEliminationAllProfile => "duplicate-import-elimination"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -1012,6 +1020,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | LocalSubtypingAllProfile
     | CoalesceLocalsAllProfile
     | RemoveUnusedBrsAllProfile
+    | DuplicateImportEliminationAllProfile
     | SsaNomergeAllProfile
     | SimplifyLocalsNostructureAllProfile
     | ReorderLocalsAllProfile
@@ -1166,6 +1175,17 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 2),
         GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
       ]
+    DuplicateImportEliminationAllProfile =>
+      [
+        GenValidProfileMember::new(
+          DuplicateImportEliminationFunctionsProfile,
+          3,
+        ),
+        GenValidProfileMember::new(
+          DuplicateImportEliminationNonfunctionProfile,
+          1,
+        ),
+      ]
     SsaNomergeAllProfile =>
       [
         GenValidProfileMember::new(SsaNomergeParityProfile, 3),
@@ -1219,6 +1239,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
         GenValidProfileMember::new(CoalesceLocalsAllProfile, 1),
+        GenValidProfileMember::new(DuplicateImportEliminationAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
       ]
@@ -1399,6 +1420,9 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RemoveUnusedBrsGcProfile,
     RemoveUnusedBrsCleanupProfile,
     RemoveUnusedBrsAllProfile,
+    DuplicateImportEliminationFunctionsProfile,
+    DuplicateImportEliminationNonfunctionProfile,
+    DuplicateImportEliminationAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -1526,6 +1550,14 @@ pub fn gen_valid_profile_by_name(
     "remove-unused-brs-all-profiles" => Ok(RemoveUnusedBrsAllProfile)
     "rub" => Ok(RemoveUnusedBrsAllProfile)
     "rub-closeout" => Ok(RemoveUnusedBrsAllProfile)
+    "duplicate-import-elimination-closeout" =>
+      Ok(DuplicateImportEliminationAllProfile)
+    "duplicate-import-elimination-all" =>
+      Ok(DuplicateImportEliminationAllProfile)
+    "duplicate-import-elimination-all-profiles" =>
+      Ok(DuplicateImportEliminationAllProfile)
+    "die" => Ok(DuplicateImportEliminationAllProfile)
+    "die-closeout" => Ok(DuplicateImportEliminationAllProfile)
     "all-profiles" => Ok(RandomAllProfilesProfile)
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
@@ -2022,6 +2054,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_remove_unused_brs_profile_config(profile)
     RemoveUnusedBrsAllProfile =>
       gen_valid_remove_unused_brs_profile_config(RemoveUnusedBrsControlProfile)
+    DuplicateImportEliminationFunctionsProfile
+    | DuplicateImportEliminationNonfunctionProfile =>
+      gen_valid_duplicate_import_elimination_profile_config(profile)
+    DuplicateImportEliminationAllProfile =>
+      gen_valid_duplicate_import_elimination_profile_config(
+        DuplicateImportEliminationFunctionsProfile,
+      )
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -3328,6 +3367,79 @@ fn gen_valid_remove_unused_brs_profile_config(
     _ => ()
   }
   config
+}
+
+///|
+fn gen_valid_duplicate_import_elimination_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let max_imports = match profile {
+    DuplicateImportEliminationNonfunctionProfile => 3
+    _ => 4
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 3,
+    max_imports,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: if profile == DuplicateImportEliminationNonfunctionProfile {
+      2
+    } else {
+      0
+    },
+    max_tags: 0,
+    max_elems: if profile == DuplicateImportEliminationNonfunctionProfile {
+      0
+    } else {
+      1
+    },
+    max_datas: 0,
+    max_params: 1,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: 8,
+    max_body_depth: 1,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: true,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: profile == DuplicateImportEliminationNonfunctionProfile,
+      allow_tags: false,
+      allow_start: profile != DuplicateImportEliminationNonfunctionProfile,
+      allow_elems: profile != DuplicateImportEliminationNonfunctionProfile,
+      allow_datas: false,
+      allow_ref_types: profile != DuplicateImportEliminationNonfunctionProfile,
+      allow_calls: true,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_duplicate_import_elimination_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config ==
+  GenValidConfig::for_profile(DuplicateImportEliminationFunctionsProfile) ||
+  config ==
+  GenValidConfig::for_profile(DuplicateImportEliminationNonfunctionProfile)
 }
 
 ///|
@@ -23234,8 +23346,131 @@ fn gen_valid_reorder_locals_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_duplicate_import_elimination_functions_module() -> Module {
+  let i32_consumer = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let void_func = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_consumer, void_func]))
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.dup"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.dup"),
+        ExternType::func(TypeIdx::new(1U)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.dup"),
+        ExternType::func(TypeIdx::new(1U)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.unique"),
+        ExternType::func(TypeIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_start_sec(StartSec::new(FuncIdx::new(2U)))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(
+        Name::from_string("die.export"),
+        ExternIdx::func(FuncIdx::new(2U)),
+      ),
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(4U))),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(2U)])),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::call(FuncIdx::new(2U)),
+          Instruction::ref_func(FuncIdx::new(2U)),
+          Instruction::drop(),
+          Instruction::call(FuncIdx::new(3U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_duplicate_import_elimination_nonfunction_module() -> Module {
+  let void_func = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([void_func]))
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.global"),
+        ExternType::global(GlobalType::new(ValType::i32(), false)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.global"),
+        ExternType::global(GlobalType::new(ValType::i32(), false)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.memory"),
+        ExternType::mem(MemType::new(Limits::i32(1U, None))),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::global_get(GlobalIdx::new(0U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_duplicate_import_elimination_profile_module(
+  config : GenValidConfig,
+) -> Module {
+  if config ==
+    GenValidConfig::for_profile(DuplicateImportEliminationNonfunctionProfile) {
+    gen_valid_duplicate_import_elimination_nonfunction_module()
+  } else {
+    gen_valid_duplicate_import_elimination_functions_module()
+  }
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_duplicate_import_elimination_profile_config(config) {
+    return gen_valid_duplicate_import_elimination_profile_module(config)
+  }
   if gen_valid_is_reorder_locals_profile_config(config) {
     return gen_valid_reorder_locals_profile_module(config)
   }
