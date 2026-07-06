@@ -5768,33 +5768,76 @@ fn optimize_instructions_forward_selected_operand_append_discard(
 }
 
 ///|
+priv struct OiOrderedOperandFact {
+  node_id : Int
+  results : Array[@lib.ValType]
+  has_control_shape : Bool
+  is_trivially_pure : Bool
+  is_effect_pure : Bool
+}
+
+///|
+fn OiOrderedOperandFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiOrderedOperandFact {
+  let effects = pass_require_effects(ctx, func)
+  {
+    node_id,
+    results: @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)),
+    has_control_shape: optimize_instructions_forward_selected_operand_has_control_shape(
+      func, node_id,
+    ),
+    is_trivially_pure: optimize_instructions_is_trivially_pure_operand(
+      func, node_id,
+    ),
+    is_effect_pure: @ir.effects_is_pure(effects.node_masks[node_id]),
+  }
+}
+
+///|
+fn OiOrderedOperandFact::is_pure(self : OiOrderedOperandFact) -> Bool {
+  self.is_trivially_pure || self.is_effect_pure
+}
+
+///|
+fn OiOrderedOperandFact::can_preserve_order(
+  self : OiOrderedOperandFact,
+) -> Bool {
+  !self.has_control_shape && self.results.length() <= 1
+}
+
+///|
+fn OiOrderedOperandFact::append_discard(
+  self : OiOrderedOperandFact,
+  func : @ir.HotFunc,
+  body : Array[Int],
+) -> Bool {
+  optimize_instructions_forward_selected_operand_append_discard(
+    func,
+    self.node_id,
+    self.results,
+    body,
+  )
+}
+
+///|
 fn optimize_instructions_append_ordered_effects(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   operand_ids : Array[Int],
   body : Array[Int],
 ) -> Bool {
-  let effects = pass_require_effects(ctx, func)
   for operand_id in operand_ids {
-    if optimize_instructions_forward_selected_operand_has_control_shape(
-        func, operand_id,
-      ) {
+    let operand_fact = OiOrderedOperandFact::from_node(ctx, func, operand_id)
+    if !operand_fact.can_preserve_order() {
       return false
     }
-    let operand_results = @ir.hot_type_results(
-      func,
-      @ir.hot_node_type(func, operand_id),
-    )
-    if operand_results.length() > 1 {
-      return false
-    }
-    if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-      @ir.effects_is_pure(effects.node_masks[operand_id]) {
+    if operand_fact.is_pure() {
       continue
     }
-    if !optimize_instructions_forward_selected_operand_append_discard(
-        func, operand_id, operand_results, body,
-      ) {
+    if !operand_fact.append_discard(func, body) {
       return false
     }
   }
@@ -5921,39 +5964,23 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
     [val_type] => val_type
     _ => return false
   }
-  let selected_id = operand_ids[selected_index]
-  let selected_value_type = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, selected_id)) {
+  let operand_facts : Array[OiOrderedOperandFact] = []
+  for operand_id in operand_ids {
+    let operand_fact = OiOrderedOperandFact::from_node(ctx, func, operand_id)
+    if !operand_fact.can_preserve_order() {
+      return false
+    }
+    operand_facts.push(operand_fact)
+  }
+  let selected_fact = operand_facts[selected_index]
+  let selected_value_type = match selected_fact.results {
     [val_type] => val_type
     _ => return false
   }
-  let effects = pass_require_effects(ctx, func)
-  if optimize_instructions_forward_selected_operand_has_control_shape(
-      func, selected_id,
-    ) {
-    return false
-  }
   let mut has_effectful_non_selected = false
   let mut has_later_effectful_non_selected = false
-  for i = 0; i < operand_ids.length(); i = i + 1 {
-    if i == selected_index {
-      continue
-    }
-    let operand_id = operand_ids[i]
-    if optimize_instructions_forward_selected_operand_has_control_shape(
-        func, operand_id,
-      ) {
-      return false
-    }
-    let operand_results = @ir.hot_type_results(
-      func,
-      @ir.hot_node_type(func, operand_id),
-    )
-    if operand_results.length() > 1 {
-      return false
-    }
-    if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-      @ir.effects_is_pure(effects.node_masks[operand_id]) {
+  for i = 0; i < operand_facts.length(); i = i + 1 {
+    if i == selected_index || operand_facts[i].is_pure() {
       continue
     }
     has_effectful_non_selected = true
@@ -5962,12 +5989,17 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
     }
   }
   if !has_effectful_non_selected {
-    optimize_instructions_replace_with_node_id(ctx, func, node_id, selected_id)
+    optimize_instructions_replace_with_node_id(
+      ctx,
+      func,
+      node_id,
+      selected_fact.node_id,
+    )
     return true
   }
   let body : Array[Int] = []
   let mut selected_local = -1
-  let mut selected_result_id = selected_id
+  let mut selected_result_id = selected_fact.node_id
   if has_later_effectful_non_selected {
     let local_type = match
       optimize_instructions_defaultable_scratch_type(selected_value_type) {
@@ -5986,27 +6018,22 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
   } else if selected_value_type != result_type {
     return false
   }
-  for i = 0; i < operand_ids.length(); i = i + 1 {
-    let operand_id = operand_ids[i]
+  for i = 0; i < operand_facts.length(); i = i + 1 {
+    let operand_fact = operand_facts[i]
     if i == selected_index {
       if has_later_effectful_non_selected {
-        body.push(@ir.hot_build_local_set(func, selected_local, selected_id))
+        body.push(
+          @ir.hot_build_local_set(func, selected_local, selected_fact.node_id),
+        )
       } else {
-        body.push(selected_id)
+        body.push(selected_fact.node_id)
       }
       continue
     }
-    if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-      @ir.effects_is_pure(effects.node_masks[operand_id]) {
+    if operand_fact.is_pure() {
       continue
     }
-    let operand_results = @ir.hot_type_results(
-      func,
-      @ir.hot_node_type(func, operand_id),
-    )
-    if !optimize_instructions_forward_selected_operand_append_discard(
-        func, operand_id, operand_results, body,
-      ) {
+    if !operand_fact.append_discard(func, body) {
       return false
     }
   }
