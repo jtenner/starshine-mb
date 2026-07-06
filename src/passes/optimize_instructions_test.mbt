@@ -11111,6 +11111,117 @@ test "optimize-instructions folds descriptor casts with call_ref exact descripto
 }
 
 ///|
+test "optimize-instructions exactifies descriptor casts with call_ref exact descriptor producers" {
+  // OI-J descriptor-producer exactification family: Binaryen version_130
+  // directizes a `ref.func` + `call_ref` descriptor producer to the underlying
+  // descriptor call before exactifying an inexact same-heap descriptor cast. This
+  // is not the exact-success skip family: the residual descriptor equality check
+  // stays in source order because the reference result is not already exact.
+  // Keep return_call_ref, indirect calls, multivalue, control/EH, TNH/IIT, and
+  // descriptor-miss behavior separate from this bounded call_ref producer slice.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let make_desc_func_type = @lib.TypeIdx::new(2U)
+  let make_ref_func_type = @lib.TypeIdx::new(3U)
+  let cast_func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let exact_base_ref_type = @lib.RefType::new(false, base_heap, exact=true)
+  let exact_base_descriptor_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(base_descriptor_type),
+    exact=true,
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(base_descriptor_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(exact_base_descriptor_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(base_ref_type)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(base_ref_type)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([make_desc_func_type, make_ref_func_type, cast_func_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(base_descriptor_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::struct_new_default_desc(base_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(make_desc_func_type),
+            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(
+        body,
+        [
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type),
+        ],
+      )
+    _ => fail("expected three-function call_ref descriptor exactification module")
+  }
+}
+
+///|
 test "optimize-instructions folds descriptor casts with both operands call-produced exact descriptor misses" {
   // OI-J descriptor/effect order slice: Binaryen version_130 rewrites the
   // strict-subtype/exact-descriptor miss to `drop(call-produced-ref);
