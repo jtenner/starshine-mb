@@ -94,6 +94,7 @@ type PassFuzzCompareOptions = {
   genValidMetamorphicTransforms: string[];
   maxFailures: number;
   keepGoingAfterCommandFailures: boolean;
+  reduceMismatches: boolean;
   jobs: number | null;
   passFlags: string[];
   optimizerFlags: OptimizerModeFlag[];
@@ -162,6 +163,7 @@ export type PassFuzzCompareSummary = {
   commandFailureClasses: Partial<Record<CommandFailureClass, number>>;
   commandFailuresCountTowardMaxFailures: boolean;
   maxFailuresHit: boolean;
+  reduceMismatches: boolean;
   jobs: number;
   seed: string;
   generator: GeneratorMode;
@@ -330,6 +332,8 @@ const HELP_TEXT = [
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
+  "  --no-reduce-mismatches",
+  "                       Persist mismatch artifacts without running the GenValid byte-slice reducer",
   "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris, ssa-local-allocation-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --cache-dir <dir>     Persistent cache for wasm-smith inputs and Binaryen oracle outputs. Default: .tmp/pass-fuzz-cache",
@@ -1047,7 +1051,7 @@ function parenDelta(line: string): number {
 
 function isDropConstExpression(text: string): boolean {
   if (!text.trimStart().startsWith("(drop")) return false;
-  const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|unreachable|nop|promote|demote)\b/;
+  const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|unreachable|nop)\b/;
   if (unsafePattern.test(text)) return false;
   if (/\.(?:div_s|div_u|rem_s|rem_u)\b/.test(text) && /\b[if](?:32|64)\.const\s+(?:0|-1)\b/.test(text)) {
     return false;
@@ -1119,6 +1123,14 @@ function isDropConstExpression(text: string): boolean {
     "i64.shr_u",
     "i64.rotl",
     "i64.rotr",
+    "f32.add",
+    "f32.sub",
+    "f32.mul",
+    "f32.div",
+    "f64.add",
+    "f64.sub",
+    "f64.mul",
+    "f64.div",
     "i32.clz",
     "i32.ctz",
     "i32.popcnt",
@@ -1141,6 +1153,7 @@ function isDropConstExpression(text: string): boolean {
     "i32.trunc_f64_u",
     "i64.trunc_f32_u",
     "i64.trunc_f64_u",
+    "i64.extend_i32_s",
     "i32.trunc_sat_f32_s",
     "i32.trunc_sat_f32_u",
     "i32.trunc_sat_f64_s",
@@ -1160,10 +1173,16 @@ function isDropConstExpression(text: string): boolean {
     "i64.extend8_s",
     "i64.extend16_s",
     "i64.extend32_s",
+    "f32.convert_i32_s",
     "f32.convert_i32_u",
+    "f32.convert_i64_s",
     "f32.convert_i64_u",
+    "f64.convert_i32_s",
     "f64.convert_i32_u",
+    "f64.convert_i64_s",
     "f64.convert_i64_u",
+    "f32.demote_f64",
+    "f64.promote_f32",
     "f32.abs",
     "f32.neg",
     "f32.ceil",
@@ -1733,6 +1752,34 @@ function normalizeDroppedLocalValueDebris(wat: string): string {
   return output.join("\n");
 }
 
+function isEmptyConstIfExpression(exprText: string): boolean {
+  const emptyConstIfPattern =
+    /^\s*\(if\s*\n\s*\(i32\.const\s+(?:0|1)\)\s*\n\s*\(then\s*\n\s*\)\s*\n\s*\(else\s*\n\s*\)\s*\n\s*\)\s*$/;
+  return emptyConstIfPattern.test(exprText);
+}
+
+function normalizeEmptyConstIfDebris(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(if")) {
+      output.push(line);
+      continue;
+    }
+    const parsed = collectCompleteWatExpression(lines, index);
+    if (parsed === null) {
+      output.push(line);
+      continue;
+    }
+    if (!isEmptyConstIfExpression(parsed.exprLines.join("\n"))) {
+      output.push(...parsed.exprLines);
+    }
+    index = parsed.nextIndex - 1;
+  }
+  return output.join("\n");
+}
+
 function normalizeUnusedLocalDeclarations(wat: string): string {
   const lines = wat.split("\n");
   const output: string[] = [];
@@ -1756,7 +1803,11 @@ function normalizeUnusedLocalDeclarations(wat: string): string {
 }
 
 function normalizeLocalCleanupDebris(wat: string): string {
-  return normalizeStandaloneNops(normalizeUnusedLocalDeclarations(normalizeDroppedLocalValueDebris(wat)));
+  return normalizeStandaloneNops(
+    normalizeUnusedLocalDeclarations(
+      normalizeEmptyConstIfDebris(normalizeDroppedLocalValueDebris(wat)),
+    ),
+  );
 }
 
 function orderedCompareNormalizers(normalizers: CompareNormalizer[]): CompareNormalizer[] {
@@ -2539,6 +2590,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const genValidMetamorphicTransforms: string[] = [];
   let maxFailures = 20;
   let keepGoingAfterCommandFailures = false;
+  let reduceMismatches = true;
   let jobs: number | null = null;
   const passFlags: string[] = [];
   const optimizerFlags: OptimizerModeFlag[] = [];
@@ -2665,6 +2717,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--keep-going-after-command-failures":
         keepGoingAfterCommandFailures = true;
+        i += 1;
+        break;
+      case "--no-reduce-mismatches":
+        reduceMismatches = false;
         i += 1;
         break;
       case "--normalize":
@@ -2837,6 +2893,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       genValidMetamorphicTransforms,
       maxFailures,
       keepGoingAfterCommandFailures,
+      reduceMismatches,
       jobs,
       passFlags,
       optimizerFlags,
@@ -2975,6 +3032,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     commandFailureClasses: {},
     commandFailuresCountTowardMaxFailures: !options.keepGoingAfterCommandFailures,
     maxFailuresHit: false,
+    reduceMismatches: options.reduceMismatches,
     jobs: effectiveJobs,
     seed: seedHex(options.seed),
     generator: options.generator,
@@ -3648,7 +3706,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.mismatchCount += 1;
         failures += 1;
         const detail = "normalized outputs differed";
-        const reductionArtifact = generator === "gen-valid" && replayCase === null
+        const reductionArtifact = options.reduceMismatches && generator === "gen-valid" && replayCase === null
           ? reduceGenValidMismatchInput(
               inputPath,
               options,

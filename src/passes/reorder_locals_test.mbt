@@ -207,6 +207,39 @@ fn rl_test_multi_defined_fixture() -> @lib.Module {
 }
 
 ///|
+fn rl_test_stale_local_decl_fixture() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  ])
+  @lib.Module::new()
+  .with_type_sec(type_sec)
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "reorder-locals fails closed on stale local declarations" {
+  // Boundary guard: normal public inputs are valid, but nested cleanup in
+  // another pass can temporarily leave a stale local declaration table before
+  // its validate-or-fallback step. Reorder-locals must skip instead of aborting.
+  ignore(reorder_locals_run_module_pass(rl_test_stale_local_decl_fixture()))
+}
+
+///|
 test "reorder-locals handles multiple defined functions with distinct param arities" {
   let optimized = match
     run_hot_pipeline(

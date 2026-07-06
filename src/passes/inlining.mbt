@@ -4149,11 +4149,47 @@ fn inl_rewrite_local_idxs_instrs(
 }
 
 ///|
+fn inl_instrs_have_tail_call(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_instrs_have_tail_call(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if inl_instrs_have_tail_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if inl_instrs_have_tail_call(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn inl_compact_unused_locals_func(
   func : @lib.Func,
   param_count : Int,
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(body)) = func
+  // Fail closed around tail-call operands. The compact-local rewriter is purely
+  // syntactic, while invalid nested cleanup candidates from random-all fuzzing
+  // showed stale local remaps feeding return_call operands that Starshine's
+  // internal validator did not reject. Keep tail-call functions valid until the
+  // tail-call/local-compaction interaction has a narrower type-aware repair.
+  if inl_instrs_have_tail_call(body) {
+    return func
+  }
   let total = param_count + locals.length()
   let used = Array::make(total, false)
   let mut i = 0
@@ -5247,15 +5283,72 @@ fn inl_large_nested_cleanup_func_limit() -> Int {
 }
 
 ///|
+fn inl_module_has_tail_call(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        if inl_instrs_have_tail_call(body) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn inl_finalize_module_pass_result(
   mod_ : @lib.Module,
   optimize : Bool,
 ) -> @lib.Module {
   if optimize &&
+    !inl_module_has_tail_call(mod_) &&
     inl_defined_func_count(mod_) <= inl_large_nested_cleanup_func_limit() {
     inl_run_final_local_cleanup(mod_)
   } else {
     mod_
+  }
+}
+
+///|
+fn inl_run_i32_add_accumulator_raw_cleanup(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> (@lib.Module, Bool) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, false)
+  }
+  let imports = inl_imported_func_count(mod_)
+  let mut rewritten : Array[@lib.Func]? = None
+  let mut changed = false
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    let abs_idx = imports + def_idx
+    if abs_idx < 0 || abs_idx >= touched.length() || !touched[abs_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let (next_body, body_changed) = run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
+      body,
+    )
+    if body_changed {
+      let next_func = @lib.Func::new(locals, @lib.Expr::new(next_body))
+      match rewritten {
+        Some(copy) => copy[def_idx] = next_func
+        None => {
+          let copy = funcs.copy()
+          copy[def_idx] = next_func
+          rewritten = Some(copy)
+        }
+      }
+      changed = true
+    }
+  }
+  match rewritten {
+    Some(copy) =>
+      (mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(), true)
+    None => (mod_, changed)
   }
 }
 
@@ -5270,6 +5363,14 @@ fn inl_run_nested_cleanup(
   perf? : HotPerfSession? = None,
 ) -> @lib.Module {
   if !optimize {
+    return mod_
+  }
+  // Tail-call operand cleanup still has a validation gap in the nested HOT
+  // suffix: random-all case 004369 remapped a return_call operand to a stale
+  // i64 local where an f32 was required, and Starshine's internal validator did
+  // not catch it. Preserve the already-valid inlining result for tail-call
+  // modules until that interaction has a narrower type-aware repair.
+  if inl_module_has_tail_call(mod_) {
     return mod_
   }
   // The optimizing cleanup suffix currently delegates to several HOT passes whose
@@ -5302,6 +5403,22 @@ fn inl_run_nested_cleanup(
   }
   if inl_has_same_sig_root_cycle_dead_suffix(mod_) {
     return inl_compact_unused_locals(mod_, touched)
+  }
+  let (raw_accumulator_cleaned, raw_accumulator_changed) = inl_run_i32_add_accumulator_raw_cleanup(
+    mod_, touched,
+  )
+  if raw_accumulator_changed {
+    match trace {
+      Some(cb) =>
+        cb(
+          "pass[inlining-optimizing]:nested-cleanup-fast-path reason=i32-add-accumulator",
+        )
+      None => ()
+    }
+    return inl_compact_unused_locals(
+      inl_collapse_unreachable_roots(raw_accumulator_cleaned, touched),
+      touched,
+    )
   }
   let prepared = inl_collapse_unreachable_roots(mod_, touched)
   let defined_count = inl_defined_func_count(prepared)
@@ -5377,7 +5494,7 @@ fn inl_run_nested_cleanup(
     passes.push("redundant-set-elimination")
   }
   passes.push("vacuum")
-  match
+  let cleaned = match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {
     Ok(cleaned) =>
       inl_compact_unused_locals(
@@ -5398,6 +5515,7 @@ fn inl_run_nested_cleanup(
         touched,
       )
   }
+  inl_validate_or_original(cleaned, mod_)
 }
 
 ///|

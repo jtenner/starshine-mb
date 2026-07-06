@@ -6624,6 +6624,79 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_match_i32_add_accumulator_block(
+  instr : @lib.Instruction,
+  scratch_local : @lib.LocalIdx,
+) -> Int? {
+  match instr {
+    @lib.Block(
+      _,
+      @lib.Expr(
+        [@lib.LocalGet(local_id), @lib.I32Const(@lib.I32(raw)), @lib.I32Add]
+      )
+    ) if local_id == scratch_local => Some(raw)
+    @lib.Block(
+      _,
+      @lib.Expr(
+        [@lib.I32Const(@lib.I32(raw)), @lib.LocalGet(local_id), @lib.I32Add]
+      )
+    ) if local_id == scratch_local => Some(raw)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  if instrs.length() < 6 {
+    return (instrs, false)
+  }
+  let (seed_local, accumulator_local) = match (instrs[0], instrs[1]) {
+    (@lib.LocalGet(seed), @lib.LocalSet(accumulator)) => (seed, accumulator)
+    _ => return (instrs, false)
+  }
+  let mut idx = 2
+  let mut total = 0
+  let mut rewrite_count = 0
+  while idx + 3 < instrs.length() {
+    let scratch_local = match (instrs[idx], instrs[idx + 1]) {
+      (@lib.LocalGet(read_local), @lib.LocalSet(scratch)) if read_local ==
+        accumulator_local => scratch
+      _ => break
+    }
+    let addend = match
+      run_hot_pipeline_raw_simplify_locals_match_i32_add_accumulator_block(
+        instrs[idx + 2],
+        scratch_local,
+      ) {
+      Some(raw) => raw
+      None => break
+    }
+    match instrs[idx + 3] {
+      @lib.LocalSet(write_local) if write_local == accumulator_local => ()
+      _ => break
+    }
+    total = total + addend
+    rewrite_count = rewrite_count + 1
+    idx = idx + 4
+  }
+  if rewrite_count == 0 || idx + 1 != instrs.length() {
+    return (instrs, false)
+  }
+  match instrs[idx] {
+    @lib.LocalGet(final_local) if final_local == accumulator_local => ()
+    _ => return (instrs, false)
+  }
+  let out : Array[@lib.Instruction] = [@lib.Instruction::local_get(seed_local)]
+  if total != 0 {
+    out.push(@lib.Instruction::i32_const(total))
+    out.push(@lib.Instruction::i32_add())
+  }
+  (out, true)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -6639,6 +6712,17 @@ fn run_hot_pipeline_raw_simplify_locals(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (i32_accumulator_instrs, i32_accumulator_changed) = run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
+    instrs,
+  )
+  if i32_accumulator_changed {
+    return Some({
+      reason: "straight-line-i32-add-accumulator",
+      func: @lib.Func::new(locals, @lib.Expr::new(i32_accumulator_instrs)),
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   if !run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
     let (flattened_instrs, flattened_count) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
       instrs,

@@ -11,6 +11,31 @@ fn perf_long_join_lines(lines : Array[String]) -> String {
 }
 
 ///|
+fn perf_long_make_optimize_instructions_nested_block_module(
+  depth : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (export \"main\") (param i32) (result i32)\n")
+  let mut i = 0
+  while i < depth {
+    out.write_string("    (block (result i32)\n")
+    i = i + 1
+  }
+  out.write_string("      (local.get 0)\n")
+  i = 0
+  while i < depth {
+    out.write_string("      (i32.const 1)\n")
+    out.write_string("      (i32.add)\n")
+    out.write_string("    )\n")
+    i = i + 1
+  }
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
   repetitions : Int,
 ) -> String {
@@ -226,6 +251,22 @@ fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
   out.write_string(")\n")
   out.write_string(")\n")
   out.to_string()
+}
+
+///|
+test "optimize-instructions long perf lane scans nested blocks without exponential local write marking" {
+  let input = perf_long_make_optimize_instructions_nested_block_module(50)
+  let start_us = @lib.trace_now_us()
+  match @passes.pass_test_run_pipeline(input, ["optimize-instructions"]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested block optimize-instructions success, got \{err}")
+  }
+  let elapsed_us = @lib.trace_elapsed_us_since(start_us)
+  assert_true(
+    elapsed_us < 2000000UL,
+    msg="expected optimize-instructions nested-block scan to stay under 2s, got \{elapsed_us}us",
+  )
 }
 
 ///|

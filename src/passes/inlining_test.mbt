@@ -54,6 +54,44 @@ fn inl_test_count_func_annotation(
 }
 
 ///|
+test "inlining-optimizing folds simple inlined i32 accumulator chains before nested cleanup" {
+  let source =
+    #|(module
+    #|  (type $t (func (param i32) (result i32)))
+    #|  (func $h0 (type $t) local.get 0 i32.const 1 i32.add)
+    #|  (func $h1 (type $t) local.get 0 i32.const 1 i32.add)
+    #|  (func $h2 (type $t) local.get 0 i32.const 1 i32.add)
+    #|  (func $h3 (type $t) local.get 0 i32.const 1 i32.add)
+    #|  (func $h4 (type $t) local.get 0 i32.const 1 i32.add)
+    #|  (func $main (export "main") (type $t)
+    #|    (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    call $h0
+    #|    local.set 1
+    #|    local.get 1
+    #|    call $h1
+    #|    local.set 1
+    #|    local.get 1
+    #|    call $h2
+    #|    local.set 1
+    #|    local.get 1
+    #|    call $h3
+    #|    local.set 1
+    #|    local.get 1
+    #|    call $h4
+    #|    local.set 1
+    #|    local.get 1))
+  let optimized = inl_test_run(source)
+  let main = optimized.pretty_print_defined_func(0U)
+  assert_true(main.contains("i32.const I32(5)"), msg=main)
+  assert_false(main.contains("call"), msg=main)
+  assert_false(main.contains("local.set"), msg=main)
+  assert_false(main.contains("block"), msg=main)
+}
+
+///|
 test "inlining-optimizing is an active module pass under canonical and plain names" {
   @debug.assert_eq(
     pass_registry_category("inlining-optimizing"),

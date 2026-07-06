@@ -135,6 +135,57 @@ fn rl_scan_instruction(instr : @lib.Instruction, state : RLScanState) -> Unit {
 }
 
 ///|
+fn rl_local_access_in_range(idx : @lib.LocalIdx, local_count : Int) -> Bool {
+  let raw = rl_local_idx_raw(idx)
+  raw >= 0 && raw < local_count
+}
+
+///|
+fn rl_expr_local_accesses_in_range(expr : @lib.Expr, local_count : Int) -> Bool {
+  let @lib.Expr(instrs) = expr
+  rl_instrs_local_accesses_in_range(instrs, local_count)
+}
+
+///|
+fn rl_instrs_local_accesses_in_range(
+  instrs : Array[@lib.Instruction],
+  local_count : Int,
+) -> Bool {
+  for instr in instrs {
+    if !rl_instruction_local_accesses_in_range(instr, local_count) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn rl_instruction_local_accesses_in_range(
+  instr : @lib.Instruction,
+  local_count : Int,
+) -> Bool {
+  match instr {
+    @lib.Block(_, body) => rl_expr_local_accesses_in_range(body, local_count)
+    @lib.Loop(_, body) => rl_expr_local_accesses_in_range(body, local_count)
+    @lib.If(_, then_body, else_body) => {
+      if !rl_instrs_local_accesses_in_range(then_body, local_count) {
+        return false
+      }
+      match else_body {
+        Some(body) => rl_instrs_local_accesses_in_range(body, local_count)
+        None => true
+      }
+    }
+    @lib.TryTable(_, _, body) =>
+      rl_expr_local_accesses_in_range(body, local_count)
+    @lib.LocalGet(idx) => rl_local_access_in_range(idx, local_count)
+    @lib.LocalSet(idx) => rl_local_access_in_range(idx, local_count)
+    @lib.LocalTee(idx) => rl_local_access_in_range(idx, local_count)
+    _ => true
+  }
+}
+
+///|
 fn rl_sort_used_body_locals(
   used_body_locals : Array[Int],
   counts : Array[Int],
@@ -324,6 +375,12 @@ fn rl_rewrite_func(
   }
 
   let total_locals = params.length() + body_local_count
+  if !rl_expr_local_accesses_in_range(body, total_locals) {
+    // Fail closed for invalid/stale intermediate modules. Optimizing nested
+    // cleanup callers can then validate-or-fallback instead of crashing while
+    // probing a cleanup candidate.
+    return { func, old_to_new: [], changed: false }
+  }
   let scan = RLScanState::new(total_locals, params.length())
   rl_scan_expr(body, scan)
 

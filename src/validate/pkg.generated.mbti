@@ -60,6 +60,8 @@ pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
+pub fn gen_valid_inlining_optimizing_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_merge_ssa_func_facts(GenValidSsaFuncFacts, GenValidSsaFuncFacts) -> GenValidSsaFuncFacts
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
@@ -1138,6 +1140,11 @@ pub enum GenValidProfile {
   RseVacuumTailProfile
   PassDaeProfile
   PassInliningProfile
+  InliningOptimizingDirectWrapperProfile
+  InliningOptimizingParamSpillProfile
+  InliningOptimizingReturnCallProfile
+  InliningOptimizingCleanupPayoffProfile
+  InliningOptimizingAllProfile
   PassMemoryProfile
   PassGcRefProfile
   PassControlProfile
