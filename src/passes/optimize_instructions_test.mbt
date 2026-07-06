@@ -14053,6 +14053,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
   ref_arg_count : Int,
   desc_arg_count : Int,
   exact_ref_result? : Bool = true,
+  exact_cast_target? : Bool = true,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -14066,6 +14067,11 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     false,
     @lib.HeapType::new(base_descriptor_type),
     exact=true,
+  )
+  let cast_target_ref_type = @lib.RefType::new(
+    false,
+    base_heap,
+    exact=exact_cast_target,
   )
   let ref_body = optimize_instructions_test_local_sum_then_global_set(
     ref_arg_count,
@@ -14093,7 +14099,7 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     )
   }
   cast_body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
-  cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(exact_base_ref_type))
+  cast_body.push(@lib.Instruction::ref_cast_desc_eq_type(cast_target_ref_type))
   let ref_result_type = if exact_ref_result {
     exact_base_ref_type
   } else {
@@ -14205,6 +14211,72 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_success(
       @debug.assert_eq(body, expected)
     _ => fail("expected three-function descriptor-success test module")
   }
+}
+
+///|
+fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+  ref_arg_count : Int,
+  desc_arg_count : Int,
+  exact_ref_result? : Bool = true,
+) -> Unit raise {
+  let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
+    ref_arg_count, desc_arg_count, exact_ref_result~, exact_cast_target=false,
+  )
+  let optimized = optimize_instructions_test_run_module(module_)
+  let expected : Array[@lib.Instruction] = []
+  for arg = 0; arg < ref_arg_count; arg = arg + 1 {
+    expected.push(
+      @lib.Instruction::local_get(@lib.LocalIdx::new(arg.to_uint())),
+    )
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  for arg = 0; arg < desc_arg_count; arg = arg + 1 {
+    expected.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new((ref_arg_count + arg).to_uint()),
+      ),
+    )
+  }
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  expected.push(
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        exact=true,
+      ),
+    ),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, expected)
+    _ => fail("expected three-function descriptor-exactification test module")
+  }
+}
+
+///|
+test "optimize-instructions exactifies direct-call descriptor success with exact same-heap result" {
+  // OI-J direct-call descriptor exactification family: an ordered pure
+  // local.get* reference call returns a non-null value from the target heap and
+  // an ordered pure descriptor call returns the exact target descriptor, but the
+  // source cast target is inexact. Binaryen keeps the descriptor cast while
+  // exactifying its result type, so Starshine must not treat this as the
+  // exact-target skip family.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    10, 1,
+  )
+}
+
+///|
+test "optimize-instructions exactifies direct-call descriptor success with inexact same-heap result" {
+  // Sibling same-family proof: the reference result need only be a non-null
+  // same-heap value, not already exact, because the exact descriptor operand is
+  // the source of the exactness proof. This remains narrower than nullable,
+  // strict-subtype miss, effectful/non-local argument, indirect/call_ref,
+  // return_call*, multivalue, control/EH, TNH, or IIT behavior.
+  optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
+    1, 10, exact_ref_result=false,
+  )
 }
 
 ///|
