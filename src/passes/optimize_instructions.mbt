@@ -1264,6 +1264,23 @@ priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
   table_index_id : Int
+  fallthrough_func : Int
+  select_true_func : Int
+  select_false_func : Int
+  select_condition_id : Int
+}
+
+///|
+fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
+  {
+    direct_func: -1,
+    table_idx: -1,
+    table_index_id: -1,
+    fallthrough_func: -1,
+    select_true_func: -1,
+    select_false_func: -1,
+    select_condition_id: -1,
+  }
 }
 
 ///|
@@ -1273,21 +1290,108 @@ fn OiCallRefTargetFact::from_target(
   callee_ref_id : Int,
 ) -> OiCallRefTargetFact {
   if !optimize_instructions_node_is_live(func, dead, callee_ref_id) {
-    return { direct_func: -1, table_idx: -1, table_index_id: -1 }
+    return OiCallRefTargetFact::unknown()
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
   match callee_ref.op {
-    @ir.HotOp::RefFunc =>
-      { direct_func: callee_ref.imm0, table_idx: -1, table_index_id: -1 }
+    @ir.HotOp::RefFunc => {
+      {
+        direct_func: callee_ref.imm0,
+        table_idx: -1,
+        table_index_id: -1,
+        fallthrough_func: -1,
+        select_true_func: -1,
+        select_false_func: -1,
+        select_condition_id: -1,
+      }
+    }
     @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
       if optimize_instructions_node_is_live(func, dead, table_index_id) {
-        { direct_func: -1, table_idx: callee_ref.imm0, table_index_id }
+        {
+          direct_func: -1,
+          table_idx: callee_ref.imm0,
+          table_index_id,
+          fallthrough_func: -1,
+          select_true_func: -1,
+          select_false_func: -1,
+          select_condition_id: -1,
+        }
       } else {
-        { direct_func: -1, table_idx: -1, table_index_id: -1 }
+        OiCallRefTargetFact::unknown()
       }
     }
-    _ => { direct_func: -1, table_idx: -1, table_index_id: -1 }
+    @ir.HotOp::Block =>
+      OiCallRefTargetFact::from_fallthrough_block(
+        func, dead, callee_ref_id,
+      )
+    @ir.HotOp::Select if callee_ref.child_count == 3 =>
+      OiCallRefTargetFact::from_select(func, dead, callee_ref_id)
+    _ => OiCallRefTargetFact::unknown()
+  }
+}
+
+///|
+fn OiCallRefTargetFact::from_fallthrough_block(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  callee_ref_id : Int,
+) -> OiCallRefTargetFact {
+  let body_ref = @ir.hot_region_body_ref(func, callee_ref_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 1 {
+    return OiCallRefTargetFact::unknown()
+  }
+  let target_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  if !optimize_instructions_node_is_live(func, dead, target_id) {
+    return OiCallRefTargetFact::unknown()
+  }
+  let target = @ir.hot_node_get(func, target_id)
+  match target.op {
+    @ir.HotOp::RefFunc => {
+      {
+        direct_func: -1,
+        table_idx: -1,
+        table_index_id: -1,
+        fallthrough_func: target.imm0,
+        select_true_func: -1,
+        select_false_func: -1,
+        select_condition_id: -1,
+      }
+    }
+    _ => OiCallRefTargetFact::unknown()
+  }
+}
+
+///|
+fn OiCallRefTargetFact::from_select(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  callee_ref_id : Int,
+) -> OiCallRefTargetFact {
+  let true_ref_id = @ir.hot_child_get(func, callee_ref_id, 0)
+  let false_ref_id = @ir.hot_child_get(func, callee_ref_id, 1)
+  let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
+  if !optimize_instructions_node_is_live(func, dead, true_ref_id) ||
+    !optimize_instructions_node_is_live(func, dead, false_ref_id) ||
+    !optimize_instructions_node_is_live(func, dead, condition_id) {
+    return OiCallRefTargetFact::unknown()
+  }
+  let true_ref = @ir.hot_node_get(func, true_ref_id)
+  let false_ref = @ir.hot_node_get(func, false_ref_id)
+  match (true_ref.op, false_ref.op) {
+    (@ir.HotOp::RefFunc, @ir.HotOp::RefFunc) => {
+      {
+        direct_func: -1,
+        table_idx: -1,
+        table_index_id: -1,
+        fallthrough_func: -1,
+        select_true_func: true_ref.imm0,
+        select_false_func: false_ref.imm0,
+        select_condition_id: condition_id,
+      }
+    }
+    _ => OiCallRefTargetFact::unknown()
   }
 }
 
@@ -1299,6 +1403,63 @@ fn OiCallRefTargetFact::has_direct_func(self : OiCallRefTargetFact) -> Bool {
 ///|
 fn OiCallRefTargetFact::has_table_target(self : OiCallRefTargetFact) -> Bool {
   self.table_idx >= 0 && self.table_index_id >= 0
+}
+
+///|
+fn OiCallRefTargetFact::has_fallthrough_func(
+  self : OiCallRefTargetFact,
+) -> Bool {
+  self.fallthrough_func >= 0
+}
+
+///|
+fn OiCallRefTargetFact::has_select_direct_funcs(
+  self : OiCallRefTargetFact,
+) -> Bool {
+  self.select_true_func >= 0 && self.select_false_func >= 0 &&
+  self.select_condition_id >= 0
+}
+
+///|
+priv struct OiCallRefOperandFact {
+  prefix : Array[Int]
+  local_ids : Array[Int]
+}
+
+///|
+fn OiCallRefOperandFact::from_args(
+  func : @ir.HotFunc,
+  args : Array[Int],
+) -> OiCallRefOperandFact? {
+  let arg_types : Array[@lib.ValType] = []
+  for arg in args {
+    let arg_node = @ir.hot_node_get(func, arg)
+    let arg_results = @ir.hot_type_results(func, arg_node.ty)
+    if arg_results.length() != 1 {
+      return None
+    }
+    arg_types.push(arg_results[0])
+  }
+  let prefix : Array[Int] = []
+  let local_ids : Array[Int] = []
+  for i = 0; i < args.length(); i = i + 1 {
+    let local_id = @ir.hot_append_body_local(func, arg_types[i])
+    prefix.push(@ir.hot_build_local_set(func, local_id, args[i]))
+    local_ids.push(local_id)
+  }
+  Some({ prefix, local_ids })
+}
+
+///|
+fn OiCallRefOperandFact::local_gets(
+  self : OiCallRefOperandFact,
+  func : @ir.HotFunc,
+) -> Array[Int] {
+  let gets : Array[Int] = []
+  for local_id in self.local_ids {
+    gets.push(@ir.hot_build_local_get(func, local_id))
+  }
+  gets
 }
 
 ///|
@@ -1317,36 +1478,15 @@ fn optimize_instructions_call_ref_result_block_type(
 ///|
 fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   node : @ir.HotNode,
   callee_ref_id : Int,
-  args : Array[Int],
+  target_fact : OiCallRefTargetFact,
+  operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  let (prefix, local_ids) = match
-    optimize_instructions_call_ref_localize_args(func, args) {
-    Some(localized) => localized
-    None => return None
-  }
-  let callee_ref = @ir.hot_node_get(func, callee_ref_id)
-  match callee_ref.op {
-    @ir.HotOp::Block => ()
-    _ => return None
-  }
-  let body_ref = @ir.hot_region_body_ref(func, callee_ref_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count < 1 {
+  if !target_fact.has_fallthrough_func() {
     return None
   }
-  let target_id = @ir.hot_region_get(func, body_ref, root_count - 1)
-  if !optimize_instructions_node_is_live(func, dead, target_id) {
-    return None
-  }
-  let target = @ir.hot_node_get(func, target_id)
-  match target.op {
-    @ir.HotOp::RefFunc => ()
-    _ => return None
-  }
-  let replacement_body = prefix.copy()
+  let replacement_body = operand_fact.prefix.copy()
   replacement_body.push(@ir.hot_build_drop(func, callee_ref_id))
   match node.op {
     @ir.HotOp::CallRef => {
@@ -1358,9 +1498,9 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
       replacement_body.push(
         @ir.hot_build_call(
           func,
-          target.imm0,
+          target_fact.fallthrough_func,
           @ir.hot_type_results(func, node.ty),
-          optimize_instructions_call_ref_local_gets(func, local_ids),
+          operand_fact.local_gets(func),
         ),
       )
       Some(@ir.hot_build_block(func, block_type, replacement_body))
@@ -1369,50 +1509,14 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
       replacement_body.push(
         @ir.hot_build_return_call(
           func,
-          target.imm0,
-          optimize_instructions_call_ref_local_gets(func, local_ids),
+          target_fact.fallthrough_func,
+          operand_fact.local_gets(func),
         ),
       )
       Some(@ir.hot_build_block(func, @lib.BlockType::void_(), replacement_body))
     }
     _ => None
   }
-}
-
-///|
-fn optimize_instructions_call_ref_localize_args(
-  func : @ir.HotFunc,
-  args : Array[Int],
-) -> (Array[Int], Array[Int])? {
-  let arg_types : Array[@lib.ValType] = []
-  for arg in args {
-    let arg_node = @ir.hot_node_get(func, arg)
-    let arg_results = @ir.hot_type_results(func, arg_node.ty)
-    if arg_results.length() != 1 {
-      return None
-    }
-    arg_types.push(arg_results[0])
-  }
-  let prefix : Array[Int] = []
-  let local_ids : Array[Int] = []
-  for i = 0; i < args.length(); i = i + 1 {
-    let local_id = @ir.hot_append_body_local(func, arg_types[i])
-    prefix.push(@ir.hot_build_local_set(func, local_id, args[i]))
-    local_ids.push(local_id)
-  }
-  Some((prefix, local_ids))
-}
-
-///|
-fn optimize_instructions_call_ref_local_gets(
-  func : @ir.HotFunc,
-  local_ids : Array[Int],
-) -> Array[Int] {
-  let gets : Array[Int] = []
-  for local_id in local_ids {
-    gets.push(@ir.hot_build_local_get(func, local_id))
-  }
-  gets
 }
 
 ///|
@@ -1434,7 +1538,6 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   if !optimize_instructions_node_is_live(func, dead, callee_ref_id) {
     return false
   }
-  let callee_ref = @ir.hot_node_get(func, callee_ref_id)
   let target_fact = OiCallRefTargetFact::from_target(func, dead, callee_ref_id)
   let args : Array[Int] = []
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
@@ -1453,123 +1556,108 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
         @ir.hot_build_return_call(func, target_fact.direct_func, args)
       _ => abort("unreachable call_ref directization op")
     }
-  } else {
-    match callee_ref.op {
-      @ir.HotOp::Block =>
-        match
-          optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
-            func, dead, node, callee_ref_id, args,
-          ) {
-          Some(replacement) => replacement
-          None => return false
-        }
-      @ir.HotOp::TableGet if target_fact.has_table_target() => {
-        let sig = @ir.hot_call_sig_get(func, node.imm0)
-        match node.op {
-          @ir.HotOp::CallRef =>
-            @ir.hot_build_call_indirect(
-              func,
-              sig.type_idx,
-              @lib.TableIdx::new(target_fact.table_idx.reinterpret_as_uint()),
-              @ir.hot_type_results(func, node.ty),
-              args,
-              target_fact.table_index_id,
-            )
-          @ir.HotOp::ReturnCallRef =>
-            @ir.hot_build_return_call_indirect(
-              func,
-              sig.type_idx,
-              @lib.TableIdx::new(target_fact.table_idx.reinterpret_as_uint()),
-              args,
-              target_fact.table_index_id,
-            )
-          _ => abort("unreachable call_ref directization op")
-        }
-      }
-      @ir.HotOp::Select if callee_ref.child_count == 3 => {
-        let true_ref_id = @ir.hot_child_get(func, callee_ref_id, 0)
-        let false_ref_id = @ir.hot_child_get(func, callee_ref_id, 1)
-        let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
-        if !optimize_instructions_node_is_live(func, dead, true_ref_id) ||
-          !optimize_instructions_node_is_live(func, dead, false_ref_id) ||
-          !optimize_instructions_node_is_live(func, dead, condition_id) {
-          return false
-        }
-        let true_ref = @ir.hot_node_get(func, true_ref_id)
-        let false_ref = @ir.hot_node_get(func, false_ref_id)
-        match (true_ref.op, false_ref.op) {
-          (@ir.HotOp::RefFunc, @ir.HotOp::RefFunc) => ()
-          _ => return false
-        }
-        let block_type = match node.op {
-          @ir.HotOp::CallRef =>
-            match optimize_instructions_call_ref_result_block_type(func, node) {
-              Some(block_type) => block_type
-              None => return false
-            }
-          @ir.HotOp::ReturnCallRef => @lib.BlockType::void_()
-          _ => abort("unreachable call_ref directization op")
-        }
-        let (prefix, local_ids) = match
-          optimize_instructions_call_ref_localize_args(func, args) {
-          Some(localized) => localized
-          None => return false
-        }
-        let replacement_if = match node.op {
-          @ir.HotOp::CallRef =>
-            @ir.hot_build_if(
-              func,
-              block_type,
-              condition_id,
-              [
-                @ir.hot_build_call(
-                  func,
-                  true_ref.imm0,
-                  @ir.hot_type_results(func, node.ty),
-                  optimize_instructions_call_ref_local_gets(func, local_ids),
-                ),
-              ],
-              else_body=Some([
-                @ir.hot_build_call(
-                  func,
-                  false_ref.imm0,
-                  @ir.hot_type_results(func, node.ty),
-                  optimize_instructions_call_ref_local_gets(func, local_ids),
-                ),
-              ]),
-            )
-          @ir.HotOp::ReturnCallRef =>
-            @ir.hot_build_if(
-              func,
-              @lib.BlockType::void_(),
-              condition_id,
-              [
-                @ir.hot_build_return_call(
-                  func,
-                  true_ref.imm0,
-                  optimize_instructions_call_ref_local_gets(func, local_ids),
-                ),
-              ],
-              else_body=Some([
-                @ir.hot_build_return_call(
-                  func,
-                  false_ref.imm0,
-                  optimize_instructions_call_ref_local_gets(func, local_ids),
-                ),
-              ]),
-            )
-          _ => abort("unreachable call_ref directization op")
-        }
-        if prefix.length() == 0 {
-          replacement_if
-        } else {
-          let body = prefix.copy()
-          body.push(replacement_if)
-          @ir.hot_build_block(func, block_type, body)
-        }
-      }
-      _ => return false
+  } else if target_fact.has_table_target() {
+    let sig = @ir.hot_call_sig_get(func, node.imm0)
+    match node.op {
+      @ir.HotOp::CallRef =>
+        @ir.hot_build_call_indirect(
+          func,
+          sig.type_idx,
+          @lib.TableIdx::new(target_fact.table_idx.reinterpret_as_uint()),
+          @ir.hot_type_results(func, node.ty),
+          args,
+          target_fact.table_index_id,
+        )
+      @ir.HotOp::ReturnCallRef =>
+        @ir.hot_build_return_call_indirect(
+          func,
+          sig.type_idx,
+          @lib.TableIdx::new(target_fact.table_idx.reinterpret_as_uint()),
+          args,
+          target_fact.table_index_id,
+        )
+      _ => abort("unreachable call_ref directization op")
     }
+  } else if target_fact.has_fallthrough_func() {
+    let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
+      Some(fact) => fact
+      None => return false
+    }
+    match
+      optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
+        func, node, callee_ref_id, target_fact, operand_fact,
+      ) {
+      Some(replacement) => replacement
+      None => return false
+    }
+  } else if target_fact.has_select_direct_funcs() {
+    let block_type = match node.op {
+      @ir.HotOp::CallRef =>
+        match optimize_instructions_call_ref_result_block_type(func, node) {
+          Some(block_type) => block_type
+          None => return false
+        }
+      @ir.HotOp::ReturnCallRef => @lib.BlockType::void_()
+      _ => abort("unreachable call_ref directization op")
+    }
+    let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
+      Some(fact) => fact
+      None => return false
+    }
+    let replacement_if = match node.op {
+      @ir.HotOp::CallRef =>
+        @ir.hot_build_if(
+          func,
+          block_type,
+          target_fact.select_condition_id,
+          [
+            @ir.hot_build_call(
+              func,
+              target_fact.select_true_func,
+              @ir.hot_type_results(func, node.ty),
+              operand_fact.local_gets(func),
+            ),
+          ],
+          else_body=Some([
+            @ir.hot_build_call(
+              func,
+              target_fact.select_false_func,
+              @ir.hot_type_results(func, node.ty),
+              operand_fact.local_gets(func),
+            ),
+          ]),
+        )
+      @ir.HotOp::ReturnCallRef =>
+        @ir.hot_build_if(
+          func,
+          @lib.BlockType::void_(),
+          target_fact.select_condition_id,
+          [
+            @ir.hot_build_return_call(
+              func,
+              target_fact.select_true_func,
+              operand_fact.local_gets(func),
+            ),
+          ],
+          else_body=Some([
+            @ir.hot_build_return_call(
+              func,
+              target_fact.select_false_func,
+              operand_fact.local_gets(func),
+            ),
+          ]),
+        )
+      _ => abort("unreachable call_ref directization op")
+    }
+    if operand_fact.prefix.length() == 0 {
+      replacement_if
+    } else {
+      let body = operand_fact.prefix.copy()
+      body.push(replacement_if)
+      @ir.hot_build_block(func, block_type, body)
+    }
+  } else {
+    return false
   }
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_replace_node(func, node_id, replacement)
