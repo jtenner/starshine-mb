@@ -7027,11 +7027,16 @@ fn optimize_instructions_mask_without_global_state(mask : UInt) -> UInt {
 
 ///|
 fn optimize_instructions_is_pure_scalar_equal_tree_op(op : @ir.HotOp) -> Bool {
+  // Source-mapped subset of Binaryen v130 `ExpressionAnalyzer::equal` used by
+  // OI's consecutive-input equality facts: branchless scalar expression shells
+  // whose children are recursively deterministic under the enclosing ordered-
+  // effects check.
   match op {
     @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
-    | @ir.HotOp::Convert => true
+    | @ir.HotOp::Convert
+    | @ir.HotOp::Select => true
     _ => false
   }
 }
@@ -7304,6 +7309,20 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
         unsupported_after_value_control: nested.unsupported_after_value_control,
       }
     }
+    @ir.HotOp::BrIf =>
+      // Binaryen v130 `areConsecutiveInputsEqual` peels a value-carrying left
+      // `br_if` to its payload and records the condition as an after-value
+      // interfering effect. Keep Starshine's equality fact closed here until
+      // value-carrying `br_if` operands can pass HOT/pass verification; see
+      // docs/wiki/raw/research/1557-2026-07-07-optimize-instructions-br-if-equality-blocker.md.
+      {
+        fallthrough_id: node_id,
+        after_value_effect_mask: 0U,
+        after_value_write_mask: 0U,
+        after_value_local_writes: [],
+        after_value_global_writes: [],
+        unsupported_after_value_control: true,
+      }
     _ =>
       {
         fallthrough_id: node_id,

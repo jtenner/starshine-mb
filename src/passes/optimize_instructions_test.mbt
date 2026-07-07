@@ -33116,6 +33116,45 @@ test "optimize-instructions drops left localtee payload same-address memory.copy
 }
 
 ///|
+test "optimize-instructions drops select-tree same-address memory.copy" {
+  // OI-G ExpressionAnalyzer equality breadth: Binaryen v130 treats matching
+  // branchless `select` address trees as equal for `areConsecutiveInputsEqual`.
+  // Under TNH, the same-address copy collapses to operand drops while preserving
+  // both selects and the dynamic size operand.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $a i32) (param $b i32) (param $cond i32) (param $size i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    local.get $cond
+        #|    select
+        #|    local.get $a
+        #|    local.get $b
+        #|    local.get $cond
+        #|    select
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected select-tree memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "local.get (Local 1)", "local.get (Local 2)", "select",
+    "drop", "local.get (Local 0)", "local.get (Local 1)", "local.get (Local 2)",
+    "select", "drop", "local.get (Local 3)", "drop",
+  ])
+}
+
+///|
 test "optimize-instructions drops right block unrelated global.set global-address memory.copy" {
   // OI-G same-input global-interference fact breadth: Binaryen version_130
   // `areConsecutiveInputsEqual` also treats `global.get` fallthrough values as
