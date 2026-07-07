@@ -10811,6 +10811,7 @@ priv struct OiArrayNewFixedRepeatedValueFact {
   representative_id : Int
   representative_is_default : Bool
   default_preserve_id : Int
+  non_default_preserve_ids : Array[Int]
 }
 
 ///|
@@ -11090,6 +11091,21 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
   let default_fact = OiArrayDefaultValueFact::from_array_value(
     ctx, func, type_idx, representative_id,
   )
+  let non_default_preserve_ids : Array[Int] = []
+  if !default_fact.is_default {
+    // Non-default repeated-value rewrites still need Binaryen-style child
+    // preservation for operands that read state or carry effects. Pure constants
+    // and scalar trees can be dropped, but `local.tee`, `local.get` after a tee,
+    // and effectful fallthrough blocks become scratch-local sets before the
+    // replacement `array.new`.
+    let effects = pass_require_effects(ctx, func)
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_id = @ir.hot_child_get(func, node_id, slot)
+      if !@ir.effects_is_pure(effects.node_masks[child_id]) {
+        non_default_preserve_ids.push(child_id)
+      }
+    }
+  }
   Some({
     node_id,
     type_idx,
@@ -11097,6 +11113,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     representative_id,
     representative_is_default: default_fact.is_default,
     default_preserve_id: default_fact.preserve_id,
+    non_default_preserve_ids,
   })
 }
 
@@ -11108,11 +11125,79 @@ fn OiArrayNewFixedRepeatedValueFact::is_rewritable(
 }
 
 ///|
+fn OiArrayNewFixedRepeatedValueFact::apply_non_default_localized_rewrite(
+  self : OiArrayNewFixedRepeatedValueFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  // Binaryen v130 routes the non-default `array.new_fixed` -> `array.new`
+  // collapse through `getDroppedChildrenAndAppend`, which materializes
+  // state-reading/effectful fixed operands into scratch locals before the new
+  // repeated-value allocation. Keep that preservation as data on the repeated
+  // value fact instead of letting the rewrite drop every non-representative
+  // operand after equality succeeds.
+  let value_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, self.representative_id)) {
+    [value_type] => value_type
+    _ => return false
+  }
+  let original = @ir.hot_node_get(func, self.node_id)
+  let body : Array[Int] = []
+  let mut representative_local = -1
+  for preserve_id in self.non_default_preserve_ids {
+    let local_id = optimize_instructions_add_temp_local(func, value_type)
+    if preserve_id == self.representative_id && representative_local < 0 {
+      representative_local = local_id
+    }
+    body.push(@ir.hot_build_local_set(func, local_id, preserve_id))
+  }
+  let representative_value_id = if representative_local >= 0 {
+    @ir.hot_build_local_get(func, representative_local)
+  } else {
+    self.representative_id
+  }
+  let len_id = @ir.hot_build_const_i32(func, @lib.I32(self.size))
+  let temp = @ir.hot_build_node(
+    func,
+    original.op,
+    @ir.hot_node_type(func, self.node_id),
+    children=[representative_value_id, len_id],
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    temp,
+    @lib.Instruction::array_new(self.type_idx),
+  )
+  body.push(temp)
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, self.node_id)) {
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => @lib.BlockType::void_()
+  }
+  let replacement_id = @ir.hot_build_block(func, block_type, body)
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  @ir.hot_replace_node(func, self.node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, self.node_id),
+    self.node_id,
+  )
+  @ir.hot_delete_node(func, replacement_id)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
   self : OiArrayNewFixedRepeatedValueFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Unit {
+  if !self.representative_is_default &&
+    self.non_default_preserve_ids.length() > 0 &&
+    self.apply_non_default_localized_rewrite(ctx, func) {
+    return
+  }
   let original = @ir.hot_node_get(func, self.node_id)
   let len_id = @ir.hot_build_const_i32(func, @lib.I32(self.size))
   let temp = if self.representative_is_default {

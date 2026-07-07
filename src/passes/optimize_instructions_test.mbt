@@ -51882,6 +51882,89 @@ test "optimize-instructions preserves local tee default array.new_fixed effects 
 }
 
 ///|
+test "optimize-instructions localizes non-default repeated array.new_fixed effects through facts" {
+  // OI-K/OI-L aggregate constructor fact: Binaryen version_130
+  // `visitArrayNewFixed` uses `getDroppedChildrenAndAppend` when equal
+  // non-default operands collapse to `array.new`. Effectful or state-reading
+  // fixed operands are materialized into scratch locals before the repeated
+  // value allocation, rather than being silently dropped by a scanner-style
+  // fixed-array rewrite.
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(9)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(7)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let tee_get = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(tee_get.contains("array.new_fixed"), msg=tee_get)
+  assert_true(tee_get.contains("array.new"), msg=tee_get)
+  assert_true(tee_get.contains("local.set (Local 1)"), msg=tee_get)
+  assert_true(tee_get.contains("local.set (Local 2)"), msg=tee_get)
+  optimize_instructions_assert_strings_in_order(tee_get, [
+    "local.tee", "local.set (Local 1)", "local.get (Local 0)", "local.set (Local 2)",
+    "local.get (Local 1)", "array.new",
+  ])
+  let block_const = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(block_const.contains("array.new_fixed"), msg=block_const)
+  assert_true(block_const.contains("array.new"), msg=block_const)
+  assert_true(block_const.contains("local.set (Local 0)"), msg=block_const)
+  assert_true(block_const.contains("local.set (Local 1)"), msg=block_const)
+  optimize_instructions_assert_strings_in_order(block_const, [
+    "block", "local.set (Local 0)", "local.set (Local 1)", "local.get (Local 1)",
+    "array.new",
+  ])
+}
+
+///|
 test "optimize-instructions preserves block default array.new_fixed effects through facts" {
   // OI-K/OI-L aggregate constructor fact: Binaryen version_130
   // `visitArrayNewFixed` checks the default value through `getFallthrough`,
