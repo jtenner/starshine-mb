@@ -1396,6 +1396,119 @@ fn OiRefTestResultFact::from_test(
 }
 
 ///|
+priv enum OiRefTestRewritePlanKind {
+  RefTestRewriteToNonNullCheck
+  RefTestRewriteToNullCheck
+  RefTestRewriteToConst
+  RefTestDropOperandThenConst
+}
+
+///|
+priv struct OiRefTestRewritePlanFact {
+  kind : OiRefTestRewritePlanKind
+  test_fact : OiRefTestFact
+  const_result : @lib.I32?
+}
+
+///|
+fn OiRefTestRewritePlanFact::from_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  test_fact : OiRefTestFact,
+) -> OiRefTestRewritePlanFact? {
+  // Binaryen v130 `visitRefTest` turns the source-level cast-check result into
+  // either a null predicate rewrite or an i32 constant while preserving operand
+  // effects when the operand cannot be erased. Keep the replacement decision as
+  // a plan fact rather than a visitor-local cascade over evaluation outcomes and
+  // purity predicates.
+  let result_fact = OiRefTestResultFact::from_test(ctx, func, test_fact)
+  if result_fact.rewrite_to_ref_is_non_null {
+    return Some({
+      kind: RefTestRewriteToNonNullCheck,
+      test_fact,
+      const_result: None,
+    })
+  }
+  if result_fact.rewrite_to_ref_is_null {
+    return Some({
+      kind: RefTestRewriteToNullCheck,
+      test_fact,
+      const_result: None,
+    })
+  }
+  match result_fact.known_const_result {
+    Some(value) => {
+      let operand_id = test_fact.operand_id
+      let can_erase_operand = (
+          value == @lib.I32(0) &&
+          (
+            optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+            optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+          )
+        ) ||
+        (
+          value != @lib.I32(0) &&
+          optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+        )
+      Some({
+        kind: if can_erase_operand {
+          RefTestRewriteToConst
+        } else {
+          RefTestDropOperandThenConst
+        },
+        test_fact,
+        const_result: Some(value),
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn OiRefTestRewritePlanFact::apply(
+  self : OiRefTestRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let operand_id = self.test_fact.operand_id
+  match self.kind {
+    RefTestRewriteToNonNullCheck => {
+      optimize_instructions_replace_with_ref_is_non_null_test(
+        ctx, func, node_id, operand_id,
+      )
+      true
+    }
+    RefTestRewriteToNullCheck => {
+      optimize_instructions_replace_with_ref_is_null(
+        ctx, func, node_id, operand_id,
+      )
+      true
+    }
+    RefTestRewriteToConst =>
+      match self.const_result {
+        Some(value) => {
+          optimize_instructions_replace_with_const_i32(
+            ctx, func, node_id, value,
+          )
+          true
+        }
+        None => false
+      }
+    RefTestDropOperandThenConst =>
+      match self.const_result {
+        Some(value) => {
+          optimize_instructions_replace_with_drop_then_const_i32(
+            ctx, func, node_id, operand_id, value,
+          )
+          true
+        }
+        None => false
+      }
+  }
+}
+
+///|
 priv struct OiRefCastFact {
   nullable : Bool
   exact : Bool
@@ -16652,41 +16765,8 @@ fn optimize_instructions_try_fold_ref_test_null(
     Some(fact) => fact
     None => return false
   }
-  let result_fact = OiRefTestResultFact::from_test(ctx, func, test_fact)
-  let operand_id = test_fact.operand_id
-  if result_fact.rewrite_to_ref_is_non_null {
-    optimize_instructions_replace_with_ref_is_non_null_test(
-      ctx, func, node_id, operand_id,
-    )
-    return true
-  }
-  if result_fact.rewrite_to_ref_is_null {
-    optimize_instructions_replace_with_ref_is_null(
-      ctx, func, node_id, operand_id,
-    )
-    return true
-  }
-  match result_fact.known_const_result {
-    Some(value) => {
-      if (
-          value == @lib.I32(0) &&
-          (
-            optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-            optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
-          )
-        ) ||
-        (
-          value != @lib.I32(0) &&
-          optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
-        ) {
-        optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
-      } else {
-        optimize_instructions_replace_with_drop_then_const_i32(
-          ctx, func, node_id, operand_id, value,
-        )
-      }
-      true
-    }
+  match OiRefTestRewritePlanFact::from_test(ctx, func, test_fact) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
     None => false
   }
 }
