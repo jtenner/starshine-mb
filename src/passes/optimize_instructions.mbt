@@ -1396,6 +1396,176 @@ fn OiRefTestResultFact::from_test(
 }
 
 ///|
+priv struct OiRefCastFact {
+  nullable : Bool
+  exact : Bool
+  target : @lib.HeapType
+  operand_id : Int
+}
+
+///|
+fn OiRefCastFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefCastFact? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(nullable, exact, target)) =>
+      (nullable, exact, target)
+    _ => return None
+  }
+  Some({
+    nullable,
+    exact,
+    target,
+    operand_id: @ir.hot_child_get(func, node_id, 0),
+  })
+}
+
+///|
+priv enum OiRefCastRewritePlanKind {
+  RefCastForwardOperand
+  RefCastUnreachable
+  RefCastDropOperandThenUnreachable
+  RefCastAsNonNull
+  RefCastNullrefCast
+}
+
+///|
+priv struct OiRefCastRewritePlanFact {
+  kind : OiRefCastRewritePlanKind
+  cast_fact : OiRefCastFact
+}
+
+///|
+fn OiRefCastRewritePlanFact::from_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cast_fact : OiRefCastFact,
+) -> OiRefCastRewritePlanFact? {
+  // Binaryen v130 `visitRefCast` routes source-level cast outcomes through
+  // `GCTypeUtils::evaluateCastCheck` and then chooses whether to forward the
+  // operand, keep only a null check, materialize null, or trap. Keep the
+  // represented Starshine subset as a plan fact so the visitor does not own a
+  // scanner-like cascade of local/ref/null/exactness predicates.
+  let operand_id = cast_fact.operand_id
+  let nullable = cast_fact.nullable
+  let exact = cast_fact.exact
+  let target = cast_fact.target
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull =>
+      return Some({
+        kind: if nullable {
+          RefCastForwardOperand
+        } else {
+          RefCastUnreachable
+        },
+        cast_fact,
+      })
+    _ => ()
+  }
+  if not(nullable) &&
+    (
+      not(exact) ||
+      optimize_instructions_ref_operand_has_exact_heap(func, operand_id, target)
+    ) &&
+    optimize_instructions_ref_operand_is_nullable_exact_heap(
+      func, operand_id, target,
+    ) {
+    return Some({ kind: RefCastAsNonNull, cast_fact })
+  }
+  if exact &&
+    optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
+      ctx, func, operand_id, target, nullable,
+    ) {
+    return Some({ kind: RefCastNullrefCast, cast_fact })
+  }
+  if (
+      not(exact) ||
+      optimize_instructions_ref_operand_has_exact_heap(func, operand_id, target)
+    ) &&
+    (
+      optimize_instructions_ref_is_known_match_for_target(
+        func, operand_id, target,
+      ) ||
+      (
+        nullable &&
+        optimize_instructions_ref_is_known_match_for_nullable_target(
+          func, operand_id, target,
+        )
+      )
+    ) {
+    return Some({ kind: RefCastForwardOperand, cast_fact })
+  }
+  if optimize_instructions_ref_is_known_miss_for_target(
+      ctx, func, operand_id, target,
+    ) ||
+    (
+      exact &&
+      (
+        optimize_instructions_ref_operand_misses_exact_target(
+          func, operand_id, target, nullable,
+        ) ||
+        optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
+          ctx, func, operand_id, target, nullable,
+        )
+      )
+    ) ||
+    (
+      not(nullable) &&
+      optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
+        ctx, func, operand_id, target,
+      )
+    ) {
+    let kind = if optimize_instructions_is_trivially_pure_operand(
+        func, operand_id,
+      ) ||
+      optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+      RefCastUnreachable
+    } else {
+      RefCastDropOperandThenUnreachable
+    }
+    return Some({ kind, cast_fact })
+  }
+  None
+}
+
+///|
+fn OiRefCastRewritePlanFact::apply(
+  self : OiRefCastRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let operand_id = self.cast_fact.operand_id
+  match self.kind {
+    RefCastForwardOperand => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+      true
+    }
+    RefCastUnreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
+    }
+    RefCastDropOperandThenUnreachable =>
+      optimize_instructions_replace_with_drop_then_unreachable(
+        ctx, func, node_id, operand_id,
+      )
+    RefCastAsNonNull =>
+      optimize_instructions_replace_ref_cast_with_ref_as_non_null(
+        ctx, func, node_id, operand_id,
+      )
+    RefCastNullrefCast =>
+      optimize_instructions_replace_ref_cast_with_nullref_cast(
+        ctx, func, node_id, operand_id,
+      )
+  }
+}
+
+///|
 priv struct OiDescriptorCastFact {
   nullable : Bool
   exact : Bool
@@ -16404,97 +16574,13 @@ fn optimize_instructions_try_fold_ref_cast_null(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
+  let cast_fact = match OiRefCastFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return false
   }
-  let (nullable, exact, target) = match
-    @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(nullable, exact, target)) =>
-      (nullable, exact, target)
-    _ => return false
-  }
-  let operand_id = @ir.hot_child_get(func, node_id, 0)
-  match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::RefNull => {
-      if nullable {
-        optimize_instructions_replace_with_node_id(
-          ctx, func, node_id, operand_id,
-        )
-      } else {
-        optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-      }
-      true
-    }
-    _ if not(nullable) &&
-      (
-        not(exact) ||
-        optimize_instructions_ref_operand_has_exact_heap(
-          func, operand_id, target,
-        )
-      ) &&
-      optimize_instructions_ref_operand_is_nullable_exact_heap(
-        func, operand_id, target,
-      ) =>
-      optimize_instructions_replace_ref_cast_with_ref_as_non_null(
-        ctx, func, node_id, operand_id,
-      )
-    _ if exact &&
-      optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
-        ctx, func, operand_id, target, nullable,
-      ) =>
-      optimize_instructions_replace_ref_cast_with_nullref_cast(
-        ctx, func, node_id, operand_id,
-      )
-    _ if (
-        not(exact) ||
-        optimize_instructions_ref_operand_has_exact_heap(
-          func, operand_id, target,
-        )
-      ) &&
-      (
-        optimize_instructions_ref_is_known_match_for_target(
-          func, operand_id, target,
-        ) ||
-        (
-          nullable &&
-          optimize_instructions_ref_is_known_match_for_nullable_target(
-            func, operand_id, target,
-          )
-        )
-      ) => {
-      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
-      true
-    }
-    _ if optimize_instructions_ref_is_known_miss_for_target(
-        ctx, func, operand_id, target,
-      ) ||
-      (
-        exact &&
-        (
-          optimize_instructions_ref_operand_misses_exact_target(
-            func, operand_id, target, nullable,
-          ) ||
-          optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
-            ctx, func, operand_id, target, nullable,
-          )
-        )
-      ) ||
-      (
-        not(nullable) &&
-        optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
-          ctx, func, operand_id, target,
-        )
-      ) =>
-      if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
-        optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
-        optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-        true
-      } else {
-        optimize_instructions_replace_with_drop_then_unreachable(
-          ctx, func, node_id, operand_id,
-        )
-      }
-    _ => false
+  match OiRefCastRewritePlanFact::from_cast(ctx, func, cast_fact) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
 }
 
