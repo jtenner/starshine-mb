@@ -28999,94 +28999,179 @@ fn RawOiScalarNumericRewriteFact::from_instrs(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-  instrs : Array[@lib.Instruction],
-  prefix_len : Int,
-) -> Bool {
-  for idx = 0; idx < prefix_len; idx = idx + 1 {
-    if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
-        instrs[idx],
-        0,
-      ) {
-      return false
-    }
-  }
-  true
+// Source-backed raw descriptor prefix facts for the Binaryen v130
+// optimizeKnownCastResult descriptor-child-localization case. Binaryen uses
+// ChildLocalizer to preserve descriptor operand effects before replacing a
+// known-null descriptor cast; Starshine's raw stack fallback can only hoist a
+// trapping descriptor block prefix when all contained control remains inside
+// that prefix and no loop/EH/return/throw boundary can escape it.
+priv struct RawOiDescriptorPrefixLabelFact {
+  depth : Int
+  target_depth : Int
+  is_local_to_prefix : Bool
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
+fn RawOiDescriptorPrefixLabelFact::from_label(
   label_idx : @lib.LabelIdx,
   depth : Int,
-) -> Bool {
+) -> RawOiDescriptorPrefixLabelFact {
   let @lib.LabelIdx(raw) = label_idx
-  raw.reinterpret_as_int() < depth
+  let target_depth = raw.reinterpret_as_int()
+  { depth, target_depth, is_local_to_prefix: target_depth < depth }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
+fn RawOiDescriptorPrefixLabelFact::proves_binaryen_local_branch(
+  self : RawOiDescriptorPrefixLabelFact,
+) -> Bool {
+  self.is_local_to_prefix && self.target_depth < self.depth
+}
+
+///|
+priv struct RawOiDescriptorPrefixBodyFact {
+  depth : Int
+  end : Int
+  can_hoist : Bool
+  has_blocking_boundary : Bool
+}
+
+///|
+priv struct RawOiDescriptorPrefixInstrFact {
+  can_hoist : Bool
+  is_plain_instruction : Bool
+  has_nested_control : Bool
+  has_blocking_boundary : Bool
+}
+
+///|
+fn RawOiDescriptorPrefixBodyFact::from_instrs_until(
   instrs : Array[@lib.Instruction],
   depth : Int,
-) -> Bool {
-  for instr in instrs {
-    if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
-        instr, depth,
-      ) {
-      return false
-    }
+  end : Int,
+) -> RawOiDescriptorPrefixBodyFact {
+  let mut can_hoist = true
+  let mut has_blocking_boundary = false
+  for idx = 0; idx < end; idx = idx + 1 {
+    let fact = RawOiDescriptorPrefixInstrFact::from_instr(instrs[idx], depth)
+    can_hoist = can_hoist && fact.can_hoist
+    has_blocking_boundary = has_blocking_boundary ||
+      fact.has_blocking_boundary ||
+      (fact.has_nested_control && !fact.can_hoist && !fact.is_plain_instruction)
   }
-  true
+  { depth, end, can_hoist, has_blocking_boundary }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
+fn RawOiDescriptorPrefixBodyFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  depth : Int,
+) -> RawOiDescriptorPrefixBodyFact {
+  RawOiDescriptorPrefixBodyFact::from_instrs_until(
+    instrs,
+    depth,
+    instrs.length(),
+  )
+}
+
+///|
+fn RawOiDescriptorPrefixInstrFact::plain() -> RawOiDescriptorPrefixInstrFact {
+  {
+    can_hoist: true,
+    is_plain_instruction: true,
+    has_nested_control: false,
+    has_blocking_boundary: false,
+  }
+}
+
+///|
+fn RawOiDescriptorPrefixInstrFact::nested(
+  body : RawOiDescriptorPrefixBodyFact,
+) -> RawOiDescriptorPrefixInstrFact {
+  {
+    can_hoist: body.can_hoist,
+    is_plain_instruction: false,
+    has_nested_control: true,
+    has_blocking_boundary: body.has_blocking_boundary,
+  }
+}
+
+///|
+fn RawOiDescriptorPrefixInstrFact::branch(
+  label : RawOiDescriptorPrefixLabelFact,
+) -> RawOiDescriptorPrefixInstrFact {
+  let can_hoist = label.proves_binaryen_local_branch()
+  {
+    can_hoist,
+    is_plain_instruction: false,
+    has_nested_control: true,
+    has_blocking_boundary: !can_hoist,
+  }
+}
+
+///|
+fn RawOiDescriptorPrefixInstrFact::blocking() -> RawOiDescriptorPrefixInstrFact {
+  {
+    can_hoist: false,
+    is_plain_instruction: false,
+    has_nested_control: true,
+    has_blocking_boundary: true,
+  }
+}
+
+///|
+fn RawOiDescriptorPrefixInstrFact::from_instr(
   instr : @lib.Instruction,
   depth : Int,
-) -> Bool {
+) -> RawOiDescriptorPrefixInstrFact {
   match instr {
     @lib.Block(_, @lib.Expr(body)) =>
-      run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
-        body,
-        depth + 1,
+      RawOiDescriptorPrefixInstrFact::nested(
+        RawOiDescriptorPrefixBodyFact::from_instrs(body, depth + 1),
       )
     @lib.If(_, then_body, else_body) => {
-      if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
-          then_body,
-          depth + 1,
-        ) {
-        return false
-      }
-      match else_body {
+      let then_fact = RawOiDescriptorPrefixBodyFact::from_instrs(
+        then_body,
+        depth + 1,
+      )
+      let else_fact = match else_body {
         Some(body) =>
-          run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
-            body,
-            depth + 1,
-          )
-        None => true
+          RawOiDescriptorPrefixBodyFact::from_instrs(body, depth + 1)
+        None => RawOiDescriptorPrefixBodyFact::from_instrs([], depth + 1)
+      }
+      {
+        can_hoist: then_fact.can_hoist && else_fact.can_hoist,
+        is_plain_instruction: false,
+        has_nested_control: true,
+        has_blocking_boundary: then_fact.has_blocking_boundary ||
+        else_fact.has_blocking_boundary,
       }
     }
     @lib.Br(label_idx) =>
-      run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
-        label_idx, depth,
+      RawOiDescriptorPrefixInstrFact::branch(
+        RawOiDescriptorPrefixLabelFact::from_label(label_idx, depth),
       )
     @lib.BrIf(label_idx) =>
-      run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
-        label_idx, depth,
+      RawOiDescriptorPrefixInstrFact::branch(
+        RawOiDescriptorPrefixLabelFact::from_label(label_idx, depth),
       )
     @lib.BrTable(labels, default_label) => {
-      if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
-          default_label, depth,
-        ) {
-        return false
-      }
+      let default_fact = RawOiDescriptorPrefixLabelFact::from_label(
+        default_label, depth,
+      )
+      let mut can_hoist = default_fact.proves_binaryen_local_branch()
       for label_idx in labels {
-        if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
-            label_idx, depth,
-          ) {
-          return false
-        }
+        let label_fact = RawOiDescriptorPrefixLabelFact::from_label(
+          label_idx, depth,
+        )
+        can_hoist = can_hoist && label_fact.proves_binaryen_local_branch()
       }
-      true
+      {
+        can_hoist,
+        is_plain_instruction: false,
+        has_nested_control: true,
+        has_blocking_boundary: !can_hoist,
+      }
     }
     @lib.Loop(_, _)
     | @lib.TryTable(_, _, _)
@@ -29095,9 +29180,43 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
     | @lib.ReturnCallIndirect(_, _)
     | @lib.ReturnCallRef(_)
     | @lib.Throw(_)
-    | @lib.ThrowRef => false
-    _ => true
+    | @lib.ThrowRef => RawOiDescriptorPrefixInstrFact::blocking()
+    _ => RawOiDescriptorPrefixInstrFact::plain()
   }
+}
+
+///|
+priv struct RawOiDescriptorBlockPrefixHoistFact {
+  prefix_len : Int
+  body : RawOiDescriptorPrefixBodyFact
+}
+
+///|
+fn RawOiDescriptorBlockPrefixHoistFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  prefix_len : Int,
+) -> RawOiDescriptorBlockPrefixHoistFact? {
+  if prefix_len < 0 || prefix_len > instrs.length() {
+    return None
+  }
+  let body = RawOiDescriptorPrefixBodyFact::from_instrs_until(
+    instrs, 0, prefix_len,
+  )
+  if body.can_hoist {
+    Some({ prefix_len, body })
+  } else {
+    None
+  }
+}
+
+///|
+fn RawOiDescriptorBlockPrefixHoistFact::proves_binaryen_descriptor_prefix_hoist(
+  self : RawOiDescriptorBlockPrefixHoistFact,
+) -> Bool {
+  self.body.depth == 0 &&
+  self.body.end == self.prefix_len &&
+  self.body.can_hoist &&
+  !self.body.has_blocking_boundary
 }
 
 ///|
@@ -30750,29 +30869,39 @@ fn RawOiBottomNullDescriptorOperandFact::from_block_body(
     return None
   }
   match descriptor_body[descriptor_body.length() - 1] {
-    @lib.Unreachable if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-        descriptor_body,
-        descriptor_body.length() - 1,
-      ) =>
-      return Some({
-        preserves_operand_as_drop: false,
-        erases_fresh_descriptor_allocation: false,
-        block_prefix_len: descriptor_body.length() - 1,
-        block_traps: true,
-      })
+    @lib.Unreachable =>
+      match
+        RawOiDescriptorBlockPrefixHoistFact::from_instrs(
+          descriptor_body,
+          descriptor_body.length() - 1,
+        ) {
+        Some(fact) if fact.proves_binaryen_descriptor_prefix_hoist() =>
+          return Some({
+            preserves_operand_as_drop: false,
+            erases_fresh_descriptor_allocation: false,
+            block_prefix_len: fact.prefix_len,
+            block_traps: true,
+          })
+        _ => ()
+      }
     _ => ()
   }
   let prefix_len = descriptor_body.length() - 2
   match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
-    (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-        descriptor_body, prefix_len,
-      ) =>
-      Some({
-        preserves_operand_as_drop: false,
-        erases_fresh_descriptor_allocation: false,
-        block_prefix_len: prefix_len,
-        block_traps: true,
-      })
+    (@lib.RefNull(_), @lib.RefAsNonNull) =>
+      match
+        RawOiDescriptorBlockPrefixHoistFact::from_instrs(
+          descriptor_body, prefix_len,
+        ) {
+        Some(fact) if fact.proves_binaryen_descriptor_prefix_hoist() =>
+          Some({
+            preserves_operand_as_drop: false,
+            erases_fresh_descriptor_allocation: false,
+            block_prefix_len: fact.prefix_len,
+            block_traps: true,
+          })
+        _ => None
+      }
     _ => None
   }
 }
