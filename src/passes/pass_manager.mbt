@@ -24842,89 +24842,205 @@ fn run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
 }
 
 ///|
+// Raw OI-G stack bridge fact for the public lowered dispatcher. Binaryen v130
+// `optimizeMemoryCopy` / `optimizeMemoryFill` make decisions from operand and
+// constant-size facts; the raw dispatcher needs the same facts before deciding
+// whether stack-carried bulk-memory shapes may bypass the generic raw gate.
+priv struct RawOiBulkStackOperandAtomFact {
+  admits_bulk_stack_operand : Bool
+}
+
+///|
+fn RawOiBulkStackOperandAtomFact::from_instr(
+  instr : @lib.Instruction,
+) -> RawOiBulkStackOperandAtomFact? {
+  match instr {
+    @lib.GlobalGet(_) => Some({ admits_bulk_stack_operand: true })
+    _ =>
+      if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+          instr,
+        ) {
+        Some({ admits_bulk_stack_operand: true })
+      } else {
+        None
+      }
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
   instr : @lib.Instruction,
 ) -> Bool {
-  match instr {
-    @lib.GlobalGet(_) => true
-    _ =>
-      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-        instr,
-      )
+  match RawOiBulkStackOperandAtomFact::from_instr(instr) {
+    Some(fact) => fact.admits_bulk_stack_operand
+    None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_instr_is_zero_memory_size(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.I32Const(@lib.I32(raw)) => raw == 0
-    @lib.I64Const(@lib.I64(raw)) => raw == 0L
-    _ => false
-  }
+priv struct RawOiBulkStackOperandFact {
+  start : Int
+  end : Int
+  has_call : Bool
+  stack_argument_count : Int
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.I32Const(@lib.I32(raw)) =>
-      raw == 1 || raw == 2 || raw == 4 || raw == 8 || raw == 16
-    @lib.I64Const(@lib.I64(raw)) =>
-      raw == 1L || raw == 2L || raw == 4L || raw == 8L || raw == 16L
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+fn RawOiBulkStackOperandFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
-) -> Int {
+) -> RawOiBulkStackOperandFact? {
   if start >= instrs.length() {
-    return -1
+    return None
   }
   if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
       instrs[start],
       module_ctx,
     ) ==
     0 {
-    return start + 1
+    return Some({
+      start,
+      end: start + 1,
+      has_call: true,
+      stack_argument_count: 0,
+    })
   }
-  if run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-      instrs[start],
-    ) {
-    let mut call_pos = start + 1
-    while call_pos < instrs.length() &&
-          run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-            instrs[call_pos - 1],
-          ) {
-      if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-          instrs[call_pos],
-          module_ctx,
-        ) ==
-        call_pos - start {
-        return call_pos + 1
-      }
-      call_pos = call_pos + 1
+  match RawOiBulkStackOperandAtomFact::from_instr(instrs[start]) {
+    Some(_) => ()
+    None => return None
+  }
+  let mut call_pos = start + 1
+  while call_pos < instrs.length() &&
+        RawOiBulkStackOperandAtomFact::from_instr(instrs[call_pos - 1])
+        is Some(_) {
+    if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
+        instrs[call_pos],
+        module_ctx,
+      ) ==
+      call_pos - start {
+      return Some({
+        start,
+        end: call_pos + 1,
+        has_call: true,
+        stack_argument_count: call_pos - start,
+      })
     }
-    return start + 1
+    call_pos = call_pos + 1
   }
-  -1
+  Some({ start, end: start + 1, has_call: false, stack_argument_count: 0 })
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_instr_is_byte_memory_fill_size(
-  instr : @lib.Instruction,
+fn RawOiBulkStackOperandFact::is_stack_carried_call(
+  self : RawOiBulkStackOperandFact,
 ) -> Bool {
+  self.has_call || self.stack_argument_count > 0 || self.end > self.start + 1
+}
+
+///|
+priv struct RawOiBulkSizeFact {
+  is_zero : Bool
+  is_tiny_copy_size : Bool
+  is_byte_fill_size : Bool
+}
+
+///|
+fn RawOiBulkSizeFact::from_instr(instr : @lib.Instruction) -> RawOiBulkSizeFact {
   match instr {
-    @lib.I32Const(@lib.I32(raw)) => raw == 1
-    @lib.I64Const(@lib.I64(raw)) => raw == 1L
-    _ => false
+    @lib.I32Const(@lib.I32(raw)) =>
+      {
+        is_zero: raw == 0,
+        is_tiny_copy_size: raw == 1 ||
+        raw == 2 ||
+        raw == 4 ||
+        raw == 8 ||
+        raw == 16,
+        is_byte_fill_size: raw == 1,
+      }
+    @lib.I64Const(@lib.I64(raw)) =>
+      {
+        is_zero: raw == 0L,
+        is_tiny_copy_size: raw == 1L ||
+        raw == 2L ||
+        raw == 4L ||
+        raw == 8L ||
+        raw == 16L,
+        is_byte_fill_size: raw == 1L,
+      }
+    _ => { is_zero: false, is_tiny_copy_size: false, is_byte_fill_size: false }
   }
+}
+
+///|
+// One flat stack-root `memory.copy` / `memory.fill` fact: two address/value
+// operands, one constant-size fact, and the bulk opcode. This replaces the old
+// raw end-index scanner used by the tiny and trap-relaxed zero-size gates.
+priv struct RawOiStackBulkMemoryFact {
+  end : Int
+  dest : RawOiBulkStackOperandFact
+  source_or_value : RawOiBulkStackOperandFact
+  size : RawOiBulkSizeFact
+  is_memory_copy : Bool
+  is_memory_fill : Bool
+}
+
+///|
+fn RawOiStackBulkMemoryFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> RawOiStackBulkMemoryFact? {
+  let dest = match
+    RawOiBulkStackOperandFact::from_instrs(instrs, start, module_ctx) {
+    Some(fact) => fact
+    None => return None
+  }
+  let source_or_value = match
+    RawOiBulkStackOperandFact::from_instrs(instrs, dest.end, module_ctx) {
+    Some(fact) => fact
+    None => return None
+  }
+  if source_or_value.end + 1 >= instrs.length() {
+    return None
+  }
+  let size = RawOiBulkSizeFact::from_instr(instrs[source_or_value.end])
+  let (is_memory_copy, is_memory_fill) = match instrs[source_or_value.end + 1] {
+    @lib.MemoryCopy(_, _) => (true, false)
+    @lib.MemoryFill(_) => (false, true)
+    _ => return None
+  }
+  Some({
+    end: source_or_value.end + 2,
+    dest,
+    source_or_value,
+    size,
+    is_memory_copy,
+    is_memory_fill,
+  })
+}
+
+///|
+fn RawOiStackBulkMemoryFact::has_stack_carried_call_operand(
+  self : RawOiStackBulkMemoryFact,
+) -> Bool {
+  self.dest.is_stack_carried_call() ||
+  self.source_or_value.is_stack_carried_call()
+}
+
+///|
+fn RawOiStackBulkMemoryFact::matches_binaryen_tiny_rewrite(
+  self : RawOiStackBulkMemoryFact,
+) -> Bool {
+  (self.is_memory_copy && self.size.is_tiny_copy_size) ||
+  (self.is_memory_fill && self.size.is_byte_fill_size)
+}
+
+///|
+fn RawOiStackBulkMemoryFact::matches_trap_relaxed_zero_size_drop(
+  self : RawOiStackBulkMemoryFact,
+) -> Bool {
+  self.size.is_zero && (self.is_memory_copy || self.is_memory_fill)
 }
 
 ///|
@@ -24936,48 +25052,22 @@ fn run_hot_pipeline_optimize_instructions_is_tiny_stack_bulk_memory(
     return false
   }
   let mut i = 0
-  let mut saw_call = false
+  let mut saw_stack_call_operand = false
   while i < instrs.length() {
-    let first_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
-      instrs, i, module_ctx,
-    )
-    if first_end < 0 {
+    let fact = match
+      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
+      Some(fact) => fact
+      None => return false
+    }
+    if !fact.matches_binaryen_tiny_rewrite() {
       return false
     }
-    let second_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
-      instrs, first_end, module_ctx,
-    )
-    if second_end < 0 || second_end + 1 >= instrs.length() {
-      return false
+    if fact.has_stack_carried_call_operand() {
+      saw_stack_call_operand = true
     }
-    let is_copy_instr = match instrs[second_end + 1] {
-      @lib.MemoryCopy(_, _) => true
-      _ => false
-    }
-    let is_fill_instr = match instrs[second_end + 1] {
-      @lib.MemoryFill(_) => true
-      _ => false
-    }
-    let is_copy = run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
-        instrs[second_end],
-      ) &&
-      is_copy_instr
-    let is_fill = run_hot_pipeline_optimize_instructions_instr_is_byte_memory_fill_size(
-        instrs[second_end],
-      ) &&
-      is_fill_instr
-    if !is_copy && !is_fill {
-      return false
-    }
-    if first_end > i + 1 ||
-      second_end > first_end + 1 ||
-      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
-      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[first_end]) {
-      saw_call = true
-    }
-    i = second_end + 2
+    i = fact.end
   }
-  saw_call
+  saw_stack_call_operand
 }
 
 ///|
@@ -24991,30 +25081,16 @@ fn run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_m
   let mut i = 0
   let mut saw_bulk = false
   while i < instrs.length() {
-    let first_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
-      instrs, i, module_ctx,
-    )
-    if first_end < 0 {
-      return false
+    let fact = match
+      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
+      Some(fact) => fact
+      None => return false
     }
-    let second_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
-      instrs, first_end, module_ctx,
-    )
-    if second_end < 0 || second_end + 1 >= instrs.length() {
-      return false
-    }
-    let is_zero_size = run_hot_pipeline_optimize_instructions_instr_is_zero_memory_size(
-      instrs[second_end],
-    )
-    let is_bulk = match instrs[second_end + 1] {
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) => true
-      _ => false
-    }
-    if !is_zero_size || !is_bulk {
+    if !fact.matches_trap_relaxed_zero_size_drop() {
       return false
     }
     saw_bulk = true
-    i = second_end + 2
+    i = fact.end
   }
   saw_bulk
 }
