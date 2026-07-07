@@ -25651,6 +25651,310 @@ fn RawOiCallRefDirectizeRewriteFact::from_instrs(
 }
 
 ///|
+// Raw OI-I/OI-J ref/null trap repair fact for the fallback stack dispatcher.
+// Binaryen v130's `visitRefAs`, `visitRefCast`, and `visitRefTest` first use
+// fallthrough/null-trap facts (`trapOnNull`, `getFallthroughType`,
+// `evaluateCastCheck`) and then preserve the remaining operand effects through
+// dropped-child rewrites. Keep the represented flat raw windows in one fact so
+// the dispatcher no longer owns separate ref.null/ref.test/ref.cast/null-trap
+// peepholes.
+priv struct RawOiRefNullTrapRewriteFact {
+  end : Int
+  terminates_region : Bool
+  is_dropped_unreachable_tail : Bool
+  is_ref_null_as_non_null : Bool
+  is_ref_null_test_drop : Bool
+  is_ref_null_cast_drop : Bool
+  is_local_null_test_cast_drop : Bool
+  test_nullable : Bool
+  cast_nullable : Bool
+  cast_exact : Bool
+  target_heap : @lib.HeapType?
+  preserved_local : @lib.LocalIdx?
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::proves_binaryen_ref_null_trap_repair(
+  self : RawOiRefNullTrapRewriteFact,
+) -> Bool {
+  ignore(self.terminates_region)
+  ignore(self.test_nullable)
+  ignore(self.cast_nullable)
+  ignore(self.cast_exact)
+  ignore(self.target_heap)
+  ignore(self.preserved_local)
+  let family_count = (if self.is_dropped_unreachable_tail { 1 } else { 0 }) +
+    (if self.is_ref_null_as_non_null { 1 } else { 0 }) +
+    (if self.is_ref_null_test_drop { 1 } else { 0 }) +
+    (if self.is_ref_null_cast_drop { 1 } else { 0 }) +
+    (if self.is_local_null_test_cast_drop { 1 } else { 0 })
+  self.rewrite.length() > 0 && family_count == 1
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::append_rewrite(
+  self : RawOiRefNullTrapRewriteFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_ref_null_trap_repair() {
+    for instr in self.rewrite {
+      out.push(instr)
+    }
+  }
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiRefNullTrapRewriteFact? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  match instrs[start + 1] {
+    @lib.Instruction::Drop if pass_raw_dropped_block_has_unreachable_tail(
+        current,
+      ) =>
+      Some({
+        end: start + 2,
+        terminates_region: true,
+        is_dropped_unreachable_tail: true,
+        is_ref_null_as_non_null: false,
+        is_ref_null_test_drop: false,
+        is_ref_null_cast_drop: false,
+        is_local_null_test_cast_drop: false,
+        test_nullable: false,
+        cast_nullable: false,
+        cast_exact: false,
+        target_heap: None,
+        preserved_local: None,
+        rewrite: [@lib.Instruction::unreachable_()],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiRefNullTrapRewriteFact? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  match (current, instrs[start + 1]) {
+    (@lib.Instruction::RefNull(_), @lib.Instruction::RefAsNonNull) =>
+      Some({
+        end: start + 2,
+        terminates_region: true,
+        is_dropped_unreachable_tail: false,
+        is_ref_null_as_non_null: true,
+        is_ref_null_test_drop: false,
+        is_ref_null_cast_drop: false,
+        is_local_null_test_cast_drop: false,
+        test_nullable: false,
+        cast_nullable: false,
+        cast_exact: false,
+        target_heap: None,
+        preserved_local: None,
+        rewrite: [@lib.Instruction::unreachable_()],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiRefNullTrapRewriteFact? {
+  if start + 10 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      current,
+      instrs[start + 1],
+      instrs[start + 2],
+      instrs[start + 3],
+      instrs[start + 4],
+      instrs[start + 5],
+      instrs[start + 6],
+      instrs[start + 7],
+      instrs[start + 8],
+      instrs[start + 9],
+      instrs[start + 10],
+    ) {
+    (
+      @lib.Instruction::RefNull(_),
+      @lib.Instruction::LocalSet(set_local),
+      @lib.Instruction::LocalGet(is_null_local),
+      @lib.Instruction::RefIsNull,
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(test_local),
+      @lib.Instruction::RefTest(test_nullable, false, _),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(cast_local),
+      @lib.Instruction::RefCast(true, cast_exact, target_heap),
+      @lib.Instruction::Drop,
+    ) if set_local == is_null_local &&
+      set_local == test_local &&
+      set_local == cast_local =>
+      Some({
+        end: start + 11,
+        terminates_region: false,
+        is_dropped_unreachable_tail: false,
+        is_ref_null_as_non_null: false,
+        is_ref_null_test_drop: false,
+        is_ref_null_cast_drop: false,
+        is_local_null_test_cast_drop: true,
+        test_nullable,
+        cast_nullable: true,
+        cast_exact,
+        target_heap: Some(target_heap),
+        preserved_local: Some(set_local),
+        rewrite: [
+          current,
+          instrs[start + 1],
+          instrs[start + 2],
+          instrs[start + 3],
+          instrs[start + 4],
+          instrs[start + 5],
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(
+            @lib.I32(if test_nullable { 1 } else { 0 }),
+          ),
+          @lib.Instruction::drop(),
+          instrs[start + 8],
+          @lib.Instruction::drop(),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiRefNullTrapRewriteFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (current, instrs[start + 1], instrs[start + 2]) {
+    (
+      @lib.Instruction::RefNull(_),
+      @lib.Instruction::RefTest(nullable, false, _),
+      @lib.Instruction::Drop,
+    ) =>
+      Some({
+        end: start + 3,
+        terminates_region: false,
+        is_dropped_unreachable_tail: false,
+        is_ref_null_as_non_null: false,
+        is_ref_null_test_drop: true,
+        is_ref_null_cast_drop: false,
+        is_local_null_test_cast_drop: false,
+        test_nullable: nullable,
+        cast_nullable: false,
+        cast_exact: false,
+        target_heap: None,
+        preserved_local: None,
+        rewrite: [
+          @lib.Instruction::i32_const(@lib.I32(if nullable { 1 } else { 0 })),
+          @lib.Instruction::drop(),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiRefNullTrapRewriteFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (current, instrs[start + 1], instrs[start + 2]) {
+    (
+      @lib.Instruction::RefNull(_),
+      @lib.Instruction::RefCast(nullable, exact, target_heap),
+      @lib.Instruction::Drop,
+    ) => {
+      let rewrite = if nullable {
+        [
+          @lib.Instruction::ref_null_type(
+            @lib.RefType::new(true, target_heap, exact~),
+          ),
+          @lib.Instruction::drop(),
+        ]
+      } else {
+        [@lib.Instruction::unreachable_()]
+      }
+      Some({
+        end: start + 3,
+        terminates_region: not(nullable),
+        is_dropped_unreachable_tail: false,
+        is_ref_null_as_non_null: false,
+        is_ref_null_test_drop: false,
+        is_ref_null_cast_drop: true,
+        is_local_null_test_cast_drop: false,
+        test_nullable: false,
+        cast_nullable: nullable,
+        cast_exact: exact,
+        target_heap: Some(target_heap),
+        preserved_local: None,
+        rewrite,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn RawOiRefNullTrapRewriteFact::from_instrs(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiRefNullTrapRewriteFact? {
+  match
+    RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
+      current, instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
+      current, instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
+      current, instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(current, instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(current, instrs, start)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   instrs : Array[@lib.Instruction],
   root_instrs : Array[@lib.Instruction],
@@ -25664,112 +25968,17 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
       root_instrs,
     )
     changed = changed || child_changed
-    if i + 1 < instrs.length() {
-      match (current, instrs[i + 1]) {
-        (block_instr, @lib.Instruction::Drop) if pass_raw_dropped_block_has_unreachable_tail(
-            block_instr,
-          ) => {
-          out.push(@lib.Instruction::unreachable_())
-          changed = true
+    match RawOiRefNullTrapRewriteFact::from_instrs(current, instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(out)
+        changed = true
+        i = fact.end
+        if fact.terminates_region {
           break
         }
-        (@lib.Instruction::RefNull(_), @lib.Instruction::RefAsNonNull) => {
-          out.push(@lib.Instruction::unreachable_())
-          changed = true
-          break
-        }
-        _ => ()
+        continue
       }
-    }
-    if i + 10 < instrs.length() {
-      match
-        (
-          current,
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-          instrs[i + 8],
-          instrs[i + 9],
-          instrs[i + 10],
-        ) {
-        (
-          @lib.Instruction::RefNull(_),
-          @lib.Instruction::LocalSet(set_local),
-          @lib.Instruction::LocalGet(is_null_local),
-          @lib.Instruction::RefIsNull,
-          @lib.Instruction::Drop,
-          @lib.Instruction::LocalGet(test_local),
-          @lib.Instruction::RefTest(test_nullable, false, _),
-          @lib.Instruction::Drop,
-          @lib.Instruction::LocalGet(cast_local),
-          @lib.Instruction::RefCast(true, _, _),
-          @lib.Instruction::Drop,
-        ) if set_local == is_null_local &&
-          set_local == test_local &&
-          set_local == cast_local => {
-          out.push(current)
-          out.push(instrs[i + 1])
-          out.push(instrs[i + 2])
-          out.push(instrs[i + 3])
-          out.push(instrs[i + 4])
-          out.push(instrs[i + 5])
-          out.push(@lib.Instruction::drop())
-          out.push(
-            @lib.Instruction::i32_const(
-              @lib.I32(if test_nullable { 1 } else { 0 }),
-            ),
-          )
-          out.push(@lib.Instruction::drop())
-          out.push(instrs[i + 8])
-          out.push(@lib.Instruction::drop())
-          changed = true
-          i += 11
-          continue
-        }
-        _ => ()
-      }
-    }
-    if i + 2 < instrs.length() {
-      match (current, instrs[i + 1], instrs[i + 2]) {
-        (
-          @lib.Instruction::RefNull(_),
-          @lib.Instruction::RefTest(nullable, false, _),
-          @lib.Instruction::Drop,
-        ) => {
-          out.push(
-            @lib.Instruction::i32_const(@lib.I32(if nullable { 1 } else { 0 })),
-          )
-          out.push(@lib.Instruction::drop())
-          changed = true
-          i += 3
-          continue
-        }
-        (
-          @lib.Instruction::RefNull(_),
-          @lib.Instruction::RefCast(nullable, exact, target_heap),
-          @lib.Instruction::Drop,
-        ) =>
-          if nullable {
-            out.push(
-              @lib.Instruction::ref_null_type(
-                @lib.RefType::new(true, target_heap, exact~),
-              ),
-            )
-            out.push(@lib.Instruction::drop())
-            changed = true
-            i += 3
-            continue
-          } else {
-            out.push(@lib.Instruction::unreachable_())
-            changed = true
-            break
-          }
-        _ => ()
-      }
+      None => ()
     }
     match
       RawOiCallRefDirectizeRewriteFact::from_instrs(
@@ -25799,12 +26008,47 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
+// Raw OI-F effectful-sibling same-global `if` fact. Binaryen v130's
+// `optimizeTernary` hoists a shallow-equal one-child operation out of an `if`;
+// this raw fallback represents the flat-stack form where both arms perform the
+// same `global.set` and the arm values become the value-producing `if` child.
+priv struct RawOiSameGlobalIfSinkFact {
+  global_idx : @lib.GlobalIdx
+  value_type : @lib.ValType
+  then_value : @lib.Instruction
+  else_value : @lib.Instruction
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiSameGlobalIfSinkFact::proves_binaryen_ternary_same_global_sink(
+  self : RawOiSameGlobalIfSinkFact,
+) -> Bool {
+  ignore(self.global_idx)
+  ignore(self.value_type)
+  ignore(self.then_value)
+  ignore(self.else_value)
+  self.rewrite.length() == 2
+}
+
+///|
+fn RawOiSameGlobalIfSinkFact::to_rewrite(
+  self : RawOiSameGlobalIfSinkFact,
+) -> Array[@lib.Instruction]? {
+  if self.proves_binaryen_ternary_same_global_sink() {
+    Some(self.rewrite)
+  } else {
+    None
+  }
+}
+
+///|
+fn RawOiSameGlobalIfSinkFact::from_if_arms(
   block_type : @lib.BlockType,
   then_body : Array[@lib.Instruction],
   else_body : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Array[@lib.Instruction]? {
+) -> RawOiSameGlobalIfSinkFact? {
   if block_type != @lib.BlockType::void_() ||
     then_body.length() != 2 ||
     else_body.length() != 2 {
@@ -25812,24 +26056,45 @@ fn run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
   }
   let then_value = then_body[0]
   let else_value = else_body[0]
-  match (then_body[1], else_body[1]) {
+  let global_idx = match (then_body[1], else_body[1]) {
     (@lib.GlobalSet(global_idx), @lib.GlobalSet(other_global_idx)) if global_idx ==
-      other_global_idx => {
-      let value_type = match
-        @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
-        Some(@lib.GlobalType(val_type, _)) => val_type
-        None => return None
-      }
-      Some([
-        @lib.Instruction::if_(
-          @lib.BlockType::val_type(value_type),
-          [then_value],
-          Some([else_value]),
-        ),
-        @lib.Instruction::global_set(global_idx),
-      ])
-    }
-    _ => None
+      other_global_idx => global_idx
+    _ => return None
+  }
+  let value_type = match
+    @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
+    Some(@lib.GlobalType(val_type, _)) => val_type
+    None => return None
+  }
+  Some({
+    global_idx,
+    value_type,
+    then_value,
+    else_value,
+    rewrite: [
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(value_type),
+        [then_value],
+        Some([else_value]),
+      ),
+      @lib.Instruction::global_set(global_idx),
+    ],
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
+  block_type : @lib.BlockType,
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Array[@lib.Instruction]? {
+  match
+    RawOiSameGlobalIfSinkFact::from_if_arms(
+      block_type, then_body, else_body, module_ctx,
+    ) {
+    Some(fact) => fact.to_rewrite()
+    None => None
   }
 }
 
