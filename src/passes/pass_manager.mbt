@@ -27780,6 +27780,506 @@ fn RawOiMemorySizeNonzeroIfFact::from_instrs(
 }
 
 ///|
+// Raw OI-D scalar numeric rewrite fact for the fallback stack dispatcher.
+// Binaryen v130 routes these through visitor-level `visitBinary` / `visitUnary`
+// facts such as neutral add/sub constants, ordered constant eq/ne folding,
+// nonnegative signed-to-unsigned spellings, power-of-two multiply shifts, safe
+// float subtraction negation, constant add/sub folding, and `i32.wrap_i64`
+// constant wrapping. Keep the represented flat stack windows as one fact with a
+// complete rewrite payload instead of separate dispatcher-owned peepholes.
+priv struct RawOiScalarNumericRewriteFact {
+  end : Int
+  neutral_integer : Bool
+  ordered_const_eq_ne : Bool
+  nonnegative_signed_spelling : Bool
+  power_of_two_mul : Bool
+  float_sub_to_add : Bool
+  integer_const_fold : Bool
+  wrap_i64_const : Bool
+  f64_div2_sub_to_mul_add : Bool
+  i64_extend_local_commute : Bool
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::proves_binaryen_numeric_rewrite(
+  self : RawOiScalarNumericRewriteFact,
+) -> Bool {
+  self.rewrite.length() > 0 &&
+  (
+    self.neutral_integer ||
+    self.ordered_const_eq_ne ||
+    self.nonnegative_signed_spelling ||
+    self.power_of_two_mul ||
+    self.float_sub_to_add ||
+    self.integer_const_fold ||
+    self.wrap_i64_const ||
+    self.f64_div2_sub_to_mul_add ||
+    self.i64_extend_local_commute
+  )
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::append_rewrite(
+  self : RawOiScalarNumericRewriteFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_numeric_rewrite() {
+    for instr in self.rewrite {
+      out.push(instr)
+    }
+  }
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiScalarNumericRewriteFact? {
+  if start + 4 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[start],
+      instrs[start + 1],
+      instrs[start + 2],
+      instrs[start + 3],
+      instrs[start + 4],
+    ) {
+    (
+      @lib.F64Const(@lib.F64(div_lhs_raw)),
+      @lib.F64Const(@lib.F64(div_rhs_raw)),
+      @lib.F64Div,
+      @lib.F64Const(@lib.F64(sub_rhs_raw)),
+      @lib.F64Sub,
+    ) if div_rhs_raw == 2.0 &&
+      run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+        div_lhs_raw,
+      ) &&
+      run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+        sub_rhs_raw,
+      ) =>
+      Some({
+        end: start + 5,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: false,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: true,
+        i64_extend_local_commute: false,
+        rewrite: [
+          @lib.Instruction::f64_const(@lib.F64(div_lhs_raw)),
+          @lib.Instruction::f64_const(@lib.F64(0.5)),
+          @lib.Instruction::f64_mul(),
+          @lib.Instruction::f64_const(@lib.F64(-sub_rhs_raw)),
+          @lib.Instruction::f64_add(),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiScalarNumericRewriteFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  match
+    run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
+      instrs[start],
+      instrs[start + 1],
+      instrs[start + 2],
+      instrs[start + 3],
+    ) {
+    Some(commuted) =>
+      Some({
+        end: start + 4,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: false,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: true,
+        rewrite: commuted,
+      })
+    None => None
+  }
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::from_three_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiScalarNumericRewriteFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (value, @lib.I32Const(@lib.I32(0)), @lib.I32Add)
+    | (value, @lib.I32Const(@lib.I32(0)), @lib.I32Sub)
+    | (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add)
+    | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Add)
+    | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Sub)
+    | (@lib.I64Const(@lib.I64(0L)), value, @lib.I64Add) =>
+      return Some({
+        end: start + 3,
+        neutral_integer: true,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: false,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [value],
+      })
+    _ => ()
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (@lib.I32Const(@lib.I32(lhs_raw)), @lib.I32Const(@lib.I32(rhs_raw)), instr) => {
+      match
+        run_hot_pipeline_raw_optimize_instructions_ordered_const_i32_eq_ne(
+          lhs_raw, rhs_raw, instr,
+        ) {
+        Some(result) =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: true,
+            nonnegative_signed_spelling: false,
+            power_of_two_mul: false,
+            float_sub_to_add: false,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [@lib.Instruction::i32_const(result)],
+          })
+        None => ()
+      }
+      match
+        run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
+          lhs_raw, rhs_raw, instr,
+        ) {
+        Some(unsigned_instr) =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: false,
+            nonnegative_signed_spelling: true,
+            power_of_two_mul: false,
+            float_sub_to_add: false,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [
+              @lib.Instruction::i32_const(@lib.I32(lhs_raw)),
+              @lib.Instruction::i32_const(@lib.I32(rhs_raw)),
+              unsigned_instr,
+            ],
+          })
+        None => ()
+      }
+    }
+    (@lib.I64Const(@lib.I64(lhs_raw)), @lib.I64Const(@lib.I64(rhs_raw)), instr) => {
+      match
+        run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
+          lhs_raw, rhs_raw, instr,
+        ) {
+        Some(result) =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: true,
+            nonnegative_signed_spelling: false,
+            power_of_two_mul: false,
+            float_sub_to_add: false,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [@lib.Instruction::i32_const(result)],
+          })
+        None => ()
+      }
+      match
+        run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
+          lhs_raw, rhs_raw, instr,
+        ) {
+        Some(unsigned_instr) =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: false,
+            nonnegative_signed_spelling: true,
+            power_of_two_mul: false,
+            float_sub_to_add: false,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [
+              @lib.Instruction::i64_const(@lib.I64(lhs_raw)),
+              @lib.Instruction::i64_const(@lib.I64(rhs_raw)),
+              unsigned_instr,
+            ],
+          })
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i32_const(
+        lhs,
+      ) =>
+      match
+        run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(raw) {
+        Some(shift) =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: false,
+            nonnegative_signed_spelling: false,
+            power_of_two_mul: true,
+            float_sub_to_add: false,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [
+              lhs,
+              @lib.Instruction::i32_const(@lib.I32(shift)),
+              @lib.Instruction::i32_shl(),
+            ],
+          })
+        None => ()
+      }
+    (lhs, @lib.I64Const(@lib.I64(raw)), @lib.I64Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i64_const(
+        lhs,
+      ) =>
+      match
+        run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(raw) {
+        Some(shift) =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: false,
+            nonnegative_signed_spelling: false,
+            power_of_two_mul: true,
+            float_sub_to_add: false,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [
+              lhs,
+              @lib.Instruction::i64_const(@lib.I64(shift)),
+              @lib.Instruction::i64_shl(),
+            ],
+          })
+        None => ()
+      }
+    (@lib.F32Const(lhs), @lib.F32Const(@lib.F32(rhs_raw)), @lib.F32Sub) if run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
+        rhs_raw,
+      ) =>
+      return Some({
+        end: start + 3,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: true,
+        integer_const_fold: false,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [
+          @lib.Instruction::f32_const(lhs),
+          @lib.Instruction::f32_const(@lib.F32(-rhs_raw)),
+          @lib.Instruction::f32_add(),
+        ],
+      })
+    (@lib.F64Const(lhs), @lib.F64Const(@lib.F64(rhs_raw)), @lib.F64Sub) if run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+        rhs_raw,
+      ) =>
+      return Some({
+        end: start + 3,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: true,
+        integer_const_fold: false,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [
+          @lib.Instruction::f64_const(lhs),
+          @lib.Instruction::f64_const(@lib.F64(-rhs_raw)),
+          @lib.Instruction::f64_add(),
+        ],
+      })
+    (
+      @lib.I32Const(@lib.I32(lhs_raw)),
+      @lib.I32Const(@lib.I32(rhs_raw)),
+      @lib.I32Add,
+    ) => {
+      let folded = @lib.I32(
+        (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+      )
+      return Some({
+        end: start + 3,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: true,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [@lib.Instruction::i32_const(folded)],
+      })
+    }
+    (
+      @lib.I32Const(@lib.I32(lhs_raw)),
+      @lib.I32Const(@lib.I32(rhs_raw)),
+      @lib.I32Sub,
+    ) => {
+      let folded = @lib.I32(
+        (lhs_raw.reinterpret_as_uint() - rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+      )
+      return Some({
+        end: start + 3,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: true,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [@lib.Instruction::i32_const(folded)],
+      })
+    }
+    (
+      @lib.I64Const(@lib.I64(lhs_raw)),
+      @lib.I64Const(@lib.I64(rhs_raw)),
+      @lib.I64Add,
+    ) => {
+      let folded = @lib.I64(
+        (lhs_raw.reinterpret_as_uint64() + rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+      )
+      return Some({
+        end: start + 3,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: true,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [@lib.Instruction::i64_const(folded)],
+      })
+    }
+    (
+      @lib.I64Const(@lib.I64(lhs_raw)),
+      @lib.I64Const(@lib.I64(rhs_raw)),
+      @lib.I64Sub,
+    ) => {
+      let folded = @lib.I64(
+        (lhs_raw.reinterpret_as_uint64() - rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+      )
+      return Some({
+        end: start + 3,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: true,
+        wrap_i64_const: false,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [@lib.Instruction::i64_const(folded)],
+      })
+    }
+    _ => ()
+  }
+  None
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::from_two_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiScalarNumericRewriteFact? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1]) {
+    (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) =>
+      Some({
+        end: start + 2,
+        neutral_integer: false,
+        ordered_const_eq_ne: false,
+        nonnegative_signed_spelling: false,
+        power_of_two_mul: false,
+        float_sub_to_add: false,
+        integer_const_fold: false,
+        wrap_i64_const: true,
+        f64_div2_sub_to_mul_add: false,
+        i64_extend_local_commute: false,
+        rewrite: [
+          @lib.Instruction::i32_const(
+            run_hot_pipeline_raw_optimize_instructions_wrap_i64_const_to_i32(
+              raw,
+            ),
+          ),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiScalarNumericRewriteFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiScalarNumericRewriteFact? {
+  match RawOiScalarNumericRewriteFact::from_f64_div2_sub(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match RawOiScalarNumericRewriteFact::from_three_instrs(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiScalarNumericRewriteFact::from_two_instrs(instrs, start)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
   instrs : Array[@lib.Instruction],
   prefix_len : Int,
@@ -29711,71 +30211,17 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    if i + 4 < instrs.length() {
-      match
-        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
-        (
-          @lib.F64Const(@lib.F64(div_lhs_raw)),
-          @lib.F64Const(@lib.F64(div_rhs_raw)),
-          @lib.F64Div,
-          @lib.F64Const(@lib.F64(sub_rhs_raw)),
-          @lib.F64Sub,
-        ) if div_rhs_raw == 2.0 &&
-          run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-            div_lhs_raw,
-          ) &&
-          run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-            sub_rhs_raw,
-          ) => {
-          rewritten.push(@lib.Instruction::f64_const(@lib.F64(div_lhs_raw)))
-          rewritten.push(@lib.Instruction::f64_const(@lib.F64(0.5)))
-          rewritten.push(@lib.Instruction::f64_mul())
-          rewritten.push(@lib.Instruction::f64_const(@lib.F64(-sub_rhs_raw)))
-          rewritten.push(@lib.Instruction::f64_add())
-          changed = true
-          i = i + 5
-          continue
-        }
-        _ => ()
+    match RawOiScalarNumericRewriteFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
-    }
-    if i + 3 < instrs.length() {
-      match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
-        (lhs, extend_instr, rhs, binop) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
-              lhs, extend_instr, rhs, binop,
-            ) {
-            Some(commuted) => {
-              for instr in commuted {
-                rewritten.push(instr)
-              }
-              changed = true
-              i = i + 4
-              continue
-            }
-            None => ()
-          }
-      }
+      None => ()
     }
     if i + 2 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-        (value, @lib.I32Const(@lib.I32(0)), @lib.I32Add)
-        | (value, @lib.I32Const(@lib.I32(0)), @lib.I32Sub)
-        | (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add) => {
-          rewritten.push(value)
-          changed = true
-          i = i + 3
-          continue
-        }
-        (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Add)
-        | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Sub)
-        | (@lib.I64Const(@lib.I64(0L)), value, @lib.I64Add) => {
-          rewritten.push(value)
-          changed = true
-          i = i + 3
-          continue
-        }
         (address, value, store_instr) =>
           match
             run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
@@ -29791,182 +30237,6 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
             }
             None => ()
           }
-      }
-      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-        (
-          @lib.I32Const(@lib.I32(lhs_raw)),
-          @lib.I32Const(@lib.I32(rhs_raw)),
-          instr,
-        ) => {
-          match
-            run_hot_pipeline_raw_optimize_instructions_ordered_const_i32_eq_ne(
-              lhs_raw, rhs_raw, instr,
-            ) {
-            Some(result) => {
-              rewritten.push(@lib.Instruction::i32_const(result))
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
-          match
-            run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
-              lhs_raw, rhs_raw, instr,
-            ) {
-            Some(unsigned_instr) => {
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(lhs_raw)))
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(rhs_raw)))
-              rewritten.push(unsigned_instr)
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
-        }
-        (
-          @lib.I64Const(@lib.I64(lhs_raw)),
-          @lib.I64Const(@lib.I64(rhs_raw)),
-          instr,
-        ) => {
-          match
-            run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
-              lhs_raw, rhs_raw, instr,
-            ) {
-            Some(result) => {
-              rewritten.push(@lib.Instruction::i32_const(result))
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
-          match
-            run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
-              lhs_raw, rhs_raw, instr,
-            ) {
-            Some(unsigned_instr) => {
-              rewritten.push(@lib.Instruction::i64_const(@lib.I64(lhs_raw)))
-              rewritten.push(@lib.Instruction::i64_const(@lib.I64(rhs_raw)))
-              rewritten.push(unsigned_instr)
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
-        }
-        _ => ()
-      }
-      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-        (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i32_const(
-            lhs,
-          ) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(
-              raw,
-            ) {
-            Some(shift) => {
-              rewritten.push(lhs)
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(shift)))
-              rewritten.push(@lib.Instruction::i32_shl())
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
-        (lhs, @lib.I64Const(@lib.I64(raw)), @lib.I64Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i64_const(
-            lhs,
-          ) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(
-              raw,
-            ) {
-            Some(shift) => {
-              rewritten.push(lhs)
-              rewritten.push(@lib.Instruction::i64_const(@lib.I64(shift)))
-              rewritten.push(@lib.Instruction::i64_shl())
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
-        (@lib.F32Const(lhs), @lib.F32Const(@lib.F32(rhs_raw)), @lib.F32Sub) if run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
-            rhs_raw,
-          ) => {
-          rewritten.push(@lib.Instruction::f32_const(lhs))
-          rewritten.push(@lib.Instruction::f32_const(@lib.F32(-rhs_raw)))
-          rewritten.push(@lib.Instruction::f32_add())
-          changed = true
-          i = i + 3
-          continue
-        }
-        (@lib.F64Const(lhs), @lib.F64Const(@lib.F64(rhs_raw)), @lib.F64Sub) if run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-            rhs_raw,
-          ) => {
-          rewritten.push(@lib.Instruction::f64_const(lhs))
-          rewritten.push(@lib.Instruction::f64_const(@lib.F64(-rhs_raw)))
-          rewritten.push(@lib.Instruction::f64_add())
-          changed = true
-          i = i + 3
-          continue
-        }
-        (
-          @lib.I32Const(@lib.I32(lhs_raw)),
-          @lib.I32Const(@lib.I32(rhs_raw)),
-          @lib.I32Add,
-        ) => {
-          let folded = @lib.I32(
-            (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
-          )
-          rewritten.push(@lib.Instruction::i32_const(folded))
-          changed = true
-          i = i + 3
-          continue
-        }
-        (
-          @lib.I32Const(@lib.I32(lhs_raw)),
-          @lib.I32Const(@lib.I32(rhs_raw)),
-          @lib.I32Sub,
-        ) => {
-          let folded = @lib.I32(
-            (lhs_raw.reinterpret_as_uint() - rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
-          )
-          rewritten.push(@lib.Instruction::i32_const(folded))
-          changed = true
-          i = i + 3
-          continue
-        }
-        (
-          @lib.I64Const(@lib.I64(lhs_raw)),
-          @lib.I64Const(@lib.I64(rhs_raw)),
-          @lib.I64Add,
-        ) => {
-          let folded = @lib.I64(
-            (lhs_raw.reinterpret_as_uint64() + rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
-          )
-          rewritten.push(@lib.Instruction::i64_const(folded))
-          changed = true
-          i = i + 3
-          continue
-        }
-        (
-          @lib.I64Const(@lib.I64(lhs_raw)),
-          @lib.I64Const(@lib.I64(rhs_raw)),
-          @lib.I64Sub,
-        ) => {
-          let folded = @lib.I64(
-            (lhs_raw.reinterpret_as_uint64() - rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
-          )
-          rewritten.push(@lib.Instruction::i64_const(folded))
-          changed = true
-          i = i + 3
-          continue
-        }
-        _ => ()
       }
     }
     if i + 1 < instrs.length() {
@@ -29985,21 +30255,6 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
             }
             None => ()
           }
-      }
-      match (instrs[i], instrs[i + 1]) {
-        (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) => {
-          rewritten.push(
-            @lib.Instruction::i32_const(
-              run_hot_pipeline_raw_optimize_instructions_wrap_i64_const_to_i32(
-                raw,
-              ),
-            ),
-          )
-          changed = true
-          i = i + 2
-          continue
-        }
-        _ => ()
       }
     }
     let (expanded, instr_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
