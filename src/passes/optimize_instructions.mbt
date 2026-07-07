@@ -7857,6 +7857,7 @@ priv struct OiRightFallthroughInputFact {
   prefix_write_mask : UInt
   prefix_state_writes : OiStateWriteSetFact
   unsupported_prefix_control : Bool
+  peeled_local_tee : Bool
 }
 
 ///|
@@ -7893,6 +7894,7 @@ priv struct OiConsecutiveInputEqualityFact {
   matching_stable_state_read : Bool
   matching_stable_state_scalar_tree : Bool
   matching_stable_memory_read : Bool
+  matching_right_local_tee_fallthrough : Bool
   intervening_effects_interfere : Bool
 }
 
@@ -8553,6 +8555,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
             prefix_write_mask: 0U,
             prefix_state_writes: OiStateWriteSetFact::empty(),
             unsupported_prefix_control: true,
+            peeled_local_tee: false,
           }
         }
         let child_effect_fact = OiSubtreeReorderEffectFact::from_node(
@@ -8574,6 +8577,27 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         prefix_write_mask: prefix_write_mask | nested.prefix_write_mask,
         prefix_state_writes,
         unsupported_prefix_control: nested.unsupported_prefix_control,
+        peeled_local_tee: nested.peeled_local_tee,
+      }
+    }
+    @ir.HotOp::LocalTee if node.child_count > 0 => {
+      // Binaryen v130 `areConsecutiveInputsEqual` peels the right-side
+      // immediate fallthrough with `FallthroughBehavior::AllowTeeBrIf`, so a
+      // right `local.tee` contributes its value child to the equality proof. The
+      // tee write is not an intervening prefix effect for the right value; it is
+      // preserved later when the original operand is dropped.
+      let nested = optimize_instructions_right_fallthrough_input_for_equality(
+        func,
+        node_masks,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+      {
+        fallthrough_id: nested.fallthrough_id,
+        prefix_effect_mask: nested.prefix_effect_mask,
+        prefix_write_mask: nested.prefix_write_mask,
+        prefix_state_writes: nested.prefix_state_writes,
+        unsupported_prefix_control: nested.unsupported_prefix_control,
+        peeled_local_tee: true,
       }
     }
     _ =>
@@ -8583,6 +8607,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         prefix_write_mask: 0U,
         prefix_state_writes: OiStateWriteSetFact::empty(),
         unsupported_prefix_control: false,
+        peeled_local_tee: false,
       }
   }
 }
@@ -8677,6 +8702,48 @@ fn OiInterveningEffectFact::ordered_before_right_fallthrough(
 }
 
 ///|
+priv struct OiRightLocalTeeFallthroughEqualityFact {
+  right_is_local_tee : Bool
+  value_matches_left : Bool
+}
+
+///|
+fn OiRightLocalTeeFallthroughEqualityFact::from_nodes(
+  func : @ir.HotFunc,
+  left_fallthrough_id : Int,
+  right_id : Int,
+) -> OiRightLocalTeeFallthroughEqualityFact {
+  // Binaryen v130 `areConsecutiveInputsEqual` peels the right operand with
+  // `Properties::getImmediateFallthrough(...AllowTeeBrIf)`, which exposes a
+  // direct `local.tee`'s value child to `ExpressionAnalyzer::equal`. Keep the
+  // currently represented Starshine subset narrow: direct right `local.tee`
+  // values that match the left fallthrough by pure scalar equality. The tee
+  // write is intentionally not an intervening prefix effect because it happens
+  // after the returned value is produced and is preserved when the original
+  // right operand is later dropped.
+  let right = @ir.hot_node_get(func, right_id)
+  match right.op {
+    @ir.HotOp::LocalTee if right.child_count == 1 => {
+      let value_id = @ir.hot_child_get(func, right_id, 0)
+      {
+        right_is_local_tee: true,
+        value_matches_left: OiScalarTreeEqualityFact::from_nodes(
+          func, left_fallthrough_id, value_id,
+        ).proves_pure_equal(),
+      }
+    }
+    _ => { right_is_local_tee: false, value_matches_left: false }
+  }
+}
+
+///|
+fn OiRightLocalTeeFallthroughEqualityFact::proves_equal(
+  self : OiRightLocalTeeFallthroughEqualityFact,
+) -> Bool {
+  self.right_is_local_tee && self.value_matches_left
+}
+
+///|
 fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8720,6 +8787,9 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let matching_stable_memory_read = OiStableMemoryReadEqualityFact::from_nodes(
     func, left_fallthrough_id, right_fallthrough_id,
   ).proves_equal()
+  let matching_right_local_tee_fallthrough = OiRightLocalTeeFallthroughEqualityFact::from_nodes(
+    func, left_fallthrough_id, right_id,
+  ).proves_equal()
   let intervening_effect_fact = OiInterveningEffectFact::from_fallthrough_facts(
     left_fallthrough, right_fallthrough,
   )
@@ -8736,6 +8806,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     matching_stable_state_read,
     matching_stable_state_scalar_tree,
     matching_stable_memory_read,
+    matching_right_local_tee_fallthrough,
     intervening_effects_interfere,
   }
 }
@@ -8755,7 +8826,8 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
     self.matching_pure_scalar_tree ||
     self.matching_stable_state_read ||
     self.matching_stable_state_scalar_tree ||
-    self.matching_stable_memory_read {
+    self.matching_stable_memory_read ||
+    self.matching_right_local_tee_fallthrough {
     return true
   }
   false

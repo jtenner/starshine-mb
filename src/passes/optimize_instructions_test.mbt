@@ -33165,6 +33165,44 @@ test "optimize-instructions drops right block unrelated local.set same-address m
 }
 
 ///|
+test "optimize-instructions documents raw right localtee memory.copy boundary" {
+  // Boundary test, not a success claim: Binaryen version_130 peels the right
+  // operand with `Properties::getImmediateFallthrough(...AllowTeeBrIf)` and
+  // drops this same-address copy under TNH, but Starshine currently lowers this
+  // side-effecting stack spelling to raw roots that OI does not revisit as a
+  // nested `MemoryCopy` HOT node. Keep this visible until flat stack-root OI-G
+  // facts can drive the rewrite safely.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32) (local $tmp i32)
+        #|    (memory.copy
+        #|      (local.get $addr)
+        #|      (local.tee $tmp (local.get $addr))
+        #|      (local.get $size))))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected raw right localtee memory.copy boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "local.get (Local 0)", "local.tee (Local 2)", "local.get (Local 1)",
+    "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions drops left localtee payload same-address memory.copy" {
   // OI-G same-input left-tee fact breadth: Binaryen version_130 descends through
   // a non-matching left `local.tee` to compare its payload with the adjacent
