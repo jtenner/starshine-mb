@@ -13159,85 +13159,116 @@ fn OiReferenceLeafEqualityFact::proves_equal(
 }
 
 ///|
-fn optimize_instructions_local_const_select_scalar_tree_is_nontrapping_reorderable(
+priv struct OiLocalConstSelectScalarTreeFact {
+  nontrapping_reorderable : Bool
+}
+
+///|
+fn OiLocalConstSelectScalarTreeFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
   depth? : Int = 0,
-) -> Bool {
+) -> OiLocalConstSelectScalarTreeFact {
   // Same-value select-arm folding across an effectful condition moves the kept
   // value after that condition. This fact is the source-backed, represented
-  // `ref.i31` payload subset that cannot trap and cannot observe calls, globals,
-  // memory, or tables: local/const leaves plus branchless select shells whose
-  // arms and condition recursively have the same property.
+  // scalar subset that cannot trap and cannot observe calls, globals, memory,
+  // or tables: local/const leaves plus branchless select shells whose arms and
+  // condition recursively have the same property.
   if depth > 16 {
-    return false
+    return { nontrapping_reorderable: false }
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::LocalGet | @ir.HotOp::Const => true
+    @ir.HotOp::LocalGet | @ir.HotOp::Const => { nontrapping_reorderable: true }
     @ir.HotOp::Select => {
       for slot = 0; slot < node.child_count; slot = slot + 1 {
-        if !optimize_instructions_local_const_select_scalar_tree_is_nontrapping_reorderable(
+        if !OiLocalConstSelectScalarTreeFact::from_node(
             func,
             @ir.hot_child_get(func, node_id, slot),
             depth=depth + 1,
-          ) {
-          return false
+          ).proves_nontrapping_reorderable() {
+          return { nontrapping_reorderable: false }
         }
       }
-      true
+      { nontrapping_reorderable: true }
     }
-    _ => false
+    _ => { nontrapping_reorderable: false }
   }
 }
 
 ///|
-fn optimize_instructions_ref_i31_scalar_trees_equal(
+fn OiLocalConstSelectScalarTreeFact::proves_nontrapping_reorderable(
+  self : OiLocalConstSelectScalarTreeFact,
+) -> Bool {
+  self.nontrapping_reorderable
+}
+
+///|
+priv struct OiRefI31ScalarTreeEqualityFact {
+  has_ref_i31_pair : Bool
+  matching_pure_payload_tree : Bool
+  payloads_are_nontrapping_reorderable : Bool
+}
+
+///|
+fn OiRefI31ScalarTreeEqualityFact::from_nodes(
   func : @ir.HotFunc,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiRefI31ScalarTreeEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` compares `ref.i31` shells by
-  // recursively comparing their i32 payloads. Keep this as a fact-owned
-  // represented reference-tree proof instead of growing the legacy ref.i31
-  // payload opcode whitelist.
+  // recursively comparing their i32 payloads. Binaryen `visitSelect` then uses
+  // `EffectAnalyzer::invalidates` before moving equal arms across an effectful
+  // condition; Starshine's represented safe-move subset is local/const/select
+  // scalar payload trees. Keep both payload equality and movability as explicit
+  // fact fields rather than helper-level ref.i31 tree scanners.
+  let mut has_ref_i31_pair = false
+  let mut matching_pure_payload_tree = false
+  let mut payloads_are_nontrapping_reorderable = false
   let lhs = @ir.hot_node_get(func, lhs_id)
   let rhs = @ir.hot_node_get(func, rhs_id)
-  if lhs.ty != rhs.ty || lhs.child_count != 1 || rhs.child_count != 1 {
-    return false
+  if lhs.ty == rhs.ty && lhs.child_count == 1 && rhs.child_count == 1 {
+    match
+      (
+        @ir.hot_node_exact_instr(func, lhs_id),
+        @ir.hot_node_exact_instr(func, rhs_id),
+      ) {
+      (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31)) => {
+        has_ref_i31_pair = true
+        let lhs_payload = @ir.hot_child_get(func, lhs_id, 0)
+        let rhs_payload = @ir.hot_child_get(func, rhs_id, 0)
+        matching_pure_payload_tree = optimize_instructions_pure_scalar_tree_equal(
+          func, lhs_payload, rhs_payload,
+        )
+        payloads_are_nontrapping_reorderable = OiLocalConstSelectScalarTreeFact::from_node(
+            func, lhs_payload,
+          ).proves_nontrapping_reorderable() &&
+          OiLocalConstSelectScalarTreeFact::from_node(func, rhs_payload).proves_nontrapping_reorderable()
+      }
+      _ => ()
+    }
   }
-  match
-    (
-      @ir.hot_node_exact_instr(func, lhs_id),
-      @ir.hot_node_exact_instr(func, rhs_id),
-    ) {
-    (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31)) =>
-      optimize_instructions_pure_scalar_tree_equal(
-        func,
-        @ir.hot_child_get(func, lhs_id, 0),
-        @ir.hot_child_get(func, rhs_id, 0),
-      )
-    _ => false
+  {
+    has_ref_i31_pair,
+    matching_pure_payload_tree,
+    payloads_are_nontrapping_reorderable,
   }
 }
 
 ///|
-fn optimize_instructions_ref_i31_nontrapping_local_scalar_trees_equal(
-  func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
+fn OiRefI31ScalarTreeEqualityFact::proves_pure_equal(
+  self : OiRefI31ScalarTreeEqualityFact,
 ) -> Bool {
-  if !optimize_instructions_ref_i31_scalar_trees_equal(func, lhs_id, rhs_id) {
-    return false
-  }
-  let lhs_payload = @ir.hot_child_get(func, lhs_id, 0)
-  let rhs_payload = @ir.hot_child_get(func, rhs_id, 0)
-  optimize_instructions_local_const_select_scalar_tree_is_nontrapping_reorderable(
-    func, lhs_payload,
-  ) &&
-  optimize_instructions_local_const_select_scalar_tree_is_nontrapping_reorderable(
-    func, rhs_payload,
-  )
+  self.has_ref_i31_pair && self.matching_pure_payload_tree
+}
+
+///|
+fn OiRefI31ScalarTreeEqualityFact::proves_nontrapping_reorderable_equal(
+  self : OiRefI31ScalarTreeEqualityFact,
+) -> Bool {
+  self.has_ref_i31_pair &&
+  self.matching_pure_payload_tree &&
+  self.payloads_are_nontrapping_reorderable
 }
 
 ///|
@@ -13269,12 +13300,11 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   let reference_leaf = OiReferenceLeafEqualityFact::from_nodes(
     func, if_true, if_false,
   ).proves_equal()
-  let ref_i31_scalar_tree = optimize_instructions_ref_i31_scalar_trees_equal(
+  let ref_i31_scalar_tree_fact = OiRefI31ScalarTreeEqualityFact::from_nodes(
     func, if_true, if_false,
   )
-  let ref_i31_nontrapping_local_scalar_tree = optimize_instructions_ref_i31_nontrapping_local_scalar_trees_equal(
-    func, if_true, if_false,
-  )
+  let ref_i31_scalar_tree = ref_i31_scalar_tree_fact.proves_pure_equal()
+  let ref_i31_nontrapping_local_scalar_tree = ref_i31_scalar_tree_fact.proves_nontrapping_reorderable_equal()
   let simd_leaf = OiSimdLeafEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
