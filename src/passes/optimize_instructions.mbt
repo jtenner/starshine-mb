@@ -7804,16 +7804,58 @@ fn optimize_instructions_tuple_extract_child_for_flat_index(
 }
 
 ///|
-fn optimize_instructions_tuple_extract_append_discarded_child(
+priv enum OiTupleLaneMaterializeFact {
+  TupleLaneEraseDiscarded
+  TupleLaneAppendEffectRoot
+  TupleLaneDropSingleResult
+  TupleLaneStoreMultiResultLocals
+}
+
+///|
+fn OiTupleLaneMaterializeFact::from_lane(
+  results : Array[@lib.ValType],
+  discard_fact : OiTupleLaneDiscardFact,
+) -> OiTupleLaneMaterializeFact {
+  // Binaryen v130 `getDroppedChildrenAndAppend` materializes discarded tuple
+  // lanes by preserving no-result effects directly, dropping single-result
+  // effects, or storing each result of a multivalue effect into scratch locals.
+  // Keep that emission choice as a tuple-lane fact instead of a body-builder
+  // side branch hidden inside the tuple.extract rewrite.
+  if !discard_fact.must_preserve() {
+    return TupleLaneEraseDiscarded
+  }
+  match results.length() {
+    0 => TupleLaneAppendEffectRoot
+    1 => TupleLaneDropSingleResult
+    _ => TupleLaneStoreMultiResultLocals
+  }
+}
+
+///|
+fn OiTupleLaneMaterializeFact::must_emit(
+  self : OiTupleLaneMaterializeFact,
+) -> Bool {
+  match self {
+    TupleLaneEraseDiscarded => false
+    TupleLaneAppendEffectRoot
+    | TupleLaneDropSingleResult
+    | TupleLaneStoreMultiResultLocals => true
+  }
+}
+
+///|
+fn OiTupleLaneMaterializeFact::append_discarded_child(
+  self : OiTupleLaneMaterializeFact,
   func : @ir.HotFunc,
   child_id : Int,
   child_results : Array[@lib.ValType],
   body : Array[Int],
 ) -> Unit {
-  match child_results.length() {
-    0 => body.push(child_id)
-    1 => body.push(@ir.hot_build_drop(func, child_id))
-    _ => {
+  match self {
+    TupleLaneEraseDiscarded => ()
+    TupleLaneAppendEffectRoot => body.push(child_id)
+    TupleLaneDropSingleResult => body.push(@ir.hot_build_drop(func, child_id))
+    TupleLaneStoreMultiResultLocals => {
       let discard_locals : Array[Int] = []
       for result in child_results {
         discard_locals.push(@ir.hot_append_body_local(func, result))
@@ -7833,6 +7875,7 @@ priv struct OiTupleLaneFact {
   results : Array[@lib.ValType]
   localize_fact : OiTupleLaneLocalizeFact
   discard_fact : OiTupleLaneDiscardFact
+  materialize_fact : OiTupleLaneMaterializeFact
 }
 
 ///|
@@ -7842,12 +7885,17 @@ fn OiTupleLaneFact::from_node(
   node_id : Int,
 ) -> OiTupleLaneFact {
   let localize_fact = OiTupleLaneLocalizeFact::from_node(func, node_id)
+  let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
+  let discard_fact = OiTupleLaneDiscardFact::from_node(
+    ctx, func, node_id, localize_fact,
+  )
   {
     node_id,
-    results: @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)),
+    results,
     localize_fact,
-    discard_fact: OiTupleLaneDiscardFact::from_node(
-      ctx, func, node_id, localize_fact,
+    discard_fact,
+    materialize_fact: OiTupleLaneMaterializeFact::from_lane(
+      results, discard_fact,
     ),
   }
 }
@@ -8030,10 +8078,10 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       }
       continue
     }
-    if !lane_fact.discard_fact.must_preserve() {
+    if !lane_fact.materialize_fact.must_emit() {
       continue
     }
-    optimize_instructions_tuple_extract_append_discarded_child(
+    lane_fact.materialize_fact.append_discarded_child(
       func,
       lane_fact.node_id,
       lane_fact.results,
