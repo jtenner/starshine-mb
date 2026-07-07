@@ -17809,6 +17809,34 @@ priv struct OiDescriptorBranchControlRegionFact {
 }
 
 ///|
+priv struct OiDescriptorSkipOrderFact {
+  live : Bool
+  direct_order_sensitive_effect : Bool
+  region_order_sensitive_effect : Bool
+  child_order_sensitive_effect : Bool
+}
+
+///|
+priv struct OiDescriptorSkipOrderRegionFact {
+  root_count : Int
+  has_order_sensitive_effect : Bool
+}
+
+///|
+priv struct OiDescriptorInternalControlEffectFreeFact {
+  direct_side_effect_free : Bool
+  supported_internal_control_shape : Bool
+  block_region_effect_free : Bool
+  child_effect_free : Bool
+}
+
+///|
+priv struct OiDescriptorInternalControlEffectFreeRegionFact {
+  root_count : Int
+  effect_free : Bool
+}
+
+///|
 priv struct OiDescriptorContainmentFact {
   root_matches_target : Bool
   live : Bool
@@ -18216,6 +18244,267 @@ fn OiDescriptorBranchControlRegionFact::proves_has_escaping_branch_control(
 }
 
 ///|
+fn OiDescriptorSkipOrderFact::empty() -> OiDescriptorSkipOrderFact {
+  {
+    live: false,
+    direct_order_sensitive_effect: false,
+    region_order_sensitive_effect: false,
+    child_order_sensitive_effect: false,
+  }
+}
+
+///|
+fn OiDescriptorSkipOrderFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorSkipOrderFact {
+  // Binaryen's descriptor-cast TNH skip can erase the descriptor immediately
+  // only when doing so does not reorder calls, writes, atomics, EH, or other
+  // unremovable effects before the reference operand. Keep Starshine's
+  // represented order-sensitive subtree summary as a fact instead of a recursive
+  // helper-local opcode scan.
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiDescriptorSkipOrderFact::empty()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let direct_order_sensitive_effect = match node.op {
+    @ir.HotOp::LocalSet
+    | @ir.HotOp::LocalTee
+    | @ir.HotOp::GlobalSet
+    | @ir.HotOp::Store
+    | @ir.HotOp::MemoryGrow
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryFill
+    | @ir.HotOp::MemoryInit
+    | @ir.HotOp::DataDrop
+    | @ir.HotOp::TableSet
+    | @ir.HotOp::TableGrow
+    | @ir.HotOp::TableFill
+    | @ir.HotOp::TableCopy
+    | @ir.HotOp::TableInit
+    | @ir.HotOp::ElemDrop
+    | @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
+    | @ir.HotOp::Atomic
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef => true
+    _ => false
+  }
+  if direct_order_sensitive_effect {
+    return {
+      live: true,
+      direct_order_sensitive_effect,
+      region_order_sensitive_effect: false,
+      child_order_sensitive_effect: false,
+    }
+  }
+  let region_order_sensitive_effect = match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      OiDescriptorSkipOrderRegionFact::from_region(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      ).proves_has_order_sensitive_effect()
+    @ir.HotOp::If => {
+      let then_effect = OiDescriptorSkipOrderRegionFact::from_region(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+      ).proves_has_order_sensitive_effect()
+      let else_effect = match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          OiDescriptorSkipOrderRegionFact::from_region(func, region_ref).proves_has_order_sensitive_effect()
+        None => false
+      }
+      then_effect || else_effect
+    }
+    _ => false
+  }
+  let mut child_order_sensitive_effect = false
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    child_order_sensitive_effect = child_order_sensitive_effect ||
+      OiDescriptorSkipOrderFact::from_node(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ).proves_must_preserve_operand_order()
+  }
+  {
+    live: true,
+    direct_order_sensitive_effect,
+    region_order_sensitive_effect,
+    child_order_sensitive_effect,
+  }
+}
+
+///|
+fn OiDescriptorSkipOrderFact::proves_must_preserve_operand_order(
+  self : OiDescriptorSkipOrderFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_order_sensitive_effect ||
+    self.region_order_sensitive_effect ||
+    self.child_order_sensitive_effect
+  )
+}
+
+///|
+fn OiDescriptorSkipOrderRegionFact::from_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> OiDescriptorSkipOrderRegionFact {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut has_order_sensitive_effect = false
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    has_order_sensitive_effect = has_order_sensitive_effect ||
+      OiDescriptorSkipOrderFact::from_node(
+        func,
+        @ir.hot_region_get(func, region_ref, slot),
+      ).proves_must_preserve_operand_order()
+  }
+  { root_count, has_order_sensitive_effect }
+}
+
+///|
+fn OiDescriptorSkipOrderRegionFact::proves_has_order_sensitive_effect(
+  self : OiDescriptorSkipOrderRegionFact,
+) -> Bool {
+  self.root_count > 0 && self.has_order_sensitive_effect
+}
+
+///|
+fn OiDescriptorInternalControlEffectFreeFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  owner_id : Int,
+  node_id : Int,
+) -> OiDescriptorInternalControlEffectFreeFact {
+  // TNH descriptor-null-check removal can ignore internal branch/control edges
+  // when all reachable payload work is otherwise effect-free. Preserve that
+  // represented Binaryen `trapOnNull` subset as data: direct side-effect-free
+  // proof, an allowed internal-control shell, block-region summaries, and
+  // recursively effect-free children.
+  let direct_side_effect_free = optimize_instructions_is_side_effect_free_expr(
+    func, dead, node_id,
+  )
+  if direct_side_effect_free {
+    return {
+      direct_side_effect_free,
+      supported_internal_control_shape: false,
+      block_region_effect_free: false,
+      child_effect_free: false,
+    }
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let (supported_internal_control_shape, block_region_effect_free) = match
+    node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf =>
+      (
+        OiDescriptorInternalLabelFact::from_label(func, owner_id, node.imm0).proves_internal(),
+        true,
+      )
+    @ir.HotOp::BrTable => {
+      let mut labels_internal = OiDescriptorInternalLabelFact::from_label(
+        func,
+        owner_id,
+        @ir.hot_branch_table_default_target(func, node.imm0),
+      ).proves_internal()
+      if labels_internal {
+        for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+          labels_internal = labels_internal &&
+            OiDescriptorInternalLabelFact::from_label(func, owner_id, label_id).proves_internal()
+        }
+      }
+      (labels_internal, true)
+    }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      (
+        OiDescriptorInternalLabelFact::from_label(func, owner_id, node.imm0).proves_internal(),
+        true,
+      )
+    @ir.HotOp::Block =>
+      (
+        true,
+        OiDescriptorInternalControlEffectFreeRegionFact::from_region(
+          func,
+          dead,
+          owner_id,
+          @ir.hot_region_body_ref(func, node_id),
+        ).proves_effect_free(),
+      )
+    @ir.HotOp::Drop => (node.child_count == 1, true)
+    _ => (false, false)
+  }
+  if !supported_internal_control_shape || !block_region_effect_free {
+    return {
+      direct_side_effect_free,
+      supported_internal_control_shape,
+      block_region_effect_free,
+      child_effect_free: false,
+    }
+  }
+  let mut child_effect_free = true
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    child_effect_free = child_effect_free &&
+      OiDescriptorInternalControlEffectFreeFact::from_node(
+        func,
+        dead,
+        owner_id,
+        @ir.hot_child_get(func, node_id, slot),
+      ).proves_effect_free_allowing_internal_control()
+  }
+  {
+    direct_side_effect_free,
+    supported_internal_control_shape,
+    block_region_effect_free,
+    child_effect_free,
+  }
+}
+
+///|
+fn OiDescriptorInternalControlEffectFreeFact::proves_effect_free_allowing_internal_control(
+  self : OiDescriptorInternalControlEffectFreeFact,
+) -> Bool {
+  self.direct_side_effect_free ||
+  (
+    self.supported_internal_control_shape &&
+    self.block_region_effect_free &&
+    self.child_effect_free
+  )
+}
+
+///|
+fn OiDescriptorInternalControlEffectFreeRegionFact::from_region(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  owner_id : Int,
+  region_ref : @ir.HotRegionRef,
+) -> OiDescriptorInternalControlEffectFreeRegionFact {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut effect_free = true
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    effect_free = effect_free &&
+      OiDescriptorInternalControlEffectFreeFact::from_node(
+        func,
+        dead,
+        owner_id,
+        @ir.hot_region_get(func, region_ref, slot),
+      ).proves_effect_free_allowing_internal_control()
+  }
+  { root_count, effect_free }
+}
+
+///|
+fn OiDescriptorInternalControlEffectFreeRegionFact::proves_effect_free(
+  self : OiDescriptorInternalControlEffectFreeRegionFact,
+) -> Bool {
+  ignore(self.root_count)
+  self.effect_free
+}
+
+///|
 fn optimize_instructions_descriptor_region_has_branch_control(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -18236,28 +18525,12 @@ fn optimize_instructions_descriptor_expr_has_branch_control(
 }
 
 ///|
-fn optimize_instructions_descriptor_node_contains(
-  func : @ir.HotFunc,
-  root_id : Int,
-  target_id : Int,
-) -> Bool {
-  OiDescriptorContainmentFact::from_node(func, root_id, target_id).proves_contains_target()
-}
-
-///|
 fn optimize_instructions_descriptor_label_is_internal_to_expr(
   func : @ir.HotFunc,
   root_id : Int,
   label_id : Int,
 ) -> Bool {
-  if label_id < 0 || label_id >= func.labels.length() {
-    return false
-  }
-  optimize_instructions_descriptor_node_contains(
-    func,
-    root_id,
-    @ir.hot_label_owner(func, label_id),
-  )
+  OiDescriptorInternalLabelFact::from_label(func, root_id, label_id).proves_internal()
 }
 
 ///|
@@ -19220,85 +19493,11 @@ fn optimize_instructions_heap_is_known_subtype_with_fuel(
 }
 
 ///|
-fn optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  for slot = 0
-      slot < @ir.hot_region_root_count(func, region_ref)
-      slot = slot + 1 {
-    if optimize_instructions_descriptor_skip_must_preserve_operand_order(
-        func,
-        @ir.hot_region_get(func, region_ref, slot),
-      ) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn optimize_instructions_descriptor_skip_must_preserve_operand_order(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::LocalSet
-    | @ir.HotOp::LocalTee
-    | @ir.HotOp::GlobalSet
-    | @ir.HotOp::Store
-    | @ir.HotOp::MemoryGrow
-    | @ir.HotOp::MemoryCopy
-    | @ir.HotOp::MemoryFill
-    | @ir.HotOp::MemoryInit
-    | @ir.HotOp::DataDrop
-    | @ir.HotOp::TableSet
-    | @ir.HotOp::TableGrow
-    | @ir.HotOp::TableFill
-    | @ir.HotOp::TableCopy
-    | @ir.HotOp::TableInit
-    | @ir.HotOp::ElemDrop
-    | @ir.HotOp::Call
-    | @ir.HotOp::CallIndirect
-    | @ir.HotOp::CallRef
-    | @ir.HotOp::Atomic
-    | @ir.HotOp::Throw
-    | @ir.HotOp::ThrowRef => return true
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
-      if optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
-          func,
-          @ir.hot_region_body_ref(func, node_id),
-        ) {
-        return true
-      }
-    @ir.HotOp::If => {
-      if optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
-          func,
-          @ir.hot_region_then_ref(func, node_id),
-        ) {
-        return true
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(region_ref) =>
-          if optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
-              func, region_ref,
-            ) {
-            return true
-          }
-        None => ()
-      }
-    }
-    _ => ()
-  }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if optimize_instructions_descriptor_skip_must_preserve_operand_order(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return true
-    }
-  }
-  false
+  OiDescriptorSkipOrderFact::from_node(func, node_id).proves_must_preserve_operand_order()
 }
 
 ///|
@@ -19430,75 +19629,9 @@ fn optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_contro
   owner_id : Int,
   node_id : Int,
 ) -> Bool {
-  if optimize_instructions_is_side_effect_free_expr(func, dead, node_id) {
-    return true
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Br | @ir.HotOp::BrIf =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          node.imm0,
-        ) {
-        return false
-      }
-    @ir.HotOp::BrTable => {
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          @ir.hot_branch_table_default_target(func, node.imm0),
-        ) {
-        return false
-      }
-      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
-        if !optimize_instructions_descriptor_label_is_internal_to_expr(
-            func, owner_id, label_id,
-          ) {
-          return false
-        }
-      }
-    }
-    @ir.HotOp::BrOnNull
-    | @ir.HotOp::BrOnNonNull
-    | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          node.imm0,
-        ) {
-        return false
-      }
-    @ir.HotOp::Block => {
-      let body = @ir.hot_region_body_ref(func, node_id)
-      for slot = 0
-          slot < @ir.hot_region_root_count(func, body)
-          slot = slot + 1 {
-        if !optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
-            func,
-            dead,
-            owner_id,
-            @ir.hot_region_get(func, body, slot),
-          ) {
-          return false
-        }
-      }
-    }
-    @ir.HotOp::Drop => if node.child_count != 1 { return false }
-    _ => return false
-  }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if !optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
-        func,
-        dead,
-        owner_id,
-        @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return false
-    }
-  }
-  true
+  OiDescriptorInternalControlEffectFreeFact::from_node(
+    func, dead, owner_id, node_id,
+  ).proves_effect_free_allowing_internal_control()
 }
 
 ///|
