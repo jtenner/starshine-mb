@@ -301,19 +301,11 @@ fn optimize_instructions_region_has_branch_control_before_tail(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count <= 1 {
-    return false
-  }
-  for slot = 0; slot < root_count - 1; slot = slot + 1 {
-    if optimize_instructions_descriptor_expr_has_branch_control(
-        func,
-        @ir.hot_region_get(func, region_ref, slot),
-      ) {
-      return true
-    }
-  }
-  false
+  OiDescriptorBranchControlRegionFact::from_region_prefix_excluding_tail(
+    func,
+    region_ref.holder,
+    region_ref,
+  ).proves_has_branch_control()
 }
 
 ///|
@@ -17801,21 +17793,285 @@ fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_e
 }
 
 ///|
+priv struct OiDescriptorBranchControlFact {
+  live : Bool
+  direct_branch_control : Bool
+  nested_branch_control : Bool
+  direct_escaping_branch_control : Bool
+  nested_escaping_branch_control : Bool
+}
+
+///|
+priv struct OiDescriptorBranchControlRegionFact {
+  root_count : Int
+  has_branch_control : Bool
+  has_escaping_branch_control : Bool
+}
+
+///|
+fn OiDescriptorBranchControlFact::empty() -> OiDescriptorBranchControlFact {
+  {
+    live: false,
+    direct_branch_control: false,
+    nested_branch_control: false,
+    direct_escaping_branch_control: false,
+    nested_escaping_branch_control: false,
+  }
+}
+
+///|
+fn OiDescriptorBranchControlFact::from_node(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  node_id : Int,
+) -> OiDescriptorBranchControlFact {
+  // Binaryen's descriptor/ref-get-desc cleanup uses branch-control and escaping
+  // branch-control predicates to decide whether a nullable child can be moved or
+  // stripped without swallowing a control transfer. Keep Starshine's represented
+  // subtree summary as one fact with explicit direct-branch, nested-branch,
+  // direct-escape, and nested-escape fields instead of separate recursive
+  // descriptor-control scanners.
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiDescriptorBranchControlFact::empty()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let direct_branch_control = match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => true
+    _ => false
+  }
+  let direct_escaping_branch_control = match node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf =>
+      !optimize_instructions_descriptor_label_is_internal_to_expr(
+        func,
+        owner_id,
+        node.imm0,
+      )
+    @ir.HotOp::BrTable =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          @ir.hot_branch_table_default_target(func, node.imm0),
+        ) {
+        true
+      } else {
+        let mut escaping = false
+        for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+          if !optimize_instructions_descriptor_label_is_internal_to_expr(
+              func, owner_id, label_id,
+            ) {
+            escaping = true
+          }
+        }
+        escaping
+      }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      !optimize_instructions_descriptor_label_is_internal_to_expr(
+        func,
+        owner_id,
+        node.imm0,
+      )
+    _ => false
+  }
+  let mut nested_branch_control = false
+  let mut nested_escaping_branch_control = false
+  if !direct_branch_control {
+    match node.op {
+      @ir.HotOp::Block
+      | @ir.HotOp::Loop
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable => {
+        let body_fact = OiDescriptorBranchControlRegionFact::from_region(
+          func,
+          owner_id,
+          @ir.hot_region_body_ref(func, node_id),
+        )
+        nested_branch_control = nested_branch_control ||
+          body_fact.proves_has_branch_control()
+        nested_escaping_branch_control = nested_escaping_branch_control ||
+          body_fact.proves_has_escaping_branch_control()
+      }
+      @ir.HotOp::If => {
+        let condition_fact = OiDescriptorBranchControlFact::from_node(
+          func,
+          owner_id,
+          @ir.hot_child_get(func, node_id, 0),
+        )
+        nested_branch_control = nested_branch_control ||
+          condition_fact.proves_has_branch_control()
+        nested_escaping_branch_control = nested_escaping_branch_control ||
+          condition_fact.proves_has_escaping_branch_control()
+        let then_fact = OiDescriptorBranchControlRegionFact::from_region(
+          func,
+          owner_id,
+          @ir.hot_region_then_ref(func, node_id),
+        )
+        nested_branch_control = nested_branch_control ||
+          then_fact.proves_has_branch_control()
+        nested_escaping_branch_control = nested_escaping_branch_control ||
+          then_fact.proves_has_escaping_branch_control()
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) => {
+            let else_fact = OiDescriptorBranchControlRegionFact::from_region(
+              func, owner_id, region_ref,
+            )
+            nested_branch_control = nested_branch_control ||
+              else_fact.proves_has_branch_control()
+            nested_escaping_branch_control = nested_escaping_branch_control ||
+              else_fact.proves_has_escaping_branch_control()
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  if !direct_escaping_branch_control {
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_fact = OiDescriptorBranchControlFact::from_node(
+        func,
+        owner_id,
+        @ir.hot_child_get(func, node_id, slot),
+      )
+      nested_branch_control = nested_branch_control ||
+        child_fact.proves_has_branch_control()
+      nested_escaping_branch_control = nested_escaping_branch_control ||
+        child_fact.proves_has_escaping_branch_control()
+    }
+  }
+  {
+    live: true,
+    direct_branch_control,
+    nested_branch_control,
+    direct_escaping_branch_control,
+    nested_escaping_branch_control,
+  }
+}
+
+///|
+fn OiDescriptorBranchControlFact::proves_has_branch_control(
+  self : OiDescriptorBranchControlFact,
+) -> Bool {
+  self.live && (self.direct_branch_control || self.nested_branch_control)
+}
+
+///|
+fn OiDescriptorBranchControlFact::proves_has_escaping_branch_control(
+  self : OiDescriptorBranchControlFact,
+) -> Bool {
+  self.live &&
+  (self.direct_escaping_branch_control || self.nested_escaping_branch_control)
+}
+
+///|
+fn OiDescriptorBranchControlRegionFact::from_region(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  region_ref : @ir.HotRegionRef,
+) -> OiDescriptorBranchControlRegionFact {
+  OiDescriptorBranchControlRegionFact::from_region_range(
+    func,
+    owner_id,
+    region_ref,
+    0,
+    @ir.hot_region_root_count(func, region_ref),
+  )
+}
+
+///|
+fn OiDescriptorBranchControlRegionFact::from_region_prefix_excluding_tail(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  region_ref : @ir.HotRegionRef,
+) -> OiDescriptorBranchControlRegionFact {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count <= 1 {
+    return OiDescriptorBranchControlRegionFact::empty()
+  }
+  OiDescriptorBranchControlRegionFact::from_region_range(
+    func,
+    owner_id,
+    region_ref,
+    0,
+    root_count - 1,
+  )
+}
+
+///|
+fn OiDescriptorBranchControlRegionFact::from_region_range(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  region_ref : @ir.HotRegionRef,
+  start_slot : Int,
+  end_slot : Int,
+) -> OiDescriptorBranchControlRegionFact {
+  let mut has_branch_control = false
+  let mut has_escaping_branch_control = false
+  let region_root_count = @ir.hot_region_root_count(func, region_ref)
+  let end = if end_slot < region_root_count {
+    end_slot
+  } else {
+    region_root_count
+  }
+  for slot = start_slot; slot < end; slot = slot + 1 {
+    let root_fact = OiDescriptorBranchControlFact::from_node(
+      func,
+      owner_id,
+      @ir.hot_region_get(func, region_ref, slot),
+    )
+    has_branch_control = has_branch_control ||
+      root_fact.proves_has_branch_control()
+    has_escaping_branch_control = has_escaping_branch_control ||
+      root_fact.proves_has_escaping_branch_control()
+  }
+  {
+    root_count: end - start_slot,
+    has_branch_control,
+    has_escaping_branch_control,
+  }
+}
+
+///|
+fn OiDescriptorBranchControlRegionFact::empty() -> OiDescriptorBranchControlRegionFact {
+  {
+    root_count: 0,
+    has_branch_control: false,
+    has_escaping_branch_control: false,
+  }
+}
+
+///|
+fn OiDescriptorBranchControlRegionFact::proves_has_branch_control(
+  self : OiDescriptorBranchControlRegionFact,
+) -> Bool {
+  self.root_count > 0 && self.has_branch_control
+}
+
+///|
+fn OiDescriptorBranchControlRegionFact::proves_has_escaping_branch_control(
+  self : OiDescriptorBranchControlRegionFact,
+) -> Bool {
+  self.root_count > 0 && self.has_escaping_branch_control
+}
+
+///|
 fn optimize_instructions_descriptor_region_has_branch_control(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  for slot = 0
-      slot < @ir.hot_region_root_count(func, region_ref)
-      slot = slot + 1 {
-    if optimize_instructions_descriptor_expr_has_branch_control(
-        func,
-        @ir.hot_region_get(func, region_ref, slot),
-      ) {
-      return true
-    }
-  }
-  false
+  OiDescriptorBranchControlRegionFact::from_region(
+    func,
+    region_ref.holder,
+    region_ref,
+  ).proves_has_branch_control()
 }
 
 ///|
@@ -17823,56 +18079,7 @@ fn optimize_instructions_descriptor_expr_has_branch_control(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Br
-    | @ir.HotOp::BrIf
-    | @ir.HotOp::BrTable
-    | @ir.HotOp::BrOnNull
-    | @ir.HotOp::BrOnNonNull
-    | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail => return true
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
-      if optimize_instructions_descriptor_region_has_branch_control(
-          func,
-          @ir.hot_region_body_ref(func, node_id),
-        ) {
-        return true
-      }
-    @ir.HotOp::If => {
-      if optimize_instructions_descriptor_expr_has_branch_control(
-          func,
-          @ir.hot_child_get(func, node_id, 0),
-        ) ||
-        optimize_instructions_descriptor_region_has_branch_control(
-          func,
-          @ir.hot_region_then_ref(func, node_id),
-        ) {
-        return true
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(region_ref) =>
-          if optimize_instructions_descriptor_region_has_branch_control(
-              func, region_ref,
-            ) {
-            return true
-          }
-        None => ()
-      }
-    }
-    _ => ()
-  }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if optimize_instructions_descriptor_expr_has_branch_control(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return true
-    }
-  }
-  false
+  OiDescriptorBranchControlFact::from_node(func, node_id, node_id).proves_has_branch_control()
 }
 
 ///|
@@ -17966,18 +18173,7 @@ fn optimize_instructions_descriptor_region_has_escaping_branch_control_from(
   owner_id : Int,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  for slot = 0
-      slot < @ir.hot_region_root_count(func, region_ref)
-      slot = slot + 1 {
-    if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-        func,
-        owner_id,
-        @ir.hot_region_get(func, region_ref, slot),
-      ) {
-      return true
-    }
-  }
-  false
+  OiDescriptorBranchControlRegionFact::from_region(func, owner_id, region_ref).proves_has_escaping_branch_control()
 }
 
 ///|
@@ -17985,116 +18181,7 @@ fn optimize_instructions_descriptor_expr_has_escaping_branch_control(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-    func, node_id, node_id,
-  )
-}
-
-///|
-fn optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-  func : @ir.HotFunc,
-  owner_id : Int,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Br | @ir.HotOp::BrIf =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          node.imm0,
-        ) {
-        return true
-      }
-    @ir.HotOp::BrTable => {
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          @ir.hot_branch_table_default_target(func, node.imm0),
-        ) {
-        return true
-      }
-      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
-        if !optimize_instructions_descriptor_label_is_internal_to_expr(
-            func, owner_id, label_id,
-          ) {
-          return true
-        }
-      }
-    }
-    @ir.HotOp::BrOnNull
-    | @ir.HotOp::BrOnNonNull
-    | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          node.imm0,
-        ) {
-        return true
-      }
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
-      let body = @ir.hot_region_body_ref(func, node_id)
-      for slot = 0
-          slot < @ir.hot_region_root_count(func, body)
-          slot = slot + 1 {
-        if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-            func,
-            owner_id,
-            @ir.hot_region_get(func, body, slot),
-          ) {
-          return true
-        }
-      }
-    }
-    @ir.HotOp::If => {
-      if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-          func,
-          owner_id,
-          @ir.hot_child_get(func, node_id, 0),
-        ) {
-        return true
-      }
-      let then_region = @ir.hot_region_then_ref(func, node_id)
-      for slot = 0
-          slot < @ir.hot_region_root_count(func, then_region)
-          slot = slot + 1 {
-        if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-            func,
-            owner_id,
-            @ir.hot_region_get(func, then_region, slot),
-          ) {
-          return true
-        }
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          for slot = 0
-              slot < @ir.hot_region_root_count(func, else_region)
-              slot = slot + 1 {
-            if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-                func,
-                owner_id,
-                @ir.hot_region_get(func, else_region, slot),
-              ) {
-              return true
-            }
-          }
-        None => ()
-      }
-    }
-    _ => ()
-  }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
-        func,
-        owner_id,
-        @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return true
-    }
-  }
-  false
+  OiDescriptorBranchControlFact::from_node(func, node_id, node_id).proves_has_escaping_branch_control()
 }
 
 ///|
