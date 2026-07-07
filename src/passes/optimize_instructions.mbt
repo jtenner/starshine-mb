@@ -7139,53 +7139,50 @@ fn optimize_instructions_is_pure_scalar_equal_tree_op(op : @ir.HotOp) -> Bool {
 }
 
 ///|
-fn optimize_instructions_stable_state_reads_equal(
+priv struct OiStableStateReadEqualityFact {
+  matching_memory_size : Bool
+  matching_table_size : Bool
+  same_index : Bool
+}
+
+///|
+fn OiStableStateReadEqualityFact::from_nodes(
   left : @ir.HotNode,
   right : @ir.HotNode,
-) -> Bool {
+) -> OiStableStateReadEqualityFact {
   // Binaryen v130 `areConsecutiveInputsEqual` reaches
   // `ExpressionAnalyzer::equal` after fallthrough peeling. Deterministic state
   // reads with the same index compare equal there, but only after the enclosing
   // equality fact has checked that intervening effects are not ordered before
-  // the right read. Keep this fact separate from `matching_pure_scalar_tree` so
-  // state reads remain visible as effect-sensitive equality, not pure values.
+  // the right read. Keep this fact separate from pure scalar equality so state
+  // reads remain visible as effect-sensitive equality, not pure values.
   match (left.op, right.op) {
-    (@ir.HotOp::MemorySize, @ir.HotOp::MemorySize) => left.imm0 == right.imm0
-    (@ir.HotOp::TableSize, @ir.HotOp::TableSize) => left.imm0 == right.imm0
-    _ => false
+    (@ir.HotOp::MemorySize, @ir.HotOp::MemorySize) =>
+      {
+        matching_memory_size: true,
+        matching_table_size: false,
+        same_index: left.imm0 == right.imm0,
+      }
+    (@ir.HotOp::TableSize, @ir.HotOp::TableSize) =>
+      {
+        matching_memory_size: false,
+        matching_table_size: true,
+        same_index: left.imm0 == right.imm0,
+      }
+    _ =>
+      {
+        matching_memory_size: false,
+        matching_table_size: false,
+        same_index: false,
+      }
   }
 }
 
 ///|
-fn optimize_instructions_exact_instr_is_stable_atomic_memory_read(
-  instr : @lib.Instruction,
+fn OiStableStateReadEqualityFact::proves_equal(
+  self : OiStableStateReadEqualityFact,
 ) -> Bool {
-  match instr {
-    @lib.Instruction::I32AtomicLoad(_)
-    | @lib.Instruction::I64AtomicLoad(_)
-    | @lib.Instruction::I32AtomicLoad8U(_)
-    | @lib.Instruction::I32AtomicLoad16U(_)
-    | @lib.Instruction::I64AtomicLoad8U(_)
-    | @lib.Instruction::I64AtomicLoad16U(_)
-    | @lib.Instruction::I64AtomicLoad32U(_) => true
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_stable_memory_read_ops_equal(
-  left_op : @ir.HotOp,
-  right_op : @ir.HotOp,
-  left_instr : @lib.Instruction,
-  right_instr : @lib.Instruction,
-) -> Bool {
-  match (left_op, right_op) {
-    (@ir.HotOp::Load, @ir.HotOp::Load) => left_instr == right_instr
-    (@ir.HotOp::Atomic, @ir.HotOp::Atomic) =>
-      left_instr == right_instr &&
-      optimize_instructions_exact_instr_is_stable_atomic_memory_read(left_instr)
-    _ => false
-  }
+  self.same_index && (self.matching_memory_size || self.matching_table_size)
 }
 
 ///|
@@ -7291,7 +7288,7 @@ fn OiScalarTreeEqualityFact::from_nodes(
     _ => ()
   }
   if include_stable_state_read &&
-    optimize_instructions_stable_state_reads_equal(left, right) {
+    OiStableStateReadEqualityFact::from_nodes(left, right).proves_equal() {
     return {
       matching_local_get_leaf: false,
       matching_global_get_leaf: false,
@@ -7361,11 +7358,45 @@ fn OiScalarTreeEqualityFact::proves_stable_state_scalar_equal(
 }
 
 ///|
-fn optimize_instructions_stable_memory_reads_equal(
+priv struct OiStableMemoryReadEqualityFact {
+  matching_load : Bool
+  matching_atomic_load : Bool
+  same_instruction : Bool
+  address_fact : OiScalarTreeEqualityFact
+}
+
+///|
+fn OiStableMemoryReadEqualityFact::empty() -> OiStableMemoryReadEqualityFact {
+  {
+    matching_load: false,
+    matching_atomic_load: false,
+    same_instruction: false,
+    address_fact: OiScalarTreeEqualityFact::empty(),
+  }
+}
+
+///|
+fn OiStableMemoryReadEqualityFact::exact_instr_is_atomic_load(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32AtomicLoad(_)
+    | @lib.Instruction::I64AtomicLoad(_)
+    | @lib.Instruction::I32AtomicLoad8U(_)
+    | @lib.Instruction::I32AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad8U(_)
+    | @lib.Instruction::I64AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad32U(_) => true
+    _ => false
+  }
+}
+
+///|
+fn OiStableMemoryReadEqualityFact::from_nodes(
   func : @ir.HotFunc,
   left_id : Int,
   right_id : Int,
-) -> Bool {
+) -> OiStableMemoryReadEqualityFact {
   // Binaryen v130 `areConsecutiveInputsEqual` delegates to
   // `ExpressionAnalyzer::equal` after fallthrough peeling, then separately asks
   // `EffectAnalyzer::orderedBefore(effects(right))` whether intervening effects
@@ -7378,27 +7409,50 @@ fn optimize_instructions_stable_memory_reads_equal(
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
   if left.child_count != 1 || right.child_count != 1 {
-    return false
+    return OiStableMemoryReadEqualityFact::empty()
   }
   match
     (
       @ir.hot_node_exact_instr(func, left_id),
       @ir.hot_node_exact_instr(func, right_id),
     ) {
-    (Some(left_instr), Some(right_instr)) if optimize_instructions_stable_memory_read_ops_equal(
-        left.op,
-        right.op,
-        left_instr,
-        right_instr,
-      ) =>
-      OiScalarTreeEqualityFact::from_nodes(
-        func,
-        @ir.hot_child_get(func, left_id, 0),
-        @ir.hot_child_get(func, right_id, 0),
-        include_stable_state_read=true,
-      ).proves_equal()
-    _ => false
+    (Some(left_instr), Some(right_instr)) if left_instr == right_instr => {
+      let mut matching_load = false
+      let mut matching_atomic_load = false
+      match (left.op, right.op) {
+        (@ir.HotOp::Load, @ir.HotOp::Load) => matching_load = true
+        (@ir.HotOp::Atomic, @ir.HotOp::Atomic) =>
+          matching_atomic_load = OiStableMemoryReadEqualityFact::exact_instr_is_atomic_load(
+            left_instr,
+          )
+        _ => ()
+      }
+      if !matching_load && !matching_atomic_load {
+        return OiStableMemoryReadEqualityFact::empty()
+      }
+      {
+        matching_load,
+        matching_atomic_load,
+        same_instruction: true,
+        address_fact: OiScalarTreeEqualityFact::from_nodes(
+          func,
+          @ir.hot_child_get(func, left_id, 0),
+          @ir.hot_child_get(func, right_id, 0),
+          include_stable_state_read=true,
+        ),
+      }
+    }
+    _ => OiStableMemoryReadEqualityFact::empty()
   }
+}
+
+///|
+fn OiStableMemoryReadEqualityFact::proves_equal(
+  self : OiStableMemoryReadEqualityFact,
+) -> Bool {
+  self.same_instruction &&
+  (self.matching_load || self.matching_atomic_load) &&
+  self.address_fact.proves_equal()
 }
 
 ///|
@@ -7653,13 +7707,13 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     include_stable_state_read=true,
   )
   let matching_pure_scalar_tree = scalar_tree_fact.proves_pure_equal()
-  let matching_stable_state_read = optimize_instructions_stable_state_reads_equal(
+  let matching_stable_state_read = OiStableStateReadEqualityFact::from_nodes(
     left, right,
-  )
+  ).proves_equal()
   let matching_stable_state_scalar_tree = state_scalar_tree_fact.proves_stable_state_scalar_equal()
-  let matching_stable_memory_read = optimize_instructions_stable_memory_reads_equal(
+  let matching_stable_memory_read = OiStableMemoryReadEqualityFact::from_nodes(
     func, left_fallthrough_id, right_fallthrough_id,
-  )
+  ).proves_equal()
   let intervening_effect_fact = OiInterveningEffectFact::from_fallthrough_facts(
     left_fallthrough, right_fallthrough,
   )
@@ -13423,7 +13477,7 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     include_stable_state_read=true,
   )
   let scalar_tree = scalar_tree_fact.proves_pure_equal()
-  let state_read = optimize_instructions_stable_state_reads_equal(left, right)
+  let state_read = OiStableStateReadEqualityFact::from_nodes(left, right).proves_equal()
   let state_scalar_tree = state_scalar_tree_fact.proves_stable_state_scalar_equal()
   let reference_leaf = OiReferenceLeafEqualityFact::from_nodes(
     func, if_true, if_false,
