@@ -13869,6 +13869,115 @@ fn optimize_instructions_v128_splat_local_payloads_are_identical_pure(
 }
 
 ///|
+priv struct OiRefI31PayloadEqualityFact {
+  has_ref_i31_pair : Bool
+  matching_local_payload : Bool
+  matching_const_payload : Bool
+  matching_i32_local_local_scalar : Bool
+  matching_i32_local_const_scalar : Bool
+  matching_i32_unary_local_scalar : Bool
+}
+
+///|
+fn OiRefI31PayloadEqualityFact::from_nodes(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> OiRefI31PayloadEqualityFact {
+  // Binaryen v130 `ExpressionAnalyzer::equal` compares `ref.i31` by comparing
+  // its scalar payload. When the enclosing select condition is effectful,
+  // `visitSelect` also asks `EffectAnalyzer::invalidates` whether the value can
+  // be moved after the condition. Keep Starshine's represented nontrapping,
+  // reorderable i31-payload subset as a fact so callers do not re-open a
+  // visitor-local ref.i31 scanner.
+  let mut has_ref_i31_pair = false
+  let mut matching_local_payload = false
+  let mut matching_const_payload = false
+  let mut matching_i32_local_local_scalar = false
+  let mut matching_i32_local_const_scalar = false
+  let mut matching_i32_unary_local_scalar = false
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs),
+      @ir.hot_node_exact_instr(func, rhs),
+      @ir.hot_node_get(func, lhs).child_count,
+      @ir.hot_node_get(func, rhs).child_count,
+    ) {
+    (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31), 1, 1) => {
+      has_ref_i31_pair = true
+      let lhs_payload = @ir.hot_child_get(func, lhs, 0)
+      let rhs_payload = @ir.hot_child_get(func, rhs, 0)
+      match
+        (
+          optimize_instructions_local_get_id(func, dead, lhs_payload),
+          optimize_instructions_local_get_id(func, dead, rhs_payload),
+        ) {
+        (Some(lhs_local), Some(rhs_local)) =>
+          matching_local_payload = lhs_local == rhs_local
+        _ => ()
+      }
+      match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_payload),
+          optimize_instructions_i32_const(func, dead, rhs_payload),
+        ) {
+        (Some(lhs_const), Some(rhs_const)) =>
+          matching_const_payload = lhs_const == rhs_const
+        _ => ()
+      }
+      matching_i32_local_local_scalar = optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+          func, dead, lhs_payload, rhs_payload,
+        ) ||
+        optimize_instructions_i32_sub_local_local_payloads_are_identical_pure(
+          func, dead, lhs_payload, rhs_payload,
+        ) ||
+        optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
+          func, dead, lhs_payload, rhs_payload,
+        ) ||
+        optimize_instructions_i32_bitwise_local_local_payloads_are_identical_pure(
+          func, dead, lhs_payload, rhs_payload,
+        ) ||
+        optimize_instructions_i32_shift_rotate_local_local_payloads_are_identical_pure(
+          func, dead, lhs_payload, rhs_payload,
+        ) ||
+        optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
+          func, dead, lhs_payload, rhs_payload,
+        )
+      matching_i32_local_const_scalar = optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      )
+      matching_i32_unary_local_scalar = optimize_instructions_i32_unary_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      )
+    }
+    _ => ()
+  }
+  {
+    has_ref_i31_pair,
+    matching_local_payload,
+    matching_const_payload,
+    matching_i32_local_local_scalar,
+    matching_i32_local_const_scalar,
+    matching_i32_unary_local_scalar,
+  }
+}
+
+///|
+fn OiRefI31PayloadEqualityFact::proves_nontrapping_reorderable(
+  self : OiRefI31PayloadEqualityFact,
+) -> Bool {
+  self.has_ref_i31_pair &&
+  (
+    self.matching_local_payload ||
+    self.matching_const_payload ||
+    self.matching_i32_local_local_scalar ||
+    self.matching_i32_local_const_scalar ||
+    self.matching_i32_unary_local_scalar
+  )
+}
+
+///|
 priv struct OiNontrappingReorderableExpressionEqualityFact {
   matching_ref_i31_payload : Bool
   matching_i32_local_local_scalar : Bool
@@ -13895,9 +14004,9 @@ fn OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
   // safely be re-evaluated after the dropped condition instead of leaving them
   // as a visitor-local opcode cascade.
   {
-    matching_ref_i31_payload: optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
+    matching_ref_i31_payload: OiRefI31PayloadEqualityFact::from_nodes(
       func, dead, if_true, if_false,
-    ),
+    ).proves_nontrapping_reorderable(),
     matching_i32_local_local_scalar: optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
@@ -14520,68 +14629,6 @@ fn optimize_instructions_i64_nontrapping_local_const_payloads_are_identical_pure
     rhs,
     @lib.Instruction::i64_ge_u(),
   )
-}
-
-///|
-fn optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
-) -> Bool {
-  match
-    (
-      @ir.hot_node_exact_instr(func, lhs),
-      @ir.hot_node_exact_instr(func, rhs),
-      @ir.hot_node_get(func, lhs).child_count,
-      @ir.hot_node_get(func, rhs).child_count,
-    ) {
-    (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31), 1, 1) => {
-      let lhs_payload = @ir.hot_child_get(func, lhs, 0)
-      let rhs_payload = @ir.hot_child_get(func, rhs, 0)
-      match
-        (
-          optimize_instructions_local_get_id(func, dead, lhs_payload),
-          optimize_instructions_local_get_id(func, dead, rhs_payload),
-        ) {
-        (Some(lhs_local), Some(rhs_local)) => return lhs_local == rhs_local
-        _ => ()
-      }
-      match
-        (
-          optimize_instructions_i32_const(func, dead, lhs_payload),
-          optimize_instructions_i32_const(func, dead, rhs_payload),
-        ) {
-        (Some(lhs_const), Some(rhs_const)) => return lhs_const == rhs_const
-        _ => ()
-      }
-      optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_sub_local_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_bitwise_local_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_shift_rotate_local_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      ) ||
-      optimize_instructions_i32_unary_local_payloads_are_identical_pure(
-        func, dead, lhs_payload, rhs_payload,
-      )
-    }
-    _ => false
-  }
 }
 
 ///|
