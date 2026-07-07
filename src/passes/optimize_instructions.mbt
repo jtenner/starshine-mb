@@ -8204,34 +8204,86 @@ fn OiTupleSelectedMaterializeFact::append_selected_result(
 }
 
 ///|
-fn optimize_instructions_try_fold_tuple_extract_tuple_make(
+priv enum OiTupleExtractRewritePlanKind {
+  TupleExtractForwardSelected
+  TupleExtractMaterializeSelected
+}
+
+///|
+priv struct OiTupleExtractRewritePlanFact {
+  kind : OiTupleExtractRewritePlanKind
+  tuple_fact : OiTupleExtractFact
+  selected_materialize_fact : OiTupleSelectedMaterializeFact?
+}
+
+///|
+fn OiTupleExtractRewritePlanFact::from_extract(
+  func : @ir.HotFunc,
+  tuple_fact : OiTupleExtractFact,
+) -> OiTupleExtractRewritePlanFact {
+  // Binaryen v130 `visitTupleExtract` either forwards the selected child when
+  // sibling preservation is unnecessary or materializes the selected child
+  // before `getDroppedChildrenAndAppend` emits preserved discarded lanes. Keep
+  // that visitor-level choice as an explicit plan fact instead of a body-builder
+  // branch in the pass visitor.
+  if tuple_fact.can_forward_selected_directly() {
+    return {
+      kind: TupleExtractForwardSelected,
+      tuple_fact,
+      selected_materialize_fact: None,
+    }
+  }
+  {
+    kind: TupleExtractMaterializeSelected,
+    tuple_fact,
+    selected_materialize_fact: Some(
+      OiTupleSelectedMaterializeFact::from_extract(func, tuple_fact),
+    ),
+  }
+}
+
+///|
+fn OiTupleExtractRewritePlanFact::apply(
+  self : OiTupleExtractRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let tuple_fact = match
-    OiTupleExtractFact::from_extract(ctx, func, dead, node_id) {
+  match self.kind {
+    TupleExtractForwardSelected => {
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        self.tuple_fact.selected_id,
+      )
+      true
+    }
+    TupleExtractMaterializeSelected =>
+      self.apply_materialized(ctx, func, node_id)
+  }
+}
+
+///|
+fn OiTupleExtractRewritePlanFact::apply_materialized(
+  self : OiTupleExtractRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let selected_materialize_fact = match self.selected_materialize_fact {
     Some(fact) => fact
     None => return false
   }
-  if tuple_fact.can_forward_selected_directly() {
-    optimize_instructions_replace_with_node_id(
-      ctx,
-      func,
-      node_id,
-      tuple_fact.selected_id,
-    )
-    return true
-  }
   let body : Array[Int] = []
-  let selected_materialize_fact = OiTupleSelectedMaterializeFact::from_extract(
-    func, tuple_fact,
-  )
-  for slot = 0; slot < tuple_fact.lane_facts.length(); slot = slot + 1 {
-    let lane_fact = tuple_fact.lane_facts[slot]
-    if slot == tuple_fact.selected_slot {
-      selected_materialize_fact.append_selected_capture(func, tuple_fact, body)
+  for slot = 0; slot < self.tuple_fact.lane_facts.length(); slot = slot + 1 {
+    let lane_fact = self.tuple_fact.lane_facts[slot]
+    if slot == self.tuple_fact.selected_slot {
+      selected_materialize_fact.append_selected_capture(
+        func,
+        self.tuple_fact,
+        body,
+      )
       continue
     }
     if !lane_fact.materialize_fact.must_emit() {
@@ -8244,16 +8296,33 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       body,
     )
   }
-  selected_materialize_fact.append_selected_result(func, tuple_fact, body)
+  selected_materialize_fact.append_selected_result(func, self.tuple_fact, body)
   let replacement = @ir.hot_build_block(
     func,
     @lib.BlockType::val_type(
-      tuple_fact.selected_results[tuple_fact.selected_lane],
+      self.tuple_fact.selected_results[self.tuple_fact.selected_lane],
     ),
     body,
   )
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
   true
+}
+
+///|
+fn optimize_instructions_try_fold_tuple_extract_tuple_make(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let tuple_fact = match
+    OiTupleExtractFact::from_extract(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return false
+  }
+  OiTupleExtractRewritePlanFact::from_extract(func, tuple_fact).apply(
+    ctx, func, node_id,
+  )
 }
 
 ///|
