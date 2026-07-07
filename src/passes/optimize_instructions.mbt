@@ -1824,6 +1824,7 @@ fn OiRefCastRewritePlanFact::apply(
 
 ///|
 priv struct OiDescriptorCastFact {
+  node_id : Int
   nullable : Bool
   exact : Bool
   target : @lib.HeapType
@@ -1846,6 +1847,7 @@ fn OiDescriptorCastFact::from_node(
     _ => return None
   }
   Some({
+    node_id,
     nullable,
     exact,
     target,
@@ -1978,12 +1980,11 @@ fn OiDescriptorExactMissFact::from_node(
   )
   Some({
     cast_fact,
-    descriptor_exactly_describes_target: optimize_instructions_descriptor_operand_exactly_describes_target(
+    descriptor_exactly_describes_target: OiDescriptorTypeFact::from_node(
       ctx,
       func,
       cast_fact.descriptor_id,
-      cast_fact.target,
-    ),
+    ).exactly_describes(cast_fact.target),
     ref_operand_misses_target: optimize_instructions_ref_operand_misses_exact_target(
       func,
       cast_fact.operand_id,
@@ -2529,6 +2530,189 @@ fn OiDescriptorExactSuccessRewritePlanFact::apply(
         self.success_fact.cast_fact.descriptor_id,
       )
   }
+}
+
+///|
+priv struct OiDescriptorResultNarrowingFact {
+  cast_fact : OiDescriptorCastFact
+  descriptor_no_escaping_branch_control : Bool
+  operand_matches_or_subtypes_target : Bool
+  operand_nullable : Bool
+  descriptor_described_heap : @lib.HeapType?
+  descriptor_described_heap_subtypes_target : Bool
+  descriptor_exactly_describes_target : Bool
+  narrowed_target : @lib.HeapType
+  narrowed_nullable : Bool
+  narrowed_exact : Bool
+}
+
+///|
+fn OiDescriptorResultNarrowingFact::from_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cast_fact : OiDescriptorCastFact,
+  force_non_null : Bool,
+) -> OiDescriptorResultNarrowingFact {
+  // Binaryen v130's descriptor equality cast result tightening derives from
+  // source type facts: the reference operand must match or subtype the target
+  // for ordinary result narrowing, the descriptor operand may prove a narrower
+  // described heap, and descriptor subtrees with escaping branch control stay
+  // fail-closed. Store those decisions in one fact so `visitRefCast` and the
+  // surrounding ref.as_non_null movement do not duplicate helper-local scans.
+  let descriptor_no_escaping_branch_control = !OiDescriptorBranchControlFact::from_node(
+    func,
+    cast_fact.descriptor_id,
+    cast_fact.descriptor_id,
+  ).proves_has_escaping_branch_control()
+  let (operand_matches_or_subtypes_target, operand_nullable) = match
+    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).matches_or_subtypes_heap(
+      ctx,
+      cast_fact.target,
+    ) {
+    Some((nullable, _)) => (true, nullable)
+    None => (false, false)
+  }
+  let descriptor_type_fact = OiDescriptorTypeFact::from_node(
+    ctx,
+    func,
+    cast_fact.descriptor_id,
+  )
+  let descriptor_described_heap = descriptor_type_fact.exact_described_heap
+  let descriptor_described_heap_subtypes_target = match
+    descriptor_described_heap {
+    Some(described_heap) =>
+      optimize_instructions_heap_is_known_subtype(
+        ctx,
+        described_heap,
+        cast_fact.target,
+      )
+    None => false
+  }
+  let narrowed_target = match descriptor_described_heap {
+    Some(described_heap) if descriptor_described_heap_subtypes_target =>
+      described_heap
+    _ => cast_fact.target
+  }
+  let descriptor_exactly_describes_target = descriptor_type_fact.exactly_describes(
+    cast_fact.target,
+  )
+  let descriptor_exact = narrowed_target != cast_fact.target ||
+    descriptor_exactly_describes_target
+  {
+    cast_fact,
+    descriptor_no_escaping_branch_control,
+    operand_matches_or_subtypes_target,
+    operand_nullable,
+    descriptor_described_heap,
+    descriptor_described_heap_subtypes_target,
+    descriptor_exactly_describes_target,
+    narrowed_target,
+    narrowed_nullable: if force_non_null {
+      false
+    } else {
+      cast_fact.nullable && operand_nullable
+    },
+    narrowed_exact: cast_fact.exact || descriptor_exact,
+  }
+}
+
+///|
+fn OiDescriptorResultNarrowingFact::changes_result_type(
+  self : OiDescriptorResultNarrowingFact,
+) -> Bool {
+  self.narrowed_nullable != self.cast_fact.nullable ||
+  self.narrowed_exact != self.cast_fact.exact ||
+  self.narrowed_target != self.cast_fact.target
+}
+
+///|
+fn OiDescriptorResultNarrowingFact::proves_can_narrow_result_type(
+  self : OiDescriptorResultNarrowingFact,
+) -> Bool {
+  ignore(self.descriptor_described_heap)
+  ignore(self.descriptor_described_heap_subtypes_target)
+  ignore(self.descriptor_exactly_describes_target)
+  self.descriptor_no_escaping_branch_control &&
+  self.operand_matches_or_subtypes_target &&
+  self.changes_result_type()
+}
+
+///|
+fn OiDescriptorResultNarrowingFact::proves_can_move_ref_as_non_null_into_cast(
+  self : OiDescriptorResultNarrowingFact,
+) -> Bool {
+  ignore(self.operand_matches_or_subtypes_target)
+  ignore(self.operand_nullable)
+  self.cast_fact.nullable && self.descriptor_no_escaping_branch_control
+}
+
+///|
+priv enum OiDescriptorResultNarrowingRewriteKind {
+  DescriptorResultNarrowCastRoot
+  DescriptorResultNarrowRefAsNonNullRoot
+}
+
+///|
+priv struct OiDescriptorResultNarrowingRewritePlanFact {
+  kind : OiDescriptorResultNarrowingRewriteKind
+  narrowing_fact : OiDescriptorResultNarrowingFact
+}
+
+///|
+fn OiDescriptorResultNarrowingRewritePlanFact::from_cast_root(
+  narrowing_fact : OiDescriptorResultNarrowingFact,
+) -> OiDescriptorResultNarrowingRewritePlanFact? {
+  if !narrowing_fact.proves_can_narrow_result_type() {
+    return None
+  }
+  Some({ kind: DescriptorResultNarrowCastRoot, narrowing_fact })
+}
+
+///|
+fn OiDescriptorResultNarrowingRewritePlanFact::from_ref_as_non_null_root(
+  narrowing_fact : OiDescriptorResultNarrowingFact,
+) -> OiDescriptorResultNarrowingRewritePlanFact? {
+  if !narrowing_fact.proves_can_move_ref_as_non_null_into_cast() {
+    return None
+  }
+  Some({ kind: DescriptorResultNarrowRefAsNonNullRoot, narrowing_fact })
+}
+
+///|
+fn OiDescriptorResultNarrowingRewritePlanFact::apply(
+  self : OiDescriptorResultNarrowingRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    DescriptorResultNarrowCastRoot | DescriptorResultNarrowRefAsNonNullRoot =>
+      ()
+  }
+  let cast_fact = self.narrowing_fact.cast_fact
+  let narrowed_ref_type = @lib.RefType::new(
+    self.narrowing_fact.narrowed_nullable,
+    self.narrowing_fact.narrowed_target,
+    exact=self.narrowing_fact.narrowed_exact,
+  )
+  let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
+    narrowed_ref_type,
+  )
+  let payload_id = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(narrowed_instr),
+  )
+  let narrowed = @ir.hot_build_node(
+    func,
+    @ir.hot_node_get(func, cast_fact.node_id).op,
+    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(narrowed_ref_type)),
+    imm1=payload_id,
+    children=[cast_fact.operand_id, cast_fact.descriptor_id],
+  )
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+  @ir.hot_delete_node(func, narrowed)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -19845,89 +20029,14 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
     Some(fact) => fact
     None => return false
   }
-  if optimize_instructions_descriptor_expr_has_escaping_branch_control(
-      func,
-      cast_fact.descriptor_id,
-    ) {
-    return false
+  let narrowing_fact = OiDescriptorResultNarrowingFact::from_cast(
+    ctx, func, cast_fact, false,
+  )
+  match
+    OiDescriptorResultNarrowingRewritePlanFact::from_cast_root(narrowing_fact) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let (operand_nullable, operand_exact) = match
-    optimize_instructions_ref_operand_matches_or_subtypes_heap(
-      ctx,
-      func,
-      cast_fact.operand_id,
-      cast_fact.target,
-    ) {
-    Some(info) => info
-    None => return false
-  }
-  let descriptor_described_heap = optimize_instructions_descriptor_operand_exact_described_heap(
-    ctx,
-    func,
-    cast_fact.descriptor_id,
-  )
-  let narrowed_target = match descriptor_described_heap {
-    Some(described_heap) if optimize_instructions_heap_is_known_subtype(
-        ctx,
-        described_heap,
-        cast_fact.target,
-      ) => described_heap
-    _ => cast_fact.target
-  }
-  let descriptor_exact = narrowed_target != cast_fact.target ||
-    optimize_instructions_descriptor_operand_exactly_describes_target(
-      ctx,
-      func,
-      cast_fact.descriptor_id,
-      cast_fact.target,
-    )
-  let narrowed_nullable = cast_fact.nullable && operand_nullable
-  ignore(operand_exact)
-  let narrowed_exact = cast_fact.exact || descriptor_exact
-  if narrowed_nullable == cast_fact.nullable &&
-    narrowed_exact == cast_fact.exact &&
-    narrowed_target == cast_fact.target {
-    return false
-  }
-  let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
-    @lib.RefType::new(narrowed_nullable, narrowed_target, exact=narrowed_exact),
-  )
-  let payload_id = @ir.hot_alloc_instr_payload(
-    func,
-    @ir.HotInstrPayload::new(narrowed_instr),
-  )
-  let narrowed = @ir.hot_build_node(
-    func,
-    @ir.hot_node_get(func, node_id).op,
-    @ir.hot_type_intern_value(
-      func,
-      @lib.ValType::ref_type(
-        @lib.RefType::new(
-          narrowed_nullable,
-          narrowed_target,
-          exact=narrowed_exact,
-        ),
-      ),
-    ),
-    imm1=payload_id,
-    children=[cast_fact.operand_id, cast_fact.descriptor_id],
-  )
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
-  @ir.hot_delete_node(func, narrowed)
-  pass_mark_mutated(ctx, func)
-  true
-}
-
-///|
-fn optimize_instructions_ref_operand_matches_or_subtypes_heap(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> (Bool, Bool)? {
-  OiRefProducerFact::from_node(ctx, func, node_id).matches_or_subtypes_heap(
-    ctx, target,
-  )
 }
 
 ///|
@@ -19989,25 +20098,6 @@ fn optimize_instructions_descriptor_skip_must_preserve_operand_order(
   node_id : Int,
 ) -> Bool {
   OiDescriptorSkipOrderFact::from_node(func, node_id).proves_must_preserve_operand_order()
-}
-
-///|
-fn optimize_instructions_descriptor_operand_exactly_describes_target(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  OiDescriptorTypeFact::from_node(ctx, func, node_id).exactly_describes(target)
-}
-
-///|
-fn optimize_instructions_descriptor_operand_exact_described_heap(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> @lib.HeapType? {
-  OiDescriptorTypeFact::from_node(ctx, func, node_id).exact_described_heap
 }
 
 ///|
@@ -20577,67 +20667,16 @@ fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
     optimize_instructions_replace_with_node_id(ctx, func, node_id, cast_id)
     return true
   }
-  if optimize_instructions_descriptor_expr_has_escaping_branch_control(
-      func,
-      cast_fact.descriptor_id,
+  let narrowing_fact = OiDescriptorResultNarrowingFact::from_cast(
+    ctx, func, cast_fact, true,
+  )
+  match
+    OiDescriptorResultNarrowingRewritePlanFact::from_ref_as_non_null_root(
+      narrowing_fact,
     ) {
-    return false
-  }
-  let operand_exact = match
-    optimize_instructions_ref_operand_matches_or_subtypes_heap(
-      ctx,
-      func,
-      cast_fact.operand_id,
-      cast_fact.target,
-    ) {
-    Some((_, exact)) => exact
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
     None => false
   }
-  let descriptor_described_heap = optimize_instructions_descriptor_operand_exact_described_heap(
-    ctx,
-    func,
-    cast_fact.descriptor_id,
-  )
-  let narrowed_target = match descriptor_described_heap {
-    Some(described_heap) if optimize_instructions_heap_is_known_subtype(
-        ctx,
-        described_heap,
-        cast_fact.target,
-      ) => described_heap
-    _ => cast_fact.target
-  }
-  let descriptor_exact = narrowed_target != cast_fact.target ||
-    optimize_instructions_descriptor_operand_exactly_describes_target(
-      ctx,
-      func,
-      cast_fact.descriptor_id,
-      cast_fact.target,
-    )
-  ignore(operand_exact)
-  let narrowed_exact = cast_fact.exact || descriptor_exact
-  let narrowed_ref_type = @lib.RefType::new(
-    false,
-    narrowed_target,
-    exact=narrowed_exact,
-  )
-  let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
-    narrowed_ref_type,
-  )
-  let payload_id = @ir.hot_alloc_instr_payload(
-    func,
-    @ir.HotInstrPayload::new(narrowed_instr),
-  )
-  let narrowed = @ir.hot_build_node(
-    func,
-    @ir.hot_node_get(func, cast_id).op,
-    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(narrowed_ref_type)),
-    imm1=payload_id,
-    children=[cast_fact.operand_id, cast_fact.descriptor_id],
-  )
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
-  @ir.hot_delete_node(func, narrowed)
-  pass_mark_mutated(ctx, func)
-  true
 }
 
 ///|
