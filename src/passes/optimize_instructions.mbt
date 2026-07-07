@@ -6862,12 +6862,17 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 }
 
 ///|
+priv struct OiStateWriteSetFact {
+  local_writes : Array[Int]
+  global_writes : Array[Int]
+}
+
+///|
 priv struct OiLeftFallthroughInputFact {
   fallthrough_id : Int
   after_value_effect_mask : UInt
   after_value_write_mask : UInt
-  after_value_local_writes : Array[Int]
-  after_value_global_writes : Array[Int]
+  after_value_state_writes : OiStateWriteSetFact
   unsupported_after_value_control : Bool
 }
 
@@ -6876,9 +6881,16 @@ priv struct OiRightFallthroughInputFact {
   fallthrough_id : Int
   prefix_effect_mask : UInt
   prefix_write_mask : UInt
-  prefix_local_writes : Array[Int]
-  prefix_global_writes : Array[Int]
+  prefix_state_writes : OiStateWriteSetFact
   unsupported_prefix_control : Bool
+}
+
+///|
+priv struct OiInterveningEffectFact {
+  effect_mask : UInt
+  write_mask : UInt
+  state_writes : OiStateWriteSetFact
+  unsupported_control : Bool
 }
 
 ///|
@@ -6894,99 +6906,55 @@ priv struct OiConsecutiveInputEqualityFact {
 }
 
 ///|
-fn optimize_instructions_local_writes_append_unique(
-  writes : Array[Int],
+fn OiStateWriteSetFact::empty() -> OiStateWriteSetFact {
+  { local_writes: [], global_writes: [] }
+}
+
+///|
+fn OiStateWriteSetFact::add_local(
+  self : OiStateWriteSetFact,
   local_idx : Int,
 ) -> Unit {
-  for value in writes {
+  for value in self.local_writes {
     if value == local_idx {
       return
     }
   }
-  writes.push(local_idx)
+  self.local_writes.push(local_idx)
 }
 
 ///|
-fn optimize_instructions_global_writes_append_unique(
-  writes : Array[Int],
+fn OiStateWriteSetFact::add_global(
+  self : OiStateWriteSetFact,
   global_idx : Int,
 ) -> Unit {
-  for value in writes {
+  for value in self.global_writes {
     if value == global_idx {
       return
     }
   }
-  writes.push(global_idx)
+  self.global_writes.push(global_idx)
 }
 
 ///|
-fn optimize_instructions_subtree_local_writes(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Array[Int] {
-  let writes : Array[Int] = []
-  fn walk(id : Int) -> Unit {
-    let node = @ir.hot_node_get(func, id)
-    match node.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-        optimize_instructions_local_writes_append_unique(writes, node.imm0)
-      _ => ()
-    }
-    for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
-      walk(@ir.hot_child_get(func, id, slot))
-    }
-  }
-  walk(node_id)
-  writes
-}
-
-///|
-fn optimize_instructions_subtree_global_writes(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Array[Int] {
-  let writes : Array[Int] = []
-  fn walk(id : Int) -> Unit {
-    let node = @ir.hot_node_get(func, id)
-    match node.op {
-      @ir.HotOp::GlobalSet =>
-        optimize_instructions_global_writes_append_unique(writes, node.imm0)
-      _ => ()
-    }
-    for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
-      walk(@ir.hot_child_get(func, id, slot))
-    }
-  }
-  walk(node_id)
-  writes
-}
-
-///|
-fn optimize_instructions_append_local_writes(
-  dst : Array[Int],
-  src : Array[Int],
+fn OiStateWriteSetFact::append_from(
+  self : OiStateWriteSetFact,
+  other : OiStateWriteSetFact,
 ) -> Unit {
-  for local_idx in src {
-    optimize_instructions_local_writes_append_unique(dst, local_idx)
+  for local_idx in other.local_writes {
+    self.add_local(local_idx)
+  }
+  for global_idx in other.global_writes {
+    self.add_global(global_idx)
   }
 }
 
 ///|
-fn optimize_instructions_append_global_writes(
-  dst : Array[Int],
-  src : Array[Int],
-) -> Unit {
-  for global_idx in src {
-    optimize_instructions_global_writes_append_unique(dst, global_idx)
-  }
-}
-
-///|
-fn optimize_instructions_local_writes_include(
-  writes : Array[Int],
+fn OiStateWriteSetFact::writes_local(
+  self : OiStateWriteSetFact,
   local_idx : Int,
 ) -> Bool {
-  for value in writes {
+  for value in self.local_writes {
     if value == local_idx {
       return true
     }
@@ -6995,16 +6963,41 @@ fn optimize_instructions_local_writes_include(
 }
 
 ///|
-fn optimize_instructions_global_writes_include(
-  writes : Array[Int],
+fn OiStateWriteSetFact::writes_global(
+  self : OiStateWriteSetFact,
   global_idx : Int,
 ) -> Bool {
-  for value in writes {
+  for value in self.global_writes {
     if value == global_idx {
       return true
     }
   }
   false
+}
+
+///|
+fn OiStateWriteSetFact::from_value_subtree(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiStateWriteSetFact {
+  // Binaryen's `EffectAnalyzer::invalidates` reasons about precise local/global
+  // locations even though coarse HOT effect bits conflate reads and writes.
+  // Keep the represented OI subset as a fact so fallthrough-prefix and
+  // after-value equality paths share the same source-backed write-set proof.
+  let fact = OiStateWriteSetFact::empty()
+  fn walk(id : Int) -> Unit {
+    let node = @ir.hot_node_get(func, id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => fact.add_local(node.imm0)
+      @ir.HotOp::GlobalSet => fact.add_global(node.imm0)
+      _ => ()
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
+      walk(@ir.hot_child_get(func, id, slot))
+    }
+  }
+  walk(node_id)
+  fact
 }
 
 ///|
@@ -7328,8 +7321,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
             fallthrough_id: node_id,
             after_value_effect_mask: 0U,
             after_value_write_mask: 0U,
-            after_value_local_writes: [],
-            after_value_global_writes: [],
+            after_value_state_writes: OiStateWriteSetFact::empty(),
             unsupported_after_value_control: false,
           }
         _ => ()
@@ -7338,25 +7330,16 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
       let nested = optimize_instructions_left_fallthrough_input_for_equality(
         func, node_masks, child_id, right_fallthrough_id,
       )
-      let local_writes : Array[Int] = []
-      optimize_instructions_append_local_writes(
-        local_writes,
-        nested.after_value_local_writes,
-      )
-      optimize_instructions_local_writes_append_unique(local_writes, node.imm0)
-      let global_writes : Array[Int] = []
-      optimize_instructions_append_global_writes(
-        global_writes,
-        nested.after_value_global_writes,
-      )
+      let state_writes = OiStateWriteSetFact::empty()
+      state_writes.append_from(nested.after_value_state_writes)
+      state_writes.add_local(node.imm0)
       {
         fallthrough_id: nested.fallthrough_id,
         after_value_effect_mask: nested.after_value_effect_mask |
         @ir.EFFECT_MASK_LOCAL_STATE,
         after_value_write_mask: nested.after_value_write_mask |
         @ir.EFFECT_MASK_LOCAL_STATE,
-        after_value_local_writes: local_writes,
-        after_value_global_writes: global_writes,
+        after_value_state_writes: state_writes,
         unsupported_after_value_control: nested.unsupported_after_value_control,
       }
     }
@@ -7370,8 +7353,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
         fallthrough_id: node_id,
         after_value_effect_mask: 0U,
         after_value_write_mask: 0U,
-        after_value_local_writes: [],
-        after_value_global_writes: [],
+        after_value_state_writes: OiStateWriteSetFact::empty(),
         unsupported_after_value_control: true,
       }
     _ =>
@@ -7379,8 +7361,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
         fallthrough_id: node_id,
         after_value_effect_mask: 0U,
         after_value_write_mask: 0U,
-        after_value_local_writes: [],
-        after_value_global_writes: [],
+        after_value_state_writes: OiStateWriteSetFact::empty(),
         unsupported_after_value_control: false,
       }
   }
@@ -7397,8 +7378,7 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
     @ir.HotOp::Block if node.child_count > 0 => {
       let mut prefix_effect_mask = 0U
       let mut prefix_write_mask = 0U
-      let prefix_local_writes : Array[Int] = []
-      let prefix_global_writes : Array[Int] = []
+      let prefix_state_writes = OiStateWriteSetFact::empty()
       for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)
         let child_mask = node_masks[child_id]
@@ -7407,21 +7387,15 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
             fallthrough_id: node_id,
             prefix_effect_mask: 0U,
             prefix_write_mask: 0U,
-            prefix_local_writes: [],
-            prefix_global_writes: [],
+            prefix_state_writes: OiStateWriteSetFact::empty(),
             unsupported_prefix_control: true,
           }
         }
         prefix_effect_mask = prefix_effect_mask | child_mask
         prefix_write_mask = prefix_write_mask |
           optimize_instructions_subtree_write_mask(func, node_masks, child_id)
-        optimize_instructions_append_local_writes(
-          prefix_local_writes,
-          optimize_instructions_subtree_local_writes(func, child_id),
-        )
-        optimize_instructions_append_global_writes(
-          prefix_global_writes,
-          optimize_instructions_subtree_global_writes(func, child_id),
+        prefix_state_writes.append_from(
+          OiStateWriteSetFact::from_value_subtree(func, child_id),
         )
       }
       let nested = optimize_instructions_right_fallthrough_input_for_equality(
@@ -7429,20 +7403,12 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         node_masks,
         @ir.hot_child_get(func, node_id, node.child_count - 1),
       )
-      optimize_instructions_append_local_writes(
-        prefix_local_writes,
-        nested.prefix_local_writes,
-      )
-      optimize_instructions_append_global_writes(
-        prefix_global_writes,
-        nested.prefix_global_writes,
-      )
+      prefix_state_writes.append_from(nested.prefix_state_writes)
       {
         fallthrough_id: nested.fallthrough_id,
         prefix_effect_mask: prefix_effect_mask | nested.prefix_effect_mask,
         prefix_write_mask: prefix_write_mask | nested.prefix_write_mask,
-        prefix_local_writes,
-        prefix_global_writes,
+        prefix_state_writes,
         unsupported_prefix_control: nested.unsupported_prefix_control,
       }
     }
@@ -7451,38 +7417,57 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
         fallthrough_id: node_id,
         prefix_effect_mask: 0U,
         prefix_write_mask: 0U,
-        prefix_local_writes: [],
-        prefix_global_writes: [],
+        prefix_state_writes: OiStateWriteSetFact::empty(),
         unsupported_prefix_control: false,
       }
   }
 }
 
 ///|
-fn optimize_instructions_effects_ordered_before_right_fallthrough(
+fn OiInterveningEffectFact::from_fallthrough_facts(
+  left : OiLeftFallthroughInputFact,
+  right : OiRightFallthroughInputFact,
+) -> OiInterveningEffectFact {
+  let state_writes = OiStateWriteSetFact::empty()
+  state_writes.append_from(left.after_value_state_writes)
+  state_writes.append_from(right.prefix_state_writes)
+  {
+    effect_mask: left.after_value_effect_mask | right.prefix_effect_mask,
+    write_mask: left.after_value_write_mask | right.prefix_write_mask,
+    state_writes,
+    unsupported_control: left.unsupported_after_value_control ||
+    right.unsupported_prefix_control,
+  }
+}
+
+///|
+fn OiInterveningEffectFact::ordered_before_right_fallthrough(
+  self : OiInterveningEffectFact,
   func : @ir.HotFunc,
   node_masks : Array[UInt],
-  effect_mask : UInt,
-  write_mask : UInt,
-  local_writes : Array[Int],
-  global_writes : Array[Int],
   right_id : Int,
 ) -> Bool {
+  // Represented subset of Binaryen v130
+  // `EffectAnalyzer::orderedBefore(effects(right))` / `invalidates` used by
+  // OI consecutive-input equality. Coarse effect bits prove memory/table/call
+  // interference, while `OiStateWriteSetFact` proves exact local/global misses
+  // so `local.get $x` can be reused across writes to other locals and
+  // `global.get $x` can be reused across non-call writes to other globals.
+  if self.unsupported_control {
+    return true
+  }
   let right_mask = node_masks[right_id]
   let right_write_mask = optimize_instructions_subtree_write_mask(
     func, node_masks, right_id,
   )
   let read_bits = optimize_instructions_reorder_read_effects()
-  let mut effect_reads = effect_mask & read_bits
-  let mut effective_write_mask = write_mask
+  let mut effect_reads = self.effect_mask & read_bits
+  let mut effective_write_mask = self.write_mask
   let mut right_reads = right_mask & read_bits
   let mut effective_right_write_mask = right_write_mask
   let right = @ir.hot_node_get(func, right_id)
   match right.op {
-    @ir.HotOp::LocalGet if !optimize_instructions_local_writes_include(
-        local_writes,
-        right.imm0,
-      ) => {
+    @ir.HotOp::LocalGet if !self.state_writes.writes_local(right.imm0) => {
       effective_write_mask = optimize_instructions_mask_without_local_state(
         effective_write_mask,
       )
@@ -7494,8 +7479,8 @@ fn optimize_instructions_effects_ordered_before_right_fallthrough(
         effective_right_write_mask,
       )
     }
-    @ir.HotOp::GlobalGet if (effect_mask & @ir.EFFECT_MASK_CALL) == 0U &&
-      !optimize_instructions_global_writes_include(global_writes, right.imm0) => {
+    @ir.HotOp::GlobalGet if (self.effect_mask & @ir.EFFECT_MASK_CALL) == 0U &&
+      !self.state_writes.writes_global(right.imm0) => {
       effective_write_mask = optimize_instructions_mask_without_global_state(
         effective_write_mask,
       )
@@ -7518,7 +7503,7 @@ fn optimize_instructions_effects_ordered_before_right_fallthrough(
     return true
   }
   let effects_disrupt = (
-      effect_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)
+      self.effect_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)
     ) !=
     0U
   let right_side_effect = right_write_mask != 0U ||
@@ -7570,37 +7555,14 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let matching_stable_memory_read = optimize_instructions_stable_memory_reads_equal(
     func, left_fallthrough_id, right_fallthrough_id,
   )
-  let intervening_local_writes : Array[Int] = []
-  optimize_instructions_append_local_writes(
-    intervening_local_writes,
-    left_fallthrough.after_value_local_writes,
+  let intervening_effect_fact = OiInterveningEffectFact::from_fallthrough_facts(
+    left_fallthrough, right_fallthrough,
   )
-  optimize_instructions_append_local_writes(
-    intervening_local_writes,
-    right_fallthrough.prefix_local_writes,
+  let intervening_effects_interfere = intervening_effect_fact.ordered_before_right_fallthrough(
+    func,
+    effects.node_masks,
+    right_fallthrough_id,
   )
-  let intervening_global_writes : Array[Int] = []
-  optimize_instructions_append_global_writes(
-    intervening_global_writes,
-    left_fallthrough.after_value_global_writes,
-  )
-  optimize_instructions_append_global_writes(
-    intervening_global_writes,
-    right_fallthrough.prefix_global_writes,
-  )
-  let intervening_effects_interfere = left_fallthrough.unsupported_after_value_control ||
-    right_fallthrough.unsupported_prefix_control ||
-    optimize_instructions_effects_ordered_before_right_fallthrough(
-      func,
-      effects.node_masks,
-      left_fallthrough.after_value_effect_mask |
-      right_fallthrough.prefix_effect_mask,
-      left_fallthrough.after_value_write_mask |
-      right_fallthrough.prefix_write_mask,
-      intervening_local_writes,
-      intervening_global_writes,
-      right_fallthrough_id,
-    )
   {
     left_fallthrough_id,
     right_fallthrough_id,
