@@ -29394,28 +29394,49 @@ fn run_hot_pipeline_raw_optimize_instructions_call_returns_nullable_target_with_
   }
 }
 
+/// Raw descriptor call-argument facts for the OI-J stack fallback.  Binaryen
+/// v130's descriptor-cast paths use `getDroppedChildrenAndAppend` and
+/// `ChildLocalizer` to preserve ref/descriptor operands before replacing a
+/// known descriptor-cast result; this raw bridge keeps the previously-covered
+/// leaf, direct-call, scalar, select, and branch-free block argument chunks as
+/// classified facts rather than recursive helper predicates.
+
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.LocalGet(_)
-    | @lib.GlobalGet(_)
-    | @lib.I32Const(_)
-    | @lib.I64Const(_)
-    | @lib.F32Const(_)
-    | @lib.F64Const(_) => true
-    _ => false
-  }
+priv enum RawOiDescriptorCallArgKind {
+  DescriptorArgNontrappingLeaf
+  DescriptorArgBranchFreeEffectfulBlock
+  DescriptorArgNoParamDirectValueCall
+  DescriptorArgNoParamDirectReferenceCall
+  DescriptorArgScalarLocalTee
+  DescriptorArgPureSelect
+  DescriptorArgTrappingScalarBinary
+  DescriptorArgParameterizedDirectValueCall
+  DescriptorArgParameterizedDirectReferenceCall
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_block_body_is_branch_free(
+priv struct RawOiDescriptorCallArgFact {
+  kind : RawOiDescriptorCallArgKind
+  start : Int
+  end : Int
+  value_count : Int
+}
+
+///|
+priv struct RawOiDescriptorCallArgBlockBodyFact {
+  has_value : Bool
+  branch_free : Bool
+  blocking_boundary_count : Int
+}
+
+///|
+fn RawOiDescriptorCallArgBlockBodyFact::from_instrs(
   body : Array[@lib.Instruction],
-) -> Bool {
+) -> RawOiDescriptorCallArgBlockBodyFact {
   if body.is_empty() {
-    return false
+    return { has_value: false, branch_free: false, blocking_boundary_count: 0 }
   }
+  let mut blocking_boundary_count = 0
   for instr in body {
     match instr {
       @lib.Block(_, _)
@@ -29438,66 +29459,125 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_block_body_is_
       | @lib.Return
       | @lib.Throw(_)
       | @lib.ThrowRef
-      | @lib.Unreachable => return false
+      | @lib.Unreachable =>
+        blocking_boundary_count = blocking_boundary_count + 1
       _ => ()
     }
   }
-  true
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_branch_free_effectful_block(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
-      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_block_body_is_branch_free(
-        body,
-      )
-    _ => false
+  {
+    has_value: true,
+    branch_free: blocking_boundary_count == 0,
+    blocking_boundary_count,
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
+fn RawOiDescriptorCallArgBlockBodyFact::proves_binaryen_branch_free_operand(
+  self : RawOiDescriptorCallArgBlockBodyFact,
+) -> Bool {
+  self.has_value && self.branch_free && self.blocking_boundary_count == 0
+}
+
+///|
+fn RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+  instr : @lib.Instruction,
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_) =>
+      Some({
+        kind: DescriptorArgNontrappingLeaf,
+        start,
+        end: start + 1,
+        value_count: 1,
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiDescriptorCallArgFact::from_branch_free_effectful_block_instr(
+  instr : @lib.Instruction,
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
+  match instr {
+    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      let body_fact = RawOiDescriptorCallArgBlockBodyFact::from_instrs(body)
+      if body_fact.proves_binaryen_branch_free_operand() {
+        Some({
+          kind: DescriptorArgBranchFreeEffectfulBlock,
+          start,
+          end: start + 1,
+          value_count: 1,
+        })
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn RawOiDescriptorCallArgFact::from_no_param_direct_value_call_instr(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-) -> Bool {
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
   match instr {
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
         Some(@lib.FuncType(params, [result])) if params.length() == 0 =>
           match result {
-            @lib.ValType::RefTypeValType(_) => false
-            _ => true
+            @lib.ValType::RefTypeValType(_) => None
+            _ =>
+              Some({
+                kind: DescriptorArgNoParamDirectValueCall,
+                start,
+                end: start + 1,
+                value_count: 1,
+              })
           }
-        _ => false
+        _ => None
       }
-    _ => false
+    _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_reference_call(
+fn RawOiDescriptorCallArgFact::from_no_param_direct_reference_call_instr(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-) -> Bool {
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
   match instr {
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
         Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-          0 => ref_type.is_non_nullable()
-        _ => false
+          0 &&
+          ref_type.is_non_nullable() =>
+          Some({
+            kind: DescriptorArgNoParamDirectReferenceCall,
+            start,
+            end: start + 1,
+            value_count: 1,
+          })
+        _ => None
       }
-    _ => false
+    _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_local_tee(
+fn RawOiDescriptorCallArgFact::from_scalar_local_tee_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> Int? {
+) -> RawOiDescriptorCallArgFact? {
   if start + 1 >= instrs.length() {
     return None
   }
@@ -29505,51 +29585,84 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_loca
     (@lib.I32Const(_), @lib.LocalTee(_))
     | (@lib.I64Const(_), @lib.LocalTee(_))
     | (@lib.F32Const(_), @lib.LocalTee(_))
-    | (@lib.F64Const(_), @lib.LocalTee(_)) => Some(start + 2)
+    | (@lib.F64Const(_), @lib.LocalTee(_)) =>
+      Some({
+        kind: DescriptorArgScalarLocalTee,
+        start,
+        end: start + 2,
+        value_count: 1,
+      })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_pure_select(
+fn RawOiDescriptorCallArgFact::from_pure_select_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> Int? {
+) -> RawOiDescriptorCallArgFact? {
   if start + 3 >= instrs.length() {
     return None
   }
-  if !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+  match
+    RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
       instrs[start],
-    ) ||
-    !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-      instrs[start + 1],
-    ) ||
-    !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-      instrs[start + 2],
+      start,
     ) {
-    return None
+    None => return None
+    Some(_) => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+      instrs[start + 1],
+      start + 1,
+    ) {
+    None => return None
+    Some(_) => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+      instrs[start + 2],
+      start + 2,
+    ) {
+    None => return None
+    Some(_) => ()
   }
   match instrs[start + 3] {
-    @lib.Select(_) => Some(start + 4)
+    @lib.Select(_) =>
+      Some({
+        kind: DescriptorArgPureSelect,
+        start,
+        end: start + 4,
+        value_count: 1,
+      })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_trapping_scalar_binary(
+fn RawOiDescriptorCallArgFact::from_trapping_scalar_binary_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> Int? {
+) -> RawOiDescriptorCallArgFact? {
   if start + 2 >= instrs.length() {
     return None
   }
-  if !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
+  match
+    RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
       instrs[start],
-    ) ||
-    !run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-      instrs[start + 1],
+      start,
     ) {
-    return None
+    None => return None
+    Some(_) => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+      instrs[start + 1],
+      start + 1,
+    ) {
+    None => return None
+    Some(_) => ()
   }
   match instrs[start + 2] {
     @lib.I32DivS
@@ -29559,34 +29672,52 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_trapping_sc
     | @lib.I64DivS
     | @lib.I64DivU
     | @lib.I64RemS
-    | @lib.I64RemU => Some(start + 3)
+    | @lib.I64RemU =>
+      Some({
+        kind: DescriptorArgTrappingScalarBinary,
+        start,
+        end: start + 3,
+        value_count: 1,
+      })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
+fn RawOiDescriptorCallArgFact::from_parameterized_direct_value_call_instrs(
   module_ctx : @ir.HotModuleContext,
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> Int? {
+) -> RawOiDescriptorCallArgFact? {
   let mut scan = start
   let mut param_count = 0
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-          arg,
-        ) => {
+    match
+      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[scan],
+        scan,
+      ) {
+      Some(_) => {
         param_count = param_count + 1
         scan = scan + 1
+        continue
       }
+      None => ()
+    }
+    match instrs[scan] {
       @lib.Call(func_idx) if param_count > 0 =>
         match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
           Some(@lib.FuncType(params, [result])) if params.length() ==
             param_count =>
             match result {
               @lib.ValType::RefTypeValType(_) => return None
-              _ => return Some(scan + 1)
+              _ =>
+                return Some({
+                  kind: DescriptorArgParameterizedDirectValueCall,
+                  start,
+                  end: scan + 1,
+                  value_count: 1,
+                })
             }
           _ => return None
         }
@@ -29597,26 +29728,38 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameteriz
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_reference_call(
+fn RawOiDescriptorCallArgFact::from_parameterized_direct_reference_call_instrs(
   module_ctx : @ir.HotModuleContext,
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> Int? {
+) -> RawOiDescriptorCallArgFact? {
   let mut scan = start
   let mut param_count = 0
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-          arg,
-        ) => {
+    match
+      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[scan],
+        scan,
+      ) {
+      Some(_) => {
         param_count = param_count + 1
         scan = scan + 1
+        continue
       }
+      None => ()
+    }
+    match instrs[scan] {
       @lib.Call(func_idx) if param_count > 0 =>
         match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
           Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
             param_count &&
-            ref_type.is_non_nullable() => return Some(scan + 1)
+            ref_type.is_non_nullable() =>
+            return Some({
+              kind: DescriptorArgParameterizedDirectReferenceCall,
+              start,
+              end: scan + 1,
+              value_count: 1,
+            })
           _ => return None
         }
       _ => return None
@@ -29626,22 +29769,112 @@ fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameteriz
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
+fn RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
+  module_ctx : @ir.HotModuleContext,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
+  match
+    RawOiDescriptorCallArgFact::from_scalar_local_tee_instrs(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match RawOiDescriptorCallArgFact::from_pure_select_instrs(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_trapping_scalar_binary_instrs(
+      instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_parameterized_direct_value_call_instrs(
+      module_ctx, instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiDescriptorCallArgFact::from_parameterized_direct_reference_call_instrs(
+    module_ctx, instrs, start,
+  )
+}
+
+///|
+fn RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-) -> Bool {
-  run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-    instr,
-  ) ||
-  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_branch_free_effectful_block(
-    instr,
-  ) ||
-  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
-    module_ctx, instr,
-  ) ||
-  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_reference_call(
-    module_ctx, instr,
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
+  match RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(instr, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_branch_free_effectful_block_instr(
+      instr, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiDescriptorCallArgFact::from_no_param_direct_value_call_instr(
+      module_ctx, instr, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiDescriptorCallArgFact::from_no_param_direct_reference_call_instr(
+    module_ctx, instr, start,
   )
+}
+
+///|
+fn RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
+  module_ctx : @ir.HotModuleContext,
+  instr : @lib.Instruction,
+  start : Int,
+) -> RawOiDescriptorCallArgFact? {
+  match RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(instr, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiDescriptorCallArgFact::from_no_param_direct_value_call_instr(
+    module_ctx, instr, start,
+  )
+}
+
+///|
+fn RawOiDescriptorCallArgFact::proves_binaryen_operand_preservation(
+  self : RawOiDescriptorCallArgFact,
+) -> Bool {
+  let represented_kind = match self.kind {
+    DescriptorArgNontrappingLeaf
+    | DescriptorArgBranchFreeEffectfulBlock
+    | DescriptorArgNoParamDirectValueCall
+    | DescriptorArgNoParamDirectReferenceCall
+    | DescriptorArgScalarLocalTee
+    | DescriptorArgPureSelect
+    | DescriptorArgTrappingScalarBinary
+    | DescriptorArgParameterizedDirectValueCall
+    | DescriptorArgParameterizedDirectReferenceCall => true
+  }
+  represented_kind && self.end > self.start && self.value_count == 1
+}
+
+///|
+fn RawOiDescriptorCallArgFact::append_instrs(
+  self : RawOiDescriptorCallArgFact,
+  instrs : Array[@lib.Instruction],
+  out : Array[@lib.Instruction],
+) -> Unit {
+  let mut idx = self.start
+  while idx < self.end {
+    out.push(instrs[idx])
+    idx = idx + 1
+  }
 }
 
 ///|
@@ -29653,24 +29886,36 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
   let ref_args : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-          arg,
-        ) => {
-        ref_args.push(instrs[scan])
-        scan = scan + 1
+    match
+      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[scan],
+        scan,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() => {
+        fact.append_instrs(instrs, ref_args)
+        scan = fact.end
+        continue
       }
+      _ => ()
+    }
+    match instrs[scan] {
       @lib.Call(ref_func) => {
         let desc_args : Array[@lib.Instruction] = []
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
-          match instrs[desc_scan] {
-            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-                arg,
-              ) => {
-              desc_args.push(instrs[desc_scan])
-              desc_scan = desc_scan + 1
+          match
+            RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+              instrs[desc_scan],
+              desc_scan,
+            ) {
+            Some(fact) if fact.proves_binaryen_operand_preservation() => {
+              fact.append_instrs(instrs, desc_args)
+              desc_scan = fact.end
+              continue
             }
+            _ => ()
+          }
+          match instrs[desc_scan] {
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
               match instrs[desc_scan + 1] {
                 @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
@@ -29798,84 +30043,16 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
   let mut scan = start + 1
   while scan < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_scalar_local_tee(
-        instrs, scan,
-      ) {
-      Some(next_scan) => {
-        let mut arg_scan = scan
-        while arg_scan < next_scan {
-          desc_args.push(instrs[arg_scan])
-          arg_scan = arg_scan + 1
-        }
-        desc_arg_count = desc_arg_count + 1
-        scan = next_scan
-        continue
-      }
-      None => ()
-    }
-    match
-      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_pure_select(
-        instrs, scan,
-      ) {
-      Some(next_scan) => {
-        let mut arg_scan = scan
-        while arg_scan < next_scan {
-          desc_args.push(instrs[arg_scan])
-          arg_scan = arg_scan + 1
-        }
-        desc_arg_count = desc_arg_count + 1
-        scan = next_scan
-        continue
-      }
-      None => ()
-    }
-    match
-      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_trapping_scalar_binary(
-        instrs, scan,
-      ) {
-      Some(next_scan) => {
-        let mut arg_scan = scan
-        while arg_scan < next_scan {
-          desc_args.push(instrs[arg_scan])
-          arg_scan = arg_scan + 1
-        }
-        desc_arg_count = desc_arg_count + 1
-        scan = next_scan
-        continue
-      }
-      None => ()
-    }
-    match
-      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_value_call(
+      RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
         module_ctx, instrs, scan,
       ) {
-      Some(next_scan) => {
-        let mut arg_scan = scan
-        while arg_scan < next_scan {
-          desc_args.push(instrs[arg_scan])
-          arg_scan = arg_scan + 1
-        }
-        desc_arg_count = desc_arg_count + 1
-        scan = next_scan
+      Some(fact) if fact.proves_binaryen_operand_preservation() => {
+        fact.append_instrs(instrs, desc_args)
+        desc_arg_count = desc_arg_count + fact.value_count
+        scan = fact.end
         continue
       }
-      None => ()
-    }
-    match
-      run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_parameterized_direct_reference_call(
-        module_ctx, instrs, scan,
-      ) {
-      Some(next_scan) => {
-        let mut arg_scan = scan
-        while arg_scan < next_scan {
-          desc_args.push(instrs[arg_scan])
-          arg_scan = arg_scan + 1
-        }
-        desc_arg_count = desc_arg_count + 1
-        scan = next_scan
-        continue
-      }
-      None => ()
+      _ => ()
     }
     match instrs[scan] {
       @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
@@ -29896,24 +30073,20 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
             return Some((rewritten, scan + 2))
           }
           _ =>
-            if run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
+            match
+              RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
                 module_ctx,
                 instrs[scan],
+                scan,
               ) {
-              desc_args.push(instrs[scan])
-              desc_arg_count = desc_arg_count + 1
-              scan = scan + 1
-            } else {
-              return None
+              Some(fact) if fact.proves_binaryen_operand_preservation() => {
+                fact.append_instrs(instrs, desc_args)
+                desc_arg_count = desc_arg_count + fact.value_count
+                scan = fact.end
+              }
+              _ => return None
             }
         }
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_operand_miss_call_arg_is_supported(
-          module_ctx, arg,
-        ) => {
-        desc_args.push(instrs[scan])
-        desc_arg_count = desc_arg_count + 1
-        scan = scan + 1
-      }
       @lib.RefFunc(descriptor_func) if scan + 2 < instrs.length() =>
         match (instrs[scan + 1], instrs[scan + 2]) {
           (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
@@ -29959,7 +30132,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
           }
           _ => return None
         }
-      _ => return None
+      arg =>
+        match
+          RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
+            module_ctx, arg, scan,
+          ) {
+          Some(fact) if fact.proves_binaryen_operand_preservation() => {
+            fact.append_instrs(instrs, desc_args)
+            desc_arg_count = desc_arg_count + fact.value_count
+            scan = fact.end
+          }
+          _ => return None
+        }
     }
   }
   None
@@ -30038,13 +30222,19 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descri
   let ref_inputs : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-          arg,
-        ) => {
-        ref_inputs.push(arg)
-        scan = scan + 1
+    match
+      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[scan],
+        scan,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() => {
+        fact.append_instrs(instrs, ref_inputs)
+        scan = fact.end
+        continue
       }
+      _ => ()
+    }
+    match instrs[scan] {
       @lib.CallIndirect(type_idx, table_idx) if ref_inputs.length() > 0 &&
         scan + 2 < instrs.length() => {
         let ref_param_count = ref_inputs.length() - 1
@@ -30087,24 +30277,36 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_e
   let ref_inputs : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-          arg,
-        ) => {
-        ref_inputs.push(arg)
-        scan = scan + 1
+    match
+      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[scan],
+        scan,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() => {
+        fact.append_instrs(instrs, ref_inputs)
+        scan = fact.end
+        continue
       }
+      _ => ()
+    }
+    match instrs[scan] {
       @lib.Call(ref_func) => {
         let desc_inputs : Array[@lib.Instruction] = []
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
-          match instrs[desc_scan] {
-            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-                arg,
-              ) => {
-              desc_inputs.push(arg)
-              desc_scan = desc_scan + 1
+          match
+            RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+              instrs[desc_scan],
+              desc_scan,
+            ) {
+            Some(fact) if fact.proves_binaryen_operand_preservation() => {
+              fact.append_instrs(instrs, desc_inputs)
+              desc_scan = fact.end
+              continue
             }
+            _ => ()
+          }
+          match instrs[desc_scan] {
             @lib.CallIndirect(type_idx, table_idx) if desc_inputs.length() > 0 &&
               desc_scan + 1 < instrs.length() =>
               match instrs[desc_scan + 1] {
@@ -30193,28 +30395,6 @@ fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
-  instr : @lib.Instruction,
-) -> Bool {
-  run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-    instr,
-  )
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_supported(
-  module_ctx : @ir.HotModuleContext,
-  instr : @lib.Instruction,
-) -> Bool {
-  run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_nontrapping(
-    instr,
-  ) ||
-  run_hot_pipeline_raw_optimize_instructions_descriptor_call_arg_is_no_param_direct_value_call(
-    module_ctx, instr,
-  )
-}
-
-///|
 fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_exactification(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -30223,24 +30403,38 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
   let ref_args : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_supported(
-          module_ctx, arg,
-        ) => {
-        ref_args.push(instrs[scan])
-        scan = scan + 1
+    match
+      RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
+        module_ctx,
+        instrs[scan],
+        scan,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() => {
+        fact.append_instrs(instrs, ref_args)
+        scan = fact.end
+        continue
       }
+      _ => ()
+    }
+    match instrs[scan] {
       @lib.Call(ref_func) => {
         let desc_args : Array[@lib.Instruction] = []
         let mut desc_scan = scan + 1
         while desc_scan < instrs.length() {
-          match instrs[desc_scan] {
-            arg if run_hot_pipeline_raw_optimize_instructions_descriptor_exactification_arg_is_supported(
-                module_ctx, arg,
-              ) => {
-              desc_args.push(instrs[desc_scan])
-              desc_scan = desc_scan + 1
+          match
+            RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
+              module_ctx,
+              instrs[desc_scan],
+              desc_scan,
+            ) {
+            Some(fact) if fact.proves_binaryen_operand_preservation() => {
+              fact.append_instrs(instrs, desc_args)
+              desc_scan = fact.end
+              continue
             }
+            _ => ()
+          }
+          match instrs[desc_scan] {
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
               match instrs[desc_scan + 1] {
                 @lib.RefCastDescEq(nullable, exact, target) if (
@@ -30455,14 +30649,19 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_ca
   let desc_args : Array[@lib.Instruction] = []
   let mut scan = start + 1
   while scan < instrs.length() {
-    match instrs[scan] {
-      arg if run_hot_pipeline_raw_optimize_instructions_descriptor_direct_call_arg_is_nontrapping(
-          arg,
-        ) => {
-        desc_args.push(arg)
-        scan = scan + 1
+    match
+      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[scan],
+        scan,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() => {
+        fact.append_instrs(instrs, desc_args)
+        scan = fact.end
         continue
       }
+      _ => ()
+    }
+    match instrs[scan] {
       @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
         match instrs[scan + 1] {
           @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
