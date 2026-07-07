@@ -7992,16 +7992,22 @@ fn OiTupleExtractFact::can_forward_selected_directly(
 }
 
 ///|
-priv struct OiTupleScratchFact {
+priv struct OiTupleSelectedMaterializeFact {
   selected_local : Int
   selected_result_locals : Array[Int]
 }
 
 ///|
-fn OiTupleScratchFact::from_extract(
+fn OiTupleSelectedMaterializeFact::from_extract(
   func : @ir.HotFunc,
   tuple_fact : OiTupleExtractFact,
-) -> OiTupleScratchFact {
+) -> OiTupleSelectedMaterializeFact {
+  // Binaryen v130 `visitTupleExtract` stores the selected lane in a temporary
+  // local tee before delegating dropped sibling sequencing to
+  // `getDroppedChildrenAndAppend(make, get)`. Starshine's HOT tuple shape can
+  // directly forward the selected child when no later preserved sibling can
+  // reorder around it, but the selected-lane materialization choice still lives
+  // in an explicit fact rather than the tuple body builder.
   let mut selected_local = -1
   let selected_result_locals : Array[Int] = []
   if tuple_fact.selected_results.length() > 1 {
@@ -8018,15 +8024,64 @@ fn OiTupleScratchFact::from_extract(
 }
 
 ///|
-fn OiTupleScratchFact::needs_selected_local(self : OiTupleScratchFact) -> Bool {
+fn OiTupleSelectedMaterializeFact::needs_selected_local(
+  self : OiTupleSelectedMaterializeFact,
+) -> Bool {
   self.selected_local >= 0
 }
 
 ///|
-fn OiTupleScratchFact::has_selected_result_locals(
-  self : OiTupleScratchFact,
+fn OiTupleSelectedMaterializeFact::has_selected_result_locals(
+  self : OiTupleSelectedMaterializeFact,
 ) -> Bool {
   self.selected_result_locals.length() > 0
+}
+
+///|
+fn OiTupleSelectedMaterializeFact::append_selected_capture(
+  self : OiTupleSelectedMaterializeFact,
+  func : @ir.HotFunc,
+  tuple_fact : OiTupleExtractFact,
+  body : Array[Int],
+) -> Unit {
+  if self.has_selected_result_locals() {
+    let mut lane = tuple_fact.selected_results.length()
+    while lane > 0 {
+      lane = lane - 1
+      body.push(
+        @ir.hot_build_local_set(
+          func,
+          self.selected_result_locals[lane],
+          tuple_fact.selected_id,
+        ),
+      )
+    }
+  } else if self.needs_selected_local() {
+    body.push(
+      @ir.hot_build_local_set(func, self.selected_local, tuple_fact.selected_id),
+    )
+  }
+}
+
+///|
+fn OiTupleSelectedMaterializeFact::append_selected_result(
+  self : OiTupleSelectedMaterializeFact,
+  func : @ir.HotFunc,
+  tuple_fact : OiTupleExtractFact,
+  body : Array[Int],
+) -> Unit {
+  if self.has_selected_result_locals() {
+    body.push(
+      @ir.hot_build_local_get(
+        func,
+        self.selected_result_locals[tuple_fact.selected_lane],
+      ),
+    )
+  } else if self.needs_selected_local() {
+    body.push(@ir.hot_build_local_get(func, self.selected_local))
+  } else {
+    body.push(tuple_fact.selected_id)
+  }
 }
 
 ///|
@@ -8051,31 +8106,13 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
     return true
   }
   let body : Array[Int] = []
-  let scratch_fact = OiTupleScratchFact::from_extract(func, tuple_fact)
+  let selected_materialize_fact = OiTupleSelectedMaterializeFact::from_extract(
+    func, tuple_fact,
+  )
   for slot = 0; slot < tuple_fact.lane_facts.length(); slot = slot + 1 {
     let lane_fact = tuple_fact.lane_facts[slot]
     if slot == tuple_fact.selected_slot {
-      if scratch_fact.has_selected_result_locals() {
-        let mut lane = tuple_fact.selected_results.length()
-        while lane > 0 {
-          lane = lane - 1
-          body.push(
-            @ir.hot_build_local_set(
-              func,
-              scratch_fact.selected_result_locals[lane],
-              tuple_fact.selected_id,
-            ),
-          )
-        }
-      } else if scratch_fact.needs_selected_local() {
-        body.push(
-          @ir.hot_build_local_set(
-            func,
-            scratch_fact.selected_local,
-            tuple_fact.selected_id,
-          ),
-        )
-      }
+      selected_materialize_fact.append_selected_capture(func, tuple_fact, body)
       continue
     }
     if !lane_fact.materialize_fact.must_emit() {
@@ -8088,18 +8125,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       body,
     )
   }
-  if scratch_fact.has_selected_result_locals() {
-    body.push(
-      @ir.hot_build_local_get(
-        func,
-        scratch_fact.selected_result_locals[tuple_fact.selected_lane],
-      ),
-    )
-  } else if scratch_fact.needs_selected_local() {
-    body.push(@ir.hot_build_local_get(func, scratch_fact.selected_local))
-  } else {
-    body.push(tuple_fact.selected_id)
-  }
+  selected_materialize_fact.append_selected_result(func, tuple_fact, body)
   let replacement = @ir.hot_build_block(
     func,
     @lib.BlockType::val_type(
