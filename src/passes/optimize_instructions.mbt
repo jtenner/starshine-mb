@@ -8895,37 +8895,6 @@ fn optimize_instructions_i64_const_is(
 }
 
 ///|
-fn optimize_instructions_nodes_are_same_const_value(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  value_type : @lib.ValType,
-  lhs : Int,
-  rhs : Int,
-) -> Bool {
-  if value_type == @lib.ValType::i32() {
-    match
-      (
-        optimize_instructions_i32_const(func, dead, lhs),
-        optimize_instructions_i32_const(func, dead, rhs),
-      ) {
-      (Some(@lib.I32(a)), Some(@lib.I32(b))) => a == b
-      _ => false
-    }
-  } else if value_type == @lib.ValType::i64() {
-    match
-      (
-        optimize_instructions_i64_const(func, dead, lhs),
-        optimize_instructions_i64_const(func, dead, rhs),
-      ) {
-      (Some(@lib.I64(a)), Some(@lib.I64(b))) => a == b
-      _ => false
-    }
-  } else {
-    false
-  }
-}
-
-///|
 priv struct OiStructAtomicFieldFact {
   type_idx : @lib.TypeIdx
   field_idx : @lib.U32
@@ -9020,24 +8989,22 @@ priv struct OiStructAtomicCmpxchgSameValueFact {
 
 ///|
 fn OiStructAtomicCmpxchgSameValueFact::from_operands(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  field_fact : OiStructAtomicFieldFact,
   expected_id : Int,
   replacement_id : Int,
 ) -> OiStructAtomicCmpxchgSameValueFact? {
   // Binaryen v130 `visitStructCmpxchg` uses `areConsecutiveInputsEqual` to
   // prove that `expected` and `replacement` cannot modify the field and then
-  // rewrites cmpxchg to a read-only struct.atomic.get. Starshine currently
-  // represents the sampled same-constant subset as an explicit fact and keeps
-  // broader expression equality as a reopening point.
-  if optimize_instructions_nodes_are_same_const_value(
-      func,
-      dead,
-      field_fact.value_type,
-      expected_id,
-      replacement_id,
-    ) {
+  // rewrites cmpxchg to a read-only struct.atomic.get. Starshine routes the
+  // represented same-value cmpxchg surface through the shared consecutive-input
+  // equality fact used by the OI-G bulk-memory facts: matching tee/get and
+  // structurally identical pure scalar fallthrough trees, with explicit
+  // intervening-effect interference checks.
+  let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
+    ctx, func, expected_id, replacement_id,
+  )
+  if equality_fact.proves_equal(func) {
     Some({ expected_id, replacement_id })
   } else {
     None
@@ -9290,7 +9257,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   let expected_id = @ir.hot_child_get(func, node_id, 1)
   let replacement_id = @ir.hot_child_get(func, node_id, 2)
   let same_value_fact = OiStructAtomicCmpxchgSameValueFact::from_operands(
-    func, dead, field_fact, expected_id, replacement_id,
+    ctx, func, expected_id, replacement_id,
   )
   match same_value_fact {
     Some(fact) => {

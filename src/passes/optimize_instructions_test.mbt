@@ -31942,6 +31942,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     #|(module
     #|  (type $S (struct (field (mut i32))))
     #|  (type $A (array (mut i32)))
+    #|  (global $gv i32 (i32.const 9))
     #|  (func (param $s (ref $S)) (param $v i32) (result i32)
     #|    (struct.atomic.rmw.add 0 0
     #|      (local.get $s)
@@ -31983,6 +31984,16 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     #|      (local.get $s)
     #|      (i32.const 7)
     #|      (i32.const 7)))
+    #|  (func (param $s (ref $S)) (param $e i32) (result i32)
+    #|    (struct.atomic.rmw.cmpxchg 0 0
+    #|      (local.get $s)
+    #|      (local.get $e)
+    #|      (local.get $e)))
+    #|  (func (param $s (ref $S)) (result i32)
+    #|    (struct.atomic.rmw.cmpxchg 0 0
+    #|      (local.get $s)
+    #|      (global.get $gv)
+    #|      (global.get $gv)))
     #|  (func (param $s (ref $S)) (param $e i32) (param $r i32) (result i32)
     #|    (struct.atomic.rmw.cmpxchg 0 0
     #|      (local.get $s)
@@ -32037,7 +32048,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
   assert_true(lowered_xor.contains("struct.set"), msg=lowered_xor)
   assert_true(lowered_xor.contains("i32.xor"), msg=lowered_xor)
 
-  for idx = 6; idx <= 9; idx = idx + 1 {
+  for idx = 6; idx <= 11; idx = idx + 1 {
     let pretty = optimized.pretty_print_func(
       @lib.FuncIdx::new(idx.reinterpret_as_uint()),
     )
@@ -32046,7 +32057,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     assert_true(pretty.contains("drop"), msg=pretty)
   }
 
-  let lowered_cmpxchg = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
+  let lowered_cmpxchg = optimized.pretty_print_func(@lib.FuncIdx::new(12U))
   assert_false(
     lowered_cmpxchg.contains("struct.atomic.rmw.cmpxchg"),
     msg=lowered_cmpxchg,
@@ -32055,7 +32066,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
   assert_true(lowered_cmpxchg.contains("struct.set"), msg=lowered_cmpxchg)
   assert_true(lowered_cmpxchg.contains("select"), msg=lowered_cmpxchg)
 
-  let array_boundary = optimized.pretty_print_func(@lib.FuncIdx::new(11U))
+  let array_boundary = optimized.pretty_print_func(@lib.FuncIdx::new(13U))
   assert_true(
     array_boundary.contains("array.atomic.rmw.add"),
     msg=array_boundary,
