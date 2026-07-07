@@ -875,18 +875,31 @@ fn OiRefTestFact::known_null_result(self : OiRefTestFact) -> @lib.I32 {
 }
 
 ///|
-priv struct OiRefTestResultFact {
-  known_const_result : @lib.I32?
-  rewrite_to_ref_is_non_null : Bool
-  rewrite_to_ref_is_null : Bool
+priv enum OiRefTestEvaluationKind {
+  RefTestUnknown
+  RefTestSuccess
+  RefTestFailure
+  RefTestSuccessOnlyIfNull
+  RefTestSuccessOnlyIfNonNull
 }
 
 ///|
-fn OiRefTestResultFact::from_test(
+priv struct OiRefTestEvaluationFact {
+  kind : OiRefTestEvaluationKind
+}
+
+///|
+fn OiRefTestEvaluationFact::from_test(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   test_fact : OiRefTestFact,
-) -> OiRefTestResultFact {
+) -> OiRefTestEvaluationFact {
+  // Binaryen v130 `visitRefTest` asks `GCTypeUtils::evaluateCastCheck` for a
+  // source-level result (`Success`, `Failure`, `SuccessOnlyIfNull`,
+  // `SuccessOnlyIfNonNull`, or `Unknown`) after looking through fallthrough
+  // producers. Keep that classification as a fact so the visitor does not own a
+  // scanner-like boolean cascade for null, exact, final, descriptor, and
+  // fallthrough test cases.
   let operand_id = test_fact.operand_id
   let nullable = test_fact.nullable
   let exact = test_fact.exact
@@ -895,36 +908,26 @@ fn OiRefTestResultFact::from_test(
   let producer_fact = OiRefProducerFact::from_node(ctx, func, operand_id)
   if ref_fact.is_known_null() {
     return {
-      known_const_result: Some(test_fact.known_null_result()),
-      rewrite_to_ref_is_non_null: false,
-      rewrite_to_ref_is_null: false,
+      kind: if test_fact.known_null_result() == @lib.I32(1) {
+        RefTestSuccess
+      } else {
+        RefTestFailure
+      },
     }
   }
   if test_fact.descriptor_style {
-    match producer_fact.matches_or_subtypes_heap(ctx, target) {
+    let kind = match producer_fact.matches_or_subtypes_heap(ctx, target) {
       Some((operand_nullable, _)) =>
         if !nullable && operand_nullable {
-          return {
-            known_const_result: None,
-            rewrite_to_ref_is_non_null: true,
-            rewrite_to_ref_is_null: false,
-          }
+          RefTestSuccessOnlyIfNonNull
         } else {
-          return {
-            known_const_result: Some(@lib.I32(1)),
-            rewrite_to_ref_is_non_null: false,
-            rewrite_to_ref_is_null: false,
-          }
+          RefTestSuccess
         }
-      None =>
-        return {
-          known_const_result: None,
-          rewrite_to_ref_is_non_null: false,
-          rewrite_to_ref_is_null: false,
-        }
+      None => RefTestUnknown
     }
+    return { kind, }
   }
-  let rewrite_to_ref_is_non_null = not(nullable) &&
+  let success_only_if_non_null = not(nullable) &&
     (
       not(exact) ||
       optimize_instructions_ref_operand_has_exact_heap(func, operand_id, target) ||
@@ -940,7 +943,10 @@ fn OiRefTestResultFact::from_test(
       ) ||
       producer_fact.nullable_matches_target(ctx, target)
     )
-  let rewrite_to_ref_is_null = exact &&
+  if success_only_if_non_null {
+    return { kind: RefTestSuccessOnlyIfNonNull }
+  }
+  let success_only_if_null = exact &&
     (
       optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
         ctx, func, operand_id, target, nullable,
@@ -949,6 +955,9 @@ fn OiRefTestResultFact::from_test(
         ctx, target, nullable,
       )
     )
+  if success_only_if_null {
+    return { kind: RefTestSuccessOnlyIfNull }
+  }
   let known_success = (
       not(exact) &&
       (
@@ -981,6 +990,9 @@ fn OiRefTestResultFact::from_test(
         producer_fact.nullable_matches_target(ctx, target)
       )
     )
+  if known_success {
+    return { kind: RefTestSuccess }
+  }
   let known_failure = optimize_instructions_ref_is_known_miss_for_target(
       ctx, func, operand_id, target,
     ) ||
@@ -1005,14 +1017,65 @@ fn OiRefTestResultFact::from_test(
         ctx, func, operand_id, target,
       )
     )
-  let known_const_result = if known_success {
-    Some(@lib.I32(1))
-  } else if known_failure {
-    Some(@lib.I32(0))
-  } else {
-    None
+  if known_failure {
+    return { kind: RefTestFailure }
   }
-  { known_const_result, rewrite_to_ref_is_non_null, rewrite_to_ref_is_null }
+  { kind: RefTestUnknown }
+}
+
+///|
+priv struct OiRefTestResultFact {
+  known_const_result : @lib.I32?
+  rewrite_to_ref_is_non_null : Bool
+  rewrite_to_ref_is_null : Bool
+}
+
+///|
+fn OiRefTestResultFact::from_evaluation(
+  evaluation : OiRefTestEvaluationFact,
+) -> OiRefTestResultFact {
+  match evaluation.kind {
+    RefTestSuccess =>
+      {
+        known_const_result: Some(@lib.I32(1)),
+        rewrite_to_ref_is_non_null: false,
+        rewrite_to_ref_is_null: false,
+      }
+    RefTestFailure =>
+      {
+        known_const_result: Some(@lib.I32(0)),
+        rewrite_to_ref_is_non_null: false,
+        rewrite_to_ref_is_null: false,
+      }
+    RefTestSuccessOnlyIfNull =>
+      {
+        known_const_result: None,
+        rewrite_to_ref_is_non_null: false,
+        rewrite_to_ref_is_null: true,
+      }
+    RefTestSuccessOnlyIfNonNull =>
+      {
+        known_const_result: None,
+        rewrite_to_ref_is_non_null: true,
+        rewrite_to_ref_is_null: false,
+      }
+    RefTestUnknown =>
+      {
+        known_const_result: None,
+        rewrite_to_ref_is_non_null: false,
+        rewrite_to_ref_is_null: false,
+      }
+  }
+}
+
+///|
+fn OiRefTestResultFact::from_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  test_fact : OiRefTestFact,
+) -> OiRefTestResultFact {
+  let evaluation = OiRefTestEvaluationFact::from_test(ctx, func, test_fact)
+  OiRefTestResultFact::from_evaluation(evaluation)
 }
 
 ///|
