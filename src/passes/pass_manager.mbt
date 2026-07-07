@@ -26182,28 +26182,30 @@ fn run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
-  mem_idx : @lib.MemIdx,
-) -> Bool {
-  let @lib.MemIdx(raw_idx) = mem_idx
-  raw_idx != 0U
+// Raw OI-G memory index fact used by the lowered dispatcher. Binaryen's
+// memory-access visitors reason from the access memory and operand positions;
+// record the same fields instead of keeping the raw skip gate as a window-only
+// local.tee scanner.
+priv struct RawOiMemoryAccessIndexFact {
+  is_memory_access : Bool
+  is_nondefault_memory : Bool
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_memarg_is_nondefault(
+fn RawOiMemoryAccessIndexFact::from_memarg(
   memarg : @lib.MemArg,
-) -> Bool {
-  match memarg {
-    @lib.MemArg(_, Some(mem_idx), _) =>
-      run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(mem_idx)
+) -> RawOiMemoryAccessIndexFact {
+  let is_nondefault_memory = match memarg {
+    @lib.MemArg(_, Some(@lib.MemIdx(raw_idx)), _) => raw_idx != 0U
     _ => false
   }
+  { is_memory_access: true, is_nondefault_memory }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
+fn RawOiMemoryAccessIndexFact::from_instr(
   instr : @lib.Instruction,
-) -> Bool {
+) -> RawOiMemoryAccessIndexFact {
   match instr {
     @lib.I32Load(memarg)
     | @lib.I64Load(memarg)
@@ -26227,18 +26229,38 @@ fn run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
     | @lib.I32Store16(memarg)
     | @lib.I64Store8(memarg)
     | @lib.I64Store16(memarg)
-    | @lib.I64Store32(memarg) =>
-      run_hot_pipeline_raw_optimize_instructions_memarg_is_nondefault(memarg)
-    _ => false
+    | @lib.I64Store32(memarg) => RawOiMemoryAccessIndexFact::from_memarg(memarg)
+    _ => { is_memory_access: false, is_nondefault_memory: false }
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memory_copy(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryAccessIndexFact::proves_nondefault_memory_access(
+  self : RawOiMemoryAccessIndexFact,
 ) -> Bool {
+  self.is_memory_access && self.is_nondefault_memory
+}
+
+///|
+// Trap-relaxed same-address localtee memory.copy fact for the public lowered
+// raw gate. This is the represented stack spelling of Binaryen's
+// `areConsecutiveInputsEqual` local.tee/get same-address proof; when it holds,
+// the broader memory-localtee raw skip must not block OI-G's zero-size or
+// same-address rewrite path.
+priv struct RawOiTnhLocalTeeSameAddressMemoryCopyFact {
+  tee_local_matches_right_get : Bool
+  addr_matches_right_get : Bool
+  same_memory : Bool
+  addr_admitted : Bool
+  size_admitted : Bool
+}
+
+///|
+fn RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+) -> RawOiTnhLocalTeeSameAddressMemoryCopyFact? {
   if instrs.length() != 5 {
-    return false
+    return None
   }
   match (instrs[0], instrs[1], instrs[2], instrs[3], instrs[4]) {
     (
@@ -26248,28 +26270,129 @@ fn run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memor
       size,
       @lib.MemoryCopy(dst_mem, src_mem),
     ) =>
-      (tee_local == get_local || addr == @lib.Instruction::local_get(get_local)) &&
-      dst_mem == src_mem &&
-      run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-        addr,
-      ) &&
-      run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-        size,
-      )
-    _ => false
+      Some({
+        tee_local_matches_right_get: tee_local == get_local,
+        addr_matches_right_get: addr == @lib.Instruction::local_get(get_local),
+        same_memory: dst_mem == src_mem,
+        addr_admitted: RawOiBulkStackOperandAtomFact::from_instr(addr)
+        is Some(_),
+        size_admitted: RawOiBulkStackOperandAtomFact::from_instr(size)
+        is Some(_),
+      })
+    _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+fn RawOiTnhLocalTeeSameAddressMemoryCopyFact::proves_trap_relaxed_escape(
+  self : RawOiTnhLocalTeeSameAddressMemoryCopyFact,
+) -> Bool {
+  (self.tee_local_matches_right_get || self.addr_matches_right_get) &&
+  self.same_memory &&
+  self.addr_admitted &&
+  self.size_admitted
+}
+
+///|
+priv struct RawOiMemoryLocalTeeUseFact {
+  localtee_index : Int
+  consumer_index : Int
+  operand_distance : Int
+  is_nondefault_memory_access : Bool
+  is_bulk_memory_copy : Bool
+  is_bulk_memory_fill : Bool
+}
+
+///|
+fn RawOiMemoryLocalTeeUseFact::from_instrs_at(
+  instrs : Array[@lib.Instruction],
+  localtee_index : Int,
+) -> RawOiMemoryLocalTeeUseFact? {
+  if localtee_index >= instrs.length() {
+    return None
+  }
+  match instrs[localtee_index] {
+    @lib.LocalTee(_) => ()
+    _ => return None
+  }
+  for operand_distance = 1
+      operand_distance <= 3
+      operand_distance = operand_distance + 1 {
+    let consumer_index = localtee_index + operand_distance
+    if consumer_index >= instrs.length() {
+      return None
+    }
+    if operand_distance <= 2 {
+      let access_fact = RawOiMemoryAccessIndexFact::from_instr(
+        instrs[consumer_index],
+      )
+      if access_fact.proves_nondefault_memory_access() {
+        return Some({
+          localtee_index,
+          consumer_index,
+          operand_distance,
+          is_nondefault_memory_access: true,
+          is_bulk_memory_copy: false,
+          is_bulk_memory_fill: false,
+        })
+      }
+    }
+    match instrs[consumer_index] {
+      @lib.MemoryCopy(_, _) =>
+        return Some({
+          localtee_index,
+          consumer_index,
+          operand_distance,
+          is_nondefault_memory_access: false,
+          is_bulk_memory_copy: true,
+          is_bulk_memory_fill: false,
+        })
+      @lib.MemoryFill(_) =>
+        return Some({
+          localtee_index,
+          consumer_index,
+          operand_distance,
+          is_nondefault_memory_access: false,
+          is_bulk_memory_copy: false,
+          is_bulk_memory_fill: true,
+        })
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn RawOiMemoryLocalTeeUseFact::proves_raw_gate_boundary(
+  self : RawOiMemoryLocalTeeUseFact,
+) -> Bool {
+  ignore(self.localtee_index)
+  ignore(self.consumer_index)
+  self.operand_distance >= 1 &&
+  self.operand_distance <= 3 &&
+  (
+    self.is_nondefault_memory_access ||
+    self.is_bulk_memory_copy ||
+    self.is_bulk_memory_fill
+  )
+}
+
+///|
+priv struct RawOiMemoryLocalTeeRegionFact {
+  has_blocking_use : Bool
+}
+
+///|
+fn RawOiMemoryLocalTeeRegionFact::from_instrs(
   instrs : Array[@lib.Instruction],
   allow_tnh_localtee_same_address_memory_copy : Bool,
-) -> Bool {
-  if allow_tnh_localtee_same_address_memory_copy &&
-    run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memory_copy(
-      instrs,
-    ) {
-    return false
+) -> RawOiMemoryLocalTeeRegionFact {
+  if allow_tnh_localtee_same_address_memory_copy {
+    match RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_instrs(instrs) {
+      Some(fact) if fact.proves_trap_relaxed_escape() =>
+        return { has_blocking_use: false }
+      _ => ()
+    }
   }
   let mut i = 0
   while i < instrs.length() {
@@ -26277,59 +26400,37 @@ fn run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+        if RawOiMemoryLocalTeeRegionFact::from_instrs(
             body, allow_tnh_localtee_same_address_memory_copy,
-          ) {
-          return true
+          ).has_blocking_use {
+          return { has_blocking_use: true }
         }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+        if RawOiMemoryLocalTeeRegionFact::from_instrs(
             then_body, allow_tnh_localtee_same_address_memory_copy,
-          ) {
-          return true
+          ).has_blocking_use {
+          return { has_blocking_use: true }
         }
         match else_body {
           Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+            if RawOiMemoryLocalTeeRegionFact::from_instrs(
                 body, allow_tnh_localtee_same_address_memory_copy,
-              ) {
-              return true
+              ).has_blocking_use {
+              return { has_blocking_use: true }
             }
           None => ()
         }
       }
       _ => ()
     }
-    if i + 1 < instrs.length() {
-      match (instrs[i], instrs[i + 1]) {
-        (@lib.LocalTee(_), access) if run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
-            access,
-          ) => return true
-        (@lib.LocalTee(_), @lib.MemoryCopy(_, _))
-        | (@lib.LocalTee(_), @lib.MemoryFill(_)) => return true
-        _ => ()
-      }
-    }
-    if i + 2 < instrs.length() {
-      match (instrs[i], instrs[i + 2]) {
-        (@lib.LocalTee(_), access) if run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
-            access,
-          ) => return true
-        (@lib.LocalTee(_), @lib.MemoryCopy(_, _))
-        | (@lib.LocalTee(_), @lib.MemoryFill(_)) => return true
-        _ => ()
-      }
-    }
-    if i + 3 < instrs.length() {
-      match (instrs[i], instrs[i + 3]) {
-        (@lib.LocalTee(_), @lib.MemoryFill(_))
-        | (@lib.LocalTee(_), @lib.MemoryCopy(_, _)) => return true
-        _ => ()
-      }
+    match RawOiMemoryLocalTeeUseFact::from_instrs_at(instrs, i) {
+      Some(fact) if fact.proves_raw_gate_boundary() =>
+        return { has_blocking_use: true }
+      _ => ()
     }
     i = i + 1
   }
-  false
+  { has_blocking_use: false }
 }
 
 ///|
@@ -29859,17 +29960,18 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   let trap_relaxed = options.traps_never_happen || options.ignore_implicit_traps
-  let localtee_same_address_memory_copy = trap_relaxed &&
-    run_hot_pipeline_raw_optimize_instructions_is_tnh_localtee_same_address_memory_copy(
-      body,
-    )
+  let localtee_same_address_memory_copy = match
+    RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_instrs(body) {
+    Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
+    None => false
+  }
   let zero_size_stack_bulk_memory = trap_relaxed &&
     run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_memory(
       body, module_ctx,
     )
-  if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
+  if RawOiMemoryLocalTeeRegionFact::from_instrs(
       body, localtee_same_address_memory_copy,
-    ) {
+    ).has_blocking_use {
     return Some({
       reason: "memory-localtee-optimize-instructions",
       func: skipped_func,
