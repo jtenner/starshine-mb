@@ -28558,39 +28558,165 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
-  instrs : Array[@lib.Instruction],
+// Raw fallback analogue of Binaryen v130 optimizeKnownCastResult's descriptor
+// special case for known-null cast inputs: the reference child is side-effect
+// free, but descriptor operands must still preserve null traps or direct-call
+// side effects before the cast is replaced by a typed null or unreachable.
+priv struct RawOiBottomNullDescriptorOperandFact {
+  preserves_operand_as_drop : Bool
+  erases_fresh_descriptor_allocation : Bool
+  block_prefix_len : Int
+  block_traps : Bool
+}
+
+///|
+fn RawOiBottomNullDescriptorOperandFact::from_instr(
+  instr : @lib.Instruction,
+) -> RawOiBottomNullDescriptorOperandFact? {
+  match instr {
+    @lib.Call(_) =>
+      Some({
+        preserves_operand_as_drop: true,
+        erases_fresh_descriptor_allocation: false,
+        block_prefix_len: 0,
+        block_traps: false,
+      })
+    @lib.StructNewDefault(_) =>
+      Some({
+        preserves_operand_as_drop: false,
+        erases_fresh_descriptor_allocation: true,
+        block_prefix_len: 0,
+        block_traps: false,
+      })
+    @lib.Block(_, @lib.Expr(descriptor_body)) =>
+      RawOiBottomNullDescriptorOperandFact::from_block_body(descriptor_body)
+    _ => None
+  }
+}
+
+///|
+fn RawOiBottomNullDescriptorOperandFact::from_block_body(
+  descriptor_body : Array[@lib.Instruction],
+) -> RawOiBottomNullDescriptorOperandFact? {
+  if descriptor_body.length() < 2 {
+    return None
+  }
+  match descriptor_body[descriptor_body.length() - 1] {
+    @lib.Unreachable if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
+        descriptor_body,
+        descriptor_body.length() - 1,
+      ) =>
+      return Some({
+        preserves_operand_as_drop: false,
+        erases_fresh_descriptor_allocation: false,
+        block_prefix_len: descriptor_body.length() - 1,
+        block_traps: true,
+      })
+    _ => ()
+  }
+  let prefix_len = descriptor_body.length() - 2
+  match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
+    (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
+        descriptor_body, prefix_len,
+      ) =>
+      Some({
+        preserves_operand_as_drop: false,
+        erases_fresh_descriptor_allocation: false,
+        block_prefix_len: prefix_len,
+        block_traps: true,
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiBottomNullDescriptorOperandFact::is_represented_fold_operand(
+  self : RawOiBottomNullDescriptorOperandFact,
 ) -> Bool {
-  let mut i = 0
-  while i + 2 < instrs.length() {
-    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-      (@lib.RefNull(_), @lib.StructNewDefault(_), @lib.RefCastDescEq(_, _, _)) =>
-        return true
-      (
-        @lib.RefNull(_),
-        @lib.Block(_, @lib.Expr(descriptor_body)),
-        @lib.RefCastDescEq(_, _, _),
-      ) if descriptor_body.length() >= 2 => {
-        let prefix_len = descriptor_body.length() - 2
-        match descriptor_body[descriptor_body.length() - 1] {
-          @lib.Unreachable if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-              descriptor_body,
-              descriptor_body.length() - 1,
-            ) => return true
-          _ => ()
-        }
-        match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
-          (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-              descriptor_body, prefix_len,
-            ) => return true
-          _ => ()
-        }
+  self.preserves_operand_as_drop ||
+  self.erases_fresh_descriptor_allocation ||
+  self.block_traps
+}
+
+///|
+priv struct RawOiBottomNullDescriptorCastFact {
+  end : Int
+  descriptor : @lib.Instruction
+  operand : RawOiBottomNullDescriptorOperandFact
+  nullable : Bool
+  exact : Bool
+  target : @lib.HeapType
+}
+
+///|
+fn RawOiBottomNullDescriptorCastFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiBottomNullDescriptorCastFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (@lib.RefNull(_), descriptor, @lib.RefCastDescEq(nullable, exact, target)) =>
+      match RawOiBottomNullDescriptorOperandFact::from_instr(descriptor) {
+        Some(operand) if operand.is_represented_fold_operand() =>
+          Some({ end: start + 3, descriptor, operand, nullable, exact, target })
+        _ => None
       }
-      _ => ()
+    _ => None
+  }
+}
+
+///|
+fn RawOiBottomNullDescriptorCastFact::append_rewrite(
+  self : RawOiBottomNullDescriptorCastFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if self.operand.block_traps {
+    match self.descriptor {
+      @lib.Block(_, @lib.Expr(descriptor_body)) => {
+        for idx = 0; idx < self.operand.block_prefix_len; idx = idx + 1 {
+          rewritten.push(descriptor_body[idx])
+        }
+        rewritten.push(@lib.Instruction::unreachable_())
+      }
+      _ => rewritten.push(@lib.Instruction::unreachable_())
+    }
+    return
+  }
+  if self.operand.preserves_operand_as_drop {
+    rewritten.push(self.descriptor)
+    rewritten.push(@lib.Instruction::drop())
+  }
+  if self.nullable {
+    rewritten.push(
+      @lib.Instruction::ref_null_type(
+        @lib.RefType::new(true, self.target, exact=self.exact),
+      ),
+    )
+  } else {
+    rewritten.push(@lib.Instruction::unreachable_())
+  }
+}
+
+///|
+priv struct RawOiBottomNullDescriptorCastRegionFact {
+  has_fold : Bool
+}
+
+///|
+fn RawOiBottomNullDescriptorCastRegionFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+) -> RawOiBottomNullDescriptorCastRegionFact {
+  let mut i = 0
+  while i < instrs.length() {
+    match RawOiBottomNullDescriptorCastFact::from_instrs(instrs, i) {
+      Some(_) => return { has_fold: true }
+      None => ()
     }
     i = i + 1
   }
-  false
+  { has_fold: false }
 }
 
 ///|
@@ -28602,75 +28728,14 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    if i + 2 < instrs.length() {
-      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-        (
-          @lib.RefNull(_),
-          @lib.Block(_, @lib.Expr(descriptor_body)),
-          @lib.RefCastDescEq(_, _, _),
-        ) if descriptor_body.length() >= 2 => {
-          let prefix_len = descriptor_body.length() - 2
-          match descriptor_body[descriptor_body.length() - 1] {
-            @lib.Unreachable if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-                descriptor_body,
-                descriptor_body.length() - 1,
-              ) => {
-              for idx = 0; idx < descriptor_body.length() - 1; idx = idx + 1 {
-                rewritten.push(descriptor_body[idx])
-              }
-              rewritten.push(@lib.Instruction::unreachable_())
-              changed = true
-              i = i + 3
-              continue
-            }
-            _ => ()
-          }
-          match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
-            (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
-                descriptor_body, prefix_len,
-              ) => {
-              for idx = 0; idx < prefix_len; idx = idx + 1 {
-                rewritten.push(descriptor_body[idx])
-              }
-              rewritten.push(@lib.Instruction::unreachable_())
-              changed = true
-              i = i + 3
-              continue
-            }
-            _ => ()
-          }
-        }
-        (
-          @lib.RefNull(_),
-          descriptor_instr,
-          @lib.RefCastDescEq(nullable, exact, target),
-        ) if (match descriptor_instr {
-            @lib.Call(_) | @lib.StructNewDefault(_) => true
-            _ => false
-          }) => {
-          match descriptor_instr {
-            @lib.Call(_) => {
-              rewritten.push(descriptor_instr)
-              rewritten.push(@lib.Instruction::drop())
-            }
-            @lib.StructNewDefault(_) => ()
-            _ => ()
-          }
-          if nullable {
-            rewritten.push(
-              @lib.Instruction::ref_null_type(
-                @lib.RefType::new(true, target, exact~),
-              ),
-            )
-          } else {
-            rewritten.push(@lib.Instruction::unreachable_())
-          }
-          changed = true
-          i = i + 3
-          continue
-        }
-        _ => ()
+    match RawOiBottomNullDescriptorCastFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
+      None => ()
     }
     if i + 12 < instrs.length() {
       match
@@ -30102,9 +30167,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   if effectful_sibling_changed &&
-    run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
-      body,
-    ) {
+    RawOiBottomNullDescriptorCastRegionFact::from_instrs(body).has_fold {
     return Some({
       reason: "descriptor-bottom-null-fold",
       func: skipped_func,
@@ -52160,9 +52223,7 @@ fn run_hot_pipeline_func(
           body, module_ctx,
         )
         if changed &&
-          run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
-            body,
-          ) {
+          RawOiBottomNullDescriptorCastRegionFact::from_instrs(body).has_fold {
           return Ok({
             reason: "descriptor-bottom-null-fold",
             func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
