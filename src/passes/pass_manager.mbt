@@ -29519,17 +29519,6 @@ fn RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
 }
 
 ///|
-fn RawOiDescriptorDescribesFact::direct_call_exactly_describes(
-  module_ctx : @ir.HotModuleContext,
-  descriptor_func : @lib.FuncIdx,
-  target : @lib.HeapType,
-) -> Bool {
-  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-    module_ctx, descriptor_func, target, 0,
-  )
-}
-
-///|
 fn RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
@@ -29685,17 +29674,6 @@ fn RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_par
       fact.proves_binaryen_non_null_strict_subtype(module_ctx, target)
     None => false
   }
-}
-
-///|
-fn RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype(
-  module_ctx : @ir.HotModuleContext,
-  ref_func : @lib.FuncIdx,
-  target : @lib.HeapType,
-) -> Bool {
-  RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-    module_ctx, ref_func, target, 0,
-  )
 }
 
 ///|
@@ -31056,6 +31034,191 @@ fn RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
 }
 
 ///|
+// Raw descriptor exact-miss fact for the local/default-descriptor bridge. This
+// represents the flat fallback shape `local.get; struct.new_default;
+// ref.cast_desc exact non-null` as a proof object instead of leaving the
+// dispatcher to own an inline raw triple match.
+priv struct RawOiDescriptorLocalDefaultMissFact {
+  end : Int
+  local_idx : @lib.LocalIdx
+  descriptor_type : @lib.TypeIdx
+  target : @lib.HeapType
+}
+
+///|
+fn RawOiDescriptorLocalDefaultMissFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+) -> RawOiDescriptorLocalDefaultMissFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (
+      @lib.LocalGet(local_idx),
+      @lib.StructNewDefault(descriptor_type),
+      @lib.RefCastDescEq(nullable, exact, target),
+    ) if exact &&
+      !nullable &&
+      RawOiDescriptorDescribesFact::struct_new_exactly_describes(
+        module_ctx, descriptor_type, target,
+      ) &&
+      RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+        module_ctx, params, locals, local_idx, target,
+      ) => Some({ end: start + 3, local_idx, descriptor_type, target })
+    _ => None
+  }
+}
+
+///|
+fn RawOiDescriptorLocalDefaultMissFact::proves_binaryen_descriptor_miss(
+  self : RawOiDescriptorLocalDefaultMissFact,
+) -> Bool {
+  ignore(self.local_idx)
+  ignore(self.descriptor_type)
+  ignore(self.target)
+  self.end > 0
+}
+
+///|
+fn RawOiDescriptorLocalDefaultMissFact::append_rewrite(
+  self : RawOiDescriptorLocalDefaultMissFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_descriptor_miss() {
+    rewritten.push(@lib.Instruction::unreachable_())
+  }
+}
+
+///|
+// Raw descriptor exact-miss fact for balanced local-argument direct calls. The
+// earlier fallback carried separate ad hoc windows for arities 0..5; keep the
+// same arity cap and rewrite shape in one source-backed fact matching
+// Binaryen's known descriptor-cast failure preservation of both operand calls.
+priv struct RawOiDescriptorBalancedLocalDirectMissFact {
+  end : Int
+  param_count : Int
+  ref_func : @lib.FuncIdx
+  descriptor_func : @lib.FuncIdx
+  target : @lib.HeapType
+  ref_args : Array[@lib.LocalIdx]
+  desc_args : Array[@lib.LocalIdx]
+}
+
+///|
+fn RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> RawOiDescriptorBalancedLocalDirectMissFact? {
+  let ref_args : Array[@lib.LocalIdx] = []
+  let mut scan = start
+  while scan < instrs.length() {
+    match instrs[scan] {
+      @lib.LocalGet(arg) => {
+        ref_args.push(arg)
+        scan = scan + 1
+        if ref_args.length() > 5 {
+          return None
+        }
+      }
+      _ => break
+    }
+  }
+  if scan >= instrs.length() {
+    return None
+  }
+  let ref_func = match instrs[scan] {
+    @lib.Call(func_idx) => func_idx
+    _ => return None
+  }
+  scan = scan + 1
+  let desc_args : Array[@lib.LocalIdx] = []
+  while scan < instrs.length() {
+    match instrs[scan] {
+      @lib.LocalGet(arg) => {
+        desc_args.push(arg)
+        scan = scan + 1
+        if desc_args.length() > 5 {
+          return None
+        }
+      }
+      _ => break
+    }
+  }
+  if scan >= instrs.length() ||
+    ref_args.length() != desc_args.length() ||
+    scan + 1 >= instrs.length() {
+    return None
+  }
+  let descriptor_func = match instrs[scan] {
+    @lib.Call(func_idx) => func_idx
+    _ => return None
+  }
+  match instrs[scan + 1] {
+    @lib.RefCastDescEq(_, _, target) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
+        module_ctx,
+        ref_func,
+        target,
+        ref_args.length(),
+      ) &&
+      RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+        module_ctx,
+        descriptor_func,
+        target,
+        desc_args.length(),
+      ) =>
+      Some({
+        end: scan + 2,
+        param_count: ref_args.length(),
+        ref_func,
+        descriptor_func,
+        target,
+        ref_args,
+        desc_args,
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiDescriptorBalancedLocalDirectMissFact::proves_binaryen_descriptor_miss(
+  self : RawOiDescriptorBalancedLocalDirectMissFact,
+) -> Bool {
+  ignore(self.ref_func)
+  ignore(self.descriptor_func)
+  ignore(self.target)
+  self.param_count == self.ref_args.length() &&
+  self.param_count == self.desc_args.length() &&
+  self.param_count <= 5 &&
+  self.end > 0
+}
+
+///|
+fn RawOiDescriptorBalancedLocalDirectMissFact::append_rewrite(
+  self : RawOiDescriptorBalancedLocalDirectMissFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_descriptor_miss() {
+    return
+  }
+  for arg in self.ref_args {
+    rewritten.push(@lib.Instruction::local_get(arg))
+  }
+  rewritten.push(@lib.Instruction::call(self.ref_func))
+  rewritten.push(@lib.Instruction::drop())
+  for arg in self.desc_args {
+    rewritten.push(@lib.Instruction::local_get(arg))
+  }
+  rewritten.push(@lib.Instruction::call(self.descriptor_func))
+  rewritten.push(@lib.Instruction::drop())
+  rewritten.push(@lib.Instruction::unreachable_())
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_call_operand_miss(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -31168,275 +31331,29 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       }
       None => ()
     }
-    if i + 2 < instrs.length() {
-      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-        (
-          @lib.LocalGet(local_idx),
-          @lib.StructNewDefault(descriptor_type),
-          @lib.RefCastDescEq(nullable, exact, target),
-        ) if exact &&
-          !nullable &&
-          RawOiDescriptorDescribesFact::struct_new_exactly_describes(
-            module_ctx, descriptor_type, target,
-          ) &&
-          RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-            module_ctx, params, locals, local_idx, target,
-          ) => {
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 3
-          continue
-        }
-        (
-          @lib.Call(ref_func),
-          @lib.Call(descriptor_func),
-          @lib.RefCastDescEq(_, _, target),
-        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype(
-            module_ctx, ref_func, target,
-          ) &&
-          RawOiDescriptorDescribesFact::direct_call_exactly_describes(
-            module_ctx, descriptor_func, target,
-          ) => {
-          rewritten.push(@lib.Instruction::call(ref_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::call(descriptor_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 3
-          continue
-        }
-        _ => ()
+    match
+      RawOiDescriptorLocalDefaultMissFact::from_instrs(
+        instrs, i, module_ctx, params, locals,
+      ) {
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
+      _ => ()
     }
-    if i + 4 < instrs.length() {
-      match
-        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
-        (
-          @lib.LocalGet(ref_arg),
-          @lib.Call(ref_func),
-          @lib.LocalGet(desc_arg),
-          @lib.Call(descriptor_func),
-          @lib.RefCastDescEq(_, _, target),
-        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-            module_ctx, ref_func, target, 1,
-          ) &&
-          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-            module_ctx, descriptor_func, target, 1,
-          ) => {
-          rewritten.push(@lib.Instruction::local_get(ref_arg))
-          rewritten.push(@lib.Instruction::call(ref_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::local_get(desc_arg))
-          rewritten.push(@lib.Instruction::call(descriptor_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 5
-          continue
-        }
-        _ => ()
+    match
+      RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
+        instrs, i, module_ctx,
+      ) {
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
-    }
-    if i + 6 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-        ) {
-        (
-          @lib.LocalGet(ref_arg0),
-          @lib.LocalGet(ref_arg1),
-          @lib.Call(ref_func),
-          @lib.LocalGet(desc_arg0),
-          @lib.LocalGet(desc_arg1),
-          @lib.Call(descriptor_func),
-          @lib.RefCastDescEq(_, _, target),
-        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-            module_ctx, ref_func, target, 2,
-          ) &&
-          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-            module_ctx, descriptor_func, target, 2,
-          ) => {
-          rewritten.push(@lib.Instruction::local_get(ref_arg0))
-          rewritten.push(@lib.Instruction::local_get(ref_arg1))
-          rewritten.push(@lib.Instruction::call(ref_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::local_get(desc_arg0))
-          rewritten.push(@lib.Instruction::local_get(desc_arg1))
-          rewritten.push(@lib.Instruction::call(descriptor_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 7
-          continue
-        }
-        _ => ()
-      }
-    }
-    if i + 8 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-          instrs[i + 8],
-        ) {
-        (
-          @lib.LocalGet(ref_arg0),
-          @lib.LocalGet(ref_arg1),
-          @lib.LocalGet(ref_arg2),
-          @lib.Call(ref_func),
-          @lib.LocalGet(desc_arg0),
-          @lib.LocalGet(desc_arg1),
-          @lib.LocalGet(desc_arg2),
-          @lib.Call(descriptor_func),
-          @lib.RefCastDescEq(_, _, target),
-        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-            module_ctx, ref_func, target, 3,
-          ) &&
-          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-            module_ctx, descriptor_func, target, 3,
-          ) => {
-          rewritten.push(@lib.Instruction::local_get(ref_arg0))
-          rewritten.push(@lib.Instruction::local_get(ref_arg1))
-          rewritten.push(@lib.Instruction::local_get(ref_arg2))
-          rewritten.push(@lib.Instruction::call(ref_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::local_get(desc_arg0))
-          rewritten.push(@lib.Instruction::local_get(desc_arg1))
-          rewritten.push(@lib.Instruction::local_get(desc_arg2))
-          rewritten.push(@lib.Instruction::call(descriptor_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 9
-          continue
-        }
-        _ => ()
-      }
-    }
-    if i + 10 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-          instrs[i + 8],
-          instrs[i + 9],
-          instrs[i + 10],
-        ) {
-        (
-          @lib.LocalGet(ref_arg0),
-          @lib.LocalGet(ref_arg1),
-          @lib.LocalGet(ref_arg2),
-          @lib.LocalGet(ref_arg3),
-          @lib.Call(ref_func),
-          @lib.LocalGet(desc_arg0),
-          @lib.LocalGet(desc_arg1),
-          @lib.LocalGet(desc_arg2),
-          @lib.LocalGet(desc_arg3),
-          @lib.Call(descriptor_func),
-          @lib.RefCastDescEq(_, _, target),
-        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-            module_ctx, ref_func, target, 4,
-          ) &&
-          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-            module_ctx, descriptor_func, target, 4,
-          ) => {
-          rewritten.push(@lib.Instruction::local_get(ref_arg0))
-          rewritten.push(@lib.Instruction::local_get(ref_arg1))
-          rewritten.push(@lib.Instruction::local_get(ref_arg2))
-          rewritten.push(@lib.Instruction::local_get(ref_arg3))
-          rewritten.push(@lib.Instruction::call(ref_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::local_get(desc_arg0))
-          rewritten.push(@lib.Instruction::local_get(desc_arg1))
-          rewritten.push(@lib.Instruction::local_get(desc_arg2))
-          rewritten.push(@lib.Instruction::local_get(desc_arg3))
-          rewritten.push(@lib.Instruction::call(descriptor_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 11
-          continue
-        }
-        _ => ()
-      }
-    }
-    if i + 12 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-          instrs[i + 8],
-          instrs[i + 9],
-          instrs[i + 10],
-          instrs[i + 11],
-          instrs[i + 12],
-        ) {
-        (
-          @lib.LocalGet(ref_arg0),
-          @lib.LocalGet(ref_arg1),
-          @lib.LocalGet(ref_arg2),
-          @lib.LocalGet(ref_arg3),
-          @lib.LocalGet(ref_arg4),
-          @lib.Call(ref_func),
-          @lib.LocalGet(desc_arg0),
-          @lib.LocalGet(desc_arg1),
-          @lib.LocalGet(desc_arg2),
-          @lib.LocalGet(desc_arg3),
-          @lib.LocalGet(desc_arg4),
-          @lib.Call(descriptor_func),
-          @lib.RefCastDescEq(_, _, target),
-        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-            module_ctx, ref_func, target, 5,
-          ) &&
-          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-            module_ctx, descriptor_func, target, 5,
-          ) => {
-          rewritten.push(@lib.Instruction::local_get(ref_arg0))
-          rewritten.push(@lib.Instruction::local_get(ref_arg1))
-          rewritten.push(@lib.Instruction::local_get(ref_arg2))
-          rewritten.push(@lib.Instruction::local_get(ref_arg3))
-          rewritten.push(@lib.Instruction::local_get(ref_arg4))
-          rewritten.push(@lib.Instruction::call(ref_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::local_get(desc_arg0))
-          rewritten.push(@lib.Instruction::local_get(desc_arg1))
-          rewritten.push(@lib.Instruction::local_get(desc_arg2))
-          rewritten.push(@lib.Instruction::local_get(desc_arg3))
-          rewritten.push(@lib.Instruction::local_get(desc_arg4))
-          rewritten.push(@lib.Instruction::call(descriptor_func))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::unreachable_())
-          changed = true
-          i = i + 13
-          continue
-        }
-        _ => ()
-      }
+      _ => ()
     }
     rewritten.push(instrs[i])
     i = i + 1
