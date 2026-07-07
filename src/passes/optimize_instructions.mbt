@@ -1948,6 +1948,129 @@ fn OiDescriptorTnhSkipRewritePlanFact::apply(
 }
 
 ///|
+priv struct OiDescriptorNullCastFact {
+  cast_fact : OiDescriptorCastFact
+  descriptor_fact : OiDescriptorOperandFact
+}
+
+///|
+fn OiDescriptorNullCastFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDescriptorNullCastFact? {
+  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  if !OiRefFact::from_node(func, cast_fact.operand_id).is_known_null() {
+    return None
+  }
+  Some({
+    cast_fact,
+    descriptor_fact: OiDescriptorOperandFact::from_operand(
+      ctx,
+      func,
+      dead,
+      cast_fact.descriptor_id,
+    ),
+  })
+}
+
+///|
+priv enum OiDescriptorNullCastRewritePlanKind {
+  DescriptorNullCastUnreachable
+  DescriptorNullCastTypedNull
+  DescriptorNullCastDropDescriptorThenTypedNull
+  DescriptorNullCastDropDescriptorThenUnreachable
+}
+
+///|
+priv struct OiDescriptorNullCastRewritePlanFact {
+  kind : OiDescriptorNullCastRewritePlanKind
+  null_fact : OiDescriptorNullCastFact
+}
+
+///|
+fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
+  null_fact : OiDescriptorNullCastFact,
+  descriptor_traps_only : Bool,
+) -> OiDescriptorNullCastRewritePlanFact? {
+  // Binaryen v130 `optimizeKnownCastResult` has a descriptor-cast special case
+  // for known-null reference operands: materialize the typed null for nullable
+  // casts, trap for non-nullable casts, and preserve the descriptor operand only
+  // when its evaluation cannot be erased. Keep the source-order decision in a
+  // plan fact so the visitor no longer owns a null/ref/descriptor erase cascade.
+  let cast_fact = null_fact.cast_fact
+  let descriptor_fact = null_fact.descriptor_fact
+  if descriptor_fact.traps_without_effects {
+    return Some({ kind: DescriptorNullCastUnreachable, null_fact })
+  }
+  if descriptor_traps_only {
+    return None
+  }
+  let kind = if cast_fact.nullable {
+    if descriptor_fact.can_erase {
+      DescriptorNullCastTypedNull
+    } else {
+      DescriptorNullCastDropDescriptorThenTypedNull
+    }
+  } else if descriptor_fact.can_erase {
+    DescriptorNullCastUnreachable
+  } else {
+    DescriptorNullCastDropDescriptorThenUnreachable
+  }
+  Some({ kind, null_fact })
+}
+
+///|
+fn OiDescriptorNullCastRewritePlanFact::apply(
+  self : OiDescriptorNullCastRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let cast_fact = self.null_fact.cast_fact
+  match self.kind {
+    DescriptorNullCastUnreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
+    }
+    DescriptorNullCastTypedNull => {
+      let typed_null_id = @ir.hot_build_ref_null(
+        func,
+        @lib.RefType::new(true, cast_fact.target, exact=cast_fact.exact),
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, typed_null_id,
+      )
+      true
+    }
+    DescriptorNullCastDropDescriptorThenTypedNull => {
+      let typed_null_id = @ir.hot_build_ref_null(
+        func,
+        @lib.RefType::new(true, cast_fact.target, exact=cast_fact.exact),
+      )
+      optimize_instructions_replace_with_drop_then_node_id(
+        ctx,
+        func,
+        node_id,
+        cast_fact.descriptor_id,
+        typed_null_id,
+      )
+    }
+    DescriptorNullCastDropDescriptorThenUnreachable =>
+      optimize_instructions_replace_with_drop_then_unreachable(
+        ctx,
+        func,
+        node_id,
+        cast_fact.descriptor_id,
+      )
+  }
+}
+
+///|
 priv struct OiRefGetDescFact {
   child_id : Int
   nullable_child_id : Int
@@ -16707,24 +16830,15 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+  let null_fact = match
+    OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id) {
     Some(fact) => fact
     None => return false
   }
-  match @ir.hot_node_get(func, cast_fact.operand_id).op {
-    @ir.HotOp::RefNull => ()
-    _ => return false
+  match OiDescriptorNullCastRewritePlanFact::from_null_cast(null_fact, true) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  if !OiDescriptorOperandFact::from_operand(
-      ctx,
-      func,
-      dead,
-      cast_fact.descriptor_id,
-    ).traps_without_effects {
-    return false
-  }
-  optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-  true
 }
 
 ///|
@@ -18196,56 +18310,14 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+  let null_fact = match
+    OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id) {
     Some(fact) => fact
     None => return false
   }
-  match @ir.hot_node_get(func, cast_fact.operand_id).op {
-    @ir.HotOp::RefNull => ()
-    _ => return false
-  }
-  if optimize_instructions_descriptor_operand_traps_without_effects(
-      func,
-      cast_fact.descriptor_id,
-    ) {
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-    return true
-  }
-  let descriptor_can_erase = optimize_instructions_descriptor_operand_can_erase(
-    ctx,
-    func,
-    dead,
-    cast_fact.descriptor_id,
-  )
-  if cast_fact.nullable {
-    let typed_null_id = @ir.hot_build_ref_null(
-      func,
-      @lib.RefType::new(true, cast_fact.target, exact=cast_fact.exact),
-    )
-    if descriptor_can_erase {
-      optimize_instructions_replace_with_node_id(
-        ctx, func, node_id, typed_null_id,
-      )
-      true
-    } else {
-      optimize_instructions_replace_with_drop_then_node_id(
-        ctx,
-        func,
-        node_id,
-        cast_fact.descriptor_id,
-        typed_null_id,
-      )
-    }
-  } else if descriptor_can_erase {
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-    true
-  } else {
-    optimize_instructions_replace_with_drop_then_unreachable(
-      ctx,
-      func,
-      node_id,
-      cast_fact.descriptor_id,
-    )
+  match OiDescriptorNullCastRewritePlanFact::from_null_cast(null_fact, false) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
 }
 
