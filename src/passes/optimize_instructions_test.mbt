@@ -51721,6 +51721,110 @@ test "optimize-instructions intentionally keeps public multivalue block with one
 }
 
 ///|
+test "optimize-instructions rewrites equal array.new_fixed values through facts" {
+  // OI-K/OI-L aggregate constructor fact: Binaryen version_130
+  // `visitArrayNewFixed` compares adjacent fixed elements with
+  // `areConsecutiveInputsEqual`. Equal default values become
+  // `array.new_default`; equal non-default values become repeated-value
+  // `array.new`; unequal values remain `array.new_fixed`.
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let param_result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        result_type, result_type, param_result_type, result_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let non_default = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(non_default.contains("array.new_fixed"), msg=non_default)
+  assert_false(non_default.contains("array.new_default"), msg=non_default)
+  assert_true(non_default.contains("array.new"), msg=non_default)
+  assert_true(non_default.contains("I32(2)"), msg=non_default)
+  let default_value = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(default_value.contains("array.new_fixed"), msg=default_value)
+  assert_true(default_value.contains("array.new_default"), msg=default_value)
+  assert_true(default_value.contains("I32(2)"), msg=default_value)
+  let repeated_local = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(repeated_local.contains("array.new_fixed"), msg=repeated_local)
+  assert_false(repeated_local.contains("array.new_default"), msg=repeated_local)
+  assert_true(repeated_local.contains("array.new"), msg=repeated_local)
+  assert_true(
+    repeated_local.contains("local.get (Local 0)"),
+    msg=repeated_local,
+  )
+  assert_true(repeated_local.contains("I32(2)"), msg=repeated_local)
+  let unequal = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(unequal.contains("array.new_fixed"), msg=unequal)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

@@ -10804,6 +10804,192 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
 }
 
 ///|
+priv struct OiArrayNewFixedRepeatedValueFact {
+  node_id : Int
+  type_idx : @lib.TypeIdx
+  size : Int
+  representative_id : Int
+  representative_is_default : Bool
+}
+
+///|
+fn optimize_instructions_array_value_is_default_for_storage(
+  func : @ir.HotFunc,
+  storage : @lib.StorageType,
+  value_id : Int,
+) -> Bool {
+  let value = @ir.hot_node_get(func, value_id)
+  match storage.unpack() {
+    @lib.ValType::NumTypeValType(@lib.NumType::I32NumType) =>
+      match value.op {
+        @ir.HotOp::Const =>
+          @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::i32_const(@lib.I32(0))
+        _ => false
+      }
+    @lib.ValType::NumTypeValType(@lib.NumType::I64NumType) =>
+      match value.op {
+        @ir.HotOp::Const =>
+          @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::i64_const(@lib.I64(0L))
+        _ => false
+      }
+    @lib.ValType::NumTypeValType(@lib.NumType::F32NumType) =>
+      match value.op {
+        @ir.HotOp::Const =>
+          @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::f32_const(@lib.F32(0.0))
+        _ => false
+      }
+    @lib.ValType::NumTypeValType(@lib.NumType::F64NumType) =>
+      match value.op {
+        @ir.HotOp::Const =>
+          @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::f64_const(@lib.F64(0.0))
+        _ => false
+      }
+    @lib.ValType::RefTypeValType(ref_type) =>
+      if !ref_type.is_nullable() {
+        false
+      } else {
+        match value.op {
+          @ir.HotOp::RefNull => true
+          @ir.HotOp::Const =>
+            match @ir.hot_const_get(func, value.imm0) {
+              @ir.HotConstPayload::RefNullConst(_) => true
+              _ => false
+            }
+          _ => false
+        }
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_array_new_fixed_value_is_default(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  type_idx : @lib.TypeIdx,
+  value_id : Int,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+    Some(field) => field
+    None => return false
+  }
+  optimize_instructions_array_value_is_default_for_storage(
+    func,
+    field.get_storage_type(),
+    value_id,
+  )
+}
+
+///|
+fn OiArrayNewFixedRepeatedValueFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiArrayNewFixedRepeatedValueFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  let (type_idx, size) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayNewFixed(type_idx, @lib.U32(size))) =>
+      (type_idx, size.reinterpret_as_int())
+    _ => return None
+  }
+  if size <= 0 || size != node.child_count {
+    return None
+  }
+  for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
+    let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
+      ctx,
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      @ir.hot_child_get(func, node_id, slot + 1),
+    )
+    if !equality_fact.proves_equal(func) {
+      return None
+    }
+  }
+  let representative_id = @ir.hot_child_get(func, node_id, 0)
+  Some({
+    node_id,
+    type_idx,
+    size,
+    representative_id,
+    representative_is_default: optimize_instructions_array_new_fixed_value_is_default(
+      ctx, func, type_idx, representative_id,
+    ),
+  })
+}
+
+///|
+fn OiArrayNewFixedRepeatedValueFact::is_rewritable(
+  self : OiArrayNewFixedRepeatedValueFact,
+) -> Bool {
+  self.representative_is_default || self.size >= 2
+}
+
+///|
+fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
+  self : OiArrayNewFixedRepeatedValueFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Unit {
+  let original = @ir.hot_node_get(func, self.node_id)
+  let len_id = @ir.hot_build_const_i32(func, @lib.I32(self.size))
+  let temp = if self.representative_is_default {
+    @ir.hot_build_node(
+      func,
+      original.op,
+      @ir.hot_node_type(func, self.node_id),
+      children=[len_id],
+    )
+  } else {
+    @ir.hot_build_node(
+      func,
+      original.op,
+      @ir.hot_node_type(func, self.node_id),
+      children=[self.representative_id, len_id],
+    )
+  }
+  @ir.hot_node_exact_instr_set(
+    func,
+    temp,
+    if self.representative_is_default {
+      @lib.Instruction::array_new_default(self.type_idx)
+    } else {
+      @lib.Instruction::array_new(self.type_idx)
+    },
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, self.node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let fact = match
+    OiArrayNewFixedRepeatedValueFact::from_node(ctx, func, node_id) {
+    Some(fact) => fact
+    None => return false
+  }
+  if !fact.is_rewritable() {
+    return false
+  }
+  fact.apply_rewrite(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_array_len_new_fixed(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -21730,6 +21916,9 @@ fn optimize_instructions_visit_node(
       ) ||
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
+      optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_fold_array_len_new_fixed(
         ctx, func, dead, node_id,
       ) ||
