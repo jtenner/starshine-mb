@@ -8638,14 +8638,60 @@ fn OiTupleExtractEligibilityFact::from_extract(
 }
 
 ///|
+priv struct OiTupleSiblingEffectFact {
+  has_preserved_sibling : Bool
+  has_later_preserved_sibling : Bool
+}
+
+///|
+fn OiTupleSiblingEffectFact::from_lanes(
+  lane_facts : Array[OiTupleLaneFact],
+  selected_slot : Int,
+) -> OiTupleSiblingEffectFact {
+  // Binaryen v130 `visitTupleExtract` rewrites the selected tuple lane to a
+  // temporary and lets `getDroppedChildrenAndAppend(make, get)` preserve only
+  // discarded siblings whose effects/traps must remain observable. Keep the
+  // sibling-order summary as an explicit fact so direct selected-lane
+  // forwarding and selected-lane materialization consume the same source-backed
+  // evidence instead of re-scanning tuple lanes independently.
+  let mut has_preserved_sibling = false
+  let mut has_later_preserved_sibling = false
+  for slot = 0; slot < lane_facts.length(); slot = slot + 1 {
+    if slot == selected_slot {
+      continue
+    }
+    if lane_facts[slot].discard_fact.must_preserve() {
+      has_preserved_sibling = true
+      if slot > selected_slot {
+        has_later_preserved_sibling = true
+      }
+    }
+  }
+  { has_preserved_sibling, has_later_preserved_sibling }
+}
+
+///|
+fn OiTupleSiblingEffectFact::allows_selected_forward(
+  self : OiTupleSiblingEffectFact,
+) -> Bool {
+  !self.has_preserved_sibling
+}
+
+///|
+fn OiTupleSiblingEffectFact::needs_selected_local(
+  self : OiTupleSiblingEffectFact,
+) -> Bool {
+  self.has_later_preserved_sibling
+}
+
+///|
 priv struct OiTupleExtractFact {
   selected_slot : Int
   selected_lane : Int
   selected_id : Int
   selected_results : Array[@lib.ValType]
   lane_facts : Array[OiTupleLaneFact]
-  has_effectful_sibling : Bool
-  has_later_effectful_sibling : Bool
+  sibling_effect_fact : OiTupleSiblingEffectFact
 }
 
 ///|
@@ -8686,27 +8732,15 @@ fn OiTupleExtractFact::from_extract(
   if selected_fact.results.length() == 0 {
     return None
   }
-  let mut has_effectful_sibling = false
-  let mut has_later_effectful_sibling = false
-  for slot = 0; slot < lane_facts.length(); slot = slot + 1 {
-    if slot == selected_slot {
-      continue
-    }
-    if lane_facts[slot].discard_fact.must_preserve() {
-      has_effectful_sibling = true
-      if slot > selected_slot {
-        has_later_effectful_sibling = true
-      }
-    }
-  }
   Some({
     selected_slot,
     selected_lane,
     selected_id: selected_fact.node_id,
     selected_results: selected_fact.results,
+    sibling_effect_fact: OiTupleSiblingEffectFact::from_lanes(
+      lane_facts, selected_slot,
+    ),
     lane_facts,
-    has_effectful_sibling,
-    has_later_effectful_sibling,
   })
 }
 
@@ -8714,7 +8748,8 @@ fn OiTupleExtractFact::from_extract(
 fn OiTupleExtractFact::can_forward_selected_directly(
   self : OiTupleExtractFact,
 ) -> Bool {
-  !self.has_effectful_sibling && self.selected_results.length() == 1
+  self.sibling_effect_fact.allows_selected_forward() &&
+  self.selected_results.length() == 1
 }
 
 ///|
@@ -8740,7 +8775,7 @@ fn OiTupleSelectedMaterializeFact::from_extract(
     for result in tuple_fact.selected_results {
       selected_result_locals.push(@ir.hot_append_body_local(func, result))
     }
-  } else if tuple_fact.has_later_effectful_sibling {
+  } else if tuple_fact.sibling_effect_fact.needs_selected_local() {
     selected_local = @ir.hot_append_body_local(
       func,
       tuple_fact.selected_results[0],
