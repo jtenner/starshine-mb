@@ -33165,13 +33165,12 @@ test "optimize-instructions drops right block unrelated local.set same-address m
 }
 
 ///|
-test "optimize-instructions documents raw right localtee memory.copy boundary" {
-  // Boundary test, not a success claim: Binaryen version_130 peels the right
-  // operand with `Properties::getImmediateFallthrough(...AllowTeeBrIf)` and
-  // drops this same-address copy under TNH, but Starshine currently lowers this
-  // side-effecting stack spelling to raw roots that OI does not revisit as a
-  // nested `MemoryCopy` HOT node. Keep this visible until flat stack-root OI-G
-  // facts can drive the rewrite safely.
+test "optimize-instructions drops raw right localtee memory.copy" {
+  // OI-G raw stack-root fact: Binaryen version_130 peels the right operand
+  // with `Properties::getImmediateFallthrough(...AllowTeeBrIf)` and drops this
+  // same-address copy under TNH while preserving the right `local.tee` write as
+  // part of the dropped source operand. This locks the flat raw counterpart to
+  // the HOT right-localtee consecutive-input equality fact.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -33189,16 +33188,14 @@ test "optimize-instructions documents raw right localtee memory.copy boundary" {
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail(
-        "expected raw right localtee memory.copy boundary success, got \{err}",
-      )
+      fail("expected raw right localtee memory.copy TNH success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
   assert_true(pretty.contains("local.tee"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
-    "local.get (Local 0)", "local.get (Local 0)", "local.tee (Local 2)", "local.get (Local 1)",
-    "memory.copy",
+    "local.get (Local 0)", "drop", "local.get (Local 0)", "local.tee (Local 2)",
+    "drop", "local.get (Local 1)", "drop",
   ])
 }
 

@@ -29128,6 +29128,7 @@ priv struct RawOiFlatPureScalarStackValueFact {
   left_key : String
   right_key : String
   commutative : Bool
+  fallthrough_local_tee : Bool
 }
 
 ///|
@@ -29139,6 +29140,7 @@ priv struct RawOiFlatPureScalarAddressFact {
   left_key : String
   right_key : String
   commutative : Bool
+  fallthrough_local_tee : Bool
 }
 
 ///|
@@ -29344,7 +29346,14 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
 fn run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(
   key : String,
 ) -> RawOiFlatPureScalarStackValueFact {
-  { key, binary_op: "", left_key: "", right_key: "", commutative: false }
+  {
+    key,
+    binary_op: "",
+    left_key: "",
+    right_key: "",
+    commutative: false,
+    fallthrough_local_tee: false,
+  }
 }
 
 ///|
@@ -29361,6 +29370,7 @@ fn RawOiFlatPureScalarAddressFact::from_value(
     left_key: value.left_key,
     right_key: value.right_key,
     commutative: value.commutative,
+    fallthrough_local_tee: value.fallthrough_local_tee,
   }
 }
 
@@ -29378,6 +29388,7 @@ fn run_hot_pipeline_raw_oi_flat_pure_scalar_stack_budget() -> Int {
 fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
+  allow_fallthrough_local_tee : Bool,
 ) -> Array[RawOiFlatPureScalarAddressFact] {
   let facts : Array[RawOiFlatPureScalarAddressFact] = []
   let stack : Array[RawOiFlatPureScalarStackValueFact] = []
@@ -29388,46 +29399,75 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
       Some(key) =>
         stack.push(run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(key))
       None =>
-        match run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(instrs[idx]) {
-          Some(op_key) => {
-            if stack.length() < 1 {
+        match instrs[idx] {
+          @lib.LocalTee(_) => {
+            // Binaryen v130 `Properties::getImmediateFallthrough` with
+            // `AllowTeeBrIf` exposes a direct right `local.tee`'s value as the
+            // operand fallthrough while preserving the tee write in the dropped
+            // original operand. Keep that raw stack-root proof as a value fact
+            // instead of adding another fixed instruction window. The flat raw
+            // helper only enables this on the source/right operand so existing
+            // HOT canonicalization of left-tee drops can still run.
+            if !allow_fallthrough_local_tee || stack.length() < 1 {
               break
             }
-            let child = stack.pop().unwrap()
+            let value = stack.pop().unwrap()
             stack.push({
-              key: "\{op_key}(\{child.key})",
-              binary_op: "",
-              left_key: "",
-              right_key: "",
-              commutative: false,
+              key: value.key,
+              binary_op: value.binary_op,
+              left_key: value.left_key,
+              right_key: value.right_key,
+              commutative: value.commutative,
+              fallthrough_local_tee: true,
             })
           }
-          None =>
+          _ =>
             match
-              run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(instrs[idx]) {
+              run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(instrs[idx]) {
               Some(op_key) => {
-                if stack.length() < 2 {
+                if stack.length() < 1 {
                   break
                 }
-                let right = stack.pop().unwrap()
-                let left = stack.pop().unwrap()
-                let commutative = run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
-                  op_key,
-                )
+                let child = stack.pop().unwrap()
                 stack.push({
-                  key: run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
-                    op_key,
-                    left.key,
-                    right.key,
-                    commutative,
-                  ),
-                  binary_op: op_key,
-                  left_key: left.key,
-                  right_key: right.key,
-                  commutative,
+                  key: "\{op_key}(\{child.key})",
+                  binary_op: "",
+                  left_key: "",
+                  right_key: "",
+                  commutative: false,
+                  fallthrough_local_tee: false,
                 })
               }
-              None => break
+              None =>
+                match
+                  run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
+                    instrs[idx],
+                  ) {
+                  Some(op_key) => {
+                    if stack.length() < 2 {
+                      break
+                    }
+                    let right = stack.pop().unwrap()
+                    let left = stack.pop().unwrap()
+                    let commutative = run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
+                      op_key,
+                    )
+                    stack.push({
+                      key: run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
+                        op_key,
+                        left.key,
+                        right.key,
+                        commutative,
+                      ),
+                      binary_op: op_key,
+                      left_key: left.key,
+                      right_key: right.key,
+                      commutative,
+                      fallthrough_local_tee: false,
+                    })
+                  }
+                  None => break
+                }
             }
         }
     }
@@ -29534,7 +29574,7 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
   while i < instrs.length() {
     let mut matched = false
     let dst_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-      instrs, i,
+      instrs, i, false,
     )
     for dst_fact in dst_facts {
       if matched {
@@ -29543,12 +29583,14 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
       let src_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
         instrs,
         dst_fact.end,
+        true,
       )
       for src_fact in src_facts {
         if matched {
           break
         }
         if src_fact.end + 1 < instrs.length() &&
+          !dst_fact.fallthrough_local_tee &&
           dst_fact.proves_equal(src_fact) &&
           run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
             instrs[src_fact.end],
