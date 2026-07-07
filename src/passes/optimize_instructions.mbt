@@ -807,19 +807,171 @@ fn OiDescriptorOperandFact::from_operand(
 ) -> OiDescriptorOperandFact {
   {
     type_fact: OiDescriptorTypeFact::from_node(ctx, func, node_id),
-    traps_without_effects: optimize_instructions_descriptor_operand_traps_without_effects(
+    traps_without_effects: OiDescriptorOperandTrapFact::from_operand(
       func, node_id,
-    ),
+    ).proves_traps_without_effects(),
     can_erase: OiDescriptorOperandEraseFact::from_operand(
       ctx, func, dead, node_id,
     ).proves_can_erase(),
-    should_localize_when_skipped: optimize_instructions_descriptor_operand_should_localize_when_skipped(
+    should_localize_when_skipped: OiDescriptorOperandSkipLocalizationFact::from_operand(
       func, node_id,
-    ),
+    ).proves_should_localize_when_skipped(),
     may_drop_exactness_for_tnh_escaping_ref_get_desc: optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
       func, node_id,
     ),
   }
+}
+
+///|
+priv struct OiRefGetDescTrapFact {
+  ref_get_desc : Bool
+  child_unreachable : Bool
+  explicit_nullable_child : Bool
+  nullable_child_known_null : Bool
+  traps_without_effects : Bool
+}
+
+///|
+fn OiRefGetDescTrapFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefGetDescTrapFact {
+  // Binaryen v130 treats `ref.get_desc(unreachable)` and
+  // `ref.get_desc(ref.as_non_null(ref.null ...))` as descriptor operands that
+  // can trap before any side effect. Record the trap proof separately from the
+  // descriptor operand fact so callers do not ask `OiRefGetDescFact` for an
+  // ad hoc helper-level decision.
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None =>
+      return {
+        ref_get_desc: false,
+        child_unreachable: false,
+        explicit_nullable_child: false,
+        nullable_child_known_null: false,
+        traps_without_effects: false,
+      }
+  }
+  let child_unreachable = get_desc_fact.child_is_unreachable(func)
+  let (explicit_nullable_child, nullable_child_known_null) = match
+    get_desc_fact.explicit_nullable_child() {
+    Some(nullable_child) =>
+      (
+        true,
+        match @ir.hot_node_get(func, nullable_child).op {
+          @ir.HotOp::RefNull => true
+          _ => false
+        },
+      )
+    None => (false, false)
+  }
+  {
+    ref_get_desc: true,
+    child_unreachable,
+    explicit_nullable_child,
+    nullable_child_known_null,
+    traps_without_effects: child_unreachable ||
+    (explicit_nullable_child && nullable_child_known_null),
+  }
+}
+
+///|
+fn OiRefGetDescTrapFact::proves_traps_without_effects(
+  self : OiRefGetDescTrapFact,
+) -> Bool {
+  self.ref_get_desc &&
+  self.traps_without_effects &&
+  (
+    self.child_unreachable ||
+    (self.explicit_nullable_child && self.nullable_child_known_null)
+  )
+}
+
+///|
+priv struct OiDescriptorOperandTrapFact {
+  direct_unreachable : Bool
+  ref_get_desc_traps_without_effects : Bool
+  traps_without_effects : Bool
+}
+
+///|
+fn OiDescriptorOperandTrapFact::from_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorOperandTrapFact {
+  // Descriptor casts/tests can become `unreachable` when the descriptor operand
+  // itself is already an unconditional trap with no preceding side effects.
+  // Keep the direct-unreachable and ref.get_desc trap cases as fact fields
+  // instead of a descriptor-operand helper cascade.
+  let direct_unreachable = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Unreachable => true
+    _ => false
+  }
+  let ref_get_desc_traps_without_effects = OiRefGetDescTrapFact::from_node(
+    func, node_id,
+  ).proves_traps_without_effects()
+  {
+    direct_unreachable,
+    ref_get_desc_traps_without_effects,
+    traps_without_effects: direct_unreachable ||
+    ref_get_desc_traps_without_effects,
+  }
+}
+
+///|
+fn OiDescriptorOperandTrapFact::proves_traps_without_effects(
+  self : OiDescriptorOperandTrapFact,
+) -> Bool {
+  self.traps_without_effects &&
+  (self.direct_unreachable || self.ref_get_desc_traps_without_effects)
+}
+
+///|
+priv struct OiDescriptorOperandSkipLocalizationFact {
+  call_root : Bool
+  call_ref_root : Bool
+  ref_get_desc_root : Bool
+  should_localize_when_skipped : Bool
+}
+
+///|
+fn OiDescriptorOperandSkipLocalizationFact::from_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorOperandSkipLocalizationFact {
+  // Binaryen's descriptor TNH skip path uses ChildLocalizer-like decisions to
+  // preserve descriptor operand evaluation when the descriptor is a call-like or
+  // ref.get_desc producer. Keep Starshine's represented producer subset as data
+  // so skip/replacement code does not own an opcode whitelist.
+  let node = @ir.hot_node_get(func, node_id)
+  let call_root = match node.op {
+    @ir.HotOp::Call => true
+    _ => false
+  }
+  let call_ref_root = match node.op {
+    @ir.HotOp::CallRef => true
+    _ => false
+  }
+  let ref_get_desc_root = match OiRefGetDescFact::from_node(func, node_id) {
+    Some(_) => true
+    None => false
+  }
+  {
+    call_root,
+    call_ref_root,
+    ref_get_desc_root,
+    should_localize_when_skipped: call_root ||
+    call_ref_root ||
+    ref_get_desc_root,
+  }
+}
+
+///|
+fn OiDescriptorOperandSkipLocalizationFact::proves_should_localize_when_skipped(
+  self : OiDescriptorOperandSkipLocalizationFact,
+) -> Bool {
+  self.should_localize_when_skipped &&
+  (self.call_root || self.call_ref_root || self.ref_get_desc_root)
 }
 
 ///|
@@ -2715,9 +2867,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
       if optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
           func, child_id,
         ) &&
-        optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
-          func, child_id,
-        ) {
+        OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check() {
         RefGetDescNullableIfMove
       } else {
         return None
@@ -2737,9 +2887,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         func, child_id,
       )
     @ir.HotOp::If =>
-      optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
-        func, child_id,
-      )
+      OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check()
     _ => false
   }
   Some({
@@ -2832,24 +2980,6 @@ fn OiRefGetDescFact::child_is_unreachable(
   match @ir.hot_node_get(func, self.child_id).op {
     @ir.HotOp::Unreachable => true
     _ => false
-  }
-}
-
-///|
-fn OiRefGetDescFact::traps_without_effects(
-  self : OiRefGetDescFact,
-  func : @ir.HotFunc,
-) -> Bool {
-  if self.child_is_unreachable(func) {
-    return true
-  }
-  match self.explicit_nullable_child() {
-    Some(nullable_child) =>
-      match @ir.hot_node_get(func, nullable_child).op {
-        @ir.HotOp::RefNull => true
-        _ => false
-      }
-    None => false
   }
 }
 
@@ -17783,81 +17913,228 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
 }
 
 ///|
-fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::If => ()
-    _ => return false
-  }
-  if node.child_count != 3 {
-    return false
-  }
-  if !optimize_instructions_is_side_effect_free_expr(
-      func,
-      dead,
-      @ir.hot_child_get(func, node_id, 0),
-    ) {
-    return false
-  }
-  let then_region = @ir.hot_region_then_ref(func, node_id)
-  let else_region = match @ir.hot_region_else_ref(func, node_id) {
-    Some(region) => region
-    None => return false
-  }
-  if @ir.hot_region_root_count(func, then_region) != 1 ||
-    @ir.hot_region_root_count(func, else_region) != 1 {
-    return false
-  }
-  optimize_instructions_is_side_effect_free_expr(
-    func,
-    dead,
-    @ir.hot_region_get(func, then_region, 0),
-  ) &&
-  optimize_instructions_is_side_effect_free_expr(
-    func,
-    dead,
-    @ir.hot_region_get(func, else_region, 0),
-  )
+priv struct OiDescriptorNullableIfNoEffectMoveFact {
+  if_root : Bool
+  has_three_children : Bool
+  condition_side_effect_free : Bool
+  has_else : Bool
+  single_root_arms : Bool
+  then_side_effect_free : Bool
+  else_side_effect_free : Bool
+  can_move_null_check : Bool
 }
 
 ///|
-fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiDescriptorNullableIfNoEffectMoveFact {
+  // TNH descriptor operand erasure can drop a nullable `if` child when the
+  // condition and both single-result arms are side-effect-free. This preserves
+  // the old represented shape as a fact rather than a helper-owned recursive
+  // side-effect-free scan.
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::If => ()
-    _ => return false
+  let if_root = match node.op {
+    @ir.HotOp::If => true
+    _ => false
   }
-  if node.child_count != 3 {
-    return false
+  if !if_root {
+    return {
+      if_root,
+      has_three_children: false,
+      condition_side_effect_free: false,
+      has_else: false,
+      single_root_arms: false,
+      then_side_effect_free: false,
+      else_side_effect_free: false,
+      can_move_null_check: false,
+    }
   }
-  if optimize_instructions_descriptor_expr_has_escaping_branch_control(
-      func,
-      @ir.hot_child_get(func, node_id, 0),
-    ) {
-    return false
+  let has_three_children = node.child_count == 3
+  if !has_three_children {
+    return {
+      if_root,
+      has_three_children,
+      condition_side_effect_free: false,
+      has_else: false,
+      single_root_arms: false,
+      then_side_effect_free: false,
+      else_side_effect_free: false,
+      can_move_null_check: false,
+    }
   }
+  let condition_side_effect_free = optimize_instructions_is_side_effect_free_expr(
+    func,
+    dead,
+    @ir.hot_child_get(func, node_id, 0),
+  )
   let then_region = @ir.hot_region_then_ref(func, node_id)
   let else_region = match @ir.hot_region_else_ref(func, node_id) {
     Some(region) => region
-    None => return false
+    None =>
+      return {
+        if_root,
+        has_three_children,
+        condition_side_effect_free,
+        has_else: false,
+        single_root_arms: false,
+        then_side_effect_free: false,
+        else_side_effect_free: false,
+        can_move_null_check: false,
+      }
   }
-  if @ir.hot_region_root_count(func, then_region) != 1 ||
-    @ir.hot_region_root_count(func, else_region) != 1 {
-    return false
+  let single_root_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
+    @ir.hot_region_root_count(func, else_region) == 1
+  let then_side_effect_free = single_root_arms &&
+    optimize_instructions_is_side_effect_free_expr(
+      func,
+      dead,
+      @ir.hot_region_get(func, then_region, 0),
+    )
+  let else_side_effect_free = single_root_arms &&
+    optimize_instructions_is_side_effect_free_expr(
+      func,
+      dead,
+      @ir.hot_region_get(func, else_region, 0),
+    )
+  {
+    if_root,
+    has_three_children,
+    condition_side_effect_free,
+    has_else: true,
+    single_root_arms,
+    then_side_effect_free,
+    else_side_effect_free,
+    can_move_null_check: has_three_children &&
+    condition_side_effect_free &&
+    single_root_arms &&
+    then_side_effect_free &&
+    else_side_effect_free,
   }
-  !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
-    func, node_id, then_region,
-  ) &&
-  !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
-    func, node_id, else_region,
+}
+
+///|
+fn OiDescriptorNullableIfNoEffectMoveFact::proves_can_move_null_check(
+  self : OiDescriptorNullableIfNoEffectMoveFact,
+) -> Bool {
+  self.if_root &&
+  self.has_three_children &&
+  self.condition_side_effect_free &&
+  self.has_else &&
+  self.single_root_arms &&
+  self.then_side_effect_free &&
+  self.else_side_effect_free &&
+  self.can_move_null_check
+}
+
+///|
+priv struct OiDescriptorNullableIfControlMoveFact {
+  if_root : Bool
+  has_three_children : Bool
+  condition_no_escaping_branch_control : Bool
+  has_else : Bool
+  single_root_arms : Bool
+  then_no_escaping_branch_control : Bool
+  else_no_escaping_branch_control : Bool
+  can_move_null_check : Bool
+}
+
+///|
+fn OiDescriptorNullableIfControlMoveFact::from_if(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorNullableIfControlMoveFact {
+  // Standalone ref.get_desc null-check movement may preserve effectful arms, but
+  // only while proving that the condition and both arms have no escaping branch
+  // control. Store that Binaryen ChildLocalizer-adjacent boundary explicitly.
+  let node = @ir.hot_node_get(func, node_id)
+  let if_root = match node.op {
+    @ir.HotOp::If => true
+    _ => false
+  }
+  if !if_root {
+    return {
+      if_root,
+      has_three_children: false,
+      condition_no_escaping_branch_control: false,
+      has_else: false,
+      single_root_arms: false,
+      then_no_escaping_branch_control: false,
+      else_no_escaping_branch_control: false,
+      can_move_null_check: false,
+    }
+  }
+  let has_three_children = node.child_count == 3
+  if !has_three_children {
+    return {
+      if_root,
+      has_three_children,
+      condition_no_escaping_branch_control: false,
+      has_else: false,
+      single_root_arms: false,
+      then_no_escaping_branch_control: false,
+      else_no_escaping_branch_control: false,
+      can_move_null_check: false,
+    }
+  }
+  let condition_no_escaping_branch_control = !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+    func,
+    @ir.hot_child_get(func, node_id, 0),
   )
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None =>
+      return {
+        if_root,
+        has_three_children,
+        condition_no_escaping_branch_control,
+        has_else: false,
+        single_root_arms: false,
+        then_no_escaping_branch_control: false,
+        else_no_escaping_branch_control: false,
+        can_move_null_check: false,
+      }
+  }
+  let single_root_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
+    @ir.hot_region_root_count(func, else_region) == 1
+  let then_no_escaping_branch_control = single_root_arms &&
+    !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+      func, node_id, then_region,
+    )
+  let else_no_escaping_branch_control = single_root_arms &&
+    !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+      func, node_id, else_region,
+    )
+  {
+    if_root,
+    has_three_children,
+    condition_no_escaping_branch_control,
+    has_else: true,
+    single_root_arms,
+    then_no_escaping_branch_control,
+    else_no_escaping_branch_control,
+    can_move_null_check: has_three_children &&
+    condition_no_escaping_branch_control &&
+    single_root_arms &&
+    then_no_escaping_branch_control &&
+    else_no_escaping_branch_control,
+  }
+}
+
+///|
+fn OiDescriptorNullableIfControlMoveFact::proves_can_move_null_check(
+  self : OiDescriptorNullableIfControlMoveFact,
+) -> Bool {
+  self.if_root &&
+  self.has_three_children &&
+  self.condition_no_escaping_branch_control &&
+  self.has_else &&
+  self.single_root_arms &&
+  self.then_no_escaping_branch_control &&
+  self.else_no_escaping_branch_control &&
+  self.can_move_null_check
 }
 
 ///|
@@ -19853,9 +20130,9 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
     }
     @ir.HotOp::If => {
       if_root = true
-      if_can_move_null_check = optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
+      if_can_move_null_check = OiDescriptorNullableIfNoEffectMoveFact::from_if(
         func, dead, node_id,
-      )
+      ).proves_can_move_null_check()
     }
     _ => ()
   }
@@ -20135,21 +20412,6 @@ fn OiDescriptorOperandEraseFact::proves_can_erase(
 }
 
 ///|
-fn optimize_instructions_descriptor_operand_should_localize_when_skipped(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Call | @ir.HotOp::CallRef => return true
-    _ => ()
-  }
-  match OiRefGetDescFact::from_node(func, node_id) {
-    Some(_) => true
-    None => false
-  }
-}
-
-///|
 fn optimize_instructions_defaultable_scratch_type(
   val_type : @lib.ValType,
 ) -> @lib.ValType? {
@@ -20183,21 +20445,6 @@ fn optimize_instructions_defaultable_descriptor_scratch_type(
         ),
       )
     _ => if @lib.has_default(val_type) { Some(val_type) } else { None }
-  }
-}
-
-///|
-fn optimize_instructions_descriptor_operand_traps_without_effects(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Unreachable => return true
-    _ => ()
-  }
-  match OiRefGetDescFact::from_node(func, node_id) {
-    Some(fact) => fact.traps_without_effects(func)
-    None => false
   }
 }
 
@@ -20698,9 +20945,9 @@ fn optimize_instructions_replace_with_localized_node_then_descriptor_then_local_
     Some(result_id) => result_id
     None => return false
   }
-  let descriptor_eval = if optimize_instructions_descriptor_operand_should_localize_when_skipped(
+  let descriptor_eval = if OiDescriptorOperandSkipLocalizationFact::from_operand(
       func, descriptor_id,
-    ) {
+    ).proves_should_localize_when_skipped() {
     let descriptor_type = match
       @ir.hot_type_results(func, @ir.hot_node_type(func, descriptor_id)) {
       [val_type] =>
