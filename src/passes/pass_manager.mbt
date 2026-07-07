@@ -26258,81 +26258,230 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_wrap_i64_const_to_i32(
-  value : Int64,
-) -> @lib.I32 {
+// Raw OI-D scalar atom fact for i32.wrap_i64 over a constant. Binaryen v130's
+// `removeWrap` treats constant i64 inputs as exactly their low i32 bits; keep
+// that proof as data so the flat dispatcher does not own the truncation math.
+priv struct RawOiWrapI64ConstFact {
+  source : Int64
+  wrapped : @lib.I32
+}
+
+///|
+fn RawOiWrapI64ConstFact::from_raw(value : Int64) -> RawOiWrapI64ConstFact {
   let lower64 = value & 4294967295L
-  if lower64 >= 2147483648L {
+  let wrapped = if lower64 >= 2147483648L {
     @lib.I32((lower64 - 4294967296L).to_int())
   } else {
     @lib.I32(lower64.to_int())
   }
+  { source: value, wrapped }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
+fn RawOiWrapI64ConstFact::proves_binaryen_wrap_const(
+  self : RawOiWrapI64ConstFact,
+) -> Bool {
+  let @lib.I32(_) = self.wrapped
+  ignore(self.source)
+  true
+}
+
+///|
+// Raw OI-D scalar atom fact for signed operations whose constant operands are
+// both nonnegative. Binaryen v130 rewrites these spellings to the matching
+// unsigned operator in `visitBinary`; record the operator proof separately from
+// the surrounding flat-stack window.
+priv struct RawOiNonnegativeSignedSpellingFact {
+  is_i32 : Bool
+  is_i64 : Bool
+  unsigned_instr : @lib.Instruction
+}
+
+///|
+fn RawOiNonnegativeSignedSpellingFact::from_i32(
   lhs_raw : Int,
   rhs_raw : Int,
   instr : @lib.Instruction,
-) -> @lib.Instruction? {
+) -> RawOiNonnegativeSignedSpellingFact? {
   if lhs_raw < 0 || rhs_raw < 0 {
     return None
   }
   match instr {
-    @lib.I32LtS => Some(@lib.Instruction::i32_lt_u())
-    @lib.I32GtS => Some(@lib.Instruction::i32_gt_u())
-    @lib.I32LeS => Some(@lib.Instruction::i32_le_u())
-    @lib.I32GeS => Some(@lib.Instruction::i32_ge_u())
-    @lib.I32DivS => Some(@lib.Instruction::i32_div_u())
-    @lib.I32RemS => Some(@lib.Instruction::i32_rem_u())
-    @lib.I32ShrS => Some(@lib.Instruction::i32_shr_u())
+    @lib.I32LtS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_lt_u(),
+      })
+    @lib.I32GtS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_gt_u(),
+      })
+    @lib.I32LeS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_le_u(),
+      })
+    @lib.I32GeS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_ge_u(),
+      })
+    @lib.I32DivS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_div_u(),
+      })
+    @lib.I32RemS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_rem_u(),
+      })
+    @lib.I32ShrS =>
+      Some({
+        is_i32: true,
+        is_i64: false,
+        unsigned_instr: @lib.Instruction::i32_shr_u(),
+      })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
+fn RawOiNonnegativeSignedSpellingFact::from_i64(
   lhs_raw : Int64,
   rhs_raw : Int64,
   instr : @lib.Instruction,
-) -> @lib.Instruction? {
+) -> RawOiNonnegativeSignedSpellingFact? {
   if lhs_raw < 0L || rhs_raw < 0L {
     return None
   }
   match instr {
-    @lib.I64LtS => Some(@lib.Instruction::i64_lt_u())
-    @lib.I64GtS => Some(@lib.Instruction::i64_gt_u())
-    @lib.I64LeS => Some(@lib.Instruction::i64_le_u())
-    @lib.I64GeS => Some(@lib.Instruction::i64_ge_u())
-    @lib.I64DivS => Some(@lib.Instruction::i64_div_u())
-    @lib.I64RemS => Some(@lib.Instruction::i64_rem_u())
-    @lib.I64ShrS => Some(@lib.Instruction::i64_shr_u())
+    @lib.I64LtS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_lt_u(),
+      })
+    @lib.I64GtS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_gt_u(),
+      })
+    @lib.I64LeS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_le_u(),
+      })
+    @lib.I64GeS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_ge_u(),
+      })
+    @lib.I64DivS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_div_u(),
+      })
+    @lib.I64RemS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_rem_u(),
+      })
+    @lib.I64ShrS =>
+      Some({
+        is_i32: false,
+        is_i64: true,
+        unsigned_instr: @lib.Instruction::i64_shr_u(),
+      })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
-  raw : Float,
+fn RawOiNonnegativeSignedSpellingFact::proves_binaryen_unsigned_spelling(
+  self : RawOiNonnegativeSignedSpellingFact,
 ) -> Bool {
+  (self.is_i32 || self.is_i64) && !(self.is_i32 && self.is_i64)
+}
+
+///|
+// Raw OI-D float-subtraction negation facts. Binaryen only rewrites
+// `x - C` to `x + -C` when negating the finite, nonzero constant does not cross
+// the NaN or signed-zero boundary.
+priv struct RawOiF32SubNegatedConstFact {
+  original : Float
+  negated : Float
+}
+
+///|
+fn RawOiF32SubNegatedConstFact::from_raw(
+  raw : Float,
+) -> RawOiF32SubNegatedConstFact? {
   let bits = raw.reinterpret_as_uint()
   let magnitude = bits & 0x7FFFFFFFU
-  magnitude != 0U && (bits & 0x7F800000U) != 0x7F800000U
+  if magnitude == 0U || (bits & 0x7F800000U) == 0x7F800000U {
+    return None
+  }
+  Some({ original: raw, negated: -raw })
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-  raw : Double,
+fn RawOiF32SubNegatedConstFact::proves_binaryen_negatable_sub_const(
+  self : RawOiF32SubNegatedConstFact,
 ) -> Bool {
+  self.original == -self.negated
+}
+
+///|
+priv struct RawOiF64SubNegatedConstFact {
+  original : Double
+  negated : Double
+}
+
+///|
+fn RawOiF64SubNegatedConstFact::from_raw(
+  raw : Double,
+) -> RawOiF64SubNegatedConstFact? {
   let bits = raw.reinterpret_as_uint64()
   let magnitude = bits & 0x7FFFFFFFFFFFFFFFUL
-  magnitude != 0UL && (bits & 0x7FF0000000000000UL) != 0x7FF0000000000000UL
+  if magnitude == 0UL || (bits & 0x7FF0000000000000UL) == 0x7FF0000000000000UL {
+    return None
+  }
+  Some({ original: raw, negated: -raw })
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(
+fn RawOiF64SubNegatedConstFact::proves_binaryen_negatable_sub_const(
+  self : RawOiF64SubNegatedConstFact,
+) -> Bool {
+  self.original == -self.negated
+}
+
+///|
+// Raw OI-D power-of-two multiply fact. Binaryen's constant-right multiply
+// rewrite proves that the right constant is a positive power of two and carries
+// the shift count into the replacement `shl`.
+priv struct RawOiI32PowerOfTwoShiftFact {
+  raw : Int
+  shift : Int
+}
+
+///|
+fn RawOiI32PowerOfTwoShiftFact::from_raw(
   raw : Int,
-) -> Int? {
+) -> RawOiI32PowerOfTwoShiftFact? {
   if raw <= 0 || (raw & (raw - 1)) != 0 {
     return None
   }
@@ -26342,13 +26491,26 @@ fn run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(
     value = value >> 1
     shift = shift + 1
   }
-  Some(shift)
+  Some({ raw, shift })
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(
+fn RawOiI32PowerOfTwoShiftFact::proves_binaryen_power_of_two_shift(
+  self : RawOiI32PowerOfTwoShiftFact,
+) -> Bool {
+  self.raw > 0 && (self.raw & (self.raw - 1)) == 0
+}
+
+///|
+priv struct RawOiI64PowerOfTwoShiftFact {
+  raw : Int64
+  shift : Int64
+}
+
+///|
+fn RawOiI64PowerOfTwoShiftFact::from_raw(
   raw : Int64,
-) -> Int64? {
+) -> RawOiI64PowerOfTwoShiftFact? {
   if raw <= 0L || (raw & (raw - 1L)) != 0L {
     return None
   }
@@ -26358,57 +26520,73 @@ fn run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(
     value = value >> 1
     shift = shift + 1L
   }
-  Some(shift)
+  Some({ raw, shift })
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_is_i32_const(
-  instr : @lib.Instruction,
+fn RawOiI64PowerOfTwoShiftFact::proves_binaryen_power_of_two_shift(
+  self : RawOiI64PowerOfTwoShiftFact,
 ) -> Bool {
+  self.raw > 0L && (self.raw & (self.raw - 1L)) == 0L
+}
+
+///|
+priv struct RawOiScalarConstAtomFact {
+  is_i32_const : Bool
+  is_i64_const : Bool
+}
+
+///|
+fn RawOiScalarConstAtomFact::from_instr(
+  instr : @lib.Instruction,
+) -> RawOiScalarConstAtomFact {
   match instr {
-    @lib.I32Const(_) => true
-    _ => false
+    @lib.I32Const(_) => { is_i32_const: true, is_i64_const: false }
+    @lib.I64Const(_) => { is_i32_const: false, is_i64_const: true }
+    _ => { is_i32_const: false, is_i64_const: false }
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_is_i64_const(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.I64Const(_) => true
-    _ => false
-  }
+// Raw OI-D ordered constant eq/ne fact. The flat bridge keeps the existing
+// source-backed boundary that folds same-width eq/ne only when the serialized
+// constants are already in Binaryen's preferred nondecreasing order.
+priv struct RawOiOrderedConstEqNeFact {
+  result : @lib.I32
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_ordered_const_i32_eq_ne(
+fn RawOiOrderedConstEqNeFact::from_i32(
   lhs_raw : Int,
   rhs_raw : Int,
   instr : @lib.Instruction,
-) -> @lib.I32? {
+) -> RawOiOrderedConstEqNeFact? {
   if lhs_raw > rhs_raw {
     return None
   }
   match instr {
-    @lib.I32Eq => Some(@lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }))
-    @lib.I32Ne => Some(@lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }))
+    @lib.I32Eq =>
+      Some({ result: @lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }) })
+    @lib.I32Ne =>
+      Some({ result: @lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }) })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
+fn RawOiOrderedConstEqNeFact::from_i64(
   lhs_raw : Int64,
   rhs_raw : Int64,
   instr : @lib.Instruction,
-) -> @lib.I32? {
+) -> RawOiOrderedConstEqNeFact? {
   if lhs_raw > rhs_raw {
     return None
   }
   match instr {
-    @lib.I64Eq => Some(@lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }))
-    @lib.I64Ne => Some(@lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }))
+    @lib.I64Eq =>
+      Some({ result: @lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }) })
+    @lib.I64Ne =>
+      Some({ result: @lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }) })
     _ => None
   }
 }
@@ -26580,12 +26758,20 @@ fn run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
+// Raw OI-D i64 extend-local commute fact. Binaryen's visitor canonicalizes
+// commutative i64 local/extend/local shells by moving the unextended local left
+// of the extend; the raw dispatcher keeps the complete replacement as data.
+priv struct RawOiI64ExtendLocalCommuteFact {
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiI64ExtendLocalCommuteFact::from_parts(
   lhs : @lib.Instruction,
   extend_instr : @lib.Instruction,
   rhs : @lib.Instruction,
   binop : @lib.Instruction,
-) -> Array[@lib.Instruction]? {
+) -> RawOiI64ExtendLocalCommuteFact? {
   match (lhs, extend_instr, rhs, binop) {
     (
       @lib.LocalGet(_),
@@ -26596,7 +26782,7 @@ fn run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
       | @lib.I64And
       | @lib.I64Or
       | @lib.I64Xor,
-    ) => Some([rhs, lhs, extend_instr, binop])
+    ) => Some({ rewrite: [rhs, lhs, extend_instr, binop] })
     _ => None
   }
 }
@@ -28392,13 +28578,15 @@ fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
       @lib.F64Div,
       @lib.F64Const(@lib.F64(sub_rhs_raw)),
       @lib.F64Sub,
-    ) if div_rhs_raw == 2.0 &&
-      run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-        div_lhs_raw,
-      ) &&
-      run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-        sub_rhs_raw,
-      ) =>
+    ) if div_rhs_raw == 2.0 => {
+      let div_lhs = match RawOiF64SubNegatedConstFact::from_raw(div_lhs_raw) {
+        Some(fact) if fact.proves_binaryen_negatable_sub_const() => fact
+        _ => return None
+      }
+      let sub_rhs = match RawOiF64SubNegatedConstFact::from_raw(sub_rhs_raw) {
+        Some(fact) if fact.proves_binaryen_negatable_sub_const() => fact
+        _ => return None
+      }
       Some({
         end: start + 5,
         neutral_integer: false,
@@ -28411,13 +28599,14 @@ fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
         f64_div2_sub_to_mul_add: true,
         i64_extend_local_commute: false,
         rewrite: [
-          @lib.Instruction::f64_const(@lib.F64(div_lhs_raw)),
+          @lib.Instruction::f64_const(@lib.F64(div_lhs.original)),
           @lib.Instruction::f64_const(@lib.F64(0.5)),
           @lib.Instruction::f64_mul(),
-          @lib.Instruction::f64_const(@lib.F64(-sub_rhs_raw)),
+          @lib.Instruction::f64_const(@lib.F64(sub_rhs.negated)),
           @lib.Instruction::f64_add(),
         ],
       })
+    }
     _ => None
   }
 }
@@ -28431,13 +28620,13 @@ fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
     return None
   }
   match
-    run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
+    RawOiI64ExtendLocalCommuteFact::from_parts(
       instrs[start],
       instrs[start + 1],
       instrs[start + 2],
       instrs[start + 3],
     ) {
-    Some(commuted) =>
+    Some(commute) =>
       Some({
         end: start + 4,
         neutral_integer: false,
@@ -28449,7 +28638,7 @@ fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
         wrap_i64_const: false,
         f64_div2_sub_to_mul_add: false,
         i64_extend_local_commute: true,
-        rewrite: commuted,
+        rewrite: commute.rewrite,
       })
     None => None
   }
@@ -28487,11 +28676,8 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
   }
   match (instrs[start], instrs[start + 1], instrs[start + 2]) {
     (@lib.I32Const(@lib.I32(lhs_raw)), @lib.I32Const(@lib.I32(rhs_raw)), instr) => {
-      match
-        run_hot_pipeline_raw_optimize_instructions_ordered_const_i32_eq_ne(
-          lhs_raw, rhs_raw, instr,
-        ) {
-        Some(result) =>
+      match RawOiOrderedConstEqNeFact::from_i32(lhs_raw, rhs_raw, instr) {
+        Some(eq_ne) =>
           return Some({
             end: start + 3,
             neutral_integer: false,
@@ -28503,15 +28689,13 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
             wrap_i64_const: false,
             f64_div2_sub_to_mul_add: false,
             i64_extend_local_commute: false,
-            rewrite: [@lib.Instruction::i32_const(result)],
+            rewrite: [@lib.Instruction::i32_const(eq_ne.result)],
           })
         None => ()
       }
       match
-        run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
-          lhs_raw, rhs_raw, instr,
-        ) {
-        Some(unsigned_instr) =>
+        RawOiNonnegativeSignedSpellingFact::from_i32(lhs_raw, rhs_raw, instr) {
+        Some(unsigned_spelling) if unsigned_spelling.proves_binaryen_unsigned_spelling() =>
           return Some({
             end: start + 3,
             neutral_integer: false,
@@ -28526,18 +28710,15 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
             rewrite: [
               @lib.Instruction::i32_const(@lib.I32(lhs_raw)),
               @lib.Instruction::i32_const(@lib.I32(rhs_raw)),
-              unsigned_instr,
+              unsigned_spelling.unsigned_instr,
             ],
           })
-        None => ()
+        _ => ()
       }
     }
     (@lib.I64Const(@lib.I64(lhs_raw)), @lib.I64Const(@lib.I64(rhs_raw)), instr) => {
-      match
-        run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
-          lhs_raw, rhs_raw, instr,
-        ) {
-        Some(result) =>
+      match RawOiOrderedConstEqNeFact::from_i64(lhs_raw, rhs_raw, instr) {
+        Some(eq_ne) =>
           return Some({
             end: start + 3,
             neutral_integer: false,
@@ -28549,15 +28730,13 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
             wrap_i64_const: false,
             f64_div2_sub_to_mul_add: false,
             i64_extend_local_commute: false,
-            rewrite: [@lib.Instruction::i32_const(result)],
+            rewrite: [@lib.Instruction::i32_const(eq_ne.result)],
           })
         None => ()
       }
       match
-        run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
-          lhs_raw, rhs_raw, instr,
-        ) {
-        Some(unsigned_instr) =>
+        RawOiNonnegativeSignedSpellingFact::from_i64(lhs_raw, rhs_raw, instr) {
+        Some(unsigned_spelling) if unsigned_spelling.proves_binaryen_unsigned_spelling() =>
           return Some({
             end: start + 3,
             neutral_integer: false,
@@ -28572,21 +28751,20 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
             rewrite: [
               @lib.Instruction::i64_const(@lib.I64(lhs_raw)),
               @lib.Instruction::i64_const(@lib.I64(rhs_raw)),
-              unsigned_instr,
+              unsigned_spelling.unsigned_instr,
             ],
           })
-        None => ()
+        _ => ()
       }
     }
     _ => ()
   }
   match (instrs[start], instrs[start + 1], instrs[start + 2]) {
-    (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i32_const(
+    (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !RawOiScalarConstAtomFact::from_instr(
         lhs,
-      ) =>
-      match
-        run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(raw) {
-        Some(shift) =>
+      ).is_i32_const =>
+      match RawOiI32PowerOfTwoShiftFact::from_raw(raw) {
+        Some(pow2) if pow2.proves_binaryen_power_of_two_shift() =>
           return Some({
             end: start + 3,
             neutral_integer: false,
@@ -28600,18 +28778,17 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
             i64_extend_local_commute: false,
             rewrite: [
               lhs,
-              @lib.Instruction::i32_const(@lib.I32(shift)),
+              @lib.Instruction::i32_const(@lib.I32(pow2.shift)),
               @lib.Instruction::i32_shl(),
             ],
           })
-        None => ()
+        _ => ()
       }
-    (lhs, @lib.I64Const(@lib.I64(raw)), @lib.I64Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i64_const(
+    (lhs, @lib.I64Const(@lib.I64(raw)), @lib.I64Mul) if !RawOiScalarConstAtomFact::from_instr(
         lhs,
-      ) =>
-      match
-        run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(raw) {
-        Some(shift) =>
+      ).is_i64_const =>
+      match RawOiI64PowerOfTwoShiftFact::from_raw(raw) {
+        Some(pow2) if pow2.proves_binaryen_power_of_two_shift() =>
           return Some({
             end: start + 3,
             neutral_integer: false,
@@ -28625,52 +28802,56 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
             i64_extend_local_commute: false,
             rewrite: [
               lhs,
-              @lib.Instruction::i64_const(@lib.I64(shift)),
+              @lib.Instruction::i64_const(@lib.I64(pow2.shift)),
               @lib.Instruction::i64_shl(),
             ],
           })
-        None => ()
+        _ => ()
       }
-    (@lib.F32Const(lhs), @lib.F32Const(@lib.F32(rhs_raw)), @lib.F32Sub) if run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
-        rhs_raw,
-      ) =>
-      return Some({
-        end: start + 3,
-        neutral_integer: false,
-        ordered_const_eq_ne: false,
-        nonnegative_signed_spelling: false,
-        power_of_two_mul: false,
-        float_sub_to_add: true,
-        integer_const_fold: false,
-        wrap_i64_const: false,
-        f64_div2_sub_to_mul_add: false,
-        i64_extend_local_commute: false,
-        rewrite: [
-          @lib.Instruction::f32_const(lhs),
-          @lib.Instruction::f32_const(@lib.F32(-rhs_raw)),
-          @lib.Instruction::f32_add(),
-        ],
-      })
-    (@lib.F64Const(lhs), @lib.F64Const(@lib.F64(rhs_raw)), @lib.F64Sub) if run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
-        rhs_raw,
-      ) =>
-      return Some({
-        end: start + 3,
-        neutral_integer: false,
-        ordered_const_eq_ne: false,
-        nonnegative_signed_spelling: false,
-        power_of_two_mul: false,
-        float_sub_to_add: true,
-        integer_const_fold: false,
-        wrap_i64_const: false,
-        f64_div2_sub_to_mul_add: false,
-        i64_extend_local_commute: false,
-        rewrite: [
-          @lib.Instruction::f64_const(lhs),
-          @lib.Instruction::f64_const(@lib.F64(-rhs_raw)),
-          @lib.Instruction::f64_add(),
-        ],
-      })
+    (@lib.F32Const(lhs), @lib.F32Const(@lib.F32(rhs_raw)), @lib.F32Sub) =>
+      match RawOiF32SubNegatedConstFact::from_raw(rhs_raw) {
+        Some(rhs) if rhs.proves_binaryen_negatable_sub_const() =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: false,
+            nonnegative_signed_spelling: false,
+            power_of_two_mul: false,
+            float_sub_to_add: true,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [
+              @lib.Instruction::f32_const(lhs),
+              @lib.Instruction::f32_const(@lib.F32(rhs.negated)),
+              @lib.Instruction::f32_add(),
+            ],
+          })
+        _ => ()
+      }
+    (@lib.F64Const(lhs), @lib.F64Const(@lib.F64(rhs_raw)), @lib.F64Sub) =>
+      match RawOiF64SubNegatedConstFact::from_raw(rhs_raw) {
+        Some(rhs) if rhs.proves_binaryen_negatable_sub_const() =>
+          return Some({
+            end: start + 3,
+            neutral_integer: false,
+            ordered_const_eq_ne: false,
+            nonnegative_signed_spelling: false,
+            power_of_two_mul: false,
+            float_sub_to_add: true,
+            integer_const_fold: false,
+            wrap_i64_const: false,
+            f64_div2_sub_to_mul_add: false,
+            i64_extend_local_commute: false,
+            rewrite: [
+              @lib.Instruction::f64_const(lhs),
+              @lib.Instruction::f64_const(@lib.F64(rhs.negated)),
+              @lib.Instruction::f64_add(),
+            ],
+          })
+        _ => ()
+      }
     (
       @lib.I32Const(@lib.I32(lhs_raw)),
       @lib.I32Const(@lib.I32(rhs_raw)),
@@ -28773,7 +28954,11 @@ fn RawOiScalarNumericRewriteFact::from_two_instrs(
     return None
   }
   match (instrs[start], instrs[start + 1]) {
-    (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) =>
+    (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) => {
+      let wrap = RawOiWrapI64ConstFact::from_raw(raw)
+      if !wrap.proves_binaryen_wrap_const() {
+        return None
+      }
       Some({
         end: start + 2,
         neutral_integer: false,
@@ -28785,14 +28970,9 @@ fn RawOiScalarNumericRewriteFact::from_two_instrs(
         wrap_i64_const: true,
         f64_div2_sub_to_mul_add: false,
         i64_extend_local_commute: false,
-        rewrite: [
-          @lib.Instruction::i32_const(
-            run_hot_pipeline_raw_optimize_instructions_wrap_i64_const_to_i32(
-              raw,
-            ),
-          ),
-        ],
+        rewrite: [@lib.Instruction::i32_const(wrap.wrapped)],
       })
+    }
     _ => None
   }
 }
