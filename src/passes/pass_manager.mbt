@@ -29219,178 +29219,446 @@ fn RawOiDescriptorBlockPrefixHoistFact::proves_binaryen_descriptor_prefix_hoist(
   !self.body.has_blocking_boundary
 }
 
+/// Raw descriptor producer and reference-return facts for descriptor-cast OI
+/// bridges. Binaryen v130's `optimizeKnownCastResult` relies on
+/// `GCTypeUtils::evaluateCastCheck` for heap/nullability/exactness results and
+/// separately keeps descriptor casts conservative unless the descriptor value is
+/// known to describe the cast target. These facts model the already-covered raw
+/// producer surfaces before the stack fallback consumes them.
+
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_struct_new_exactly_describes(
+priv enum RawOiDescriptorProducerKind {
+  DescriptorProducerStructNewDefault
+  DescriptorProducerDirectCall
+  DescriptorProducerCallRefType
+}
+
+///|
+priv struct RawOiDescriptorTargetFact {
+  target : @lib.HeapType
+  target_idx : @lib.TypeIdx
+}
+
+///|
+fn RawOiDescriptorTargetFact::from_heap_type(
+  target : @lib.HeapType,
+) -> RawOiDescriptorTargetFact? {
+  match target {
+    @lib.HeapType(target_idx) => Some({ target, target_idx })
+    _ => None
+  }
+}
+
+///|
+priv struct RawOiDescriptorDescribesFact {
+  kind : RawOiDescriptorProducerKind
+  descriptor_type : @lib.TypeIdx
+  target : RawOiDescriptorTargetFact
+  param_count : Int
+}
+
+///|
+fn RawOiDescriptorDescribesFact::from_descriptor_type(
+  module_ctx : @ir.HotModuleContext,
+  kind : RawOiDescriptorProducerKind,
+  descriptor_type : @lib.TypeIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> RawOiDescriptorDescribesFact? {
+  let target_fact = match RawOiDescriptorTargetFact::from_heap_type(target) {
+    Some(target_fact) => target_fact
+    None => return None
+  }
+  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_type) {
+    Some(subtype) if subtype.describes_type() == Some(target_fact.target_idx) =>
+      Some({ kind, descriptor_type, target: target_fact, param_count })
+    _ => None
+  }
+}
+
+///|
+fn RawOiDescriptorDescribesFact::from_struct_new_default(
+  module_ctx : @ir.HotModuleContext,
+  descriptor_type : @lib.TypeIdx,
+  target : @lib.HeapType,
+) -> RawOiDescriptorDescribesFact? {
+  RawOiDescriptorDescribesFact::from_descriptor_type(
+    module_ctx,
+    DescriptorProducerStructNewDefault,
+    descriptor_type,
+    target,
+    0,
+  )
+}
+
+///|
+fn RawOiDescriptorDescribesFact::descriptor_type_from_func_type(
+  func_type : @lib.FuncType,
+  param_count : Int,
+) -> @lib.TypeIdx? {
+  match func_type {
+    @lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)]) if params.length() ==
+      param_count &&
+      ref_type.is_non_nullable() &&
+      ref_type.is_exact() =>
+      match ref_type.get_heap_type() {
+        @lib.HeapType(type_idx) => Some(type_idx)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn RawOiDescriptorDescribesFact::from_direct_call(
+  module_ctx : @ir.HotModuleContext,
+  descriptor_func : @lib.FuncIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> RawOiDescriptorDescribesFact? {
+  let descriptor_type = match
+    @ir.hot_module_resolve_func_type(module_ctx, descriptor_func) {
+    Some(func_type) =>
+      match
+        RawOiDescriptorDescribesFact::descriptor_type_from_func_type(
+          func_type, param_count,
+        ) {
+        Some(descriptor_type) => descriptor_type
+        None => return None
+      }
+    None => return None
+  }
+  RawOiDescriptorDescribesFact::from_descriptor_type(
+    module_ctx,
+    DescriptorProducerDirectCall,
+    descriptor_type,
+    target,
+    param_count,
+  )
+}
+
+///|
+fn RawOiDescriptorDescribesFact::from_call_ref_type(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+  target : @lib.HeapType,
+  param_count : Int,
+) -> RawOiDescriptorDescribesFact? {
+  let descriptor_type = match
+    @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+    Some(func_type) =>
+      match
+        RawOiDescriptorDescribesFact::descriptor_type_from_func_type(
+          func_type, param_count,
+        ) {
+        Some(descriptor_type) => descriptor_type
+        None => return None
+      }
+    None => return None
+  }
+  RawOiDescriptorDescribesFact::from_descriptor_type(
+    module_ctx,
+    DescriptorProducerCallRefType,
+    descriptor_type,
+    target,
+    param_count,
+  )
+}
+
+///|
+fn RawOiDescriptorDescribesFact::proves_binaryen_descriptor_exactly_describes(
+  self : RawOiDescriptorDescribesFact,
+) -> Bool {
+  let represented_kind = match self.kind {
+    DescriptorProducerStructNewDefault
+    | DescriptorProducerDirectCall
+    | DescriptorProducerCallRefType => true
+  }
+  let descriptor_type_is_resolved = match self.descriptor_type {
+    @lib.TypeIdx(_) | @lib.RecIdx(_) => true
+  }
+  let target_is_named = match self.target.target {
+    @lib.HeapType(target_idx) => target_idx == self.target.target_idx
+    _ => false
+  }
+  represented_kind &&
+  descriptor_type_is_resolved &&
+  target_is_named &&
+  self.param_count >= 0
+}
+
+///|
+fn RawOiDescriptorDescribesFact::struct_new_exactly_describes(
   module_ctx : @ir.HotModuleContext,
   descriptor_type : @lib.TypeIdx,
   target : @lib.HeapType,
 ) -> Bool {
-  let target_idx = match target {
-    @lib.HeapType(type_idx) => type_idx
-    _ => return false
-  }
-  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_type) {
-    Some(subtype) => subtype.describes_type() == Some(target_idx)
+  match
+    RawOiDescriptorDescribesFact::from_struct_new_default(
+      module_ctx, descriptor_type, target,
+    ) {
+    Some(fact) => fact.proves_binaryen_descriptor_exactly_describes()
     None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+fn RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
   module_ctx : @ir.HotModuleContext,
   descriptor_func : @lib.FuncIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  let target_idx = match target {
-    @lib.HeapType(type_idx) => type_idx
-    _ => return false
-  }
-  let descriptor_type = match
-    @ir.hot_module_resolve_func_type(module_ctx, descriptor_func) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_non_nullable() &&
-      ref_type.is_exact() =>
-      match ref_type.get_heap_type() {
-        @lib.HeapType(type_idx) => type_idx
-        _ => return false
-      }
-    _ => return false
-  }
-  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_type) {
-    Some(subtype) => subtype.describes_type() == Some(target_idx)
+  match
+    RawOiDescriptorDescribesFact::from_direct_call(
+      module_ctx, descriptor_func, target, param_count,
+    ) {
+    Some(fact) => fact.proves_binaryen_descriptor_exactly_describes()
     None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+fn RawOiDescriptorDescribesFact::direct_call_exactly_describes(
   module_ctx : @ir.HotModuleContext,
   descriptor_func : @lib.FuncIdx,
   target : @lib.HeapType,
 ) -> Bool {
-  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
     module_ctx, descriptor_func, target, 0,
   )
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+fn RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  let target_idx = match target {
-    @lib.HeapType(type_idx) => type_idx
-    _ => return false
-  }
-  let descriptor_type = match
-    @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_non_nullable() &&
-      ref_type.is_exact() =>
-      match ref_type.get_heap_type() {
-        @lib.HeapType(type_idx) => type_idx
-        _ => return false
-      }
-    _ => return false
-  }
-  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_type) {
-    Some(subtype) => subtype.describes_type() == Some(target_idx)
+  match
+    RawOiDescriptorDescribesFact::from_call_ref_type(
+      module_ctx, type_idx, target, param_count,
+    ) {
+    Some(fact) => fact.proves_binaryen_descriptor_exactly_describes()
     None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+priv enum RawOiReferenceReturnSourceKind {
+  ReferenceReturnDirectCall
+  ReferenceReturnCallRefType
+}
+
+///|
+priv struct RawOiReferenceReturnFact {
+  source_kind : RawOiReferenceReturnSourceKind
+  param_count : Int
+  heap_type : @lib.HeapType
+  nullable : Bool
+  exact : Bool
+}
+
+///|
+fn RawOiReferenceReturnFact::from_func_type(
+  source_kind : RawOiReferenceReturnSourceKind,
+  func_type : @lib.FuncType,
+  param_count : Int,
+) -> RawOiReferenceReturnFact? {
+  match func_type {
+    @lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)]) if params.length() ==
+      param_count =>
+      Some({
+        source_kind,
+        param_count,
+        heap_type: ref_type.get_heap_type(),
+        nullable: ref_type.is_nullable(),
+        exact: ref_type.is_exact(),
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiReferenceReturnFact::from_direct_call(
+  module_ctx : @ir.HotModuleContext,
+  ref_func : @lib.FuncIdx,
+  param_count : Int,
+) -> RawOiReferenceReturnFact? {
+  match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
+    Some(func_type) =>
+      RawOiReferenceReturnFact::from_func_type(
+        ReferenceReturnDirectCall,
+        func_type,
+        param_count,
+      )
+    None => None
+  }
+}
+
+///|
+fn RawOiReferenceReturnFact::from_call_ref_type(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+  param_count : Int,
+) -> RawOiReferenceReturnFact? {
+  match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+    Some(func_type) =>
+      RawOiReferenceReturnFact::from_func_type(
+        ReferenceReturnCallRefType,
+        func_type,
+        param_count,
+      )
+    None => None
+  }
+}
+
+///|
+fn RawOiReferenceReturnFact::is_represented_return_fact(
+  self : RawOiReferenceReturnFact,
+) -> Bool {
+  let represented_source = match self.source_kind {
+    ReferenceReturnDirectCall | ReferenceReturnCallRefType => true
+  }
+  represented_source && self.param_count >= 0
+}
+
+///|
+fn RawOiReferenceReturnFact::proves_binaryen_non_null_strict_subtype(
+  self : RawOiReferenceReturnFact,
+  module_ctx : @ir.HotModuleContext,
+  target : @lib.HeapType,
+) -> Bool {
+  self.is_represented_return_fact() &&
+  !self.nullable &&
+  self.heap_type != target &&
+  run_hot_pipeline_raw_heap_type_is_subtype(
+    module_ctx,
+    self.heap_type,
+    target,
+    64,
+  )
+}
+
+///|
+fn RawOiReferenceReturnFact::proves_binaryen_non_null_exact_target(
+  self : RawOiReferenceReturnFact,
+  target : @lib.HeapType,
+) -> Bool {
+  self.is_represented_return_fact() &&
+  !self.nullable &&
+  self.exact &&
+  self.heap_type == target
+}
+
+///|
+fn RawOiReferenceReturnFact::proves_binaryen_non_null_target(
+  self : RawOiReferenceReturnFact,
+  target : @lib.HeapType,
+) -> Bool {
+  self.is_represented_return_fact() &&
+  !self.nullable &&
+  self.heap_type == target
+}
+
+///|
+fn RawOiReferenceReturnFact::proves_binaryen_nullable_target(
+  self : RawOiReferenceReturnFact,
+  target : @lib.HeapType,
+) -> Bool {
+  self.is_represented_return_fact() && self.nullable && self.heap_type == target
+}
+
+///|
+fn RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  let source = match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_non_nullable() => ref_type.get_heap_type()
-    _ => return false
+  match
+    RawOiReferenceReturnFact::from_direct_call(
+      module_ctx, ref_func, param_count,
+    ) {
+    Some(fact) =>
+      fact.proves_binaryen_non_null_strict_subtype(module_ctx, target)
+    None => false
   }
-  source != target &&
-  run_hot_pipeline_raw_heap_type_is_subtype(module_ctx, source, target, 64)
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype(
+fn RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
 ) -> Bool {
-  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+  RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
     module_ctx, ref_func, target, 0,
   )
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target_with_param_count(
+fn RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_non_nullable() &&
-      ref_type.is_exact() => ref_type.get_heap_type() == target
-    _ => false
+  match
+    RawOiReferenceReturnFact::from_direct_call(
+      module_ctx, ref_func, param_count,
+    ) {
+    Some(fact) => fact.proves_binaryen_non_null_exact_target(target)
+    None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_call_type_returns_non_null_exact_target_with_param_count(
+fn RawOiReferenceReturnFact::call_ref_type_proves_non_null_exact_target_with_param_count(
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_non_nullable() &&
-      ref_type.is_exact() => ref_type.get_heap_type() == target
-    _ => false
+  match
+    RawOiReferenceReturnFact::from_call_ref_type(
+      module_ctx, type_idx, param_count,
+    ) {
+    Some(fact) => fact.proves_binaryen_non_null_exact_target(target)
+    None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+fn RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_non_nullable() => ref_type.get_heap_type() == target
-    _ => false
+  match
+    RawOiReferenceReturnFact::from_direct_call(
+      module_ctx, ref_func, param_count,
+    ) {
+    Some(fact) => fact.proves_binaryen_non_null_target(target)
+    None => false
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_call_returns_nullable_target_with_param_count(
+fn RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
   param_count : Int,
 ) -> Bool {
-  match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
-    Some(@lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)])) if params.length() ==
-      param_count &&
-      ref_type.is_nullable() => ref_type.get_heap_type() == target
-    _ => false
+  match
+    RawOiReferenceReturnFact::from_direct_call(
+      module_ctx, ref_func, param_count,
+    ) {
+    Some(fact) => fact.proves_binaryen_nullable_target(target)
+    None => false
   }
 }
 
@@ -29918,13 +30186,13 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
           match instrs[desc_scan] {
             @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
               match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+                @lib.RefCastDescEq(_, _, target) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
                     module_ctx,
                     ref_func,
                     target,
                     ref_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
                     module_ctx,
                     descriptor_func,
                     target,
@@ -29948,19 +30216,19 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
               }
             @lib.RefFunc(descriptor_func) if desc_scan + 2 < instrs.length() =>
               match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
-                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
                     module_ctx,
                     ref_func,
                     target,
                     ref_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
                     module_ctx,
                     descriptor_func,
                     target,
                     desc_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
                     module_ctx,
                     type_idx,
                     target,
@@ -29985,13 +30253,13 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
             @lib.TableGet(table_idx) if desc_args.length() > 0 &&
               desc_scan + 2 < instrs.length() =>
               match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
-                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
                     module_ctx,
                     ref_func,
                     target,
                     ref_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
                     module_ctx,
                     type_idx,
                     target,
@@ -30057,7 +30325,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
     match instrs[scan] {
       @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
         match instrs[scan + 1] {
-          @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx, descriptor_func, target, desc_arg_count,
             ) &&
             run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
@@ -30089,10 +30357,10 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
         }
       @lib.RefFunc(descriptor_func) if scan + 2 < instrs.length() =>
         match (instrs[scan + 1], instrs[scan + 2]) {
-          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx, descriptor_func, target, desc_arg_count,
             ) &&
-            run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+            RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
               module_ctx, type_idx, target, desc_arg_count,
             ) &&
             run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
@@ -30112,7 +30380,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
       @lib.TableGet(table_idx) if desc_arg_count > 0 &&
         scan + 2 < instrs.length() =>
         match (instrs[scan + 1], instrs[scan + 2]) {
-          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
               module_ctx,
               type_idx,
               target,
@@ -30176,13 +30444,13 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_d
               match instrs[desc_scan + 1] {
                 @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
                   exact &&
-                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target_with_param_count(
+                  RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
                     module_ctx,
                     ref_func,
                     target,
                     ref_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
                     module_ctx,
                     descriptor_func,
                     target,
@@ -30244,10 +30512,10 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descri
             @lib.RefCastDescEq(nullable, exact, target),
           ) if !nullable &&
             exact &&
-            run_hot_pipeline_raw_optimize_instructions_call_type_returns_non_null_exact_target_with_param_count(
+            RawOiReferenceReturnFact::call_ref_type_proves_non_null_exact_target_with_param_count(
               module_ctx, type_idx, target, ref_param_count,
             ) &&
-            run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+            RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx, descriptor_func, target, 0,
             ) => {
             let rewritten : Array[@lib.Instruction] = []
@@ -30312,13 +30580,13 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_e
               match instrs[desc_scan + 1] {
                 @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
                   exact &&
-                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_exact_target_with_param_count(
+                  RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
                     module_ctx,
                     ref_func,
                     target,
                     ref_inputs.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
                     module_ctx,
                     type_idx,
                     target,
@@ -30440,13 +30708,13 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                 @lib.RefCastDescEq(nullable, exact, target) if (
                     nullable || !exact
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+                  RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
                     module_ctx,
                     ref_func,
                     target,
                     ref_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
                     module_ctx,
                     descriptor_func,
                     target,
@@ -30477,7 +30745,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                   @lib.RefCastDescEq(nullable, exact, target),
                 ) if (nullable || !exact) &&
                   (
-                    run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+                    RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
                       module_ctx,
                       ref_func,
                       target,
@@ -30486,7 +30754,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                     (
                       nullable &&
                       !exact &&
-                      run_hot_pipeline_raw_optimize_instructions_call_returns_nullable_target_with_param_count(
+                      RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count(
                         module_ctx,
                         ref_func,
                         target,
@@ -30494,13 +30762,13 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                       )
                     )
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
                     module_ctx,
                     descriptor_func,
                     target,
                     desc_args.length(),
                   ) &&
-                  run_hot_pipeline_raw_optimize_instructions_descriptor_call_ref_type_exactly_describes_with_param_count(
+                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
                     module_ctx,
                     type_idx,
                     target,
@@ -30518,7 +30786,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                   rewritten.push(
                     @lib.Instruction::ref_cast_desc_eq_type(
                       @lib.RefType::new(
-                        !run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_target_with_param_count(
+                        !RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
                           module_ctx,
                           ref_func,
                           target,
@@ -30664,7 +30932,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_ca
     match instrs[scan] {
       @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
         match instrs[scan + 1] {
-          @lib.RefCastDescEq(_, _, target) if run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx,
               descriptor_func,
               target,
@@ -30755,7 +31023,7 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.RefCastDescEq(nullable, exact, target),
         ) if exact &&
           !nullable &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_struct_new_exactly_describes(
+          RawOiDescriptorDescribesFact::struct_new_exactly_describes(
             module_ctx, descriptor_type, target,
           ) &&
           run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
@@ -30770,10 +31038,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.Call(ref_func),
           @lib.Call(descriptor_func),
           @lib.RefCastDescEq(_, _, target),
-        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype(
+        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype(
             module_ctx, ref_func, target,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes(
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes(
             module_ctx, descriptor_func, target,
           ) => {
           rewritten.push(@lib.Instruction::call(ref_func))
@@ -30797,10 +31065,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.LocalGet(desc_arg),
           @lib.Call(descriptor_func),
           @lib.RefCastDescEq(_, _, target),
-        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
             module_ctx, ref_func, target, 1,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
             module_ctx, descriptor_func, target, 1,
           ) => {
           rewritten.push(@lib.Instruction::local_get(ref_arg))
@@ -30836,10 +31104,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.LocalGet(desc_arg1),
           @lib.Call(descriptor_func),
           @lib.RefCastDescEq(_, _, target),
-        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
             module_ctx, ref_func, target, 2,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
             module_ctx, descriptor_func, target, 2,
           ) => {
           rewritten.push(@lib.Instruction::local_get(ref_arg0))
@@ -30881,10 +31149,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.LocalGet(desc_arg2),
           @lib.Call(descriptor_func),
           @lib.RefCastDescEq(_, _, target),
-        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
             module_ctx, ref_func, target, 3,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
             module_ctx, descriptor_func, target, 3,
           ) => {
           rewritten.push(@lib.Instruction::local_get(ref_arg0))
@@ -30932,10 +31200,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.LocalGet(desc_arg3),
           @lib.Call(descriptor_func),
           @lib.RefCastDescEq(_, _, target),
-        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
             module_ctx, ref_func, target, 4,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
             module_ctx, descriptor_func, target, 4,
           ) => {
           rewritten.push(@lib.Instruction::local_get(ref_arg0))
@@ -30989,10 +31257,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           @lib.LocalGet(desc_arg4),
           @lib.Call(descriptor_func),
           @lib.RefCastDescEq(_, _, target),
-        ) if run_hot_pipeline_raw_optimize_instructions_call_returns_non_null_strict_subtype_with_param_count(
+        ) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
             module_ctx, ref_func, target, 5,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_descriptor_call_exactly_describes_with_param_count(
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
             module_ctx, descriptor_func, target, 5,
           ) => {
           rewritten.push(@lib.Instruction::local_get(ref_arg0))
