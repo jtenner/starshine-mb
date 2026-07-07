@@ -12854,12 +12854,23 @@ fn OiUnaryLocalEqualityFact::proves_v128_splat(
 }
 
 ///|
-fn optimize_instructions_v128_consts_are_identical_pure(
+priv struct OiSimdLeafEqualityFact {
+  matching_v128_const_leaf : Bool
+  matching_v128_local_splat : Bool
+}
+
+///|
+fn OiSimdLeafEqualityFact::from_nodes(
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   lhs : Int,
   rhs : Int,
-) -> Bool {
-  match
+) -> OiSimdLeafEqualityFact {
+  // Binaryen v130 `ExpressionAnalyzer::equal` treats equal SIMD constants as
+  // equal leaves and equal splats as equal unary nodes. Keep Starshine's
+  // represented select-arm SIMD subset as a fact so the pure-arm fold no
+  // longer relies on standalone helper-level SIMD scanners.
+  let matching_v128_const_leaf = match
     (@ir.hot_node_exact_instr(func, lhs), @ir.hot_node_exact_instr(func, rhs)) {
     (
       Some(
@@ -12905,16 +12916,12 @@ fn optimize_instructions_v128_consts_are_identical_pure(
     ) => lhs_instr == rhs_instr
     _ => false
   }
-}
-
-///|
-fn optimize_instructions_v128_splat_local_payloads_are_identical_pure(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
-) -> Bool {
-  OiUnaryLocalEqualityFact::from_nodes(func, dead, lhs, rhs).proves_v128_splat()
+  {
+    matching_v128_const_leaf,
+    matching_v128_local_splat: OiUnaryLocalEqualityFact::from_nodes(
+      func, dead, lhs, rhs,
+    ).proves_v128_splat(),
+  }
 }
 
 ///|
@@ -13095,33 +13102,60 @@ priv struct OiIdenticalPureExpressionFact {
 }
 
 ///|
-fn optimize_instructions_reference_leaves_equal(
+priv struct OiReferenceLeafEqualityFact {
+  matching_ref_null_leaf : Bool
+  matching_ref_func_leaf : Bool
+}
+
+///|
+fn OiReferenceLeafEqualityFact::from_nodes(
   func : @ir.HotFunc,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiReferenceLeafEqualityFact {
+  // Binaryen v130 `ExpressionAnalyzer::equal` compares reference leaves by
+  // their literal heap/function target. Starshine also accepts HOT-lowered
+  // RefNull/RefFunc node payloads whose result types preserve the reference
+  // type. Keep that represented subset as a fact instead of an arm-local helper
+  // scanner.
+  let mut matching_ref_null_leaf = false
+  let mut matching_ref_func_leaf = false
   match (@ir.hot_node_get(func, lhs_id), @ir.hot_node_get(func, rhs_id)) {
     (
       { op: @ir.HotOp::RefNull, ty: lhs_ty, .. },
       { op: @ir.HotOp::RefNull, ty: rhs_ty, .. },
-    ) => return lhs_ty == rhs_ty
+    ) => matching_ref_null_leaf = lhs_ty == rhs_ty
     (
       { op: @ir.HotOp::RefFunc, ty: lhs_ty, imm0: lhs_func, .. },
       { op: @ir.HotOp::RefFunc, ty: rhs_ty, imm0: rhs_func, .. },
-    ) => return lhs_ty == rhs_ty && lhs_func == rhs_func
+    ) => matching_ref_func_leaf = lhs_ty == rhs_ty && lhs_func == rhs_func
     _ => ()
   }
-  match
-    (
-      @ir.hot_node_exact_instr(func, lhs_id),
-      @ir.hot_node_exact_instr(func, rhs_id),
-    ) {
-    (Some(@lib.Instruction::RefNull(lhs)), Some(@lib.Instruction::RefNull(rhs))) =>
-      lhs == rhs
-    (Some(@lib.Instruction::RefFunc(lhs)), Some(@lib.Instruction::RefFunc(rhs))) =>
-      lhs == rhs
-    _ => false
+  if !matching_ref_null_leaf && !matching_ref_func_leaf {
+    match
+      (
+        @ir.hot_node_exact_instr(func, lhs_id),
+        @ir.hot_node_exact_instr(func, rhs_id),
+      ) {
+      (
+        Some(@lib.Instruction::RefNull(lhs)),
+        Some(@lib.Instruction::RefNull(rhs)),
+      ) => matching_ref_null_leaf = lhs == rhs
+      (
+        Some(@lib.Instruction::RefFunc(lhs)),
+        Some(@lib.Instruction::RefFunc(rhs)),
+      ) => matching_ref_func_leaf = lhs == rhs
+      _ => ()
+    }
   }
+  { matching_ref_null_leaf, matching_ref_func_leaf }
+}
+
+///|
+fn OiReferenceLeafEqualityFact::proves_equal(
+  self : OiReferenceLeafEqualityFact,
+) -> Bool {
+  self.matching_ref_null_leaf || self.matching_ref_func_leaf
 }
 
 ///|
@@ -13232,19 +13266,16 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   let state_scalar_tree = optimize_instructions_stable_state_scalar_tree_equal(
     func, if_true, if_false,
   )
-  let reference_leaf = optimize_instructions_reference_leaves_equal(
+  let reference_leaf = OiReferenceLeafEqualityFact::from_nodes(
     func, if_true, if_false,
-  )
+  ).proves_equal()
   let ref_i31_scalar_tree = optimize_instructions_ref_i31_scalar_trees_equal(
     func, if_true, if_false,
   )
   let ref_i31_nontrapping_local_scalar_tree = optimize_instructions_ref_i31_nontrapping_local_scalar_trees_equal(
     func, if_true, if_false,
   )
-  let v128_const_leaf = optimize_instructions_v128_consts_are_identical_pure(
-    func, if_true, if_false,
-  )
-  let v128_local_splat = optimize_instructions_v128_splat_local_payloads_are_identical_pure(
+  let simd_leaf = OiSimdLeafEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
   let nontrapping_reorderable_scalar_tree = OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
@@ -13278,8 +13309,8 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     matching_reference_leaf: reference_leaf,
     matching_ref_i31_scalar_tree: ref_i31_scalar_tree,
     matching_ref_i31_nontrapping_local_scalar_tree: ref_i31_nontrapping_local_scalar_tree,
-    matching_v128_const_leaf: v128_const_leaf,
-    matching_v128_local_splat: v128_local_splat,
+    matching_v128_const_leaf: simd_leaf.matching_v128_const_leaf,
+    matching_v128_local_splat: simd_leaf.matching_v128_local_splat,
     matching_nontrapping_reorderable_scalar_tree: nontrapping_reorderable_scalar_tree,
   }
 }
