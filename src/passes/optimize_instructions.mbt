@@ -10876,6 +10876,7 @@ fn optimize_instructions_array_value_is_default_for_storage(
 ///|
 fn optimize_instructions_array_new_fixed_default_fallthrough_id(
   func : @ir.HotFunc,
+  node_masks : Array[UInt],
   value_id : Int,
   depth? : Int = 0,
 ) -> Int {
@@ -10887,10 +10888,58 @@ fn optimize_instructions_array_new_fixed_default_fallthrough_id(
     @ir.HotOp::LocalTee if value.child_count == 1 =>
       optimize_instructions_array_new_fixed_default_fallthrough_id(
         func,
+        node_masks,
         @ir.hot_child_get(func, value_id, 0),
         depth=depth + 1,
       )
+    @ir.HotOp::Block if value.child_count > 0 => {
+      for slot = 0; slot < value.child_count - 1; slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, value_id, slot)
+        if (node_masks[child_id] & @ir.EFFECT_MASK_CONTROL) != 0U {
+          return value_id
+        }
+      }
+      optimize_instructions_array_new_fixed_default_fallthrough_id(
+        func,
+        node_masks,
+        @ir.hot_child_get(func, value_id, value.child_count - 1),
+        depth=depth + 1,
+      )
+    }
     _ => value_id
+  }
+}
+
+///|
+fn optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  value_id : Int,
+  fallthrough_id : Int,
+  depth? : Int = 0,
+) -> Bool {
+  if value_id == fallthrough_id || depth > 8 {
+    return false
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  match value.op {
+    @ir.HotOp::LocalTee if value.child_count == 1 => true
+    @ir.HotOp::Block if value.child_count > 0 => {
+      for slot = 0; slot < value.child_count - 1; slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, value_id, slot)
+        if !@ir.effects_is_pure(node_masks[child_id]) {
+          return true
+        }
+      }
+      optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
+        func,
+        node_masks,
+        @ir.hot_child_get(func, value_id, value.child_count - 1),
+        fallthrough_id,
+        depth=depth + 1,
+      )
+    }
+    _ => !@ir.effects_is_pure(node_masks[value_id])
   }
 }
 
@@ -10905,7 +10954,9 @@ fn OiArrayNewFixedDefaultValueFact::from_array_value(
   // deciding whether an equal fixed-array value is the default, then delegates
   // effect preservation to `getDroppedChildrenAndAppend`. Keep the represented
   // fallthrough/default result as a fact so constructor rewrites do not inline a
-  // one-off local.tee scanner.
+  // one-off local.tee or block scanner. This slice intentionally widens only to
+  // branch-free blocks; broader Binaryen `getFallthrough` shapes stay documented
+  // until they have source-probed preservation facts.
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
     None => return { is_default: false, preserve_id: -1 }
@@ -10914,8 +10965,11 @@ fn OiArrayNewFixedDefaultValueFact::from_array_value(
     Some(field) => field
     None => return { is_default: false, preserve_id: -1 }
   }
+  let effects = pass_require_effects(ctx, func)
   let fallthrough_id = optimize_instructions_array_new_fixed_default_fallthrough_id(
-    func, value_id,
+    func,
+    effects.node_masks,
+    value_id,
   )
   if !optimize_instructions_array_value_is_default_for_storage(
       func,
@@ -10926,10 +10980,15 @@ fn OiArrayNewFixedDefaultValueFact::from_array_value(
   }
   {
     is_default: true,
-    preserve_id: if fallthrough_id == value_id {
-      -1
-    } else {
+    preserve_id: if optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
+        func,
+        effects.node_masks,
+        value_id,
+        fallthrough_id,
+      ) {
       value_id
+    } else {
+      -1
     },
   }
 }
