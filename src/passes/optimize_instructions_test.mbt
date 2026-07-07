@@ -52052,6 +52052,116 @@ test "optimize-instructions rewrites array.new default init through facts" {
 }
 
 ///|
+test "optimize-instructions rewrites array.new default init through control fallthrough facts" {
+  // OI-K/OI-L aggregate constructor fact: Binaryen version_130
+  // `Properties::getFallthrough` also looks through loop bodies and `if` nodes
+  // where exactly one arm cannot fall through. `visitArrayNew` still drops the
+  // original initializer before `array.new_default`, preserving the loop/if
+  // effects and traps before allocation.
+  let array_type = @lib.TypeIdx::new(0U)
+  let loop_result_type = @lib.TypeIdx::new(1U)
+  let if_result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([loop_result_type, if_result_type, if_result_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::loop_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Instruction::unreachable_()],
+              Some([@lib.Instruction::i32_const(@lib.I32(0))]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::array_new(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Instruction::i32_const(@lib.I32(0))],
+              Some([@lib.Instruction::unreachable_()]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(5)),
+            @lib.Instruction::array_new(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let loop_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(loop_pretty.contains("array.new_default"), msg=loop_pretty)
+  assert_true(loop_pretty.contains("loop"), msg=loop_pretty)
+  assert_true(loop_pretty.contains("drop"), msg=loop_pretty)
+  assert_true(loop_pretty.contains("I32(3)"), msg=loop_pretty)
+  let then_unreachable = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    then_unreachable.contains("array.new_default"),
+    msg=then_unreachable,
+  )
+  assert_true(then_unreachable.contains("if"), msg=then_unreachable)
+  assert_true(then_unreachable.contains("unreachable"), msg=then_unreachable)
+  assert_true(then_unreachable.contains("drop"), msg=then_unreachable)
+  assert_true(then_unreachable.contains("I32(4)"), msg=then_unreachable)
+  let else_unreachable = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(
+    else_unreachable.contains("array.new_default"),
+    msg=else_unreachable,
+  )
+  assert_true(else_unreachable.contains("if"), msg=else_unreachable)
+  assert_true(else_unreachable.contains("unreachable"), msg=else_unreachable)
+  assert_true(else_unreachable.contains("drop"), msg=else_unreachable)
+  assert_true(else_unreachable.contains("I32(5)"), msg=else_unreachable)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

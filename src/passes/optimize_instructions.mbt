@@ -10814,6 +10814,12 @@ priv struct OiArrayNewFixedRepeatedValueFact {
 }
 
 ///|
+priv struct OiArrayDefaultFallthroughFact {
+  fallthrough_id : Int
+  preserve_id : Int
+}
+
+///|
 priv struct OiArrayDefaultValueFact {
   is_default : Bool
   preserve_id : Int
@@ -10906,6 +10912,55 @@ fn optimize_instructions_array_default_fallthrough_id(
         depth=depth + 1,
       )
     }
+    @ir.HotOp::Loop =>
+      match
+        optimize_instructions_region_tail_id(
+          func,
+          @ir.hot_region_body_ref(func, value_id),
+        ) {
+        Some(tail_id) =>
+          optimize_instructions_array_default_fallthrough_id(
+            func,
+            node_masks,
+            tail_id,
+            depth=depth + 1,
+          )
+        None => value_id
+      }
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, value_id) {
+        Some(else_ref) => {
+          let then_ref = @ir.hot_region_then_ref(func, value_id)
+          let then_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+            func, then_ref,
+          )
+          let else_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+            func, else_ref,
+          )
+          let fallthrough_region = if then_stops && !else_stops {
+            Some(else_ref)
+          } else if else_stops && !then_stops {
+            Some(then_ref)
+          } else {
+            None
+          }
+          match fallthrough_region {
+            Some(region_ref) =>
+              match optimize_instructions_region_tail_id(func, region_ref) {
+                Some(tail_id) =>
+                  optimize_instructions_array_default_fallthrough_id(
+                    func,
+                    node_masks,
+                    tail_id,
+                    depth=depth + 1,
+                  )
+                None => value_id
+              }
+            None => value_id
+          }
+        }
+        None => value_id
+      }
     _ => value_id
   }
 }
@@ -10939,7 +10994,30 @@ fn optimize_instructions_array_default_fallthrough_preserve_needed(
         depth=depth + 1,
       )
     }
+    @ir.HotOp::Loop => !@ir.effects_is_pure(node_masks[value_id])
+    @ir.HotOp::If => true
     _ => !@ir.effects_is_pure(node_masks[value_id])
+  }
+}
+
+///|
+fn OiArrayDefaultFallthroughFact::from_value(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  value_id : Int,
+) -> OiArrayDefaultFallthroughFact {
+  let fallthrough_id = optimize_instructions_array_default_fallthrough_id(
+    func, node_masks, value_id,
+  )
+  {
+    fallthrough_id,
+    preserve_id: if optimize_instructions_array_default_fallthrough_preserve_needed(
+        func, node_masks, value_id, fallthrough_id,
+      ) {
+      value_id
+    } else {
+      -1
+    },
   }
 }
 
@@ -10955,9 +11033,9 @@ fn OiArrayDefaultValueFact::from_array_value(
   // equal fixed-array representative is the storage default, then delegate
   // effect preservation to `getDroppedChildrenAndAppend`. Keep the represented
   // fallthrough/default result as a fact so constructor rewrites do not inline a
-  // one-off local.tee or block scanner. This slice intentionally widens only to
-  // branch-free blocks; broader Binaryen `getFallthrough` shapes stay documented
-  // until they have source-probed preservation facts.
+  // one-off local.tee, block, loop, or one-unreachable-arm `if` scanner. Broader
+  // Binaryen `getFallthrough` shapes stay documented until they have
+  // source-probed preservation facts.
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
     None => return { is_default: false, preserve_id: -1 }
@@ -10967,7 +11045,7 @@ fn OiArrayDefaultValueFact::from_array_value(
     None => return { is_default: false, preserve_id: -1 }
   }
   let effects = pass_require_effects(ctx, func)
-  let fallthrough_id = optimize_instructions_array_default_fallthrough_id(
+  let fallthrough_fact = OiArrayDefaultFallthroughFact::from_value(
     func,
     effects.node_masks,
     value_id,
@@ -10975,23 +11053,11 @@ fn OiArrayDefaultValueFact::from_array_value(
   if !optimize_instructions_array_value_is_default_for_storage(
       func,
       field.get_storage_type(),
-      fallthrough_id,
+      fallthrough_fact.fallthrough_id,
     ) {
     return { is_default: false, preserve_id: -1 }
   }
-  {
-    is_default: true,
-    preserve_id: if optimize_instructions_array_default_fallthrough_preserve_needed(
-        func,
-        effects.node_masks,
-        value_id,
-        fallthrough_id,
-      ) {
-      value_id
-    } else {
-      -1
-    },
-  }
+  { is_default: true, preserve_id: fallthrough_fact.preserve_id }
 }
 
 ///|
