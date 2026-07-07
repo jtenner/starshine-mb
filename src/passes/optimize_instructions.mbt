@@ -8599,23 +8599,22 @@ fn OiTupleLaneFact::from_node(
 }
 
 ///|
-priv struct OiTupleExtractFact {
-  selected_slot : Int
-  selected_lane : Int
-  selected_id : Int
-  selected_results : Array[@lib.ValType]
-  lane_facts : Array[OiTupleLaneFact]
-  has_effectful_sibling : Bool
-  has_later_effectful_sibling : Bool
+priv struct OiTupleExtractEligibilityFact {
+  tuple_id : Int
+  index : Int
 }
 
 ///|
-fn OiTupleExtractFact::from_extract(
+fn OiTupleExtractEligibilityFact::from_extract(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> OiTupleExtractFact? {
+) -> OiTupleExtractEligibilityFact? {
+  // Binaryen v130 `visitTupleExtract` only rewrites a `tuple.extract` fed by a
+  // single-use `tuple.make` with a concrete lane index. Keep those structural
+  // gates in an explicit eligibility fact so the tuple rewrite fact owns only
+  // source-backed lane/discard/materialization decisions.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::TupleExtract if node.child_count == 1 => ()
@@ -8635,6 +8634,35 @@ fn OiTupleExtractFact::from_extract(
   if index < 0 {
     return None
   }
+  Some({ tuple_id, index })
+}
+
+///|
+priv struct OiTupleExtractFact {
+  selected_slot : Int
+  selected_lane : Int
+  selected_id : Int
+  selected_results : Array[@lib.ValType]
+  lane_facts : Array[OiTupleLaneFact]
+  has_effectful_sibling : Bool
+  has_later_effectful_sibling : Bool
+}
+
+///|
+fn OiTupleExtractFact::from_extract(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiTupleExtractFact? {
+  let eligibility = match
+    OiTupleExtractEligibilityFact::from_extract(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let tuple_id = eligibility.tuple_id
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  let index = eligibility.index
   let lane_facts : Array[OiTupleLaneFact] = []
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
     let lane_fact = OiTupleLaneFact::from_node(
