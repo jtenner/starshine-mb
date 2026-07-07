@@ -27427,6 +27427,154 @@ fn RawOiBulkLoweringRewriteFact::from_instrs(
 }
 
 ///|
+// Raw OI-F select rewrite fact for the flat effectful-sibling dispatcher.
+// Binaryen v130 `optimizeSelect` first reasons from facts about constant
+// conditions, removable `eqz` condition shells, and identical side-effect-free
+// arms. The raw bridge only represents already-covered stack spellings, so this
+// fact records the exact proof family and the complete rewrite payload instead
+// of leaving three separate select instruction windows in the dispatcher.
+priv struct RawOiSelectRewriteFact {
+  end : Int
+  constant_condition : Bool
+  condition_is_eqz : Bool
+  identical_arms : Bool
+  arms_are_pure : Bool
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiSelectRewriteFact::proves_binaryen_select_rewrite(
+  self : RawOiSelectRewriteFact,
+) -> Bool {
+  self.arms_are_pure &&
+  (self.constant_condition || self.condition_is_eqz || self.identical_arms) &&
+  self.rewrite.length() > 0
+}
+
+///|
+fn RawOiSelectRewriteFact::append_rewrite(
+  self : RawOiSelectRewriteFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_select_rewrite() {
+    for instr in self.rewrite {
+      out.push(instr)
+    }
+  }
+}
+
+///|
+fn RawOiSelectRewriteFact::from_const_eqz_condition(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiSelectRewriteFact? {
+  if start + 4 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[start],
+      instrs[start + 1],
+      instrs[start + 2],
+      instrs[start + 3],
+      instrs[start + 4],
+    ) {
+    (
+      true_value,
+      false_value,
+      @lib.I32Const(@lib.I32(cond)),
+      @lib.I32Eqz,
+      @lib.Select(_),
+    ) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        true_value,
+      ) &&
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        false_value,
+      ) =>
+      Some({
+        end: start + 5,
+        constant_condition: true,
+        condition_is_eqz: true,
+        identical_arms: false,
+        arms_are_pure: true,
+        rewrite: [if cond == 0 { true_value } else { false_value }],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiSelectRewriteFact::from_const_condition(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiSelectRewriteFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  match
+    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (true_value, false_value, @lib.I32Const(@lib.I32(cond)), @lib.Select(_)) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        true_value,
+      ) &&
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        false_value,
+      ) =>
+      Some({
+        end: start + 4,
+        constant_condition: true,
+        condition_is_eqz: false,
+        identical_arms: false,
+        arms_are_pure: true,
+        rewrite: [if cond == 0 { false_value } else { true_value }],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiSelectRewriteFact::from_identical_pure_arms(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiSelectRewriteFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  match
+    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (true_value, false_value, condition, @lib.Select(_)) if true_value ==
+      false_value &&
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        true_value,
+      ) =>
+      Some({
+        end: start + 4,
+        constant_condition: false,
+        condition_is_eqz: false,
+        identical_arms: true,
+        arms_are_pure: true,
+        rewrite: [condition, @lib.Instruction::drop(), true_value],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiSelectRewriteFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiSelectRewriteFact? {
+  match RawOiSelectRewriteFact::from_const_eqz_condition(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match RawOiSelectRewriteFact::from_const_condition(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiSelectRewriteFact::from_identical_pure_arms(instrs, start)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
   body : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], @lib.ValType)? {
@@ -29384,54 +29532,17 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
         _ => ()
       }
     }
-    if i + 4 < instrs.length() {
-      match
-        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
-        (
-          true_value,
-          false_value,
-          @lib.I32Const(@lib.I32(cond)),
-          @lib.I32Eqz,
-          @lib.Select(_),
-        ) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-            true_value,
-          ) &&
-          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-            false_value,
-          ) => {
-          rewritten.push(if cond == 0 { true_value } else { false_value })
-          changed = true
-          i = i + 5
-          continue
-        }
-        _ => ()
+    match RawOiSelectRewriteFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
+      None => ()
     }
     if i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
-        (true_value, false_value, @lib.I32Const(@lib.I32(cond)), @lib.Select(_)) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-            true_value,
-          ) &&
-          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-            false_value,
-          ) => {
-          rewritten.push(if cond == 0 { false_value } else { true_value })
-          changed = true
-          i = i + 4
-          continue
-        }
-        (true_value, false_value, condition, @lib.Select(_)) if true_value ==
-          false_value &&
-          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-            true_value,
-          ) => {
-          rewritten.push(condition)
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(true_value)
-          changed = true
-          i = i + 4
-          continue
-        }
         (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
           0 => {
           let (next_if_instrs, if_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
