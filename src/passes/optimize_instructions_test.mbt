@@ -4400,6 +4400,49 @@ test "optimize-instructions folds select with identical pure float constant arms
 }
 
 ///|
+test "optimize-instructions folds select with identical ref.i31 nested select payload arms" {
+  // Red-first OI-F/OI-G fact slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical `ref.i31` select arms when their
+  // i32 payloads are the same branchless scalar tree
+  // (`.tmp/oi-select-refi31-nested-payload-arms-probe.wat`). This moves
+  // represented ref.i31 arm equality toward an ExpressionAnalyzer-style fact;
+  // it is still not broad arbitrary reference equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result (ref i31)) (select (ref.i31 (select (local.get 0) (local.get 1) (local.get 2))) (ref.i31 (select (local.get 0) (local.get 1) (local.get 2))) (local.get 2))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ =>
+      fail(
+        "expected identical ref.i31 nested select payload arms to fold to ref.i31",
+      )
+  }
+}
+
+///|
+test "optimize-instructions preserves effectful condition with identical ref.i31 nested select payload arms" {
+  // Red-first OI-F fact slice: Binaryen `version_130`
+  // `--optimize-instructions` folds the same `ref.i31(select(local/local/local))`
+  // arms even when the condition is effectful, preserving the condition as a
+  // dropped prefix
+  // (`.tmp/oi-select-refi31-nested-payload-effectful-cond-probe.wat`). This is
+  // a local/const/select nontrapping reorder fact, not permission to move
+  // global, memory, table, or trapping payloads across the condition.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result (ref i31)) (select (ref.i31 (select (local.get 0) (local.get 1) (local.get 2))) (ref.i31 (select (local.get 0) (local.get 1) (local.get 2))) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical ref.i31 nested select payload arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical `ref.i31` select arms
