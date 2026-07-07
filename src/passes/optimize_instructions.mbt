@@ -6888,6 +6888,7 @@ priv struct OiConsecutiveInputEqualityFact {
   matching_tee_and_get : Bool
   matching_pure_scalar_tree : Bool
   matching_stable_state_read : Bool
+  matching_stable_memory_read : Bool
   intervening_effects_interfere : Bool
 }
 
@@ -7048,6 +7049,45 @@ fn optimize_instructions_stable_state_reads_equal(
   match (left.op, right.op) {
     (@ir.HotOp::MemorySize, @ir.HotOp::MemorySize) => left.imm0 == right.imm0
     (@ir.HotOp::TableSize, @ir.HotOp::TableSize) => left.imm0 == right.imm0
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_stable_memory_reads_equal(
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+) -> Bool {
+  // Binaryen v130 `areConsecutiveInputsEqual` delegates to
+  // `ExpressionAnalyzer::equal` after fallthrough peeling, then separately asks
+  // `EffectAnalyzer::orderedBefore(effects(right))` whether intervening effects
+  // can change the right read. Model the represented load subset as an explicit
+  // effect-sensitive fact: same load instruction, same access metadata, and a
+  // source-backed pure-scalar address proof. The enclosing equality fact still
+  // owns the memory-write interference check, so store/grow prefixes keep the
+  // copy live.
+  let left = @ir.hot_node_get(func, left_id)
+  let right = @ir.hot_node_get(func, right_id)
+  match (left.op, right.op) {
+    (@ir.HotOp::Load, @ir.HotOp::Load) => {
+      if left.child_count != 1 || right.child_count != 1 {
+        return false
+      }
+      match
+        (
+          @ir.hot_node_exact_instr(func, left_id),
+          @ir.hot_node_exact_instr(func, right_id),
+        ) {
+        (Some(left_instr), Some(right_instr)) if left_instr == right_instr =>
+          optimize_instructions_pure_scalar_tree_equal(
+            func,
+            @ir.hot_child_get(func, left_id, 0),
+            @ir.hot_child_get(func, right_id, 0),
+          )
+        _ => false
+      }
+    }
     _ => false
   }
 }
@@ -7335,6 +7375,9 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let matching_stable_state_read = optimize_instructions_stable_state_reads_equal(
     left, right,
   )
+  let matching_stable_memory_read = optimize_instructions_stable_memory_reads_equal(
+    func, left_fallthrough_id, right_fallthrough_id,
+  )
   let intervening_local_writes : Array[Int] = []
   optimize_instructions_append_local_writes(
     intervening_local_writes,
@@ -7372,6 +7415,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     matching_tee_and_get,
     matching_pure_scalar_tree,
     matching_stable_state_read,
+    matching_stable_memory_read,
     intervening_effects_interfere,
   }
 }
@@ -7389,7 +7433,8 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   }
   if self.matching_tee_and_get ||
     self.matching_pure_scalar_tree ||
-    self.matching_stable_state_read {
+    self.matching_stable_state_read ||
+    self.matching_stable_memory_read {
     return true
   }
   false
@@ -7493,7 +7538,7 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // nested pure scalar trees. Equality currently covers matching tee/get,
   // structurally identical scalar trees made of local.get, global.get,
   // constants, unary, binary, compare, and convert nodes, plus effect-sensitive
-  // same-index memory.size/table.size state reads.
+  // same-index memory.size/table.size state reads and same-access load reads.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,

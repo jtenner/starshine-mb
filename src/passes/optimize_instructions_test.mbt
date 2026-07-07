@@ -33159,6 +33159,74 @@ test "optimize-instructions drops right block unrelated global.set global-addres
 }
 
 ///|
+test "optimize-instructions drops load-read same-address memory.copy" {
+  // OI-G same-input equality fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` delegates to `ExpressionAnalyzer::equal`, which
+  // treats repeated loads with the same access and address expression as equal
+  // when no intervening effects can change the memory read. Under
+  // `--traps-never-happen`, same-address memory.copy then collapses to operand
+  // drops while preserving both load reads.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $size i32)
+        #|    (memory.copy
+        #|      (i32.load (local.get $addr))
+        #|      (i32.load (local.get $addr))
+        #|      (local.get $size))))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected load-read memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "i32.load", "drop", "local.get (Local 0)", "i32.load",
+    "drop", "local.get (Local 1)", "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps store-interfered load-read memory.copy" {
+  // Boundary guard for the load-read equality fact: Binaryen version_130 rejects
+  // equality when a right-block prefix can store to memory before the right load.
+  // The trap-relaxed copy must stay live because the two load reads may produce
+  // different addresses.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $addr i32) (param $store_addr i32) (param $value i32) (param $size i32)
+        #|    (memory.copy
+        #|      (i32.load (local.get $addr))
+        #|      (block (result i32)
+        #|        (i32.store (local.get $store_addr) (local.get $value))
+        #|        (i32.load (local.get $addr)))
+        #|      (local.get $size))))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected store-interfered load-read memory.copy success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions drops state-read same-address memory.copy" {
   // OI-G same-input equality fact breadth: Binaryen version_130
   // `areConsecutiveInputsEqual` delegates to `ExpressionAnalyzer::equal`, which
