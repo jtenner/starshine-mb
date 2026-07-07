@@ -26199,22 +26199,6 @@ fn RawOiSameGlobalIfSinkFact::from_if_arms(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
-  block_type : @lib.BlockType,
-  then_body : Array[@lib.Instruction],
-  else_body : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext,
-) -> Array[@lib.Instruction]? {
-  match
-    RawOiSameGlobalIfSinkFact::from_if_arms(
-      block_type, then_body, else_body, module_ctx,
-    ) {
-    Some(fact) => fact.to_rewrite()
-    None => None
-  }
-}
-
-///|
 fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
@@ -26267,10 +26251,28 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
         else_body, module_ctx,
       )
       match
-        run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
+        RawOiSameGlobalIfSinkFact::from_if_arms(
           block_type, next_then, next_else, module_ctx,
         ) {
-        Some(expanded) => (expanded, true)
+        Some(fact) =>
+          match fact.to_rewrite() {
+            Some(expanded) => (expanded, true)
+            None =>
+              if then_changed || else_changed {
+                (
+                  [
+                    @lib.Instruction::if_(
+                      block_type,
+                      next_then,
+                      Some(next_else),
+                    ),
+                  ],
+                  true,
+                )
+              } else {
+                ([instr], false)
+              }
+          }
         None =>
           if then_changed || else_changed {
             (
@@ -31258,13 +31260,30 @@ fn RawOiDescriptorBalancedLocalDirectMissFact::append_rewrite(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_call_operand_miss(
+// Raw descriptor exact-miss fact for the nontrapping descriptor-call operand
+// bridge. Binaryen v130 `optimizeKnownCastResult` preserves descriptor operand
+// effects before replacing a known-failing descriptor cast with `unreachable`;
+// this fact keeps the narrow raw spelling (`local.get`; nontrapping descriptor
+// args; direct descriptor call; `ref.cast_desc`) out of the dispatcher body.
+priv struct RawOiDescriptorLocalCallOperandMissFact {
+  end : Int
+  local_idx : @lib.LocalIdx
+  descriptor_func : @lib.FuncIdx
+  target : @lib.HeapType
+  desc_args : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiDescriptorLocalCallOperandMissFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorLocalCallOperandMissFact? {
+  if start >= instrs.length() {
+    return None
+  }
   let local_idx = match instrs[start] {
     @lib.LocalGet(local_idx) => local_idx
     _ => return None
@@ -31295,22 +31314,45 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_ca
             ) &&
             RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
-            ) => {
-            let rewritten : Array[@lib.Instruction] = []
-            for arg in desc_args {
-              rewritten.push(arg)
-            }
-            rewritten.push(@lib.Instruction::call(descriptor_func))
-            rewritten.push(@lib.Instruction::drop())
-            rewritten.push(@lib.Instruction::unreachable_())
-            return Some((rewritten, scan + 2))
-          }
+            ) =>
+            return Some({
+              end: scan + 2,
+              local_idx,
+              descriptor_func,
+              target,
+              desc_args,
+            })
           _ => return None
         }
       _ => return None
     }
   }
   None
+}
+
+///|
+fn RawOiDescriptorLocalCallOperandMissFact::proves_binaryen_descriptor_miss(
+  self : RawOiDescriptorLocalCallOperandMissFact,
+) -> Bool {
+  ignore(self.local_idx)
+  ignore(self.target)
+  self.end > 0
+}
+
+///|
+fn RawOiDescriptorLocalCallOperandMissFact::append_rewrite(
+  self : RawOiDescriptorLocalCallOperandMissFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_descriptor_miss() {
+    return
+  }
+  for arg in self.desc_args {
+    rewritten.push(arg)
+  }
+  rewritten.push(@lib.Instruction::call(self.descriptor_func))
+  rewritten.push(@lib.Instruction::drop())
+  rewritten.push(@lib.Instruction::unreachable_())
 }
 
 ///|
@@ -31329,18 +31371,16 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
   let mut i = 0
   while i < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_call_operand_miss(
+      RawOiDescriptorLocalCallOperandMissFact::from_instrs(
         instrs, i, module_ctx, params, locals,
       ) {
-      Some((descriptor_call_rewrite, next_i)) => {
-        for instr in descriptor_call_rewrite {
-          rewritten.push(instr)
-        }
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     match
       run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descriptor_miss(
