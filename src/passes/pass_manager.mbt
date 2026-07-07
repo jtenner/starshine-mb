@@ -25265,7 +25265,20 @@ fn RawOiStackCarriedEffectRegionFact::from_instrs(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_local_get_count_instr(
+// Raw OI-H local-use fact for fallback call_ref fallthrough target rewrites.
+// Binaryen v130 `visitCallRef` uses `Properties::getFallthrough(curr->target)`
+// to recover a `ref.func` behind local writes and then preserves target effects
+// only when the local binding may still be read. The raw fallback represents the
+// covered flat shape as `ref.func; local.set $tmp; local.get $tmp; call_ref`, so
+// keep the exact root-local-get count in a source-backed fact instead of letting
+// the call_ref directizer query an unclassified recursive counter.
+priv struct RawOiLocalUseCountFact {
+  target : @lib.LocalIdx
+  exact_get_count : Int
+}
+
+///|
+fn RawOiLocalUseCountFact::count_instr(
   instr : @lib.Instruction,
   target : @lib.LocalIdx,
 ) -> Int {
@@ -25274,19 +25287,12 @@ fn run_hot_pipeline_raw_optimize_instructions_local_get_count_instr(
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
-        body, target,
-      )
+      RawOiLocalUseCountFact::count_body(body, target)
     @lib.If(_, then_body, else_body) => {
-      let mut count = run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
-        then_body, target,
-      )
+      let mut count = RawOiLocalUseCountFact::count_body(then_body, target)
       match else_body {
         Some(body) =>
-          count = count +
-            run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
-              body, target,
-            )
+          count = count + RawOiLocalUseCountFact::count_body(body, target)
         None => ()
       }
       count
@@ -25296,18 +25302,26 @@ fn run_hot_pipeline_raw_optimize_instructions_local_get_count_instr(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+fn RawOiLocalUseCountFact::count_body(
   instrs : Array[@lib.Instruction],
   target : @lib.LocalIdx,
 ) -> Int {
   let mut count = 0
   for instr in instrs {
-    count = count +
-      run_hot_pipeline_raw_optimize_instructions_local_get_count_instr(
-        instr, target,
-      )
+    count = count + RawOiLocalUseCountFact::count_instr(instr, target)
   }
   count
+}
+
+///|
+fn RawOiLocalUseCountFact::from_body(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> RawOiLocalUseCountFact {
+  {
+    target,
+    exact_get_count: RawOiLocalUseCountFact::count_body(instrs, target),
+  }
 }
 
 ///|
@@ -25400,6 +25414,9 @@ priv struct RawOiCallRefDirectizeRewriteFact {
   is_table_target : Bool
   is_const_select_ref_func_target : Bool
   is_local_fallthrough_ref_func_target : Bool
+  local_fallthrough_target : @lib.LocalIdx?
+  local_fallthrough_get_count : Int
+  preserves_local_fallthrough_binding : Bool
   is_return : Bool
   rewrite : Array[@lib.Instruction]
 }
@@ -25409,6 +25426,9 @@ fn RawOiCallRefDirectizeRewriteFact::proves_binaryen_call_ref_directization(
   self : RawOiCallRefDirectizeRewriteFact,
 ) -> Bool {
   ignore(self.is_return)
+  ignore(self.local_fallthrough_target)
+  ignore(self.local_fallthrough_get_count)
+  ignore(self.preserves_local_fallthrough_binding)
   self.rewrite.length() > 0 &&
   (
     self.is_direct_ref_func_target ||
@@ -25443,6 +25463,48 @@ fn RawOiCallRefDirectizeRewriteFact::call_instr(
 }
 
 ///|
+// Raw OI-H fallthrough-target use fact for the local.set/local.get target bridge.
+// A single root `local.get` means the use consumed by `call_ref` is the only read
+// of the temporary target local, so the raw fallback can erase the preceding
+// `ref.func; local.set` target materialization. Any additional read preserves the
+// binding as an evaluated side effect before replacing `call_ref` with a direct
+// call, matching the Binaryen fallthrough-target effect preservation contract.
+priv struct RawOiCallRefLocalFallthroughUseFact {
+  target_local : @lib.LocalIdx
+  exact_get_count : Int
+  preserves_target_binding : Bool
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiCallRefLocalFallthroughUseFact::from_parts(
+  target_expr : @lib.Instruction,
+  target_set : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+  func_idx : @lib.FuncIdx,
+  is_return : Bool,
+  root_instrs : Array[@lib.Instruction],
+) -> RawOiCallRefLocalFallthroughUseFact {
+  let use_fact = RawOiLocalUseCountFact::from_body(root_instrs, target_local)
+  ignore(use_fact.target)
+  let preserves_target_binding = use_fact.exact_get_count != 1
+  let rewrite : Array[@lib.Instruction] = []
+  if preserves_target_binding {
+    rewrite.push(target_expr)
+    rewrite.push(target_set)
+  }
+  rewrite.push(
+    RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return),
+  )
+  {
+    target_local,
+    exact_get_count: use_fact.exact_get_count,
+    preserves_target_binding,
+    rewrite,
+  }
+}
+
+///|
 fn RawOiCallRefDirectizeRewriteFact::from_table_target(
   current : @lib.Instruction,
   instrs : Array[@lib.Instruction],
@@ -25463,6 +25525,9 @@ fn RawOiCallRefDirectizeRewriteFact::from_table_target(
         is_table_target: true,
         is_const_select_ref_func_target: false,
         is_local_fallthrough_ref_func_target: false,
+        local_fallthrough_target: None,
+        local_fallthrough_get_count: 0,
+        preserves_local_fallthrough_binding: false,
         is_return: false,
         rewrite: [index, @lib.Instruction::call_indirect(type_idx, table_idx)],
       })
@@ -25477,6 +25542,9 @@ fn RawOiCallRefDirectizeRewriteFact::from_table_target(
         is_table_target: true,
         is_const_select_ref_func_target: false,
         is_local_fallthrough_ref_func_target: false,
+        local_fallthrough_target: None,
+        local_fallthrough_get_count: 0,
+        preserves_local_fallthrough_binding: false,
         is_return: true,
         rewrite: [
           index,
@@ -25525,6 +25593,9 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
         is_table_target: false,
         is_const_select_ref_func_target: true,
         is_local_fallthrough_ref_func_target: false,
+        local_fallthrough_target: None,
+        local_fallthrough_get_count: 0,
+        preserves_local_fallthrough_binding: false,
         is_return: false,
         rewrite: [@lib.Instruction::call(selected_func)],
       })
@@ -25535,6 +25606,9 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
         is_table_target: false,
         is_const_select_ref_func_target: true,
         is_local_fallthrough_ref_func_target: false,
+        local_fallthrough_target: None,
+        local_fallthrough_get_count: 0,
+        preserves_local_fallthrough_binding: false,
         is_return: true,
         rewrite: [@lib.Instruction::return_call(selected_func)],
       })
@@ -25569,16 +25643,13 @@ fn RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
     @lib.Instruction::ReturnCallRef(_) => true
     _ => return None
   }
-  let rewrite : Array[@lib.Instruction] = []
-  if run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
-      root_instrs, local_id,
-    ) !=
-    1 {
-    rewrite.push(current)
-    rewrite.push(instrs[start + 1])
-  }
-  rewrite.push(
-    RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return),
+  let use_fact = RawOiCallRefLocalFallthroughUseFact::from_parts(
+    current,
+    instrs[start + 1],
+    local_id,
+    func_idx,
+    is_return,
+    root_instrs,
   )
   Some({
     end: start + 4,
@@ -25586,8 +25657,11 @@ fn RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
     is_table_target: false,
     is_const_select_ref_func_target: false,
     is_local_fallthrough_ref_func_target: true,
+    local_fallthrough_target: Some(use_fact.target_local),
+    local_fallthrough_get_count: use_fact.exact_get_count,
+    preserves_local_fallthrough_binding: use_fact.preserves_target_binding,
     is_return,
-    rewrite,
+    rewrite: use_fact.rewrite,
   })
 }
 
@@ -25616,6 +25690,9 @@ fn RawOiCallRefDirectizeRewriteFact::from_direct_target(
     is_table_target: false,
     is_const_select_ref_func_target: false,
     is_local_fallthrough_ref_func_target: false,
+    local_fallthrough_target: None,
+    local_fallthrough_get_count: 0,
+    preserves_local_fallthrough_binding: false,
     is_return,
     rewrite: [RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return)],
   })
