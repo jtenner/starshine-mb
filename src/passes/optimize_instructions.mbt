@@ -2184,6 +2184,104 @@ fn OiDescriptorNullCastRewritePlanFact::apply(
 }
 
 ///|
+priv struct OiDescriptorExactSuccessFact {
+  cast_fact : OiDescriptorCastFact
+  direct_call_result_exact_non_null_target : Bool
+  descriptor_exactly_describes_target : Bool
+}
+
+///|
+fn OiDescriptorExactSuccessFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorExactSuccessFact? {
+  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let direct_call_result_exact_non_null_target = match
+    @ir.hot_node_get(func, cast_fact.operand_id).op {
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+      OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).exact_non_null_heap(
+        cast_fact.target,
+      )
+    _ => false
+  }
+  Some({
+    cast_fact,
+    direct_call_result_exact_non_null_target,
+    descriptor_exactly_describes_target: OiDescriptorTypeFact::from_node(
+      ctx,
+      func,
+      cast_fact.descriptor_id,
+    ).exactly_describes(cast_fact.target),
+  })
+}
+
+///|
+fn OiDescriptorExactSuccessFact::can_skip_traps_never_happen(
+  self : OiDescriptorExactSuccessFact,
+  ctx : HotPassContext,
+) -> Bool {
+  ctx.traps_never_happen &&
+  !self.cast_fact.nullable &&
+  self.cast_fact.exact &&
+  self.direct_call_result_exact_non_null_target &&
+  self.descriptor_exactly_describes_target
+}
+
+///|
+priv enum OiDescriptorExactSuccessRewritePlanKind {
+  DescriptorExactSuccessLocalizeOperandThenDescriptor
+}
+
+///|
+priv struct OiDescriptorExactSuccessRewritePlanFact {
+  kind : OiDescriptorExactSuccessRewritePlanKind
+  success_fact : OiDescriptorExactSuccessFact
+}
+
+///|
+fn OiDescriptorExactSuccessRewritePlanFact::from_success(
+  ctx : HotPassContext,
+  success_fact : OiDescriptorExactSuccessFact,
+) -> OiDescriptorExactSuccessRewritePlanFact? {
+  // Binaryen v130 lets descriptor casts be skipped in traps-never-happen mode
+  // when the reference value and descriptor are both exact known matches. The
+  // represented Starshine subset is intentionally narrower than Binaryen's
+  // full `optimizeKnownCastResult`: it requires a direct call-style reference
+  // producer and an exact descriptor type fact, then preserves both operand
+  // evaluations through the same ChildLocalizer-shaped replacement.
+  if !success_fact.can_skip_traps_never_happen(ctx) {
+    return None
+  }
+  Some({
+    kind: DescriptorExactSuccessLocalizeOperandThenDescriptor,
+    success_fact,
+  })
+}
+
+///|
+fn OiDescriptorExactSuccessRewritePlanFact::apply(
+  self : OiDescriptorExactSuccessRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    DescriptorExactSuccessLocalizeOperandThenDescriptor =>
+      optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
+        ctx,
+        func,
+        node_id,
+        self.success_fact.cast_fact.operand_id,
+        self.success_fact.cast_fact.descriptor_id,
+      )
+  }
+}
+
+///|
 priv struct OiRefGetDescFact {
   child_id : Int
   nullable_child_id : Int
@@ -16788,66 +16886,21 @@ fn optimize_instructions_try_fold_ref_cast_null(
 }
 
 ///|
-fn optimize_instructions_direct_call_ref_result_exact_heap(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  heap : @lib.HeapType,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
-      OiRefProducerFact::from_node(ctx, func, node_id).exact_non_null_heap(heap)
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_direct_call_descriptor_exactly_describes_heap(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  heap : @lib.HeapType,
-) -> Bool {
-  OiDescriptorTypeFact::from_node(ctx, func, node_id).exactly_describes(heap)
-}
-
-///|
 fn optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  if !ctx.traps_never_happen {
-    return false
-  }
-  let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
+  let success_fact = match
+    OiDescriptorExactSuccessFact::from_node(ctx, func, node_id) {
     Some(fact) => fact
     None => return false
   }
-  if cast_fact.nullable || !cast_fact.exact {
-    return false
+  match
+    OiDescriptorExactSuccessRewritePlanFact::from_success(ctx, success_fact) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  if !optimize_instructions_direct_call_ref_result_exact_heap(
-      ctx,
-      func,
-      cast_fact.operand_id,
-      cast_fact.target,
-    ) ||
-    !optimize_instructions_direct_call_descriptor_exactly_describes_heap(
-      ctx,
-      func,
-      cast_fact.descriptor_id,
-      cast_fact.target,
-    ) {
-    return false
-  }
-  optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
-    ctx,
-    func,
-    node_id,
-    cast_fact.operand_id,
-    cast_fact.descriptor_id,
-  )
 }
 
 ///|
