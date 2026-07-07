@@ -9201,106 +9201,93 @@ fn optimize_instructions_replace_with_dropped_operands(
 }
 
 ///|
-fn optimize_instructions_try_drop_trap_relaxed_memory_copy(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  bulk_fact : OiBulkMemoryFact,
-  node_id : Int,
-) -> Bool {
-  if bulk_fact.can_drop_same_address_copy_trap_relaxed(ctx, func) {
-    optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
-      bulk_fact.dst_id,
-      bulk_fact.src_or_value_id,
-      bulk_fact.size_id,
-    ])
-    return true
-  }
-  if bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
-    optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
-      bulk_fact.dst_id,
-      bulk_fact.src_or_value_id,
-    ])
-    return true
-  }
-  false
+priv enum OiBulkMemoryRewritePlanKind {
+  BulkMemoryDropSameAddressCopy
+  BulkMemoryDropZeroSizeCopy
+  BulkMemoryDropZeroSizeFill
+  BulkMemoryTinyCopy
+  BulkMemoryTinyFill
 }
 
 ///|
-fn optimize_instructions_try_drop_trap_relaxed_memory_fill(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  bulk_fact : OiBulkMemoryFact,
-  node_id : Int,
-) -> Bool {
-  if !bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
-    return false
-  }
-  optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
-    bulk_fact.dst_id,
-    bulk_fact.src_or_value_id,
-  ])
-  true
+priv struct OiBulkMemoryRewritePlanFact {
+  kind : OiBulkMemoryRewritePlanKind
+  bulk_fact : OiBulkMemoryFact
+  copy_fact : OiTinyMemoryCopyFact?
+  fill_fact : OiTinyMemoryFillFact?
 }
 
 ///|
-fn optimize_instructions_try_expand_tiny_memory_copy(
+fn OiBulkMemoryRewritePlanFact::from_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiBulkMemoryRewritePlanFact? {
+  // Binaryen v130 `optimizeMemoryCopy` first handles trap-relaxed identical
+  // addresses, then trap-relaxed zero sizes, then constant tiny load/store
+  // lowering. Keep that source order as a plan fact so the visitor does not own
+  // a branch cascade for the OI-G bulk-memory rewrite families.
   let bulk_fact = match OiBulkMemoryFact::from_copy(func, dead, node_id) {
     Some(fact) => fact
-    None => return false
+    None => return None
   }
-  if optimize_instructions_try_drop_trap_relaxed_memory_copy(
-      ctx, func, bulk_fact, node_id,
-    ) {
-    return true
+  if bulk_fact.can_drop_same_address_copy_trap_relaxed(ctx, func) {
+    return Some({
+      kind: BulkMemoryDropSameAddressCopy,
+      bulk_fact,
+      copy_fact: None,
+      fill_fact: None,
+    })
+  }
+  if bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
+    return Some({
+      kind: BulkMemoryDropZeroSizeCopy,
+      bulk_fact,
+      copy_fact: None,
+      fill_fact: None,
+    })
   }
   if !bulk_fact.has_const_size_operand() {
-    return false
+    return None
   }
   let copy_fact = match OiTinyMemoryCopyFact::from_size(ctx, bulk_fact.size) {
     Some(fact) => fact
-    None => return false
+    None => return None
   }
-  let src_memarg = bulk_fact.src_memarg()
-  let load = @ir.hot_build_load(
-    func,
-    copy_fact.load_type(),
-    src_memarg,
-    bulk_fact.src_or_value_id,
-  )
-  @ir.hot_node_exact_instr_set(func, load, copy_fact.load_instr(src_memarg))
-  let dst_memarg = bulk_fact.dst_memarg()
-  let temp = @ir.hot_build_store(func, dst_memarg, bulk_fact.dst_id, load)
-  @ir.hot_node_exact_instr_set(func, temp, copy_fact.store_instr(dst_memarg))
-  let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
-  pass_mark_mutated(ctx, func)
-  true
+  Some({
+    kind: BulkMemoryTinyCopy,
+    bulk_fact,
+    copy_fact: Some(copy_fact),
+    fill_fact: None,
+  })
 }
 
 ///|
-fn optimize_instructions_try_expand_tiny_memory_fill(
+fn OiBulkMemoryRewritePlanFact::from_fill(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiBulkMemoryRewritePlanFact? {
+  // Binaryen v130 `optimizeMemoryFill` requires a constant size, handles the
+  // trap-relaxed zero-size drop, then lowers constant-byte fills and the
+  // nonconstant size-1 store8 case. The feature-dependent no-SIMD size-16 i64
+  // fallback stays outside this plan until Starshine has module-feature facts.
   let bulk_fact = match OiBulkMemoryFact::from_fill(func, dead, node_id) {
     Some(fact) => fact
-    None => return false
+    None => return None
   }
-  if optimize_instructions_try_drop_trap_relaxed_memory_fill(
-      ctx, func, bulk_fact, node_id,
-    ) {
-    return true
+  if bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
+    return Some({
+      kind: BulkMemoryDropZeroSizeFill,
+      bulk_fact,
+      copy_fact: None,
+      fill_fact: None,
+    })
   }
   if !bulk_fact.has_const_size_operand() {
-    return false
+    return None
   }
   let fill_fact = match
     OiTinyMemoryFillFact::from_size_and_value(
@@ -9311,10 +9298,86 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
       bulk_fact.src_or_value_id,
     ) {
     Some(fact) => fact
+    None => return None
+  }
+  Some({
+    kind: BulkMemoryTinyFill,
+    bulk_fact,
+    copy_fact: None,
+    fill_fact: Some(fill_fact),
+  })
+}
+
+///|
+fn OiBulkMemoryRewritePlanFact::apply(
+  self : OiBulkMemoryRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    BulkMemoryDropSameAddressCopy => {
+      optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
+        self.bulk_fact.dst_id,
+        self.bulk_fact.src_or_value_id,
+        self.bulk_fact.size_id,
+      ])
+      true
+    }
+    BulkMemoryDropZeroSizeCopy | BulkMemoryDropZeroSizeFill => {
+      optimize_instructions_replace_with_dropped_operands(ctx, func, node_id, [
+        self.bulk_fact.dst_id,
+        self.bulk_fact.src_or_value_id,
+      ])
+      true
+    }
+    BulkMemoryTinyCopy => self.apply_tiny_copy(ctx, func, node_id)
+    BulkMemoryTinyFill => self.apply_tiny_fill(ctx, func, node_id)
+  }
+}
+
+///|
+fn OiBulkMemoryRewritePlanFact::apply_tiny_copy(
+  self : OiBulkMemoryRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let copy_fact = match self.copy_fact {
+    Some(fact) => fact
+    None => return false
+  }
+  let src_memarg = self.bulk_fact.src_memarg()
+  let load = @ir.hot_build_load(
+    func,
+    copy_fact.load_type(),
+    src_memarg,
+    self.bulk_fact.src_or_value_id,
+  )
+  @ir.hot_node_exact_instr_set(func, load, copy_fact.load_instr(src_memarg))
+  let dst_memarg = self.bulk_fact.dst_memarg()
+  let temp = @ir.hot_build_store(func, dst_memarg, self.bulk_fact.dst_id, load)
+  @ir.hot_node_exact_instr_set(func, temp, copy_fact.store_instr(dst_memarg))
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn OiBulkMemoryRewritePlanFact::apply_tiny_fill(
+  self : OiBulkMemoryRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let fill_fact = match self.fill_fact {
+    Some(fact) => fact
     None => return false
   }
   let stored_id = match
-    fill_fact.build_store_value(func, bulk_fact.src_or_value_id) {
+    fill_fact.build_store_value(func, self.bulk_fact.src_or_value_id) {
     Some(stored_id) => stored_id
     None => return false
   }
@@ -9322,12 +9385,38 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     ctx,
     func,
     node_id,
-    bulk_fact.dst_mem_idx,
-    bulk_fact.dst_id,
+    self.bulk_fact.dst_mem_idx,
+    self.bulk_fact.dst_id,
     stored_id,
     fn(memarg) { fill_fact.store_instr(memarg) },
   )
   true
+}
+
+///|
+fn optimize_instructions_try_expand_tiny_memory_copy(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match OiBulkMemoryRewritePlanFact::from_copy(ctx, func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
+fn optimize_instructions_try_expand_tiny_memory_fill(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match OiBulkMemoryRewritePlanFact::from_fill(ctx, func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
+  }
 }
 
 ///|
