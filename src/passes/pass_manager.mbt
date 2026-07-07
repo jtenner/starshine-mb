@@ -26592,19 +26592,53 @@ fn RawOiOrderedConstEqNeFact::from_i64(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
-  mem_idx : @lib.MemIdx,
-) -> @lib.MemArg {
-  let @lib.MemIdx(raw_idx) = mem_idx
-  let encoded_mem = if raw_idx == 0U { None } else { Some(mem_idx) }
-  @lib.MemArg::new(@lib.U32(0), encoded_mem, @lib.U64(0))
+// Raw OI-G zero-offset memarg fact for lowered memory.copy/fill rewrites.
+// Binaryen's builder emits memory accesses with offset 0 and omits memory 0;
+// keep that canonical memarg construction as data instead of a raw helper.
+priv struct RawOiZeroOffsetMemargFact {
+  mem_idx : @lib.MemIdx
+  memarg : @lib.MemArg
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
+fn RawOiZeroOffsetMemargFact::from_mem_idx(
+  mem_idx : @lib.MemIdx,
+) -> RawOiZeroOffsetMemargFact {
+  let @lib.MemIdx(raw_idx) = mem_idx
+  let encoded_mem = if raw_idx == 0U { None } else { Some(mem_idx) }
+  { mem_idx, memarg: @lib.MemArg::new(@lib.U32(0), encoded_mem, @lib.U64(0)) }
+}
+
+///|
+fn RawOiZeroOffsetMemargFact::proves_binaryen_zero_offset_memarg(
+  self : RawOiZeroOffsetMemargFact,
+) -> Bool {
+  let @lib.MemArg(@lib.U32(align), mem, @lib.U64(offset)) = self.memarg
+  let @lib.MemIdx(raw_idx) = self.mem_idx
+  let mem_matches = match mem {
+    Some(mem_idx) => raw_idx != 0U && mem_idx == self.mem_idx
+    None => raw_idx == 0U
+  }
+  offset == 0UL && align == 0U && mem_matches
+}
+
+///|
+// Raw OI-G constant-address offset-fold fact. Binaryen v130 folds a nonzero
+// static memarg offset into a constant pointer only when the folded pointer
+// cannot wrap for the represented address width; this fact owns that proof and
+// the reset-offset memarg.
+priv struct RawOiConstAddressOffsetFoldFact {
+  original_address : @lib.Instruction
+  original_memarg : @lib.MemArg
+  folded_address : @lib.Instruction
+  folded_memarg : @lib.MemArg
+}
+
+///|
+fn RawOiConstAddressOffsetFoldFact::from_parts(
   address : @lib.Instruction,
   memarg : @lib.MemArg,
-) -> (@lib.Instruction, @lib.MemArg)? {
+) -> RawOiConstAddressOffsetFoldFact? {
   let @lib.MemArg(align, mem, @lib.U64(offset)) = memarg
   if offset == 0UL {
     return None
@@ -26634,13 +26668,39 @@ fn run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
     }
     _ => return None
   }
-  Some((folded_address, @lib.MemArg::new(align, mem, @lib.U64(0UL))))
+  Some({
+    original_address: address,
+    original_memarg: memarg,
+    folded_address,
+    folded_memarg: @lib.MemArg::new(align, mem, @lib.U64(0UL)),
+  })
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_load_memarg(
+fn RawOiConstAddressOffsetFoldFact::proves_binaryen_memory_offset_fold(
+  self : RawOiConstAddressOffsetFoldFact,
+) -> Bool {
+  ignore(self.original_address)
+  ignore(self.folded_address)
+  let @lib.MemArg(_, _, @lib.U64(original_offset)) = self.original_memarg
+  let @lib.MemArg(_, _, @lib.U64(folded_offset)) = self.folded_memarg
+  original_offset > 0UL && folded_offset == 0UL
+}
+
+///|
+// Raw OI-G load/store access fact for offset folding. The constructors record
+// which exact memory opcode carried the memarg, and the rewrite methods rebuild
+// that same opcode with Binaryen's folded memarg.
+priv struct RawOiMemoryAccessMemargFact {
+  memarg : @lib.MemArg
+  is_load : Bool
+  is_store : Bool
+}
+
+///|
+fn RawOiMemoryAccessMemargFact::from_load_instr(
   instr : @lib.Instruction,
-) -> @lib.MemArg? {
+) -> RawOiMemoryAccessMemargFact? {
   match instr {
     @lib.I32Load(memarg)
     | @lib.I64Load(memarg)
@@ -26662,13 +26722,54 @@ fn run_hot_pipeline_raw_optimize_instructions_load_memarg(
     | @lib.I32AtomicLoad16U(memarg)
     | @lib.I64AtomicLoad8U(memarg)
     | @lib.I64AtomicLoad16U(memarg)
-    | @lib.I64AtomicLoad32U(memarg) => Some(memarg)
+    | @lib.I64AtomicLoad32U(memarg) =>
+      Some({ memarg, is_load: true, is_store: false })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
+fn RawOiMemoryAccessMemargFact::from_store_instr(
+  instr : @lib.Instruction,
+) -> RawOiMemoryAccessMemargFact? {
+  match instr {
+    @lib.I32Store(memarg)
+    | @lib.I64Store(memarg)
+    | @lib.F32Store(memarg)
+    | @lib.F64Store(memarg)
+    | @lib.I32Store8(memarg)
+    | @lib.I32Store16(memarg)
+    | @lib.I64Store8(memarg)
+    | @lib.I64Store16(memarg)
+    | @lib.I64Store32(memarg)
+    | @lib.I32AtomicStore(memarg)
+    | @lib.I64AtomicStore(memarg)
+    | @lib.I32AtomicStore8(memarg)
+    | @lib.I32AtomicStore16(memarg)
+    | @lib.I64AtomicStore8(memarg)
+    | @lib.I64AtomicStore16(memarg)
+    | @lib.I64AtomicStore32(memarg) =>
+      Some({ memarg, is_load: false, is_store: true })
+    _ => None
+  }
+}
+
+///|
+fn RawOiMemoryAccessMemargFact::proves_load_access(
+  self : RawOiMemoryAccessMemargFact,
+) -> Bool {
+  self.is_load && !self.is_store
+}
+
+///|
+fn RawOiMemoryAccessMemargFact::proves_store_access(
+  self : RawOiMemoryAccessMemargFact,
+) -> Bool {
+  self.is_store && !self.is_load
+}
+
+///|
+fn RawOiMemoryAccessMemargFact::load_rewrite_with_memarg(
   instr : @lib.Instruction,
   memarg : @lib.MemArg,
 ) -> @lib.Instruction? {
@@ -26704,32 +26805,7 @@ fn run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_store_memarg(
-  instr : @lib.Instruction,
-) -> @lib.MemArg? {
-  match instr {
-    @lib.I32Store(memarg)
-    | @lib.I64Store(memarg)
-    | @lib.F32Store(memarg)
-    | @lib.F64Store(memarg)
-    | @lib.I32Store8(memarg)
-    | @lib.I32Store16(memarg)
-    | @lib.I64Store8(memarg)
-    | @lib.I64Store16(memarg)
-    | @lib.I64Store32(memarg)
-    | @lib.I32AtomicStore(memarg)
-    | @lib.I64AtomicStore(memarg)
-    | @lib.I32AtomicStore8(memarg)
-    | @lib.I32AtomicStore16(memarg)
-    | @lib.I64AtomicStore8(memarg)
-    | @lib.I64AtomicStore16(memarg)
-    | @lib.I64AtomicStore32(memarg) => Some(memarg)
-    _ => None
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
+fn RawOiMemoryAccessMemargFact::store_rewrite_with_memarg(
   instr : @lib.Instruction,
   memarg : @lib.MemArg,
 ) -> @lib.Instruction? {
@@ -26840,21 +26916,19 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
   }
   let address = instrs[start]
   let load_instr = instrs[start + 1]
-  let original_memarg = match
-    run_hot_pipeline_raw_optimize_instructions_load_memarg(load_instr) {
-    Some(memarg) => memarg
-    None => return None
+  let access = match RawOiMemoryAccessMemargFact::from_load_instr(load_instr) {
+    Some(fact) if fact.proves_load_access() => fact
+    _ => return None
   }
-  let (folded_address, folded_memarg) = match
-    run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
-      address, original_memarg,
-    ) {
-    Some(result) => result
-    None => return None
+  let address_fold = match
+    RawOiConstAddressOffsetFoldFact::from_parts(address, access.memarg) {
+    Some(fact) if fact.proves_binaryen_memory_offset_fold() => fact
+    _ => return None
   }
   let folded_load = match
-    run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
-      load_instr, folded_memarg,
+    RawOiMemoryAccessMemargFact::load_rewrite_with_memarg(
+      load_instr,
+      address_fold.folded_memarg,
     ) {
     Some(instr) => instr
     None => return None
@@ -26863,10 +26937,10 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
     end: start + 2,
     is_load: true,
     is_store: false,
-    original_memarg,
-    folded_memarg,
-    folded_address,
-    rewrite: [folded_address, folded_load],
+    original_memarg: access.memarg,
+    folded_memarg: address_fold.folded_memarg,
+    folded_address: address_fold.folded_address,
+    rewrite: [address_fold.folded_address, folded_load],
   })
 }
 
@@ -26881,21 +26955,20 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
   let address = instrs[start]
   let value = instrs[start + 1]
   let store_instr = instrs[start + 2]
-  let original_memarg = match
-    run_hot_pipeline_raw_optimize_instructions_store_memarg(store_instr) {
-    Some(memarg) => memarg
-    None => return None
+  let access = match
+    RawOiMemoryAccessMemargFact::from_store_instr(store_instr) {
+    Some(fact) if fact.proves_store_access() => fact
+    _ => return None
   }
-  let (folded_address, folded_memarg) = match
-    run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
-      address, original_memarg,
-    ) {
-    Some(result) => result
-    None => return None
+  let address_fold = match
+    RawOiConstAddressOffsetFoldFact::from_parts(address, access.memarg) {
+    Some(fact) if fact.proves_binaryen_memory_offset_fold() => fact
+    _ => return None
   }
   let folded_store = match
-    run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
-      store_instr, folded_memarg,
+    RawOiMemoryAccessMemargFact::store_rewrite_with_memarg(
+      store_instr,
+      address_fold.folded_memarg,
     ) {
     Some(instr) => instr
     None => return None
@@ -26904,10 +26977,10 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
     end: start + 3,
     is_load: false,
     is_store: true,
-    original_memarg,
-    folded_memarg,
-    folded_address,
-    rewrite: [folded_address, value, folded_store],
+    original_memarg: access.memarg,
+    folded_memarg: address_fold.folded_memarg,
+    folded_address: address_fold.folded_address,
+    rewrite: [address_fold.folded_address, value, folded_store],
   })
 }
 
@@ -27342,24 +27415,25 @@ fn RawOiMemoryLocalTeeRegionFact::from_instrs(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_store_bits(
-  instr : @lib.Instruction,
-) -> Int? {
-  match instr {
-    @lib.I32Store8(_) | @lib.I64Store8(_) => Some(8)
-    @lib.I32Store16(_) | @lib.I64Store16(_) => Some(16)
-    @lib.I64Store32(_) => Some(32)
-    _ => None
-  }
+// Raw OI-G narrow-store access fact for `optimizeStoredValue`. Binaryen drops
+// an i32 `and` mask only for byte/halfword i32 stores; i64 stores and i64.store32
+// are tracked as explicit boundaries.
+priv struct RawOiNarrowStoreAccessFact {
+  store_bits : Int
+  is_i64_store : Bool
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_store_is_i64(
+fn RawOiNarrowStoreAccessFact::from_instr(
   instr : @lib.Instruction,
-) -> Bool {
+) -> RawOiNarrowStoreAccessFact? {
   match instr {
-    @lib.I64Store8(_) | @lib.I64Store16(_) | @lib.I64Store32(_) => true
-    _ => false
+    @lib.I32Store8(_) => Some({ store_bits: 8, is_i64_store: false })
+    @lib.I64Store8(_) => Some({ store_bits: 8, is_i64_store: true })
+    @lib.I32Store16(_) => Some({ store_bits: 16, is_i64_store: false })
+    @lib.I64Store16(_) => Some({ store_bits: 16, is_i64_store: true })
+    @lib.I64Store32(_) => Some({ store_bits: 32, is_i64_store: true })
+    _ => None
   }
 }
 
@@ -27399,11 +27473,11 @@ fn RawOiNarrowStoreMaskFact::from_parts(
   and_instr : @lib.Instruction,
   store_instr : @lib.Instruction,
 ) -> RawOiNarrowStoreMaskFact? {
-  let store_bits = match
-    run_hot_pipeline_raw_optimize_instructions_store_bits(store_instr) {
-    Some(bits) => bits
+  let access = match RawOiNarrowStoreAccessFact::from_instr(store_instr) {
+    Some(fact) => fact
     None => return None
   }
+  let store_bits = access.store_bits
   let exact_i32_and = match and_instr {
     @lib.I32And => true
     _ => false
@@ -27412,9 +27486,7 @@ fn RawOiNarrowStoreMaskFact::from_parts(
     return None
   }
   let required_mask = (1 << store_bits) - 1
-  let i64_store_boundary = run_hot_pipeline_raw_optimize_instructions_store_is_i64(
-    store_instr,
-  )
+  let i64_store_boundary = access.is_i64_store
   match (lhs, rhs) {
     (@lib.I32Const(@lib.I32(mask)), @lib.I32Const(_)) if mask == required_mask =>
       Some({
@@ -27556,161 +27628,191 @@ fn RawOiDropStoreMaskRewriteFact::from_instrs(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_repeated_fill_i32(
-  raw : Int,
+// Raw OI-G repeated-byte fill value fact. Binaryen v130 lowers constant-size
+// memory.fill by repeating the low byte of an i32 constant into the store value;
+// keep the byte, size, and rewritten value together instead of ad hoc helpers.
+priv struct RawOiRepeatedFillValueFact {
+  size : Int
+  byte : UInt
+  value : @lib.Instruction
+}
+
+///|
+fn RawOiRepeatedFillValueFact::proves_binaryen_repeated_byte_value(
+  self : RawOiRepeatedFillValueFact,
+) -> Bool {
+  ignore(self.value)
+  self.size >= 1 && self.size <= 16 && self.byte <= 0xffU
+}
+
+///|
+fn RawOiRepeatedFillValueFact::from_value_and_size(
+  value : @lib.Instruction,
   size : Int,
-) -> @lib.I32? {
-  let byte = raw.reinterpret_as_uint() & 0xff
+) -> RawOiRepeatedFillValueFact? {
   match size {
-    1 => Some(@lib.I32(byte.reinterpret_as_int()))
-    2 => Some(@lib.I32((byte | (byte << 8)).reinterpret_as_int()))
-    4 =>
-      Some(
-        @lib.I32(
-          (byte | (byte << 8) | (byte << 16) | (byte << 24)).reinterpret_as_int(),
-        ),
-      )
+    1 => Some({ size, byte: 0U, value })
+    2 | 4 | 8 | 16 =>
+      match value {
+        @lib.I32Const(@lib.I32(raw)) => {
+          let byte = raw.reinterpret_as_uint() & 0xff
+          let repeated = match size {
+            2 =>
+              @lib.Instruction::i32_const(
+                @lib.I32((byte | (byte << 8)).reinterpret_as_int()),
+              )
+            4 =>
+              @lib.Instruction::i32_const(
+                @lib.I32(
+                  (byte | (byte << 8) | (byte << 16) | (byte << 24)).reinterpret_as_int(),
+                ),
+              )
+            8 => {
+              let byte64 = byte.to_uint64()
+              @lib.Instruction::i64_const(
+                @lib.I64(
+                  (byte64 |
+                  (byte64 << 8) |
+                  (byte64 << 16) |
+                  (byte64 << 24) |
+                  (byte64 << 32) |
+                  (byte64 << 40) |
+                  (byte64 << 48) |
+                  (byte64 << 56)).reinterpret_as_int64(),
+                ),
+              )
+            }
+            16 => {
+              let raw_byte = byte.to_byte()
+              @lib.Instruction::v128_const(
+                raw_byte, raw_byte, raw_byte, raw_byte, raw_byte, raw_byte, raw_byte,
+                raw_byte, raw_byte, raw_byte, raw_byte, raw_byte, raw_byte, raw_byte,
+                raw_byte, raw_byte,
+              )
+            }
+            _ => return None
+          }
+          Some({ size, byte, value: repeated })
+        }
+        _ => None
+      }
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_repeated_fill_i64(
-  raw : Int,
-) -> @lib.I64 {
-  let byte = (raw.reinterpret_as_uint() & 0xff).to_uint64()
-  @lib.I64(
-    (byte |
-    (byte << 8) |
-    (byte << 16) |
-    (byte << 24) |
-    (byte << 32) |
-    (byte << 40) |
-    (byte << 48) |
-    (byte << 56)).reinterpret_as_int64(),
-  )
+// Raw OI-G memory.copy lowering fact. Binaryen replaces tiny constant-size
+// copies with a load/store pair using zero-offset memargs for the source and
+// destination memories; this fact owns the size-to-opcode mapping.
+priv struct RawOiBulkCopyLoadStoreFact {
+  size : Int
+  src_mem : @lib.MemIdx
+  dst_mem : @lib.MemIdx
+  load : @lib.Instruction
+  store : @lib.Instruction
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_repeated_fill_v128(
-  raw : Int,
-) -> @lib.Instruction {
-  let byte = (raw.reinterpret_as_uint() & 0xff).to_byte()
-  @lib.Instruction::v128_const(
-    byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte,
-    byte, byte, byte,
-  )
+fn RawOiBulkCopyLoadStoreFact::proves_binaryen_copy_load_store(
+  self : RawOiBulkCopyLoadStoreFact,
+) -> Bool {
+  ignore(self.load)
+  ignore(self.store)
+  ignore(self.src_mem)
+  ignore(self.dst_mem)
+  self.size == 1 ||
+  self.size == 2 ||
+  self.size == 4 ||
+  self.size == 8 ||
+  self.size == 16
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+fn RawOiBulkCopyLoadStoreFact::from_parts(
   size : Int,
   src_mem : @lib.MemIdx,
   dst_mem : @lib.MemIdx,
-) -> (@lib.Instruction, @lib.Instruction)? {
-  let src_memarg = run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
-    src_mem,
-  )
-  let dst_memarg = run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
-    dst_mem,
-  )
-  match size {
+) -> RawOiBulkCopyLoadStoreFact? {
+  let src_memarg_fact = RawOiZeroOffsetMemargFact::from_mem_idx(src_mem)
+  let dst_memarg_fact = RawOiZeroOffsetMemargFact::from_mem_idx(dst_mem)
+  if !src_memarg_fact.proves_binaryen_zero_offset_memarg() ||
+    !dst_memarg_fact.proves_binaryen_zero_offset_memarg() {
+    return None
+  }
+  let src_memarg = src_memarg_fact.memarg
+  let dst_memarg = dst_memarg_fact.memarg
+  let (load, store) = match size {
     1 =>
-      Some(
-        (
-          @lib.Instruction::i32_load8u(src_memarg),
-          @lib.Instruction::i32_store8(dst_memarg),
-        ),
+      (
+        @lib.Instruction::i32_load8u(src_memarg),
+        @lib.Instruction::i32_store8(dst_memarg),
       )
     2 =>
-      Some(
-        (
-          @lib.Instruction::i32_load16u(src_memarg),
-          @lib.Instruction::i32_store16(dst_memarg),
-        ),
+      (
+        @lib.Instruction::i32_load16u(src_memarg),
+        @lib.Instruction::i32_store16(dst_memarg),
       )
     4 =>
-      Some(
-        (
-          @lib.Instruction::i32_load(src_memarg),
-          @lib.Instruction::i32_store(dst_memarg),
-        ),
+      (
+        @lib.Instruction::i32_load(src_memarg),
+        @lib.Instruction::i32_store(dst_memarg),
       )
     8 =>
-      Some(
-        (
-          @lib.Instruction::i64_load(src_memarg),
-          @lib.Instruction::i64_store(dst_memarg),
-        ),
+      (
+        @lib.Instruction::i64_load(src_memarg),
+        @lib.Instruction::i64_store(dst_memarg),
       )
     16 =>
-      Some(
-        (
-          @lib.Instruction::v128_load(src_memarg),
-          @lib.Instruction::v128_store(dst_memarg),
-        ),
+      (
+        @lib.Instruction::v128_load(src_memarg),
+        @lib.Instruction::v128_store(dst_memarg),
       )
-    _ => None
+    _ => return None
   }
+  Some({ size, src_mem, dst_mem, load, store })
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_fill_value_instr(
-  value : @lib.Instruction,
-  size : Int,
-) -> @lib.Instruction? {
-  match size {
-    1 => Some(value)
-    2 | 4 =>
-      match value {
-        @lib.I32Const(@lib.I32(raw)) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_repeated_fill_i32(
-              raw, size,
-            ) {
-            Some(repeated) => Some(@lib.Instruction::i32_const(repeated))
-            None => None
-          }
-        _ => None
-      }
-    8 =>
-      match value {
-        @lib.I32Const(@lib.I32(raw)) =>
-          Some(
-            @lib.Instruction::i64_const(
-              run_hot_pipeline_raw_optimize_instructions_repeated_fill_i64(raw),
-            ),
-          )
-        _ => None
-      }
-    16 =>
-      match value {
-        @lib.I32Const(@lib.I32(raw)) =>
-          Some(
-            run_hot_pipeline_raw_optimize_instructions_repeated_fill_v128(raw),
-          )
-        _ => None
-      }
-    _ => None
-  }
+// Raw OI-G memory.fill lowering store fact. The value proof is separate in
+// RawOiRepeatedFillValueFact; this fact records Binaryen's size-to-store mapping.
+priv struct RawOiBulkFillStoreFact {
+  size : Int
+  mem : @lib.MemIdx
+  store : @lib.Instruction
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
+fn RawOiBulkFillStoreFact::proves_binaryen_fill_store(
+  self : RawOiBulkFillStoreFact,
+) -> Bool {
+  ignore(self.store)
+  ignore(self.mem)
+  self.size == 1 ||
+  self.size == 2 ||
+  self.size == 4 ||
+  self.size == 8 ||
+  self.size == 16
+}
+
+///|
+fn RawOiBulkFillStoreFact::from_parts(
   size : Int,
   mem : @lib.MemIdx,
-) -> @lib.Instruction? {
-  let memarg = run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
-    mem,
-  )
-  match size {
-    1 => Some(@lib.Instruction::i32_store8(memarg))
-    2 => Some(@lib.Instruction::i32_store16(memarg))
-    4 => Some(@lib.Instruction::i32_store(memarg))
-    8 => Some(@lib.Instruction::i64_store(memarg))
-    16 => Some(@lib.Instruction::v128_store(memarg))
-    _ => None
+) -> RawOiBulkFillStoreFact? {
+  let memarg_fact = RawOiZeroOffsetMemargFact::from_mem_idx(mem)
+  if !memarg_fact.proves_binaryen_zero_offset_memarg() {
+    return None
   }
+  let memarg = memarg_fact.memarg
+  let store = match size {
+    1 => @lib.Instruction::i32_store8(memarg)
+    2 => @lib.Instruction::i32_store16(memarg)
+    4 => @lib.Instruction::i32_store(memarg)
+    8 => @lib.Instruction::i64_store(memarg)
+    16 => @lib.Instruction::v128_store(memarg)
+    _ => return None
+  }
+  Some({ size, mem, store })
 }
 
 ///|
@@ -27894,16 +27996,13 @@ fn RawOiBulkLoweringRewriteFact::copy_from_parts(
   operands_are_plain_static_size : Bool,
   operands_are_i32_const_add_addresses : Bool,
 ) -> RawOiBulkLoweringRewriteFact? {
-  match
-    run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-      size, src_mem, dst_mem,
-    ) {
-    Some((load_instr, store_instr)) => {
+  match RawOiBulkCopyLoadStoreFact::from_parts(size, src_mem, dst_mem) {
+    Some(copy_access) if copy_access.proves_binaryen_copy_load_store() => {
       let rewrite : Array[@lib.Instruction] = []
       run_hot_pipeline_raw_oi_push_instrs(rewrite, dest)
       run_hot_pipeline_raw_oi_push_instrs(rewrite, source)
-      rewrite.push(load_instr)
-      rewrite.push(store_instr)
+      rewrite.push(copy_access.load)
+      rewrite.push(copy_access.store)
       Some({
         end,
         size,
@@ -27916,7 +28015,7 @@ fn RawOiBulkLoweringRewriteFact::copy_from_parts(
         rewrite,
       })
     }
-    None => None
+    _ => None
   }
 }
 
@@ -27932,14 +28031,15 @@ fn RawOiBulkLoweringRewriteFact::fill_from_parts(
 ) -> RawOiBulkLoweringRewriteFact? {
   match
     (
-      run_hot_pipeline_raw_optimize_instructions_fill_value_instr(value, size),
-      run_hot_pipeline_raw_optimize_instructions_fill_store_instr(size, mem),
+      RawOiRepeatedFillValueFact::from_value_and_size(value, size),
+      RawOiBulkFillStoreFact::from_parts(size, mem),
     ) {
-    (Some(fill_value), Some(store_instr)) => {
+    (Some(fill_value), Some(fill_store)) if fill_value.proves_binaryen_repeated_byte_value() &&
+      fill_store.proves_binaryen_fill_store() => {
       let rewrite : Array[@lib.Instruction] = []
       run_hot_pipeline_raw_oi_push_instrs(rewrite, dest)
-      rewrite.push(fill_value)
-      rewrite.push(store_instr)
+      rewrite.push(fill_value.value)
+      rewrite.push(fill_store.store)
       Some({
         end,
         size,
