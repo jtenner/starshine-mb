@@ -26639,38 +26639,195 @@ fn run_hot_pipeline_raw_optimize_instructions_store_is_i64(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
+// Raw OI-G narrow-store mask fact for the flat dispatcher. Binaryen v130's
+// `optimizeStoredValue` only drops exact i32 low-bit masks before byte/halfword
+// stores; i64 store masks and superset masks remain boundaries. The raw bridge
+// records the store width, mask side, and constant-constant guard explicitly
+// instead of keeping the decision as an effectful-sibling window helper.
+priv struct RawOiNarrowStoreMaskFact {
+  store_bits : Int
+  required_mask : Int
+  value : @lib.Instruction
+  mask_on_left : Bool
+  mask_on_right : Bool
+  exact_i32_and : Bool
+  i64_store_boundary : Bool
+  const_const_boundary : Bool
+}
+
+///|
+fn RawOiNarrowStoreMaskFact::proves_binaryen_i32_narrow_store_mask(
+  self : RawOiNarrowStoreMaskFact,
+) -> Bool {
+  self.exact_i32_and &&
+  !self.i64_store_boundary &&
+  !self.const_const_boundary &&
+  (self.store_bits == 8 || self.store_bits == 16) &&
+  self.required_mask == (1 << self.store_bits) - 1 &&
+  (self.mask_on_left || self.mask_on_right)
+}
+
+///|
+fn RawOiNarrowStoreMaskFact::from_parts(
   lhs : @lib.Instruction,
   rhs : @lib.Instruction,
   and_instr : @lib.Instruction,
   store_instr : @lib.Instruction,
-) -> @lib.Instruction? {
-  let bits = match
+) -> RawOiNarrowStoreMaskFact? {
+  let store_bits = match
     run_hot_pipeline_raw_optimize_instructions_store_bits(store_instr) {
     Some(bits) => bits
     None => return None
   }
-  // Match Binaryen version_130's narrow-store mask surface: only exact i32
-  // low-bit masks are dropped before i32.store8/16. Superset masks and all i64
-  // masks are preserved, including the raw-skip dispatcher path used for large
-  // optimize-instructions functions.
-  if run_hot_pipeline_raw_optimize_instructions_store_is_i64(store_instr) {
+  let exact_i32_and = match and_instr {
+    @lib.I32And => true
+    _ => false
+  }
+  if !exact_i32_and {
     return None
   }
-  match and_instr {
-    @lib.I32And => ()
-    _ => return None
-  }
-  let required_mask = (1 << bits) - 1
+  let required_mask = (1 << store_bits) - 1
+  let i64_store_boundary = run_hot_pipeline_raw_optimize_instructions_store_is_i64(
+    store_instr,
+  )
   match (lhs, rhs) {
     (@lib.I32Const(@lib.I32(mask)), @lib.I32Const(_)) if mask == required_mask =>
-      None
+      Some({
+        store_bits,
+        required_mask,
+        value: rhs,
+        mask_on_left: true,
+        mask_on_right: false,
+        exact_i32_and,
+        i64_store_boundary,
+        const_const_boundary: true,
+      })
     (@lib.I32Const(@lib.I32(mask)), value) if mask == required_mask =>
-      Some(value)
+      Some({
+        store_bits,
+        required_mask,
+        value,
+        mask_on_left: true,
+        mask_on_right: false,
+        exact_i32_and,
+        i64_store_boundary,
+        const_const_boundary: false,
+      })
     (value, @lib.I32Const(@lib.I32(mask))) if mask == required_mask =>
-      Some(value)
+      Some({
+        store_bits,
+        required_mask,
+        value,
+        mask_on_left: false,
+        mask_on_right: true,
+        exact_i32_and,
+        i64_store_boundary,
+        const_const_boundary: false,
+      })
     _ => None
   }
+}
+
+///|
+priv struct RawOiDropStoreMaskRewriteFact {
+  end : Int
+  folded_const_add_address : Bool
+  address : @lib.Instruction
+  value : @lib.Instruction
+  store : @lib.Instruction
+  mask : RawOiNarrowStoreMaskFact
+}
+
+///|
+fn RawOiDropStoreMaskRewriteFact::proves_binaryen_i32_narrow_store_mask(
+  self : RawOiDropStoreMaskRewriteFact,
+) -> Bool {
+  ignore(self.folded_const_add_address)
+  self.mask.proves_binaryen_i32_narrow_store_mask()
+}
+
+///|
+fn RawOiDropStoreMaskRewriteFact::append_rewrite(
+  self : RawOiDropStoreMaskRewriteFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_i32_narrow_store_mask() {
+    out.push(self.address)
+    out.push(self.value)
+    out.push(self.store)
+  }
+}
+
+///|
+fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDropStoreMaskRewriteFact? {
+  let address = match RawOiI32ConstAddAddressFact::from_instrs(instrs, start) {
+    Some(fact) => fact
+    None => return None
+  }
+  if address.end + 3 >= instrs.length() {
+    return None
+  }
+  let mask = match
+    RawOiNarrowStoreMaskFact::from_parts(
+      instrs[address.end],
+      instrs[address.end + 1],
+      instrs[address.end + 2],
+      instrs[address.end + 3],
+    ) {
+    Some(fact) if fact.proves_binaryen_i32_narrow_store_mask() => fact
+    _ => return None
+  }
+  Some({
+    end: address.end + 4,
+    folded_const_add_address: true,
+    address: address.value,
+    value: mask.value,
+    store: instrs[address.end + 3],
+    mask,
+  })
+}
+
+///|
+fn RawOiDropStoreMaskRewriteFact::from_plain_address(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDropStoreMaskRewriteFact? {
+  if start + 4 >= instrs.length() {
+    return None
+  }
+  let mask = match
+    RawOiNarrowStoreMaskFact::from_parts(
+      instrs[start + 1],
+      instrs[start + 2],
+      instrs[start + 3],
+      instrs[start + 4],
+    ) {
+    Some(fact) if fact.proves_binaryen_i32_narrow_store_mask() => fact
+    _ => return None
+  }
+  Some({
+    end: start + 5,
+    folded_const_add_address: false,
+    address: instrs[start],
+    value: mask.value,
+    store: instrs[start + 4],
+    mask,
+  })
+}
+
+///|
+fn RawOiDropStoreMaskRewriteFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDropStoreMaskRewriteFact? {
+  match RawOiDropStoreMaskRewriteFact::from_const_add_address(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiDropStoreMaskRewriteFact::from_plain_address(instrs, start)
 }
 
 ///|
@@ -29292,65 +29449,16 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
         _ => ()
       }
     }
-    if i + 6 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-        ) {
-        (
-          @lib.I32Const(@lib.I32(addr_lhs)),
-          @lib.I32Const(@lib.I32(addr_rhs)),
-          @lib.I32Add,
-          lhs,
-          rhs,
-          and_instr,
-          store_instr,
-        ) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
-              lhs, rhs, and_instr, store_instr,
-            ) {
-            Some(value) => {
-              let addr = @lib.I32(
-                (addr_lhs.reinterpret_as_uint() + addr_rhs.reinterpret_as_uint()).reinterpret_as_int(),
-              )
-              rewritten.push(@lib.Instruction::i32_const(addr))
-              rewritten.push(value)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 7
-              continue
-            }
-            None => ()
-          }
-        _ => ()
+    match RawOiDropStoreMaskRewriteFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
+      None => ()
     }
     if i + 4 < instrs.length() {
-      match
-        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
-        (addr, lhs, rhs, and_instr, store_instr) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
-              lhs, rhs, and_instr, store_instr,
-            ) {
-            Some(value) => {
-              rewritten.push(addr)
-              rewritten.push(value)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 5
-              continue
-            }
-            None => ()
-          }
-      }
       match
         (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
         (
