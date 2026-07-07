@@ -18715,110 +18715,6 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root(
-  func : @ir.HotFunc,
-  block_id : Int,
-  root_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, root_id).op {
-    @ir.HotOp::BrOnNonNull =>
-      optimize_instructions_descriptor_label_is_internal_to_expr(
-        func,
-        block_id,
-        @ir.hot_node_get(func, root_id).imm0,
-      )
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_is_escaping_br_if_root(
-  func : @ir.HotFunc,
-  block_id : Int,
-  root_id : Int,
-) -> Bool {
-  let root = @ir.hot_node_get(func, root_id)
-  match root.op {
-    @ir.HotOp::BrIf => ()
-    _ => return false
-  }
-  if optimize_instructions_descriptor_label_is_internal_to_expr(
-      func,
-      block_id,
-      root.imm0,
-    ) ||
-    !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
-      func, root_id,
-    ) {
-    return false
-  }
-  for slot = 0; slot < root.child_count; slot = slot + 1 {
-    if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func,
-        block_id,
-        @ir.hot_child_get(func, root_id, slot),
-      ) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
-  func : @ir.HotFunc,
-  block_id : Int,
-  root_id : Int,
-) -> Bool {
-  let root = @ir.hot_node_get(func, root_id)
-  match root.op {
-    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => ()
-    _ => return false
-  }
-  if !optimize_instructions_descriptor_label_is_internal_to_expr(
-      func,
-      block_id,
-      root.imm0,
-    ) ||
-    @ir.hot_child_count(func, root_id) != 1 {
-    return false
-  }
-  let (source_nullable, target_nullable, source_heap, target_heap) = match
-    @ir.hot_node_exact_instr(func, root_id) {
-    Some(
-      @lib.Instruction::BrOnCast(
-        _,
-        @lib.CastOp(src_null, dst_null),
-        src_heap,
-        dst_heap
-      )
-    ) => (src_null, dst_null, src_heap, dst_heap)
-    Some(
-      @lib.Instruction::BrOnCastFail(
-        _,
-        @lib.CastOp(src_null, dst_null),
-        src_heap,
-        dst_heap
-      )
-    ) => (src_null, dst_null, src_heap, dst_heap)
-    _ => return false
-  }
-  if !source_nullable || target_nullable || source_heap != target_heap {
-    return false
-  }
-  let nullable_ref = @ir.hot_child_get(func, root_id, 0)
-  match @ir.hot_node_get(func, nullable_ref).op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_type_results(func, @ir.hot_node_type(func, nullable_ref)) {
-        [@lib.ValType::RefTypeValType(ref_type)] =>
-          ref_type.is_nullable() && ref_type.get_heap_type() == source_heap
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
 fn optimize_instructions_standalone_ref_get_desc_label_owner_is(
   func : @ir.HotFunc,
   label_id : Int,
@@ -18830,100 +18726,355 @@ fn optimize_instructions_standalone_ref_get_desc_label_owner_is(
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_is_br_on_null_local_root(
-  func : @ir.HotFunc,
-  block_id : Int,
-  root_id : Int,
-) -> Bool {
-  let root = @ir.hot_node_get(func, root_id)
-  match root.op {
-    @ir.HotOp::BrOnNull => ()
-    _ => return false
-  }
-  if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
-      func,
-      root.imm0,
-      block_id,
-    ) ||
-    @ir.hot_child_count(func, root_id) != 1 {
-    return false
-  }
-  let nullable_ref = @ir.hot_child_get(func, root_id, 0)
-  match @ir.hot_node_get(func, nullable_ref).op {
-    @ir.HotOp::LocalGet =>
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, nullable_ref,
-      )
-    _ => false
+priv struct OiStandaloneRefGetDescRootShapeFact {
+  live : Bool
+  no_results : Bool
+  disallowed_control_or_multivalue : Bool
+  internal_br_on_non_null_root : Bool
+  escaping_br_if_root : Bool
+  internal_br_on_cast_root : Bool
+  br_on_null_local_root : Bool
+  internal_br_on_null_trampoline_root : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::empty() -> OiStandaloneRefGetDescRootShapeFact {
+  {
+    live: false,
+    no_results: false,
+    disallowed_control_or_multivalue: false,
+    internal_br_on_non_null_root: false,
+    escaping_br_if_root: false,
+    internal_br_on_cast_root: false,
+    br_on_null_local_root: false,
+    internal_br_on_null_trampoline_root: false,
   }
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_is_internal_br_on_null_trampoline_root(
+fn OiStandaloneRefGetDescRootShapeFact::from_root(
   func : @ir.HotFunc,
   block_id : Int,
   root_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, root_id).op {
-    @ir.HotOp::Block => ()
-    _ => return false
+) -> OiStandaloneRefGetDescRootShapeFact {
+  // Standalone ref.get_desc null-check movement accepts only a represented
+  // block-root subset: internal br_on_non_null, escaping br_if with safe
+  // children, internal br_on_cast/fail over a nullable local, br_on_null local
+  // roots, and a tiny br_on_null trampoline block. Keep those root predicates in
+  // a fact so callers no longer own parallel root-shape scanners.
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return OiStandaloneRefGetDescRootShapeFact::empty()
   }
-  if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
-      func, root_id,
-    ) {
-    return false
+  let root = @ir.hot_node_get(func, root_id)
+  let no_results = optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+    func, root_id,
+  )
+  let disallowed_control_or_multivalue = OiStandaloneRefGetDescControlShapeFact::from_node(
+    func, block_id, root_id,
+  ).proves_disallowed_control_or_multivalue()
+  let internal_br_on_non_null_root = match root.op {
+    @ir.HotOp::BrOnNonNull =>
+      OiDescriptorInternalLabelFact::from_label(func, block_id, root.imm0).proves_internal()
+    _ => false
   }
-  let inner_label = @ir.hot_control_node_label(func, root_id)
-  if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
-      func, inner_label, root_id,
-    ) ||
-    @ir.hot_label_branch_arity(func, inner_label) != 0 {
-    return false
-  }
-  let body = @ir.hot_region_body_ref(func, root_id)
-  let root_count = @ir.hot_region_root_count(func, body)
-  if root_count == 1 {
-    let branch_id = @ir.hot_region_get(func, body, 0)
-    let branch = @ir.hot_node_get(func, branch_id)
-    match branch.op {
-      @ir.HotOp::Br => ()
-      _ => return false
+  let escaping_br_if_root = match root.op {
+    @ir.HotOp::BrIf => {
+      let mut child_disallowed = false
+      for slot = 0; slot < root.child_count; slot = slot + 1 {
+        child_disallowed = child_disallowed ||
+          OiStandaloneRefGetDescControlShapeFact::from_node(
+            func,
+            block_id,
+            @ir.hot_child_get(func, root_id, slot),
+          ).proves_disallowed_control_or_multivalue()
+      }
+      !OiDescriptorInternalLabelFact::from_label(func, block_id, root.imm0).proves_internal() &&
+      no_results &&
+      !child_disallowed
     }
-    if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
+    _ => false
+  }
+  let internal_br_on_cast_root = match root.op {
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
+      if !OiDescriptorInternalLabelFact::from_label(func, block_id, root.imm0).proves_internal() ||
+        @ir.hot_child_count(func, root_id) != 1 {
+        false
+      } else {
+        let cast_operands = match @ir.hot_node_exact_instr(func, root_id) {
+          Some(
+            @lib.Instruction::BrOnCast(
+              _,
+              @lib.CastOp(src_null, dst_null),
+              src_heap,
+              dst_heap
+            )
+          ) => Some((src_null, dst_null, src_heap, dst_heap))
+          Some(
+            @lib.Instruction::BrOnCastFail(
+              _,
+              @lib.CastOp(src_null, dst_null),
+              src_heap,
+              dst_heap
+            )
+          ) => Some((src_null, dst_null, src_heap, dst_heap))
+          _ => None
+        }
+        match cast_operands {
+          Some((source_nullable, target_nullable, source_heap, target_heap)) =>
+            if !source_nullable || target_nullable || source_heap != target_heap {
+              false
+            } else {
+              let nullable_ref = @ir.hot_child_get(func, root_id, 0)
+              match @ir.hot_node_get(func, nullable_ref).op {
+                @ir.HotOp::LocalGet =>
+                  match
+                    @ir.hot_type_results(
+                      func,
+                      @ir.hot_node_type(func, nullable_ref),
+                    ) {
+                    [@lib.ValType::RefTypeValType(ref_type)] =>
+                      ref_type.is_nullable() &&
+                      ref_type.get_heap_type() == source_heap
+                    _ => false
+                  }
+                _ => false
+              }
+            }
+          None => false
+        }
+      }
+    _ => false
+  }
+  let br_on_null_local_root = match root.op {
+    @ir.HotOp::BrOnNull =>
+      optimize_instructions_standalone_ref_get_desc_label_owner_is(
         func,
-        branch.imm0,
+        root.imm0,
         block_id,
-      ) ||
-      @ir.hot_child_count(func, branch_id) != 1 {
-      return false
-    }
-    optimize_instructions_standalone_ref_get_desc_is_br_on_null_local_root(
-      func,
-      root_id,
-      @ir.hot_child_get(func, branch_id, 0),
-    )
-  } else if root_count == 2 {
-    let null_branch = @ir.hot_region_get(func, body, 0)
-    let value_branch = @ir.hot_region_get(func, body, 1)
-    if !optimize_instructions_standalone_ref_get_desc_is_br_on_null_local_root(
-        func, root_id, null_branch,
-      ) {
-      return false
-    }
-    let branch = @ir.hot_node_get(func, value_branch)
-    match branch.op {
-      @ir.HotOp::Br =>
-        optimize_instructions_standalone_ref_get_desc_label_owner_is(
-          func,
-          branch.imm0,
-          block_id,
-        ) &&
-        @ir.hot_child_count(func, value_branch) == 0
-      _ => false
-    }
-  } else {
-    false
+      ) &&
+      @ir.hot_child_count(func, root_id) == 1 &&
+      (match @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op {
+        @ir.HotOp::LocalGet =>
+          optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+            func,
+            @ir.hot_child_get(func, root_id, 0),
+          )
+        _ => false
+      })
+    _ => false
   }
+  let internal_br_on_null_trampoline_root = match root.op {
+    @ir.HotOp::Block =>
+      if !no_results {
+        false
+      } else {
+        let inner_label = @ir.hot_control_node_label(func, root_id)
+        if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
+            func, inner_label, root_id,
+          ) ||
+          @ir.hot_label_branch_arity(func, inner_label) != 0 {
+          false
+        } else {
+          let body = @ir.hot_region_body_ref(func, root_id)
+          let root_count = @ir.hot_region_root_count(func, body)
+          if root_count == 1 {
+            let branch_id = @ir.hot_region_get(func, body, 0)
+            let branch = @ir.hot_node_get(func, branch_id)
+            match branch.op {
+              @ir.HotOp::Br =>
+                optimize_instructions_standalone_ref_get_desc_label_owner_is(
+                  func,
+                  branch.imm0,
+                  block_id,
+                ) &&
+                @ir.hot_child_count(func, branch_id) == 1 &&
+                OiStandaloneRefGetDescRootShapeFact::from_root(
+                  func,
+                  root_id,
+                  @ir.hot_child_get(func, branch_id, 0),
+                ).proves_br_on_null_local_root()
+              _ => false
+            }
+          } else if root_count == 2 {
+            let null_branch = @ir.hot_region_get(func, body, 0)
+            let value_branch = @ir.hot_region_get(func, body, 1)
+            if !OiStandaloneRefGetDescRootShapeFact::from_root(
+                func, root_id, null_branch,
+              ).proves_br_on_null_local_root() {
+              false
+            } else {
+              let branch = @ir.hot_node_get(func, value_branch)
+              match branch.op {
+                @ir.HotOp::Br =>
+                  optimize_instructions_standalone_ref_get_desc_label_owner_is(
+                    func,
+                    branch.imm0,
+                    block_id,
+                  ) &&
+                  @ir.hot_child_count(func, value_branch) == 0
+                _ => false
+              }
+            }
+          } else {
+            false
+          }
+        }
+      }
+    _ => false
+  }
+  {
+    live: true,
+    no_results,
+    disallowed_control_or_multivalue,
+    internal_br_on_non_null_root,
+    escaping_br_if_root,
+    internal_br_on_cast_root,
+    br_on_null_local_root,
+    internal_br_on_null_trampoline_root,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_internal_br_on_non_null_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.internal_br_on_non_null_root
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_escaping_br_if_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.escaping_br_if_root
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_internal_br_on_cast_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.internal_br_on_cast_root
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_br_on_null_local_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.br_on_null_local_root
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_internal_br_on_null_trampoline_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.internal_br_on_null_trampoline_root
+}
+
+///|
+priv struct OiStandaloneRefGetDescBlockMoveFact {
+  live : Bool
+  single_nullable_ref_result : Bool
+  nonempty_region : Bool
+  prefix_roots_allowed : Bool
+  saw_internal_ref_branch : Bool
+  final_root_allowed : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescBlockMoveFact::from_block(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> OiStandaloneRefGetDescBlockMoveFact {
+  // This fact is the represented standalone ref.get_desc block-child proof: all
+  // prefix roots must be void, free of unsupported nested control/multivalue,
+  // or one of the supported branch roots, and the final root must preserve the
+  // nullable reference/control handoff shape.
+  let empty = {
+    live: false,
+    single_nullable_ref_result: false,
+    nonempty_region: false,
+    prefix_roots_allowed: false,
+    saw_internal_ref_branch: false,
+    final_root_allowed: false,
+  }
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return empty
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return empty
+  }
+  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, block_id,
+  )
+  if !single_nullable_ref_result {
+    return { ..empty, live: true }
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  let root_count = @ir.hot_region_root_count(func, body)
+  if root_count == 0 {
+    return { ..empty, live: true, single_nullable_ref_result }
+  }
+  let mut prefix_roots_allowed = true
+  let mut saw_internal_ref_branch = false
+  for slot = 0; slot < root_count - 1; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, body, slot)
+    let root_fact = OiStandaloneRefGetDescRootShapeFact::from_root(
+      func, block_id, root_id,
+    )
+    if !root_fact.no_results {
+      prefix_roots_allowed = false
+    } else if root_fact.proves_internal_br_on_null_trampoline_root() {
+      saw_internal_ref_branch = true
+    } else if root_fact.proves_escaping_br_if_root() {
+      ()
+    } else if root_fact.disallowed_control_or_multivalue {
+      prefix_roots_allowed = false
+    } else if root_fact.proves_internal_br_on_non_null_root() {
+      saw_internal_ref_branch = true
+    }
+  }
+  let final_id = @ir.hot_region_get(func, body, root_count - 1)
+  let final_fact = OiStandaloneRefGetDescRootShapeFact::from_root(
+    func, block_id, final_id,
+  )
+  let final_root_allowed = match @ir.hot_node_get(func, final_id).op {
+    @ir.HotOp::LocalGet =>
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, final_id,
+      ) &&
+      !final_fact.disallowed_control_or_multivalue
+    @ir.HotOp::RefNull =>
+      saw_internal_ref_branch &&
+      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+        func, final_id,
+      ) &&
+      !final_fact.disallowed_control_or_multivalue
+    @ir.HotOp::Br | @ir.HotOp::BrTable =>
+      final_fact.no_results && !final_fact.disallowed_control_or_multivalue
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
+      final_fact.proves_internal_br_on_cast_root()
+    _ => false
+  }
+  {
+    live: true,
+    single_nullable_ref_result,
+    nonempty_region: true,
+    prefix_roots_allowed,
+    saw_internal_ref_branch,
+    final_root_allowed,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescBlockMoveFact::proves_can_move_null_check(
+  self : OiStandaloneRefGetDescBlockMoveFact,
+) -> Bool {
+  ignore(self.saw_internal_ref_branch)
+  self.live &&
+  self.single_nullable_ref_result &&
+  self.nonempty_region &&
+  self.prefix_roots_allowed &&
+  self.final_root_allowed
 }
 
 ///|
@@ -18931,76 +19082,7 @@ fn optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check
   func : @ir.HotFunc,
   block_id : Int,
 ) -> Bool {
-  if !optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-      func, block_id,
-    ) {
-    return false
-  }
-  let body = @ir.hot_region_body_ref(func, block_id)
-  let root_count = @ir.hot_region_root_count(func, body)
-  if root_count == 0 {
-    return false
-  }
-  let mut saw_internal_ref_branch = false
-  for slot = 0; slot < root_count - 1; slot = slot + 1 {
-    let root_id = @ir.hot_region_get(func, body, slot)
-    if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
-        func, root_id,
-      ) {
-      return false
-    }
-    if optimize_instructions_standalone_ref_get_desc_is_internal_br_on_null_trampoline_root(
-        func, block_id, root_id,
-      ) {
-      saw_internal_ref_branch = true
-      continue
-    }
-    if optimize_instructions_standalone_ref_get_desc_is_escaping_br_if_root(
-        func, block_id, root_id,
-      ) {
-      continue
-    }
-    if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func, block_id, root_id,
-      ) {
-      return false
-    }
-    if optimize_instructions_standalone_ref_get_desc_is_internal_br_on_non_null_root(
-        func, block_id, root_id,
-      ) {
-      saw_internal_ref_branch = true
-    }
-  }
-  let final_id = @ir.hot_region_get(func, body, root_count - 1)
-  match @ir.hot_node_get(func, final_id).op {
-    @ir.HotOp::LocalGet =>
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, final_id,
-      ) &&
-      !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func, block_id, final_id,
-      )
-    @ir.HotOp::RefNull =>
-      saw_internal_ref_branch &&
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, final_id,
-      ) &&
-      !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func, block_id, final_id,
-      )
-    @ir.HotOp::Br | @ir.HotOp::BrTable =>
-      optimize_instructions_standalone_ref_get_desc_node_has_no_results(
-        func, final_id,
-      ) &&
-      !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func, block_id, final_id,
-      )
-    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
-      optimize_instructions_standalone_ref_get_desc_is_internal_br_on_cast_root(
-        func, block_id, final_id,
-      )
-    _ => false
-  }
+  OiStandaloneRefGetDescBlockMoveFact::from_block(func, block_id).proves_can_move_null_check()
 }
 
 ///|
