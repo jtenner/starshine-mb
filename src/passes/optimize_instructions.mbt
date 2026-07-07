@@ -10814,7 +10814,7 @@ priv struct OiArrayNewFixedRepeatedValueFact {
 }
 
 ///|
-priv struct OiArrayNewFixedDefaultValueFact {
+priv struct OiArrayDefaultValueFact {
   is_default : Bool
   preserve_id : Int
 }
@@ -10874,7 +10874,7 @@ fn optimize_instructions_array_value_is_default_for_storage(
 }
 
 ///|
-fn optimize_instructions_array_new_fixed_default_fallthrough_id(
+fn optimize_instructions_array_default_fallthrough_id(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   value_id : Int,
@@ -10886,7 +10886,7 @@ fn optimize_instructions_array_new_fixed_default_fallthrough_id(
   let value = @ir.hot_node_get(func, value_id)
   match value.op {
     @ir.HotOp::LocalTee if value.child_count == 1 =>
-      optimize_instructions_array_new_fixed_default_fallthrough_id(
+      optimize_instructions_array_default_fallthrough_id(
         func,
         node_masks,
         @ir.hot_child_get(func, value_id, 0),
@@ -10899,7 +10899,7 @@ fn optimize_instructions_array_new_fixed_default_fallthrough_id(
           return value_id
         }
       }
-      optimize_instructions_array_new_fixed_default_fallthrough_id(
+      optimize_instructions_array_default_fallthrough_id(
         func,
         node_masks,
         @ir.hot_child_get(func, value_id, value.child_count - 1),
@@ -10911,7 +10911,7 @@ fn optimize_instructions_array_new_fixed_default_fallthrough_id(
 }
 
 ///|
-fn optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
+fn optimize_instructions_array_default_fallthrough_preserve_needed(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   value_id : Int,
@@ -10931,7 +10931,7 @@ fn optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
           return true
         }
       }
-      optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
+      optimize_instructions_array_default_fallthrough_preserve_needed(
         func,
         node_masks,
         @ir.hot_child_get(func, value_id, value.child_count - 1),
@@ -10944,14 +10944,15 @@ fn optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
 }
 
 ///|
-fn OiArrayNewFixedDefaultValueFact::from_array_value(
+fn OiArrayDefaultValueFact::from_array_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   type_idx : @lib.TypeIdx,
   value_id : Int,
-) -> OiArrayNewFixedDefaultValueFact {
-  // Binaryen v130 `visitArrayNewFixed` checks `getFallthrough(value)` before
-  // deciding whether an equal fixed-array value is the default, then delegates
+) -> OiArrayDefaultValueFact {
+  // Binaryen v130 `visitArrayNew` and `visitArrayNewFixed` check
+  // `getFallthrough(value)` before deciding whether an array initializer or an
+  // equal fixed-array representative is the storage default, then delegate
   // effect preservation to `getDroppedChildrenAndAppend`. Keep the represented
   // fallthrough/default result as a fact so constructor rewrites do not inline a
   // one-off local.tee or block scanner. This slice intentionally widens only to
@@ -10966,7 +10967,7 @@ fn OiArrayNewFixedDefaultValueFact::from_array_value(
     None => return { is_default: false, preserve_id: -1 }
   }
   let effects = pass_require_effects(ctx, func)
-  let fallthrough_id = optimize_instructions_array_new_fixed_default_fallthrough_id(
+  let fallthrough_id = optimize_instructions_array_default_fallthrough_id(
     func,
     effects.node_masks,
     value_id,
@@ -10980,7 +10981,7 @@ fn OiArrayNewFixedDefaultValueFact::from_array_value(
   }
   {
     is_default: true,
-    preserve_id: if optimize_instructions_array_new_fixed_default_fallthrough_preserve_needed(
+    preserve_id: if optimize_instructions_array_default_fallthrough_preserve_needed(
         func,
         effects.node_masks,
         value_id,
@@ -11020,7 +11021,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     }
   }
   let representative_id = @ir.hot_child_get(func, node_id, 0)
-  let default_fact = OiArrayNewFixedDefaultValueFact::from_array_value(
+  let default_fact = OiArrayDefaultValueFact::from_array_value(
     ctx, func, type_idx, representative_id,
   )
   Some({
@@ -11111,6 +11112,96 @@ fn optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
   }
   if !fact.is_rewritable() {
     return false
+  }
+  fact.apply_rewrite(ctx, func)
+  true
+}
+
+///|
+priv struct OiArrayNewDefaultInitRewriteFact {
+  node_id : Int
+  type_idx : @lib.TypeIdx
+  init_id : Int
+  len_id : Int
+}
+
+///|
+fn OiArrayNewDefaultInitRewriteFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiArrayNewDefaultInitRewriteFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayNew(type_idx)) => type_idx
+    _ => return None
+  }
+  if node.child_count != 2 {
+    return None
+  }
+  let init_id = @ir.hot_child_get(func, node_id, 0)
+  let default_fact = OiArrayDefaultValueFact::from_array_value(
+    ctx, func, type_idx, init_id,
+  )
+  if !default_fact.is_default {
+    return None
+  }
+  Some({
+    node_id,
+    type_idx,
+    init_id,
+    len_id: @ir.hot_child_get(func, node_id, 1),
+  })
+}
+
+///|
+fn OiArrayNewDefaultInitRewriteFact::apply_rewrite(
+  self : OiArrayNewDefaultInitRewriteFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Unit {
+  let original = @ir.hot_node_get(func, self.node_id)
+  let temp = @ir.hot_build_node(
+    func,
+    original.op,
+    @ir.hot_node_type(func, self.node_id),
+    children=[self.len_id],
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    temp,
+    @lib.Instruction::array_new_default(self.type_idx),
+  )
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, self.node_id)) {
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => @lib.BlockType::void_()
+  }
+  let replacement_id = @ir.hot_build_block(func, block_type, [
+    @ir.hot_build_drop(func, self.init_id),
+    temp,
+  ])
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  @ir.hot_replace_node(func, self.node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, self.node_id),
+    self.node_id,
+  )
+  @ir.hot_delete_node(func, replacement_id)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_try_rewrite_array_new_default_init(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let fact = match
+    OiArrayNewDefaultInitRewriteFact::from_node(ctx, func, node_id) {
+    Some(fact) => fact
+    None => return false
   }
   fact.apply_rewrite(ctx, func)
   true
@@ -22043,6 +22134,9 @@ fn optimize_instructions_visit_node(
       ) ||
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
+      optimize_instructions_try_rewrite_array_new_default_init(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
         ctx, func, node_id,
       ) ||

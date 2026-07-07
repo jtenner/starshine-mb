@@ -51971,6 +51971,87 @@ test "optimize-instructions preserves block default array.new_fixed effects thro
 }
 
 ///|
+test "optimize-instructions rewrites array.new default init through facts" {
+  // OI-K/OI-L aggregate constructor fact: Binaryen version_130 `visitArrayNew`
+  // checks the initializer through `getFallthrough`; defaultable array element
+  // initializers become `array.new_default` while the original initializer is
+  // still dropped/evaluated before allocation via `getDroppedChildrenAndAppend`.
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([effect_type, result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let direct = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(direct.contains("array.new_default"), msg=direct)
+  assert_true(direct.contains("drop"), msg=direct)
+  assert_true(direct.contains("I32(3)"), msg=direct)
+  let effectful = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(effectful.contains("array.new_default"), msg=effectful)
+  assert_true(effectful.contains("call (Func 0)"), msg=effectful)
+  assert_true(effectful.contains("drop"), msg=effectful)
+  assert_true(effectful.contains("I32(3)"), msg=effectful)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
