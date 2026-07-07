@@ -5546,40 +5546,328 @@ fn optimize_instructions_negate_boolean_expr_recursive(
 }
 
 ///|
+priv struct OiBooleanConstantTreeFact {
+  live : Bool
+  exact_i32_false : Bool
+  exact_i32_true : Bool
+  if_shell : Bool
+  has_else : Bool
+  single_result_arms : Bool
+  then_arm_boolean : Bool
+  else_arm_boolean : Bool
+}
+
+///|
+fn OiBooleanConstantTreeFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBooleanConstantTreeFact {
+  // Binaryen's OI `optimizeBoolean` recursively treats i32-valued `if` arms as
+  // boolean contexts, and Starshine's represented nested-boolean cleanup only
+  // needs exact `0` / `1` leaves plus single-result `if` trees. Keep that shape
+  // as an explicit fact instead of a helper-local recursive scanner.
+  let exact_i32_false = match
+    optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(0)) => true
+    _ => false
+  }
+  let exact_i32_true = match
+    optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(1)) => true
+    _ => false
+  }
+  if exact_i32_false || exact_i32_true {
+    return {
+      live: true,
+      exact_i32_false,
+      exact_i32_true,
+      if_shell: false,
+      has_else: false,
+      single_result_arms: true,
+      then_arm_boolean: true,
+      else_arm_boolean: true,
+    }
+  }
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return {
+      live: false,
+      exact_i32_false: false,
+      exact_i32_true: false,
+      if_shell: false,
+      has_else: false,
+      single_result_arms: false,
+      then_arm_boolean: false,
+      else_arm_boolean: false,
+    }
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::If => ()
+    _ =>
+      return {
+        live: true,
+        exact_i32_false: false,
+        exact_i32_true: false,
+        if_shell: false,
+        has_else: false,
+        single_result_arms: false,
+        then_arm_boolean: false,
+        else_arm_boolean: false,
+      }
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None =>
+      return {
+        live: true,
+        exact_i32_false: false,
+        exact_i32_true: false,
+        if_shell: true,
+        has_else: false,
+        single_result_arms: false,
+        then_arm_boolean: false,
+        else_arm_boolean: false,
+      }
+  }
+  let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
+    @ir.hot_region_root_count(func, else_region) == 1
+  if !single_result_arms {
+    return {
+      live: true,
+      exact_i32_false: false,
+      exact_i32_true: false,
+      if_shell: true,
+      has_else: true,
+      single_result_arms,
+      then_arm_boolean: false,
+      else_arm_boolean: false,
+    }
+  }
+  let then_fact = OiBooleanConstantTreeFact::from_node(
+    func,
+    dead,
+    @ir.hot_region_get(func, then_region, 0),
+  )
+  let else_fact = OiBooleanConstantTreeFact::from_node(
+    func,
+    dead,
+    @ir.hot_region_get(func, else_region, 0),
+  )
+  {
+    live: true,
+    exact_i32_false: false,
+    exact_i32_true: false,
+    if_shell: true,
+    has_else: true,
+    single_result_arms,
+    then_arm_boolean: then_fact.proves_boolean_tree(),
+    else_arm_boolean: else_fact.proves_boolean_tree(),
+  }
+}
+
+///|
+fn OiBooleanConstantTreeFact::proves_boolean_tree(
+  self : OiBooleanConstantTreeFact,
+) -> Bool {
+  self.live &&
+  (
+    self.exact_i32_false ||
+    self.exact_i32_true ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.single_result_arms &&
+      self.then_arm_boolean &&
+      self.else_arm_boolean
+    )
+  )
+}
+
+///|
 fn optimize_instructions_is_boolean_constant_tree(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  match optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(0)) | Some(@lib.I32(1)) => return true
-    _ => ()
-  }
+  OiBooleanConstantTreeFact::from_node(func, dead, node_id).proves_boolean_tree()
+}
+
+///|
+priv struct OiBooleanTreeUnsharedFact {
+  live : Bool
+  direct_eqz_leaf : Bool
+  exact_i32_false : Bool
+  exact_i32_true : Bool
+  use_count_allows_if : Bool
+  if_shell : Bool
+  has_else : Bool
+  single_result_arms : Bool
+  then_arm_allowed : Bool
+  else_arm_allowed : Bool
+}
+
+///|
+fn OiBooleanTreeUnsharedFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  use_def : @ir.HotUseDef,
+  node_id : Int,
+) -> OiBooleanTreeUnsharedFact {
+  // Source-backed subset for Binaryen's nested boolean-condition rewrites:
+  // direct `eqz`, exact boolean constants, and recursively unshared one-result
+  // `if` arms. This records the sharing gate as data instead of letting callers
+  // embed the old tree scanner.
   if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
+    return {
+      live: false,
+      direct_eqz_leaf: false,
+      exact_i32_false: false,
+      exact_i32_true: false,
+      use_count_allows_if: false,
+      if_shell: false,
+      has_else: false,
+      single_result_arms: false,
+      then_arm_allowed: false,
+      else_arm_allowed: false,
+    }
+  }
+  let direct_eqz_leaf = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
+      true
+    _ => false
+  }
+  let exact_i32_false = match
+    optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(0)) => true
+    _ => false
+  }
+  let exact_i32_true = match
+    optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(1)) => true
+    _ => false
+  }
+  if direct_eqz_leaf || exact_i32_false || exact_i32_true {
+    return {
+      live: true,
+      direct_eqz_leaf,
+      exact_i32_false,
+      exact_i32_true,
+      use_count_allows_if: true,
+      if_shell: false,
+      has_else: false,
+      single_result_arms: true,
+      then_arm_allowed: true,
+      else_arm_allowed: true,
+    }
+  }
+  let use_count_allows_if = @ir.node_use_count(use_def, node_id) <= 1
+  if !use_count_allows_if {
+    return {
+      live: true,
+      direct_eqz_leaf: false,
+      exact_i32_false: false,
+      exact_i32_true: false,
+      use_count_allows_if,
+      if_shell: false,
+      has_else: false,
+      single_result_arms: false,
+      then_arm_allowed: false,
+      else_arm_allowed: false,
+    }
   }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::If => ()
-    _ => return false
+    _ =>
+      return {
+        live: true,
+        direct_eqz_leaf: false,
+        exact_i32_false: false,
+        exact_i32_true: false,
+        use_count_allows_if,
+        if_shell: false,
+        has_else: false,
+        single_result_arms: false,
+        then_arm_allowed: false,
+        else_arm_allowed: false,
+      }
   }
   let then_region = @ir.hot_region_then_ref(func, node_id)
   let else_region = match @ir.hot_region_else_ref(func, node_id) {
     Some(region) => region
-    None => return false
+    None =>
+      return {
+        live: true,
+        direct_eqz_leaf: false,
+        exact_i32_false: false,
+        exact_i32_true: false,
+        use_count_allows_if,
+        if_shell: true,
+        has_else: false,
+        single_result_arms: false,
+        then_arm_allowed: false,
+        else_arm_allowed: false,
+      }
   }
-  if @ir.hot_region_root_count(func, then_region) != 1 ||
-    @ir.hot_region_root_count(func, else_region) != 1 {
-    return false
+  let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
+    @ir.hot_region_root_count(func, else_region) == 1
+  if !single_result_arms {
+    return {
+      live: true,
+      direct_eqz_leaf: false,
+      exact_i32_false: false,
+      exact_i32_true: false,
+      use_count_allows_if,
+      if_shell: true,
+      has_else: true,
+      single_result_arms,
+      then_arm_allowed: false,
+      else_arm_allowed: false,
+    }
   }
-  optimize_instructions_is_boolean_constant_tree(
+  let then_fact = OiBooleanTreeUnsharedFact::from_node(
     func,
     dead,
+    use_def,
     @ir.hot_region_get(func, then_region, 0),
-  ) &&
-  optimize_instructions_is_boolean_constant_tree(
+  )
+  let else_fact = OiBooleanTreeUnsharedFact::from_node(
     func,
     dead,
+    use_def,
     @ir.hot_region_get(func, else_region, 0),
+  )
+  {
+    live: true,
+    direct_eqz_leaf: false,
+    exact_i32_false: false,
+    exact_i32_true: false,
+    use_count_allows_if,
+    if_shell: true,
+    has_else: true,
+    single_result_arms,
+    then_arm_allowed: then_fact.proves_allowed_tree(),
+    else_arm_allowed: else_fact.proves_allowed_tree(),
+  }
+}
+
+///|
+fn OiBooleanTreeUnsharedFact::proves_allowed_tree(
+  self : OiBooleanTreeUnsharedFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_eqz_leaf ||
+    self.exact_i32_false ||
+    self.exact_i32_true ||
+    (
+      self.use_count_allows_if &&
+      self.if_shell &&
+      self.has_else &&
+      self.single_result_arms &&
+      self.then_arm_allowed &&
+      self.else_arm_allowed
+    )
   )
 }
 
@@ -5590,46 +5878,73 @@ fn optimize_instructions_boolean_tree_if_nodes_are_unshared(
   use_def : @ir.HotUseDef,
   node_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
+  OiBooleanTreeUnsharedFact::from_node(func, dead, use_def, node_id).proves_allowed_tree()
+}
+
+///|
+priv struct OiBranchShapeFact {
+  lhs_live : Bool
+  rhs_live : Bool
+  both_br : Bool
+  same_label : Bool
+  same_arity : Bool
+  same_operands : Bool
+}
+
+///|
+fn OiBranchShapeFact::from_pair(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiBranchShapeFact {
+  // The represented duplicate-branch collapse mirrors Binaryen's ability to
+  // fold identical branch arms after condition cleanup, but HOT only rewrites
+  // direct `br` roots with byte-identical target label and value operands. Make
+  // those branch-control facts explicit so future `br_if`/fallthrough work can
+  // extend the fact instead of adding ad hoc branch scanners.
+  let lhs_live = optimize_instructions_node_is_live(func, dead, lhs_id)
+  let rhs_live = optimize_instructions_node_is_live(func, dead, rhs_id)
+  if !lhs_live || !rhs_live {
+    return {
+      lhs_live,
+      rhs_live,
+      both_br: false,
+      same_label: false,
+      same_arity: false,
+      same_operands: false,
+    }
   }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
-      return true
-    _ => ()
+  let lhs = @ir.hot_node_get(func, lhs_id)
+  let rhs = @ir.hot_node_get(func, rhs_id)
+  let both_br = match (lhs.op, rhs.op) {
+    (@ir.HotOp::Br, @ir.HotOp::Br) => true
+    _ => false
   }
-  match optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(0)) | Some(@lib.I32(1)) => return true
-    _ => ()
+  let same_label = both_br && lhs.imm0 == rhs.imm0
+  let same_arity = both_br && lhs.child_count == rhs.child_count
+  let mut same_operands = both_br && same_arity
+  if same_operands {
+    for slot = 0; slot < lhs.child_count; slot = slot + 1 {
+      if @ir.hot_child_get(func, lhs_id, slot) !=
+        @ir.hot_child_get(func, rhs_id, slot) {
+        same_operands = false
+      }
+    }
   }
-  if @ir.node_use_count(use_def, node_id) > 1 {
-    return false
-  }
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::If => ()
-    _ => return false
-  }
-  let then_region = @ir.hot_region_then_ref(func, node_id)
-  let else_region = match @ir.hot_region_else_ref(func, node_id) {
-    Some(region) => region
-    None => return false
-  }
-  if @ir.hot_region_root_count(func, then_region) != 1 ||
-    @ir.hot_region_root_count(func, else_region) != 1 {
-    return false
-  }
-  optimize_instructions_boolean_tree_if_nodes_are_unshared(
-    func,
-    dead,
-    use_def,
-    @ir.hot_region_get(func, then_region, 0),
-  ) &&
-  optimize_instructions_boolean_tree_if_nodes_are_unshared(
-    func,
-    dead,
-    use_def,
-    @ir.hot_region_get(func, else_region, 0),
-  )
+  { lhs_live, rhs_live, both_br, same_label, same_arity, same_operands }
+}
+
+///|
+fn OiBranchShapeFact::proves_same_direct_branch(
+  self : OiBranchShapeFact,
+) -> Bool {
+  self.lhs_live &&
+  self.rhs_live &&
+  self.both_br &&
+  self.same_label &&
+  self.same_arity &&
+  self.same_operands
 }
 
 ///|
@@ -5639,25 +5954,7 @@ fn optimize_instructions_same_branch_shape(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
-    !optimize_instructions_node_is_live(func, dead, rhs_id) {
-    return false
-  }
-  let lhs = @ir.hot_node_get(func, lhs_id)
-  let rhs = @ir.hot_node_get(func, rhs_id)
-  match (lhs.op, rhs.op) {
-    (@ir.HotOp::Br, @ir.HotOp::Br) if lhs.imm0 == rhs.imm0 &&
-      lhs.child_count == rhs.child_count => {
-      for slot = 0; slot < lhs.child_count; slot = slot + 1 {
-        if @ir.hot_child_get(func, lhs_id, slot) !=
-          @ir.hot_child_get(func, rhs_id, slot) {
-          return false
-        }
-      }
-      true
-    }
-    _ => false
-  }
+  OiBranchShapeFact::from_pair(func, dead, lhs_id, rhs_id).proves_same_direct_branch()
 }
 
 ///|
