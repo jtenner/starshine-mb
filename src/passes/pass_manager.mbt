@@ -25387,14 +25387,39 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+// Raw OI-H ref.func target fact for the fallback stack dispatcher.
+// Binaryen v130's `visitCallRef` target conversion asks whether the target's
+// fallthrough is a concrete `ref.func`. Keep the represented raw spelling
+// (direct leaf or one-instruction branch-free block wrapper) as a target fact so
+// call_ref directization does not depend on an unclassified helper scanner.
+priv struct RawOiRefFuncTargetFact {
+  func_idx : @lib.FuncIdx
+  is_direct_leaf : Bool
+  is_branch_free_block_tail : Bool
+}
+
+///|
+fn RawOiRefFuncTargetFact::proves_binaryen_ref_func_target(
+  self : RawOiRefFuncTargetFact,
+) -> Bool {
+  self.is_direct_leaf || self.is_branch_free_block_tail
+}
+
+///|
+fn RawOiRefFuncTargetFact::from_instr(
   instr : @lib.Instruction,
-) -> @lib.FuncIdx? {
+) -> RawOiRefFuncTargetFact? {
   match instr {
-    @lib.Instruction::RefFunc(func_idx) => Some(func_idx)
+    @lib.Instruction::RefFunc(func_idx) =>
+      Some({ func_idx, is_direct_leaf: true, is_branch_free_block_tail: false })
     @lib.Instruction::Block(_, @lib.Expr(body)) if body.length() == 1 =>
       match body[0] {
-        @lib.Instruction::RefFunc(func_idx) => Some(func_idx)
+        @lib.Instruction::RefFunc(func_idx) =>
+          Some({
+            func_idx,
+            is_direct_leaf: false,
+            is_branch_free_block_tail: true,
+          })
         _ => None
       }
     _ => None
@@ -25564,16 +25589,22 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
   if start + 4 >= instrs.length() {
     return None
   }
-  let true_func = match
-    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(current) {
-    Some(func_idx) => func_idx
+  let true_func = match RawOiRefFuncTargetFact::from_instr(current) {
+    Some(fact) =>
+      if fact.proves_binaryen_ref_func_target() {
+        fact.func_idx
+      } else {
+        return None
+      }
     None => return None
   }
-  let false_func = match
-    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
-      instrs[start + 1],
-    ) {
-    Some(func_idx) => func_idx
+  let false_func = match RawOiRefFuncTargetFact::from_instr(instrs[start + 1]) {
+    Some(fact) =>
+      if fact.proves_binaryen_ref_func_target() {
+        fact.func_idx
+      } else {
+        return None
+      }
     None => return None
   }
   let selected_func = match instrs[start + 2] {
@@ -25626,9 +25657,13 @@ fn RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
   if start + 3 >= instrs.length() {
     return None
   }
-  let func_idx = match
-    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(current) {
-    Some(func_idx) => func_idx
+  let func_idx = match RawOiRefFuncTargetFact::from_instr(current) {
+    Some(fact) =>
+      if fact.proves_binaryen_ref_func_target() {
+        fact.func_idx
+      } else {
+        return None
+      }
     None => return None
   }
   let local_id = match (instrs[start + 1], instrs[start + 2]) {
@@ -25674,9 +25709,13 @@ fn RawOiCallRefDirectizeRewriteFact::from_direct_target(
   if start + 1 >= instrs.length() {
     return None
   }
-  let func_idx = match
-    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(current) {
-    Some(func_idx) => func_idx
+  let func_idx = match RawOiRefFuncTargetFact::from_instr(current) {
+    Some(fact) =>
+      if fact.proves_binaryen_ref_func_target() {
+        fact.func_idx
+      } else {
+        return None
+      }
     None => return None
   }
   let is_return = match instrs[start + 1] {
