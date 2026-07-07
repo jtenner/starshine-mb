@@ -316,9 +316,11 @@ fn optimize_instructions_region_ref_fallthrough_type(
 ) -> @lib.RefType? {
   match optimize_instructions_region_tail_id(func, region_ref) {
     Some(tail_id) => {
-      if optimize_instructions_descriptor_region_has_branch_control(
-          func, region_ref,
-        ) {
+      if OiDescriptorBranchControlRegionFact::from_region(
+          func,
+          region_ref.holder,
+          region_ref,
+        ).proves_has_branch_control() {
         if !optimize_instructions_node_is_br_on_fallthrough_tail(func, tail_id) ||
           optimize_instructions_region_has_branch_control_before_tail(
             func, region_ref,
@@ -799,6 +801,44 @@ priv struct OiDescriptorOperandFact {
 }
 
 ///|
+priv struct OiDescriptorExactnessDropFact {
+  ref_get_desc_operand : Bool
+  escaping_branch_control : Bool
+  may_drop_exactness : Bool
+}
+
+///|
+fn OiDescriptorExactnessDropFact::from_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorExactnessDropFact {
+  // Binaryen's descriptor-cast TNH skip may drop exactness when the descriptor
+  // operand is a ref.get_desc whose preserved children can escape through
+  // branch control. Keep that guard as a fact over the descriptor operand and
+  // the shared branch-control summary instead of a helper-level predicate.
+  let ref_get_desc_operand = match OiRefGetDescFact::from_node(func, node_id) {
+    Some(_) => true
+    None => false
+  }
+  let escaping_branch_control = ref_get_desc_operand &&
+    OiDescriptorBranchControlFact::from_node(func, node_id, node_id).proves_has_escaping_branch_control()
+  {
+    ref_get_desc_operand,
+    escaping_branch_control,
+    may_drop_exactness: ref_get_desc_operand && escaping_branch_control,
+  }
+}
+
+///|
+fn OiDescriptorExactnessDropFact::proves_may_drop_exactness(
+  self : OiDescriptorExactnessDropFact,
+) -> Bool {
+  self.ref_get_desc_operand &&
+  self.escaping_branch_control &&
+  self.may_drop_exactness
+}
+
+///|
 fn OiDescriptorOperandFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -816,9 +856,9 @@ fn OiDescriptorOperandFact::from_operand(
     should_localize_when_skipped: OiDescriptorOperandSkipLocalizationFact::from_operand(
       func, node_id,
     ).proves_should_localize_when_skipped(),
-    may_drop_exactness_for_tnh_escaping_ref_get_desc: optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
+    may_drop_exactness_for_tnh_escaping_ref_get_desc: OiDescriptorExactnessDropFact::from_operand(
       func, node_id,
-    ),
+    ).proves_may_drop_exactness(),
   }
 }
 
@@ -2236,10 +2276,7 @@ fn OiDescriptorTnhSkipRewritePlanFact::from_skip(
   let descriptor_fact = skip_fact.descriptor_fact
   let kind = if descriptor_fact.can_erase {
     DescriptorTnhSkipForwardOperand
-  } else if optimize_instructions_descriptor_skip_must_preserve_operand_order(
-      func,
-      cast_fact.operand_id,
-    ) {
+  } else if OiDescriptorSkipOrderFact::from_node(func, cast_fact.operand_id).proves_must_preserve_operand_order() {
     DescriptorTnhSkipLocalizeOperandThenDescriptor
   } else if descriptor_fact.should_localize_when_skipped {
     DescriptorTnhSkipLocalSetDescriptorThenOperand
@@ -3038,9 +3075,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
       }
     @ir.HotOp::Select =>
       if OiResultShapeFact::from_node(func, child_id).proves_single_nullable_ref_result() &&
-        !optimize_instructions_descriptor_expr_has_escaping_branch_control(
-          func, child_id,
-        ) {
+        !OiDescriptorBranchControlFact::from_node(func, child_id, child_id).proves_has_escaping_branch_control() {
         RefGetDescNullableSelectMove
       } else {
         return None
@@ -3063,9 +3098,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
   let descriptor_operand_can_move = match child.op {
     @ir.HotOp::LocalGet => true
     @ir.HotOp::Block | @ir.HotOp::Select =>
-      !optimize_instructions_descriptor_expr_has_escaping_branch_control(
-        func, child_id,
-      )
+      !OiDescriptorBranchControlFact::from_node(func, child_id, child_id).proves_has_escaping_branch_control()
     @ir.HotOp::If =>
       OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check()
     _ => false
@@ -18040,20 +18073,6 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
 }
 
 ///|
-fn optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
-  func : @ir.HotFunc,
-  descriptor_id : Int,
-) -> Bool {
-  match OiRefGetDescFact::from_node(func, descriptor_id) {
-    Some(_) =>
-      optimize_instructions_descriptor_expr_has_escaping_branch_control(
-        func, descriptor_id,
-      )
-    None => false
-  }
-}
-
-///|
 fn optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_happen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -18258,10 +18277,10 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
       can_move_null_check: false,
     }
   }
-  let condition_no_escaping_branch_control = !optimize_instructions_descriptor_expr_has_escaping_branch_control(
-    func,
-    @ir.hot_child_get(func, node_id, 0),
-  )
+  let condition_id = @ir.hot_child_get(func, node_id, 0)
+  let condition_no_escaping_branch_control = !OiDescriptorBranchControlFact::from_node(
+    func, condition_id, condition_id,
+  ).proves_has_escaping_branch_control()
   let then_region = @ir.hot_region_then_ref(func, node_id)
   let else_region = match @ir.hot_region_else_ref(func, node_id) {
     Some(region) => region
@@ -18280,13 +18299,13 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
   let single_root_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
     @ir.hot_region_root_count(func, else_region) == 1
   let then_no_escaping_branch_control = single_root_arms &&
-    !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+    !OiDescriptorBranchControlRegionFact::from_region(
       func, node_id, then_region,
-    )
+    ).proves_has_escaping_branch_control()
   let else_no_escaping_branch_control = single_root_arms &&
-    !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+    !OiDescriptorBranchControlRegionFact::from_region(
       func, node_id, else_region,
-    )
+    ).proves_has_escaping_branch_control()
   {
     if_root,
     has_three_children,
@@ -18553,24 +18572,20 @@ fn OiDescriptorBranchControlFact::from_node(
   }
   let direct_escaping_branch_control = match node.op {
     @ir.HotOp::Br | @ir.HotOp::BrIf =>
-      !optimize_instructions_descriptor_label_is_internal_to_expr(
-        func,
-        owner_id,
-        node.imm0,
-      )
+      !OiDescriptorInternalLabelFact::from_label(func, owner_id, node.imm0).proves_internal()
     @ir.HotOp::BrTable =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+      if !OiDescriptorInternalLabelFact::from_label(
           func,
           owner_id,
           @ir.hot_branch_table_default_target(func, node.imm0),
-        ) {
+        ).proves_internal() {
         true
       } else {
         let mut escaping = false
         for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
-          if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          if !OiDescriptorInternalLabelFact::from_label(
               func, owner_id, label_id,
-            ) {
+            ).proves_internal() {
             escaping = true
           }
         }
@@ -18580,11 +18595,7 @@ fn OiDescriptorBranchControlFact::from_node(
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail =>
-      !optimize_instructions_descriptor_label_is_internal_to_expr(
-        func,
-        owner_id,
-        node.imm0,
-      )
+      !OiDescriptorInternalLabelFact::from_label(func, owner_id, node.imm0).proves_internal()
     _ => false
   }
   let mut nested_branch_control = false
@@ -19027,52 +19038,6 @@ fn OiDescriptorInternalControlEffectFreeRegionFact::proves_effect_free(
 ) -> Bool {
   ignore(self.root_count)
   self.effect_free
-}
-
-///|
-fn optimize_instructions_descriptor_region_has_branch_control(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  OiDescriptorBranchControlRegionFact::from_region(
-    func,
-    region_ref.holder,
-    region_ref,
-  ).proves_has_branch_control()
-}
-
-///|
-fn optimize_instructions_descriptor_expr_has_branch_control(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  OiDescriptorBranchControlFact::from_node(func, node_id, node_id).proves_has_branch_control()
-}
-
-///|
-fn optimize_instructions_descriptor_label_is_internal_to_expr(
-  func : @ir.HotFunc,
-  root_id : Int,
-  label_id : Int,
-) -> Bool {
-  OiDescriptorInternalLabelFact::from_label(func, root_id, label_id).proves_internal()
-}
-
-///|
-fn optimize_instructions_descriptor_region_has_escaping_branch_control_from(
-  func : @ir.HotFunc,
-  owner_id : Int,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  OiDescriptorBranchControlRegionFact::from_region(func, owner_id, region_ref).proves_has_escaping_branch_control()
-}
-
-///|
-fn optimize_instructions_descriptor_expr_has_escaping_branch_control(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  OiDescriptorBranchControlFact::from_node(func, node_id, node_id).proves_has_escaping_branch_control()
 }
 
 ///|
@@ -20123,14 +20088,6 @@ fn optimize_instructions_heap_is_known_subtype_with_fuel(
 }
 
 ///|
-fn optimize_instructions_descriptor_skip_must_preserve_operand_order(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  OiDescriptorSkipOrderFact::from_node(func, node_id).proves_must_preserve_operand_order()
-}
-
-///|
 fn optimize_instructions_ref_operand_is_exact_heap(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -20228,9 +20185,9 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
       block_root = true
       let body = @ir.hot_region_body_ref(func, node_id)
       block_nonempty = @ir.hot_region_root_count(func, body) > 0
-      block_no_escaping_branch_control = !optimize_instructions_descriptor_expr_has_escaping_branch_control(
-        func, node_id,
-      )
+      block_no_escaping_branch_control = !OiDescriptorBranchControlFact::from_node(
+        func, node_id, node_id,
+      ).proves_has_escaping_branch_control()
       block_children_effect_free_internal_control = block_nonempty &&
         block_no_escaping_branch_control
       if block_children_effect_free_internal_control {
@@ -20658,7 +20615,7 @@ fn optimize_instructions_try_fold_ref_as_non_null(
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
-  if optimize_instructions_descriptor_expr_has_branch_control(func, operand_id) {
+  if OiDescriptorBranchControlFact::from_node(func, operand_id, operand_id).proves_has_branch_control() {
     return false
   }
   if optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
