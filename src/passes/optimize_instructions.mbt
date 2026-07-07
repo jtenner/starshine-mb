@@ -6011,26 +6011,472 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
 }
 
 ///|
+priv struct OiZeroSentinelFact {
+  exact_i32_zero : Bool
+  drop_shell : Bool
+  single_drop_child : Bool
+  child_zero_sentinel : Bool
+}
+
+///|
+fn OiZeroSentinelFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiZeroSentinelFact {
+  // Starshine's dead-suffix cleanup uses explicit zero sentinels to avoid
+  // deleting value carriers that still satisfy a surrounding drop or result
+  // shape. Record the direct `i32.const 0` / nested `drop` proof as a fact so
+  // the cleanup does not own a recursive opcode scanner.
+  let node = @ir.hot_node_get(func, node_id)
+  let exact_i32_zero = match node.op {
+    @ir.HotOp::Const =>
+      @ir.hot_const_get(func, node.imm0) ==
+      @ir.HotConstPayload::i32_const(@lib.I32(0))
+    _ => false
+  }
+  let drop_shell = match node.op {
+    @ir.HotOp::Drop => true
+    _ => false
+  }
+  let single_drop_child = drop_shell && @ir.hot_child_count(func, node_id) == 1
+  let child_zero_sentinel = if single_drop_child {
+    OiZeroSentinelFact::from_node(func, @ir.hot_child_get(func, node_id, 0)).proves_zero_sentinel()
+  } else {
+    false
+  }
+  { exact_i32_zero, drop_shell, single_drop_child, child_zero_sentinel }
+}
+
+///|
+fn OiZeroSentinelFact::proves_zero_sentinel(self : OiZeroSentinelFact) -> Bool {
+  self.exact_i32_zero ||
+  (self.drop_shell && self.single_drop_child && self.child_zero_sentinel)
+}
+
+///|
+fn OiZeroSentinelFact::proves_drop_zero_sentinel(
+  self : OiZeroSentinelFact,
+) -> Bool {
+  self.drop_shell && self.single_drop_child && self.child_zero_sentinel
+}
+
+///|
+priv struct OiBranchTableTargetFact {
+  default_targets_label : Bool
+  all_targets_label : Bool
+}
+
+///|
+fn OiBranchTableTargetFact::from_table(
+  func : @ir.HotFunc,
+  table_id : Int,
+  label_id : Int,
+) -> OiBranchTableTargetFact {
+  let default_targets_label = @ir.hot_branch_table_default_target(
+      func, table_id,
+    ) ==
+    label_id
+  let mut all_targets_label = default_targets_label
+  if all_targets_label {
+    for target in @ir.hot_branch_table_targets(func, table_id) {
+      if target != label_id {
+        all_targets_label = false
+      }
+    }
+  }
+  { default_targets_label, all_targets_label }
+}
+
+///|
+fn OiBranchTableTargetFact::proves_all_targets_label(
+  self : OiBranchTableTargetFact,
+) -> Bool {
+  self.default_targets_label && self.all_targets_label
+}
+
+///|
+priv struct OiControlExitFact {
+  live : Bool
+  direct_nonbranch_terminal : Bool
+  direct_branch_terminal : Bool
+  direct_br_to_label : Bool
+  branch_table_targets_label : Bool
+  if_shell : Bool
+  has_else : Bool
+  then_never_falls_through : Bool
+  else_never_falls_through : Bool
+  then_never_falls_through_to_label : Bool
+  else_never_falls_through_to_label : Bool
+  then_exits_to_label : Bool
+  else_exits_to_label : Bool
+  then_exits_only_via_branches : Bool
+  else_exits_only_via_branches : Bool
+  then_branches_to_label : Bool
+  else_branches_to_label : Bool
+  block_shell : Bool
+  block_exits_via_nonbranch_terminal : Bool
+  then_exits_via_nonbranch_terminal : Bool
+  else_exits_via_nonbranch_terminal : Bool
+}
+
+///|
+priv struct OiControlExitRegionFact {
+  empty : Bool
+  tail_never_falls_through : Bool
+  tail_never_falls_through_to_label : Bool
+  tail_exits_to_label : Bool
+  tail_exits_only_via_branches : Bool
+  tail_branches_to_label : Bool
+  exits_via_nonbranch_terminal : Bool
+}
+
+///|
+fn OiControlExitFact::empty(live : Bool) -> OiControlExitFact {
+  {
+    live,
+    direct_nonbranch_terminal: false,
+    direct_branch_terminal: false,
+    direct_br_to_label: false,
+    branch_table_targets_label: false,
+    if_shell: false,
+    has_else: false,
+    then_never_falls_through: false,
+    else_never_falls_through: false,
+    then_never_falls_through_to_label: false,
+    else_never_falls_through_to_label: false,
+    then_exits_to_label: false,
+    else_exits_to_label: false,
+    then_exits_only_via_branches: false,
+    else_exits_only_via_branches: false,
+    then_branches_to_label: false,
+    else_branches_to_label: false,
+    block_shell: false,
+    block_exits_via_nonbranch_terminal: false,
+    then_exits_via_nonbranch_terminal: false,
+    else_exits_via_nonbranch_terminal: false,
+  }
+}
+
+///|
+fn OiControlExitFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  label_id : Int,
+) -> OiControlExitFact {
+  // Binaryen's OI relies on control/fallthrough facts when deleting dead
+  // suffixes and preserving branch-carried values. Starshine's represented
+  // cleanup keeps a narrower HOT subset: direct nonbranch terminals, direct
+  // branch terminals, all-target `br_table`s, and two-arm `if` summaries. Keep
+  // those exit proofs as a single fact instead of several recursive helpers.
+  let live = optimize_instructions_node_is_live(func, dead, node_id)
+  if !live {
+    return OiControlExitFact::empty(false)
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let direct_nonbranch_terminal = match node.op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => true
+    _ => false
+  }
+  let direct_branch_terminal = match node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrTable => true
+    _ => false
+  }
+  let direct_br_to_label = match node.op {
+    @ir.HotOp::Br => node.imm0 == label_id
+    _ => false
+  }
+  let branch_table_targets_label = match node.op {
+    @ir.HotOp::BrTable =>
+      OiBranchTableTargetFact::from_table(func, node.imm0, label_id).proves_all_targets_label()
+    _ => false
+  }
+  match node.op {
+    @ir.HotOp::If => {
+      let base = OiControlExitFact::empty(true)
+      let else_region = match @ir.hot_region_else_ref(func, node_id) {
+        Some(region) => region
+        None => return { ..base, if_shell: true }
+      }
+      let then_fact = OiControlExitRegionFact::from_region(
+        func,
+        dead,
+        @ir.hot_region_then_ref(func, node_id),
+        label_id,
+      )
+      let else_fact = OiControlExitRegionFact::from_region(
+        func, dead, else_region, label_id,
+      )
+      return {
+        ..base,
+        if_shell: true,
+        has_else: true,
+        then_never_falls_through: then_fact.proves_never_falls_through(),
+        else_never_falls_through: else_fact.proves_never_falls_through(),
+        then_never_falls_through_to_label: then_fact.proves_never_falls_through_to_label(),
+        else_never_falls_through_to_label: else_fact.proves_never_falls_through_to_label(),
+        then_exits_to_label: then_fact.proves_exits_to_label(),
+        else_exits_to_label: else_fact.proves_exits_to_label(),
+        then_exits_only_via_branches: then_fact.proves_exits_only_via_branches(),
+        else_exits_only_via_branches: else_fact.proves_exits_only_via_branches(),
+        then_branches_to_label: then_fact.proves_branches_to_label(),
+        else_branches_to_label: else_fact.proves_branches_to_label(),
+        then_exits_via_nonbranch_terminal: then_fact.proves_exits_via_nonbranch_terminal(),
+        else_exits_via_nonbranch_terminal: else_fact.proves_exits_via_nonbranch_terminal(),
+      }
+    }
+    @ir.HotOp::Block => {
+      let body_fact = OiControlExitRegionFact::from_region(
+        func,
+        dead,
+        @ir.hot_region_body_ref(func, node_id),
+        label_id,
+      )
+      return {
+        ..OiControlExitFact::empty(true),
+        block_shell: true,
+        block_exits_via_nonbranch_terminal: body_fact.proves_exits_via_nonbranch_terminal(),
+      }
+    }
+    _ => ()
+  }
+  {
+    ..OiControlExitFact::empty(true),
+    direct_nonbranch_terminal,
+    direct_branch_terminal,
+    direct_br_to_label,
+    branch_table_targets_label,
+  }
+}
+
+///|
+fn OiControlExitFact::proves_direct_terminal(self : OiControlExitFact) -> Bool {
+  self.live && (self.direct_nonbranch_terminal || self.direct_branch_terminal)
+}
+
+///|
+fn OiControlExitFact::proves_never_falls_through(
+  self : OiControlExitFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_nonbranch_terminal ||
+    self.direct_branch_terminal ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.then_never_falls_through &&
+      self.else_never_falls_through
+    )
+  )
+}
+
+///|
+fn OiControlExitFact::proves_never_falls_through_to_label(
+  self : OiControlExitFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_nonbranch_terminal ||
+    self.direct_br_to_label ||
+    self.branch_table_targets_label ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.then_never_falls_through_to_label &&
+      self.else_never_falls_through_to_label
+    )
+  )
+}
+
+///|
+fn OiControlExitFact::proves_exits_to_label(self : OiControlExitFact) -> Bool {
+  self.live &&
+  (
+    self.direct_nonbranch_terminal ||
+    self.direct_br_to_label ||
+    self.branch_table_targets_label ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.then_exits_to_label &&
+      self.else_exits_to_label
+    )
+  )
+}
+
+///|
+fn OiControlExitFact::proves_exits_only_via_branches(
+  self : OiControlExitFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_branch_terminal ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.then_exits_only_via_branches &&
+      self.else_exits_only_via_branches
+    )
+  )
+}
+
+///|
+fn OiControlExitFact::proves_branches_to_label(
+  self : OiControlExitFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_br_to_label ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.then_branches_to_label &&
+      self.else_branches_to_label
+    )
+  )
+}
+
+///|
+fn OiControlExitFact::proves_exits_via_nonbranch_terminal(
+  self : OiControlExitFact,
+) -> Bool {
+  self.live &&
+  (
+    self.direct_nonbranch_terminal ||
+    (self.block_shell && self.block_exits_via_nonbranch_terminal) ||
+    (
+      self.if_shell &&
+      self.has_else &&
+      self.then_exits_via_nonbranch_terminal &&
+      self.else_exits_via_nonbranch_terminal
+    )
+  )
+}
+
+///|
+fn OiControlExitRegionFact::from_region(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  region_ref : @ir.HotRegionRef,
+  label_id : Int,
+) -> OiControlExitRegionFact {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return OiControlExitRegionFact::empty()
+  }
+  let tail_fact = OiControlExitFact::from_node(
+    func,
+    dead,
+    @ir.hot_region_get(func, region_ref, root_count - 1),
+    label_id,
+  )
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let root = @ir.hot_region_get(func, region_ref, idx)
+    if !optimize_instructions_node_is_live(func, dead, root) {
+      continue
+    }
+    let root_fact = OiControlExitFact::from_node(func, dead, root, label_id)
+    if root_fact.proves_exits_via_nonbranch_terminal() {
+      return {
+        empty: false,
+        tail_never_falls_through: tail_fact.proves_never_falls_through(),
+        tail_never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
+        tail_exits_to_label: tail_fact.proves_exits_to_label(),
+        tail_exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
+        tail_branches_to_label: tail_fact.proves_branches_to_label(),
+        exits_via_nonbranch_terminal: true,
+      }
+    }
+    if root_fact.proves_never_falls_through() {
+      return {
+        empty: false,
+        tail_never_falls_through: tail_fact.proves_never_falls_through(),
+        tail_never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
+        tail_exits_to_label: tail_fact.proves_exits_to_label(),
+        tail_exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
+        tail_branches_to_label: tail_fact.proves_branches_to_label(),
+        exits_via_nonbranch_terminal: false,
+      }
+    }
+  }
+  {
+    empty: false,
+    tail_never_falls_through: tail_fact.proves_never_falls_through(),
+    tail_never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
+    tail_exits_to_label: tail_fact.proves_exits_to_label(),
+    tail_exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
+    tail_branches_to_label: tail_fact.proves_branches_to_label(),
+    exits_via_nonbranch_terminal: false,
+  }
+}
+
+///|
+fn OiControlExitRegionFact::empty() -> OiControlExitRegionFact {
+  {
+    empty: true,
+    tail_never_falls_through: false,
+    tail_never_falls_through_to_label: false,
+    tail_exits_to_label: false,
+    tail_exits_only_via_branches: false,
+    tail_branches_to_label: false,
+    exits_via_nonbranch_terminal: false,
+  }
+}
+
+///|
+fn OiControlExitRegionFact::proves_never_falls_through(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  !self.empty && self.tail_never_falls_through
+}
+
+///|
+fn OiControlExitRegionFact::proves_never_falls_through_to_label(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  !self.empty && self.tail_never_falls_through_to_label
+}
+
+///|
+fn OiControlExitRegionFact::proves_exits_to_label(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  !self.empty && self.tail_exits_to_label
+}
+
+///|
+fn OiControlExitRegionFact::proves_exits_only_via_branches(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  !self.empty && self.tail_exits_only_via_branches
+}
+
+///|
+fn OiControlExitRegionFact::proves_branches_to_label(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  !self.empty && self.tail_branches_to_label
+}
+
+///|
+fn OiControlExitRegionFact::proves_exits_via_nonbranch_terminal(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  !self.empty && self.exits_via_nonbranch_terminal
+}
+
+///|
 fn optimize_instructions_node_is_zero_sentinel(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Const =>
-      @ir.hot_const_get(func, node.imm0) ==
-      @ir.HotConstPayload::i32_const(@lib.I32(0))
-    @ir.HotOp::Drop =>
-      if @ir.hot_child_count(func, node_id) != 1 {
-        false
-      } else {
-        optimize_instructions_node_is_zero_sentinel(
-          func,
-          @ir.hot_child_get(func, node_id, 0),
-        )
-      }
-    _ => false
-  }
+  OiZeroSentinelFact::from_node(func, node_id).proves_zero_sentinel()
 }
 
 ///|
@@ -6038,16 +6484,7 @@ fn optimize_instructions_node_is_drop_zero_sentinel(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Drop =>
-      @ir.hot_child_count(func, node_id) == 1 &&
-      optimize_instructions_node_is_zero_sentinel(
-        func,
-        @ir.hot_child_get(func, node_id, 0),
-      )
-    _ => false
-  }
+  OiZeroSentinelFact::from_node(func, node_id).proves_drop_zero_sentinel()
 }
 
 ///|
@@ -6084,361 +6521,6 @@ fn optimize_instructions_holder_flows_to_drop(
 }
 
 ///|
-fn optimize_instructions_region_exits_to_label(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  region_ref : @ir.HotRegionRef,
-  label_id : Int,
-) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  optimize_instructions_node_exits_to_label(
-    func,
-    dead,
-    @ir.hot_region_get(func, region_ref, root_count - 1),
-    label_id,
-  )
-}
-
-///|
-fn optimize_instructions_region_never_falls_through(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  optimize_instructions_node_never_falls_through(
-    func,
-    dead,
-    @ir.hot_region_get(func, region_ref, root_count - 1),
-  )
-}
-
-///|
-fn optimize_instructions_branch_table_targets_label(
-  func : @ir.HotFunc,
-  table_id : Int,
-  label_id : Int,
-) -> Bool {
-  if @ir.hot_branch_table_default_target(func, table_id) != label_id {
-    return false
-  }
-  for target in @ir.hot_branch_table_targets(func, table_id) {
-    if target != label_id {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn optimize_instructions_node_never_falls_through(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Unreachable
-    | @ir.HotOp::Return
-    | @ir.HotOp::Throw
-    | @ir.HotOp::Rethrow
-    | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate
-    | @ir.HotOp::Br
-    | @ir.HotOp::BrTable => true
-    @ir.HotOp::If =>
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_region_never_falls_through(
-            func,
-            dead,
-            @ir.hot_region_then_ref(func, node_id),
-          ) &&
-          optimize_instructions_region_never_falls_through(
-            func, dead, else_region,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_region_never_falls_through_to_label(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  region_ref : @ir.HotRegionRef,
-  label_id : Int,
-) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  optimize_instructions_node_never_falls_through_to_label(
-    func,
-    dead,
-    @ir.hot_region_get(func, region_ref, root_count - 1),
-    label_id,
-  )
-}
-
-///|
-fn optimize_instructions_node_never_falls_through_to_label(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-  label_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Unreachable
-    | @ir.HotOp::Return
-    | @ir.HotOp::Throw
-    | @ir.HotOp::Rethrow
-    | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate => true
-    @ir.HotOp::Br => node.imm0 == label_id
-    @ir.HotOp::BrTable =>
-      optimize_instructions_branch_table_targets_label(
-        func,
-        node.imm0,
-        label_id,
-      )
-    @ir.HotOp::If =>
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_region_never_falls_through_to_label(
-            func,
-            dead,
-            @ir.hot_region_then_ref(func, node_id),
-            label_id,
-          ) &&
-          optimize_instructions_region_never_falls_through_to_label(
-            func, dead, else_region, label_id,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_node_exits_to_label(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-  label_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Unreachable
-    | @ir.HotOp::Return
-    | @ir.HotOp::Throw
-    | @ir.HotOp::Rethrow
-    | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate => true
-    @ir.HotOp::Br => node.imm0 == label_id
-    @ir.HotOp::BrTable =>
-      optimize_instructions_branch_table_targets_label(
-        func,
-        node.imm0,
-        label_id,
-      )
-    @ir.HotOp::If =>
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_region_exits_to_label(
-            func,
-            dead,
-            @ir.hot_region_then_ref(func, node_id),
-            label_id,
-          ) &&
-          optimize_instructions_region_exits_to_label(
-            func, dead, else_region, label_id,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_region_exits_only_via_branches(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  optimize_instructions_node_exits_only_via_branches(
-    func,
-    dead,
-    @ir.hot_region_get(func, region_ref, root_count - 1),
-  )
-}
-
-///|
-fn optimize_instructions_node_exits_only_via_branches(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Br | @ir.HotOp::BrTable => true
-    @ir.HotOp::If =>
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_region_exits_only_via_branches(
-            func,
-            dead,
-            @ir.hot_region_then_ref(func, node_id),
-          ) &&
-          optimize_instructions_region_exits_only_via_branches(
-            func, dead, else_region,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_node_branches_to_label(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-  label_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Br => node.imm0 == label_id
-    @ir.HotOp::If =>
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_region_branches_to_label(
-            func,
-            dead,
-            @ir.hot_region_then_ref(func, node_id),
-            label_id,
-          ) &&
-          optimize_instructions_region_branches_to_label(
-            func, dead, else_region, label_id,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_region_branches_to_label(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  region_ref : @ir.HotRegionRef,
-  label_id : Int,
-) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  optimize_instructions_node_branches_to_label(
-    func,
-    dead,
-    @ir.hot_region_get(func, region_ref, root_count - 1),
-    label_id,
-  )
-}
-
-///|
-fn optimize_instructions_node_exits_via_nonbranch_terminal(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Unreachable
-    | @ir.HotOp::Return
-    | @ir.HotOp::Throw
-    | @ir.HotOp::Rethrow
-    | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate => true
-    @ir.HotOp::Block =>
-      optimize_instructions_region_exits_via_nonbranch_terminal(
-        func,
-        dead,
-        @ir.hot_region_body_ref(func, node_id),
-      )
-    @ir.HotOp::If =>
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_region_exits_via_nonbranch_terminal(
-            func,
-            dead,
-            @ir.hot_region_then_ref(func, node_id),
-          ) &&
-          optimize_instructions_region_exits_via_nonbranch_terminal(
-            func, dead, else_region,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_region_exits_via_nonbranch_terminal(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  for idx = 0; idx < root_count; idx = idx + 1 {
-    let root = @ir.hot_region_get(func, region_ref, idx)
-    if !optimize_instructions_node_is_live(func, dead, root) {
-      continue
-    }
-    if optimize_instructions_node_exits_via_nonbranch_terminal(func, dead, root) {
-      return true
-    }
-    if optimize_instructions_node_never_falls_through(func, dead, root) {
-      return false
-    }
-  }
-  false
-}
-
-///|
 fn optimize_instructions_try_collapse_dead_region_suffix(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6453,22 +6535,14 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
   for idx = 0; idx < root_count - 1; idx = idx + 1 {
     let root = @ir.hot_region_get(func, region_ref, idx)
     let root_op = @ir.hot_node_get(func, root).op
+    let root_exit_fact = OiControlExitFact::from_node(
+      func, dead, root, label_id,
+    )
     let branch_only_if_escape = match root_op {
-      @ir.HotOp::If =>
-        optimize_instructions_node_exits_only_via_branches(func, dead, root)
+      @ir.HotOp::If => root_exit_fact.proves_exits_only_via_branches()
       _ => false
     }
-    let direct_terminal = match root_op {
-      @ir.HotOp::Br
-      | @ir.HotOp::BrTable
-      | @ir.HotOp::Unreachable
-      | @ir.HotOp::Return
-      | @ir.HotOp::Throw
-      | @ir.HotOp::Rethrow
-      | @ir.HotOp::ThrowRef
-      | @ir.HotOp::Delegate => true
-      _ => false
-    }
+    let direct_terminal = root_exit_fact.proves_direct_terminal()
     let tail_is_value_branch_to_label = if idx + 2 == root_count {
       let tail_id = @ir.hot_region_get(func, region_ref, idx + 1)
       let tail = @ir.hot_node_get(func, tail_id)
@@ -6481,11 +6555,9 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
       false
     }
     let never_falls_through = if tail_is_value_branch_to_label {
-      optimize_instructions_node_never_falls_through_to_label(
-        func, dead, root, label_id,
-      )
+      root_exit_fact.proves_never_falls_through_to_label()
     } else {
-      optimize_instructions_node_never_falls_through(func, dead, root)
+      root_exit_fact.proves_never_falls_through()
     }
     let escapes = if branch_only_if_escape {
       false
@@ -6499,9 +6571,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         | @ir.HotOp::Rethrow
         | @ir.HotOp::ThrowRef
         | @ir.HotOp::Delegate => true
-        _ =>
-          optimize_instructions_node_exits_to_label(func, dead, root, label_id) ||
-          never_falls_through
+        _ => root_exit_fact.proves_exits_to_label() || never_falls_through
       }
     }
     if !escapes {
@@ -6522,9 +6592,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         _ => false
       }
       let keep_result_zero_sentinel = root_is_result_carrier &&
-        optimize_instructions_node_exits_via_nonbranch_terminal(
-          func, dead, root,
-        )
+        root_exit_fact.proves_exits_via_nonbranch_terminal()
       if optimize_instructions_node_is_zero_sentinel(func, tail_id) &&
         (
           optimize_instructions_holder_flows_to_drop(ctx, func, region_ref) ||
@@ -6545,12 +6613,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
               _ => false
             }
             if root_is_if &&
-              !optimize_instructions_node_exits_to_label(
-                func,
-                dead,
-                root,
-                tail.imm0,
-              ) {
+              !OiControlExitFact::from_node(func, dead, root, tail.imm0).proves_exits_to_label() {
               return false
             }
           }
