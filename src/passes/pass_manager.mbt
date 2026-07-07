@@ -30537,11 +30537,27 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_descriptor_success(
+// Raw exact-descriptor success fact for balanced local-argument direct calls.
+// Binaryen v130 `optimizeKnownCastResult` removes an exact non-null descriptor
+// cast when the reference producer already returns the exact target and the
+// descriptor producer exactly describes that target; preserve both producer
+// calls and only drop the now-unused descriptor value.
+priv struct RawOiDescriptorBalancedLocalDirectExactSuccessFact {
+  end : Int
+  param_count : Int
+  ref_func : @lib.FuncIdx
+  descriptor_func : @lib.FuncIdx
+  target : @lib.HeapType
+  ref_args : Array[@lib.LocalIdx]
+  desc_args : Array[@lib.LocalIdx]
+}
+
+///|
+fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorBalancedLocalDirectExactSuccessFact? {
   let ref_args : Array[@lib.LocalIdx] = []
   let mut scan = start
   while scan < instrs.length() {
@@ -30574,19 +30590,16 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_d
                     descriptor_func,
                     target,
                     desc_args.length(),
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for arg in ref_args {
-                    rewritten.push(@lib.Instruction::local_get(arg))
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  for arg in desc_args {
-                    rewritten.push(@lib.Instruction::local_get(arg))
-                  }
-                  rewritten.push(@lib.Instruction::call(descriptor_func))
-                  rewritten.push(@lib.Instruction::drop())
-                  return Some((rewritten, desc_scan + 2))
-                }
+                  ) =>
+                  return Some({
+                    end: desc_scan + 2,
+                    param_count: ref_args.length(),
+                    ref_func,
+                    descriptor_func,
+                    target,
+                    ref_args,
+                    desc_args,
+                  })
                 _ => return None
               }
             _ => return None
@@ -30598,6 +30611,35 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_d
     }
   }
   None
+}
+
+///|
+fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::proves_binaryen_exact_success(
+  self : RawOiDescriptorBalancedLocalDirectExactSuccessFact,
+) -> Bool {
+  ignore(self.ref_func)
+  ignore(self.descriptor_func)
+  ignore(self.target)
+  self.param_count == self.ref_args.length() && self.end > 0
+}
+
+///|
+fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::append_rewrite(
+  self : RawOiDescriptorBalancedLocalDirectExactSuccessFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_exact_success() {
+    return
+  }
+  for arg in self.ref_args {
+    rewritten.push(@lib.Instruction::local_get(arg))
+  }
+  rewritten.push(@lib.Instruction::call(self.ref_func))
+  for arg in self.desc_args {
+    rewritten.push(@lib.Instruction::local_get(arg))
+  }
+  rewritten.push(@lib.Instruction::call(self.descriptor_func))
+  rewritten.push(@lib.Instruction::drop())
 }
 
 ///|
@@ -30941,18 +30983,16 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
   let mut i = 0
   while i < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_exact_descriptor_success(
+      RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_instrs(
         instrs, i, module_ctx,
       ) {
-      Some((direct_call_rewrite, next_i)) => {
-        for instr in direct_call_rewrite {
-          rewritten.push(instr)
-        }
+      Some(fact) if fact.proves_binaryen_exact_success() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     rewritten.push(instrs[i])
     i = i + 1
