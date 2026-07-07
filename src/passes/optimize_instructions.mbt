@@ -8926,40 +8926,121 @@ fn optimize_instructions_nodes_are_same_const_value(
 }
 
 ///|
-fn optimize_instructions_struct_atomic_identity_operand(
+priv struct OiStructAtomicFieldFact {
+  type_idx : @lib.TypeIdx
+  field_idx : @lib.U32
+  value_type : @lib.ValType
+}
+
+///|
+fn OiStructAtomicFieldFact::from_index(
+  ctx : HotPassContext,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+) -> OiStructAtomicFieldFact? {
+  // Binaryen v130 `visitStructRMW` / `visitStructCmpxchg` only continue when
+  // the receiver is a struct and the aggregate atomic produces a concrete field
+  // value. Starshine's HOT fact is intentionally narrower: it accepts resolved,
+  // mutable, unpacked i32/i64 struct fields, matching the represented OI-L
+  // lowering surface and leaving packed/ref fields to documented reopeners.
+  match
+    optimize_instructions_struct_atomic_field_type(ctx, type_idx, field_idx) {
+    Some(value_type) => Some({ type_idx, field_idx, value_type })
+    None => None
+  }
+}
+
+///|
+priv struct OiStructAtomicReceiverFact {
+  receiver_id : Int
+}
+
+///|
+fn OiStructAtomicReceiverFact::from_expr(
+  func : @ir.HotFunc,
+  receiver_id : Int,
+) -> OiStructAtomicReceiverFact? {
+  // Binaryen's replacement can reuse the receiver via `getResultOfFirst` or a
+  // fresh local. The current HOT OI-L surface keeps this fact deliberately
+  // explicit and accepts only trivially duplicable receiver producers that prior
+  // Binaryen probes exercised for Starshine: local.get and global.get.
+  match @ir.hot_node_get(func, receiver_id).op {
+    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet => Some({ receiver_id, })
+    _ => None
+  }
+}
+
+///|
+priv struct OiStructAtomicIdentityOperandFact {
+  value_id : Int
+}
+
+///|
+fn OiStructAtomicIdentityOperandFact::from_rmw(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  value_type : @lib.ValType,
+  field_fact : OiStructAtomicFieldFact,
   op : @lib.AggregateAtomicRmwOp,
   value_id : Int,
-) -> Bool {
-  match op {
+) -> OiStructAtomicIdentityOperandFact? {
+  // Binaryen v130 folds RMW add/sub/or/xor with zero and and with all-ones to a
+  // read-only struct.atomic.get when the value is a single constant fallthrough.
+  // The HOT fact uses the existing literal facts for the represented i32/i64
+  // field surface.
+  let is_identity = match op {
     @lib.AggregateAtomicRmwAdd
+    | @lib.AggregateAtomicRmwSub
     | @lib.AggregateAtomicRmwOr
     | @lib.AggregateAtomicRmwXor =>
-      if value_type == @lib.ValType::i32() {
+      if field_fact.value_type == @lib.ValType::i32() {
         optimize_instructions_i32_const_is(func, dead, value_id, 0)
       } else {
         optimize_instructions_i64_const_is(func, dead, value_id, 0L)
       }
     @lib.AggregateAtomicRmwAnd =>
-      if value_type == @lib.ValType::i32() {
+      if field_fact.value_type == @lib.ValType::i32() {
         optimize_instructions_i32_const_is(func, dead, value_id, -1)
       } else {
         optimize_instructions_i64_const_is(func, dead, value_id, -1L)
       }
     _ => false
   }
+  if is_identity {
+    Some({ value_id, })
+  } else {
+    None
+  }
 }
 
 ///|
-fn optimize_instructions_struct_atomic_receiver_is_dupable(
+priv struct OiStructAtomicCmpxchgSameValueFact {
+  expected_id : Int
+  replacement_id : Int
+}
+
+///|
+fn OiStructAtomicCmpxchgSameValueFact::from_operands(
   func : @ir.HotFunc,
-  receiver_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, receiver_id).op {
-    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet => true
-    _ => false
+  dead : @bitset.BitSet,
+  field_fact : OiStructAtomicFieldFact,
+  expected_id : Int,
+  replacement_id : Int,
+) -> OiStructAtomicCmpxchgSameValueFact? {
+  // Binaryen v130 `visitStructCmpxchg` uses `areConsecutiveInputsEqual` to
+  // prove that `expected` and `replacement` cannot modify the field and then
+  // rewrites cmpxchg to a read-only struct.atomic.get. Starshine currently
+  // represents the sampled same-constant subset as an explicit fact and keeps
+  // broader expression equality as a reopening point.
+  if optimize_instructions_nodes_are_same_const_value(
+      func,
+      dead,
+      field_fact.value_type,
+      expected_id,
+      replacement_id,
+    ) {
+    Some({ expected_id, replacement_id })
+  } else {
+    None
   }
 }
 
@@ -8969,15 +9050,10 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-  type_idx : @lib.TypeIdx,
-  field_idx : @lib.U32,
-  value_type : @lib.ValType,
-  receiver_id : Int,
+  field_fact : OiStructAtomicFieldFact,
+  receiver_fact : OiStructAtomicReceiverFact,
   operands_to_drop : Array[Int],
 ) -> Bool {
-  if !optimize_instructions_struct_atomic_receiver_is_dupable(func, receiver_id) {
-    return false
-  }
   let body : Array[Int] = []
   for operand in operands_to_drop {
     if !optimize_instructions_node_is_live(func, dead, operand) ||
@@ -8991,17 +9067,107 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
       func,
       @lib.Instruction::struct_atomic_get(
         @lib.AtomicOrder::seq_cst(),
-        type_idx,
-        field_idx,
+        field_fact.type_idx,
+        field_fact.field_idx,
       ),
-      Some(value_type),
-      [receiver_id],
+      Some(field_fact.value_type),
+      [receiver_fact.receiver_id],
     ),
   )
   optimize_instructions_replace_with_value_block(
-    ctx, func, node_id, value_type, body,
+    ctx,
+    func,
+    node_id,
+    field_fact.value_type,
+    body,
   )
   true
+}
+
+///|
+priv enum OiStructAtomicRmwLoweringOpFact {
+  StructAtomicRmwLowerAdd
+  StructAtomicRmwLowerSub
+  StructAtomicRmwLowerAnd
+  StructAtomicRmwLowerOr
+  StructAtomicRmwLowerXor
+  StructAtomicRmwLowerXchg
+}
+
+///|
+fn OiStructAtomicRmwLoweringOpFact::from_op(
+  op : @lib.AggregateAtomicRmwOp,
+) -> OiStructAtomicRmwLoweringOpFact? {
+  // Binaryen v130 lowers all non-identity unshared struct RMW operators except
+  // none: add/sub/and/or/xor become a struct.get, binary op, struct.set, and old
+  // value; xchg stores the replacement value directly. This fact owns that
+  // operator table so the visitor no longer hard-codes an add/xchg whitelist.
+  match op {
+    @lib.AggregateAtomicRmwAdd => Some(StructAtomicRmwLowerAdd)
+    @lib.AggregateAtomicRmwSub => Some(StructAtomicRmwLowerSub)
+    @lib.AggregateAtomicRmwAnd => Some(StructAtomicRmwLowerAnd)
+    @lib.AggregateAtomicRmwOr => Some(StructAtomicRmwLowerOr)
+    @lib.AggregateAtomicRmwXor => Some(StructAtomicRmwLowerXor)
+    @lib.AggregateAtomicRmwXchg => Some(StructAtomicRmwLowerXchg)
+  }
+}
+
+///|
+fn OiStructAtomicRmwLoweringOpFact::build_new_value(
+  self : OiStructAtomicRmwLoweringOpFact,
+  func : @ir.HotFunc,
+  value_type : @lib.ValType,
+  old_get_for_new : Int,
+  value_get_for_new : Int,
+) -> Int? {
+  match self {
+    StructAtomicRmwLowerAdd =>
+      optimize_instructions_build_exact_binary_for_value_type(
+        func,
+        value_type,
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::i64_add(),
+        old_get_for_new,
+        value_get_for_new,
+      )
+    StructAtomicRmwLowerSub =>
+      optimize_instructions_build_exact_binary_for_value_type(
+        func,
+        value_type,
+        @lib.Instruction::i32_sub(),
+        @lib.Instruction::i64_sub(),
+        old_get_for_new,
+        value_get_for_new,
+      )
+    StructAtomicRmwLowerAnd =>
+      optimize_instructions_build_exact_binary_for_value_type(
+        func,
+        value_type,
+        @lib.Instruction::i32_and(),
+        @lib.Instruction::i64_and(),
+        old_get_for_new,
+        value_get_for_new,
+      )
+    StructAtomicRmwLowerOr =>
+      optimize_instructions_build_exact_binary_for_value_type(
+        func,
+        value_type,
+        @lib.Instruction::i32_or(),
+        @lib.Instruction::i64_or(),
+        old_get_for_new,
+        value_get_for_new,
+      )
+    StructAtomicRmwLowerXor =>
+      optimize_instructions_build_exact_binary_for_value_type(
+        func,
+        value_type,
+        @lib.Instruction::i32_xor(),
+        @lib.Instruction::i64_xor(),
+        old_get_for_new,
+        value_get_for_new,
+      )
+    StructAtomicRmwLowerXchg => Some(value_get_for_new)
+  }
 }
 
 ///|
@@ -9011,88 +9177,100 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
   dead : @bitset.BitSet,
   node_id : Int,
   op : @lib.AggregateAtomicRmwOp,
-  type_idx : @lib.TypeIdx,
-  field_idx : @lib.U32,
-  value_type : @lib.ValType,
+  field_fact : OiStructAtomicFieldFact,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
   }
   let receiver_id = @ir.hot_child_get(func, node_id, 0)
   let value_id = @ir.hot_child_get(func, node_id, 1)
-  if optimize_instructions_struct_atomic_identity_operand(
-      func, dead, value_type, op, value_id,
-    ) {
-    return optimize_instructions_try_rewrite_struct_atomic_identity_get(
-      ctx,
-      func,
-      dead,
-      node_id,
-      type_idx,
-      field_idx,
-      value_type,
-      receiver_id,
-      [value_id],
-    )
+  let identity_operand_fact = OiStructAtomicIdentityOperandFact::from_rmw(
+    func, dead, field_fact, op, value_id,
+  )
+  match identity_operand_fact {
+    Some(identity_fact) => {
+      let receiver_fact = match
+        OiStructAtomicReceiverFact::from_expr(func, receiver_id) {
+        Some(fact) => fact
+        None => return false
+      }
+      return optimize_instructions_try_rewrite_struct_atomic_identity_get(
+        ctx,
+        func,
+        dead,
+        node_id,
+        field_fact,
+        receiver_fact,
+        [identity_fact.value_id],
+      )
+    }
+    None => ()
   }
-  match op {
-    @lib.AggregateAtomicRmwAdd | @lib.AggregateAtomicRmwXchg => ()
-    _ => return false
+  let lowering_op = match OiStructAtomicRmwLoweringOpFact::from_op(op) {
+    Some(fact) => fact
+    None => return false
   }
-  if !optimize_instructions_struct_atomic_receiver_is_dupable(func, receiver_id) ||
-    !optimize_instructions_is_side_effect_free_expr(func, dead, value_id) {
+  let receiver_fact = match
+    OiStructAtomicReceiverFact::from_expr(func, receiver_id) {
+    Some(fact) => fact
+    None => return false
+  }
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, value_id) {
     return false
   }
   let receiver_local = optimize_instructions_add_temp_local(
     func,
     @lib.ValType::ref_type(
-      @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+      @lib.RefType::new(true, @lib.HeapType::new(field_fact.type_idx)),
     ),
   )
-  let value_local = optimize_instructions_add_temp_local(func, value_type)
-  let old_local = optimize_instructions_add_temp_local(func, value_type)
+  let value_local = optimize_instructions_add_temp_local(
+    func,
+    field_fact.value_type,
+  )
+  let old_local = optimize_instructions_add_temp_local(
+    func,
+    field_fact.value_type,
+  )
   let old_get_for_new = @ir.hot_build_local_get(func, old_local)
   let value_get_for_new = @ir.hot_build_local_get(func, value_local)
-  let new_value = match op {
-    @lib.AggregateAtomicRmwAdd =>
-      match
-        optimize_instructions_build_exact_binary_for_value_type(
-          func,
-          value_type,
-          @lib.Instruction::i32_add(),
-          @lib.Instruction::i64_add(),
-          old_get_for_new,
-          value_get_for_new,
-        ) {
-        Some(id) => id
-        None => return false
-      }
-    @lib.AggregateAtomicRmwXchg => value_get_for_new
-    _ => return false
+  let new_value = match
+    lowering_op.build_new_value(
+      func,
+      field_fact.value_type,
+      old_get_for_new,
+      value_get_for_new,
+    ) {
+    Some(id) => id
+    None => return false
   }
   let body : Array[Int] = [
-    @ir.hot_build_local_set(func, receiver_local, receiver_id),
+    @ir.hot_build_local_set(func, receiver_local, receiver_fact.receiver_id),
     @ir.hot_build_local_set(func, value_local, value_id),
     @ir.hot_build_local_set(
       func,
       old_local,
       optimize_instructions_build_exact_heap(
         func,
-        @lib.Instruction::struct_get(type_idx, field_idx),
-        Some(value_type),
+        @lib.Instruction::struct_get(field_fact.type_idx, field_fact.field_idx),
+        Some(field_fact.value_type),
         [@ir.hot_build_local_get(func, receiver_local)],
       ),
     ),
     optimize_instructions_build_exact_heap(
       func,
-      @lib.Instruction::struct_set(type_idx, field_idx),
+      @lib.Instruction::struct_set(field_fact.type_idx, field_fact.field_idx),
       None,
       [@ir.hot_build_local_get(func, receiver_local), new_value],
     ),
     @ir.hot_build_local_get(func, old_local),
   ]
   optimize_instructions_replace_with_value_block(
-    ctx, func, node_id, value_type, body,
+    ctx,
+    func,
+    node_id,
+    field_fact.value_type,
+    body,
   )
   true
 }
@@ -9103,9 +9281,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-  type_idx : @lib.TypeIdx,
-  field_idx : @lib.U32,
-  value_type : @lib.ValType,
+  field_fact : OiStructAtomicFieldFact,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 3 {
     return false
@@ -9113,41 +9289,61 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   let receiver_id = @ir.hot_child_get(func, node_id, 0)
   let expected_id = @ir.hot_child_get(func, node_id, 1)
   let replacement_id = @ir.hot_child_get(func, node_id, 2)
-  if optimize_instructions_nodes_are_same_const_value(
-      func, dead, value_type, expected_id, replacement_id,
-    ) {
-    return optimize_instructions_try_rewrite_struct_atomic_identity_get(
-      ctx,
-      func,
-      dead,
-      node_id,
-      type_idx,
-      field_idx,
-      value_type,
-      receiver_id,
-      [expected_id, replacement_id],
-    )
+  let same_value_fact = OiStructAtomicCmpxchgSameValueFact::from_operands(
+    func, dead, field_fact, expected_id, replacement_id,
+  )
+  match same_value_fact {
+    Some(fact) => {
+      let receiver_fact = match
+        OiStructAtomicReceiverFact::from_expr(func, receiver_id) {
+        Some(fact) => fact
+        None => return false
+      }
+      return optimize_instructions_try_rewrite_struct_atomic_identity_get(
+        ctx,
+        func,
+        dead,
+        node_id,
+        field_fact,
+        receiver_fact,
+        [fact.expected_id, fact.replacement_id],
+      )
+    }
+    None => ()
   }
-  if !optimize_instructions_struct_atomic_receiver_is_dupable(func, receiver_id) ||
-    !optimize_instructions_is_side_effect_free_expr(func, dead, expected_id) ||
+  let receiver_fact = match
+    OiStructAtomicReceiverFact::from_expr(func, receiver_id) {
+    Some(fact) => fact
+    None => return false
+  }
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, expected_id) ||
     !optimize_instructions_is_side_effect_free_expr(func, dead, replacement_id) {
     return false
   }
   let receiver_local = optimize_instructions_add_temp_local(
     func,
     @lib.ValType::ref_type(
-      @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+      @lib.RefType::new(true, @lib.HeapType::new(field_fact.type_idx)),
     ),
   )
-  let expected_local = optimize_instructions_add_temp_local(func, value_type)
-  let replacement_local = optimize_instructions_add_temp_local(func, value_type)
-  let old_local = optimize_instructions_add_temp_local(func, value_type)
+  let expected_local = optimize_instructions_add_temp_local(
+    func,
+    field_fact.value_type,
+  )
+  let replacement_local = optimize_instructions_add_temp_local(
+    func,
+    field_fact.value_type,
+  )
+  let old_local = optimize_instructions_add_temp_local(
+    func,
+    field_fact.value_type,
+  )
   let old_for_compare = @ir.hot_build_local_get(func, old_local)
   let expected_for_compare = @ir.hot_build_local_get(func, expected_local)
   let condition = match
     optimize_instructions_build_exact_compare_for_value_type(
       func,
-      value_type,
+      field_fact.value_type,
       @lib.Instruction::i32_eq(),
       @lib.Instruction::i64_eq(),
       old_for_compare,
@@ -9158,13 +9354,13 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   }
   let selected = @ir.hot_build_select(
     func,
-    value_type,
+    field_fact.value_type,
     @ir.hot_build_local_get(func, replacement_local),
     @ir.hot_build_local_get(func, old_local),
     condition,
   )
   let body : Array[Int] = [
-    @ir.hot_build_local_set(func, receiver_local, receiver_id),
+    @ir.hot_build_local_set(func, receiver_local, receiver_fact.receiver_id),
     @ir.hot_build_local_set(func, expected_local, expected_id),
     @ir.hot_build_local_set(func, replacement_local, replacement_id),
     @ir.hot_build_local_set(
@@ -9172,21 +9368,25 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
       old_local,
       optimize_instructions_build_exact_heap(
         func,
-        @lib.Instruction::struct_get(type_idx, field_idx),
-        Some(value_type),
+        @lib.Instruction::struct_get(field_fact.type_idx, field_fact.field_idx),
+        Some(field_fact.value_type),
         [@ir.hot_build_local_get(func, receiver_local)],
       ),
     ),
     optimize_instructions_build_exact_heap(
       func,
-      @lib.Instruction::struct_set(type_idx, field_idx),
+      @lib.Instruction::struct_set(field_fact.type_idx, field_fact.field_idx),
       None,
       [@ir.hot_build_local_get(func, receiver_local), selected],
     ),
     @ir.hot_build_local_get(func, old_local),
   ]
   optimize_instructions_replace_with_value_block(
-    ctx, func, node_id, value_type, body,
+    ctx,
+    func,
+    node_id,
+    field_fact.value_type,
+    body,
   )
   true
 }
@@ -9204,23 +9404,23 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
   }
   match instr {
     @lib.Instruction::StructAtomicRmw(op, type_idx, field_idx) => {
-      let value_type = match
-        optimize_instructions_struct_atomic_field_type(ctx, type_idx, field_idx) {
-        Some(value_type) => value_type
+      let field_fact = match
+        OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
+        Some(fact) => fact
         None => return false
       }
       optimize_instructions_try_rewrite_struct_atomic_rmw(
-        ctx, func, dead, node_id, op, type_idx, field_idx, value_type,
+        ctx, func, dead, node_id, op, field_fact,
       )
     }
     @lib.Instruction::StructAtomicCmpxchg(type_idx, field_idx) => {
-      let value_type = match
-        optimize_instructions_struct_atomic_field_type(ctx, type_idx, field_idx) {
-        Some(value_type) => value_type
+      let field_fact = match
+        OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
+        Some(fact) => fact
         None => return false
       }
       optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
-        ctx, func, dead, node_id, type_idx, field_idx, value_type,
+        ctx, func, dead, node_id, field_fact,
       )
     }
     @lib.Instruction::ArrayAtomicRmw(_, _)

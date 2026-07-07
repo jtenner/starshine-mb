@@ -31950,6 +31950,22 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     #|    (struct.atomic.rmw.xchg 0 0
     #|      (local.get $s)
     #|      (local.get $v)))
+    #|  (func (param $s (ref $S)) (param $v i32) (result i32)
+    #|    (struct.atomic.rmw.sub 0 0
+    #|      (local.get $s)
+    #|      (local.get $v)))
+    #|  (func (param $s (ref $S)) (param $v i32) (result i32)
+    #|    (struct.atomic.rmw.and 0 0
+    #|      (local.get $s)
+    #|      (local.get $v)))
+    #|  (func (param $s (ref $S)) (param $v i32) (result i32)
+    #|    (struct.atomic.rmw.or 0 0
+    #|      (local.get $s)
+    #|      (local.get $v)))
+    #|  (func (param $s (ref $S)) (param $v i32) (result i32)
+    #|    (struct.atomic.rmw.xor 0 0
+    #|      (local.get $s)
+    #|      (local.get $v)))
     #|  (func (param $s (ref $S)) (result i32)
     #|    (struct.atomic.rmw.add 0 0
     #|      (local.get $s)
@@ -31997,7 +32013,31 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
   assert_true(lowered_xchg.contains("struct.get"), msg=lowered_xchg)
   assert_true(lowered_xchg.contains("struct.set"), msg=lowered_xchg)
 
-  for idx = 2; idx <= 5; idx = idx + 1 {
+  let lowered_sub = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(lowered_sub.contains("struct.atomic.rmw.sub"), msg=lowered_sub)
+  assert_true(lowered_sub.contains("struct.get"), msg=lowered_sub)
+  assert_true(lowered_sub.contains("struct.set"), msg=lowered_sub)
+  assert_true(lowered_sub.contains("i32.sub"), msg=lowered_sub)
+
+  let lowered_and = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(lowered_and.contains("struct.atomic.rmw.and"), msg=lowered_and)
+  assert_true(lowered_and.contains("struct.get"), msg=lowered_and)
+  assert_true(lowered_and.contains("struct.set"), msg=lowered_and)
+  assert_true(lowered_and.contains("i32.and"), msg=lowered_and)
+
+  let lowered_or = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_false(lowered_or.contains("struct.atomic.rmw.or"), msg=lowered_or)
+  assert_true(lowered_or.contains("struct.get"), msg=lowered_or)
+  assert_true(lowered_or.contains("struct.set"), msg=lowered_or)
+  assert_true(lowered_or.contains("i32.or"), msg=lowered_or)
+
+  let lowered_xor = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(lowered_xor.contains("struct.atomic.rmw.xor"), msg=lowered_xor)
+  assert_true(lowered_xor.contains("struct.get"), msg=lowered_xor)
+  assert_true(lowered_xor.contains("struct.set"), msg=lowered_xor)
+  assert_true(lowered_xor.contains("i32.xor"), msg=lowered_xor)
+
+  for idx = 6; idx <= 9; idx = idx + 1 {
     let pretty = optimized.pretty_print_func(
       @lib.FuncIdx::new(idx.reinterpret_as_uint()),
     )
@@ -32006,7 +32046,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
     assert_true(pretty.contains("drop"), msg=pretty)
   }
 
-  let lowered_cmpxchg = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let lowered_cmpxchg = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
   assert_false(
     lowered_cmpxchg.contains("struct.atomic.rmw.cmpxchg"),
     msg=lowered_cmpxchg,
@@ -32015,7 +32055,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
   assert_true(lowered_cmpxchg.contains("struct.set"), msg=lowered_cmpxchg)
   assert_true(lowered_cmpxchg.contains("select"), msg=lowered_cmpxchg)
 
-  let array_boundary = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let array_boundary = optimized.pretty_print_func(@lib.FuncIdx::new(11U))
   assert_true(
     array_boundary.contains("array.atomic.rmw.add"),
     msg=array_boundary,
