@@ -5150,23 +5150,97 @@ fn optimize_instructions_try_canonicalize_commutative(
 }
 
 ///|
-fn optimize_instructions_is_trivially_pure_operand(
+priv struct OiTriviallyPureOperandFact {
+  local_get_leaf : Bool
+  global_get_leaf : Bool
+  const_leaf : Bool
+  ref_null_leaf : Bool
+  ref_func_leaf : Bool
+}
+
+///|
+fn OiTriviallyPureOperandFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> Bool {
+) -> OiTriviallyPureOperandFact {
+  // Binaryen OI frequently asks whether an operand can be erased without
+  // preserving effects. Keep the represented direct leaf set as a fact instead
+  // of a helper-local opcode whitelist so descriptor, array, select, compare,
+  // and memory facts share the same source-backed predicate.
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
   match node.op {
-    @ir.HotOp::LocalGet
-    | @ir.HotOp::GlobalGet
-    | @ir.HotOp::Const
-    | @ir.HotOp::RefNull
-    | @ir.HotOp::RefFunc => true
-    _ => false
+    @ir.HotOp::LocalGet =>
+      {
+        local_get_leaf: true,
+        global_get_leaf: false,
+        const_leaf: false,
+        ref_null_leaf: false,
+        ref_func_leaf: false,
+      }
+    @ir.HotOp::GlobalGet =>
+      {
+        local_get_leaf: false,
+        global_get_leaf: true,
+        const_leaf: false,
+        ref_null_leaf: false,
+        ref_func_leaf: false,
+      }
+    @ir.HotOp::Const =>
+      {
+        local_get_leaf: false,
+        global_get_leaf: false,
+        const_leaf: true,
+        ref_null_leaf: false,
+        ref_func_leaf: false,
+      }
+    @ir.HotOp::RefNull =>
+      {
+        local_get_leaf: false,
+        global_get_leaf: false,
+        const_leaf: false,
+        ref_null_leaf: true,
+        ref_func_leaf: false,
+      }
+    @ir.HotOp::RefFunc =>
+      {
+        local_get_leaf: false,
+        global_get_leaf: false,
+        const_leaf: false,
+        ref_null_leaf: false,
+        ref_func_leaf: true,
+      }
+    _ =>
+      {
+        local_get_leaf: false,
+        global_get_leaf: false,
+        const_leaf: false,
+        ref_null_leaf: false,
+        ref_func_leaf: false,
+      }
   }
+}
+
+///|
+fn OiTriviallyPureOperandFact::proves_pure(
+  self : OiTriviallyPureOperandFact,
+) -> Bool {
+  self.local_get_leaf ||
+  self.global_get_leaf ||
+  self.const_leaf ||
+  self.ref_null_leaf ||
+  self.ref_func_leaf
+}
+
+///|
+fn optimize_instructions_is_trivially_pure_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  OiTriviallyPureOperandFact::from_node(func, node_id).proves_pure()
 }
 
 ///|
@@ -5176,7 +5250,219 @@ fn optimize_instructions_is_trivially_pure_value(
   node_id : Int,
 ) -> Bool {
   optimize_instructions_node_is_live(func, dead, node_id) &&
-  optimize_instructions_is_trivially_pure_operand(func, node_id)
+  OiTriviallyPureOperandFact::from_node(func, node_id).proves_pure()
+}
+
+///|
+priv struct OiSideEffectFreeExpressionFact {
+  live : Bool
+  trivial_leaf : OiTriviallyPureOperandFact
+  exact_ref_null_leaf : Bool
+  exact_v128_const_leaf : Bool
+  ref_i31_payload : Bool
+  simd_splat_payload : Bool
+  branchless_scalar_shell : Bool
+  children_effect_free : Bool
+}
+
+///|
+fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
+  {
+    live: false,
+    trivial_leaf: {
+      local_get_leaf: false,
+      global_get_leaf: false,
+      const_leaf: false,
+      ref_null_leaf: false,
+      ref_func_leaf: false,
+    },
+    exact_ref_null_leaf: false,
+    exact_v128_const_leaf: false,
+    ref_i31_payload: false,
+    simd_splat_payload: false,
+    branchless_scalar_shell: false,
+    children_effect_free: false,
+  }
+}
+
+///|
+fn OiSideEffectFreeExpressionFact::instr_is_v128_const(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn OiSideEffectFreeExpressionFact::instr_is_simd_splat(
+  instr : @lib.Instruction,
+) -> Bool {
+  instr == @lib.Instruction::i8x16_splat() ||
+  instr == @lib.Instruction::i16x8_splat() ||
+  instr == @lib.Instruction::i32x4_splat() ||
+  instr == @lib.Instruction::i64x2_splat() ||
+  instr == @lib.Instruction::f32x4_splat() ||
+  instr == @lib.Instruction::f64x2_splat()
+}
+
+///|
+fn OiSideEffectFreeExpressionFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiSideEffectFreeExpressionFact {
+  // Represented subset of Binaryen v130 `EffectAnalyzer` /
+  // `ExpressionAnalyzer` purity queries used by OI when it can erase an
+  // operand, collapse identical select arms, move a null check, or replace an
+  // expression with a constant while preserving effects. The fact preserves the
+  // previous Starshine-supported set exactly: direct pure leaves, exact
+  // `ref.null`, byte-constant SIMD leaves, `ref.i31` over side-effect-free
+  // payloads, direct SIMD splats over side-effect-free payloads, and branchless
+  // scalar shells whose children are all side-effect-free.
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return OiSideEffectFreeExpressionFact::empty()
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  let trivial_leaf = OiTriviallyPureOperandFact::from_node(func, node_id)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefNull(_)) =>
+      return {
+        live: true,
+        trivial_leaf,
+        exact_ref_null_leaf: true,
+        exact_v128_const_leaf: false,
+        ref_i31_payload: false,
+        simd_splat_payload: false,
+        branchless_scalar_shell: false,
+        children_effect_free: true,
+      }
+    Some(instr) if OiSideEffectFreeExpressionFact::instr_is_v128_const(instr) =>
+      return {
+        live: true,
+        trivial_leaf,
+        exact_ref_null_leaf: false,
+        exact_v128_const_leaf: true,
+        ref_i31_payload: false,
+        simd_splat_payload: false,
+        branchless_scalar_shell: false,
+        children_effect_free: true,
+      }
+    Some(@lib.Instruction::RefI31) if node.child_count == 1 => {
+      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+        func,
+        dead,
+        func.children[node.child_base],
+      )
+      return {
+        live: true,
+        trivial_leaf,
+        exact_ref_null_leaf: false,
+        exact_v128_const_leaf: false,
+        ref_i31_payload: true,
+        simd_splat_payload: false,
+        branchless_scalar_shell: false,
+        children_effect_free: child_fact.proves_free(),
+      }
+    }
+    Some(instr) if node.child_count == 1 &&
+      OiSideEffectFreeExpressionFact::instr_is_simd_splat(instr) => {
+      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+        func,
+        dead,
+        func.children[node.child_base],
+      )
+      return {
+        live: true,
+        trivial_leaf,
+        exact_ref_null_leaf: false,
+        exact_v128_const_leaf: false,
+        ref_i31_payload: false,
+        simd_splat_payload: true,
+        branchless_scalar_shell: false,
+        children_effect_free: child_fact.proves_free(),
+      }
+    }
+    _ => ()
+  }
+  if trivial_leaf.proves_pure() {
+    return {
+      live: true,
+      trivial_leaf,
+      exact_ref_null_leaf: false,
+      exact_v128_const_leaf: false,
+      ref_i31_payload: false,
+      simd_splat_payload: false,
+      branchless_scalar_shell: false,
+      children_effect_free: true,
+    }
+  }
+  match node.op {
+    @ir.HotOp::Unary
+    | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Convert
+    | @ir.HotOp::Select => {
+      let mut children_effect_free = true
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        let child_fact = OiSideEffectFreeExpressionFact::from_node(
+          func,
+          dead,
+          func.children[node.child_base + slot],
+        )
+        if !child_fact.proves_free() {
+          children_effect_free = false
+        }
+      }
+      {
+        live: true,
+        trivial_leaf,
+        exact_ref_null_leaf: false,
+        exact_v128_const_leaf: false,
+        ref_i31_payload: false,
+        simd_splat_payload: false,
+        branchless_scalar_shell: true,
+        children_effect_free,
+      }
+    }
+    _ =>
+      {
+        live: true,
+        trivial_leaf,
+        exact_ref_null_leaf: false,
+        exact_v128_const_leaf: false,
+        ref_i31_payload: false,
+        simd_splat_payload: false,
+        branchless_scalar_shell: false,
+        children_effect_free: false,
+      }
+  }
+}
+
+///|
+fn OiSideEffectFreeExpressionFact::proves_free(
+  self : OiSideEffectFreeExpressionFact,
+) -> Bool {
+  self.live &&
+  (
+    self.trivial_leaf.proves_pure() ||
+    self.exact_ref_null_leaf ||
+    self.exact_v128_const_leaf ||
+    (
+      (
+        self.ref_i31_payload ||
+        self.simd_splat_payload ||
+        self.branchless_scalar_shell
+      ) &&
+      self.children_effect_free
+    )
+  )
 }
 
 ///|
@@ -5185,82 +5471,7 @@ fn optimize_instructions_is_side_effect_free_expr(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
-  let node = if node_id < func.nodes.length() {
-    func.nodes[node_id]
-  } else {
-    @ir.hot_node_get(func, node_id)
-  }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefNull(_)) => return true
-    Some(
-      @lib.Instruction::V128Const(
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        _
-      )
-    ) => return true
-    Some(@lib.Instruction::RefI31) if node.child_count == 1 =>
-      return optimize_instructions_is_side_effect_free_expr(
-        func,
-        dead,
-        func.children[node.child_base],
-      )
-    Some(instr) if node.child_count == 1 &&
-      (
-        instr == @lib.Instruction::i8x16_splat() ||
-        instr == @lib.Instruction::i16x8_splat() ||
-        instr == @lib.Instruction::i32x4_splat() ||
-        instr == @lib.Instruction::i64x2_splat() ||
-        instr == @lib.Instruction::f32x4_splat() ||
-        instr == @lib.Instruction::f64x2_splat()
-      ) =>
-      return optimize_instructions_is_side_effect_free_expr(
-        func,
-        dead,
-        func.children[node.child_base],
-      )
-    _ => ()
-  }
-  match node.op {
-    @ir.HotOp::LocalGet
-    | @ir.HotOp::GlobalGet
-    | @ir.HotOp::Const
-    | @ir.HotOp::RefNull
-    | @ir.HotOp::RefFunc => true
-    @ir.HotOp::Unary
-    | @ir.HotOp::Binary
-    | @ir.HotOp::Compare
-    | @ir.HotOp::Convert
-    | @ir.HotOp::Select => {
-      for slot = 0; slot < node.child_count; slot = slot + 1 {
-        if !optimize_instructions_is_side_effect_free_expr(
-            func,
-            dead,
-            func.children[node.child_base + slot],
-          ) {
-          return false
-        }
-      }
-      true
-    }
-    _ => false
-  }
+  OiSideEffectFreeExpressionFact::from_node(func, dead, node_id).proves_free()
 }
 
 ///|
