@@ -7086,6 +7086,51 @@ fn optimize_instructions_stable_memory_read_ops_equal(
 }
 
 ///|
+fn optimize_instructions_stable_memory_read_address_equal(
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+  depth? : Int = 0,
+) -> Bool {
+  if depth > 16 {
+    return false
+  }
+  let left = @ir.hot_node_get(func, left_id)
+  let right = @ir.hot_node_get(func, right_id)
+  if optimize_instructions_stable_state_reads_equal(left, right) {
+    return true
+  }
+  match (left.op, right.op) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
+    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
+    (@ir.HotOp::Const, @ir.HotOp::Const) =>
+      @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
+    _ => {
+      if left.op != right.op ||
+        !optimize_instructions_is_pure_scalar_equal_tree_op(left.op) ||
+        left.ty != right.ty ||
+        left.flags != right.flags ||
+        left.imm0 != right.imm0 ||
+        left.imm1 != right.imm1 ||
+        left.child_count != right.child_count {
+        return false
+      }
+      for slot = 0; slot < left.child_count; slot = slot + 1 {
+        if !optimize_instructions_stable_memory_read_address_equal(
+            func,
+            @ir.hot_child_get(func, left_id, slot),
+            @ir.hot_child_get(func, right_id, slot),
+            depth=depth + 1,
+          ) {
+          return false
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
 fn optimize_instructions_stable_memory_reads_equal(
   func : @ir.HotFunc,
   left_id : Int,
@@ -7096,9 +7141,10 @@ fn optimize_instructions_stable_memory_reads_equal(
   // `EffectAnalyzer::orderedBefore(effects(right))` whether intervening effects
   // can change the right read. Model the represented load subset as an explicit
   // effect-sensitive fact: same load/atomic-load instruction, same access
-  // metadata, and a source-backed pure-scalar address proof. The enclosing
-  // equality fact still owns the memory-write interference check, so store/grow
-  // prefixes keep the copy live.
+  // metadata, and a source-backed address proof for pure scalar trees plus
+  // deterministic state-read leaves. The enclosing equality fact still owns the
+  // memory/state-write interference check, so store/grow prefixes keep the copy
+  // live.
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
   if left.child_count != 1 || right.child_count != 1 {
@@ -7115,7 +7161,7 @@ fn optimize_instructions_stable_memory_reads_equal(
         left_instr,
         right_instr,
       ) =>
-      optimize_instructions_pure_scalar_tree_equal(
+      optimize_instructions_stable_memory_read_address_equal(
         func,
         @ir.hot_child_get(func, left_id, 0),
         @ir.hot_child_get(func, right_id, 0),
@@ -7571,7 +7617,7 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // structurally identical scalar trees made of local.get, global.get,
   // constants, unary, binary, compare, and convert nodes, plus effect-sensitive
   // same-index memory.size/table.size state reads and same-access load/atomic-load
-  // reads.
+  // reads whose address proofs include deterministic state-read leaves.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,

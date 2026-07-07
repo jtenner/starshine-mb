@@ -33193,6 +33193,161 @@ test "optimize-instructions drops load-read same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops load-read memory.size-address same-address memory.copy" {
+  // OI-G same-input equality fact breadth: Binaryen version_130
+  // `ExpressionAnalyzer::equal` compares repeated load address expressions that
+  // contain deterministic state-read leaves, such as `memory.size`, and the
+  // enclosing equality fact separately rejects intervening effects that can
+  // change either the address read or loaded memory. Under TNH, matching loads
+  // from `memory.size` addresses are equal enough for same-address copy removal.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $size i32)
+        #|    memory.size
+        #|    i32.load
+        #|    memory.size
+        #|    i32.load
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.size-address load-read memory.copy TNH success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "memory.size", "i32.load", "drop", "memory.size", "i32.load", "drop", "local.get (Local 0)",
+    "drop",
+  ])
+}
+
+///|
+test "optimize-instructions drops load-read table.size-address same-address memory.copy" {
+  // Companion state-read address leaf fact for table state: Binaryen v130's
+  // `ExpressionAnalyzer::equal` treats repeated same-index `table.size` leaves
+  // in load address trees like `memory.size`, with intervening table effects
+  // handled by the enclosing ordered-effects check rather than by the address
+  // equality predicate itself.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (table 1 funcref)
+        #|  (func (export "f") (param $size i32)
+        #|    table.size 0
+        #|    i32.load
+        #|    table.size 0
+        #|    i32.load
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.size-address load-read memory.copy TNH success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "table.size", "i32.load", "drop", "table.size", "i32.load", "drop", "local.get (Local 0)",
+    "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps load-read memory.size-address after memory.grow" {
+  // Boundary guard for the OI-G state-read address leaf fact: Binaryen v130 keeps
+  // the dynamic-size copy live when a right-block prefix can grow memory before
+  // the second `i32.load(memory.size)`, because the prefix is ordered before the
+  // right load's address/state and memory read effects.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param $size i32)
+        #|    memory.size
+        #|    i32.load
+        #|    (block (result i32)
+        #|      i32.const 1
+        #|      memory.grow
+        #|      drop
+        #|      memory.size
+        #|      i32.load)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.grow load-read memory.copy boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps load-read table.size-address after table.grow" {
+  // Boundary guard for table state-read address leaves: a right-block
+  // `table.grow` prefix can change the later `table.size` address before the
+  // second load, so the shared equality fact must leave the copy live.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (table 1 funcref)
+        #|  (func (export "f") (param $size i32)
+        #|    table.size 0
+        #|    i32.load
+        #|    (block (result i32)
+        #|      ref.null func
+        #|      i32.const 1
+        #|      table.grow 0
+        #|      drop
+        #|      table.size 0
+        #|      i32.load)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.grow load-read memory.copy boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("table.grow"), msg=pretty)
+}
+
+///|
 test "optimize-instructions drops atomic-load-read same-address memory.copy" {
   // OI-G/OI-L same-input equality fact breadth: Binaryen version_130 treats
   // same-access repeated atomic loads like other ExpressionAnalyzer-equal memory
