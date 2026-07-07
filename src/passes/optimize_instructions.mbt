@@ -11192,6 +11192,13 @@ priv struct OiArrayNewDefaultInitRewriteFact {
 }
 
 ///|
+priv struct OiArrayNewSingleFixedFact {
+  node_id : Int
+  type_idx : @lib.TypeIdx
+  init_id : Int
+}
+
+///|
 fn OiArrayNewDefaultInitRewriteFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11266,6 +11273,69 @@ fn optimize_instructions_try_rewrite_array_new_default_init(
 ) -> Bool {
   let fact = match
     OiArrayNewDefaultInitRewriteFact::from_node(ctx, func, node_id) {
+    Some(fact) => fact
+    None => return false
+  }
+  fact.apply_rewrite(ctx, func)
+  true
+}
+
+///|
+fn OiArrayNewSingleFixedFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiArrayNewSingleFixedFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayNew(type_idx)) => type_idx
+    _ => return None
+  }
+  if node.child_count != 2 {
+    return None
+  }
+  let len_id = @ir.hot_child_get(func, node_id, 1)
+  match @ir.hot_node_get(func, len_id).op {
+    @ir.HotOp::Const =>
+      if @ir.hot_const_get(func, @ir.hot_node_get(func, len_id).imm0) !=
+        @ir.HotConstPayload::i32_const(@lib.I32(1)) {
+        return None
+      }
+    _ => return None
+  }
+  Some({ node_id, type_idx, init_id: @ir.hot_child_get(func, node_id, 0) })
+}
+
+///|
+fn OiArrayNewSingleFixedFact::apply_rewrite(
+  self : OiArrayNewSingleFixedFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Unit {
+  let original = @ir.hot_node_get(func, self.node_id)
+  let temp = @ir.hot_build_node(
+    func,
+    original.op,
+    @ir.hot_node_type(func, self.node_id),
+    children=[self.init_id],
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    temp,
+    @lib.Instruction::array_new_fixed(self.type_idx, @lib.U32(1U)),
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, self.node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_try_rewrite_array_new_single_fixed(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let fact = match OiArrayNewSingleFixedFact::from_node(func, node_id) {
     Some(fact) => fact
     None => return false
   }
@@ -22201,6 +22271,9 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
       optimize_instructions_try_rewrite_array_new_default_init(
+        ctx, func, node_id,
+      ) ||
+      optimize_instructions_try_rewrite_array_new_single_fixed(
         ctx, func, node_id,
       ) ||
       optimize_instructions_try_rewrite_array_new_fixed_repeated_values(

@@ -51971,6 +51971,57 @@ test "optimize-instructions preserves block default array.new_fixed effects thro
 }
 
 ///|
+test "optimize-instructions rewrites array.new size one through facts" {
+  // OI-K aggregate constructor fact: Binaryen version_130 `visitArrayNew`
+  // rewrites a non-default `array.new` with constant length 1 to
+  // `array.new_fixed`, because the fixed form saves the length immediate. Keep
+  // this as an explicit size fact rather than a local array.new scanner.
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_null(@lib.HeapType::new(array_type)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_new(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new ("), msg=pretty)
+  assert_true(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions rewrites array.new default init through facts" {
   // OI-K/OI-L aggregate constructor fact: Binaryen version_130 `visitArrayNew`
   // checks the initializer through `getFallthrough`; defaultable array element
