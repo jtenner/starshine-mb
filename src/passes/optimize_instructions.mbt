@@ -7118,61 +7118,149 @@ fn optimize_instructions_scalar_tree_metadata_equal(
 }
 
 ///|
-fn optimize_instructions_stable_memory_read_address_equal(
-  func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
-  depth? : Int = 0,
-) -> Bool {
-  if depth > 16 {
-    return false
-  }
-  let left = @ir.hot_node_get(func, left_id)
-  let right = @ir.hot_node_get(func, right_id)
-  if optimize_instructions_stable_state_reads_equal(left, right) {
-    return true
-  }
-  match (left.op, right.op) {
-    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
-    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
-    (@ir.HotOp::Const, @ir.HotOp::Const) =>
-      @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
-    _ => {
-      if !optimize_instructions_scalar_tree_metadata_equal(
-          func, left_id, right_id, left, right,
-        ) {
-        return false
-      }
-      for slot = 0; slot < left.child_count; slot = slot + 1 {
-        if !optimize_instructions_stable_memory_read_address_equal(
-            func,
-            @ir.hot_child_get(func, left_id, slot),
-            @ir.hot_child_get(func, right_id, slot),
-            depth=depth + 1,
-          ) {
-          return false
-        }
-      }
-      true
-    }
+priv struct OiScalarTreeEqualityFact {
+  matching_local_get_leaf : Bool
+  matching_global_get_leaf : Bool
+  matching_const_leaf : Bool
+  matching_stable_state_read_leaf : Bool
+  matching_branchless_scalar_shell : Bool
+  children_equal : Bool
+  contains_stable_state_read : Bool
+}
+
+///|
+fn OiScalarTreeEqualityFact::empty() -> OiScalarTreeEqualityFact {
+  {
+    matching_local_get_leaf: false,
+    matching_global_get_leaf: false,
+    matching_const_leaf: false,
+    matching_stable_state_read_leaf: false,
+    matching_branchless_scalar_shell: false,
+    children_equal: false,
+    contains_stable_state_read: false,
   }
 }
 
 ///|
-fn optimize_instructions_stable_state_scalar_tree_equal(
+fn OiScalarTreeEqualityFact::from_nodes(
   func : @ir.HotFunc,
   left_id : Int,
   right_id : Int,
+  include_stable_state_read? : Bool = false,
+  depth? : Int = 0,
+) -> OiScalarTreeEqualityFact {
+  // Source-backed subset of Binaryen v130 `ExpressionAnalyzer::equal` used by
+  // OI's equality facts. Keep leaf classes, branchless scalar-shell equality,
+  // and deterministic memory/table-size reads as explicit fields so callers can
+  // distinguish pure equality from effect-sensitive equality that still needs an
+  // enclosing `orderedBefore` / invalidation check.
+  if depth > 16 {
+    return OiScalarTreeEqualityFact::empty()
+  }
+  let left = @ir.hot_node_get(func, left_id)
+  let right = @ir.hot_node_get(func, right_id)
+  match (left.op, right.op) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) if left.imm0 == right.imm0 =>
+      return {
+        matching_local_get_leaf: true,
+        matching_global_get_leaf: false,
+        matching_const_leaf: false,
+        matching_stable_state_read_leaf: false,
+        matching_branchless_scalar_shell: false,
+        children_equal: false,
+        contains_stable_state_read: false,
+      }
+    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) if left.imm0 == right.imm0 =>
+      return {
+        matching_local_get_leaf: false,
+        matching_global_get_leaf: true,
+        matching_const_leaf: false,
+        matching_stable_state_read_leaf: false,
+        matching_branchless_scalar_shell: false,
+        children_equal: false,
+        contains_stable_state_read: false,
+      }
+    (@ir.HotOp::Const, @ir.HotOp::Const) if @ir.hot_const_get(func, left.imm0) ==
+      @ir.hot_const_get(func, right.imm0) =>
+      return {
+        matching_local_get_leaf: false,
+        matching_global_get_leaf: false,
+        matching_const_leaf: true,
+        matching_stable_state_read_leaf: false,
+        matching_branchless_scalar_shell: false,
+        children_equal: false,
+        contains_stable_state_read: false,
+      }
+    _ => ()
+  }
+  if include_stable_state_read &&
+    optimize_instructions_stable_state_reads_equal(left, right) {
+    return {
+      matching_local_get_leaf: false,
+      matching_global_get_leaf: false,
+      matching_const_leaf: false,
+      matching_stable_state_read_leaf: true,
+      matching_branchless_scalar_shell: false,
+      children_equal: false,
+      contains_stable_state_read: true,
+    }
+  }
+  if !optimize_instructions_scalar_tree_metadata_equal(
+      func, left_id, right_id, left, right,
+    ) {
+    return OiScalarTreeEqualityFact::empty()
+  }
+  let mut children_equal = true
+  let mut contains_stable_state_read = false
+  for slot = 0; slot < left.child_count; slot = slot + 1 {
+    let child_fact = OiScalarTreeEqualityFact::from_nodes(
+      func,
+      @ir.hot_child_get(func, left_id, slot),
+      @ir.hot_child_get(func, right_id, slot),
+      include_stable_state_read~,
+      depth=depth + 1,
+    )
+    if !child_fact.proves_equal() {
+      children_equal = false
+    }
+    if child_fact.contains_stable_state_read {
+      contains_stable_state_read = true
+    }
+  }
+  {
+    matching_local_get_leaf: false,
+    matching_global_get_leaf: false,
+    matching_const_leaf: false,
+    matching_stable_state_read_leaf: false,
+    matching_branchless_scalar_shell: true,
+    children_equal,
+    contains_stable_state_read,
+  }
+}
+
+///|
+fn OiScalarTreeEqualityFact::proves_equal(
+  self : OiScalarTreeEqualityFact,
 ) -> Bool {
-  // Binaryen v130 `ExpressionAnalyzer::equal` treats scalar trees containing
-  // deterministic state-read leaves as equal, but the enclosing
-  // `areConsecutiveInputsEqual` fact must still check intervening effects before
-  // the right tree. Keep this separate from pure scalar equality so memory/table
-  // growth boundaries remain effect-sensitive.
-  !optimize_instructions_pure_scalar_tree_equal(func, left_id, right_id) &&
-  optimize_instructions_stable_memory_read_address_equal(
-    func, left_id, right_id,
-  )
+  self.matching_local_get_leaf ||
+  self.matching_global_get_leaf ||
+  self.matching_const_leaf ||
+  self.matching_stable_state_read_leaf ||
+  (self.matching_branchless_scalar_shell && self.children_equal)
+}
+
+///|
+fn OiScalarTreeEqualityFact::proves_pure_equal(
+  self : OiScalarTreeEqualityFact,
+) -> Bool {
+  self.proves_equal() && !self.contains_stable_state_read
+}
+
+///|
+fn OiScalarTreeEqualityFact::proves_stable_state_scalar_equal(
+  self : OiScalarTreeEqualityFact,
+) -> Bool {
+  self.proves_equal() && self.contains_stable_state_read
 }
 
 ///|
@@ -7186,10 +7274,10 @@ fn optimize_instructions_stable_memory_reads_equal(
   // `EffectAnalyzer::orderedBefore(effects(right))` whether intervening effects
   // can change the right read. Model the represented load subset as an explicit
   // effect-sensitive fact: same load/atomic-load instruction, same access
-  // metadata, and a source-backed address proof for pure scalar trees plus
-  // deterministic state-read leaves. The enclosing equality fact still owns the
-  // memory/state-write interference check, so store/grow prefixes keep the copy
-  // live.
+  // metadata, and an `OiScalarTreeEqualityFact` address proof for pure scalar
+  // trees plus deterministic state-read leaves. The enclosing equality fact
+  // still owns the memory/state-write interference check, so store/grow prefixes
+  // keep the copy live.
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
   if left.child_count != 1 || right.child_count != 1 {
@@ -7206,50 +7294,13 @@ fn optimize_instructions_stable_memory_reads_equal(
         left_instr,
         right_instr,
       ) =>
-      optimize_instructions_stable_memory_read_address_equal(
+      OiScalarTreeEqualityFact::from_nodes(
         func,
         @ir.hot_child_get(func, left_id, 0),
         @ir.hot_child_get(func, right_id, 0),
-      )
+        include_stable_state_read=true,
+      ).proves_equal()
     _ => false
-  }
-}
-
-///|
-fn optimize_instructions_pure_scalar_tree_equal(
-  func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
-  depth? : Int = 0,
-) -> Bool {
-  if depth > 16 {
-    return false
-  }
-  let left = @ir.hot_node_get(func, left_id)
-  let right = @ir.hot_node_get(func, right_id)
-  match (left.op, right.op) {
-    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
-    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) => left.imm0 == right.imm0
-    (@ir.HotOp::Const, @ir.HotOp::Const) =>
-      @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
-    _ => {
-      if !optimize_instructions_scalar_tree_metadata_equal(
-          func, left_id, right_id, left, right,
-        ) {
-        return false
-      }
-      for slot = 0; slot < left.child_count; slot = slot + 1 {
-        if !optimize_instructions_pure_scalar_tree_equal(
-            func,
-            @ir.hot_child_get(func, left_id, slot),
-            @ir.hot_child_get(func, right_id, slot),
-            depth=depth + 1,
-          ) {
-          return false
-        }
-      }
-      true
-    }
   }
 }
 
@@ -7502,15 +7553,20 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     (@ir.HotOp::LocalTee, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
     _ => false
   }
-  let matching_pure_scalar_tree = optimize_instructions_pure_scalar_tree_equal(
+  let scalar_tree_fact = OiScalarTreeEqualityFact::from_nodes(
     func, left_fallthrough_id, right_fallthrough_id,
   )
+  let state_scalar_tree_fact = OiScalarTreeEqualityFact::from_nodes(
+    func,
+    left_fallthrough_id,
+    right_fallthrough_id,
+    include_stable_state_read=true,
+  )
+  let matching_pure_scalar_tree = scalar_tree_fact.proves_pure_equal()
   let matching_stable_state_read = optimize_instructions_stable_state_reads_equal(
     left, right,
   )
-  let matching_stable_state_scalar_tree = optimize_instructions_stable_state_scalar_tree_equal(
-    func, left_fallthrough_id, right_fallthrough_id,
-  )
+  let matching_stable_state_scalar_tree = state_scalar_tree_fact.proves_stable_state_scalar_equal()
   let matching_stable_memory_read = optimize_instructions_stable_memory_reads_equal(
     func, left_fallthrough_id, right_fallthrough_id,
   )
@@ -13237,9 +13293,9 @@ fn OiRefI31ScalarTreeEqualityFact::from_nodes(
         has_ref_i31_pair = true
         let lhs_payload = @ir.hot_child_get(func, lhs_id, 0)
         let rhs_payload = @ir.hot_child_get(func, rhs_id, 0)
-        matching_pure_payload_tree = optimize_instructions_pure_scalar_tree_equal(
+        matching_pure_payload_tree = OiScalarTreeEqualityFact::from_nodes(
           func, lhs_payload, rhs_payload,
-        )
+        ).proves_pure_equal()
         payloads_are_nontrapping_reorderable = OiLocalConstSelectScalarTreeFact::from_node(
             func, lhs_payload,
           ).proves_nontrapping_reorderable() &&
@@ -13290,13 +13346,18 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   // growth.
   let left = @ir.hot_node_get(func, if_true)
   let right = @ir.hot_node_get(func, if_false)
-  let scalar_tree = optimize_instructions_pure_scalar_tree_equal(
+  let scalar_tree_fact = OiScalarTreeEqualityFact::from_nodes(
     func, if_true, if_false,
   )
+  let state_scalar_tree_fact = OiScalarTreeEqualityFact::from_nodes(
+    func,
+    if_true,
+    if_false,
+    include_stable_state_read=true,
+  )
+  let scalar_tree = scalar_tree_fact.proves_pure_equal()
   let state_read = optimize_instructions_stable_state_reads_equal(left, right)
-  let state_scalar_tree = optimize_instructions_stable_state_scalar_tree_equal(
-    func, if_true, if_false,
-  )
+  let state_scalar_tree = state_scalar_tree_fact.proves_stable_state_scalar_equal()
   let reference_leaf = OiReferenceLeafEqualityFact::from_nodes(
     func, if_true, if_false,
   ).proves_equal()
