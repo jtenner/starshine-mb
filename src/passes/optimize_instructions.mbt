@@ -6888,6 +6888,7 @@ priv struct OiConsecutiveInputEqualityFact {
   matching_tee_and_get : Bool
   matching_pure_scalar_tree : Bool
   matching_stable_state_read : Bool
+  matching_stable_state_scalar_tree : Bool
   matching_stable_memory_read : Bool
   intervening_effects_interfere : Bool
 }
@@ -7086,6 +7087,32 @@ fn optimize_instructions_stable_memory_read_ops_equal(
 }
 
 ///|
+fn optimize_instructions_scalar_tree_metadata_equal(
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+  left : @ir.HotNode,
+  right : @ir.HotNode,
+) -> Bool {
+  if left.op != right.op ||
+    !optimize_instructions_is_pure_scalar_equal_tree_op(left.op) ||
+    left.ty != right.ty ||
+    left.flags != right.flags ||
+    left.imm1 != right.imm1 ||
+    left.child_count != right.child_count {
+    return false
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, left_id),
+      @ir.hot_node_exact_instr(func, right_id),
+    ) {
+    (Some(left_instr), Some(right_instr)) => left_instr == right_instr
+    _ => left.imm0 == right.imm0
+  }
+}
+
+///|
 fn optimize_instructions_stable_memory_read_address_equal(
   func : @ir.HotFunc,
   left_id : Int,
@@ -7106,13 +7133,9 @@ fn optimize_instructions_stable_memory_read_address_equal(
     (@ir.HotOp::Const, @ir.HotOp::Const) =>
       @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
     _ => {
-      if left.op != right.op ||
-        !optimize_instructions_is_pure_scalar_equal_tree_op(left.op) ||
-        left.ty != right.ty ||
-        left.flags != right.flags ||
-        left.imm0 != right.imm0 ||
-        left.imm1 != right.imm1 ||
-        left.child_count != right.child_count {
+      if !optimize_instructions_scalar_tree_metadata_equal(
+          func, left_id, right_id, left, right,
+        ) {
         return false
       }
       for slot = 0; slot < left.child_count; slot = slot + 1 {
@@ -7128,6 +7151,23 @@ fn optimize_instructions_stable_memory_read_address_equal(
       true
     }
   }
+}
+
+///|
+fn optimize_instructions_stable_state_scalar_tree_equal(
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+) -> Bool {
+  // Binaryen v130 `ExpressionAnalyzer::equal` treats scalar trees containing
+  // deterministic state-read leaves as equal, but the enclosing
+  // `areConsecutiveInputsEqual` fact must still check intervening effects before
+  // the right tree. Keep this separate from pure scalar equality so memory/table
+  // growth boundaries remain effect-sensitive.
+  !optimize_instructions_pure_scalar_tree_equal(func, left_id, right_id) &&
+  optimize_instructions_stable_memory_read_address_equal(
+    func, left_id, right_id,
+  )
 }
 
 ///|
@@ -7188,13 +7228,9 @@ fn optimize_instructions_pure_scalar_tree_equal(
     (@ir.HotOp::Const, @ir.HotOp::Const) =>
       @ir.hot_const_get(func, left.imm0) == @ir.hot_const_get(func, right.imm0)
     _ => {
-      if left.op != right.op ||
-        !optimize_instructions_is_pure_scalar_equal_tree_op(left.op) ||
-        left.ty != right.ty ||
-        left.flags != right.flags ||
-        left.imm0 != right.imm0 ||
-        left.imm1 != right.imm1 ||
-        left.child_count != right.child_count {
+      if !optimize_instructions_scalar_tree_metadata_equal(
+          func, left_id, right_id, left, right,
+        ) {
         return false
       }
       for slot = 0; slot < left.child_count; slot = slot + 1 {
@@ -7453,6 +7489,9 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let matching_stable_state_read = optimize_instructions_stable_state_reads_equal(
     left, right,
   )
+  let matching_stable_state_scalar_tree = optimize_instructions_stable_state_scalar_tree_equal(
+    func, left_fallthrough_id, right_fallthrough_id,
+  )
   let matching_stable_memory_read = optimize_instructions_stable_memory_reads_equal(
     func, left_fallthrough_id, right_fallthrough_id,
   )
@@ -7493,6 +7532,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     matching_tee_and_get,
     matching_pure_scalar_tree,
     matching_stable_state_read,
+    matching_stable_state_scalar_tree,
     matching_stable_memory_read,
     intervening_effects_interfere,
   }
@@ -7512,6 +7552,7 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   if self.matching_tee_and_get ||
     self.matching_pure_scalar_tree ||
     self.matching_stable_state_read ||
+    self.matching_stable_state_scalar_tree ||
     self.matching_stable_memory_read {
     return true
   }
@@ -7615,9 +7656,10 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // direct local/global-get fallthrough subset and conservative closure for
   // nested pure scalar trees. Equality currently covers matching tee/get,
   // structurally identical scalar trees made of local.get, global.get,
-  // constants, unary, binary, compare, and convert nodes, plus effect-sensitive
-  // same-index memory.size/table.size state reads and same-access load/atomic-load
-  // reads whose address proofs include deterministic state-read leaves.
+  // constants, unary, binary, compare, and convert nodes, effect-sensitive
+  // same-index memory.size/table.size state reads, scalar trees with those
+  // deterministic state-read leaves, and same-access load/atomic-load reads
+  // whose address proofs include deterministic state-read leaves.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,
@@ -9149,8 +9191,9 @@ fn OiStructAtomicCmpxchgSameValueFact::from_operands(
   // rewrites cmpxchg to a read-only struct.atomic.get. Starshine routes the
   // represented same-value cmpxchg surface through the shared consecutive-input
   // equality fact used by the OI-G bulk-memory facts: matching tee/get,
-  // structurally identical pure scalar fallthrough trees, and effect-sensitive
-  // stable reads, with explicit intervening-effect interference checks.
+  // structurally identical pure scalar fallthrough trees, deterministic
+  // state-read scalar trees, and effect-sensitive stable reads, with explicit
+  // intervening-effect interference checks.
   let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx, func, expected_id, replacement_id,
   )

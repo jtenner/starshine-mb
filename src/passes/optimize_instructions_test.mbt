@@ -33568,6 +33568,123 @@ test "optimize-instructions drops state-read same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops state-read scalar-tree same-address memory.copy" {
+  // OI-G same-input equality fact breadth: Binaryen version_130
+  // `ExpressionAnalyzer::equal` compares pure scalar trees with deterministic
+  // state-read leaves, such as `i32.add(memory.size, const)` and
+  // `i32.add(table.size, const)`. The enclosing `areConsecutiveInputsEqual`
+  // effect check still owns interference, so this positive only covers the
+  // no-growth trap-relaxed same-address copy case.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (table 1 funcref)
+        #|  (func (export "memory-size-add") (param $size i32)
+        #|    memory.size
+        #|    i32.const 4
+        #|    i32.add
+        #|    memory.size
+        #|    i32.const 4
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "table-size-add") (param $size i32)
+        #|    table.size 0
+        #|    i32.const 4
+        #|    i32.add
+        #|    table.size 0
+        #|    i32.const 4
+        #|    i32.add
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected state-read scalar-tree memory.copy TNH success, got \{err}",
+      )
+  }
+  let memory_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(memory_pretty.contains("memory.copy"), msg=memory_pretty)
+  optimize_instructions_assert_strings_in_order(memory_pretty, [
+    "memory.size", "i32.add", "drop", "memory.size", "i32.add", "drop", "local.get (Local 0)",
+    "drop",
+  ])
+  let table_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(table_pretty.contains("memory.copy"), msg=table_pretty)
+  optimize_instructions_assert_strings_in_order(table_pretty, [
+    "table.size", "i32.add", "drop", "table.size", "i32.add", "drop", "local.get (Local 0)",
+    "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps growth-interfered state-read scalar-tree memory.copy" {
+  // Boundary guard for the scalar-tree state-read equality fact: Binaryen v130
+  // keeps the trap-relaxed copy when a right-block prefix can grow the memory or
+  // table before the right `memory.size` / `table.size` leaf, because the two
+  // scalar address trees may no longer evaluate to the same value.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1 2)
+        #|  (table 1 2 funcref)
+        #|  (func (export "memory-grow-add") (param $size i32)
+        #|    memory.size
+        #|    i32.const 4
+        #|    i32.add
+        #|    (block (result i32)
+        #|      i32.const 0
+        #|      memory.grow
+        #|      drop
+        #|      memory.size
+        #|      i32.const 4
+        #|      i32.add)
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "table-grow-add") (param $size i32)
+        #|    table.size 0
+        #|    i32.const 4
+        #|    i32.add
+        #|    (block (result i32)
+        #|      ref.null func
+        #|      i32.const 0
+        #|      table.grow 0
+        #|      drop
+        #|      table.size 0
+        #|      i32.const 4
+        #|      i32.add)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected growth-interfered state-read scalar-tree memory.copy success, got \{err}",
+      )
+  }
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains(".grow"), msg=pretty)
+    assert_true(pretty.contains("i32.add"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions keeps growth-interfered state-read memory.copy" {
   // Boundary guard for the state-read equality fact: Binaryen v130 rejects
   // `memory.size` / `table.size` equality when the right operand prefix can grow
