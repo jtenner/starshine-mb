@@ -810,9 +810,9 @@ fn OiDescriptorOperandFact::from_operand(
     traps_without_effects: optimize_instructions_descriptor_operand_traps_without_effects(
       func, node_id,
     ),
-    can_erase: optimize_instructions_descriptor_operand_can_erase(
+    can_erase: OiDescriptorOperandEraseFact::from_operand(
       ctx, func, dead, node_id,
-    ),
+    ).proves_can_erase(),
     should_localize_when_skipped: optimize_instructions_descriptor_operand_should_localize_when_skipped(
       func, node_id,
     ),
@@ -1845,12 +1845,12 @@ fn OiDescriptorExactMissFact::from_node(
       cast_fact.target,
       cast_fact.nullable,
     ),
-    descriptor_can_erase: optimize_instructions_descriptor_operand_can_erase(
+    descriptor_can_erase: OiDescriptorOperandEraseFact::from_operand(
       ctx,
       func,
       dead,
       cast_fact.descriptor_id,
-    ),
+    ).proves_can_erase(),
     ref_operand_can_erase: optimize_instructions_is_trivially_pure_operand(
       func,
       cast_fact.operand_id,
@@ -2832,32 +2832,6 @@ fn OiRefGetDescFact::child_is_unreachable(
   match @ir.hot_node_get(func, self.child_id).op {
     @ir.HotOp::Unreachable => true
     _ => false
-  }
-}
-
-///|
-fn OiRefGetDescFact::operand_can_erase(
-  self : OiRefGetDescFact,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-) -> Bool {
-  let operand_fact = OiRefFact::from_node(func, self.child_id)
-  (operand_fact.type_is_non_nullable() || operand_fact.is_known_non_null()) &&
-  optimize_instructions_is_side_effect_free_expr(func, dead, self.child_id)
-}
-
-///|
-fn OiRefGetDescFact::operand_can_erase_traps_never_happen(
-  self : OiRefGetDescFact,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-) -> Bool {
-  match self.explicit_nullable_child() {
-    Some(nullable_child) =>
-      optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
-        func, dead, nullable_child,
-      )
-    None => false
   }
 }
 
@@ -19788,90 +19762,376 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
 }
 
 ///|
-fn optimize_instructions_descriptor_operand_can_erase(
-  ctx : HotPassContext,
+priv struct OiDescriptorAllocationEraseFact {
+  live : Bool
+  struct_new_default : Bool
+  can_erase : Bool
+}
+
+///|
+fn OiDescriptorAllocationEraseFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorAllocationEraseFact {
+  // Binaryen v130 can drop allocation-only descriptor operands while replacing
+  // descriptor casts/tests with statically-known results. Keep Starshine's
+  // represented allocation subset explicit instead of hiding it as a raw
+  // instruction whitelist in the descriptor erasure predicate.
+  let struct_new_default = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNewDefault(_)) => true
+    _ => false
+  }
+  { live: true, struct_new_default, can_erase: struct_new_default }
+}
+
+///|
+fn OiDescriptorAllocationEraseFact::proves_can_erase(
+  self : OiDescriptorAllocationEraseFact,
+) -> Bool {
+  self.live && self.struct_new_default && self.can_erase
+}
+
+///|
+priv struct OiDescriptorNullableChildEraseTnhFact {
+  live : Bool
+  side_effect_free : Bool
+  block_root : Bool
+  block_nonempty : Bool
+  block_no_escaping_branch_control : Bool
+  block_children_effect_free_internal_control : Bool
+  if_root : Bool
+  if_can_move_null_check : Bool
+  can_erase : Bool
+}
+
+///|
+fn OiDescriptorNullableChildEraseTnhFact::from_child(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
-  optimize_instructions_is_side_effect_free_expr(func, dead, node_id) ||
-  optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
-  optimize_instructions_descriptor_operand_allocation_can_erase(func, node_id) ||
-  optimize_instructions_ref_get_desc_operand_can_erase(func, dead, node_id) ||
-  (
-    ctx.traps_never_happen &&
-    (
-      optimize_instructions_ref_as_non_null_descriptor_operand_can_erase_traps_never_happen(
-        func, dead, node_id,
-      ) ||
-      optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
+) -> OiDescriptorNullableChildEraseTnhFact {
+  // Binaryen v130's traps-never-happen mode may erase a descriptor-side null
+  // check when the nullable child can be discarded or localized safely. This is
+  // the represented Starshine subset: already side-effect-free children, blocks
+  // whose roots are internally-control-safe, and the existing nullable-if
+  // movement proof. It is intentionally narrower than full ChildLocalizer and
+  // EffectAnalyzer parity.
+  let side_effect_free = optimize_instructions_is_side_effect_free_expr(
+    func, dead, node_id,
+  )
+  let node = @ir.hot_node_get(func, node_id)
+  let mut block_root = false
+  let mut block_nonempty = false
+  let mut block_no_escaping_branch_control = false
+  let mut block_children_effect_free_internal_control = false
+  let mut if_root = false
+  let mut if_can_move_null_check = false
+  match node.op {
+    @ir.HotOp::Block => {
+      block_root = true
+      let body = @ir.hot_region_body_ref(func, node_id)
+      block_nonempty = @ir.hot_region_root_count(func, body) > 0
+      block_no_escaping_branch_control = !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+        func, node_id,
+      )
+      block_children_effect_free_internal_control = block_nonempty &&
+        block_no_escaping_branch_control
+      if block_children_effect_free_internal_control {
+        for slot = 0
+            slot < @ir.hot_region_root_count(func, body)
+            slot = slot + 1 {
+          if !OiDescriptorInternalControlEffectFreeFact::from_node(
+              func,
+              dead,
+              node_id,
+              @ir.hot_region_get(func, body, slot),
+            ).proves_effect_free_allowing_internal_control() {
+            block_children_effect_free_internal_control = false
+          }
+        }
+      }
+    }
+    @ir.HotOp::If => {
+      if_root = true
+      if_can_move_null_check = optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
         func, dead, node_id,
       )
-    )
+    }
+    _ => ()
+  }
+  let can_erase = side_effect_free ||
+    (
+      block_root &&
+      block_nonempty &&
+      block_no_escaping_branch_control &&
+      block_children_effect_free_internal_control
+    ) ||
+    (if_root && if_can_move_null_check)
+  {
+    live: true,
+    side_effect_free,
+    block_root,
+    block_nonempty,
+    block_no_escaping_branch_control,
+    block_children_effect_free_internal_control,
+    if_root,
+    if_can_move_null_check,
+    can_erase,
+  }
+}
+
+///|
+fn OiDescriptorNullableChildEraseTnhFact::proves_can_erase(
+  self : OiDescriptorNullableChildEraseTnhFact,
+) -> Bool {
+  self.live &&
+  self.can_erase &&
+  (
+    self.side_effect_free ||
+    (
+      self.block_root &&
+      self.block_nonempty &&
+      self.block_no_escaping_branch_control &&
+      self.block_children_effect_free_internal_control
+    ) ||
+    (self.if_root && self.if_can_move_null_check)
   )
 }
 
 ///|
-fn optimize_instructions_descriptor_operand_allocation_can_erase(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::StructNewDefault(_)) => true
-    _ => false
-  }
+priv struct OiRefGetDescOperandEraseFact {
+  live : Bool
+  ref_get_desc : Bool
+  child_non_nullable_type : Bool
+  child_known_non_null : Bool
+  child_side_effect_free : Bool
+  explicit_nullable_child : Bool
+  nullable_child_can_erase_traps_never_happen : Bool
+  can_erase_default : Bool
+  can_erase_traps_never_happen : Bool
 }
 
 ///|
-fn optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
+fn OiRefGetDescOperandEraseFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
-  if optimize_instructions_is_side_effect_free_expr(func, dead, node_id) {
-    return true
+) -> OiRefGetDescOperandEraseFact {
+  // Binaryen v130 descriptor rewrites may drop `ref.get_desc` when the operand
+  // is already known non-null and side-effect-free, or when TNH lets the
+  // descriptor-side null check be erased. Store both modes as facts so callers
+  // do not rescan the wrapper and nullable child independently.
+  let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None =>
+      return {
+        live: true,
+        ref_get_desc: false,
+        child_non_nullable_type: false,
+        child_known_non_null: false,
+        child_side_effect_free: false,
+        explicit_nullable_child: false,
+        nullable_child_can_erase_traps_never_happen: false,
+        can_erase_default: false,
+        can_erase_traps_never_happen: false,
+      }
   }
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block => {
-      let body = @ir.hot_region_body_ref(func, node_id)
-      if @ir.hot_region_root_count(func, body) == 0 ||
-        optimize_instructions_descriptor_expr_has_escaping_branch_control(
-          func, node_id,
-        ) {
-        return false
-      }
-      for slot = 0
-          slot < @ir.hot_region_root_count(func, body)
-          slot = slot + 1 {
-        if !optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
-            func,
-            dead,
-            node_id,
-            @ir.hot_region_get(func, body, slot),
-          ) {
-          return false
-        }
-      }
-      true
-    }
-    @ir.HotOp::If =>
-      optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
-        func, dead, node_id,
+  let child_ref_fact = OiRefFact::from_node(func, get_desc_fact.child_id)
+  let child_non_nullable_type = child_ref_fact.type_is_non_nullable()
+  let child_known_non_null = child_ref_fact.is_known_non_null()
+  let child_side_effect_free = optimize_instructions_is_side_effect_free_expr(
+    func,
+    dead,
+    get_desc_fact.child_id,
+  )
+  let can_erase_default = (child_non_nullable_type || child_known_non_null) &&
+    child_side_effect_free
+  let (explicit_nullable_child, nullable_child_can_erase_traps_never_happen) = match
+    get_desc_fact.explicit_nullable_child() {
+    Some(nullable_child) =>
+      (
+        true,
+        OiDescriptorNullableChildEraseTnhFact::from_child(
+          func, dead, nullable_child,
+        ).proves_can_erase(),
       )
-    _ => false
+    None => (false, false)
+  }
+  {
+    live: true,
+    ref_get_desc: true,
+    child_non_nullable_type,
+    child_known_non_null,
+    child_side_effect_free,
+    explicit_nullable_child,
+    nullable_child_can_erase_traps_never_happen,
+    can_erase_default,
+    can_erase_traps_never_happen: nullable_child_can_erase_traps_never_happen,
   }
 }
 
 ///|
-fn optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
+fn OiRefGetDescOperandEraseFact::proves_default_can_erase(
+  self : OiRefGetDescOperandEraseFact,
+) -> Bool {
+  self.live &&
+  self.ref_get_desc &&
+  self.can_erase_default &&
+  (self.child_non_nullable_type || self.child_known_non_null) &&
+  self.child_side_effect_free
+}
+
+///|
+fn OiRefGetDescOperandEraseFact::proves_tnh_can_erase(
+  self : OiRefGetDescOperandEraseFact,
+) -> Bool {
+  self.live &&
+  self.ref_get_desc &&
+  self.explicit_nullable_child &&
+  self.nullable_child_can_erase_traps_never_happen &&
+  self.can_erase_traps_never_happen
+}
+
+///|
+priv struct OiRefAsNonNullDescriptorOperandEraseTnhFact {
+  live : Bool
+  ref_as_non_null : Bool
+  single_child : Bool
+  nullable_child_id : Int
+  nullable_child_can_erase_traps_never_happen : Bool
+  can_erase : Bool
+}
+
+///|
+fn OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  owner_id : Int,
   node_id : Int,
+) -> OiRefAsNonNullDescriptorOperandEraseTnhFact {
+  // Under TNH, Binaryen's descriptor operand cleanup can erase an explicit
+  // `ref.as_non_null` wrapper if the nullable child itself can be discarded or
+  // localized. Keep the wrapper arity and child-erasure evidence separate from
+  // the top-level descriptor operand predicate.
+  let ref_as_non_null = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefAsNonNull) => true
+    _ => false
+  }
+  let single_child = ref_as_non_null && @ir.hot_child_count(func, node_id) == 1
+  let nullable_child_id = if single_child {
+    @ir.hot_child_get(func, node_id, 0)
+  } else {
+    -1
+  }
+  let nullable_child_can_erase_traps_never_happen = single_child &&
+    OiDescriptorNullableChildEraseTnhFact::from_child(
+      func, dead, nullable_child_id,
+    ).proves_can_erase()
+  {
+    live: true,
+    ref_as_non_null,
+    single_child,
+    nullable_child_id,
+    nullable_child_can_erase_traps_never_happen,
+    can_erase: nullable_child_can_erase_traps_never_happen,
+  }
+}
+
+///|
+fn OiRefAsNonNullDescriptorOperandEraseTnhFact::proves_can_erase(
+  self : OiRefAsNonNullDescriptorOperandEraseTnhFact,
 ) -> Bool {
-  OiDescriptorInternalControlEffectFreeFact::from_node(
-    func, dead, owner_id, node_id,
-  ).proves_effect_free_allowing_internal_control()
+  self.live &&
+  self.ref_as_non_null &&
+  self.single_child &&
+  self.nullable_child_id >= 0 &&
+  self.nullable_child_can_erase_traps_never_happen &&
+  self.can_erase
+}
+
+///|
+priv struct OiDescriptorOperandEraseFact {
+  live : Bool
+  side_effect_free : Bool
+  node_effects_pure : Bool
+  allocation_can_erase : Bool
+  ref_get_desc_can_erase : Bool
+  ref_as_non_null_can_erase_traps_never_happen : Bool
+  ref_get_desc_can_erase_traps_never_happen : Bool
+  can_erase_traps_never_happen : Bool
+  can_erase : Bool
+}
+
+///|
+fn OiDescriptorOperandEraseFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDescriptorOperandEraseFact {
+  // Binaryen v130's descriptor-cast/test rewrites use `getDroppedChildren...`,
+  // trap-on-null, skipNonNullCast, ChildLocalizer, and EffectAnalyzer to decide
+  // whether descriptor operands may disappear. This fact records Starshine's
+  // current represented erasure reasons in one source-backed place instead of a
+  // helper-local cascade of raw purity, allocation, ref.get_desc, and TNH checks.
+  let side_effect_free = optimize_instructions_is_side_effect_free_expr(
+    func, dead, node_id,
+  )
+  let node_effects_pure = optimize_instructions_node_effects_are_pure(
+    ctx, func, node_id,
+  )
+  let allocation_can_erase = OiDescriptorAllocationEraseFact::from_node(
+    func, node_id,
+  ).proves_can_erase()
+  let ref_get_desc_fact = OiRefGetDescOperandEraseFact::from_node(
+    func, dead, node_id,
+  )
+  let ref_get_desc_can_erase = ref_get_desc_fact.proves_default_can_erase()
+  let ref_as_non_null_can_erase_traps_never_happen = OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
+    func, dead, node_id,
+  ).proves_can_erase()
+  let ref_get_desc_can_erase_traps_never_happen = ref_get_desc_fact.proves_tnh_can_erase()
+  let can_erase_traps_never_happen = ctx.traps_never_happen &&
+    (
+      ref_as_non_null_can_erase_traps_never_happen ||
+      ref_get_desc_can_erase_traps_never_happen
+    )
+  let can_erase = side_effect_free ||
+    node_effects_pure ||
+    allocation_can_erase ||
+    ref_get_desc_can_erase ||
+    can_erase_traps_never_happen
+  {
+    live: true,
+    side_effect_free,
+    node_effects_pure,
+    allocation_can_erase,
+    ref_get_desc_can_erase,
+    ref_as_non_null_can_erase_traps_never_happen,
+    ref_get_desc_can_erase_traps_never_happen,
+    can_erase_traps_never_happen,
+    can_erase,
+  }
+}
+
+///|
+fn OiDescriptorOperandEraseFact::proves_can_erase(
+  self : OiDescriptorOperandEraseFact,
+) -> Bool {
+  self.live &&
+  self.can_erase &&
+  (
+    self.side_effect_free ||
+    self.node_effects_pure ||
+    self.allocation_can_erase ||
+    self.ref_get_desc_can_erase ||
+    (
+      self.can_erase_traps_never_happen &&
+      (
+        self.ref_as_non_null_can_erase_traps_never_happen ||
+        self.ref_get_desc_can_erase_traps_never_happen
+      )
+    )
+  )
 }
 
 ///|
@@ -19923,50 +20183,6 @@ fn optimize_instructions_defaultable_descriptor_scratch_type(
         ),
       )
     _ => if @lib.has_default(val_type) { Some(val_type) } else { None }
-  }
-}
-
-///|
-fn optimize_instructions_ref_get_desc_operand_can_erase(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  match OiRefGetDescFact::from_node(func, node_id) {
-    Some(fact) => fact.operand_can_erase(func, dead)
-    None => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_as_non_null_descriptor_operand_can_erase_traps_never_happen(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
-    func,
-    dead,
-    @ir.hot_child_get(func, node_id, 0),
-  )
-}
-
-///|
-fn optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  match OiRefGetDescFact::from_node(func, node_id) {
-    Some(fact) => fact.operand_can_erase_traps_never_happen(func, dead)
-    None => false
   }
 }
 
