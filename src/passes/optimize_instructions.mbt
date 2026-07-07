@@ -3037,9 +3037,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         return None
       }
     @ir.HotOp::Select =>
-      if optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-          func, child_id,
-        ) &&
+      if OiResultShapeFact::from_node(func, child_id).proves_single_nullable_ref_result() &&
         !optimize_instructions_descriptor_expr_has_escaping_branch_control(
           func, child_id,
         ) {
@@ -3048,9 +3046,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         return None
       }
     @ir.HotOp::If =>
-      if optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-          func, child_id,
-        ) &&
+      if OiResultShapeFact::from_node(func, child_id).proves_single_nullable_ref_result() &&
         OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check() {
         RefGetDescNullableIfMove
       } else {
@@ -19097,22 +19093,80 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => ref_type.is_nullable()
-    _ => false
+priv struct OiResultShapeFact {
+  live : Bool
+  no_results : Bool
+  single_ref_result : Bool
+  single_nullable_ref_result : Bool
+  multivalue_result : Bool
+}
+
+///|
+fn OiResultShapeFact::empty() -> OiResultShapeFact {
+  {
+    live: false,
+    no_results: false,
+    single_ref_result: false,
+    single_nullable_ref_result: false,
+    multivalue_result: false,
   }
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_node_has_no_results(
+fn OiResultShapeFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
+) -> OiResultShapeFact {
+  // Binaryen's OI descriptor and standalone ref.get_desc rewrites frequently
+  // gate on result arity/nullability before localizing children. Keep those
+  // gates as a reusable fact rather than scattered scanner helpers so the
+  // represented ChildLocalizer subset can compose with the descriptor facts.
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiResultShapeFact::empty()
+  }
+  let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
+  let no_results = results.length() == 0
+  let single_ref_result = match results {
+    [@lib.ValType::RefTypeValType(_)] => true
+    _ => false
+  }
+  let single_nullable_ref_result = match results {
+    [@lib.ValType::RefTypeValType(ref_type)] => ref_type.is_nullable()
+    _ => false
+  }
+  {
+    live: true,
+    no_results,
+    single_ref_result,
+    single_nullable_ref_result,
+    multivalue_result: results.length() > 1,
+  }
+}
+
+///|
+fn OiResultShapeFact::proves_no_results(self : OiResultShapeFact) -> Bool {
+  self.live && self.no_results
+}
+
+///|
+fn OiResultShapeFact::proves_single_ref_result(
+  self : OiResultShapeFact,
 ) -> Bool {
-  @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)).length() == 0
+  self.live && self.single_ref_result
+}
+
+///|
+fn OiResultShapeFact::proves_single_nullable_ref_result(
+  self : OiResultShapeFact,
+) -> Bool {
+  self.live && self.single_nullable_ref_result
+}
+
+///|
+fn OiResultShapeFact::proves_multivalue_result(
+  self : OiResultShapeFact,
+) -> Bool {
+  self.live && self.multivalue_result
 }
 
 ///|
@@ -19152,9 +19206,7 @@ fn OiStandaloneRefGetDescLeafFact::from_node(
   }
   let node = @ir.hot_node_get(func, node_id)
   let no_children = @ir.hot_child_count(func, node_id) == 0
-  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, node_id,
-  )
+  let single_nullable_ref_result = OiResultShapeFact::from_node(func, node_id).proves_single_nullable_ref_result()
   let known_null_ref_null_leaf = match node.op {
     @ir.HotOp::RefNull => no_children && single_nullable_ref_result
     _ => false
@@ -19242,9 +19294,7 @@ fn OiStandaloneRefGetDescLocalTeeFact::from_node(
     @ir.HotOp::LocalTee => ()
     _ => return OiStandaloneRefGetDescLocalTeeFact::empty()
   }
-  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, tee_id,
-  )
+  let single_nullable_ref_result = OiResultShapeFact::from_node(func, tee_id).proves_single_nullable_ref_result()
   let single_child = @ir.hot_child_count(func, tee_id) == 1
   let child_fact = if single_child {
     OiStandaloneRefGetDescLeafFact::from_node(
@@ -19315,11 +19365,7 @@ fn OiStandaloneRefGetDescControlShapeFact::from_node(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiStandaloneRefGetDescControlShapeFact::empty()
   }
-  let multivalue_result = @ir.hot_type_results(
-      func,
-      @ir.hot_node_type(func, node_id),
-    ).length() >
-    1
+  let multivalue_result = OiResultShapeFact::from_node(func, node_id).proves_multivalue_result()
   if multivalue_result {
     return {
       live: true,
@@ -19454,9 +19500,7 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
     return OiStandaloneRefGetDescRootShapeFact::empty()
   }
   let root = @ir.hot_node_get(func, root_id)
-  let no_results = optimize_instructions_standalone_ref_get_desc_node_has_no_results(
-    func, root_id,
-  )
+  let no_results = OiResultShapeFact::from_node(func, root_id).proves_no_results()
   let disallowed_control_or_multivalue = OiStandaloneRefGetDescControlShapeFact::from_node(
     func, block_id, root_id,
   ).proves_disallowed_control_or_multivalue()
@@ -19543,10 +19587,10 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
       @ir.hot_child_count(func, root_id) == 1 &&
       (match @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op {
         @ir.HotOp::LocalGet =>
-          optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+          OiResultShapeFact::from_node(
             func,
             @ir.hot_child_get(func, root_id, 0),
-          )
+          ).proves_single_nullable_ref_result()
         _ => false
       })
     _ => false
@@ -19691,9 +19735,7 @@ fn OiStandaloneRefGetDescBlockMoveFact::from_block(
     @ir.HotOp::Block => ()
     _ => return empty
   }
-  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, block_id,
-  )
+  let single_nullable_ref_result = OiResultShapeFact::from_node(func, block_id).proves_single_nullable_ref_result()
   if !single_nullable_ref_result {
     return { ..empty, live: true }
   }
@@ -19727,15 +19769,11 @@ fn OiStandaloneRefGetDescBlockMoveFact::from_block(
   )
   let final_root_allowed = match @ir.hot_node_get(func, final_id).op {
     @ir.HotOp::LocalGet =>
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, final_id,
-      ) &&
+      OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
       !final_fact.disallowed_control_or_multivalue
     @ir.HotOp::RefNull =>
       saw_internal_ref_branch &&
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, final_id,
-      ) &&
+      OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
       !final_fact.disallowed_control_or_multivalue
     @ir.HotOp::Br | @ir.HotOp::BrTable =>
       final_fact.no_results && !final_fact.disallowed_control_or_multivalue
@@ -19801,9 +19839,7 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
     @ir.HotOp::Block => ()
     _ => return empty
   }
-  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, block_id,
-  )
+  let single_nullable_ref_result = OiResultShapeFact::from_node(func, block_id).proves_single_nullable_ref_result()
   if !single_nullable_ref_result {
     return { ..empty, live: true }
   }
@@ -19829,9 +19865,7 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
     let control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
       func, block_id, root_id,
     )
-    if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
-        func, root_id,
-      ) ||
+    if !OiResultShapeFact::from_node(func, root_id).proves_no_results() ||
       control_fact.proves_disallowed_control_or_multivalue() {
       prefix_roots_void_control_allowed = false
     }
@@ -19894,11 +19928,7 @@ fn OiStandaloneRefGetDescCallMoveFact::from_call(
     @ir.HotOp::Call | @ir.HotOp::CallIndirect => ()
     _ => return empty
   }
-  let single_ref_result = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, call_id)) {
-    [@lib.ValType::RefTypeValType(_)] => true
-    _ => false
-  }
+  let single_ref_result = OiResultShapeFact::from_node(func, call_id).proves_single_ref_result()
   if !single_ref_result {
     return { ..empty, live: true }
   }
