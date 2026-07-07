@@ -17809,6 +17809,159 @@ priv struct OiDescriptorBranchControlRegionFact {
 }
 
 ///|
+priv struct OiDescriptorContainmentFact {
+  root_matches_target : Bool
+  live : Bool
+  child_contains_target : Bool
+  region_contains_target : Bool
+}
+
+///|
+priv struct OiDescriptorContainmentRegionFact {
+  root_count : Int
+  contains_target : Bool
+}
+
+///|
+priv struct OiDescriptorInternalLabelFact {
+  label_is_valid : Bool
+  owner_contains_label_owner : Bool
+}
+
+///|
+fn OiDescriptorContainmentFact::empty() -> OiDescriptorContainmentFact {
+  {
+    root_matches_target: false,
+    live: false,
+    child_contains_target: false,
+    region_contains_target: false,
+  }
+}
+
+///|
+fn OiDescriptorContainmentFact::from_node(
+  func : @ir.HotFunc,
+  root_id : Int,
+  target_id : Int,
+) -> OiDescriptorContainmentFact {
+  // Descriptor and standalone ref.get_desc control gates need to know whether a
+  // branch target's label owner is contained inside the expression being
+  // localized. Keep that subtree proof as an explicit fact rather than a helper
+  // recursively scanning child and control regions.
+  if root_id == target_id {
+    return {
+      root_matches_target: true,
+      live: root_id >= 0 && @ir.hot_node_is_live(func, root_id),
+      child_contains_target: false,
+      region_contains_target: false,
+    }
+  }
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return OiDescriptorContainmentFact::empty()
+  }
+  let node = @ir.hot_node_get(func, root_id)
+  let mut child_contains_target = false
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    child_contains_target = child_contains_target ||
+      OiDescriptorContainmentFact::from_node(
+        func,
+        @ir.hot_child_get(func, root_id, slot),
+        target_id,
+      ).proves_contains_target()
+  }
+  let region_contains_target = match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      OiDescriptorContainmentRegionFact::from_region(
+        func,
+        @ir.hot_region_body_ref(func, root_id),
+        target_id,
+      ).proves_contains_target()
+    @ir.HotOp::If => {
+      let then_contains = OiDescriptorContainmentRegionFact::from_region(
+        func,
+        @ir.hot_region_then_ref(func, root_id),
+        target_id,
+      ).proves_contains_target()
+      let else_contains = match @ir.hot_region_else_ref(func, root_id) {
+        Some(region_ref) =>
+          OiDescriptorContainmentRegionFact::from_region(
+            func, region_ref, target_id,
+          ).proves_contains_target()
+        None => false
+      }
+      then_contains || else_contains
+    }
+    _ => false
+  }
+  {
+    root_matches_target: false,
+    live: true,
+    child_contains_target,
+    region_contains_target,
+  }
+}
+
+///|
+fn OiDescriptorContainmentFact::proves_contains_target(
+  self : OiDescriptorContainmentFact,
+) -> Bool {
+  self.root_matches_target ||
+  (self.live && (self.child_contains_target || self.region_contains_target))
+}
+
+///|
+fn OiDescriptorContainmentRegionFact::from_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_id : Int,
+) -> OiDescriptorContainmentRegionFact {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut contains_target = false
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    contains_target = contains_target ||
+      OiDescriptorContainmentFact::from_node(
+        func,
+        @ir.hot_region_get(func, region_ref, slot),
+        target_id,
+      ).proves_contains_target()
+  }
+  { root_count, contains_target }
+}
+
+///|
+fn OiDescriptorContainmentRegionFact::proves_contains_target(
+  self : OiDescriptorContainmentRegionFact,
+) -> Bool {
+  self.root_count > 0 && self.contains_target
+}
+
+///|
+fn OiDescriptorInternalLabelFact::from_label(
+  func : @ir.HotFunc,
+  root_id : Int,
+  label_id : Int,
+) -> OiDescriptorInternalLabelFact {
+  if label_id < 0 || label_id >= func.labels.length() {
+    return { label_is_valid: false, owner_contains_label_owner: false }
+  }
+  {
+    label_is_valid: true,
+    owner_contains_label_owner: OiDescriptorContainmentFact::from_node(
+      func,
+      root_id,
+      @ir.hot_label_owner(func, label_id),
+    ).proves_contains_target(),
+  }
+}
+
+///|
+fn OiDescriptorInternalLabelFact::proves_internal(
+  self : OiDescriptorInternalLabelFact,
+) -> Bool {
+  self.label_is_valid && self.owner_contains_label_owner
+}
+
+///|
 fn OiDescriptorBranchControlFact::empty() -> OiDescriptorBranchControlFact {
   {
     live: false,
@@ -18083,72 +18236,12 @@ fn optimize_instructions_descriptor_expr_has_branch_control(
 }
 
 ///|
-fn optimize_instructions_descriptor_region_contains_node(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  target_id : Int,
-) -> Bool {
-  for slot = 0
-      slot < @ir.hot_region_root_count(func, region_ref)
-      slot = slot + 1 {
-    if optimize_instructions_descriptor_node_contains(
-        func,
-        @ir.hot_region_get(func, region_ref, slot),
-        target_id,
-      ) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn optimize_instructions_descriptor_node_contains(
   func : @ir.HotFunc,
   root_id : Int,
   target_id : Int,
 ) -> Bool {
-  if root_id == target_id {
-    return true
-  }
-  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, root_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if optimize_instructions_descriptor_node_contains(
-        func,
-        @ir.hot_child_get(func, root_id, slot),
-        target_id,
-      ) {
-      return true
-    }
-  }
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
-      optimize_instructions_descriptor_region_contains_node(
-        func,
-        @ir.hot_region_body_ref(func, root_id),
-        target_id,
-      )
-    @ir.HotOp::If => {
-      if optimize_instructions_descriptor_region_contains_node(
-          func,
-          @ir.hot_region_then_ref(func, root_id),
-          target_id,
-        ) {
-        return true
-      }
-      match @ir.hot_region_else_ref(func, root_id) {
-        Some(region_ref) =>
-          optimize_instructions_descriptor_region_contains_node(
-            func, region_ref, target_id,
-          )
-        None => false
-      }
-    }
-    _ => false
-  }
+  OiDescriptorContainmentFact::from_node(func, root_id, target_id).proves_contains_target()
 }
 
 ///|
@@ -18221,48 +18314,70 @@ fn optimize_instructions_standalone_ref_get_desc_node_has_no_results(
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+priv struct OiStandaloneRefGetDescControlShapeFact {
+  live : Bool
+  multivalue_result : Bool
+  direct_disallowed_control : Bool
+  nested_disallowed_control_or_multivalue : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescControlShapeFact::empty() -> OiStandaloneRefGetDescControlShapeFact {
+  {
+    live: false,
+    multivalue_result: false,
+    direct_disallowed_control: false,
+    nested_disallowed_control_or_multivalue: false,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescControlShapeFact::from_node(
   func : @ir.HotFunc,
   owner_id : Int,
   node_id : Int,
-) -> Bool {
-  if @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)).length() > 1 {
-    return true
+) -> OiStandaloneRefGetDescControlShapeFact {
+  // Standalone ref.get_desc null-check movement can only preserve a small
+  // self-contained control subset. Summarize that represented shape in a fact:
+  // multivalue children, disallowed direct control roots, and nested disallowed
+  // children. This keeps the compatibility helper from owning a recursive
+  // scanner while preserving the previous fail-closed control/EH boundary.
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiStandaloneRefGetDescControlShapeFact::empty()
+  }
+  let multivalue_result = @ir.hot_type_results(
+      func,
+      @ir.hot_node_type(func, node_id),
+    ).length() >
+    1
+  if multivalue_result {
+    return {
+      live: true,
+      multivalue_result,
+      direct_disallowed_control: false,
+      nested_disallowed_control_or_multivalue: false,
+    }
   }
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
+  let direct_disallowed_control = match node.op {
     @ir.HotOp::Br | @ir.HotOp::BrIf =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          node.imm0,
-        ) {
-        return true
-      }
+      !OiDescriptorInternalLabelFact::from_label(func, owner_id, node.imm0).proves_internal()
     @ir.HotOp::BrTable => {
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          @ir.hot_branch_table_default_target(func, node.imm0),
-        ) {
-        return true
-      }
-      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
-        if !optimize_instructions_descriptor_label_is_internal_to_expr(
-            func, owner_id, label_id,
-          ) {
-          return true
+      let mut disallowed = !OiDescriptorInternalLabelFact::from_label(
+        func,
+        owner_id,
+        @ir.hot_branch_table_default_target(func, node.imm0),
+      ).proves_internal()
+      if !disallowed {
+        for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+          disallowed = disallowed ||
+            !OiDescriptorInternalLabelFact::from_label(func, owner_id, label_id).proves_internal()
         }
       }
+      disallowed
     }
     @ir.HotOp::BrOnNonNull =>
-      if !optimize_instructions_descriptor_label_is_internal_to_expr(
-          func,
-          owner_id,
-          node.imm0,
-        ) {
-        return true
-      }
+      !OiDescriptorInternalLabelFact::from_label(func, owner_id, node.imm0).proves_internal()
     @ir.HotOp::Block
     | @ir.HotOp::Loop
     | @ir.HotOp::If
@@ -18277,19 +18392,53 @@ fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate
     | @ir.HotOp::Catch
-    | @ir.HotOp::CatchAll => return true
-    _ => ()
+    | @ir.HotOp::CatchAll => true
+    _ => false
   }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+  if direct_disallowed_control {
+    return {
+      live: true,
+      multivalue_result,
+      direct_disallowed_control,
+      nested_disallowed_control_or_multivalue: false,
+    }
+  }
+  let mut nested_disallowed_control_or_multivalue = false
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    nested_disallowed_control_or_multivalue = nested_disallowed_control_or_multivalue ||
+      OiStandaloneRefGetDescControlShapeFact::from_node(
         func,
         owner_id,
         @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return true
-    }
+      ).proves_disallowed_control_or_multivalue()
   }
-  false
+  {
+    live: true,
+    multivalue_result,
+    direct_disallowed_control,
+    nested_disallowed_control_or_multivalue,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescControlShapeFact::proves_disallowed_control_or_multivalue(
+  self : OiStandaloneRefGetDescControlShapeFact,
+) -> Bool {
+  self.live &&
+  (
+    self.multivalue_result ||
+    self.direct_disallowed_control ||
+    self.nested_disallowed_control_or_multivalue
+  )
+}
+
+///|
+fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  node_id : Int,
+) -> Bool {
+  OiStandaloneRefGetDescControlShapeFact::from_node(func, owner_id, node_id).proves_disallowed_control_or_multivalue()
 }
 
 ///|
