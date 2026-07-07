@@ -26108,9 +26108,21 @@ fn run_hot_pipeline_raw_optimize_instructions_memory_size(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_is_atomic_load(
+// Raw OI-G atomic access fact used by the lowered dispatcher. Binaryen's
+// memory visitor treats atomic address operands as ordered memory effects; the
+// raw bridge records the load/RMW/cmpxchg family and stack-address operand
+// distance instead of keeping a window-only local.tee scanner.
+priv struct RawOiAtomicAccessFact {
+  is_atomic_load : Bool
+  is_atomic_rmw : Bool
+  is_atomic_cmpxchg : Bool
+  address_operand_distance : Int
+}
+
+///|
+fn RawOiAtomicAccessFact::from_instr(
   instr : @lib.Instruction,
-) -> Bool {
+) -> RawOiAtomicAccessFact? {
   match instr {
     @lib.I32AtomicLoad(_)
     | @lib.I64AtomicLoad(_)
@@ -26118,67 +26130,125 @@ fn run_hot_pipeline_raw_optimize_instructions_is_atomic_load(
     | @lib.I32AtomicLoad16U(_)
     | @lib.I64AtomicLoad8U(_)
     | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_) => true
-    _ => false
+    | @lib.I64AtomicLoad32U(_) =>
+      Some({
+        is_atomic_load: true,
+        is_atomic_rmw: false,
+        is_atomic_cmpxchg: false,
+        address_operand_distance: 1,
+      })
+    @lib.AtomicRmw(_, _) =>
+      Some({
+        is_atomic_load: false,
+        is_atomic_rmw: true,
+        is_atomic_cmpxchg: false,
+        address_operand_distance: 2,
+      })
+    @lib.AtomicCmpxchg(_, _) =>
+      Some({
+        is_atomic_load: false,
+        is_atomic_rmw: false,
+        is_atomic_cmpxchg: true,
+        address_operand_distance: 3,
+      })
+    _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
-  instrs : Array[@lib.Instruction],
+fn RawOiAtomicAccessFact::proves_address_localtee_boundary(
+  self : RawOiAtomicAccessFact,
+  observed_operand_distance : Int,
 ) -> Bool {
+  (self.is_atomic_load || self.is_atomic_rmw || self.is_atomic_cmpxchg) &&
+  self.address_operand_distance == observed_operand_distance
+}
+
+///|
+priv struct RawOiAtomicLocalTeeAddressUseFact {
+  localtee_index : Int
+  consumer_index : Int
+  operand_distance : Int
+  access : RawOiAtomicAccessFact
+}
+
+///|
+fn RawOiAtomicLocalTeeAddressUseFact::from_instrs_at(
+  instrs : Array[@lib.Instruction],
+  localtee_index : Int,
+) -> RawOiAtomicLocalTeeAddressUseFact? {
+  if localtee_index >= instrs.length() {
+    return None
+  }
+  match instrs[localtee_index] {
+    @lib.LocalTee(_) => ()
+    _ => return None
+  }
+  for operand_distance = 1
+      operand_distance <= 3
+      operand_distance = operand_distance + 1 {
+    let consumer_index = localtee_index + operand_distance
+    if consumer_index >= instrs.length() {
+      return None
+    }
+    match RawOiAtomicAccessFact::from_instr(instrs[consumer_index]) {
+      Some(access) if access.proves_address_localtee_boundary(operand_distance) =>
+        return Some({ localtee_index, consumer_index, operand_distance, access })
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn RawOiAtomicLocalTeeAddressUseFact::proves_raw_gate_boundary(
+  self : RawOiAtomicLocalTeeAddressUseFact,
+) -> Bool {
+  ignore(self.localtee_index)
+  ignore(self.consumer_index)
+  self.access.proves_address_localtee_boundary(self.operand_distance)
+}
+
+///|
+priv struct RawOiAtomicLocalTeeAddressRegionFact {
+  has_blocking_use : Bool
+}
+
+///|
+fn RawOiAtomicLocalTeeAddressRegionFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+) -> RawOiAtomicLocalTeeAddressRegionFact {
   let mut i = 0
   while i < instrs.length() {
     match instrs[i] {
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
-            body,
-          ) {
-          return true
+        if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
+          return { has_blocking_use: true }
         }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
-            then_body,
-          ) {
-          return true
+        if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(then_body).has_blocking_use {
+          return { has_blocking_use: true }
         }
         match else_body {
           Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
-                body,
-              ) {
-              return true
+            if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
+              return { has_blocking_use: true }
             }
           None => ()
         }
       }
       _ => ()
     }
-    if i + 1 < instrs.length() {
-      match (instrs[i], instrs[i + 1]) {
-        (@lib.LocalTee(_), atomic_load) if run_hot_pipeline_raw_optimize_instructions_is_atomic_load(
-            atomic_load,
-          ) => return true
-        _ => ()
-      }
-    }
-    if i + 2 < instrs.length() {
-      match (instrs[i], instrs[i + 2]) {
-        (@lib.LocalTee(_), @lib.AtomicRmw(_, _)) => return true
-        _ => ()
-      }
-    }
-    if i + 3 < instrs.length() {
-      match (instrs[i], instrs[i + 3]) {
-        (@lib.LocalTee(_), @lib.AtomicCmpxchg(_, _)) => return true
-        _ => ()
-      }
+    match RawOiAtomicLocalTeeAddressUseFact::from_instrs_at(instrs, i) {
+      Some(fact) if fact.proves_raw_gate_boundary() =>
+        return { has_blocking_use: true }
+      _ => ()
     }
     i = i + 1
   }
-  false
+  { has_blocking_use: false }
 }
 
 ///|
@@ -29949,9 +30019,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
-      body,
-    ) {
+  if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
     return Some({
       reason: "atomic-localtee-optimize-instructions",
       func: skipped_func,
