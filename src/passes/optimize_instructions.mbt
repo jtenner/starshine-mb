@@ -1122,6 +1122,98 @@ fn OiDescriptorExactMissFact::from_node(
 }
 
 ///|
+priv enum OiDescriptorExactMissRewritePlanKind {
+  DescriptorExactMissUnreachable
+  DescriptorExactMissDropOperandThenUnreachable
+  DescriptorExactMissDropDescriptorThenUnreachable
+  DescriptorExactMissDropBothThenUnreachable
+}
+
+///|
+priv struct OiDescriptorExactMissRewritePlanFact {
+  kind : OiDescriptorExactMissRewritePlanKind
+  miss_fact : OiDescriptorExactMissFact
+}
+
+///|
+fn OiDescriptorExactMissRewritePlanFact::from_miss(
+  ctx : HotPassContext,
+  miss_fact : OiDescriptorExactMissFact,
+) -> OiDescriptorExactMissRewritePlanFact? {
+  // Binaryen v130 `visitRefCast`/descriptor-equality miss cleanup only runs in
+  // normal trapping mode. Keep the source-level replacement choice as a plan
+  // fact so descriptor casts do not hide a visitor-local drop/unreachable
+  // branch cascade.
+  if ctx.traps_never_happen || ctx.ignore_implicit_traps {
+    return None
+  }
+  if !miss_fact.descriptor_exactly_describes_target ||
+    !miss_fact.ref_operand_misses_target {
+    return None
+  }
+  let kind = if miss_fact.descriptor_can_erase &&
+    miss_fact.ref_operand_can_erase {
+    DescriptorExactMissUnreachable
+  } else if miss_fact.descriptor_can_erase &&
+    miss_fact.ref_operand_can_drop_before_unreachable {
+    DescriptorExactMissDropOperandThenUnreachable
+  } else if miss_fact.ref_operand_can_erase &&
+    (
+      miss_fact.descriptor_can_drop_before_unreachable ||
+      miss_fact.descriptor_call_can_drop_before_unreachable
+    ) {
+    DescriptorExactMissDropDescriptorThenUnreachable
+  } else if miss_fact.ref_operand_can_drop_before_unreachable &&
+    (
+      miss_fact.descriptor_can_drop_before_unreachable ||
+      miss_fact.descriptor_call_can_drop_before_unreachable
+    ) {
+    DescriptorExactMissDropBothThenUnreachable
+  } else {
+    return None
+  }
+  Some({ kind, miss_fact })
+}
+
+///|
+fn OiDescriptorExactMissRewritePlanFact::apply(
+  self : OiDescriptorExactMissRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let cast_fact = self.miss_fact.cast_fact
+  match self.kind {
+    DescriptorExactMissUnreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
+    }
+    DescriptorExactMissDropOperandThenUnreachable =>
+      optimize_instructions_replace_with_drop_then_unreachable(
+        ctx,
+        func,
+        node_id,
+        cast_fact.operand_id,
+      )
+    DescriptorExactMissDropDescriptorThenUnreachable =>
+      optimize_instructions_replace_with_drop_then_unreachable(
+        ctx,
+        func,
+        node_id,
+        cast_fact.descriptor_id,
+      )
+    DescriptorExactMissDropBothThenUnreachable =>
+      optimize_instructions_replace_with_drop_drop_then_unreachable(
+        ctx,
+        func,
+        node_id,
+        cast_fact.operand_id,
+        cast_fact.descriptor_id,
+      )
+  }
+}
+
+///|
 priv struct OiDescriptorTnhSkipFact {
   cast_fact : OiDescriptorCastFact
   descriptor_fact : OiDescriptorOperandFact
@@ -1196,6 +1288,113 @@ fn OiDescriptorTnhSkipFact::can_skip(
     None => ()
   }
   true
+}
+
+///|
+priv enum OiDescriptorTnhSkipRewritePlanKind {
+  DescriptorTnhSkipForwardOperand
+  DescriptorTnhSkipLocalizeOperandThenDescriptor
+  DescriptorTnhSkipLocalSetDescriptorThenOperand
+  DescriptorTnhSkipDropDescriptorThenOperand
+}
+
+///|
+priv struct OiDescriptorTnhSkipRewritePlanFact {
+  kind : OiDescriptorTnhSkipRewritePlanKind
+  skip_fact : OiDescriptorTnhSkipFact
+}
+
+///|
+fn OiDescriptorTnhSkipRewritePlanFact::from_skip(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  skip_fact : OiDescriptorTnhSkipFact,
+) -> OiDescriptorTnhSkipRewritePlanFact? {
+  // Binaryen v130 removes descriptor equality casts under TNH only after the
+  // reference operand is known to match and the descriptor check can be treated
+  // as non-trapping. Preserve the replacement-order decision as a fact: erase
+  // the descriptor, localize around ordered effects, localize descriptor-only
+  // values, or append a descriptor drop.
+  if !skip_fact.can_skip(ctx, func) {
+    return None
+  }
+  let cast_fact = skip_fact.cast_fact
+  let descriptor_fact = skip_fact.descriptor_fact
+  let kind = if descriptor_fact.can_erase {
+    DescriptorTnhSkipForwardOperand
+  } else if optimize_instructions_descriptor_skip_must_preserve_operand_order(
+      func,
+      cast_fact.operand_id,
+    ) {
+    DescriptorTnhSkipLocalizeOperandThenDescriptor
+  } else if descriptor_fact.should_localize_when_skipped {
+    DescriptorTnhSkipLocalSetDescriptorThenOperand
+  } else {
+    DescriptorTnhSkipDropDescriptorThenOperand
+  }
+  Some({ kind, skip_fact })
+}
+
+///|
+fn OiDescriptorTnhSkipRewritePlanFact::apply(
+  self : OiDescriptorTnhSkipRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let cast_fact = self.skip_fact.cast_fact
+  match self.kind {
+    DescriptorTnhSkipForwardOperand => {
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        cast_fact.operand_id,
+      )
+      true
+    }
+    _ => {
+      ignore(
+        optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_happen(
+          ctx,
+          func,
+          cast_fact.descriptor_id,
+        ) ||
+        optimize_instructions_try_move_ref_get_desc_child_null_check(
+          ctx,
+          func,
+          cast_fact.descriptor_id,
+        ),
+      )
+      match self.kind {
+        DescriptorTnhSkipLocalizeOperandThenDescriptor =>
+          optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
+            ctx,
+            func,
+            node_id,
+            cast_fact.operand_id,
+            cast_fact.descriptor_id,
+          )
+        DescriptorTnhSkipLocalSetDescriptorThenOperand =>
+          optimize_instructions_replace_with_local_set_then_node_id(
+            ctx,
+            func,
+            node_id,
+            cast_fact.descriptor_id,
+            cast_fact.operand_id,
+          )
+        DescriptorTnhSkipDropDescriptorThenOperand =>
+          optimize_instructions_replace_with_drop_then_node_id(
+            ctx,
+            func,
+            node_id,
+            cast_fact.descriptor_id,
+            cast_fact.operand_id,
+          )
+        DescriptorTnhSkipForwardOperand => false
+      }
+    }
+  }
 }
 
 ///|
@@ -15940,60 +16139,9 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
     Some(fact) => fact
     None => return false
   }
-  if !skip_fact.can_skip(ctx, func) {
-    return false
-  }
-  let cast_fact = skip_fact.cast_fact
-  let descriptor_fact = skip_fact.descriptor_fact
-  if descriptor_fact.can_erase {
-    optimize_instructions_replace_with_node_id(
-      ctx,
-      func,
-      node_id,
-      cast_fact.operand_id,
-    )
-    true
-  } else {
-    ignore(
-      optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_happen(
-        ctx,
-        func,
-        cast_fact.descriptor_id,
-      ) ||
-      optimize_instructions_try_move_ref_get_desc_child_null_check(
-        ctx,
-        func,
-        cast_fact.descriptor_id,
-      ),
-    )
-    if optimize_instructions_descriptor_skip_must_preserve_operand_order(
-        func,
-        cast_fact.operand_id,
-      ) {
-      optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
-        ctx,
-        func,
-        node_id,
-        cast_fact.operand_id,
-        cast_fact.descriptor_id,
-      )
-    } else if descriptor_fact.should_localize_when_skipped {
-      optimize_instructions_replace_with_local_set_then_node_id(
-        ctx,
-        func,
-        node_id,
-        cast_fact.descriptor_id,
-        cast_fact.operand_id,
-      )
-    } else {
-      optimize_instructions_replace_with_drop_then_node_id(
-        ctx,
-        func,
-        node_id,
-        cast_fact.descriptor_id,
-        cast_fact.operand_id,
-      )
-    }
+  match OiDescriptorTnhSkipRewritePlanFact::from_skip(ctx, func, skip_fact) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
 }
 
@@ -17258,55 +17406,14 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if ctx.traps_never_happen || ctx.ignore_implicit_traps {
-    return false
-  }
   let miss_fact = match
     OiDescriptorExactMissFact::from_node(ctx, func, dead, node_id) {
     Some(fact) => fact
     None => return false
   }
-  if !miss_fact.descriptor_exactly_describes_target ||
-    !miss_fact.ref_operand_misses_target {
-    return false
-  }
-  let cast_fact = miss_fact.cast_fact
-  if miss_fact.descriptor_can_erase && miss_fact.ref_operand_can_erase {
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-    true
-  } else if miss_fact.descriptor_can_erase &&
-    miss_fact.ref_operand_can_drop_before_unreachable {
-    optimize_instructions_replace_with_drop_then_unreachable(
-      ctx,
-      func,
-      node_id,
-      cast_fact.operand_id,
-    )
-  } else if miss_fact.ref_operand_can_erase &&
-    (
-      miss_fact.descriptor_can_drop_before_unreachable ||
-      miss_fact.descriptor_call_can_drop_before_unreachable
-    ) {
-    optimize_instructions_replace_with_drop_then_unreachable(
-      ctx,
-      func,
-      node_id,
-      cast_fact.descriptor_id,
-    )
-  } else if miss_fact.ref_operand_can_drop_before_unreachable &&
-    (
-      miss_fact.descriptor_can_drop_before_unreachable ||
-      miss_fact.descriptor_call_can_drop_before_unreachable
-    ) {
-    optimize_instructions_replace_with_drop_drop_then_unreachable(
-      ctx,
-      func,
-      node_id,
-      cast_fact.operand_id,
-      cast_fact.descriptor_id,
-    )
-  } else {
-    false
+  match OiDescriptorExactMissRewritePlanFact::from_miss(ctx, miss_fact) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
 }
 
