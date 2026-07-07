@@ -2560,6 +2560,135 @@ priv enum OiRefGetDescNullCheckMoveKind {
 }
 
 ///|
+priv enum OiRefGetDescNullableChildMoveKind {
+  RefGetDescNullableLeafMove
+  RefGetDescNullableLocalTeeMove
+  RefGetDescNullableCallMove
+  RefGetDescNullableSelectMove
+  RefGetDescNullableIfMove
+  RefGetDescNullableBlockMove
+}
+
+///|
+priv struct OiRefGetDescNullableChildMoveFact {
+  child_id : Int
+  child_kind : OiRefGetDescNullableChildMoveKind
+  standalone_can_move : Bool
+  descriptor_operand_can_move : Bool
+}
+
+///|
+fn OiRefGetDescNullableChildMoveFact::from_child(
+  func : @ir.HotFunc,
+  child_id : Int,
+) -> OiRefGetDescNullableChildMoveFact? {
+  // Binaryen v130 commonly strips `ref.as_non_null` under `ref.get_desc` when
+  // the nullable child is already the value that should be described. Keep the
+  // represented Starshine child-shape boundaries in a fact instead of letting
+  // each ref.get_desc caller branch on local/block/select/if/call shapes.
+  let child = @ir.hot_node_get(func, child_id)
+  let child_kind = match child.op {
+    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
+      if optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
+          func, child_id,
+        ) {
+        RefGetDescNullableLeafMove
+      } else {
+        return None
+      }
+    @ir.HotOp::LocalTee =>
+      if optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
+          func, child_id,
+        ) {
+        RefGetDescNullableLocalTeeMove
+      } else {
+        return None
+      }
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect =>
+      if optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
+          func, child_id,
+        ) {
+        RefGetDescNullableCallMove
+      } else {
+        return None
+      }
+    @ir.HotOp::Select =>
+      if optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+          func, child_id,
+        ) &&
+        !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+          func, child_id,
+        ) {
+        RefGetDescNullableSelectMove
+      } else {
+        return None
+      }
+    @ir.HotOp::If =>
+      if optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+          func, child_id,
+        ) &&
+        optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+          func, child_id,
+        ) {
+        RefGetDescNullableIfMove
+      } else {
+        return None
+      }
+    @ir.HotOp::Block =>
+      if optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check(
+          func, child_id,
+        ) {
+        RefGetDescNullableBlockMove
+      } else {
+        return None
+      }
+    _ => return None
+  }
+  let descriptor_operand_can_move = match child.op {
+    @ir.HotOp::LocalGet => true
+    @ir.HotOp::Block | @ir.HotOp::Select =>
+      !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+        func, child_id,
+      )
+    @ir.HotOp::If =>
+      optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+        func, child_id,
+      )
+    _ => false
+  }
+  Some({
+    child_id,
+    child_kind,
+    standalone_can_move: true,
+    descriptor_operand_can_move,
+  })
+}
+
+///|
+fn OiRefGetDescNullableChildMoveFact::can_move_for(
+  self : OiRefGetDescNullableChildMoveFact,
+  kind : OiRefGetDescNullCheckMoveKind,
+) -> Bool {
+  ignore(self.child_id)
+  let supported_shape = match self.child_kind {
+    RefGetDescNullableLeafMove
+    | RefGetDescNullableLocalTeeMove
+    | RefGetDescNullableCallMove
+    | RefGetDescNullableSelectMove
+    | RefGetDescNullableIfMove
+    | RefGetDescNullableBlockMove => true
+  }
+  if !supported_shape {
+    return false
+  }
+  match kind {
+    RefGetDescTrapsNeverHappenNullCheckMove => true
+    RefGetDescStandaloneNullCheckMove => self.standalone_can_move
+    RefGetDescDescriptorOperandNullCheckMove => self.descriptor_operand_can_move
+  }
+}
+
+///|
 priv struct OiRefGetDescNullCheckMoveFact {
   kind : OiRefGetDescNullCheckMoveKind
   get_desc_fact : OiRefGetDescFact
@@ -2582,22 +2711,11 @@ fn OiRefGetDescNullCheckMoveFact::from_get_desc(
   }
   let allowed = match kind {
     RefGetDescTrapsNeverHappenNullCheckMove => true
-    RefGetDescStandaloneNullCheckMove =>
-      optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
-        func, nullable_child,
-      )
-    RefGetDescDescriptorOperandNullCheckMove =>
-      match @ir.hot_node_get(func, nullable_child).op {
-        @ir.HotOp::LocalGet => true
-        @ir.HotOp::Block | @ir.HotOp::Select =>
-          !optimize_instructions_descriptor_expr_has_escaping_branch_control(
-            func, nullable_child,
-          )
-        @ir.HotOp::If =>
-          optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
-            func, nullable_child,
-          )
-        _ => false
+    _ =>
+      match
+        OiRefGetDescNullableChildMoveFact::from_child(func, nullable_child) {
+        Some(child_fact) => child_fact.can_move_for(kind)
+        None => false
       }
   }
   if !allowed {
@@ -18042,46 +18160,6 @@ fn optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
     }
   }
   true
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
-  func : @ir.HotFunc,
-  nullable_child : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
-      optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
-        func, nullable_child,
-      )
-    @ir.HotOp::LocalTee =>
-      optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
-        func, nullable_child,
-      )
-    @ir.HotOp::Call | @ir.HotOp::CallIndirect =>
-      optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
-        func, nullable_child,
-      )
-    @ir.HotOp::Select =>
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, nullable_child,
-      ) &&
-      !optimize_instructions_descriptor_expr_has_escaping_branch_control(
-        func, nullable_child,
-      )
-    @ir.HotOp::If =>
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, nullable_child,
-      ) &&
-      optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
-        func, nullable_child,
-      )
-    @ir.HotOp::Block =>
-      optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check(
-        func, nullable_child,
-      )
-    _ => false
-  }
 }
 
 ///|
