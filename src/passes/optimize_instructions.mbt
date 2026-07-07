@@ -8089,6 +8089,136 @@ fn OiStoredValueFact::wrap_i64_widen_rewrite(
 }
 
 ///|
+priv enum OiStoredValueRewritePlanKind {
+  StoredValueTruncateConst
+  StoredValueDropLowBitMask
+  StoredValueRewriteReinterpret
+  StoredValueWidenWrapI64
+}
+
+///|
+priv struct OiStoredValueRewritePlanFact {
+  kind : OiStoredValueRewritePlanKind
+  stored_fact : OiStoredValueFact
+  new_instr : @lib.Instruction
+  new_value_id : Int
+}
+
+///|
+fn OiStoredValueRewritePlanFact::from_truncated_const(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiStoredValueRewritePlanFact? {
+  // Binaryen v130 `optimizeStoredValue` rewrites narrow-store constants by
+  // deriving the preserved low bits from the store access fact. Keep the final
+  // replacement as a plan fact so the visitor does not own a separate store
+  // scanner for each OI-G stored-value family.
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let new_value_id = match stored_fact.build_truncated_const_value(func, dead) {
+    Some(value_id) => value_id
+    None => return None
+  }
+  Some({
+    kind: StoredValueTruncateConst,
+    stored_fact,
+    new_instr: stored_fact.instr,
+    new_value_id,
+  })
+}
+
+///|
+fn OiStoredValueRewritePlanFact::from_low_bit_mask(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiStoredValueRewritePlanFact? {
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let new_value_id = match stored_fact.low_bit_mask_unmasked_value(func, dead) {
+    Some(value_id) => value_id
+    None => return None
+  }
+  Some({
+    kind: StoredValueDropLowBitMask,
+    stored_fact,
+    new_instr: stored_fact.instr,
+    new_value_id,
+  })
+}
+
+///|
+fn OiStoredValueRewritePlanFact::from_reinterpret(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiStoredValueRewritePlanFact? {
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let (new_instr, new_value_id) = match
+    stored_fact.reinterpret_rewrite(func, dead) {
+    Some(rewrite) => rewrite
+    None => return None
+  }
+  Some({
+    kind: StoredValueRewriteReinterpret,
+    stored_fact,
+    new_instr,
+    new_value_id,
+  })
+}
+
+///|
+fn OiStoredValueRewritePlanFact::from_wrap_i64_widen(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiStoredValueRewritePlanFact? {
+  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let (new_instr, new_value_id) = match
+    stored_fact.wrap_i64_widen_rewrite(ctx, func, dead) {
+    Some(rewrite) => rewrite
+    None => return None
+  }
+  Some({ kind: StoredValueWidenWrapI64, stored_fact, new_instr, new_value_id })
+}
+
+///|
+fn OiStoredValueRewritePlanFact::apply(
+  self : OiStoredValueRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    StoredValueTruncateConst
+    | StoredValueDropLowBitMask
+    | StoredValueRewriteReinterpret
+    | StoredValueWidenWrapI64 => {
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        self.new_instr,
+        [self.stored_fact.address_id, self.new_value_id],
+      )
+      true
+    }
+  }
+}
+
+///|
 priv struct OiLoadResultFact {
   consumer_instr : @lib.Instruction
   load_instr : @lib.Instruction
@@ -8179,6 +8309,82 @@ fn OiLoadResultFact::i64_extend_i32_load_instr(
     (@lib.Instruction::I32Load16S(memarg), @lib.Instruction::I64ExtendI32S) =>
       Some(@lib.Instruction::i64_load16s(memarg))
     _ => None
+  }
+}
+
+///|
+priv enum OiLoadResultRewritePlanKind {
+  LoadResultRewriteReinterpret
+  LoadResultRewriteI64ExtendI32
+}
+
+///|
+priv struct OiLoadResultRewritePlanFact {
+  kind : OiLoadResultRewritePlanKind
+  load_fact : OiLoadResultFact
+  new_instr : @lib.Instruction
+}
+
+///|
+fn OiLoadResultRewritePlanFact::from_reinterpret(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiLoadResultRewritePlanFact? {
+  // Binaryen v130 `visitUnary` mutates one-use representation loads underneath
+  // reinterpret consumers. Keep the mutation target as a plan fact beside the
+  // load-result fact instead of repeating the unary/load scanner in each
+  // visitor rewrite branch.
+  let load_fact = match
+    OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let new_instr = match load_fact.reinterpret_load_instr() {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({ kind: LoadResultRewriteReinterpret, load_fact, new_instr })
+}
+
+///|
+fn OiLoadResultRewritePlanFact::from_i64_extend_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiLoadResultRewritePlanFact? {
+  let load_fact = match
+    OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let new_instr = match load_fact.i64_extend_i32_load_instr() {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({ kind: LoadResultRewriteI64ExtendI32, load_fact, new_instr })
+}
+
+///|
+fn OiLoadResultRewritePlanFact::apply(
+  self : OiLoadResultRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    LoadResultRewriteReinterpret | LoadResultRewriteI64ExtendI32 => {
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        self.new_instr,
+        [self.load_fact.address_id],
+      )
+      true
+    }
   }
 }
 
@@ -10579,22 +10785,11 @@ fn optimize_instructions_try_truncate_narrow_store_const_value(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
-    Some(fact) => fact
-    None => return false
+  match
+    OiStoredValueRewritePlanFact::from_truncated_const(func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let new_value_id = match stored_fact.build_truncated_const_value(func, dead) {
-    Some(value_id) => value_id
-    None => return false
-  }
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    node_id,
-    stored_fact.instr,
-    [stored_fact.address_id, new_value_id],
-  )
-  true
 }
 
 ///|
@@ -10604,22 +10799,10 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
-    Some(fact) => fact
-    None => return false
+  match OiStoredValueRewritePlanFact::from_low_bit_mask(func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let unmasked_id = match stored_fact.low_bit_mask_unmasked_value(func, dead) {
-    Some(value_id) => value_id
-    None => return false
-  }
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    node_id,
-    stored_fact.instr,
-    [stored_fact.address_id, unmasked_id],
-  )
-  true
 }
 
 ///|
@@ -10629,23 +10812,10 @@ fn optimize_instructions_try_rewrite_reinterpret_store_value(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
-    Some(fact) => fact
-    None => return false
+  match OiStoredValueRewritePlanFact::from_reinterpret(func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let (new_instr, new_value_id) = match
-    stored_fact.reinterpret_rewrite(func, dead) {
-    Some(rewrite) => rewrite
-    None => return false
-  }
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    node_id,
-    new_instr,
-    [stored_fact.address_id, new_value_id],
-  )
-  true
 }
 
 ///|
@@ -10655,23 +10825,11 @@ fn optimize_instructions_try_rewrite_reinterpret_load_result(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let load_fact = match
-    OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
-    Some(fact) => fact
-    None => return false
+  match
+    OiLoadResultRewritePlanFact::from_reinterpret(ctx, func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let new_instr = match load_fact.reinterpret_load_instr() {
-    Some(instr) => instr
-    None => return false
-  }
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    node_id,
-    new_instr,
-    [load_fact.address_id],
-  )
-  true
 }
 
 ///|
@@ -10681,23 +10839,11 @@ fn optimize_instructions_try_rewrite_i64_extend_i32_load_result(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let load_fact = match
-    OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
-    Some(fact) => fact
-    None => return false
+  match
+    OiLoadResultRewritePlanFact::from_i64_extend_i32(ctx, func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let new_instr = match load_fact.i64_extend_i32_load_instr() {
-    Some(instr) => instr
-    None => return false
-  }
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    node_id,
-    new_instr,
-    [load_fact.address_id],
-  )
-  true
 }
 
 ///|
@@ -10707,23 +10853,11 @@ fn optimize_instructions_try_widen_store_of_wrap_i64(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
-    Some(fact) => fact
-    None => return false
+  match
+    OiStoredValueRewritePlanFact::from_wrap_i64_widen(ctx, func, dead, node_id) {
+    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    None => false
   }
-  let (new_instr, wide_value_id) = match
-    stored_fact.wrap_i64_widen_rewrite(ctx, func, dead) {
-    Some(rewrite) => rewrite
-    None => return false
-  }
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    node_id,
-    new_instr,
-    [stored_fact.address_id, wide_value_id],
-  )
-  true
 }
 
 ///|
