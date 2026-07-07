@@ -26025,6 +26025,36 @@ fn run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_load_memarg(
+  instr : @lib.Instruction,
+) -> @lib.MemArg? {
+  match instr {
+    @lib.I32Load(memarg)
+    | @lib.I64Load(memarg)
+    | @lib.F32Load(memarg)
+    | @lib.F64Load(memarg)
+    | @lib.I32Load8S(memarg)
+    | @lib.I32Load8U(memarg)
+    | @lib.I32Load16S(memarg)
+    | @lib.I32Load16U(memarg)
+    | @lib.I64Load8S(memarg)
+    | @lib.I64Load8U(memarg)
+    | @lib.I64Load16S(memarg)
+    | @lib.I64Load16U(memarg)
+    | @lib.I64Load32S(memarg)
+    | @lib.I64Load32U(memarg)
+    | @lib.I32AtomicLoad(memarg)
+    | @lib.I64AtomicLoad(memarg)
+    | @lib.I32AtomicLoad8U(memarg)
+    | @lib.I32AtomicLoad16U(memarg)
+    | @lib.I64AtomicLoad8U(memarg)
+    | @lib.I64AtomicLoad16U(memarg)
+    | @lib.I64AtomicLoad32U(memarg) => Some(memarg)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
   instr : @lib.Instruction,
   memarg : @lib.MemArg,
@@ -26061,6 +26091,31 @@ fn run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_store_memarg(
+  instr : @lib.Instruction,
+) -> @lib.MemArg? {
+  match instr {
+    @lib.I32Store(memarg)
+    | @lib.I64Store(memarg)
+    | @lib.F32Store(memarg)
+    | @lib.F64Store(memarg)
+    | @lib.I32Store8(memarg)
+    | @lib.I32Store16(memarg)
+    | @lib.I64Store8(memarg)
+    | @lib.I64Store16(memarg)
+    | @lib.I64Store32(memarg)
+    | @lib.I32AtomicStore(memarg)
+    | @lib.I64AtomicStore(memarg)
+    | @lib.I32AtomicStore8(memarg)
+    | @lib.I32AtomicStore16(memarg)
+    | @lib.I64AtomicStore8(memarg)
+    | @lib.I64AtomicStore16(memarg)
+    | @lib.I64AtomicStore32(memarg) => Some(memarg)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
   instr : @lib.Instruction,
   memarg : @lib.MemArg,
@@ -26090,52 +26145,6 @@ fn run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_fold_const_load_offset(
-  address : @lib.Instruction,
-  load_instr : @lib.Instruction,
-) -> (@lib.Instruction, @lib.Instruction)? {
-  let memarg = match load_instr {
-    @lib.I32Load(memarg) => memarg
-    @lib.I64Load(memarg) => memarg
-    @lib.F32Load(memarg) => memarg
-    @lib.F64Load(memarg) => memarg
-    @lib.I32Load8S(memarg) => memarg
-    @lib.I32Load8U(memarg) => memarg
-    @lib.I32Load16S(memarg) => memarg
-    @lib.I32Load16U(memarg) => memarg
-    @lib.I64Load8S(memarg) => memarg
-    @lib.I64Load8U(memarg) => memarg
-    @lib.I64Load16S(memarg) => memarg
-    @lib.I64Load16U(memarg) => memarg
-    @lib.I64Load32S(memarg) => memarg
-    @lib.I64Load32U(memarg) => memarg
-    @lib.I32AtomicLoad(memarg) => memarg
-    @lib.I64AtomicLoad(memarg) => memarg
-    @lib.I32AtomicLoad8U(memarg) => memarg
-    @lib.I32AtomicLoad16U(memarg) => memarg
-    @lib.I64AtomicLoad8U(memarg) => memarg
-    @lib.I64AtomicLoad16U(memarg) => memarg
-    @lib.I64AtomicLoad32U(memarg) => memarg
-    _ => return None
-  }
-  let (folded_address, folded_memarg) = match
-    run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
-      address, memarg,
-    ) {
-    Some(result) => result
-    None => return None
-  }
-  let folded_load = match
-    run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
-      load_instr, folded_memarg,
-    ) {
-    Some(instr) => instr
-    None => return None
-  }
-  Some((folded_address, folded_load))
-}
-
-///|
 fn run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
   lhs : @lib.Instruction,
   extend_instr : @lib.Instruction,
@@ -26158,32 +26167,107 @@ fn run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
-  address : @lib.Instruction,
-  store_instr : @lib.Instruction,
-) -> (@lib.Instruction, @lib.Instruction)? {
-  let memarg = match store_instr {
-    @lib.I32Store(memarg) => memarg
-    @lib.I64Store(memarg) => memarg
-    @lib.F32Store(memarg) => memarg
-    @lib.F64Store(memarg) => memarg
-    @lib.I32Store8(memarg) => memarg
-    @lib.I32Store16(memarg) => memarg
-    @lib.I64Store8(memarg) => memarg
-    @lib.I64Store16(memarg) => memarg
-    @lib.I64Store32(memarg) => memarg
-    @lib.I32AtomicStore(memarg) => memarg
-    @lib.I64AtomicStore(memarg) => memarg
-    @lib.I32AtomicStore8(memarg) => memarg
-    @lib.I32AtomicStore16(memarg) => memarg
-    @lib.I64AtomicStore8(memarg) => memarg
-    @lib.I64AtomicStore16(memarg) => memarg
-    @lib.I64AtomicStore32(memarg) => memarg
-    _ => return None
+// Raw OI-G static-offset fold fact for the fallback stack dispatcher. Binaryen
+// v130's `optimizeMemoryAccess` folds a nonzero static access offset into a
+// constant address when the sum is in range, then resets the memarg offset to
+// zero. Keep the represented load/store windows as one fact with the proven
+// access kind, original/folded memargs, folded address, and complete rewrite
+// payload instead of dispatcher-owned ad hoc peepholes.
+priv struct RawOiMemoryOffsetFoldRewriteFact {
+  end : Int
+  is_load : Bool
+  is_store : Bool
+  original_memarg : @lib.MemArg
+  folded_memarg : @lib.MemArg
+  folded_address : @lib.Instruction
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiMemoryOffsetFoldRewriteFact::proves_binaryen_memory_offset_fold(
+  self : RawOiMemoryOffsetFoldRewriteFact,
+) -> Bool {
+  let @lib.MemArg(_, _, @lib.U64(original_offset)) = self.original_memarg
+  let @lib.MemArg(_, _, @lib.U64(folded_offset)) = self.folded_memarg
+  ignore(self.folded_address)
+  self.rewrite.length() > 0 &&
+  original_offset > 0UL &&
+  folded_offset == 0UL &&
+  (self.is_load || self.is_store) &&
+  !(self.is_load && self.is_store)
+}
+
+///|
+fn RawOiMemoryOffsetFoldRewriteFact::append_rewrite(
+  self : RawOiMemoryOffsetFoldRewriteFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_memory_offset_fold() {
+    for instr in self.rewrite {
+      out.push(instr)
+    }
+  }
+}
+
+///|
+fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiMemoryOffsetFoldRewriteFact? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  let address = instrs[start]
+  let load_instr = instrs[start + 1]
+  let original_memarg = match
+    run_hot_pipeline_raw_optimize_instructions_load_memarg(load_instr) {
+    Some(memarg) => memarg
+    None => return None
   }
   let (folded_address, folded_memarg) = match
     run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
-      address, memarg,
+      address, original_memarg,
+    ) {
+    Some(result) => result
+    None => return None
+  }
+  let folded_load = match
+    run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
+      load_instr, folded_memarg,
+    ) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({
+    end: start + 2,
+    is_load: true,
+    is_store: false,
+    original_memarg,
+    folded_memarg,
+    folded_address,
+    rewrite: [folded_address, folded_load],
+  })
+}
+
+///|
+fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiMemoryOffsetFoldRewriteFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  let address = instrs[start]
+  let value = instrs[start + 1]
+  let store_instr = instrs[start + 2]
+  let original_memarg = match
+    run_hot_pipeline_raw_optimize_instructions_store_memarg(store_instr) {
+    Some(memarg) => memarg
+    None => return None
+  }
+  let (folded_address, folded_memarg) = match
+    run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
+      address, original_memarg,
     ) {
     Some(result) => result
     None => return None
@@ -26195,7 +26279,27 @@ fn run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
     Some(instr) => instr
     None => return None
   }
-  Some((folded_address, folded_store))
+  Some({
+    end: start + 3,
+    is_load: false,
+    is_store: true,
+    original_memarg,
+    folded_memarg,
+    folded_address,
+    rewrite: [folded_address, value, folded_store],
+  })
+}
+
+///|
+fn RawOiMemoryOffsetFoldRewriteFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiMemoryOffsetFoldRewriteFact? {
+  match RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(instrs, start)
 }
 
 ///|
@@ -30220,42 +30324,14 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    if i + 2 < instrs.length() {
-      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
-        (address, value, store_instr) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
-              address, store_instr,
-            ) {
-            Some((folded_address, folded_store)) => {
-              rewritten.push(folded_address)
-              rewritten.push(value)
-              rewritten.push(folded_store)
-              changed = true
-              i = i + 3
-              continue
-            }
-            None => ()
-          }
+    match RawOiMemoryOffsetFoldRewriteFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
-    }
-    if i + 1 < instrs.length() {
-      match (instrs[i], instrs[i + 1]) {
-        (address, load_instr) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_fold_const_load_offset(
-              address, load_instr,
-            ) {
-            Some((folded_address, folded_load)) => {
-              rewritten.push(folded_address)
-              rewritten.push(folded_load)
-              changed = true
-              i = i + 2
-              continue
-            }
-            None => ()
-          }
-      }
+      None => ()
     }
     let (expanded, instr_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
       instrs[i],
