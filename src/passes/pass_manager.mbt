@@ -26199,13 +26199,23 @@ fn run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_memory_size(
+// Raw OI-G constant-size fact shared by memory.copy/fill lowerings and the
+// lowered dispatcher. Binaryen v130 `optimizeMemoryCopy` and
+// `optimizeMemoryFill` first prove that the size operand is a Const and then
+// switch on the exact byte count; keep that proof as a named fact instead of
+// threading ad hoc `i32.const` / `i64.const` matches through rewrite windows.
+priv struct RawOiBulkConstSizeFact {
+  size : Int
+}
+
+///|
+fn RawOiBulkConstSizeFact::from_instr(
   instr : @lib.Instruction,
-) -> Int? {
+) -> RawOiBulkConstSizeFact? {
   match instr {
-    @lib.I32Const(@lib.I32(raw)) => Some(raw)
+    @lib.I32Const(@lib.I32(raw)) => Some({ size: raw })
     @lib.I64Const(@lib.I64(raw)) if raw >= 0L && raw <= 2147483647L =>
-      Some(raw.to_int())
+      Some({ size: raw.to_int() })
     _ => None
   }
 }
@@ -26819,6 +26829,444 @@ fn run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
     16 => Some(@lib.Instruction::v128_store(memarg))
     _ => None
   }
+}
+
+///|
+priv struct RawOiI32ConstSelectOperandFact {
+  end : Int
+  value : @lib.Instruction
+}
+
+///|
+fn RawOiI32ConstSelectOperandFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiI32ConstSelectOperandFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  match
+    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      @lib.I32Const(@lib.I32(true_raw)),
+      @lib.I32Const(@lib.I32(false_raw)),
+      @lib.I32Const(@lib.I32(cond_raw)),
+      @lib.Select(_),
+    ) =>
+      Some({
+        end: start + 4,
+        value: @lib.Instruction::i32_const(
+          @lib.I32(if cond_raw == 0 { false_raw } else { true_raw }),
+        ),
+      })
+    _ => None
+  }
+}
+
+///|
+priv struct RawOiMemorySizePageAddressFact {
+  end : Int
+  mem : @lib.MemIdx
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiMemorySizePageAddressFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiMemorySizePageAddressFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(15)), @lib.I32Shl) =>
+      Some({
+        end: start + 3,
+        mem,
+        rewrite: [instrs[start], instrs[start + 1], instrs[start + 2]],
+      })
+    (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(32768)), @lib.I32Mul) =>
+      Some({
+        end: start + 3,
+        mem,
+        rewrite: [
+          instrs[start],
+          @lib.Instruction::i32_const(@lib.I32(15)),
+          @lib.Instruction::i32_shl(),
+        ],
+      })
+    (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(15L)), @lib.I64Shl) =>
+      Some({
+        end: start + 3,
+        mem,
+        rewrite: [instrs[start], instrs[start + 1], instrs[start + 2]],
+      })
+    (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(32768L)), @lib.I64Mul) =>
+      Some({
+        end: start + 3,
+        mem,
+        rewrite: [
+          instrs[start],
+          @lib.Instruction::i64_const(@lib.I64(15L)),
+          @lib.Instruction::i64_shl(),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+priv struct RawOiI32ConstAddAddressFact {
+  end : Int
+  value : @lib.Instruction
+}
+
+///|
+fn RawOiI32ConstAddAddressFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiI32ConstAddAddressFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+    (
+      @lib.I32Const(@lib.I32(lhs_raw)),
+      @lib.I32Const(@lib.I32(rhs_raw)),
+      @lib.I32Add,
+    ) => {
+      let folded = @lib.I32(
+        (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+      )
+      Some({ end: start + 3, value: @lib.Instruction::i32_const(folded) })
+    }
+    _ => None
+  }
+}
+
+///|
+// Raw OI-G lowering fact for the flat dispatcher. Binaryen v130 lowers
+// constant-size `memory.copy` to load/store and constant-size `memory.fill` to
+// store when the value-size pair admits an exact store. The flat raw bridge sees
+// already-lowered operand sequences, so this fact records the operand proof
+// family (resolved const-selects, memory.size page addresses, plain static
+// sizes, or folded const-add addresses) plus the complete rewrite payload.
+priv struct RawOiBulkLoweringRewriteFact {
+  end : Int
+  size : Int
+  is_memory_copy : Bool
+  is_memory_fill : Bool
+  operands_are_const_selects : Bool
+  operands_are_memory_size_page_addresses : Bool
+  operands_are_plain_static_size : Bool
+  operands_are_i32_const_add_addresses : Bool
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::proves_binaryen_bulk_lowering(
+  self : RawOiBulkLoweringRewriteFact,
+) -> Bool {
+  (self.is_memory_copy || self.is_memory_fill) &&
+  self.size > 0 &&
+  (
+    self.operands_are_const_selects ||
+    self.operands_are_memory_size_page_addresses ||
+    self.operands_are_plain_static_size ||
+    self.operands_are_i32_const_add_addresses
+  )
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::append_rewrite(
+  self : RawOiBulkLoweringRewriteFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_bulk_lowering() {
+    for instr in self.rewrite {
+      out.push(instr)
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_oi_push_instrs(
+  out : Array[@lib.Instruction],
+  instrs : Array[@lib.Instruction],
+) -> Unit {
+  for instr in instrs {
+    out.push(instr)
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::copy_from_parts(
+  end : Int,
+  dest : Array[@lib.Instruction],
+  source : Array[@lib.Instruction],
+  size : Int,
+  src_mem : @lib.MemIdx,
+  dst_mem : @lib.MemIdx,
+  operands_are_const_selects : Bool,
+  operands_are_memory_size_page_addresses : Bool,
+  operands_are_plain_static_size : Bool,
+  operands_are_i32_const_add_addresses : Bool,
+) -> RawOiBulkLoweringRewriteFact? {
+  match
+    run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+      size, src_mem, dst_mem,
+    ) {
+    Some((load_instr, store_instr)) => {
+      let rewrite : Array[@lib.Instruction] = []
+      run_hot_pipeline_raw_oi_push_instrs(rewrite, dest)
+      run_hot_pipeline_raw_oi_push_instrs(rewrite, source)
+      rewrite.push(load_instr)
+      rewrite.push(store_instr)
+      Some({
+        end,
+        size,
+        is_memory_copy: true,
+        is_memory_fill: false,
+        operands_are_const_selects,
+        operands_are_memory_size_page_addresses,
+        operands_are_plain_static_size,
+        operands_are_i32_const_add_addresses,
+        rewrite,
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::fill_from_parts(
+  end : Int,
+  dest : Array[@lib.Instruction],
+  value : @lib.Instruction,
+  size : Int,
+  mem : @lib.MemIdx,
+  operands_are_const_selects : Bool,
+  operands_are_plain_static_size : Bool,
+) -> RawOiBulkLoweringRewriteFact? {
+  match
+    (
+      run_hot_pipeline_raw_optimize_instructions_fill_value_instr(value, size),
+      run_hot_pipeline_raw_optimize_instructions_fill_store_instr(size, mem),
+    ) {
+    (Some(fill_value), Some(store_instr)) => {
+      let rewrite : Array[@lib.Instruction] = []
+      run_hot_pipeline_raw_oi_push_instrs(rewrite, dest)
+      rewrite.push(fill_value)
+      rewrite.push(store_instr)
+      Some({
+        end,
+        size,
+        is_memory_copy: false,
+        is_memory_fill: true,
+        operands_are_const_selects,
+        operands_are_memory_size_page_addresses: false,
+        operands_are_plain_static_size,
+        operands_are_i32_const_add_addresses: false,
+        rewrite,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiBulkLoweringRewriteFact? {
+  let dest = match RawOiI32ConstSelectOperandFact::from_instrs(instrs, start) {
+    Some(fact) => fact
+    None => return None
+  }
+  let source_or_value = match
+    RawOiI32ConstSelectOperandFact::from_instrs(instrs, dest.end) {
+    Some(fact) => fact
+    None => return None
+  }
+  let size_operand = match
+    RawOiI32ConstSelectOperandFact::from_instrs(instrs, source_or_value.end) {
+    Some(fact) => fact
+    None => return None
+  }
+  let size = match RawOiBulkConstSizeFact::from_instr(size_operand.value) {
+    Some(fact) => fact.size
+    None => return None
+  }
+  if size_operand.end >= instrs.length() {
+    return None
+  }
+  match instrs[size_operand.end] {
+    @lib.MemoryCopy(dst_mem, src_mem) =>
+      RawOiBulkLoweringRewriteFact::copy_from_parts(
+        size_operand.end + 1,
+        [dest.value],
+        [source_or_value.value],
+        size,
+        src_mem,
+        dst_mem,
+        true,
+        false,
+        false,
+        false,
+      )
+    @lib.MemoryFill(mem) =>
+      RawOiBulkLoweringRewriteFact::fill_from_parts(
+        size_operand.end + 1,
+        [dest.value],
+        source_or_value.value,
+        size,
+        mem,
+        true,
+        false,
+      )
+    _ => None
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiBulkLoweringRewriteFact? {
+  let dest = match RawOiMemorySizePageAddressFact::from_instrs(instrs, start) {
+    Some(fact) => fact
+    None => return None
+  }
+  let source = match
+    RawOiMemorySizePageAddressFact::from_instrs(instrs, dest.end) {
+    Some(fact) => fact
+    None => return None
+  }
+  if source.end + 1 >= instrs.length() {
+    return None
+  }
+  let size = match RawOiBulkConstSizeFact::from_instr(instrs[source.end]) {
+    Some(fact) => fact.size
+    None => return None
+  }
+  match instrs[source.end + 1] {
+    @lib.MemoryCopy(dst_mem, src_mem) if dest.mem == dst_mem &&
+      source.mem == src_mem =>
+      RawOiBulkLoweringRewriteFact::copy_from_parts(
+        source.end + 2,
+        dest.rewrite,
+        source.rewrite,
+        size,
+        src_mem,
+        dst_mem,
+        false,
+        true,
+        false,
+        false,
+      )
+    _ => None
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiBulkLoweringRewriteFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  let size = match RawOiBulkConstSizeFact::from_instr(instrs[start + 2]) {
+    Some(fact) => fact.size
+    None => return None
+  }
+  match instrs[start + 3] {
+    @lib.MemoryCopy(dst_mem, src_mem) =>
+      RawOiBulkLoweringRewriteFact::copy_from_parts(
+        start + 4,
+        [instrs[start]],
+        [instrs[start + 1]],
+        size,
+        src_mem,
+        dst_mem,
+        false,
+        false,
+        true,
+        false,
+      )
+    @lib.MemoryFill(mem) =>
+      RawOiBulkLoweringRewriteFact::fill_from_parts(
+        start + 4,
+        [instrs[start]],
+        instrs[start + 1],
+        size,
+        mem,
+        false,
+        true,
+      )
+    _ => None
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiBulkLoweringRewriteFact? {
+  let dest = match RawOiI32ConstAddAddressFact::from_instrs(instrs, start) {
+    Some(fact) => fact
+    None => return None
+  }
+  let source = match
+    RawOiI32ConstAddAddressFact::from_instrs(instrs, dest.end) {
+    Some(fact) => fact
+    None => return None
+  }
+  if source.end + 1 >= instrs.length() {
+    return None
+  }
+  let size = match RawOiBulkConstSizeFact::from_instr(instrs[source.end]) {
+    Some(fact) => fact.size
+    None => return None
+  }
+  match instrs[source.end + 1] {
+    @lib.MemoryCopy(dst_mem, src_mem) =>
+      RawOiBulkLoweringRewriteFact::copy_from_parts(
+        source.end + 2,
+        [dest.value],
+        [source.value],
+        size,
+        src_mem,
+        dst_mem,
+        false,
+        false,
+        false,
+        true,
+      )
+    _ => None
+  }
+}
+
+///|
+fn RawOiBulkLoweringRewriteFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiBulkLoweringRewriteFact? {
+  match
+    RawOiBulkLoweringRewriteFact::from_const_select_operands(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match RawOiBulkLoweringRewriteFact::from_plain_static_size(instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(instrs, start)
 }
 
 ///|
@@ -28737,250 +29185,14 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    if i + 12 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-          instrs[i + 8],
-          instrs[i + 9],
-          instrs[i + 10],
-          instrs[i + 11],
-          instrs[i + 12],
-        ) {
-        (
-          @lib.I32Const(@lib.I32(dst_true)),
-          @lib.I32Const(@lib.I32(dst_false)),
-          @lib.I32Const(@lib.I32(dst_cond)),
-          @lib.Select(_),
-          @lib.I32Const(@lib.I32(src_true)),
-          @lib.I32Const(@lib.I32(src_false)),
-          @lib.I32Const(@lib.I32(src_cond)),
-          @lib.Select(_),
-          @lib.I32Const(@lib.I32(size_true)),
-          @lib.I32Const(@lib.I32(size_false)),
-          @lib.I32Const(@lib.I32(size_cond)),
-          @lib.Select(_),
-          @lib.MemoryCopy(dst_mem, src_mem),
-        ) => {
-          let dst = if dst_cond == 0 { dst_false } else { dst_true }
-          let src = if src_cond == 0 { src_false } else { src_true }
-          let size = if size_cond == 0 { size_false } else { size_true }
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size, src_mem, dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(dst)))
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(src)))
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 13
-              continue
-            }
-            None => ()
-          }
-        }
-        (
-          @lib.I32Const(@lib.I32(dst_true)),
-          @lib.I32Const(@lib.I32(dst_false)),
-          @lib.I32Const(@lib.I32(dst_cond)),
-          @lib.Select(_),
-          @lib.I32Const(@lib.I32(value_true)),
-          @lib.I32Const(@lib.I32(value_false)),
-          @lib.I32Const(@lib.I32(value_cond)),
-          @lib.Select(_),
-          @lib.I32Const(@lib.I32(size_true)),
-          @lib.I32Const(@lib.I32(size_false)),
-          @lib.I32Const(@lib.I32(size_cond)),
-          @lib.Select(_),
-          @lib.MemoryFill(mem),
-        ) => {
-          let dst = if dst_cond == 0 { dst_false } else { dst_true }
-          let value = @lib.Instruction::i32_const(
-            @lib.I32(if value_cond == 0 { value_false } else { value_true }),
-          )
-          let size = if size_cond == 0 { size_false } else { size_true }
-          match
-            (
-              run_hot_pipeline_raw_optimize_instructions_fill_value_instr(
-                value, size,
-              ),
-              run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
-                size, mem,
-              ),
-            ) {
-            (Some(fill_value), Some(store_instr)) => {
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(dst)))
-              rewritten.push(fill_value)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 13
-              continue
-            }
-            _ => ()
-          }
-        }
-        _ => ()
+    match RawOiBulkLoweringRewriteFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
-    }
-    if i + 7 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-        ) {
-        (
-          @lib.MemorySize(dst_size_mem),
-          @lib.I32Const(@lib.I32(dst_shift)),
-          @lib.I32Shl,
-          @lib.MemorySize(src_size_mem),
-          @lib.I32Const(@lib.I32(src_shift)),
-          @lib.I32Shl,
-          @lib.I32Const(@lib.I32(size_raw)),
-          @lib.MemoryCopy(dst_mem, src_mem),
-        ) if dst_shift == 15 &&
-          src_shift == 15 &&
-          dst_size_mem == dst_mem &&
-          src_size_mem == src_mem =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size_raw, src_mem, dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              rewritten.push(instrs[i])
-              rewritten.push(instrs[i + 1])
-              rewritten.push(instrs[i + 2])
-              rewritten.push(instrs[i + 3])
-              rewritten.push(instrs[i + 4])
-              rewritten.push(instrs[i + 5])
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 8
-              continue
-            }
-            None => ()
-          }
-        (
-          @lib.MemorySize(dst_size_mem),
-          @lib.I32Const(@lib.I32(dst_factor)),
-          @lib.I32Mul,
-          @lib.MemorySize(src_size_mem),
-          @lib.I32Const(@lib.I32(src_factor)),
-          @lib.I32Mul,
-          @lib.I32Const(@lib.I32(size_raw)),
-          @lib.MemoryCopy(dst_mem, src_mem),
-        ) if dst_factor == 32768 &&
-          src_factor == 32768 &&
-          dst_size_mem == dst_mem &&
-          src_size_mem == src_mem =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size_raw, src_mem, dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              rewritten.push(instrs[i])
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(15)))
-              rewritten.push(@lib.Instruction::i32_shl())
-              rewritten.push(instrs[i + 3])
-              rewritten.push(@lib.Instruction::i32_const(@lib.I32(15)))
-              rewritten.push(@lib.Instruction::i32_shl())
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 8
-              continue
-            }
-            None => ()
-          }
-        (
-          @lib.MemorySize(dst_size_mem),
-          @lib.I64Const(@lib.I64(dst_shift)),
-          @lib.I64Shl,
-          @lib.MemorySize(src_size_mem),
-          @lib.I64Const(@lib.I64(src_shift)),
-          @lib.I64Shl,
-          @lib.I64Const(@lib.I64(size_raw)),
-          @lib.MemoryCopy(dst_mem, src_mem),
-        ) if dst_shift == 15L &&
-          src_shift == 15L &&
-          dst_size_mem == dst_mem &&
-          src_size_mem == src_mem &&
-          size_raw >= 0L &&
-          size_raw <= 2147483647L =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size_raw.to_int(),
-              src_mem,
-              dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              rewritten.push(instrs[i])
-              rewritten.push(instrs[i + 1])
-              rewritten.push(instrs[i + 2])
-              rewritten.push(instrs[i + 3])
-              rewritten.push(instrs[i + 4])
-              rewritten.push(instrs[i + 5])
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 8
-              continue
-            }
-            None => ()
-          }
-        (
-          @lib.MemorySize(dst_size_mem),
-          @lib.I64Const(@lib.I64(dst_factor)),
-          @lib.I64Mul,
-          @lib.MemorySize(src_size_mem),
-          @lib.I64Const(@lib.I64(src_factor)),
-          @lib.I64Mul,
-          @lib.I64Const(@lib.I64(size_raw)),
-          @lib.MemoryCopy(dst_mem, src_mem),
-        ) if dst_factor == 32768L &&
-          src_factor == 32768L &&
-          dst_size_mem == dst_mem &&
-          src_size_mem == src_mem &&
-          size_raw >= 0L &&
-          size_raw <= 2147483647L =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size_raw.to_int(),
-              src_mem,
-              dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              rewritten.push(instrs[i])
-              rewritten.push(@lib.Instruction::i64_const(@lib.I64(15L)))
-              rewritten.push(@lib.Instruction::i64_shl())
-              rewritten.push(instrs[i + 3])
-              rewritten.push(@lib.Instruction::i64_const(@lib.I64(15L)))
-              rewritten.push(@lib.Instruction::i64_shl())
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 8
-              continue
-            }
-            None => ()
-          }
-        _ => ()
-      }
+      None => ()
     }
     if i + 1 < instrs.length() {
       match (instrs[i], instrs[i + 1]) {
@@ -29077,100 +29289,6 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           i = i + 4
           continue
         }
-        _ => ()
-      }
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          run_hot_pipeline_raw_optimize_instructions_memory_size(instrs[i + 2]),
-        ) {
-        (dst, src, _, @lib.MemoryCopy(dst_mem, src_mem), Some(size)) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size, src_mem, dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              rewritten.push(dst)
-              rewritten.push(src)
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 4
-              continue
-            }
-            None => ()
-          }
-        (dst, value, _, @lib.MemoryFill(mem), Some(size)) =>
-          match
-            (
-              run_hot_pipeline_raw_optimize_instructions_fill_value_instr(
-                value, size,
-              ),
-              run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
-                size, mem,
-              ),
-            ) {
-            (Some(fill_value), Some(store_instr)) => {
-              rewritten.push(dst)
-              rewritten.push(fill_value)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 4
-              continue
-            }
-            _ => ()
-          }
-        _ => ()
-      }
-    }
-    if i + 7 < instrs.length() {
-      match
-        (
-          instrs[i],
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-          instrs[i + 5],
-          instrs[i + 6],
-          instrs[i + 7],
-          run_hot_pipeline_raw_optimize_instructions_memory_size(instrs[i + 6]),
-        ) {
-        (
-          @lib.I32Const(@lib.I32(dst_lhs)),
-          @lib.I32Const(@lib.I32(dst_rhs)),
-          @lib.I32Add,
-          @lib.I32Const(@lib.I32(src_lhs)),
-          @lib.I32Const(@lib.I32(src_rhs)),
-          @lib.I32Add,
-          _,
-          @lib.MemoryCopy(dst_mem, src_mem),
-          Some(size),
-        ) =>
-          match
-            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
-              size, src_mem, dst_mem,
-            ) {
-            Some((load_instr, store_instr)) => {
-              let dst = @lib.I32(
-                (dst_lhs.reinterpret_as_uint() + dst_rhs.reinterpret_as_uint()).reinterpret_as_int(),
-              )
-              let src = @lib.I32(
-                (src_lhs.reinterpret_as_uint() + src_rhs.reinterpret_as_uint()).reinterpret_as_int(),
-              )
-              rewritten.push(@lib.Instruction::i32_const(dst))
-              rewritten.push(@lib.Instruction::i32_const(src))
-              rewritten.push(load_instr)
-              rewritten.push(store_instr)
-              changed = true
-              i = i + 8
-              continue
-            }
-            None => ()
-          }
         _ => ()
       }
     }
