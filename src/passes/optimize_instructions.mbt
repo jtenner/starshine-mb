@@ -1703,6 +1703,97 @@ fn OiDescriptorCastFact::from_node(
 }
 
 ///|
+priv struct OiDescriptorExactMissDropBeforeUnreachableFact {
+  live : Bool
+  control_or_exit_root : Bool
+  all_children_straight_line : Bool
+  straight_line : Bool
+  direct_call_root : Bool
+  block_region_straight_line : Bool
+  block_can_drop_before_unreachable : Bool
+  call_can_drop_before_unreachable : Bool
+}
+
+///|
+fn OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDescriptorExactMissDropBeforeUnreachableFact {
+  // Binaryen v130 lowers statically-impossible descriptor equality casts with
+  // `getDroppedChildrenAndAppend(..., unreachable, IgnoreParentEffects)`. Keep
+  // Starshine's represented source-order preservation subset as an explicit
+  // fact: a subtree may be dropped before the replacement trap only when every
+  // evaluated expression is straight-line, and only block/direct-call roots are
+  // currently materialized by the exact-miss rewrite plans.
+  let node = @ir.hot_node_get(func, node_id)
+  let control_or_exit_root = match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef => true
+    _ => false
+  }
+  let mut all_children_straight_line = true
+  if !control_or_exit_root {
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      if !OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
+          func,
+          @ir.hot_child_get(func, node_id, slot),
+        ).straight_line {
+        all_children_straight_line = false
+      }
+    }
+  }
+  let straight_line = !control_or_exit_root && all_children_straight_line
+  let direct_call_root = match node.op {
+    @ir.HotOp::Call => true
+    _ => false
+  }
+  let mut block_region_straight_line = false
+  match node.op {
+    @ir.HotOp::Block => {
+      block_region_straight_line = true
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for slot = 0
+          slot < @ir.hot_region_root_count(func, body)
+          slot = slot + 1 {
+        if !OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
+            func,
+            @ir.hot_region_get(func, body, slot),
+          ).straight_line {
+          block_region_straight_line = false
+        }
+      }
+    }
+    _ => ()
+  }
+  {
+    live: true,
+    control_or_exit_root,
+    all_children_straight_line,
+    straight_line,
+    direct_call_root,
+    block_region_straight_line,
+    block_can_drop_before_unreachable: block_region_straight_line,
+    call_can_drop_before_unreachable: direct_call_root && straight_line,
+  }
+}
+
+///|
 priv struct OiDescriptorExactMissFact {
   cast_fact : OiDescriptorCastFact
   descriptor_exactly_describes_target : Bool
@@ -1725,6 +1816,14 @@ fn OiDescriptorExactMissFact::from_node(
     Some(fact) => fact
     None => return None
   }
+  let operand_drop_fact = OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
+    func,
+    cast_fact.operand_id,
+  )
+  let descriptor_drop_fact = OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
+    func,
+    cast_fact.descriptor_id,
+  )
   Some({
     cast_fact,
     descriptor_exactly_describes_target: optimize_instructions_descriptor_operand_exactly_describes_target(
@@ -1757,22 +1856,29 @@ fn OiDescriptorExactMissFact::from_node(
       cast_fact.operand_id,
     ) ||
     optimize_instructions_node_effects_are_pure(ctx, func, cast_fact.operand_id),
-    ref_operand_can_drop_before_unreachable: optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-      func,
-      cast_fact.operand_id,
-    ) ||
-    optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_unreachable(
-      func,
-      cast_fact.operand_id,
+    ref_operand_can_drop_before_unreachable: operand_drop_fact.live &&
+    (
+      (
+        operand_drop_fact.block_can_drop_before_unreachable &&
+        operand_drop_fact.control_or_exit_root &&
+        operand_drop_fact.block_region_straight_line
+      ) ||
+      (
+        operand_drop_fact.call_can_drop_before_unreachable &&
+        !operand_drop_fact.control_or_exit_root &&
+        operand_drop_fact.direct_call_root &&
+        operand_drop_fact.all_children_straight_line
+      )
     ),
-    descriptor_can_drop_before_unreachable: optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-      func,
-      cast_fact.descriptor_id,
-    ),
-    descriptor_call_can_drop_before_unreachable: optimize_instructions_exact_descriptor_miss_descriptor_call_can_drop_before_unreachable(
-      func,
-      cast_fact.descriptor_id,
-    ),
+    descriptor_can_drop_before_unreachable: descriptor_drop_fact.live &&
+    descriptor_drop_fact.control_or_exit_root &&
+    descriptor_drop_fact.block_region_straight_line &&
+    descriptor_drop_fact.block_can_drop_before_unreachable,
+    descriptor_call_can_drop_before_unreachable: descriptor_drop_fact.live &&
+    !descriptor_drop_fact.control_or_exit_root &&
+    descriptor_drop_fact.direct_call_root &&
+    descriptor_drop_fact.all_children_straight_line &&
+    descriptor_drop_fact.call_can_drop_before_unreachable,
   })
 }
 
@@ -19320,92 +19426,6 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
     Some(move_fact) => move_fact.apply(ctx, func, descriptor_id)
     None => false
   }
-}
-
-///|
-fn optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block
-    | @ir.HotOp::Loop
-    | @ir.HotOp::If
-    | @ir.HotOp::Try
-    | @ir.HotOp::TryTable
-    | @ir.HotOp::Br
-    | @ir.HotOp::BrIf
-    | @ir.HotOp::BrTable
-    | @ir.HotOp::BrOnNull
-    | @ir.HotOp::BrOnNonNull
-    | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail
-    | @ir.HotOp::Return
-    | @ir.HotOp::ReturnCall
-    | @ir.HotOp::ReturnCallIndirect
-    | @ir.HotOp::ReturnCallRef
-    | @ir.HotOp::Throw
-    | @ir.HotOp::ThrowRef => return false
-    _ => ()
-  }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if !optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn optimize_instructions_exact_descriptor_miss_operand_can_drop_before_unreachable(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block => ()
-    _ => return false
-  }
-  let body = @ir.hot_region_body_ref(func, node_id)
-  for slot = 0; slot < @ir.hot_region_root_count(func, body); slot = slot + 1 {
-    if !optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
-        func,
-        @ir.hot_region_get(func, body, slot),
-      ) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn optimize_instructions_exact_descriptor_miss_reference_call_can_drop_before_unreachable(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Call => ()
-    _ => return false
-  }
-  optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
-    func, node_id,
-  )
-}
-
-///|
-fn optimize_instructions_exact_descriptor_miss_descriptor_call_can_drop_before_unreachable(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Call => ()
-    _ => return false
-  }
-  optimize_instructions_exact_descriptor_miss_operand_expr_is_straight_line(
-    func, node_id,
-  )
 }
 
 ///|
