@@ -7116,6 +7116,12 @@ priv struct OiSubtreeReorderEffectFact {
 }
 
 ///|
+priv struct OiNodeEffectPurityFact {
+  effect_mask : UInt
+  mask_is_pure : Bool
+}
+
+///|
 priv struct OiConsecutiveInputEqualityFact {
   left_fallthrough_id : Int
   right_fallthrough_id : Int
@@ -7230,6 +7236,32 @@ fn OiStateWriteSetFact::from_value_subtree(
   }
   walk(node_id)
   fact
+}
+
+///|
+fn OiNodeEffectPurityFact::from_mask(mask : UInt) -> OiNodeEffectPurityFact {
+  // Shared OI view of Binaryen `EffectAnalyzer(...).hasUnremovableSideEffects()`
+  // negative queries: callers that only need the existing HOT effect-mask
+  // proof should record that as a fact instead of reading raw masks directly.
+  { effect_mask: mask, mask_is_pure: @ir.effects_is_pure(mask) }
+}
+
+///|
+fn OiNodeEffectPurityFact::from_node_masks(
+  node_masks : Array[UInt],
+  node_id : Int,
+) -> OiNodeEffectPurityFact {
+  if node_id < 0 || node_id >= node_masks.length() {
+    { effect_mask: 0U, mask_is_pure: false }
+  } else {
+    OiNodeEffectPurityFact::from_mask(node_masks[node_id])
+  }
+}
+
+///|
+fn OiNodeEffectPurityFact::proves_pure(self : OiNodeEffectPurityFact) -> Bool {
+  ignore(self.effect_mask)
+  self.mask_is_pure
 }
 
 ///|
@@ -10945,7 +10977,10 @@ fn OiOrderedOperandFact::from_node(
     is_trivially_pure: optimize_instructions_is_trivially_pure_operand(
       func, node_id,
     ),
-    is_effect_pure: @ir.effects_is_pure(effects.node_masks[node_id]),
+    is_effect_pure: OiNodeEffectPurityFact::from_node_masks(
+      effects.node_masks,
+      node_id,
+    ).proves_pure(),
   }
 }
 
@@ -11233,6 +11268,18 @@ priv struct OiArrayDefaultFallthroughFact {
 }
 
 ///|
+priv struct OiArrayDefaultPreservationFact {
+  reached_fallthrough : Bool
+  depth_exhausted : Bool
+  local_tee_wrapper : Bool
+  block_prefix_effectful : Bool
+  nested_block_preserves : Bool
+  loop_effectful : Bool
+  if_control_shape : Bool
+  subtree_effectful : Bool
+}
+
+///|
 priv struct OiArrayDefaultValueFact {
   is_default : Bool
   preservation_plan : OiChildLocalizationPlanFact
@@ -11379,38 +11426,109 @@ fn optimize_instructions_array_default_fallthrough_id(
 }
 
 ///|
-fn optimize_instructions_array_default_fallthrough_preserve_needed(
+fn OiArrayDefaultPreservationFact::empty() -> OiArrayDefaultPreservationFact {
+  {
+    reached_fallthrough: false,
+    depth_exhausted: false,
+    local_tee_wrapper: false,
+    block_prefix_effectful: false,
+    nested_block_preserves: false,
+    loop_effectful: false,
+    if_control_shape: false,
+    subtree_effectful: false,
+  }
+}
+
+///|
+fn OiArrayDefaultPreservationFact::from_value(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   value_id : Int,
   fallthrough_id : Int,
   depth? : Int = 0,
-) -> Bool {
-  if value_id == fallthrough_id || depth > 8 {
-    return false
+) -> OiArrayDefaultPreservationFact {
+  // Binaryen v130 `getDroppedChildrenAndAppend` preserves only wrappers whose
+  // evaluation can remain observable while replacing an array default value
+  // with the canonical default initializer. Keep the represented Starshine
+  // subset as an explicit preservation fact: matching fallthroughs and the
+  // depth guard erase, local.tee and `if` wrappers preserve, blocks preserve if
+  // any prefix child has effects or if the fallthrough child recursively needs
+  // preservation, and loops/other subtrees preserve only when HOT effects are
+  // not pure.
+  if value_id == fallthrough_id {
+    let fact = OiArrayDefaultPreservationFact::empty()
+    return { ..fact, reached_fallthrough: true }
+  }
+  if depth > 8 {
+    let fact = OiArrayDefaultPreservationFact::empty()
+    return { ..fact, depth_exhausted: true }
   }
   let value = @ir.hot_node_get(func, value_id)
   match value.op {
-    @ir.HotOp::LocalTee if value.child_count == 1 => true
+    @ir.HotOp::LocalTee if value.child_count == 1 => {
+      let fact = OiArrayDefaultPreservationFact::empty()
+      { ..fact, local_tee_wrapper: true }
+    }
     @ir.HotOp::Block if value.child_count > 0 => {
+      let mut block_prefix_effectful = false
       for slot = 0; slot < value.child_count - 1; slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, value_id, slot)
-        if !@ir.effects_is_pure(node_masks[child_id]) {
-          return true
+        if !OiNodeEffectPurityFact::from_node_masks(node_masks, child_id).proves_pure() {
+          block_prefix_effectful = true
         }
       }
-      optimize_instructions_array_default_fallthrough_preserve_needed(
-        func,
-        node_masks,
-        @ir.hot_child_get(func, value_id, value.child_count - 1),
-        fallthrough_id,
-        depth=depth + 1,
-      )
+      if block_prefix_effectful {
+        let fact = OiArrayDefaultPreservationFact::empty()
+        { ..fact, block_prefix_effectful: true }
+      } else {
+        let nested = OiArrayDefaultPreservationFact::from_value(
+          func,
+          node_masks,
+          @ir.hot_child_get(func, value_id, value.child_count - 1),
+          fallthrough_id,
+          depth=depth + 1,
+        )
+        let fact = OiArrayDefaultPreservationFact::empty()
+        { ..fact, nested_block_preserves: nested.proves_preserve_needed() }
+      }
     }
-    @ir.HotOp::Loop => !@ir.effects_is_pure(node_masks[value_id])
-    @ir.HotOp::If => true
-    _ => !@ir.effects_is_pure(node_masks[value_id])
+    @ir.HotOp::Loop => {
+      let fact = OiArrayDefaultPreservationFact::empty()
+      {
+        ..fact,
+        loop_effectful: !OiNodeEffectPurityFact::from_node_masks(
+          node_masks, value_id,
+        ).proves_pure(),
+      }
+    }
+    @ir.HotOp::If => {
+      let fact = OiArrayDefaultPreservationFact::empty()
+      { ..fact, if_control_shape: true }
+    }
+    _ => {
+      let fact = OiArrayDefaultPreservationFact::empty()
+      {
+        ..fact,
+        subtree_effectful: !OiNodeEffectPurityFact::from_node_masks(
+          node_masks, value_id,
+        ).proves_pure(),
+      }
+    }
   }
+}
+
+///|
+fn OiArrayDefaultPreservationFact::proves_preserve_needed(
+  self : OiArrayDefaultPreservationFact,
+) -> Bool {
+  ignore(self.reached_fallthrough)
+  ignore(self.depth_exhausted)
+  self.local_tee_wrapper ||
+  self.block_prefix_effectful ||
+  self.nested_block_preserves ||
+  self.loop_effectful ||
+  self.if_control_shape ||
+  self.subtree_effectful
 }
 
 ///|
@@ -11446,7 +11564,7 @@ fn OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
   let source_ids : Array[Int] = []
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
-    if !@ir.effects_is_pure(effects.node_masks[child_id]) {
+    if !OiNodeEffectPurityFact::from_node_masks(effects.node_masks, child_id).proves_pure() {
       source_ids.push(child_id)
     }
   }
@@ -11473,9 +11591,9 @@ fn OiChildLocalizationPlanFact::from_array_default_fallthrough(
   // ChildLocalizer-shaped fact used by non-default repeated fixed arrays: pure
   // default-producing wrappers are erased, while value wrappers with observable
   // effects are explicitly dropped before the replacement allocation.
-  if optimize_instructions_array_default_fallthrough_preserve_needed(
+  if OiArrayDefaultPreservationFact::from_value(
       func, node_masks, value_id, fallthrough_id,
-    ) {
+    ).proves_preserve_needed() {
     { source_ids: [], drop_ids: [value_id] }
   } else {
     OiChildLocalizationPlanFact::empty()
@@ -19497,7 +19615,7 @@ fn optimize_instructions_node_effects_are_pure(
   node_id : Int,
 ) -> Bool {
   let effects = pass_require_effects(ctx, func)
-  @ir.effects_is_pure(effects.node_masks[node_id])
+  OiNodeEffectPurityFact::from_node_masks(effects.node_masks, node_id).proves_pure()
 }
 
 ///|
