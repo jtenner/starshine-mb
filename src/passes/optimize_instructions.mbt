@@ -6887,6 +6887,7 @@ priv struct OiConsecutiveInputEqualityFact {
   right_fallthrough_id : Int
   matching_tee_and_get : Bool
   matching_pure_scalar_tree : Bool
+  matching_stable_state_read : Bool
   intervening_effects_interfere : Bool
 }
 
@@ -7029,6 +7030,24 @@ fn optimize_instructions_is_pure_scalar_equal_tree_op(op : @ir.HotOp) -> Bool {
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
     | @ir.HotOp::Convert => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_stable_state_reads_equal(
+  left : @ir.HotNode,
+  right : @ir.HotNode,
+) -> Bool {
+  // Binaryen v130 `areConsecutiveInputsEqual` reaches
+  // `ExpressionAnalyzer::equal` after fallthrough peeling. Deterministic state
+  // reads with the same index compare equal there, but only after the enclosing
+  // equality fact has checked that intervening effects are not ordered before
+  // the right read. Keep this fact separate from `matching_pure_scalar_tree` so
+  // state reads remain visible as effect-sensitive equality, not pure values.
+  match (left.op, right.op) {
+    (@ir.HotOp::MemorySize, @ir.HotOp::MemorySize) => left.imm0 == right.imm0
+    (@ir.HotOp::TableSize, @ir.HotOp::TableSize) => left.imm0 == right.imm0
     _ => false
   }
 }
@@ -7313,6 +7332,9 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let matching_pure_scalar_tree = optimize_instructions_pure_scalar_tree_equal(
     func, left_fallthrough_id, right_fallthrough_id,
   )
+  let matching_stable_state_read = optimize_instructions_stable_state_reads_equal(
+    left, right,
+  )
   let intervening_local_writes : Array[Int] = []
   optimize_instructions_append_local_writes(
     intervening_local_writes,
@@ -7349,6 +7371,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     right_fallthrough_id,
     matching_tee_and_get,
     matching_pure_scalar_tree,
+    matching_stable_state_read,
     intervening_effects_interfere,
   }
 }
@@ -7364,7 +7387,9 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   if self.intervening_effects_interfere {
     return false
   }
-  if self.matching_tee_and_get || self.matching_pure_scalar_tree {
+  if self.matching_tee_and_get ||
+    self.matching_pure_scalar_tree ||
+    self.matching_stable_state_read {
     return true
   }
   false
@@ -7465,9 +7490,10 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // helper: right-operand peeling and non-matching left `local.tee` peeling carry
   // accumulated intervening effects, including precise local-write ids for the
   // direct local/global-get fallthrough subset and conservative closure for
-  // nested pure scalar trees. Equality currently covers matching tee/get or
+  // nested pure scalar trees. Equality currently covers matching tee/get,
   // structurally identical scalar trees made of local.get, global.get,
-  // constants, unary, binary, compare, and convert nodes.
+  // constants, unary, binary, compare, and convert nodes, plus effect-sensitive
+  // same-index memory.size/table.size state reads.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,

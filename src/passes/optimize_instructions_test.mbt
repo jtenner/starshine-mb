@@ -33159,6 +33159,104 @@ test "optimize-instructions drops right block unrelated global.set global-addres
 }
 
 ///|
+test "optimize-instructions drops state-read same-address memory.copy" {
+  // OI-G same-input equality fact breadth: Binaryen version_130
+  // `areConsecutiveInputsEqual` delegates to `ExpressionAnalyzer::equal`, which
+  // treats repeated deterministic state reads with the same index, such as
+  // `memory.size` and `table.size`, as equal when no intervening effects can
+  // change the read. Under `--traps-never-happen`, same-address memory.copy then
+  // collapses to operand drops while preserving both state reads.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (table 1 funcref)
+        #|  (func (export "memory-size") (param $size i32)
+        #|    memory.size
+        #|    memory.size
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "table-size") (param $size i32)
+        #|    table.size 0
+        #|    table.size 0
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected state-read same-address memory.copy TNH success, got \{err}",
+      )
+  }
+  let memory_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(memory_pretty.contains("memory.copy"), msg=memory_pretty)
+  optimize_instructions_assert_strings_in_order(memory_pretty, [
+    "memory.size", "drop", "memory.size", "drop", "local.get (Local 0)", "drop",
+  ])
+  let table_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(table_pretty.contains("memory.copy"), msg=table_pretty)
+  optimize_instructions_assert_strings_in_order(table_pretty, [
+    "table.size", "drop", "table.size", "drop", "local.get (Local 0)", "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps growth-interfered state-read memory.copy" {
+  // Boundary guard for the state-read equality fact: Binaryen v130 rejects
+  // `memory.size` / `table.size` equality when the right operand prefix can grow
+  // the same memory/table before the fallthrough read. The trap-relaxed copy
+  // must stay live because the two state reads may produce different addresses.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1 2)
+        #|  (table 1 2 funcref)
+        #|  (func (export "memory-grow") (param $size i32)
+        #|    memory.size
+        #|    (block (result i32)
+        #|      i32.const 0
+        #|      memory.grow
+        #|      drop
+        #|      memory.size)
+        #|    local.get $size
+        #|    memory.copy)
+        #|  (func (export "table-grow") (param $size i32)
+        #|    table.size 0
+        #|    (block (result i32)
+        #|      ref.null func
+        #|      i32.const 0
+        #|      table.grow 0
+        #|      drop
+        #|      table.size 0)
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected growth-interfered state-read memory.copy success, got \{err}",
+      )
+  }
+  for func_idx = 0; func_idx < 2; func_idx = func_idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("memory.copy"), msg=pretty)
+    assert_true(pretty.contains(".grow"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions drops const same-address memory.copy under trap-relaxed facts" {
   // OI-G same-input equality fact breadth: Binaryen version_130
   // `areConsecutiveInputsEqual` uses `ExpressionAnalyzer::equal` after peeling
