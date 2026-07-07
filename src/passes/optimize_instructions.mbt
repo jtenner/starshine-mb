@@ -7054,6 +7054,38 @@ fn optimize_instructions_stable_state_reads_equal(
 }
 
 ///|
+fn optimize_instructions_exact_instr_is_stable_atomic_memory_read(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32AtomicLoad(_)
+    | @lib.Instruction::I64AtomicLoad(_)
+    | @lib.Instruction::I32AtomicLoad8U(_)
+    | @lib.Instruction::I32AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad8U(_)
+    | @lib.Instruction::I64AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad32U(_) => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_stable_memory_read_ops_equal(
+  left_op : @ir.HotOp,
+  right_op : @ir.HotOp,
+  left_instr : @lib.Instruction,
+  right_instr : @lib.Instruction,
+) -> Bool {
+  match (left_op, right_op) {
+    (@ir.HotOp::Load, @ir.HotOp::Load) => left_instr == right_instr
+    (@ir.HotOp::Atomic, @ir.HotOp::Atomic) =>
+      left_instr == right_instr &&
+      optimize_instructions_exact_instr_is_stable_atomic_memory_read(left_instr)
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_stable_memory_reads_equal(
   func : @ir.HotFunc,
   left_id : Int,
@@ -7063,31 +7095,31 @@ fn optimize_instructions_stable_memory_reads_equal(
   // `ExpressionAnalyzer::equal` after fallthrough peeling, then separately asks
   // `EffectAnalyzer::orderedBefore(effects(right))` whether intervening effects
   // can change the right read. Model the represented load subset as an explicit
-  // effect-sensitive fact: same load instruction, same access metadata, and a
-  // source-backed pure-scalar address proof. The enclosing equality fact still
-  // owns the memory-write interference check, so store/grow prefixes keep the
-  // copy live.
+  // effect-sensitive fact: same load/atomic-load instruction, same access
+  // metadata, and a source-backed pure-scalar address proof. The enclosing
+  // equality fact still owns the memory-write interference check, so store/grow
+  // prefixes keep the copy live.
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
-  match (left.op, right.op) {
-    (@ir.HotOp::Load, @ir.HotOp::Load) => {
-      if left.child_count != 1 || right.child_count != 1 {
-        return false
-      }
-      match
-        (
-          @ir.hot_node_exact_instr(func, left_id),
-          @ir.hot_node_exact_instr(func, right_id),
-        ) {
-        (Some(left_instr), Some(right_instr)) if left_instr == right_instr =>
-          optimize_instructions_pure_scalar_tree_equal(
-            func,
-            @ir.hot_child_get(func, left_id, 0),
-            @ir.hot_child_get(func, right_id, 0),
-          )
-        _ => false
-      }
-    }
+  if left.child_count != 1 || right.child_count != 1 {
+    return false
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, left_id),
+      @ir.hot_node_exact_instr(func, right_id),
+    ) {
+    (Some(left_instr), Some(right_instr)) if optimize_instructions_stable_memory_read_ops_equal(
+        left.op,
+        right.op,
+        left_instr,
+        right_instr,
+      ) =>
+      optimize_instructions_pure_scalar_tree_equal(
+        func,
+        @ir.hot_child_get(func, left_id, 0),
+        @ir.hot_child_get(func, right_id, 0),
+      )
     _ => false
   }
 }
@@ -7538,7 +7570,8 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
   // nested pure scalar trees. Equality currently covers matching tee/get,
   // structurally identical scalar trees made of local.get, global.get,
   // constants, unary, binary, compare, and convert nodes, plus effect-sensitive
-  // same-index memory.size/table.size state reads and same-access load reads.
+  // same-index memory.size/table.size state reads and same-access load/atomic-load
+  // reads.
   OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx,
     func,
@@ -9069,9 +9102,9 @@ fn OiStructAtomicCmpxchgSameValueFact::from_operands(
   // prove that `expected` and `replacement` cannot modify the field and then
   // rewrites cmpxchg to a read-only struct.atomic.get. Starshine routes the
   // represented same-value cmpxchg surface through the shared consecutive-input
-  // equality fact used by the OI-G bulk-memory facts: matching tee/get and
-  // structurally identical pure scalar fallthrough trees, with explicit
-  // intervening-effect interference checks.
+  // equality fact used by the OI-G bulk-memory facts: matching tee/get,
+  // structurally identical pure scalar fallthrough trees, and effect-sensitive
+  // stable reads, with explicit intervening-effect interference checks.
   let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
     ctx, func, expected_id, replacement_id,
   )

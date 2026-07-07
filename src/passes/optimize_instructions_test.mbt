@@ -33193,6 +33193,145 @@ test "optimize-instructions drops load-read same-address memory.copy" {
 }
 
 ///|
+test "optimize-instructions drops atomic-load-read same-address memory.copy" {
+  // OI-G/OI-L same-input equality fact breadth: Binaryen version_130 treats
+  // same-access repeated atomic loads like other ExpressionAnalyzer-equal memory
+  // reads for `areConsecutiveInputsEqual`; the fact remains effect-sensitive, so
+  // intervening writes still reopen the value. Under `--traps-never-happen`, the
+  // same-address memory.copy collapses to operand drops while preserving both
+  // atomic reads.
+  let memarg = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0UL))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_atomic_load(memarg),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_atomic_load(memarg),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid atomic-load-read input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(traps_never_happen=true), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected atomic-load-read memory.copy TNH success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "i32.atomic.load", "drop", "local.get (Local 0)", "i32.atomic.load",
+    "drop", "local.get (Local 1)", "drop",
+  ])
+}
+
+///|
+test "optimize-instructions keeps atomic-store-interfered load-read memory.copy" {
+  // Boundary guard for the atomic-load-read equality fact: Binaryen version_130
+  // rejects equality when a right-block prefix can atomically store to memory
+  // before the right load. The trap-relaxed copy must stay live because the two
+  // atomic load reads may produce different addresses.
+  let memarg = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0UL))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_atomic_load(memarg),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::i32_atomic_store(memarg),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_atomic_load(memarg),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid atomic-store-interfered input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(traps_never_happen=true), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected atomic-store-interfered load-read memory.copy success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("i32.atomic.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps store-interfered load-read memory.copy" {
   // Boundary guard for the load-read equality fact: Binaryen version_130 rejects
   // equality when a right-block prefix can store to memory before the right load.
