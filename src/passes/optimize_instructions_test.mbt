@@ -4284,6 +4284,51 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions folds select with identical nested select arms" {
+  // Red-first OI-F fact slice: Binaryen `version_130`
+  // `--optimize-instructions` folds a select whose arms are structurally
+  // identical branchless select trees (`.tmp/oi-nested-select-arm-probe.wat`).
+  // This locks the arm-equality path to the shared ExpressionAnalyzer-style
+  // pure-tree fact instead of another local/const opcode whitelist.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32 i32) (result i32) (select (select (local.get 0) (local.get 1) (local.get 2)) (select (local.get 0) (local.get 1) (local.get 2)) (local.get 3))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let node = @ir.hot_node_get(func, root)
+  match node.op {
+    @ir.HotOp::Select => {
+      @debug.assert_eq(node.child_count, 3)
+      match @ir.hot_node_get(func, @ir.hot_child_get(func, root, 0)).op {
+        @ir.HotOp::LocalGet => ()
+        other =>
+          fail(
+            "expected outer select to fold to inner select, got first child \{other}",
+          )
+      }
+    }
+    other => fail("expected folded nested select root, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions folds select with identical memory.size arms" {
+  // Red-first OI-F/OI-G fact slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical `memory.size` select arms when the
+  // condition is side-effect-free (`.tmp/oi-select-memorysize-arms-probe.wat`).
+  // The matching is effect-sensitive state-read equality, not a pure scalar
+  // opcode whitelist and not valid across an effectful/growing condition.
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32) (result i32) (select (memory.size) (memory.size) (local.get 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::MemorySize => ()
+    other =>
+      fail("expected identical memory.size select arms to fold, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure ref.null arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical `ref.null` select arms

@@ -14237,29 +14237,21 @@ fn optimize_instructions_v128_splat_local_payloads_are_identical_pure(
 }
 
 ///|
-fn optimize_instructions_select_arms_are_identical_pure(
+priv struct OiIdenticalPureExpressionFact {
+  operands_are_effect_safe : Bool
+  matching_pure_scalar_tree : Bool
+  matching_stable_state_read : Bool
+  matching_stable_state_scalar_tree : Bool
+  matching_reference_leaf : Bool
+}
+
+///|
+fn optimize_instructions_reference_leaves_equal(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  if_true : Int,
-  if_false : Int,
+  lhs_id : Int,
+  rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, if_true) ||
-    !optimize_instructions_is_side_effect_free_expr(func, dead, if_false) {
-    return false
-  }
-  match
-    (
-      optimize_instructions_local_get_id(func, dead, if_true),
-      optimize_instructions_local_get_id(func, dead, if_false),
-    ) {
-    (Some(lhs), Some(rhs)) => return lhs == rhs
-    _ => ()
-  }
-  match (@ir.hot_node_get(func, if_true), @ir.hot_node_get(func, if_false)) {
-    (
-      { op: @ir.HotOp::GlobalGet, imm0: lhs, .. },
-      { op: @ir.HotOp::GlobalGet, imm0: rhs, .. },
-    ) => return lhs == rhs
+  match (@ir.hot_node_get(func, lhs_id), @ir.hot_node_get(func, rhs_id)) {
     (
       { op: @ir.HotOp::RefNull, ty: lhs_ty, .. },
       { op: @ir.HotOp::RefNull, ty: rhs_ty, .. },
@@ -14269,6 +14261,99 @@ fn optimize_instructions_select_arms_are_identical_pure(
       { op: @ir.HotOp::RefFunc, ty: rhs_ty, imm0: rhs_func, .. },
     ) => return lhs_ty == rhs_ty && lhs_func == rhs_func
     _ => ()
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs_id),
+      @ir.hot_node_exact_instr(func, rhs_id),
+    ) {
+    (Some(@lib.Instruction::RefNull(lhs)), Some(@lib.Instruction::RefNull(rhs))) =>
+      lhs == rhs
+    (Some(@lib.Instruction::RefFunc(lhs)), Some(@lib.Instruction::RefFunc(rhs))) =>
+      lhs == rhs
+    _ => false
+  }
+}
+
+///|
+fn OiIdenticalPureExpressionFact::from_select_arms(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+) -> OiIdenticalPureExpressionFact {
+  // Binaryen v130 `visitSelect` folds identical arms via
+  // `ExpressionAnalyzer::equal(ifTrue, ifFalse)` after checking whether the
+  // arms have effects. Model Starshine's represented no-side-effect/effect-safe
+  // subset as an explicit fact shared by nested scalar/select trees,
+  // deterministic state-read leaves, and deterministic reference leaves instead
+  // of growing the old opcode-by-opcode arm scanner. State-read leaves stay
+  // separated from pure scalar equality so effectful-condition folds do not move
+  // memory/table-size reads across possible growth.
+  let left = @ir.hot_node_get(func, if_true)
+  let right = @ir.hot_node_get(func, if_false)
+  let scalar_tree = optimize_instructions_pure_scalar_tree_equal(
+    func, if_true, if_false,
+  )
+  let state_read = optimize_instructions_stable_state_reads_equal(left, right)
+  let state_scalar_tree = optimize_instructions_stable_state_scalar_tree_equal(
+    func, if_true, if_false,
+  )
+  let reference_leaf = optimize_instructions_reference_leaves_equal(
+    func, if_true, if_false,
+  )
+  let effect_safe = if state_read || state_scalar_tree {
+    true
+  } else {
+    optimize_instructions_is_side_effect_free_expr(func, dead, if_true) &&
+    optimize_instructions_is_side_effect_free_expr(func, dead, if_false)
+  }
+  if !effect_safe {
+    return {
+      operands_are_effect_safe: false,
+      matching_pure_scalar_tree: false,
+      matching_stable_state_read: false,
+      matching_stable_state_scalar_tree: false,
+      matching_reference_leaf: false,
+    }
+  }
+  {
+    operands_are_effect_safe: true,
+    matching_pure_scalar_tree: scalar_tree,
+    matching_stable_state_read: state_read,
+    matching_stable_state_scalar_tree: state_scalar_tree,
+    matching_reference_leaf: reference_leaf,
+  }
+}
+
+///|
+fn OiIdenticalPureExpressionFact::proves_equal(
+  self : OiIdenticalPureExpressionFact,
+) -> Bool {
+  self.operands_are_effect_safe &&
+  (
+    self.matching_pure_scalar_tree ||
+    self.matching_stable_state_read ||
+    self.matching_stable_state_scalar_tree ||
+    self.matching_reference_leaf
+  )
+}
+
+///|
+fn optimize_instructions_select_arms_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+) -> Bool {
+  let identical_fact = OiIdenticalPureExpressionFact::from_select_arms(
+    func, dead, if_true, if_false,
+  )
+  if !identical_fact.operands_are_effect_safe {
+    return false
+  }
+  if identical_fact.proves_equal() {
+    return true
   }
   match
     (
