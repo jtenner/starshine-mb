@@ -10804,6 +10804,11 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
 }
 
 ///|
+priv struct OiChildLocalizationPlanFact {
+  source_ids : Array[Int]
+}
+
+///|
 priv struct OiArrayNewFixedRepeatedValueFact {
   node_id : Int
   type_idx : @lib.TypeIdx
@@ -10811,7 +10816,7 @@ priv struct OiArrayNewFixedRepeatedValueFact {
   representative_id : Int
   representative_is_default : Bool
   default_preserve_id : Int
-  non_default_preserve_ids : Array[Int]
+  non_default_localization_plan : OiChildLocalizationPlanFact
 }
 
 ///|
@@ -11023,6 +11028,64 @@ fn OiArrayDefaultFallthroughFact::from_value(
 }
 
 ///|
+fn OiChildLocalizationPlanFact::empty() -> OiChildLocalizationPlanFact {
+  { source_ids: [] }
+}
+
+///|
+fn OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiChildLocalizationPlanFact {
+  // Binaryen v130 `visitArrayNewFixed` hands the non-default repeated-value
+  // rewrite to `ChildLocalizer`: operands whose evaluation must remain visible
+  // are materialized before the replacement `array.new`, while trivially pure
+  // duplicate scalars are dropped. Represent that decision as a reusable plan
+  // fact instead of storing an ad hoc list on the array constructor fact.
+  let effects = pass_require_effects(ctx, func)
+  let node = @ir.hot_node_get(func, node_id)
+  let source_ids : Array[Int] = []
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if !@ir.effects_is_pure(effects.node_masks[child_id]) {
+      source_ids.push(child_id)
+    }
+  }
+  { source_ids, }
+}
+
+///|
+fn OiChildLocalizationPlanFact::needs_localization(
+  self : OiChildLocalizationPlanFact,
+) -> Bool {
+  self.source_ids.length() > 0
+}
+
+///|
+fn OiChildLocalizationPlanFact::append_localized_inputs(
+  self : OiChildLocalizationPlanFact,
+  func : @ir.HotFunc,
+  value_type : @lib.ValType,
+  representative_id : Int,
+  body : Array[Int],
+) -> Int {
+  let mut representative_local = -1
+  for source_id in self.source_ids {
+    let local_id = optimize_instructions_add_temp_local(func, value_type)
+    if source_id == representative_id && representative_local < 0 {
+      representative_local = local_id
+    }
+    body.push(@ir.hot_build_local_set(func, local_id, source_id))
+  }
+  if representative_local >= 0 {
+    @ir.hot_build_local_get(func, representative_local)
+  } else {
+    representative_id
+  }
+}
+
+///|
 fn OiArrayDefaultValueFact::from_array_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11091,20 +11154,12 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
   let default_fact = OiArrayDefaultValueFact::from_array_value(
     ctx, func, type_idx, representative_id,
   )
-  let non_default_preserve_ids : Array[Int] = []
-  if !default_fact.is_default {
-    // Non-default repeated-value rewrites still need Binaryen-style child
-    // preservation for operands that read state or carry effects. Pure constants
-    // and scalar trees can be dropped, but `local.tee`, `local.get` after a tee,
-    // and effectful fallthrough blocks become scratch-local sets before the
-    // replacement `array.new`.
-    let effects = pass_require_effects(ctx, func)
-    for slot = 0; slot < node.child_count; slot = slot + 1 {
-      let child_id = @ir.hot_child_get(func, node_id, slot)
-      if !@ir.effects_is_pure(effects.node_masks[child_id]) {
-        non_default_preserve_ids.push(child_id)
-      }
-    }
+  let non_default_localization_plan = if default_fact.is_default {
+    OiChildLocalizationPlanFact::empty()
+  } else {
+    OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
+      ctx, func, node_id,
+    )
   }
   Some({
     node_id,
@@ -11113,7 +11168,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     representative_id,
     representative_is_default: default_fact.is_default,
     default_preserve_id: default_fact.preserve_id,
-    non_default_preserve_ids,
+    non_default_localization_plan,
   })
 }
 
@@ -11143,19 +11198,12 @@ fn OiArrayNewFixedRepeatedValueFact::apply_non_default_localized_rewrite(
   }
   let original = @ir.hot_node_get(func, self.node_id)
   let body : Array[Int] = []
-  let mut representative_local = -1
-  for preserve_id in self.non_default_preserve_ids {
-    let local_id = optimize_instructions_add_temp_local(func, value_type)
-    if preserve_id == self.representative_id && representative_local < 0 {
-      representative_local = local_id
-    }
-    body.push(@ir.hot_build_local_set(func, local_id, preserve_id))
-  }
-  let representative_value_id = if representative_local >= 0 {
-    @ir.hot_build_local_get(func, representative_local)
-  } else {
-    self.representative_id
-  }
+  let representative_value_id = self.non_default_localization_plan.append_localized_inputs(
+    func,
+    value_type,
+    self.representative_id,
+    body,
+  )
   let len_id = @ir.hot_build_const_i32(func, @lib.I32(self.size))
   let temp = @ir.hot_build_node(
     func,
@@ -11194,7 +11242,7 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
   func : @ir.HotFunc,
 ) -> Unit {
   if !self.representative_is_default &&
-    self.non_default_preserve_ids.length() > 0 &&
+    self.non_default_localization_plan.needs_localization() &&
     self.apply_non_default_localized_rewrite(ctx, func) {
     return
   }
