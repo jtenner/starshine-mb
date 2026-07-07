@@ -27575,9 +27575,32 @@ fn RawOiSelectRewriteFact::from_instrs(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
+// Raw OI-F dropped-branch-value fact for the flat effectful-sibling dispatcher.
+// Binaryen v130 `OptimizeInstructions::visitIf` can fold duplicated branch
+// parents through an `if` when the branch children have matching types and the
+// outer parent is safe to reuse. The raw bridge only covers the lowered shapes
+// that were already accepted here: a pure scalar value immediately dropped, or
+// a constant integer div/rem expression immediately dropped so trap behavior is
+// preserved by the moved typed `if` result and following `drop`.
+priv struct RawOiDroppedConstBranchValueFact {
+  value : Array[@lib.Instruction]
+  value_type : @lib.ValType
+  pure_scalar_drop : Bool
+  const_i32_divrem_drop : Bool
+}
+
+///|
+fn RawOiDroppedConstBranchValueFact::proves_movable_dropped_branch_value(
+  self : RawOiDroppedConstBranchValueFact,
+) -> Bool {
+  self.value.length() > 0 &&
+  (self.pure_scalar_drop || self.const_i32_divrem_drop)
+}
+
+///|
+fn RawOiDroppedConstBranchValueFact::from_body(
   body : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], @lib.ValType)? {
+) -> RawOiDroppedConstBranchValueFact? {
   if body.length() == 2 && body[1] == @lib.Instruction::drop() {
     let value = body[0]
     if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
@@ -27586,7 +27609,13 @@ fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
       return None
     }
     match run_hot_pipeline_raw_simplify_locals_notee_const_type(value) {
-      Some(vt) => return Some(([value], vt))
+      Some(vt) =>
+        return Some({
+          value: [value],
+          value_type: vt,
+          pure_scalar_drop: true,
+          const_i32_divrem_drop: false,
+        })
       None => ()
     }
   }
@@ -27596,11 +27625,158 @@ fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
       | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32DivS)
       | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32RemU)
       | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32RemS) =>
-        return Some(([body[0], body[1], body[2]], @lib.ValType::i32()))
+        return Some({
+          value: [body[0], body[1], body[2]],
+          value_type: @lib.ValType::i32(),
+          pure_scalar_drop: false,
+          const_i32_divrem_drop: true,
+        })
       _ => ()
     }
   }
   None
+}
+
+///|
+priv struct RawOiDroppedConstBranchIfFact {
+  end : Int
+  condition : @lib.Instruction
+  then_value : Array[@lib.Instruction]
+  else_value : Array[@lib.Instruction]
+  value_type : @lib.ValType
+  then_pure_scalar_drop : Bool
+  else_pure_scalar_drop : Bool
+  then_const_i32_divrem_drop : Bool
+  else_const_i32_divrem_drop : Bool
+}
+
+///|
+fn RawOiDroppedConstBranchIfFact::proves_binaryen_dropped_branch_rewrite(
+  self : RawOiDroppedConstBranchIfFact,
+) -> Bool {
+  self.then_value.length() > 0 &&
+  self.else_value.length() > 0 &&
+  (self.then_pure_scalar_drop || self.then_const_i32_divrem_drop) &&
+  (self.else_pure_scalar_drop || self.else_const_i32_divrem_drop)
+}
+
+///|
+fn RawOiDroppedConstBranchIfFact::append_rewrite(
+  self : RawOiDroppedConstBranchIfFact,
+  out : Array[@lib.Instruction],
+) -> Unit {
+  if self.proves_binaryen_dropped_branch_rewrite() {
+    out.push(self.condition)
+    out.push(
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(self.value_type),
+        self.then_value,
+        Some(self.else_value),
+      ),
+    )
+    out.push(@lib.Instruction::drop())
+  }
+}
+
+///|
+fn RawOiDroppedConstBranchIfFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDroppedConstBranchIfFact? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  match (instrs[start], instrs[start + 1]) {
+    (condition, @lib.If(block_type, then_body, Some(else_body))) if block_type ==
+      @lib.BlockType::void_() =>
+      match
+        (
+          RawOiDroppedConstBranchValueFact::from_body(then_body),
+          RawOiDroppedConstBranchValueFact::from_body(else_body),
+        ) {
+        (Some(then_fact), Some(else_fact)) if then_fact.value_type ==
+          else_fact.value_type &&
+          then_fact.proves_movable_dropped_branch_value() &&
+          else_fact.proves_movable_dropped_branch_value() =>
+          Some({
+            end: start + 2,
+            condition,
+            then_value: then_fact.value,
+            else_value: else_fact.value,
+            value_type: then_fact.value_type,
+            then_pure_scalar_drop: then_fact.pure_scalar_drop,
+            else_pure_scalar_drop: else_fact.pure_scalar_drop,
+            then_const_i32_divrem_drop: then_fact.const_i32_divrem_drop,
+            else_const_i32_divrem_drop: else_fact.const_i32_divrem_drop,
+          })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+// Raw OI boolean-context fact for the memory.size nonzero condition bridge.
+// Binaryen v130 `optimizeBoolean` folds `x != 0` to `x` when the comparison is
+// consumed as a boolean. The flat raw dispatcher keeps this boundary narrow to
+// the already-covered `memory.size; i32.const 0; i32.ne; if` stack spelling so
+// OI-G memory/bulk cleanup can recurse through the `if` body without a broader
+// ad hoc boolean scanner.
+priv struct RawOiMemorySizeNonzeroIfFact {
+  end : Int
+  memory_size : @lib.Instruction
+  zero_condition : Bool
+  compare_is_ne : Bool
+  if_instr : @lib.Instruction
+}
+
+///|
+fn RawOiMemorySizeNonzeroIfFact::proves_binaryen_boolean_context_rewrite(
+  self : RawOiMemorySizeNonzeroIfFact,
+) -> Bool {
+  self.zero_condition && self.compare_is_ne
+}
+
+///|
+fn RawOiMemorySizeNonzeroIfFact::append_rewrite(
+  self : RawOiMemorySizeNonzeroIfFact,
+  out : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Unit {
+  if self.proves_binaryen_boolean_context_rewrite() {
+    let (next_if_instrs, if_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
+      self.if_instr,
+      module_ctx,
+    )
+    out.push(self.memory_size)
+    for next_if in next_if_instrs {
+      out.push(next_if)
+    }
+    let _ = if_changed
+  }
+}
+
+///|
+fn RawOiMemorySizeNonzeroIfFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiMemorySizeNonzeroIfFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  match
+    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
+      0 =>
+      Some({
+        end: start + 4,
+        memory_size: instrs[start],
+        zero_condition: true,
+        compare_is_ne: true,
+        if_instr,
+      })
+    _ => None
+  }
 }
 
 ///|
@@ -29499,38 +29675,14 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    if i + 1 < instrs.length() {
-      match (instrs[i], instrs[i + 1]) {
-        (condition, @lib.If(block_type, then_body, Some(else_body))) if block_type ==
-          @lib.BlockType::void_() =>
-          match
-            (
-              run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
-                then_body,
-              ),
-              run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
-                else_body,
-              ),
-            ) {
-            (Some((then_value, then_type)), Some((else_value, else_type))) if then_type ==
-              else_type => {
-              rewritten.push(condition)
-              rewritten.push(
-                @lib.Instruction::if_(
-                  @lib.BlockType::val_type(then_type),
-                  then_value,
-                  Some(else_value),
-                ),
-              )
-              rewritten.push(@lib.Instruction::drop())
-              changed = true
-              i = i + 2
-              continue
-            }
-            _ => ()
-          }
-        _ => ()
+    match RawOiDroppedConstBranchIfFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
       }
+      None => ()
     }
     match RawOiSelectRewriteFact::from_instrs(instrs, i) {
       Some(fact) => {
@@ -29541,24 +29693,14 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    if i + 3 < instrs.length() {
-      match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
-        (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
-          0 => {
-          let (next_if_instrs, if_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
-            if_instr, module_ctx,
-          )
-          rewritten.push(instrs[i])
-          for next_if in next_if_instrs {
-            rewritten.push(next_if)
-          }
-          let _ = if_changed
-          changed = true
-          i = i + 4
-          continue
-        }
-        _ => ()
+    match RawOiMemorySizeNonzeroIfFact::from_instrs(instrs, i) {
+      Some(fact) => {
+        fact.append_rewrite(rewritten, module_ctx)
+        changed = true
+        i = fact.end
+        continue
       }
+      None => ()
     }
     match RawOiDropStoreMaskRewriteFact::from_instrs(instrs, i) {
       Some(fact) => {
