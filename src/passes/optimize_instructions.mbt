@@ -6894,6 +6894,17 @@ priv struct OiInterveningEffectFact {
 }
 
 ///|
+priv struct OiSubtreeReorderEffectFact {
+  effect_mask : UInt
+  read_mask : UInt
+  write_mask : UInt
+  state_writes : OiStateWriteSetFact
+  carries_control : Bool
+  disrupts : Bool
+  has_side_effect : Bool
+}
+
+///|
 priv struct OiConsecutiveInputEqualityFact {
   left_fallthrough_id : Int
   right_fallthrough_id : Int
@@ -6976,6 +6987,16 @@ fn OiStateWriteSetFact::writes_global(
 }
 
 ///|
+fn OiStateWriteSetFact::has_local_writes(self : OiStateWriteSetFact) -> Bool {
+  self.local_writes.length() != 0
+}
+
+///|
+fn OiStateWriteSetFact::has_global_writes(self : OiStateWriteSetFact) -> Bool {
+  self.global_writes.length() != 0
+}
+
+///|
 fn OiStateWriteSetFact::from_value_subtree(
   func : @ir.HotFunc,
   node_id : Int,
@@ -6998,6 +7019,89 @@ fn OiStateWriteSetFact::from_value_subtree(
   }
   walk(node_id)
   fact
+}
+
+///|
+fn OiSubtreeReorderEffectFact::read_effect_mask() -> UInt {
+  @ir.EFFECT_MASK_LOCAL_STATE |
+  @ir.EFFECT_MASK_GLOBAL_STATE |
+  @ir.EFFECT_MASK_MEMORY_READ |
+  @ir.EFFECT_MASK_TABLE_READ
+}
+
+///|
+fn OiSubtreeReorderEffectFact::write_mask_from_effects(
+  effect_mask : UInt,
+  state_writes : OiStateWriteSetFact,
+) -> UInt {
+  // Binaryen's `EffectAnalyzer::invalidates` separates reads from writes. HOT's
+  // coarse effect masks already identify memory/table writes and calls, while
+  // local/global writes need the precise `OiStateWriteSetFact` subtree walk.
+  let mut writes = 0U
+  if (effect_mask & (@ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_CALL)) != 0U {
+    writes = writes | @ir.EFFECT_MASK_MEMORY_READ
+  }
+  if (effect_mask & (@ir.EFFECT_MASK_TABLE_WRITE | @ir.EFFECT_MASK_CALL)) != 0U {
+    writes = writes | @ir.EFFECT_MASK_TABLE_READ
+  }
+  if (effect_mask & @ir.EFFECT_MASK_CALL) != 0U ||
+    state_writes.has_global_writes() {
+    writes = writes | @ir.EFFECT_MASK_GLOBAL_STATE
+  }
+  if state_writes.has_local_writes() {
+    writes = writes | @ir.EFFECT_MASK_LOCAL_STATE
+  }
+  writes
+}
+
+///|
+fn OiSubtreeReorderEffectFact::from_node(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  node_id : Int,
+) -> OiSubtreeReorderEffectFact {
+  // Source-backed subset of Binaryen v130 `EffectAnalyzer::orderedBefore` /
+  // `invalidates` used by OI operand reordering and consecutive-input equality:
+  // represent reorderable read regions, precise local/global writes, coarse
+  // memory/table/call writes, control blockers, and trap/throw side-effect
+  // hazards as fact fields instead of recomputing scanner-local booleans.
+  let effect_mask = node_masks[node_id]
+  let state_writes = OiStateWriteSetFact::from_value_subtree(func, node_id)
+  let write_mask = OiSubtreeReorderEffectFact::write_mask_from_effects(
+    effect_mask, state_writes,
+  )
+  {
+    effect_mask,
+    read_mask: effect_mask & OiSubtreeReorderEffectFact::read_effect_mask(),
+    write_mask,
+    state_writes,
+    carries_control: (effect_mask & @ir.EFFECT_MASK_CONTROL) != 0U,
+    disrupts: (effect_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)) !=
+    0U,
+    has_side_effect: write_mask != 0U ||
+    (effect_mask & @ir.EFFECT_MASK_THROW) != 0U,
+  }
+}
+
+///|
+fn OiSubtreeReorderEffectFact::can_swap_with(
+  self : OiSubtreeReorderEffectFact,
+  other : OiSubtreeReorderEffectFact,
+) -> Bool {
+  if self.carries_control || other.carries_control {
+    return false
+  }
+  let region_conflict = ((self.read_mask | self.write_mask) & other.write_mask) !=
+    0U ||
+    ((other.read_mask | other.write_mask) & self.write_mask) != 0U
+  if region_conflict {
+    return false
+  }
+  if (self.disrupts && other.has_side_effect) ||
+    (other.disrupts && self.has_side_effect) {
+    return false
+  }
+  true
 }
 
 ///|
@@ -7391,12 +7495,12 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
             unsupported_prefix_control: true,
           }
         }
-        prefix_effect_mask = prefix_effect_mask | child_mask
-        prefix_write_mask = prefix_write_mask |
-          optimize_instructions_subtree_write_mask(func, node_masks, child_id)
-        prefix_state_writes.append_from(
-          OiStateWriteSetFact::from_value_subtree(func, child_id),
+        let child_effect_fact = OiSubtreeReorderEffectFact::from_node(
+          func, node_masks, child_id,
         )
+        prefix_effect_mask = prefix_effect_mask | child_effect_fact.effect_mask
+        prefix_write_mask = prefix_write_mask | child_effect_fact.write_mask
+        prefix_state_writes.append_from(child_effect_fact.state_writes)
       }
       let nested = optimize_instructions_right_fallthrough_input_for_equality(
         func,
@@ -7456,14 +7560,15 @@ fn OiInterveningEffectFact::ordered_before_right_fallthrough(
   if self.unsupported_control {
     return true
   }
-  let right_mask = node_masks[right_id]
-  let right_write_mask = optimize_instructions_subtree_write_mask(
+  let right_effect_fact = OiSubtreeReorderEffectFact::from_node(
     func, node_masks, right_id,
   )
-  let read_bits = optimize_instructions_reorder_read_effects()
-  let mut effect_reads = self.effect_mask & read_bits
+  let right_mask = right_effect_fact.effect_mask
+  let right_write_mask = right_effect_fact.write_mask
+  let mut effect_reads = self.effect_mask &
+    OiSubtreeReorderEffectFact::read_effect_mask()
   let mut effective_write_mask = self.write_mask
-  let mut right_reads = right_mask & read_bits
+  let mut right_reads = right_effect_fact.read_mask
   let mut effective_right_write_mask = right_write_mask
   let right = @ir.hot_node_get(func, right_id)
   match right.op {
@@ -15007,149 +15112,6 @@ fn optimize_instructions_i64_zero_sub_negated_operand(
 }
 
 ///|
-/// Effect bits a value-expression subtree may carry and still be a candidate
-/// for operand reordering: pure reads of locals, globals, memory, and tables.
-/// Any write, trap, call, throw, or control-flow bit is order-sensitive.
-fn optimize_instructions_reorder_read_effects() -> UInt {
-  @ir.EFFECT_MASK_LOCAL_STATE |
-  @ir.EFFECT_MASK_GLOBAL_STATE |
-  @ir.EFFECT_MASK_MEMORY_READ |
-  @ir.EFFECT_MASK_TABLE_READ
-}
-
-///|
-/// `(writes_local, writes_global)` for a value-expression subtree: whether it
-/// contains a `local.set`/`local.tee` or a `global.set`. The coarse
-/// `EFFECT_MASK_LOCAL_STATE`/`EFFECT_MASK_GLOBAL_STATE` bits conflate reads and
-/// writes, so region-conflict detection needs this precise walk. It only recurses
-/// value children; callers must reject control-flow operands first (see
-/// `optimize_instructions_subtrees_can_swap`), whose region bodies are not
-/// reflected in the aggregated node masks.
-fn optimize_instructions_subtree_state_writes(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> (Bool, Bool) {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return (false, false)
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  let mut writes_local = false
-  let mut writes_global = false
-  match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => writes_local = true
-    @ir.HotOp::GlobalSet => writes_global = true
-    _ => ()
-  }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    let (child_local, child_global) = optimize_instructions_subtree_state_writes(
-      func,
-      @ir.hot_child_get(func, node_id, slot),
-    )
-    writes_local = writes_local || child_local
-    writes_global = writes_global || child_global
-  }
-  (writes_local, writes_global)
-}
-
-///|
-/// Regions a subtree writes, expressed in the read-effect namespace so the
-/// result can be intersected with another operand's read mask. Memory and table
-/// writes plus opaque `call` effects are precise in the node mask; local and
-/// global writes use the precise `optimize_instructions_subtree_state_writes`
-/// walk. A `call` may write memory, globals, and tables but never the caller's
-/// locals.
-fn optimize_instructions_subtree_write_mask(
-  func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-) -> UInt {
-  let mask = node_masks[node_id]
-  let mut writes = 0U
-  if (mask & (@ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_CALL)) != 0U {
-    writes = writes | @ir.EFFECT_MASK_MEMORY_READ
-  }
-  if (mask & (@ir.EFFECT_MASK_TABLE_WRITE | @ir.EFFECT_MASK_CALL)) != 0U {
-    writes = writes | @ir.EFFECT_MASK_TABLE_READ
-  }
-  if (mask & @ir.EFFECT_MASK_CALL) != 0U {
-    writes = writes | @ir.EFFECT_MASK_GLOBAL_STATE
-  }
-  let (writes_local, writes_global) = optimize_instructions_subtree_state_writes(
-    func, node_id,
-  )
-  if writes_local {
-    writes = writes | @ir.EFFECT_MASK_LOCAL_STATE
-  }
-  if writes_global {
-    writes = writes | @ir.EFFECT_MASK_GLOBAL_STATE
-  }
-  writes
-}
-
-///|
-/// Whether two operand subtrees may be swapped (as in the leading
-/// `(0 - x) + y => y - x` rewrite, which reorders `x` and `y`) without changing
-/// observable behavior. Mirrors Binaryen's `optimize-instructions` reorder rule:
-///
-/// - there is no read-after-write / write-after-read / write-after-write
-///   conflict on locals, globals, memory, or tables (read x read is fine, which
-///   is why `local.get x local.get`, `load x load`, and a `local.get` across a
-///   `call` all reorder);
-/// - there is no may-trap-or-throw vs side-effect hazard (reordering a trapping
-///   op past a side effect would change whether the effect is observed), which
-///   is why `(0 - load) + local.tee` and `(0 - memory.grow) + load` stay put;
-/// - operands carrying control flow never swap, because their region bodies are
-///   not reflected in the aggregated node masks.
-fn optimize_instructions_subtrees_can_swap(
-  func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  a_id : Int,
-  b_id : Int,
-) -> Bool {
-  if a_id < 0 ||
-    a_id >= node_masks.length() ||
-    b_id < 0 ||
-    b_id >= node_masks.length() {
-    return false
-  }
-  let a_mask = node_masks[a_id]
-  let b_mask = node_masks[b_id]
-  // Control-flow operands carry effects inside regions that the aggregated
-  // node masks do not reflect; never reorder across them.
-  if (a_mask & @ir.EFFECT_MASK_CONTROL) != 0U ||
-    (b_mask & @ir.EFFECT_MASK_CONTROL) != 0U {
-    return false
-  }
-  let read_bits = optimize_instructions_reorder_read_effects()
-  let a_reads = a_mask & read_bits
-  let b_reads = b_mask & read_bits
-  let a_writes = optimize_instructions_subtree_write_mask(
-    func, node_masks, a_id,
-  )
-  let b_writes = optimize_instructions_subtree_write_mask(
-    func, node_masks, b_id,
-  )
-  // RAW / WAR / WAW on any shared region.
-  let region_conflict = ((a_reads | a_writes) & b_writes) != 0U ||
-    ((b_reads | b_writes) & a_writes) != 0U
-  if region_conflict {
-    return false
-  }
-  // A may-trap-or-throw operand reordered past a side effect would change
-  // whether that effect is observed before the trap/throw.
-  let a_disrupts = (a_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)) !=
-    0U
-  let b_disrupts = (b_mask & (@ir.EFFECT_MASK_TRAP | @ir.EFFECT_MASK_THROW)) !=
-    0U
-  let a_side_effect = a_writes != 0U || (a_mask & @ir.EFFECT_MASK_THROW) != 0U
-  let b_side_effect = b_writes != 0U || (b_mask & @ir.EFFECT_MASK_THROW) != 0U
-  if (a_disrupts && b_side_effect) || (b_disrupts && a_side_effect) {
-    return false
-  }
-  true
-}
-
-///|
 fn optimize_instructions_can_swap_leading_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -15157,7 +15119,23 @@ fn optimize_instructions_can_swap_leading_operands(
   b_id : Int,
 ) -> Bool {
   let effects = pass_require_effects(ctx, func)
-  optimize_instructions_subtrees_can_swap(func, effects.node_masks, a_id, b_id)
+  if a_id < 0 ||
+    a_id >= effects.node_masks.length() ||
+    b_id < 0 ||
+    b_id >= effects.node_masks.length() {
+    return false
+  }
+  let a_effect_fact = OiSubtreeReorderEffectFact::from_node(
+    func,
+    effects.node_masks,
+    a_id,
+  )
+  let b_effect_fact = OiSubtreeReorderEffectFact::from_node(
+    func,
+    effects.node_masks,
+    b_id,
+  )
+  a_effect_fact.can_swap_with(b_effect_fact)
 }
 
 ///|
