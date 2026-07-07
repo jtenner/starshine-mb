@@ -14245,6 +14245,8 @@ priv struct OiIdenticalPureExpressionFact {
   matching_reference_leaf : Bool
   matching_ref_i31_scalar_tree : Bool
   matching_ref_i31_nontrapping_local_scalar_tree : Bool
+  matching_v128_const_leaf : Bool
+  matching_v128_local_splat : Bool
 }
 
 ///|
@@ -14370,11 +14372,12 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   // `ExpressionAnalyzer::equal(ifTrue, ifFalse)` after checking whether the
   // arms have effects. Model Starshine's represented no-side-effect/effect-safe
   // subset as an explicit fact shared by nested scalar/select trees,
-  // deterministic state-read leaves, deterministic reference leaves, and
-  // represented ref.i31 scalar-payload trees instead of growing the old
-  // opcode-by-opcode arm scanner. State-read leaves stay separated from pure
-  // scalar equality so effectful-condition folds do not move memory/table-size
-  // reads across possible growth.
+  // deterministic state-read leaves, deterministic reference leaves, represented
+  // ref.i31 scalar-payload trees, and the currently represented SIMD constant /
+  // local-splat leaves instead of growing the old opcode-by-opcode arm scanner.
+  // State-read leaves stay separated from pure scalar equality so
+  // effectful-condition folds do not move memory/table-size reads across possible
+  // growth.
   let left = @ir.hot_node_get(func, if_true)
   let right = @ir.hot_node_get(func, if_false)
   let scalar_tree = optimize_instructions_pure_scalar_tree_equal(
@@ -14393,6 +14396,12 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   let ref_i31_nontrapping_local_scalar_tree = optimize_instructions_ref_i31_nontrapping_local_scalar_trees_equal(
     func, if_true, if_false,
   )
+  let v128_const_leaf = optimize_instructions_v128_consts_are_identical_pure(
+    func, if_true, if_false,
+  )
+  let v128_local_splat = optimize_instructions_v128_splat_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  )
   let effect_safe = if state_read || state_scalar_tree {
     true
   } else {
@@ -14408,6 +14417,8 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
       matching_reference_leaf: false,
       matching_ref_i31_scalar_tree: false,
       matching_ref_i31_nontrapping_local_scalar_tree: false,
+      matching_v128_const_leaf: false,
+      matching_v128_local_splat: false,
     }
   }
   {
@@ -14418,6 +14429,8 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     matching_reference_leaf: reference_leaf,
     matching_ref_i31_scalar_tree: ref_i31_scalar_tree,
     matching_ref_i31_nontrapping_local_scalar_tree: ref_i31_nontrapping_local_scalar_tree,
+    matching_v128_const_leaf: v128_const_leaf,
+    matching_v128_local_splat: v128_local_splat,
   }
 }
 
@@ -14432,7 +14445,9 @@ fn OiIdenticalPureExpressionFact::proves_equal(
     self.matching_stable_state_scalar_tree ||
     self.matching_reference_leaf ||
     self.matching_ref_i31_scalar_tree ||
-    self.matching_ref_i31_nontrapping_local_scalar_tree
+    self.matching_ref_i31_nontrapping_local_scalar_tree ||
+    self.matching_v128_const_leaf ||
+    self.matching_v128_local_splat
   )
 }
 
@@ -14451,59 +14466,6 @@ fn optimize_instructions_select_arms_are_identical_pure(
   }
   if identical_fact.proves_equal() {
     return true
-  }
-  match
-    (
-      @ir.hot_node_exact_instr(func, if_true),
-      @ir.hot_node_exact_instr(func, if_false),
-    ) {
-    (Some(@lib.Instruction::RefNull(lhs)), Some(@lib.Instruction::RefNull(rhs))) =>
-      return lhs == rhs
-    (Some(@lib.Instruction::RefFunc(lhs)), Some(@lib.Instruction::RefFunc(rhs))) =>
-      return lhs == rhs
-    (
-      Some(
-        @lib.Instruction::V128Const(
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _
-        ) as lhs
-      ),
-      Some(
-        @lib.Instruction::V128Const(
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _
-        ) as rhs
-      ),
-    ) => return lhs == rhs
-    _ => ()
   }
   match
     (
@@ -14630,9 +14592,6 @@ fn optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_f64_unary_local_payloads_are_identical_pure(
-      func, dead, if_true, if_false,
-    ) ||
-    optimize_instructions_v128_splat_local_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) {
     return true
@@ -15099,7 +15058,6 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
-  optimize_instructions_v128_consts_are_identical_pure(func, if_true, if_false) ||
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
@@ -15170,9 +15128,6 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_v128_splat_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   )
 }
@@ -15641,6 +15596,8 @@ fn optimize_instructions_try_fold_const_select(
           ctx, func, if_true, if_false,
         ) ||
         identical_arm_fact.matching_ref_i31_nontrapping_local_scalar_tree ||
+        identical_arm_fact.matching_v128_const_leaf ||
+        identical_arm_fact.matching_v128_local_splat ||
         optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
           func, dead, if_true, if_false,
         )
