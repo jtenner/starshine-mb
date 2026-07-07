@@ -14237,6 +14237,126 @@ fn optimize_instructions_v128_splat_local_payloads_are_identical_pure(
 }
 
 ///|
+priv struct OiNontrappingReorderableExpressionEqualityFact {
+  matching_ref_i31_payload : Bool
+  matching_i32_local_local_scalar : Bool
+  matching_i64_local_local_scalar : Bool
+  matching_i32_local_const_scalar : Bool
+  matching_i64_local_const_scalar : Bool
+  matching_i32_unary_local_scalar : Bool
+  matching_i64_unary_local_scalar : Bool
+  matching_f32_scalar : Bool
+  matching_f64_scalar : Bool
+}
+
+///|
+fn OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+) -> OiNontrappingReorderableExpressionEqualityFact {
+  // Binaryen v130 `visitSelect` preserves an effectful condition before a
+  // folded identical arm only when the condition does not invalidate the value's
+  // effects (`!condition.invalidates(value)`). This source-backed fact records
+  // the represented nontrapping, local/constant-only equality families that can
+  // safely be re-evaluated after the dropped condition instead of leaving them
+  // as a visitor-local opcode cascade.
+  {
+    matching_ref_i31_payload: optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
+      func, dead, if_true, if_false,
+    ),
+    matching_i32_local_local_scalar: optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_sub_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_bitwise_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_shift_rotate_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_i64_local_local_scalar: optimize_instructions_i64_add_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i64_sub_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i64_mul_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i64_bitwise_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i64_shift_rotate_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i64_compare_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_i32_local_const_scalar: optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_i64_local_const_scalar: optimize_instructions_i64_nontrapping_local_const_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_i32_unary_local_scalar: optimize_instructions_i32_unary_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_i64_unary_local_scalar: optimize_instructions_i64_unary_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_f32_scalar: optimize_instructions_f32_compare_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f32_unary_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f32_binary_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+    matching_f64_scalar: optimize_instructions_f64_compare_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f64_unary_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f64_binary_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ),
+  }
+}
+
+///|
+fn OiNontrappingReorderableExpressionEqualityFact::proves_equal(
+  self : OiNontrappingReorderableExpressionEqualityFact,
+) -> Bool {
+  self.matching_ref_i31_payload ||
+  self.matching_i32_local_local_scalar ||
+  self.matching_i64_local_local_scalar ||
+  self.matching_i32_local_const_scalar ||
+  self.matching_i64_local_const_scalar ||
+  self.matching_i32_unary_local_scalar ||
+  self.matching_i64_unary_local_scalar ||
+  self.matching_f32_scalar ||
+  self.matching_f64_scalar
+}
+
+///|
 priv struct OiIdenticalPureExpressionFact {
   operands_are_effect_safe : Bool
   matching_pure_scalar_tree : Bool
@@ -14247,6 +14367,7 @@ priv struct OiIdenticalPureExpressionFact {
   matching_ref_i31_nontrapping_local_scalar_tree : Bool
   matching_v128_const_leaf : Bool
   matching_v128_local_splat : Bool
+  matching_nontrapping_reorderable_scalar_tree : Bool
 }
 
 ///|
@@ -14402,6 +14523,9 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   let v128_local_splat = optimize_instructions_v128_splat_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   )
+  let nontrapping_reorderable_scalar_tree = OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
+    func, dead, if_true, if_false,
+  ).proves_equal()
   let effect_safe = if state_read || state_scalar_tree {
     true
   } else {
@@ -14419,6 +14543,7 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
       matching_ref_i31_nontrapping_local_scalar_tree: false,
       matching_v128_const_leaf: false,
       matching_v128_local_splat: false,
+      matching_nontrapping_reorderable_scalar_tree: false,
     }
   }
   {
@@ -14431,6 +14556,7 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     matching_ref_i31_nontrapping_local_scalar_tree: ref_i31_nontrapping_local_scalar_tree,
     matching_v128_const_leaf: v128_const_leaf,
     matching_v128_local_splat: v128_local_splat,
+    matching_nontrapping_reorderable_scalar_tree: nontrapping_reorderable_scalar_tree,
   }
 }
 
@@ -14447,7 +14573,8 @@ fn OiIdenticalPureExpressionFact::proves_equal(
     self.matching_ref_i31_scalar_tree ||
     self.matching_ref_i31_nontrapping_local_scalar_tree ||
     self.matching_v128_const_leaf ||
-    self.matching_v128_local_splat
+    self.matching_v128_local_splat ||
+    self.matching_nontrapping_reorderable_scalar_tree
   )
 }
 
@@ -15034,105 +15161,6 @@ fn optimize_instructions_select_identical_immutable_global_arms(
 }
 
 ///|
-fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  if_true : Int,
-  if_false : Int,
-) -> Bool {
-  // OI-F effectful-condition select folding may move the surviving arm after
-  // the condition's dropped evaluation. Keep this intentionally narrower than
-  // the side-effect-free-condition identical-arm predicate: ordered-local and
-  // ordered local/constant integer addition/subtraction/multiplication/bitwise/
-  // shift/rotate/compare shells, integer unary local shells, and float
-  // unary/binary/compare shells cannot trap (WebAssembly masks shift/rotate
-  // counts) and cannot observe call/global
-  // side effects. Integer local/constant div/rem remains excluded because those
-  // operations can trap. Float local/constant binary shells use the same proof:
-  // they are local-only, constant-only, and nontrapping, including min/max
-  // spelling; this is not a broader float-value-equivalence or commuted-operand
-  // proof. Ref.i31 shells are limited to nontrapping i32 payload spellings
-  // already admitted by the side-effect-free identical-arm predicate. SIMD
-  // splat shells are limited to same-instruction direct-local splats; this is
-  // not a vector algebra or lane-equivalent spelling proof.
-  optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_add_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_sub_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_sub_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_mul_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_bitwise_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_bitwise_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_shift_rotate_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_shift_rotate_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_unary_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_nontrapping_local_const_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_i64_compare_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f32_compare_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f64_compare_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f32_unary_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f64_unary_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f32_binary_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f64_binary_local_local_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  ) ||
-  optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
-    func, dead, if_true, if_false,
-  )
-}
-
-///|
 fn optimize_instructions_inverted_select_compare(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
@@ -15598,9 +15626,7 @@ fn optimize_instructions_try_fold_const_select(
         identical_arm_fact.matching_ref_i31_nontrapping_local_scalar_tree ||
         identical_arm_fact.matching_v128_const_leaf ||
         identical_arm_fact.matching_v128_local_splat ||
-        optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
-          func, dead, if_true, if_false,
-        )
+        identical_arm_fact.matching_nontrapping_reorderable_scalar_tree
       ) &&
       @ir.hot_node_result_arity(func, if_true) == 1 &&
       @ir.hot_node_result_arity(func, condition) == 1 {
