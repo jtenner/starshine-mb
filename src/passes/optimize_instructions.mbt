@@ -10806,6 +10806,7 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
 ///|
 priv struct OiChildLocalizationPlanFact {
   source_ids : Array[Int]
+  drop_ids : Array[Int]
 }
 
 ///|
@@ -10815,20 +10816,19 @@ priv struct OiArrayNewFixedRepeatedValueFact {
   size : Int
   representative_id : Int
   representative_is_default : Bool
-  default_preserve_id : Int
+  default_preservation_plan : OiChildLocalizationPlanFact
   non_default_localization_plan : OiChildLocalizationPlanFact
 }
 
 ///|
 priv struct OiArrayDefaultFallthroughFact {
   fallthrough_id : Int
-  preserve_id : Int
 }
 
 ///|
 priv struct OiArrayDefaultValueFact {
   is_default : Bool
-  preserve_id : Int
+  preservation_plan : OiChildLocalizationPlanFact
 }
 
 ///|
@@ -11015,21 +11015,12 @@ fn OiArrayDefaultFallthroughFact::from_value(
   let fallthrough_id = optimize_instructions_array_default_fallthrough_id(
     func, node_masks, value_id,
   )
-  {
-    fallthrough_id,
-    preserve_id: if optimize_instructions_array_default_fallthrough_preserve_needed(
-        func, node_masks, value_id, fallthrough_id,
-      ) {
-      value_id
-    } else {
-      -1
-    },
-  }
+  { fallthrough_id, }
 }
 
 ///|
 fn OiChildLocalizationPlanFact::empty() -> OiChildLocalizationPlanFact {
-  { source_ids: [] }
+  { source_ids: [], drop_ids: [] }
 }
 
 ///|
@@ -11052,7 +11043,7 @@ fn OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
       source_ids.push(child_id)
     }
   }
-  { source_ids, }
+  { source_ids, drop_ids: [] }
 }
 
 ///|
@@ -11060,6 +11051,57 @@ fn OiChildLocalizationPlanFact::needs_localization(
   self : OiChildLocalizationPlanFact,
 ) -> Bool {
   self.source_ids.length() > 0
+}
+
+///|
+fn OiChildLocalizationPlanFact::from_array_default_fallthrough(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  value_id : Int,
+  fallthrough_id : Int,
+) -> OiChildLocalizationPlanFact {
+  // Binaryen v130 uses `getDroppedChildrenAndAppend` for both `array.new`
+  // default-initializer rewrites and default repeated `array.new_fixed`
+  // rewrites. Represent the dropped-child preservation decision as the same
+  // ChildLocalizer-shaped fact used by non-default repeated fixed arrays: pure
+  // default-producing wrappers are erased, while value wrappers with observable
+  // effects are explicitly dropped before the replacement allocation.
+  if optimize_instructions_array_default_fallthrough_preserve_needed(
+      func, node_masks, value_id, fallthrough_id,
+    ) {
+    { source_ids: [], drop_ids: [value_id] }
+  } else {
+    OiChildLocalizationPlanFact::empty()
+  }
+}
+
+///|
+fn OiChildLocalizationPlanFact::from_array_new_default_initializer(
+  value_id : Int,
+) -> OiChildLocalizationPlanFact {
+  // Binaryen v130 `visitArrayNew` always sequences `drop(init)` before the
+  // converted `array.new_default`, even when the fallthrough default itself is
+  // pure. Keep that separate from the fixed-array default plan, where
+  // `getDroppedChildrenAndAppend` can erase pure duplicate default operands.
+  { source_ids: [], drop_ids: [value_id] }
+}
+
+///|
+fn OiChildLocalizationPlanFact::needs_dropped_children(
+  self : OiChildLocalizationPlanFact,
+) -> Bool {
+  self.drop_ids.length() > 0
+}
+
+///|
+fn OiChildLocalizationPlanFact::append_dropped_children(
+  self : OiChildLocalizationPlanFact,
+  func : @ir.HotFunc,
+  body : Array[Int],
+) -> Unit {
+  for source_id in self.drop_ids {
+    body.push(@ir.hot_build_drop(func, source_id))
+  }
 }
 
 ///|
@@ -11102,11 +11144,19 @@ fn OiArrayDefaultValueFact::from_array_value(
   // source-probed preservation facts.
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
-    None => return { is_default: false, preserve_id: -1 }
+    None =>
+      return {
+        is_default: false,
+        preservation_plan: OiChildLocalizationPlanFact::empty(),
+      }
   }
   let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
     Some(field) => field
-    None => return { is_default: false, preserve_id: -1 }
+    None =>
+      return {
+        is_default: false,
+        preservation_plan: OiChildLocalizationPlanFact::empty(),
+      }
   }
   let effects = pass_require_effects(ctx, func)
   let fallthrough_fact = OiArrayDefaultFallthroughFact::from_value(
@@ -11119,9 +11169,20 @@ fn OiArrayDefaultValueFact::from_array_value(
       field.get_storage_type(),
       fallthrough_fact.fallthrough_id,
     ) {
-    return { is_default: false, preserve_id: -1 }
+    return {
+      is_default: false,
+      preservation_plan: OiChildLocalizationPlanFact::empty(),
+    }
   }
-  { is_default: true, preserve_id: fallthrough_fact.preserve_id }
+  {
+    is_default: true,
+    preservation_plan: OiChildLocalizationPlanFact::from_array_default_fallthrough(
+      func,
+      effects.node_masks,
+      value_id,
+      fallthrough_fact.fallthrough_id,
+    ),
+  }
 }
 
 ///|
@@ -11167,7 +11228,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     size,
     representative_id,
     representative_is_default: default_fact.is_default,
-    default_preserve_id: default_fact.preserve_id,
+    default_preservation_plan: default_fact.preservation_plan,
     non_default_localization_plan,
   })
 }
@@ -11272,16 +11333,17 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
       @lib.Instruction::array_new(self.type_idx)
     },
   )
-  if self.representative_is_default && self.default_preserve_id >= 0 {
+  if self.representative_is_default &&
+    self.default_preservation_plan.needs_dropped_children() {
     let block_type = match
       @ir.hot_type_results(func, @ir.hot_node_type(func, self.node_id)) {
       [val_type] => @lib.BlockType::val_type(val_type)
       _ => @lib.BlockType::void_()
     }
-    let replacement_id = @ir.hot_build_block(func, block_type, [
-      @ir.hot_build_drop(func, self.default_preserve_id),
-      temp,
-    ])
+    let body : Array[Int] = []
+    self.default_preservation_plan.append_dropped_children(func, body)
+    body.push(temp)
+    let replacement_id = @ir.hot_build_block(func, block_type, body)
     let replacement = @ir.hot_node_get(func, replacement_id)
     @ir.hot_replace_node(func, self.node_id, replacement)
     @ir.hot_label_owner_set(
@@ -11320,7 +11382,7 @@ fn optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
 priv struct OiArrayNewDefaultInitRewriteFact {
   node_id : Int
   type_idx : @lib.TypeIdx
-  init_id : Int
+  preservation_plan : OiChildLocalizationPlanFact
   len_id : Int
 }
 
@@ -11355,7 +11417,9 @@ fn OiArrayNewDefaultInitRewriteFact::from_node(
   Some({
     node_id,
     type_idx,
-    init_id,
+    preservation_plan: OiChildLocalizationPlanFact::from_array_new_default_initializer(
+      init_id,
+    ),
     len_id: @ir.hot_child_get(func, node_id, 1),
   })
 }
@@ -11383,10 +11447,10 @@ fn OiArrayNewDefaultInitRewriteFact::apply_rewrite(
     [val_type] => @lib.BlockType::val_type(val_type)
     _ => @lib.BlockType::void_()
   }
-  let replacement_id = @ir.hot_build_block(func, block_type, [
-    @ir.hot_build_drop(func, self.init_id),
-    temp,
-  ])
+  let body : Array[Int] = []
+  self.preservation_plan.append_dropped_children(func, body)
+  body.push(temp)
+  let replacement_id = @ir.hot_build_block(func, block_type, body)
   let replacement = @ir.hot_node_get(func, replacement_id)
   @ir.hot_replace_node(func, self.node_id, replacement)
   @ir.hot_label_owner_set(
