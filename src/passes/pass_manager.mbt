@@ -24299,10 +24299,20 @@ fn run_hot_pipeline_raw_code_pushing_skip(
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_effect_barrier_results(
+// Raw OI-G/dispatcher fact for an effectful stack barrier. Binaryen's
+// `EffectAnalyzer`/stack-ordering decisions are expression-level; this raw fact
+// records the represented lowered opcode families together with the number of
+// values they leave on the stack, so stack inputs below those results are treated
+// as carried across the effect barrier.
+priv struct RawOiStackEffectBarrierFact {
+  result_count : Int
+}
+
+///|
+fn RawOiStackEffectBarrierFact::from_instr(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
-) -> Int? {
+) -> RawOiStackEffectBarrierFact? {
   match instr {
     @lib.GlobalSet(_)
     | @lib.TableSet(_)
@@ -24336,15 +24346,17 @@ fn run_hot_pipeline_optimize_instructions_effect_barrier_results(
     | @lib.ArrayFill(_)
     | @lib.ArrayCopy(_, _)
     | @lib.ArrayInitData(_, _)
-    | @lib.ArrayInitElem(_, _) => Some(0)
+    | @lib.ArrayInitElem(_, _) => Some({ result_count: 0 })
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-        Some(@lib.FuncType(_, results)) => Some(results.length())
+        Some(@lib.FuncType(_, results)) =>
+          Some({ result_count: results.length() })
         None => None
       }
     @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
       match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
-        Some(@lib.FuncType(_, results)) => Some(results.length())
+        Some(@lib.FuncType(_, results)) =>
+          Some({ result_count: results.length() })
         None => None
       }
     @lib.TableGrow(_)
@@ -24360,7 +24372,7 @@ fn run_hot_pipeline_optimize_instructions_effect_barrier_results(
     | @lib.StringEncodeUtf8Array
     | @lib.StringEncodeWtf16Array
     | @lib.StringEncodeLossyUtf8Array
-    | @lib.StringEncodeWtf8Array => Some(1)
+    | @lib.StringEncodeWtf8Array => Some({ result_count: 1 })
     _ => None
   }
 }
@@ -24445,50 +24457,86 @@ fn run_hot_pipeline_optimize_instructions_instr_is_call(
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_has_local_load_then_call(
+priv struct RawOiLocalLoadCallAddressUseFact {
+  start : Int
+  end : Int
+  base : @lib.LocalIdx
+}
+
+///|
+fn RawOiLocalLoadCallAddressUseFact::from_instrs(
   instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiLocalLoadCallAddressUseFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  match
+    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (@lib.LocalGet(base0), load, @lib.LocalGet(base1), call) =>
+      if base0 == base1 &&
+        run_hot_pipeline_optimize_instructions_instr_is_plain_load(load) &&
+        run_hot_pipeline_optimize_instructions_instr_is_call(call) {
+        Some({ start, end: start + 4, base: base0 })
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+priv struct RawOiLocalLoadCallAddressRegionFact {
+  has_blocking_use : Bool
+}
+
+///|
+fn RawOiLocalLoadCallAddressUseFact::has_stack_carried_address(
+  self : RawOiLocalLoadCallAddressUseFact,
 ) -> Bool {
+  let @lib.LocalIdx(_) = self.base
+  self.end == self.start + 4
+}
+
+///|
+fn RawOiLocalLoadCallAddressRegionFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+) -> RawOiLocalLoadCallAddressRegionFact {
   for i = 0; i + 3 < instrs.length(); i = i + 1 {
-    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
-      (@lib.LocalGet(base0), load, @lib.LocalGet(base1), call) =>
-        if base0 == base1 &&
-          run_hot_pipeline_optimize_instructions_instr_is_plain_load(load) &&
-          run_hot_pipeline_optimize_instructions_instr_is_call(call) {
-          return true
+    match RawOiLocalLoadCallAddressUseFact::from_instrs(instrs, i) {
+      Some(fact) =>
+        if fact.has_stack_carried_address() {
+          return { has_blocking_use: true }
         }
-      _ => ()
+      None => ()
     }
   }
   for instr in instrs {
     match instr {
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if run_hot_pipeline_optimize_instructions_has_local_load_then_call(body) {
-          return true
+        if RawOiLocalLoadCallAddressRegionFact::from_instrs(body).has_blocking_use {
+          return { has_blocking_use: true }
         }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_optimize_instructions_has_local_load_then_call(
-            then_body,
-          ) {
-          return true
+        if RawOiLocalLoadCallAddressRegionFact::from_instrs(then_body).has_blocking_use {
+          return { has_blocking_use: true }
         }
         match else_body {
           Some(else_body) =>
-            if run_hot_pipeline_optimize_instructions_has_local_load_then_call(
-                else_body,
-              ) {
-              return true
+            if RawOiLocalLoadCallAddressRegionFact::from_instrs(else_body).has_blocking_use {
+              return { has_blocking_use: true }
             }
           None => ()
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_optimize_instructions_has_local_load_then_call(body) {
-          return true
+        if RawOiLocalLoadCallAddressRegionFact::from_instrs(body).has_blocking_use {
+          return { has_blocking_use: true }
         }
       _ => ()
     }
   }
-  false
+  { has_blocking_use: false }
 }
 
 ///|
@@ -25096,19 +25144,54 @@ fn run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_m
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_prefix_has_stack_carried_effect(
+priv struct RawOiStackCarriedEffectUseFact {
+  barrier_index : Int
+  result_count : Int
+  stack_depth_after : Int
+}
+
+///|
+fn RawOiStackCarriedEffectUseFact::from_barrier_state(
+  barrier_index : Int,
+  barrier : RawOiStackEffectBarrierFact,
+  reachable : Bool,
+  stack_depth_after : Int,
+) -> RawOiStackCarriedEffectUseFact? {
+  if reachable && stack_depth_after > barrier.result_count {
+    Some({
+      barrier_index,
+      result_count: barrier.result_count,
+      stack_depth_after,
+    })
+  } else {
+    None
+  }
+}
+
+///|
+priv struct RawOiStackCarriedEffectRegionFact {
+  has_blocking_effect : Bool
+}
+
+///|
+fn RawOiStackCarriedEffectUseFact::is_stack_carried(
+  self : RawOiStackCarriedEffectUseFact,
+) -> Bool {
+  self.barrier_index >= 0 && self.stack_depth_after > self.result_count
+}
+
+///|
+fn RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> RawOiStackCarriedEffectRegionFact {
   let prefix : Array[@lib.Instruction] = []
+  let mut barrier_index = 0
   for instr in instrs {
     prefix.push(instr)
-    match
-      run_hot_pipeline_optimize_instructions_effect_barrier_results(
-        instr, module_ctx,
-      ) {
-      Some(result_count) => {
+    match RawOiStackEffectBarrierFact::from_instr(instr, module_ctx) {
+      Some(barrier) => {
         let init_state = @validate.make_state(env, [])
         match
           @validate.Typecheck::typecheck(
@@ -25116,49 +25199,69 @@ fn run_hot_pipeline_optimize_instructions_prefix_has_stack_carried_effect(
             init_state,
           ) {
           Ok(state) =>
-            if state.reachable && state.stack.length() > result_count {
-              return true
+            match
+              RawOiStackCarriedEffectUseFact::from_barrier_state(
+                barrier_index,
+                barrier,
+                state.reachable,
+                state.stack.length(),
+              ) {
+              Some(fact) =>
+                if fact.is_stack_carried() {
+                  return { has_blocking_effect: true }
+                }
+              None => ()
             }
           Err(_) => ()
         }
       }
       None => ()
     }
+    barrier_index = barrier_index + 1
   }
-  false
+  { has_blocking_effect: false }
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_has_stack_carried_effect(
+fn RawOiStackCarriedEffectRegionFact::from_instrs(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
-  if run_hot_pipeline_optimize_instructions_has_local_load_then_call(instrs) {
-    return true
+) -> RawOiStackCarriedEffectRegionFact {
+  if RawOiLocalLoadCallAddressRegionFact::from_instrs(instrs).has_blocking_use {
+    return { has_blocking_effect: true }
   }
   let mut state = @validate.make_state(env, [])
+  let mut barrier_index = 0
   for instr in instrs {
     let next_state = match @validate.Typecheck::typecheck(instr, state) {
       Ok(next_state) => next_state
       Err(_) =>
-        return run_hot_pipeline_optimize_instructions_prefix_has_stack_carried_effect(
+        return RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
           instrs, env, module_ctx,
         )
     }
-    match
-      run_hot_pipeline_optimize_instructions_effect_barrier_results(
-        instr, module_ctx,
-      ) {
-      Some(result_count) =>
-        if next_state.reachable && next_state.stack.length() > result_count {
-          return true
+    match RawOiStackEffectBarrierFact::from_instr(instr, module_ctx) {
+      Some(barrier) =>
+        match
+          RawOiStackCarriedEffectUseFact::from_barrier_state(
+            barrier_index,
+            barrier,
+            next_state.reachable,
+            next_state.stack.length(),
+          ) {
+          Some(fact) =>
+            if fact.is_stack_carried() {
+              return { has_blocking_effect: true }
+            }
+          None => ()
         }
       None => ()
     }
     state = next_state
+    barrier_index = barrier_index + 1
   }
-  false
+  { has_blocking_effect: false }
 }
 
 ///|
@@ -30058,9 +30161,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
     mod_, func_idx, module_ctx, locals,
   )
-  if run_hot_pipeline_optimize_instructions_has_stack_carried_effect(
-      body, env, module_ctx,
-    ) &&
+  if RawOiStackCarriedEffectRegionFact::from_instrs(body, env, module_ctx).has_blocking_effect &&
     !run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
       body, module_ctx,
     ) &&
