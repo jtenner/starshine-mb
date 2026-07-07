@@ -30328,7 +30328,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
           @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx, descriptor_func, target, desc_arg_count,
             ) &&
-            run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
             ) => {
             let rewritten : Array[@lib.Instruction] = []
@@ -30363,7 +30363,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
             RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
               module_ctx, type_idx, target, desc_arg_count,
             ) &&
-            run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
             ) => {
             let rewritten : Array[@lib.Instruction] = []
@@ -30386,7 +30386,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
               target,
               desc_arg_count - 1,
             ) &&
-            run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
             ) => {
             let rewritten : Array[@lib.Instruction] = []
@@ -30870,14 +30870,26 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_bo
   (rewritten, changed)
 }
 
+/// Raw local reference facts for descriptor exact-miss bridges. Binaryen's
+/// `optimizeKnownCastResult` decides known descriptor-cast failure from the
+/// value type's heap/nullability relation against the cast target; the raw
+/// dispatcher only has local indices here, so materialize the rewritten local
+/// type once as a fact before descriptor-miss consumers ask for a strict
+/// non-null subtype proof.
+
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
-  module_ctx : @ir.HotModuleContext,
+priv struct RawOiLocalReferenceFact {
+  local_idx : @lib.LocalIdx
+  heap_type : @lib.HeapType
+  nullable : Bool
+}
+
+///|
+fn RawOiLocalReferenceFact::from_rewritten_local_type(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   local_idx : @lib.LocalIdx,
-  target : @lib.HeapType,
-) -> Bool {
+) -> RawOiLocalReferenceFact? {
   let @lib.LocalIdx(raw) = local_idx
   let val_type = match
     run_hot_pipeline_raw_rewritten_local_type(
@@ -30887,19 +30899,60 @@ fn run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
       raw.reinterpret_as_int(),
     ) {
     Some(val_type) => val_type
-    None => return false
+    None => return None
   }
-  let source = match val_type {
-    @lib.RefTypeValType(ref_type) => {
-      if ref_type.is_nullable() {
-        return false
-      }
-      ref_type.get_heap_type()
-    }
-    _ => return false
+  match val_type {
+    @lib.RefTypeValType(ref_type) =>
+      Some({
+        local_idx,
+        heap_type: ref_type.get_heap_type(),
+        nullable: ref_type.is_nullable(),
+      })
+    _ => None
   }
-  source != target &&
-  run_hot_pipeline_raw_heap_type_is_subtype(module_ctx, source, target, 64)
+}
+
+///|
+fn RawOiLocalReferenceFact::is_represented_local_reference(
+  self : RawOiLocalReferenceFact,
+) -> Bool {
+  let @lib.LocalIdx(_) = self.local_idx
+  true
+}
+
+///|
+fn RawOiLocalReferenceFact::proves_binaryen_non_null_strict_subtype(
+  self : RawOiLocalReferenceFact,
+  module_ctx : @ir.HotModuleContext,
+  target : @lib.HeapType,
+) -> Bool {
+  self.is_represented_local_reference() &&
+  !self.nullable &&
+  self.heap_type != target &&
+  run_hot_pipeline_raw_heap_type_is_subtype(
+    module_ctx,
+    self.heap_type,
+    target,
+    64,
+  )
+}
+
+///|
+fn RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_idx : @lib.LocalIdx,
+  target : @lib.HeapType,
+) -> Bool {
+  match
+    RawOiLocalReferenceFact::from_rewritten_local_type(
+      params, locals, local_idx,
+    ) {
+    Some(fact) =>
+      fact.proves_binaryen_non_null_strict_subtype(module_ctx, target)
+    None => false
+  }
 }
 
 ///|
@@ -30938,7 +30991,7 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_leaf_descriptor_ca
               target,
               desc_args.length(),
             ) &&
-            run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
             ) => {
             let rewritten : Array[@lib.Instruction] = []
@@ -31026,7 +31079,7 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
           RawOiDescriptorDescribesFact::struct_new_exactly_describes(
             module_ctx, descriptor_type, target,
           ) &&
-          run_hot_pipeline_raw_optimize_instructions_local_is_non_null_strict_subtype(
+          RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
             module_ctx, params, locals, local_idx, target,
           ) => {
           rewritten.push(@lib.Instruction::unreachable_())
