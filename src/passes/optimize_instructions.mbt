@@ -10810,6 +10810,13 @@ priv struct OiArrayNewFixedRepeatedValueFact {
   size : Int
   representative_id : Int
   representative_is_default : Bool
+  default_preserve_id : Int
+}
+
+///|
+priv struct OiArrayNewFixedDefaultValueFact {
+  is_default : Bool
+  preserve_id : Int
 }
 
 ///|
@@ -10867,25 +10874,64 @@ fn optimize_instructions_array_value_is_default_for_storage(
 }
 
 ///|
-fn optimize_instructions_array_new_fixed_value_is_default(
+fn optimize_instructions_array_new_fixed_default_fallthrough_id(
+  func : @ir.HotFunc,
+  value_id : Int,
+  depth? : Int = 0,
+) -> Int {
+  if depth > 8 {
+    return value_id
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  match value.op {
+    @ir.HotOp::LocalTee if value.child_count == 1 =>
+      optimize_instructions_array_new_fixed_default_fallthrough_id(
+        func,
+        @ir.hot_child_get(func, value_id, 0),
+        depth=depth + 1,
+      )
+    _ => value_id
+  }
+}
+
+///|
+fn OiArrayNewFixedDefaultValueFact::from_array_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   type_idx : @lib.TypeIdx,
   value_id : Int,
-) -> Bool {
+) -> OiArrayNewFixedDefaultValueFact {
+  // Binaryen v130 `visitArrayNewFixed` checks `getFallthrough(value)` before
+  // deciding whether an equal fixed-array value is the default, then delegates
+  // effect preservation to `getDroppedChildrenAndAppend`. Keep the represented
+  // fallthrough/default result as a fact so constructor rewrites do not inline a
+  // one-off local.tee scanner.
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
-    None => return false
+    None => return { is_default: false, preserve_id: -1 }
   }
   let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
     Some(field) => field
-    None => return false
+    None => return { is_default: false, preserve_id: -1 }
   }
-  optimize_instructions_array_value_is_default_for_storage(
-    func,
-    field.get_storage_type(),
-    value_id,
+  let fallthrough_id = optimize_instructions_array_new_fixed_default_fallthrough_id(
+    func, value_id,
   )
+  if !optimize_instructions_array_value_is_default_for_storage(
+      func,
+      field.get_storage_type(),
+      fallthrough_id,
+    ) {
+    return { is_default: false, preserve_id: -1 }
+  }
+  {
+    is_default: true,
+    preserve_id: if fallthrough_id == value_id {
+      -1
+    } else {
+      value_id
+    },
+  }
 }
 
 ///|
@@ -10915,14 +10961,16 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     }
   }
   let representative_id = @ir.hot_child_get(func, node_id, 0)
+  let default_fact = OiArrayNewFixedDefaultValueFact::from_array_value(
+    ctx, func, type_idx, representative_id,
+  )
   Some({
     node_id,
     type_idx,
     size,
     representative_id,
-    representative_is_default: optimize_instructions_array_new_fixed_value_is_default(
-      ctx, func, type_idx, representative_id,
-    ),
+    representative_is_default: default_fact.is_default,
+    default_preserve_id: default_fact.preserve_id,
   })
 }
 
@@ -10965,9 +11013,29 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
       @lib.Instruction::array_new(self.type_idx)
     },
   )
-  let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, self.node_id, replacement)
+  if self.representative_is_default && self.default_preserve_id >= 0 {
+    let block_type = match
+      @ir.hot_type_results(func, @ir.hot_node_type(func, self.node_id)) {
+      [val_type] => @lib.BlockType::val_type(val_type)
+      _ => @lib.BlockType::void_()
+    }
+    let replacement_id = @ir.hot_build_block(func, block_type, [
+      @ir.hot_build_drop(func, self.default_preserve_id),
+      temp,
+    ])
+    let replacement = @ir.hot_node_get(func, replacement_id)
+    @ir.hot_replace_node(func, self.node_id, replacement)
+    @ir.hot_label_owner_set(
+      func,
+      @ir.hot_control_node_label(func, self.node_id),
+      self.node_id,
+    )
+    @ir.hot_delete_node(func, replacement_id)
+  } else {
+    let replacement = @ir.hot_node_get(func, temp)
+    @ir.hot_delete_node(func, temp)
+    @ir.hot_replace_node(func, self.node_id, replacement)
+  }
   pass_mark_mutated(ctx, func)
 }
 

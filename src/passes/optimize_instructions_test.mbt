@@ -51825,6 +51825,63 @@ test "optimize-instructions rewrites equal array.new_fixed values through facts"
 }
 
 ///|
+test "optimize-instructions preserves local tee default array.new_fixed effects through facts" {
+  // OI-K/OI-L aggregate constructor fact: Binaryen version_130
+  // `visitArrayNewFixed` checks the default value through `getFallthrough`,
+  // then uses `getDroppedChildrenAndAppend` so a default-producing
+  // `local.tee` is still evaluated before the new `array.new_default`.
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_true(pretty.contains("array.new_default"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
