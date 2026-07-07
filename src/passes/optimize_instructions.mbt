@@ -1814,11 +1814,28 @@ fn OiRefGetDescFact::explicit_nullable_child(self : OiRefGetDescFact) -> Int? {
 }
 
 ///|
-fn OiRefGetDescFact::standalone_known_null_preserve_child(
-  self : OiRefGetDescFact,
+priv enum OiRefGetDescKnownNullChildKind {
+  RefGetDescKnownNullDirectTrap
+  RefGetDescKnownNullPreserveChild
+}
+
+///|
+priv struct OiRefGetDescKnownNullChildFact {
+  kind : OiRefGetDescKnownNullChildKind
+  get_desc_fact : OiRefGetDescFact
+  preserve_child_id : Int
+}
+
+///|
+fn OiRefGetDescKnownNullChildFact::from_get_desc(
   func : @ir.HotFunc,
-) -> Int? {
-  let nullable_child = match self.explicit_nullable_child() {
+  get_desc_fact : OiRefGetDescFact,
+) -> OiRefGetDescKnownNullChildFact? {
+  // Binaryen v130 treats standalone `ref.get_desc(ref.as_non_null(child))`
+  // with a provably null child as a null trap, while preserving child effects
+  // that must remain before the trap. Keep that as a fact rather than letting
+  // the visitor choose among nullable-child shape scanners directly.
+  let nullable_child = match get_desc_fact.explicit_nullable_child() {
     Some(child) => child
     None => return None
   }
@@ -1827,7 +1844,11 @@ fn OiRefGetDescFact::standalone_known_null_preserve_child(
       if optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
           func, nullable_child,
         ) {
-        Some(-1)
+        Some({
+          kind: RefGetDescKnownNullDirectTrap,
+          get_desc_fact,
+          preserve_child_id: -1,
+        })
       } else {
         None
       }
@@ -1835,7 +1856,11 @@ fn OiRefGetDescFact::standalone_known_null_preserve_child(
       if optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
           func, nullable_child,
         ) {
-        Some(nullable_child)
+        Some({
+          kind: RefGetDescKnownNullPreserveChild,
+          get_desc_fact,
+          preserve_child_id: nullable_child,
+        })
       } else {
         None
       }
@@ -1843,7 +1868,11 @@ fn OiRefGetDescFact::standalone_known_null_preserve_child(
       if optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
           func, nullable_child,
         ) {
-        Some(nullable_child)
+        Some({
+          kind: RefGetDescKnownNullPreserveChild,
+          get_desc_fact,
+          preserve_child_id: nullable_child,
+        })
       } else {
         None
       }
@@ -1852,40 +1881,97 @@ fn OiRefGetDescFact::standalone_known_null_preserve_child(
 }
 
 ///|
-fn OiRefGetDescFact::can_move_standalone_null_check(
-  self : OiRefGetDescFact,
+fn OiRefGetDescKnownNullChildFact::apply(
+  self : OiRefGetDescKnownNullChildFact,
+  ctx : HotPassContext,
   func : @ir.HotFunc,
+  descriptor_id : Int,
 ) -> Bool {
-  match self.explicit_nullable_child() {
-    Some(nullable_child) =>
-      optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
-        func, nullable_child,
+  ignore(self.get_desc_fact)
+  match self.kind {
+    RefGetDescKnownNullDirectTrap =>
+      ignore(
+        optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id),
       )
-    None => false
+    RefGetDescKnownNullPreserveChild =>
+      ignore(
+        optimize_instructions_replace_with_drop_then_unreachable(
+          ctx,
+          func,
+          descriptor_id,
+          self.preserve_child_id,
+        ),
+      )
   }
+  true
 }
 
 ///|
-fn OiRefGetDescFact::can_move_descriptor_operand_null_check(
-  self : OiRefGetDescFact,
+priv enum OiRefGetDescNullCheckMoveKind {
+  RefGetDescStandaloneNullCheckMove
+  RefGetDescDescriptorOperandNullCheckMove
+  RefGetDescTrapsNeverHappenNullCheckMove
+}
+
+///|
+priv struct OiRefGetDescNullCheckMoveFact {
+  kind : OiRefGetDescNullCheckMoveKind
+  get_desc_fact : OiRefGetDescFact
+  nullable_child_id : Int
+}
+
+///|
+fn OiRefGetDescNullCheckMoveFact::from_get_desc(
   func : @ir.HotFunc,
-) -> Bool {
-  let nullable_child = match self.explicit_nullable_child() {
+  get_desc_fact : OiRefGetDescFact,
+  kind : OiRefGetDescNullCheckMoveKind,
+) -> OiRefGetDescNullCheckMoveFact? {
+  // Binaryen v130 commonly moves or removes the explicit `ref.as_non_null`
+  // child check under `ref.get_desc` when the nullable producer can be kept as
+  // the descriptor operand. Represent the mode-specific safety proof here so
+  // ref.get_desc callers request a plan instead of branching on raw child ops.
+  let nullable_child = match get_desc_fact.explicit_nullable_child() {
     Some(child) => child
-    None => return false
+    None => return None
   }
-  match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::LocalGet => true
-    @ir.HotOp::Block | @ir.HotOp::Select =>
-      !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+  let allowed = match kind {
+    RefGetDescTrapsNeverHappenNullCheckMove => true
+    RefGetDescStandaloneNullCheckMove =>
+      optimize_instructions_standalone_ref_get_desc_nullable_child_can_move_null_check(
         func, nullable_child,
       )
-    @ir.HotOp::If =>
-      optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
-        func, nullable_child,
-      )
-    _ => false
+    RefGetDescDescriptorOperandNullCheckMove =>
+      match @ir.hot_node_get(func, nullable_child).op {
+        @ir.HotOp::LocalGet => true
+        @ir.HotOp::Block | @ir.HotOp::Select =>
+          !optimize_instructions_descriptor_expr_has_escaping_branch_control(
+            func, nullable_child,
+          )
+        @ir.HotOp::If =>
+          optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+            func, nullable_child,
+          )
+        _ => false
+      }
   }
+  if !allowed {
+    return None
+  }
+  Some({ kind, get_desc_fact, nullable_child_id: nullable_child })
+}
+
+///|
+fn OiRefGetDescNullCheckMoveFact::apply(
+  self : OiRefGetDescNullCheckMoveFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> Bool {
+  ignore(self.kind)
+  ignore(self.get_desc_fact)
+  @ir.hot_child_set(func, descriptor_id, 0, self.nullable_child_id)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -16517,13 +16603,15 @@ fn optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_ha
     Some(fact) => fact
     None => return false
   }
-  let nullable_child = match get_desc_fact.explicit_nullable_child() {
-    Some(child) => child
-    None => return false
+  match
+    OiRefGetDescNullCheckMoveFact::from_get_desc(
+      func,
+      get_desc_fact,
+      RefGetDescTrapsNeverHappenNullCheckMove,
+    ) {
+    Some(move_fact) => move_fact.apply(ctx, func, descriptor_id)
+    None => false
   }
-  @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
-  pass_mark_mutated(ctx, func)
-  true
 }
 
 ///|
@@ -17590,15 +17678,8 @@ fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
     optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
     return true
   }
-  match get_desc_fact.standalone_known_null_preserve_child(func) {
-    Some(-1) => {
-      optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
-      true
-    }
-    Some(nullable_child) =>
-      optimize_instructions_replace_with_drop_then_unreachable(
-        ctx, func, descriptor_id, nullable_child,
-      )
+  match OiRefGetDescKnownNullChildFact::from_get_desc(func, get_desc_fact) {
+    Some(null_child_fact) => null_child_fact.apply(ctx, func, descriptor_id)
     None => false
   }
 }
@@ -17611,10 +17692,6 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
 ) -> Bool {
   let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
     Some(fact) => fact
-    None => return false
-  }
-  let nullable_child = match get_desc_fact.explicit_nullable_child() {
-    Some(child) => child
     None => return false
   }
   if ctx.traps_never_happen {
@@ -17631,12 +17708,15 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
       return false
     }
   }
-  if !get_desc_fact.can_move_standalone_null_check(func) {
-    return false
+  match
+    OiRefGetDescNullCheckMoveFact::from_get_desc(
+      func,
+      get_desc_fact,
+      RefGetDescStandaloneNullCheckMove,
+    ) {
+    Some(move_fact) => move_fact.apply(ctx, func, descriptor_id)
+    None => false
   }
-  @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
-  pass_mark_mutated(ctx, func)
-  true
 }
 
 ///|
@@ -17649,16 +17729,15 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
     Some(fact) => fact
     None => return false
   }
-  let nullable_child = match get_desc_fact.explicit_nullable_child() {
-    Some(child) => child
-    None => return false
+  match
+    OiRefGetDescNullCheckMoveFact::from_get_desc(
+      func,
+      get_desc_fact,
+      RefGetDescDescriptorOperandNullCheckMove,
+    ) {
+    Some(move_fact) => move_fact.apply(ctx, func, descriptor_id)
+    None => false
   }
-  if !get_desc_fact.can_move_descriptor_operand_null_check(func) {
-    return false
-  }
-  @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
-  pass_mark_mutated(ctx, func)
-  true
 }
 
 ///|
