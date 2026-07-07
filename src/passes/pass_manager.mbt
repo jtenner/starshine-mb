@@ -25388,33 +25388,266 @@ fn run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_push_directized_local_call_ref(
+// Raw OI-H call_ref directization fact for the fallback stack dispatcher.
+// Binaryen v130's `visitCallRef` delegates direct/table/select target decisions
+// to `CallUtils::convertToDirectCalls` and fallthrough target facts. Keep the
+// represented flat raw windows in one fact carrying the target family, return
+// kind, and complete rewrite payload instead of duplicating call_ref target
+// peepholes inside the dispatcher loop.
+priv struct RawOiCallRefDirectizeRewriteFact {
+  end : Int
+  is_direct_ref_func_target : Bool
+  is_table_target : Bool
+  is_const_select_ref_func_target : Bool
+  is_local_fallthrough_ref_func_target : Bool
+  is_return : Bool
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::proves_binaryen_call_ref_directization(
+  self : RawOiCallRefDirectizeRewriteFact,
+) -> Bool {
+  ignore(self.is_return)
+  self.rewrite.length() > 0 &&
+  (
+    self.is_direct_ref_func_target ||
+    self.is_table_target ||
+    self.is_const_select_ref_func_target ||
+    self.is_local_fallthrough_ref_func_target
+  )
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::append_rewrite(
+  self : RawOiCallRefDirectizeRewriteFact,
   out : Array[@lib.Instruction],
-  ref_func_instr : @lib.Instruction,
-  local_set_instr : @lib.Instruction,
-  func_idx : @lib.FuncIdx,
-  local_id : @lib.LocalIdx,
-  root_instrs : Array[@lib.Instruction],
-  is_return : Bool,
 ) -> Unit {
-  if run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
-      root_instrs, local_id,
-    ) ==
-    1 {
-    if is_return {
-      out.push(@lib.Instruction::return_call(func_idx))
-    } else {
-      out.push(@lib.Instruction::call(func_idx))
-    }
-  } else {
-    out.push(ref_func_instr)
-    out.push(local_set_instr)
-    if is_return {
-      out.push(@lib.Instruction::return_call(func_idx))
-    } else {
-      out.push(@lib.Instruction::call(func_idx))
+  if self.proves_binaryen_call_ref_directization() {
+    for instr in self.rewrite {
+      out.push(instr)
     }
   }
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::call_instr(
+  func_idx : @lib.FuncIdx,
+  is_return : Bool,
+) -> @lib.Instruction {
+  if is_return {
+    @lib.Instruction::return_call(func_idx)
+  } else {
+    @lib.Instruction::call(func_idx)
+  }
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::from_table_target(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiCallRefDirectizeRewriteFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  match (current, instrs[start + 1], instrs[start + 2]) {
+    (
+      index,
+      @lib.Instruction::TableGet(table_idx),
+      @lib.Instruction::CallRef(type_idx),
+    ) =>
+      Some({
+        end: start + 3,
+        is_direct_ref_func_target: false,
+        is_table_target: true,
+        is_const_select_ref_func_target: false,
+        is_local_fallthrough_ref_func_target: false,
+        is_return: false,
+        rewrite: [index, @lib.Instruction::call_indirect(type_idx, table_idx)],
+      })
+    (
+      index,
+      @lib.Instruction::TableGet(table_idx),
+      @lib.Instruction::ReturnCallRef(type_idx),
+    ) =>
+      Some({
+        end: start + 3,
+        is_direct_ref_func_target: false,
+        is_table_target: true,
+        is_const_select_ref_func_target: false,
+        is_local_fallthrough_ref_func_target: false,
+        is_return: true,
+        rewrite: [
+          index,
+          @lib.Instruction::return_call_indirect(type_idx, table_idx),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiCallRefDirectizeRewriteFact? {
+  if start + 4 >= instrs.length() {
+    return None
+  }
+  let true_func = match
+    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(current) {
+    Some(func_idx) => func_idx
+    None => return None
+  }
+  let false_func = match
+    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+      instrs[start + 1],
+    ) {
+    Some(func_idx) => func_idx
+    None => return None
+  }
+  let selected_func = match instrs[start + 2] {
+    @lib.Instruction::I32Const(@lib.I32(raw)) =>
+      if raw == 0 {
+        false_func
+      } else {
+        true_func
+      }
+    _ => return None
+  }
+  match (instrs[start + 3], instrs[start + 4]) {
+    (@lib.Instruction::Select(_), @lib.Instruction::CallRef(_)) =>
+      Some({
+        end: start + 5,
+        is_direct_ref_func_target: false,
+        is_table_target: false,
+        is_const_select_ref_func_target: true,
+        is_local_fallthrough_ref_func_target: false,
+        is_return: false,
+        rewrite: [@lib.Instruction::call(selected_func)],
+      })
+    (@lib.Instruction::Select(_), @lib.Instruction::ReturnCallRef(_)) =>
+      Some({
+        end: start + 5,
+        is_direct_ref_func_target: false,
+        is_table_target: false,
+        is_const_select_ref_func_target: true,
+        is_local_fallthrough_ref_func_target: false,
+        is_return: true,
+        rewrite: [@lib.Instruction::return_call(selected_func)],
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  root_instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiCallRefDirectizeRewriteFact? {
+  if start + 3 >= instrs.length() {
+    return None
+  }
+  let func_idx = match
+    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(current) {
+    Some(func_idx) => func_idx
+    None => return None
+  }
+  let local_id = match (instrs[start + 1], instrs[start + 2]) {
+    (
+      @lib.Instruction::LocalSet(set_local),
+      @lib.Instruction::LocalGet(get_local),
+    ) if set_local == get_local => set_local
+    _ => return None
+  }
+  let is_return = match instrs[start + 3] {
+    @lib.Instruction::CallRef(_) => false
+    @lib.Instruction::ReturnCallRef(_) => true
+    _ => return None
+  }
+  let rewrite : Array[@lib.Instruction] = []
+  if run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+      root_instrs, local_id,
+    ) !=
+    1 {
+    rewrite.push(current)
+    rewrite.push(instrs[start + 1])
+  }
+  rewrite.push(
+    RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return),
+  )
+  Some({
+    end: start + 4,
+    is_direct_ref_func_target: false,
+    is_table_target: false,
+    is_const_select_ref_func_target: false,
+    is_local_fallthrough_ref_func_target: true,
+    is_return,
+    rewrite,
+  })
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::from_direct_target(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiCallRefDirectizeRewriteFact? {
+  if start + 1 >= instrs.length() {
+    return None
+  }
+  let func_idx = match
+    run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(current) {
+    Some(func_idx) => func_idx
+    None => return None
+  }
+  let is_return = match instrs[start + 1] {
+    @lib.Instruction::CallRef(_) => false
+    @lib.Instruction::ReturnCallRef(_) => true
+    _ => return None
+  }
+  Some({
+    end: start + 2,
+    is_direct_ref_func_target: true,
+    is_table_target: false,
+    is_const_select_ref_func_target: false,
+    is_local_fallthrough_ref_func_target: false,
+    is_return,
+    rewrite: [RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return)],
+  })
+}
+
+///|
+fn RawOiCallRefDirectizeRewriteFact::from_instrs(
+  current : @lib.Instruction,
+  instrs : Array[@lib.Instruction],
+  root_instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiCallRefDirectizeRewriteFact? {
+  match
+    RawOiCallRefDirectizeRewriteFact::from_table_target(current, instrs, start) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiCallRefDirectizeRewriteFact::from_const_select_target(
+      current, instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  match
+    RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
+      current, instrs, root_instrs, start,
+    ) {
+    Some(fact) => return Some(fact)
+    None => ()
+  }
+  RawOiCallRefDirectizeRewriteFact::from_direct_target(current, instrs, start)
 }
 
 ///|
@@ -25503,28 +25736,6 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
     if i + 2 < instrs.length() {
       match (current, instrs[i + 1], instrs[i + 2]) {
         (
-          index,
-          @lib.Instruction::TableGet(table_idx),
-          @lib.Instruction::CallRef(type_idx),
-        ) => {
-          out.push(index)
-          out.push(@lib.Instruction::call_indirect(type_idx, table_idx))
-          changed = true
-          i += 3
-          continue
-        }
-        (
-          index,
-          @lib.Instruction::TableGet(table_idx),
-          @lib.Instruction::ReturnCallRef(type_idx),
-        ) => {
-          out.push(index)
-          out.push(@lib.Instruction::return_call_indirect(type_idx, table_idx))
-          changed = true
-          i += 3
-          continue
-        }
-        (
           @lib.Instruction::RefNull(_),
           @lib.Instruction::RefTest(nullable, false, _),
           @lib.Instruction::Drop,
@@ -25560,135 +25771,17 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
         _ => ()
       }
     }
-    if i + 4 < instrs.length() {
-      match
-        (
-          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
-            current,
-          ),
-          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
-            instrs[i + 1],
-          ),
-          instrs[i + 2],
-          instrs[i + 3],
-          instrs[i + 4],
-        ) {
-        (
-          Some(true_func),
-          Some(false_func),
-          @lib.Instruction::I32Const(@lib.I32(raw)),
-          @lib.Instruction::Select(_),
-          @lib.Instruction::CallRef(_),
-        ) => {
-          out.push(
-            @lib.Instruction::call(
-              if raw == 0 {
-                false_func
-              } else {
-                true_func
-              },
-            ),
-          )
-          changed = true
-          i += 5
-          continue
-        }
-        (
-          Some(true_func),
-          Some(false_func),
-          @lib.Instruction::I32Const(@lib.I32(raw)),
-          @lib.Instruction::Select(_),
-          @lib.Instruction::ReturnCallRef(_),
-        ) => {
-          out.push(
-            @lib.Instruction::return_call(
-              if raw == 0 {
-                false_func
-              } else {
-                true_func
-              },
-            ),
-          )
-          changed = true
-          i += 5
-          continue
-        }
-        _ => ()
+    match
+      RawOiCallRefDirectizeRewriteFact::from_instrs(
+        current, instrs, root_instrs, i,
+      ) {
+      Some(fact) => {
+        fact.append_rewrite(out)
+        changed = true
+        i = fact.end
+        continue
       }
-    }
-    if i + 3 < instrs.length() {
-      match
-        (
-          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
-            current,
-          ),
-          instrs[i + 1],
-          instrs[i + 2],
-          instrs[i + 3],
-        ) {
-        (
-          Some(func_idx),
-          @lib.Instruction::LocalSet(local_id),
-          @lib.Instruction::LocalGet(get_local_id),
-          @lib.Instruction::CallRef(_),
-        ) if local_id == get_local_id => {
-          run_hot_pipeline_raw_optimize_instructions_push_directized_local_call_ref(
-            out,
-            current,
-            instrs[i + 1],
-            func_idx,
-            local_id,
-            root_instrs,
-            false,
-          )
-          changed = true
-          i += 4
-          continue
-        }
-        (
-          Some(func_idx),
-          @lib.Instruction::LocalSet(local_id),
-          @lib.Instruction::LocalGet(get_local_id),
-          @lib.Instruction::ReturnCallRef(_),
-        ) if local_id == get_local_id => {
-          run_hot_pipeline_raw_optimize_instructions_push_directized_local_call_ref(
-            out,
-            current,
-            instrs[i + 1],
-            func_idx,
-            local_id,
-            root_instrs,
-            true,
-          )
-          changed = true
-          i += 4
-          continue
-        }
-        _ => ()
-      }
-    }
-    if i + 1 < instrs.length() {
-      match
-        (
-          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
-            current,
-          ),
-          instrs[i + 1],
-        ) {
-        (Some(func_idx), @lib.Instruction::CallRef(_)) => {
-          out.push(@lib.Instruction::call(func_idx))
-          changed = true
-          i += 2
-          continue
-        }
-        (Some(func_idx), @lib.Instruction::ReturnCallRef(_)) => {
-          out.push(@lib.Instruction::return_call(func_idx))
-          changed = true
-          i += 2
-          continue
-        }
-        _ => ()
-      }
+      None => ()
     }
     out.push(current)
     i += 1
