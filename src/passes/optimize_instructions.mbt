@@ -2585,9 +2585,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
   }
   match @ir.hot_node_get(func, nullable_child).op {
     @ir.HotOp::RefNull =>
-      if optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
-          func, nullable_child,
-        ) {
+      if OiStandaloneRefGetDescLeafFact::from_node(func, nullable_child).proves_known_null_ref_null_leaf() {
         Some({
           kind: RefGetDescKnownNullDirectTrap,
           get_desc_fact,
@@ -2597,9 +2595,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         None
       }
     @ir.HotOp::LocalTee =>
-      if optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
-          func, nullable_child,
-        ) {
+      if OiStandaloneRefGetDescLocalTeeFact::from_node(func, nullable_child).proves_known_null_child() {
         Some({
           kind: RefGetDescKnownNullPreserveChild,
           get_desc_fact,
@@ -2609,9 +2605,9 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         None
       }
     @ir.HotOp::Block =>
-      if optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
+      if OiStandaloneRefGetDescKnownNullBlockFact::from_block(
           func, nullable_child,
-        ) {
+        ).proves_known_null_child() {
         Some({
           kind: RefGetDescKnownNullPreserveChild,
           get_desc_fact,
@@ -2687,25 +2683,19 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
   let child = @ir.hot_node_get(func, child_id)
   let child_kind = match child.op {
     @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
-      if optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
-          func, child_id,
-        ) {
+      if OiStandaloneRefGetDescLeafFact::from_node(func, child_id).proves_nullable_ref_leaf_can_move_null_check() {
         RefGetDescNullableLeafMove
       } else {
         return None
       }
     @ir.HotOp::LocalTee =>
-      if optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
-          func, child_id,
-        ) {
+      if OiStandaloneRefGetDescLocalTeeFact::from_node(func, child_id).proves_can_move_null_check() {
         RefGetDescNullableLocalTeeMove
       } else {
         return None
       }
     @ir.HotOp::Call | @ir.HotOp::CallIndirect =>
-      if optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
-          func, child_id,
-        ) {
+      if OiStandaloneRefGetDescCallMoveFact::from_call(func, child_id).proves_can_move_null_check() {
         RefGetDescNullableCallMove
       } else {
         return None
@@ -2733,9 +2723,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         return None
       }
     @ir.HotOp::Block =>
-      if optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check(
-          func, child_id,
-        ) {
+      if OiStandaloneRefGetDescBlockMoveFact::from_block(func, child_id).proves_can_move_null_check() {
         RefGetDescNullableBlockMove
       } else {
         return None
@@ -18693,6 +18681,174 @@ fn optimize_instructions_standalone_ref_get_desc_node_has_no_results(
 }
 
 ///|
+priv struct OiStandaloneRefGetDescLeafFact {
+  live : Bool
+  no_children : Bool
+  single_nullable_ref_result : Bool
+  known_null_ref_null_leaf : Bool
+  nullable_ref_leaf : Bool
+  nontrapping_call_operand_leaf : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescLeafFact::empty() -> OiStandaloneRefGetDescLeafFact {
+  {
+    live: false,
+    no_children: false,
+    single_nullable_ref_result: false,
+    known_null_ref_null_leaf: false,
+    nullable_ref_leaf: false,
+    nontrapping_call_operand_leaf: false,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescLeafFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiStandaloneRefGetDescLeafFact {
+  // Binaryen v130's ref.get_desc path delegates to skipNonNullCast and
+  // trapOnNull, so Starshine keeps the represented leaf proofs explicit here:
+  // ref.null known-null children, nullable local/global leaves that can carry a
+  // moved null check, and the nontrapping leaf operands allowed under the
+  // current narrow call-child boundary.
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiStandaloneRefGetDescLeafFact::empty()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let no_children = @ir.hot_child_count(func, node_id) == 0
+  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, node_id,
+  )
+  let known_null_ref_null_leaf = match node.op {
+    @ir.HotOp::RefNull => no_children && single_nullable_ref_result
+    _ => false
+  }
+  let nullable_ref_leaf = match node.op {
+    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
+      no_children && single_nullable_ref_result
+    _ => false
+  }
+  let nontrapping_call_operand_leaf = match node.op {
+    @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc => no_children
+    _ => false
+  }
+  {
+    live: true,
+    no_children,
+    single_nullable_ref_result,
+    known_null_ref_null_leaf,
+    nullable_ref_leaf,
+    nontrapping_call_operand_leaf,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescLeafFact::proves_known_null_ref_null_leaf(
+  self : OiStandaloneRefGetDescLeafFact,
+) -> Bool {
+  ignore(self.no_children)
+  ignore(self.single_nullable_ref_result)
+  self.live && self.known_null_ref_null_leaf
+}
+
+///|
+fn OiStandaloneRefGetDescLeafFact::proves_nullable_ref_leaf_can_move_null_check(
+  self : OiStandaloneRefGetDescLeafFact,
+) -> Bool {
+  ignore(self.no_children)
+  ignore(self.single_nullable_ref_result)
+  self.live && self.nullable_ref_leaf
+}
+
+///|
+fn OiStandaloneRefGetDescLeafFact::proves_nontrapping_call_operand_leaf(
+  self : OiStandaloneRefGetDescLeafFact,
+) -> Bool {
+  self.live && self.nontrapping_call_operand_leaf
+}
+
+///|
+priv struct OiStandaloneRefGetDescLocalTeeFact {
+  live : Bool
+  single_nullable_ref_result : Bool
+  single_child : Bool
+  child_known_null_ref_null_leaf : Bool
+  child_nullable_ref_leaf : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeFact::empty() -> OiStandaloneRefGetDescLocalTeeFact {
+  {
+    live: false,
+    single_nullable_ref_result: false,
+    single_child: false,
+    child_known_null_ref_null_leaf: false,
+    child_nullable_ref_leaf: false,
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeFact::from_node(
+  func : @ir.HotFunc,
+  tee_id : Int,
+) -> OiStandaloneRefGetDescLocalTeeFact {
+  // Represent the two local.tee ref.get_desc boundaries as data: local.tee of a
+  // known-null ref.null can be preserved before the trap, while local.tee of a
+  // nullable local/global leaf can carry the moved null check.
+  if tee_id < 0 || !@ir.hot_node_is_live(func, tee_id) {
+    return OiStandaloneRefGetDescLocalTeeFact::empty()
+  }
+  match @ir.hot_node_get(func, tee_id).op {
+    @ir.HotOp::LocalTee => ()
+    _ => return OiStandaloneRefGetDescLocalTeeFact::empty()
+  }
+  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, tee_id,
+  )
+  let single_child = @ir.hot_child_count(func, tee_id) == 1
+  let child_fact = if single_child {
+    OiStandaloneRefGetDescLeafFact::from_node(
+      func,
+      @ir.hot_child_get(func, tee_id, 0),
+    )
+  } else {
+    OiStandaloneRefGetDescLeafFact::empty()
+  }
+  {
+    live: true,
+    single_nullable_ref_result,
+    single_child,
+    child_known_null_ref_null_leaf: child_fact.proves_known_null_ref_null_leaf(),
+    child_nullable_ref_leaf: child_fact.proves_nullable_ref_leaf_can_move_null_check(),
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeFact::proves_known_null_child(
+  self : OiStandaloneRefGetDescLocalTeeFact,
+) -> Bool {
+  self.live &&
+  self.single_nullable_ref_result &&
+  self.single_child &&
+  self.child_known_null_ref_null_leaf
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeFact::proves_can_move_null_check(
+  self : OiStandaloneRefGetDescLocalTeeFact,
+) -> Bool {
+  self.live &&
+  self.single_nullable_ref_result &&
+  self.single_child &&
+  self.child_nullable_ref_leaf
+}
+
+///|
 priv struct OiStandaloneRefGetDescControlShapeFact {
   live : Bool
   multivalue_result : Bool
@@ -18809,15 +18965,6 @@ fn OiStandaloneRefGetDescControlShapeFact::proves_disallowed_control_or_multival
     self.direct_disallowed_control ||
     self.nested_disallowed_control_or_multivalue
   )
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-  func : @ir.HotFunc,
-  owner_id : Int,
-  node_id : Int,
-) -> Bool {
-  OiStandaloneRefGetDescControlShapeFact::from_node(func, owner_id, node_id).proves_disallowed_control_or_multivalue()
 }
 
 ///|
@@ -19184,81 +19331,54 @@ fn OiStandaloneRefGetDescBlockMoveFact::proves_can_move_null_check(
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_block_child_can_move_null_check(
+priv struct OiStandaloneRefGetDescKnownNullBlockFact {
+  live : Bool
+  single_nullable_ref_result : Bool
+  nonempty_region : Bool
+  branch_free_prefix_roots : Bool
+  prefix_roots_void_control_allowed : Bool
+  final_known_null_ref_null_leaf : Bool
+  final_control_allowed : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
   func : @ir.HotFunc,
   block_id : Int,
-) -> Bool {
-  OiStandaloneRefGetDescBlockMoveFact::from_block(func, block_id).proves_can_move_null_check()
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_leaf(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::LocalGet
-    | @ir.HotOp::GlobalGet
-    | @ir.HotOp::Const
-    | @ir.HotOp::RefNull
-    | @ir.HotOp::RefFunc => @ir.hot_child_count(func, node_id) == 0
-    _ => false
+) -> OiStandaloneRefGetDescKnownNullBlockFact {
+  // Known-null standalone ref.get_desc block operands are the previous narrow
+  // branch-free block subset expressed as a fact: void/control-safe prefix
+  // roots, no branch roots, and a final ref.null leaf with no nested unsupported
+  // control or multivalue result.
+  let empty = {
+    live: false,
+    single_nullable_ref_result: false,
+    nonempty_region: false,
+    branch_free_prefix_roots: false,
+    prefix_roots_void_control_allowed: false,
+    final_known_null_ref_null_leaf: false,
+    final_control_allowed: false,
   }
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::RefNull =>
-      @ir.hot_child_count(func, node_id) == 0 &&
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, node_id,
-      )
-    _ => false
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return empty
   }
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_local_tee_child_is_known_null(
-  func : @ir.HotFunc,
-  tee_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, tee_id).op {
-    @ir.HotOp::LocalTee => ()
-    _ => return false
-  }
-  optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, tee_id,
-  ) &&
-  @ir.hot_child_count(func, tee_id) == 1 &&
-  optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
-    func,
-    @ir.hot_child_get(func, tee_id, 0),
-  )
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_known_null(
-  func : @ir.HotFunc,
-  block_id : Int,
-) -> Bool {
   match @ir.hot_node_get(func, block_id).op {
     @ir.HotOp::Block => ()
-    _ => return false
+    _ => return empty
   }
-  if !optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-      func, block_id,
-    ) {
-    return false
+  let single_nullable_ref_result = optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
+    func, block_id,
+  )
+  if !single_nullable_ref_result {
+    return { ..empty, live: true }
   }
   let body = @ir.hot_region_body_ref(func, block_id)
   let root_count = @ir.hot_region_root_count(func, body)
   if root_count == 0 {
-    return false
+    return { ..empty, live: true, single_nullable_ref_result }
   }
+  let mut branch_free_prefix_roots = true
+  let mut prefix_roots_void_control_allowed = true
   for slot = 0; slot < root_count - 1; slot = slot + 1 {
     let root_id = @ir.hot_region_get(func, body, slot)
     match @ir.hot_node_get(func, root_id).op {
@@ -19268,83 +19388,101 @@ fn optimize_instructions_standalone_ref_get_desc_branch_free_block_child_is_know
       | @ir.HotOp::BrOnNull
       | @ir.HotOp::BrOnNonNull
       | @ir.HotOp::BrOnCast
-      | @ir.HotOp::BrOnCastFail => return false
+      | @ir.HotOp::BrOnCastFail => branch_free_prefix_roots = false
       _ => ()
     }
+    let control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
+      func, block_id, root_id,
+    )
     if !optimize_instructions_standalone_ref_get_desc_node_has_no_results(
         func, root_id,
       ) ||
-      optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
-        func, block_id, root_id,
-      ) {
-      return false
+      control_fact.proves_disallowed_control_or_multivalue() {
+      prefix_roots_void_control_allowed = false
     }
   }
   let final_id = @ir.hot_region_get(func, body, root_count - 1)
-  optimize_instructions_standalone_ref_get_desc_ref_null_leaf_is_known_null(
-    func, final_id,
-  ) &&
-  !optimize_instructions_standalone_ref_get_desc_expr_has_disallowed_control_or_multivalue(
+  let final_control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
     func, block_id, final_id,
   )
-}
-
-///|
-fn optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
-      @ir.hot_child_count(func, node_id) == 0 &&
-      optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-        func, node_id,
-      )
-    _ => false
+  {
+    live: true,
+    single_nullable_ref_result,
+    nonempty_region: true,
+    branch_free_prefix_roots,
+    prefix_roots_void_control_allowed,
+    final_known_null_ref_null_leaf: OiStandaloneRefGetDescLeafFact::from_node(
+      func, final_id,
+    ).proves_known_null_ref_null_leaf(),
+    final_control_allowed: !final_control_fact.proves_disallowed_control_or_multivalue(),
   }
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_local_tee_child_can_move_null_check(
-  func : @ir.HotFunc,
-  tee_id : Int,
+fn OiStandaloneRefGetDescKnownNullBlockFact::proves_known_null_child(
+  self : OiStandaloneRefGetDescKnownNullBlockFact,
 ) -> Bool {
-  match @ir.hot_node_get(func, tee_id).op {
-    @ir.HotOp::LocalTee => ()
-    _ => return false
-  }
-  optimize_instructions_standalone_ref_get_desc_child_has_single_nullable_ref_result(
-    func, tee_id,
-  ) &&
-  @ir.hot_child_count(func, tee_id) == 1 &&
-  optimize_instructions_standalone_ref_get_desc_nullable_ref_leaf_can_move_null_check(
-    func,
-    @ir.hot_child_get(func, tee_id, 0),
-  )
+  self.live &&
+  self.single_nullable_ref_result &&
+  self.nonempty_region &&
+  self.branch_free_prefix_roots &&
+  self.prefix_roots_void_control_allowed &&
+  self.final_known_null_ref_null_leaf &&
+  self.final_control_allowed
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_call_child_can_move_null_check(
+priv struct OiStandaloneRefGetDescCallMoveFact {
+  live : Bool
+  single_ref_result : Bool
+  operands_nontrapping_leaves : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescCallMoveFact::from_call(
   func : @ir.HotFunc,
   call_id : Int,
-) -> Bool {
+) -> OiStandaloneRefGetDescCallMoveFact {
+  // The current represented call-child movement subset keeps Binaryen's
+  // skipNonNullCast idea but only for calls whose operands are simple
+  // nontrapping leaves, so moving the ref.as_non_null check across the call
+  // operands cannot reorder observable traps or effects.
+  let empty = {
+    live: false,
+    single_ref_result: false,
+    operands_nontrapping_leaves: false,
+  }
+  if call_id < 0 || !@ir.hot_node_is_live(func, call_id) {
+    return empty
+  }
   match @ir.hot_node_get(func, call_id).op {
     @ir.HotOp::Call | @ir.HotOp::CallIndirect => ()
-    _ => return false
+    _ => return empty
   }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, call_id)) {
-    [@lib.ValType::RefTypeValType(_)] => ()
-    _ => return false
+  let single_ref_result = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, call_id)) {
+    [@lib.ValType::RefTypeValType(_)] => true
+    _ => false
   }
+  if !single_ref_result {
+    return { ..empty, live: true }
+  }
+  let mut operands_nontrapping_leaves = true
   for slot = 0; slot < @ir.hot_child_count(func, call_id); slot = slot + 1 {
-    if !optimize_instructions_standalone_ref_get_desc_call_operand_is_nontrapping_leaf(
+    operands_nontrapping_leaves = operands_nontrapping_leaves &&
+      OiStandaloneRefGetDescLeafFact::from_node(
         func,
         @ir.hot_child_get(func, call_id, slot),
-      ) {
-      return false
-    }
+      ).proves_nontrapping_call_operand_leaf()
   }
-  true
+  { live: true, single_ref_result, operands_nontrapping_leaves }
+}
+
+///|
+fn OiStandaloneRefGetDescCallMoveFact::proves_can_move_null_check(
+  self : OiStandaloneRefGetDescCallMoveFact,
+) -> Bool {
+  self.live && self.single_ref_result && self.operands_nontrapping_leaves
 }
 
 ///|
