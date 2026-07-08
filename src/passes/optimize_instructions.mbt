@@ -6166,11 +6166,20 @@ fn OiCallRefTargetFact::from_fallthrough_block(
 ///|
 priv struct OiCallRefSelectArmFact {
   direct_func : Int
+  elided_wrapper_depth : Int
 }
 
 ///|
 fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
-  { direct_func: -1 }
+  { direct_func: -1, elided_wrapper_depth: 0 }
+}
+
+///|
+fn OiCallRefSelectArmFact::direct(
+  direct_func : Int,
+  elided_wrapper_depth? : Int = 0,
+) -> OiCallRefSelectArmFact {
+  { direct_func, elided_wrapper_depth }
 }
 
 ///|
@@ -6178,18 +6187,42 @@ fn OiCallRefSelectArmFact::from_target_arm(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   arm_id : Int,
+  depth? : Int = 0,
 ) -> OiCallRefSelectArmFact {
-  if !OiLiveNodeFact::proves_node_live(func, dead, arm_id) {
+  if depth > 4 || !OiLiveNodeFact::proves_node_live(func, dead, arm_id) {
     return OiCallRefSelectArmFact::unknown()
   }
   let arm = @ir.hot_node_get(func, arm_id)
   match arm.op {
     // Binaryen v130 `OptimizeInstructions::visitCallRef` passes
-    // `CallUtils::convertToDirectCalls` a classifier whose only known target is
-    // a direct `RefFunc`. Table targets, fallthrough targets, nested selects,
-    // and descriptor producers intentionally stay out of this select-arm fact
-    // until a source-backed helper proves the broader shape.
-    @ir.HotOp::RefFunc => { direct_func: arm.imm0 }
+    // `CallUtils::convertToDirectCalls` a classifier whose known target is a
+    // direct `RefFunc` after child OI visitors have already removed no-op
+    // `ref.as_non_null` wrappers around direct `ref.func` producers. Keep
+    // effectful fallthrough arms such as
+    // `local.tee(ref.func)` out of this fact until a source-backed
+    // ChildLocalizer fact can preserve arm-side effects.
+    @ir.HotOp::RefFunc => OiCallRefSelectArmFact::direct(arm.imm0)
+    @ir.HotOp::Heap if arm.child_count == 1 =>
+      match @ir.hot_node_exact_instr(func, arm_id) {
+        Some(@lib.Instruction::RefAsNonNull) => {
+          let child_id = @ir.hot_child_get(func, arm_id, 0)
+          let child_fact = OiCallRefSelectArmFact::from_target_arm(
+            func,
+            dead,
+            child_id,
+            depth=depth + 1,
+          )
+          if child_fact.has_direct_func() {
+            OiCallRefSelectArmFact::direct(
+              child_fact.direct_func,
+              elided_wrapper_depth=child_fact.elided_wrapper_depth + 1,
+            )
+          } else {
+            OiCallRefSelectArmFact::unknown()
+          }
+        }
+        _ => OiCallRefSelectArmFact::unknown()
+      }
     _ => OiCallRefSelectArmFact::unknown()
   }
 }
