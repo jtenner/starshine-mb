@@ -8524,6 +8524,14 @@ priv struct OiCallRefSelectArmFact {
 }
 
 ///|
+priv struct OiCallRefSelectArmDirectFact {
+  direct_func : Int
+  ref_func_heap : @lib.HeapType?
+  elided_non_null_wrapper_depth : Int
+  elided_cast_wrapper_depth : Int
+}
+
+///|
 fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
   {
     direct_func: -1,
@@ -8549,8 +8557,28 @@ fn OiCallRefSelectArmFact::direct(
 }
 
 ///|
+fn OiCallRefSelectArmDirectFact::from_arm_fact(
+  fact : OiCallRefSelectArmFact,
+) -> OiCallRefSelectArmDirectFact? {
+  // Binaryen v130 `CallUtils::convertToDirectCalls` select classification needs
+  // both target arms to be known direct functions before it chooses either the
+  // same-target residue path or the two-direct-call `if` path. Keep that proof
+  // as a source-shaped fact instead of using the raw sentinel fields as an arm
+  // predicate at each call site.
+  if fact.direct_func < 0 {
+    return None
+  }
+  Some({
+    direct_func: fact.direct_func,
+    ref_func_heap: fact.ref_func_heap,
+    elided_non_null_wrapper_depth: fact.elided_non_null_wrapper_depth,
+    elided_cast_wrapper_depth: fact.elided_cast_wrapper_depth,
+  })
+}
+
+///|
 priv struct OiCallRefSelectArmCastFact {
-  child_fact : OiCallRefSelectArmFact
+  child_direct_fact : OiCallRefSelectArmDirectFact
   ref_func_heap : @lib.HeapType?
   heaps_match : Bool
 }
@@ -8577,14 +8605,20 @@ fn OiCallRefSelectArmCastFact::from_cast_arm(
     @ir.hot_child_get(func, arm_id, 0),
     depth=depth + 1,
   )
-  if !child_fact.has_direct_func() {
-    return None
+  let child_direct_fact = match
+    OiCallRefSelectArmDirectFact::from_arm_fact(child_fact) {
+    Some(fact) => fact
+    None => return None
   }
-  let heaps_match = match child_fact.ref_func_heap {
+  let heaps_match = match child_direct_fact.ref_func_heap {
     Some(ref_func_heap) => ref_func_heap == cast_heap
     None => false
   }
-  Some({ child_fact, ref_func_heap: child_fact.ref_func_heap, heaps_match })
+  Some({
+    child_direct_fact,
+    ref_func_heap: child_direct_fact.ref_func_heap,
+    heaps_match,
+  })
 }
 
 ///|
@@ -8631,16 +8665,16 @@ fn OiCallRefSelectArmFact::from_target_arm(
             child_id,
             depth=depth + 1,
           )
-          if child_fact.has_direct_func() {
-            OiCallRefSelectArmFact::direct(
-              child_fact.direct_func,
-              child_fact.ref_func_heap,
-              elided_non_null_wrapper_depth=child_fact.elided_non_null_wrapper_depth +
-                1,
-              elided_cast_wrapper_depth=child_fact.elided_cast_wrapper_depth,
-            )
-          } else {
-            OiCallRefSelectArmFact::unknown()
+          match OiCallRefSelectArmDirectFact::from_arm_fact(child_fact) {
+            Some(direct_fact) =>
+              OiCallRefSelectArmFact::direct(
+                direct_fact.direct_func,
+                direct_fact.ref_func_heap,
+                elided_non_null_wrapper_depth=direct_fact.elided_non_null_wrapper_depth +
+                  1,
+                elided_cast_wrapper_depth=direct_fact.elided_cast_wrapper_depth,
+              )
+            None => OiCallRefSelectArmFact::unknown()
           }
         }
         _ => OiCallRefSelectArmFact::unknown()
@@ -8650,23 +8684,16 @@ fn OiCallRefSelectArmFact::from_target_arm(
         OiCallRefSelectArmCastFact::from_cast_arm(func, dead, arm_id, depth) {
         Some(cast_fact) if cast_fact.proves_known_success() =>
           OiCallRefSelectArmFact::direct(
-            cast_fact.child_fact.direct_func,
+            cast_fact.child_direct_fact.direct_func,
             cast_fact.ref_func_heap,
-            elided_non_null_wrapper_depth=cast_fact.child_fact.elided_non_null_wrapper_depth,
-            elided_cast_wrapper_depth=cast_fact.child_fact.elided_cast_wrapper_depth +
+            elided_non_null_wrapper_depth=cast_fact.child_direct_fact.elided_non_null_wrapper_depth,
+            elided_cast_wrapper_depth=cast_fact.child_direct_fact.elided_cast_wrapper_depth +
               1,
           )
         _ => OiCallRefSelectArmFact::unknown()
       }
     _ => OiCallRefSelectArmFact::unknown()
   }
-}
-
-///|
-fn OiCallRefSelectArmFact::has_direct_func(
-  self : OiCallRefSelectArmFact,
-) -> Bool {
-  self.direct_func >= 0
 }
 
 ///|
@@ -8722,18 +8749,26 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
   // Keep that select-specific target state together instead of spreading the
   // arm ids, same-target proof, and condition effect proof across the generic
   // call_ref target fact.
-  if !true_fact.has_direct_func() || !false_fact.has_direct_func() {
-    return None
+  let true_direct_fact = match
+    OiCallRefSelectArmDirectFact::from_arm_fact(true_fact) {
+    Some(fact) => fact
+    None => return None
   }
-  let same_func = if true_fact.direct_func == false_fact.direct_func {
-    true_fact.direct_func
+  let false_direct_fact = match
+    OiCallRefSelectArmDirectFact::from_arm_fact(false_fact) {
+    Some(fact) => fact
+    None => return None
+  }
+  let same_func = if true_direct_fact.direct_func ==
+    false_direct_fact.direct_func {
+    true_direct_fact.direct_func
   } else {
     -1
   }
   Some({
     same_func,
-    true_func: true_fact.direct_func,
-    false_func: false_fact.direct_func,
+    true_func: true_direct_fact.direct_func,
+    false_func: false_direct_fact.direct_func,
     condition_id: condition_fact.condition_id,
     condition_has_effects: condition_fact.has_effects,
     residue_arm_id,
