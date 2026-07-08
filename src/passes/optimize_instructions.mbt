@@ -2167,6 +2167,37 @@ priv struct OiRefTestEvaluationFact {
 }
 
 ///|
+priv struct OiDescriptorRefTestEvaluationFact {
+  kind : OiRefTestEvaluationKind
+}
+
+///|
+fn OiDescriptorRefTestEvaluationFact::from_operand(
+  ctx : HotPassContext,
+  operand_fact : OiRefTestOperandFact,
+  target : @lib.HeapType,
+  nullable : Bool,
+) -> OiDescriptorRefTestEvaluationFact {
+  // Binaryen v130 routes `ref.test_desc` through the same ref-test visitor and
+  // cast-check result family, but Starshine's custom-descriptor surface only
+  // represents the source-backed success / success-if-non-null descriptor match
+  // subset today. Keep that descriptor-specific evaluation as its own fact so
+  // future descriptor miss, GLB, and bottom-target widening can extend this
+  // table without reintroducing an opcode-local proof branch.
+  let kind = match
+    operand_fact.descriptor_matches_or_subtypes_heap(ctx, target) {
+    Some((operand_nullable, _)) =>
+      if !nullable && operand_nullable {
+        RefTestSuccessOnlyIfNonNull
+      } else {
+        RefTestSuccess
+      }
+    None => RefTestUnknown
+  }
+  { kind, }
+}
+
+///|
 fn OiRefTestEvaluationFact::from_test(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2196,17 +2227,11 @@ fn OiRefTestEvaluationFact::from_test(
     }
   }
   if test_fact.descriptor_style {
-    let kind = match
-      operand_fact.descriptor_matches_or_subtypes_heap(ctx, target) {
-      Some((operand_nullable, _)) =>
-        if !nullable && operand_nullable {
-          RefTestSuccessOnlyIfNonNull
-        } else {
-          RefTestSuccess
-        }
-      None => RefTestUnknown
+    return {
+      kind: OiDescriptorRefTestEvaluationFact::from_operand(
+        ctx, operand_fact, target, nullable,
+      ).kind,
     }
-    return { kind, }
   }
   if operand_fact.success_only_if_non_null(ctx, target, nullable, exact) {
     return { kind: RefTestSuccessOnlyIfNonNull }
