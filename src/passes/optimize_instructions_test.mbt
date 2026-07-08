@@ -6929,6 +6929,43 @@ test "optimize-instructions removes extend wrap_i64 with unsigned maxBits" {
 }
 
 ///|
+test "optimize-instructions rewrites signed extend wrap_i64 to extend32 fallback" {
+  // Red-first OI-D fact slice: Binaryen v130 first removes
+  // `i64.extend_i32_s(i32.wrap_i64(x))` completely when `Bits::getMaxBits(x) <= 31`,
+  // then falls back to `i64.extend32_s(x)` for the signed 32-bit low-lane case.
+  // Keep that fallback as an explicit fact sibling of the unsigned-max removal,
+  // not a wrapper-specific scanner.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i64) (result i64)
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i64.extend_i32_s)
+        #|  (func (param $x i64) (result i64)
+        #|    local.get $x
+        #|    i64.const 4294967295
+        #|    i64.and
+        #|    i32.wrap_i64
+        #|    i64.extend_i32_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected signed extend wrap_i64 optimize success, got \{err}")
+  }
+  for idx = 0U; idx < 2U; idx = idx + 1U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(idx))
+    assert_true(pretty.contains("i64.extend32s"), msg=pretty)
+    assert_false(pretty.contains("i32.wrap_i64"), msg=pretty)
+    assert_false(pretty.contains("i64.extend_i32"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds unsigned maxBits signed compares" {
   let pure_source =
     #|(module

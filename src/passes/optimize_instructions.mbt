@@ -5951,6 +5951,11 @@ priv struct OiExtendWrapI64MaxBitsFact {
 }
 
 ///|
+priv struct OiSignedExtendWrapI64FallbackFact {
+  value_id : Int
+}
+
+///|
 priv enum OiZeroBitsReplacementKind {
   ZeroBitsI32
   ZeroBitsI64
@@ -6056,6 +6061,50 @@ fn OiExtendWrapI64MaxBitsFact::from_extend_operand(
     Some(max_value) if max_value <= max_value_limit => Some({ value_id, })
     _ => None
   }
+}
+
+///|
+fn OiSignedExtendWrapI64FallbackFact::from_extend_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  instr : @lib.Instruction,
+  operand_id : Int,
+) -> OiSignedExtendWrapI64FallbackFact? {
+  // Binaryen v130 `visitUnary` applies the maxBits removal above first, then
+  // rewrites the remaining signed low-32-bit lane as
+  // `i64.extend32_s(x)`. Keep the fallback as an explicit fact sibling so the
+  // wrap/extend family stays source-shaped instead of a local opcode scanner.
+  match instr {
+    @lib.Instruction::I64ExtendI32S => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, operand_id) {
+    Some(@lib.Instruction::I32WrapI64) if @ir.hot_child_count(func, operand_id) ==
+      1 => ()
+    _ => return None
+  }
+  let value_id = @ir.hot_child_get(func, operand_id, 0)
+  if OiLiveNodeFact::proves_node_live(func, dead, value_id) {
+    Some({ value_id, })
+  } else {
+    None
+  }
+}
+
+///|
+fn OiSignedExtendWrapI64FallbackFact::apply(
+  self : OiSignedExtendWrapI64FallbackFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_exact_unary(
+    ctx,
+    func,
+    node_id,
+    @lib.Instruction::i64_extend32s(),
+    self.value_id,
+  )
 }
 
 ///|
@@ -20586,6 +20635,16 @@ fn optimize_instructions_try_fold_convert(
         node_id,
         fact.value_id,
       )
+      return true
+    }
+    None => ()
+  }
+  match
+    OiSignedExtendWrapI64FallbackFact::from_extend_operand(
+      func, dead, instr, operand_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       return true
     }
     None => ()
