@@ -21200,6 +21200,166 @@ fn OiIntegerEqualityConditionSelectFact::apply(
 }
 
 ///|
+priv enum OiDirectCompareConditionSelectRewriteKind {
+  DirectCompareConditionSelectNoRewriteBoundary
+  DirectCompareConditionSelectKeepCompare
+  DirectCompareConditionSelectInvertCompare
+}
+
+///|
+priv struct OiDirectCompareConditionSelectFact {
+  condition_id : Int
+  lhs_id : Int
+  rhs_id : Int
+  inverted_instr : @lib.Instruction?
+  kind : OiDirectCompareConditionSelectRewriteKind
+}
+
+///|
+fn OiDirectCompareConditionSelectFact::no_rewrite_boundary(
+  condition_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiDirectCompareConditionSelectFact {
+  {
+    condition_id,
+    lhs_id,
+    rhs_id,
+    inverted_instr: None,
+    kind: DirectCompareConditionSelectNoRewriteBoundary,
+  }
+}
+
+///|
+fn OiDirectCompareConditionSelectFact::keep_compare(
+  condition_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiDirectCompareConditionSelectFact {
+  {
+    condition_id,
+    lhs_id,
+    rhs_id,
+    inverted_instr: None,
+    kind: DirectCompareConditionSelectKeepCompare,
+  }
+}
+
+///|
+fn OiDirectCompareConditionSelectFact::invert_compare(
+  condition_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+  inverted_instr : @lib.Instruction,
+) -> OiDirectCompareConditionSelectFact {
+  {
+    condition_id,
+    lhs_id,
+    rhs_id,
+    inverted_instr: Some(inverted_instr),
+    kind: DirectCompareConditionSelectInvertCompare,
+  }
+}
+
+///|
+fn OiDirectCompareConditionSelectFact::from_select_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  condition_id : Int,
+  if_true : Int,
+  if_false : Int,
+) -> OiDirectCompareConditionSelectFact? {
+  // Binaryen v130 `optimizeBoolean` removes exact i32 boolean select arms
+  // around direct integer-relational and float equality compare conditions.
+  // Integer equality/inequality compares are intentionally handled by
+  // `OiIntegerEqualityConditionSelectFact` before this fact, matching the
+  // source-backed split between direct equality and the eqz-inversion table.
+  match @ir.hot_node_exact_instr(func, condition_id) {
+    Some(compare_instr) if @ir.hot_child_count(func, condition_id) == 2 =>
+      match optimize_instructions_inverted_eqz_compare(compare_instr) {
+        Some(inverted_instr) => {
+          let lhs_id = @ir.hot_child_get(func, condition_id, 0)
+          let rhs_id = @ir.hot_child_get(func, condition_id, 1)
+          match
+            (
+              optimize_instructions_i32_const(func, dead, if_true),
+              optimize_instructions_i32_const(func, dead, if_false),
+            ) {
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+              if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
+                return Some(
+                  OiDirectCompareConditionSelectFact::no_rewrite_boundary(
+                    condition_id, lhs_id, rhs_id,
+                  ),
+                )
+              }
+              Some(
+                OiDirectCompareConditionSelectFact::keep_compare(
+                  condition_id, lhs_id, rhs_id,
+                ),
+              )
+            }
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+              if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
+                return Some(
+                  OiDirectCompareConditionSelectFact::no_rewrite_boundary(
+                    condition_id, lhs_id, rhs_id,
+                  ),
+                )
+              }
+              Some(
+                OiDirectCompareConditionSelectFact::invert_compare(
+                  condition_id, lhs_id, rhs_id, inverted_instr,
+                ),
+              )
+            }
+            _ => None
+          }
+        }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiDirectCompareConditionSelectFact::apply(
+  self : OiDirectCompareConditionSelectFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    DirectCompareConditionSelectNoRewriteBoundary => false
+    DirectCompareConditionSelectKeepCompare => {
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        self.condition_id,
+      )
+      true
+    }
+    DirectCompareConditionSelectInvertCompare =>
+      match self.inverted_instr {
+        Some(inverted_instr) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            inverted_instr,
+            self.lhs_id,
+            self.rhs_id,
+          )
+          true
+        }
+        _ => abort("missing direct compare select inverse")
+      }
+  }
+}
+
+///|
 priv enum OiBooleanConstSelectRewriteKind {
   BooleanConstSelectConditionNonzero
   BooleanConstSelectConditionEqz
@@ -21302,40 +21462,11 @@ fn optimize_instructions_try_fold_const_select(
     Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
   }
-  match @ir.hot_node_exact_instr(func, condition) {
-    Some(compare_instr) if @ir.hot_child_count(func, condition) == 2 =>
-      match optimize_instructions_inverted_eqz_compare(compare_instr) {
-        Some(inverted_instr) =>
-          match
-            (
-              optimize_instructions_i32_const(func, dead, if_true),
-              optimize_instructions_i32_const(func, dead, if_false),
-            ) {
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, condition) {
-                return false
-              }
-              optimize_instructions_replace_with_node_id(
-                ctx, func, node_id, condition,
-              )
-              return true
-            }
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-              let lhs_id = @ir.hot_child_get(func, condition, 0)
-              let rhs_id = @ir.hot_child_get(func, condition, 1)
-              if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
-                !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-                return false
-              }
-              optimize_instructions_replace_with_exact_compare(
-                ctx, func, node_id, inverted_instr, lhs_id, rhs_id,
-              )
-              return true
-            }
-            _ => ()
-          }
-        _ => ()
-      }
+  match
+    OiDirectCompareConditionSelectFact::from_select_condition(
+      func, dead, condition, if_true, if_false,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
   }
   match
