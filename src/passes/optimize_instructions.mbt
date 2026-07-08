@@ -5048,23 +5048,94 @@ fn OiDescriptorResultNarrowingFact::changes_result_type(
 }
 
 ///|
-fn OiDescriptorResultNarrowingFact::proves_can_narrow_result_type(
-  self : OiDescriptorResultNarrowingFact,
-) -> Bool {
-  ignore(self.descriptor_described_heap)
-  ignore(self.descriptor_described_heap_subtypes_target)
-  ignore(self.descriptor_exactly_describes_target)
-  self.descriptor_no_escaping_branch_control &&
-  self.operand_relation.proves_matches_or_subtypes_target() &&
-  self.changes_result_type()
+priv enum OiDescriptorResultNarrowingEligibilityKind {
+  DescriptorResultNarrowBlockedByEscapingDescriptorControl
+  DescriptorResultNarrowBlockedByOperandRelation
+  DescriptorResultNarrowUnchangedResult
+  DescriptorResultNarrowAllowed
 }
 
 ///|
-fn OiDescriptorResultNarrowingFact::proves_can_move_ref_as_non_null_into_cast(
-  self : OiDescriptorResultNarrowingFact,
+priv struct OiDescriptorResultNarrowingEligibilityFact {
+  kind : OiDescriptorResultNarrowingEligibilityKind
+}
+
+///|
+fn OiDescriptorResultNarrowingEligibilityFact::from_narrowing(
+  narrowing_fact : OiDescriptorResultNarrowingFact,
+) -> OiDescriptorResultNarrowingEligibilityFact {
+  // Binaryen v130 descriptor-cast result tightening only rewrites when the
+  // descriptor subtree has no escaping branch control, the reference operand
+  // already matches or subtypes the target heap, and the computed descriptor
+  // result type actually gets narrower. Keep those blockers as an ordered
+  // result fact before the rewrite-plan layer selects the replacement root.
+  ignore(narrowing_fact.descriptor_described_heap)
+  ignore(narrowing_fact.descriptor_described_heap_subtypes_target)
+  ignore(narrowing_fact.descriptor_exactly_describes_target)
+  if !narrowing_fact.descriptor_no_escaping_branch_control {
+    return { kind: DescriptorResultNarrowBlockedByEscapingDescriptorControl }
+  }
+  if !narrowing_fact.operand_relation.proves_matches_or_subtypes_target() {
+    return { kind: DescriptorResultNarrowBlockedByOperandRelation }
+  }
+  if !narrowing_fact.changes_result_type() {
+    return { kind: DescriptorResultNarrowUnchangedResult }
+  }
+  { kind: DescriptorResultNarrowAllowed }
+}
+
+///|
+fn OiDescriptorResultNarrowingEligibilityFact::proves_result_narrowing_allowed(
+  self : OiDescriptorResultNarrowingEligibilityFact,
 ) -> Bool {
-  ignore(self.operand_relation)
-  self.cast_fact.nullable && self.descriptor_no_escaping_branch_control
+  match self.kind {
+    DescriptorResultNarrowBlockedByEscapingDescriptorControl => false
+    DescriptorResultNarrowBlockedByOperandRelation => false
+    DescriptorResultNarrowUnchangedResult => false
+    DescriptorResultNarrowAllowed => true
+  }
+}
+
+///|
+priv enum OiDescriptorRefAsNonNullMoveEligibilityKind {
+  DescriptorRefAsNonNullMoveNonNullableCast
+  DescriptorRefAsNonNullMoveEscapingDescriptorControl
+  DescriptorRefAsNonNullMoveAllowed
+}
+
+///|
+priv struct OiDescriptorRefAsNonNullMoveEligibilityFact {
+  kind : OiDescriptorRefAsNonNullMoveEligibilityKind
+}
+
+///|
+fn OiDescriptorRefAsNonNullMoveEligibilityFact::from_narrowing(
+  narrowing_fact : OiDescriptorResultNarrowingFact,
+) -> OiDescriptorRefAsNonNullMoveEligibilityFact {
+  // Binaryen v130 can sink a surrounding `ref.as_non_null` into a descriptor
+  // cast only while the descriptor cast is still nullable and the descriptor
+  // operand has no escaping branch control. Keep this root-specific movement
+  // guard separate from ordinary descriptor result narrowing so the ref wrapper
+  // path does not consume operand heap-match facts it does not need.
+  ignore(narrowing_fact.operand_relation)
+  if !narrowing_fact.cast_fact.nullable {
+    return { kind: DescriptorRefAsNonNullMoveNonNullableCast }
+  }
+  if !narrowing_fact.descriptor_no_escaping_branch_control {
+    return { kind: DescriptorRefAsNonNullMoveEscapingDescriptorControl }
+  }
+  { kind: DescriptorRefAsNonNullMoveAllowed }
+}
+
+///|
+fn OiDescriptorRefAsNonNullMoveEligibilityFact::proves_ref_as_non_null_move_allowed(
+  self : OiDescriptorRefAsNonNullMoveEligibilityFact,
+) -> Bool {
+  match self.kind {
+    DescriptorRefAsNonNullMoveNonNullableCast => false
+    DescriptorRefAsNonNullMoveEscapingDescriptorControl => false
+    DescriptorRefAsNonNullMoveAllowed => true
+  }
 }
 
 ///|
@@ -5083,7 +5154,10 @@ priv struct OiDescriptorResultNarrowingRewritePlanFact {
 fn OiDescriptorResultNarrowingRewritePlanFact::from_cast_root(
   narrowing_fact : OiDescriptorResultNarrowingFact,
 ) -> OiDescriptorResultNarrowingRewritePlanFact? {
-  if !narrowing_fact.proves_can_narrow_result_type() {
+  let eligibility_fact = OiDescriptorResultNarrowingEligibilityFact::from_narrowing(
+    narrowing_fact,
+  )
+  if !eligibility_fact.proves_result_narrowing_allowed() {
     return None
   }
   Some({ kind: DescriptorResultNarrowCastRoot, narrowing_fact })
@@ -5093,7 +5167,10 @@ fn OiDescriptorResultNarrowingRewritePlanFact::from_cast_root(
 fn OiDescriptorResultNarrowingRewritePlanFact::from_ref_as_non_null_root(
   narrowing_fact : OiDescriptorResultNarrowingFact,
 ) -> OiDescriptorResultNarrowingRewritePlanFact? {
-  if !narrowing_fact.proves_can_move_ref_as_non_null_into_cast() {
+  let eligibility_fact = OiDescriptorRefAsNonNullMoveEligibilityFact::from_narrowing(
+    narrowing_fact,
+  )
+  if !eligibility_fact.proves_ref_as_non_null_move_allowed() {
     return None
   }
   Some({ kind: DescriptorResultNarrowRefAsNonNullRoot, narrowing_fact })
