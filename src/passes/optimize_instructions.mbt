@@ -8185,12 +8185,15 @@ fn OiCallRefNullTrapPlanFact::apply(
 }
 
 ///|
+priv struct OiCallRefSelectDirectArmsFact {
+  true_fact : OiCallRefSelectArmDirectFact
+  false_fact : OiCallRefSelectArmDirectFact
+}
+
+///|
 priv struct OiCallRefSelectTargetFact {
-  same_func : Int
-  true_func : Int
-  false_func : Int
-  condition_id : Int
-  condition_has_effects : Bool
+  direct_arms_fact : OiCallRefSelectDirectArmsFact
+  condition_fact : OiCallRefSelectConditionFact
   residue_arm_id : Int
 }
 
@@ -8747,16 +8750,25 @@ fn OiCallRefSelectConditionFact::from_select_condition(
 }
 
 ///|
-fn OiCallRefSelectConditionFact::from_recorded_condition(
-  func : @ir.HotFunc,
-  condition_id : Int,
-  has_effects : Bool,
-) -> OiCallRefSelectConditionFact? {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
-    [condition_type] if condition_type == @lib.ValType::i32() =>
-      Some({ condition_id, has_effects })
-    _ => None
+fn OiCallRefSelectDirectArmsFact::from_arm_facts(
+  true_fact : OiCallRefSelectArmFact,
+  false_fact : OiCallRefSelectArmFact,
+) -> OiCallRefSelectDirectArmsFact? {
+  // Binaryen v130 `CallUtils::convertToDirectCalls` only enters the select
+  // target directization paths after both arms have been classified as known
+  // direct function targets. Store those proven arm facts directly so the
+  // surrounding select target no longer carries `-1` sentinel function fields.
+  let true_direct_fact = match
+    OiCallRefSelectArmDirectFact::from_arm_fact(true_fact) {
+    Some(fact) => fact
+    None => return None
   }
+  let false_direct_fact = match
+    OiCallRefSelectArmDirectFact::from_arm_fact(false_fact) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({ true_fact: true_direct_fact, false_fact: false_direct_fact })
 }
 
 ///|
@@ -8772,42 +8784,12 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
   // Keep that select-specific target state together instead of spreading the
   // arm ids, same-target proof, and condition effect proof across the generic
   // call_ref target fact.
-  let true_direct_fact = match
-    OiCallRefSelectArmDirectFact::from_arm_fact(true_fact) {
+  let direct_arms_fact = match
+    OiCallRefSelectDirectArmsFact::from_arm_facts(true_fact, false_fact) {
     Some(fact) => fact
     None => return None
   }
-  let false_direct_fact = match
-    OiCallRefSelectArmDirectFact::from_arm_fact(false_fact) {
-    Some(fact) => fact
-    None => return None
-  }
-  let same_func = if true_direct_fact.direct_func ==
-    false_direct_fact.direct_func {
-    true_direct_fact.direct_func
-  } else {
-    -1
-  }
-  Some({
-    same_func,
-    true_func: true_direct_fact.direct_func,
-    false_func: false_direct_fact.direct_func,
-    condition_id: condition_fact.condition_id,
-    condition_has_effects: condition_fact.has_effects,
-    residue_arm_id,
-  })
-}
-
-///|
-fn OiCallRefSelectTargetFact::condition_fact(
-  self : OiCallRefSelectTargetFact,
-  func : @ir.HotFunc,
-) -> OiCallRefSelectConditionFact? {
-  OiCallRefSelectConditionFact::from_recorded_condition(
-    func,
-    self.condition_id,
-    self.condition_has_effects,
-  )
+  Some({ direct_arms_fact, condition_fact, residue_arm_id })
 }
 
 ///|
@@ -8916,47 +8898,44 @@ priv struct OiCallRefSelectDirectCallsFact {
 
 ///|
 fn OiCallRefSelectSameTargetFact::from_select_target(
-  func : @ir.HotFunc,
   select_fact : OiCallRefSelectTargetFact,
 ) -> OiCallRefSelectSameTargetFact? {
   // Binaryen v130 `CallUtils::convertToDirectCalls` takes the identical-arm
   // select path only after both target arms are known direct functions and their
   // function indices match. Keep that same-target proof as a dedicated fact so
-  // the directization plan does not ask sentinel-style questions of the broader
-  // select-target record.
-  if select_fact.same_func < 0 || select_fact.residue_arm_id < 0 {
+  // the directization plan consumes the direct-arm records instead of asking
+  // sentinel-style questions of the broader select-target record.
+  let true_direct_fact = select_fact.direct_arms_fact.true_fact
+  let false_direct_fact = select_fact.direct_arms_fact.false_fact
+  if true_direct_fact.direct_func < 0 ||
+    true_direct_fact.direct_func != false_direct_fact.direct_func ||
+    select_fact.residue_arm_id < 0 {
     return None
   }
-  let condition_fact = match select_fact.condition_fact(func) {
-    Some(fact) => fact
-    None => return None
-  }
   Some({
-    direct_func: select_fact.same_func,
+    direct_func: true_direct_fact.direct_func,
     residue_arm_id: select_fact.residue_arm_id,
-    condition_fact,
+    condition_fact: select_fact.condition_fact,
   })
 }
 
 ///|
 fn OiCallRefSelectDirectCallsFact::from_select_target(
-  func : @ir.HotFunc,
   select_fact : OiCallRefSelectTargetFact,
 ) -> OiCallRefSelectDirectCallsFact? {
   // Binaryen v130 falls back from the identical-arm path to an `if` that calls
   // each proven direct target. This fact owns the two function indices and the
-  // typed i32 condition proof instead of leaving those as open sentinel fields.
-  if select_fact.true_func < 0 || select_fact.false_func < 0 {
+  // typed i32 condition proof by reading the direct-arm proof record instead of
+  // leaving those as open sentinel fields.
+  let true_direct_fact = select_fact.direct_arms_fact.true_fact
+  let false_direct_fact = select_fact.direct_arms_fact.false_fact
+  if true_direct_fact.direct_func < 0 || false_direct_fact.direct_func < 0 {
     return None
   }
-  let condition_fact = match select_fact.condition_fact(func) {
-    Some(fact) => fact
-    None => return None
-  }
   Some({
-    true_func: select_fact.true_func,
-    false_func: select_fact.false_func,
-    condition_fact,
+    true_func: true_direct_fact.direct_func,
+    false_func: false_direct_fact.direct_func,
+    condition_fact: select_fact.condition_fact,
   })
 }
 
@@ -9174,8 +9153,7 @@ fn OiCallRefSelectTargetResidueFact::from_same_target(
 ) -> OiCallRefSelectTargetResidueFact? {
   let same_target_fact = match target_fact.select_fact {
     Some(select_fact) =>
-      match
-        OiCallRefSelectSameTargetFact::from_select_target(func, select_fact) {
+      match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
         Some(fact) => fact
         None => return None
       }
@@ -9317,8 +9295,7 @@ fn OiCallRefDirectizePlanFact::from_target(
   }
   match target_fact.select_fact {
     Some(select_fact) =>
-      match
-        OiCallRefSelectSameTargetFact::from_select_target(func, select_fact) {
+      match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
         Some(_) => {
           let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
             Some(fact) => fact
@@ -9336,8 +9313,7 @@ fn OiCallRefDirectizePlanFact::from_target(
   }
   match target_fact.select_fact {
     Some(select_fact) =>
-      match
-        OiCallRefSelectDirectCallsFact::from_select_target(func, select_fact) {
+      match OiCallRefSelectDirectCallsFact::from_select_target(select_fact) {
         Some(_) => {
           let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
             Some(fact) => fact
@@ -9551,8 +9527,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
 ) -> Int? {
   let same_target_fact = match self.target_fact.select_fact {
     Some(select_fact) =>
-      match
-        OiCallRefSelectSameTargetFact::from_select_target(func, select_fact) {
+      match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
         Some(fact) => fact
         None => return None
       }
@@ -9631,8 +9606,7 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
 ) -> Int? {
   let direct_calls_fact = match self.target_fact.select_fact {
     Some(select_fact) =>
-      match
-        OiCallRefSelectDirectCallsFact::from_select_target(func, select_fact) {
+      match OiCallRefSelectDirectCallsFact::from_select_target(select_fact) {
         Some(fact) => fact
         None => return None
       }
