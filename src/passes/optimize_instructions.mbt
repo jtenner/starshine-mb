@@ -6379,6 +6379,25 @@ priv struct OiCallRefFallthroughDirectTargetFact {
 }
 
 ///|
+priv enum OiCallRefTargetClassificationKind {
+  CallRefTargetUnknown
+  CallRefTargetDirectFunc
+  CallRefTargetTableGet
+  CallRefTargetFallthroughFunc
+  CallRefTargetSelectDirectFuncs
+}
+
+///|
+priv struct OiCallRefTargetClassificationFact {
+  kind : OiCallRefTargetClassificationKind
+  target_id : Int
+  direct_fact : OiCallRefDirectTargetFact?
+  table_fact : OiCallRefTableTargetFact?
+  fallthrough_direct_fact : OiCallRefFallthroughDirectTargetFact?
+  select_fact : OiCallRefSelectTargetFact?
+}
+
+///|
 priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
@@ -6449,6 +6468,22 @@ fn OiCallRefTargetFact::from_fallthrough_direct_fact(
     direct_fact: None,
     table_fact: None,
     fallthrough_direct_fact: Some(fact),
+  }
+}
+
+///|
+fn OiCallRefTargetFact::from_select_fact(
+  fact : OiCallRefSelectTargetFact,
+) -> OiCallRefTargetFact {
+  {
+    direct_func: -1,
+    table_idx: -1,
+    table_index_id: -1,
+    fallthrough_func: -1,
+    select_fact: Some(fact),
+    direct_fact: None,
+    table_fact: None,
+    fallthrough_direct_fact: None,
   }
 }
 
@@ -6566,36 +6601,126 @@ fn OiCallRefFallthroughDirectTargetFact::proves_fallthrough_ref_func(
 }
 
 ///|
-fn OiCallRefTargetFact::from_target(
+fn OiCallRefTargetClassificationFact::unknown(
+  target_id : Int,
+) -> OiCallRefTargetClassificationFact {
+  {
+    kind: CallRefTargetUnknown,
+    target_id,
+    direct_fact: None,
+    table_fact: None,
+    fallthrough_direct_fact: None,
+    select_fact: None,
+  }
+}
+
+///|
+fn OiCallRefTargetClassificationFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   callee_ref_id : Int,
-) -> OiCallRefTargetFact {
+) -> OiCallRefTargetClassificationFact {
+  // Binaryen v130 `visitCallRef` classifies targets in a fixed source order:
+  // direct `ref.func`, immediate `table.get`, `Properties::getFallthrough`
+  // direct `ref.func`, and finally the select/direct-call utility. Keep the
+  // ordered classification as a fact so directization consumes one target
+  // record instead of rebuilding the visitor's opcode cascade inline.
   if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
-    return OiCallRefTargetFact::unknown()
+    return OiCallRefTargetClassificationFact::unknown(callee_ref_id)
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
   match OiCallRefDirectTargetFact::from_target(func, dead, callee_ref_id) {
     Some(fact) if fact.proves_direct_ref_func() =>
-      return OiCallRefTargetFact::from_direct_fact(fact)
+      return {
+        kind: CallRefTargetDirectFunc,
+        target_id: callee_ref_id,
+        direct_fact: Some(fact),
+        table_fact: None,
+        fallthrough_direct_fact: None,
+        select_fact: None,
+      }
     _ => ()
   }
   match OiCallRefTableTargetFact::from_target(func, dead, callee_ref_id) {
     Some(fact) if fact.proves_table_get_target() =>
-      return OiCallRefTargetFact::from_table_fact(fact)
+      return {
+        kind: CallRefTargetTableGet,
+        target_id: callee_ref_id,
+        direct_fact: None,
+        table_fact: Some(fact),
+        fallthrough_direct_fact: None,
+        select_fact: None,
+      }
     _ => ()
   }
   match
     OiCallRefFallthroughDirectTargetFact::from_target(func, dead, callee_ref_id) {
     Some(fact) if fact.proves_fallthrough_ref_func() =>
-      return OiCallRefTargetFact::from_fallthrough_direct_fact(fact)
+      return {
+        kind: CallRefTargetFallthroughFunc,
+        target_id: callee_ref_id,
+        direct_fact: None,
+        table_fact: None,
+        fallthrough_direct_fact: Some(fact),
+        select_fact: None,
+      }
     _ => ()
   }
   match callee_ref.op {
     @ir.HotOp::Select if callee_ref.child_count == 3 =>
-      OiCallRefTargetFact::from_select(func, dead, callee_ref_id)
-    _ => OiCallRefTargetFact::unknown()
+      match OiCallRefSelectTargetFact::from_select(func, dead, callee_ref_id) {
+        Some(fact) =>
+          {
+            kind: CallRefTargetSelectDirectFuncs,
+            target_id: callee_ref_id,
+            direct_fact: None,
+            table_fact: None,
+            fallthrough_direct_fact: None,
+            select_fact: Some(fact),
+          }
+        None => OiCallRefTargetClassificationFact::unknown(callee_ref_id)
+      }
+    _ => OiCallRefTargetClassificationFact::unknown(callee_ref_id)
   }
+}
+
+///|
+fn OiCallRefTargetClassificationFact::target_fact(
+  self : OiCallRefTargetClassificationFact,
+) -> OiCallRefTargetFact {
+  ignore(self.target_id)
+  match self.kind {
+    CallRefTargetDirectFunc =>
+      match self.direct_fact {
+        Some(fact) => OiCallRefTargetFact::from_direct_fact(fact)
+        None => OiCallRefTargetFact::unknown()
+      }
+    CallRefTargetTableGet =>
+      match self.table_fact {
+        Some(fact) => OiCallRefTargetFact::from_table_fact(fact)
+        None => OiCallRefTargetFact::unknown()
+      }
+    CallRefTargetFallthroughFunc =>
+      match self.fallthrough_direct_fact {
+        Some(fact) => OiCallRefTargetFact::from_fallthrough_direct_fact(fact)
+        None => OiCallRefTargetFact::unknown()
+      }
+    CallRefTargetSelectDirectFuncs =>
+      match self.select_fact {
+        Some(fact) => OiCallRefTargetFact::from_select_fact(fact)
+        None => OiCallRefTargetFact::unknown()
+      }
+    CallRefTargetUnknown => OiCallRefTargetFact::unknown()
+  }
+}
+
+///|
+fn OiCallRefTargetFact::from_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  callee_ref_id : Int,
+) -> OiCallRefTargetFact {
+  OiCallRefTargetClassificationFact::from_target(func, dead, callee_ref_id).target_fact()
 }
 
 ///|
@@ -6850,11 +6975,16 @@ fn OiCallRefSelectTargetFact::condition_fact(
 }
 
 ///|
-fn OiCallRefTargetFact::from_select(
+fn OiCallRefSelectTargetFact::from_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   callee_ref_id : Int,
-) -> OiCallRefTargetFact {
+) -> OiCallRefSelectTargetFact? {
+  // Binaryen v130 delegates select target directization to
+  // `CallUtils::convertToDirectCalls` after direct/table/fallthrough targets
+  // have failed. This select fact owns the three child slots and the arm/condition
+  // classification before the outer target-classification fact records the
+  // select as one ordered target family.
   let true_ref_id = @ir.hot_child_get(func, callee_ref_id, 0)
   let false_ref_id = @ir.hot_child_get(func, callee_ref_id, 1)
   let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
@@ -6863,7 +6993,7 @@ fn OiCallRefTargetFact::from_select(
       func, dead, condition_id,
     ) {
     Some(fact) => fact
-    None => return OiCallRefTargetFact::unknown()
+    None => return None
   }
   let true_fact = OiCallRefSelectArmFact::from_target_arm(
     func, dead, true_ref_id,
@@ -6871,23 +7001,9 @@ fn OiCallRefTargetFact::from_select(
   let false_fact = OiCallRefSelectArmFact::from_target_arm(
     func, dead, false_ref_id,
   )
-  match
-    OiCallRefSelectTargetFact::from_direct_arms(
-      condition_fact, true_fact, false_fact, true_ref_id,
-    ) {
-    Some(select_fact) =>
-      {
-        direct_func: -1,
-        table_idx: -1,
-        table_index_id: -1,
-        fallthrough_func: -1,
-        select_fact: Some(select_fact),
-        direct_fact: None,
-        table_fact: None,
-        fallthrough_direct_fact: None,
-      }
-    None => OiCallRefTargetFact::unknown()
-  }
+  OiCallRefSelectTargetFact::from_direct_arms(
+    condition_fact, true_fact, false_fact, true_ref_id,
+  )
 }
 
 ///|
