@@ -32396,214 +32396,237 @@ priv struct RawOiFlatPureScalarAddressFact {
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(
+priv struct RawOiFlatPureScalarLeafFact {
+  key : String
+}
+
+///|
+fn RawOiFlatPureScalarLeafFact::from_instr(
   instr : @lib.Instruction,
-) -> String? {
+) -> RawOiFlatPureScalarLeafFact? {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) =>
-      Some("local.get:\{raw.reinterpret_as_int()}")
+      Some({ key: "local.get:\{raw.reinterpret_as_int()}" })
     @lib.GlobalGet(@lib.GlobalIdx(raw)) =>
-      Some("global.get:\{raw.reinterpret_as_int()}")
-    @lib.I32Const(@lib.I32(raw)) => Some("i32.const:\{raw}")
-    @lib.I64Const(@lib.I64(raw)) => Some("i64.const:\{raw}")
-    @lib.F32Const(@lib.F32(raw)) => Some("f32.const:\{raw}")
-    @lib.F64Const(@lib.F64(raw)) => Some("f64.const:\{raw}")
+      Some({ key: "global.get:\{raw.reinterpret_as_int()}" })
+    @lib.I32Const(@lib.I32(raw)) => Some({ key: "i32.const:\{raw}" })
+    @lib.I64Const(@lib.I64(raw)) => Some({ key: "i64.const:\{raw}" })
+    @lib.F32Const(@lib.F32(raw)) => Some({ key: "f32.const:\{raw}" })
+    @lib.F64Const(@lib.F64(raw)) => Some({ key: "f64.const:\{raw}" })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(
+priv struct RawOiFlatPureScalarUnaryOpFact {
+  key : String
+}
+
+///|
+fn RawOiFlatPureScalarUnaryOpFact::from_instr(
   instr : @lib.Instruction,
-) -> String? {
+) -> RawOiFlatPureScalarUnaryOpFact? {
   match instr {
-    @lib.I32Eqz => Some("i32.eqz")
-    @lib.I32Clz => Some("i32.clz")
-    @lib.I32Ctz => Some("i32.ctz")
-    @lib.I32Popcnt => Some("i32.popcnt")
-    @lib.I64Clz => Some("i64.clz")
-    @lib.I64Ctz => Some("i64.ctz")
-    @lib.I64Popcnt => Some("i64.popcnt")
-    @lib.F32Abs => Some("f32.abs")
-    @lib.F32Neg => Some("f32.neg")
-    @lib.F32Ceil => Some("f32.ceil")
-    @lib.F32Floor => Some("f32.floor")
-    @lib.F32Trunc => Some("f32.trunc")
-    @lib.F32Nearest => Some("f32.nearest")
-    @lib.F32Sqrt => Some("f32.sqrt")
-    @lib.F64Abs => Some("f64.abs")
-    @lib.F64Neg => Some("f64.neg")
-    @lib.F64Ceil => Some("f64.ceil")
-    @lib.F64Floor => Some("f64.floor")
-    @lib.F64Trunc => Some("f64.trunc")
-    @lib.F64Nearest => Some("f64.nearest")
-    @lib.F64Sqrt => Some("f64.sqrt")
-    @lib.I32WrapI64 => Some("i32.wrap_i64")
-    @lib.I32TruncF32S => Some("i32.trunc_f32_s")
-    @lib.I32TruncF32U => Some("i32.trunc_f32_u")
-    @lib.I32TruncF64S => Some("i32.trunc_f64_s")
-    @lib.I32TruncF64U => Some("i32.trunc_f64_u")
-    @lib.I64ExtendI32S => Some("i64.extend_i32_s")
-    @lib.I64ExtendI32U => Some("i64.extend_i32_u")
-    @lib.I64TruncF32S => Some("i64.trunc_f32_s")
-    @lib.I64TruncF32U => Some("i64.trunc_f32_u")
-    @lib.I64TruncF64S => Some("i64.trunc_f64_s")
-    @lib.I64TruncF64U => Some("i64.trunc_f64_u")
-    @lib.F32ConvertI32S => Some("f32.convert_i32_s")
-    @lib.F32ConvertI32U => Some("f32.convert_i32_u")
-    @lib.F32ConvertI64S => Some("f32.convert_i64_s")
-    @lib.F32ConvertI64U => Some("f32.convert_i64_u")
-    @lib.F32DemoteF64 => Some("f32.demote_f64")
-    @lib.F64ConvertI32S => Some("f64.convert_i32_s")
-    @lib.F64ConvertI32U => Some("f64.convert_i32_u")
-    @lib.F64ConvertI64S => Some("f64.convert_i64_s")
-    @lib.F64ConvertI64U => Some("f64.convert_i64_u")
-    @lib.F64PromoteF32 => Some("f64.promote_f32")
-    @lib.I32ReinterpretF32 => Some("i32.reinterpret_f32")
-    @lib.I64ReinterpretF64 => Some("i64.reinterpret_f64")
-    @lib.F32ReinterpretI32 => Some("f32.reinterpret_i32")
-    @lib.F64ReinterpretI64 => Some("f64.reinterpret_i64")
-    @lib.I32Extend8S => Some("i32.extend8_s")
-    @lib.I32Extend16S => Some("i32.extend16_s")
-    @lib.I64Extend8S => Some("i64.extend8_s")
-    @lib.I64Extend16S => Some("i64.extend16_s")
-    @lib.I64Extend32S => Some("i64.extend32_s")
+    @lib.I32Eqz => Some({ key: "i32.eqz" })
+    @lib.I32Clz => Some({ key: "i32.clz" })
+    @lib.I32Ctz => Some({ key: "i32.ctz" })
+    @lib.I32Popcnt => Some({ key: "i32.popcnt" })
+    @lib.I64Clz => Some({ key: "i64.clz" })
+    @lib.I64Ctz => Some({ key: "i64.ctz" })
+    @lib.I64Popcnt => Some({ key: "i64.popcnt" })
+    @lib.F32Abs => Some({ key: "f32.abs" })
+    @lib.F32Neg => Some({ key: "f32.neg" })
+    @lib.F32Ceil => Some({ key: "f32.ceil" })
+    @lib.F32Floor => Some({ key: "f32.floor" })
+    @lib.F32Trunc => Some({ key: "f32.trunc" })
+    @lib.F32Nearest => Some({ key: "f32.nearest" })
+    @lib.F32Sqrt => Some({ key: "f32.sqrt" })
+    @lib.F64Abs => Some({ key: "f64.abs" })
+    @lib.F64Neg => Some({ key: "f64.neg" })
+    @lib.F64Ceil => Some({ key: "f64.ceil" })
+    @lib.F64Floor => Some({ key: "f64.floor" })
+    @lib.F64Trunc => Some({ key: "f64.trunc" })
+    @lib.F64Nearest => Some({ key: "f64.nearest" })
+    @lib.F64Sqrt => Some({ key: "f64.sqrt" })
+    @lib.I32WrapI64 => Some({ key: "i32.wrap_i64" })
+    @lib.I32TruncF32S => Some({ key: "i32.trunc_f32_s" })
+    @lib.I32TruncF32U => Some({ key: "i32.trunc_f32_u" })
+    @lib.I32TruncF64S => Some({ key: "i32.trunc_f64_s" })
+    @lib.I32TruncF64U => Some({ key: "i32.trunc_f64_u" })
+    @lib.I64ExtendI32S => Some({ key: "i64.extend_i32_s" })
+    @lib.I64ExtendI32U => Some({ key: "i64.extend_i32_u" })
+    @lib.I64TruncF32S => Some({ key: "i64.trunc_f32_s" })
+    @lib.I64TruncF32U => Some({ key: "i64.trunc_f32_u" })
+    @lib.I64TruncF64S => Some({ key: "i64.trunc_f64_s" })
+    @lib.I64TruncF64U => Some({ key: "i64.trunc_f64_u" })
+    @lib.F32ConvertI32S => Some({ key: "f32.convert_i32_s" })
+    @lib.F32ConvertI32U => Some({ key: "f32.convert_i32_u" })
+    @lib.F32ConvertI64S => Some({ key: "f32.convert_i64_s" })
+    @lib.F32ConvertI64U => Some({ key: "f32.convert_i64_u" })
+    @lib.F32DemoteF64 => Some({ key: "f32.demote_f64" })
+    @lib.F64ConvertI32S => Some({ key: "f64.convert_i32_s" })
+    @lib.F64ConvertI32U => Some({ key: "f64.convert_i32_u" })
+    @lib.F64ConvertI64S => Some({ key: "f64.convert_i64_s" })
+    @lib.F64ConvertI64U => Some({ key: "f64.convert_i64_u" })
+    @lib.F64PromoteF32 => Some({ key: "f64.promote_f32" })
+    @lib.I32ReinterpretF32 => Some({ key: "i32.reinterpret_f32" })
+    @lib.I64ReinterpretF64 => Some({ key: "i64.reinterpret_f64" })
+    @lib.F32ReinterpretI32 => Some({ key: "f32.reinterpret_i32" })
+    @lib.F64ReinterpretI64 => Some({ key: "f64.reinterpret_i64" })
+    @lib.I32Extend8S => Some({ key: "i32.extend8_s" })
+    @lib.I32Extend16S => Some({ key: "i32.extend16_s" })
+    @lib.I64Extend8S => Some({ key: "i64.extend8_s" })
+    @lib.I64Extend16S => Some({ key: "i64.extend16_s" })
+    @lib.I64Extend32S => Some({ key: "i64.extend32_s" })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
+priv struct RawOiFlatPureScalarBinaryOpFact {
+  key : String
+  commutative : Bool
+}
+
+///|
+fn RawOiFlatPureScalarBinaryOpFact::from_instr(
   instr : @lib.Instruction,
-) -> String? {
+) -> RawOiFlatPureScalarBinaryOpFact? {
   match instr {
-    @lib.I32Add => Some("i32.add")
-    @lib.I32Mul => Some("i32.mul")
-    @lib.I32And => Some("i32.and")
-    @lib.I32Or => Some("i32.or")
-    @lib.I32Xor => Some("i32.xor")
-    @lib.I32Eq => Some("i32.eq")
-    @lib.I32Ne => Some("i32.ne")
-    @lib.I32LtS => Some("i32.lt_s")
-    @lib.I32LtU => Some("i32.lt_u")
-    @lib.I32GtS => Some("i32.gt_s")
-    @lib.I32GtU => Some("i32.gt_u")
-    @lib.I32LeS => Some("i32.le_s")
-    @lib.I32LeU => Some("i32.le_u")
-    @lib.I32GeS => Some("i32.ge_s")
-    @lib.I32GeU => Some("i32.ge_u")
-    @lib.I32Sub => Some("i32.sub")
-    @lib.I32DivS => Some("i32.div_s")
-    @lib.I32DivU => Some("i32.div_u")
-    @lib.I32RemS => Some("i32.rem_s")
-    @lib.I32RemU => Some("i32.rem_u")
-    @lib.I32Shl => Some("i32.shl")
-    @lib.I32ShrS => Some("i32.shr_s")
-    @lib.I32ShrU => Some("i32.shr_u")
-    @lib.I32Rotl => Some("i32.rotl")
-    @lib.I32Rotr => Some("i32.rotr")
-    @lib.I64Add => Some("i64.add")
-    @lib.I64Mul => Some("i64.mul")
-    @lib.I64And => Some("i64.and")
-    @lib.I64Or => Some("i64.or")
-    @lib.I64Xor => Some("i64.xor")
-    @lib.I64Sub => Some("i64.sub")
-    @lib.I64DivS => Some("i64.div_s")
-    @lib.I64DivU => Some("i64.div_u")
-    @lib.I64RemS => Some("i64.rem_s")
-    @lib.I64RemU => Some("i64.rem_u")
-    @lib.I64Shl => Some("i64.shl")
-    @lib.I64ShrS => Some("i64.shr_s")
-    @lib.I64ShrU => Some("i64.shr_u")
-    @lib.I64Rotl => Some("i64.rotl")
-    @lib.I64Rotr => Some("i64.rotr")
-    @lib.I64Eq => Some("i64.eq")
-    @lib.I64Ne => Some("i64.ne")
-    @lib.I64LtS => Some("i64.lt_s")
-    @lib.I64LtU => Some("i64.lt_u")
-    @lib.I64GtS => Some("i64.gt_s")
-    @lib.I64GtU => Some("i64.gt_u")
-    @lib.I64LeS => Some("i64.le_s")
-    @lib.I64LeU => Some("i64.le_u")
-    @lib.I64GeS => Some("i64.ge_s")
-    @lib.I64GeU => Some("i64.ge_u")
-    @lib.F32Eq => Some("f32.eq")
-    @lib.F32Ne => Some("f32.ne")
-    @lib.F32Lt => Some("f32.lt")
-    @lib.F32Gt => Some("f32.gt")
-    @lib.F32Le => Some("f32.le")
-    @lib.F32Ge => Some("f32.ge")
-    @lib.F64Eq => Some("f64.eq")
-    @lib.F64Ne => Some("f64.ne")
-    @lib.F64Lt => Some("f64.lt")
-    @lib.F64Gt => Some("f64.gt")
-    @lib.F64Le => Some("f64.le")
-    @lib.F64Ge => Some("f64.ge")
-    @lib.F32Add => Some("f32.add")
-    @lib.F32Sub => Some("f32.sub")
-    @lib.F32Mul => Some("f32.mul")
-    @lib.F32Div => Some("f32.div")
-    @lib.F32Min => Some("f32.min")
-    @lib.F32Max => Some("f32.max")
-    @lib.F32Copysign => Some("f32.copysign")
-    @lib.F64Add => Some("f64.add")
-    @lib.F64Sub => Some("f64.sub")
-    @lib.F64Mul => Some("f64.mul")
-    @lib.F64Div => Some("f64.div")
-    @lib.F64Min => Some("f64.min")
-    @lib.F64Max => Some("f64.max")
-    @lib.F64Copysign => Some("f64.copysign")
+    @lib.I32Add => Some({ key: "i32.add", commutative: true })
+    @lib.I32Mul => Some({ key: "i32.mul", commutative: true })
+    @lib.I32And => Some({ key: "i32.and", commutative: true })
+    @lib.I32Or => Some({ key: "i32.or", commutative: true })
+    @lib.I32Xor => Some({ key: "i32.xor", commutative: true })
+    @lib.I32Eq => Some({ key: "i32.eq", commutative: true })
+    @lib.I32Ne => Some({ key: "i32.ne", commutative: true })
+    @lib.I32LtS => Some({ key: "i32.lt_s", commutative: false })
+    @lib.I32LtU => Some({ key: "i32.lt_u", commutative: false })
+    @lib.I32GtS => Some({ key: "i32.gt_s", commutative: false })
+    @lib.I32GtU => Some({ key: "i32.gt_u", commutative: false })
+    @lib.I32LeS => Some({ key: "i32.le_s", commutative: false })
+    @lib.I32LeU => Some({ key: "i32.le_u", commutative: false })
+    @lib.I32GeS => Some({ key: "i32.ge_s", commutative: false })
+    @lib.I32GeU => Some({ key: "i32.ge_u", commutative: false })
+    @lib.I32Sub => Some({ key: "i32.sub", commutative: false })
+    @lib.I32DivS => Some({ key: "i32.div_s", commutative: false })
+    @lib.I32DivU => Some({ key: "i32.div_u", commutative: false })
+    @lib.I32RemS => Some({ key: "i32.rem_s", commutative: false })
+    @lib.I32RemU => Some({ key: "i32.rem_u", commutative: false })
+    @lib.I32Shl => Some({ key: "i32.shl", commutative: false })
+    @lib.I32ShrS => Some({ key: "i32.shr_s", commutative: false })
+    @lib.I32ShrU => Some({ key: "i32.shr_u", commutative: false })
+    @lib.I32Rotl => Some({ key: "i32.rotl", commutative: false })
+    @lib.I32Rotr => Some({ key: "i32.rotr", commutative: false })
+    @lib.I64Add => Some({ key: "i64.add", commutative: true })
+    @lib.I64Mul => Some({ key: "i64.mul", commutative: true })
+    @lib.I64And => Some({ key: "i64.and", commutative: true })
+    @lib.I64Or => Some({ key: "i64.or", commutative: true })
+    @lib.I64Xor => Some({ key: "i64.xor", commutative: true })
+    @lib.I64Sub => Some({ key: "i64.sub", commutative: false })
+    @lib.I64DivS => Some({ key: "i64.div_s", commutative: false })
+    @lib.I64DivU => Some({ key: "i64.div_u", commutative: false })
+    @lib.I64RemS => Some({ key: "i64.rem_s", commutative: false })
+    @lib.I64RemU => Some({ key: "i64.rem_u", commutative: false })
+    @lib.I64Shl => Some({ key: "i64.shl", commutative: false })
+    @lib.I64ShrS => Some({ key: "i64.shr_s", commutative: false })
+    @lib.I64ShrU => Some({ key: "i64.shr_u", commutative: false })
+    @lib.I64Rotl => Some({ key: "i64.rotl", commutative: false })
+    @lib.I64Rotr => Some({ key: "i64.rotr", commutative: false })
+    @lib.I64Eq => Some({ key: "i64.eq", commutative: true })
+    @lib.I64Ne => Some({ key: "i64.ne", commutative: true })
+    @lib.I64LtS => Some({ key: "i64.lt_s", commutative: false })
+    @lib.I64LtU => Some({ key: "i64.lt_u", commutative: false })
+    @lib.I64GtS => Some({ key: "i64.gt_s", commutative: false })
+    @lib.I64GtU => Some({ key: "i64.gt_u", commutative: false })
+    @lib.I64LeS => Some({ key: "i64.le_s", commutative: false })
+    @lib.I64LeU => Some({ key: "i64.le_u", commutative: false })
+    @lib.I64GeS => Some({ key: "i64.ge_s", commutative: false })
+    @lib.I64GeU => Some({ key: "i64.ge_u", commutative: false })
+    @lib.F32Eq => Some({ key: "f32.eq", commutative: false })
+    @lib.F32Ne => Some({ key: "f32.ne", commutative: false })
+    @lib.F32Lt => Some({ key: "f32.lt", commutative: false })
+    @lib.F32Gt => Some({ key: "f32.gt", commutative: false })
+    @lib.F32Le => Some({ key: "f32.le", commutative: false })
+    @lib.F32Ge => Some({ key: "f32.ge", commutative: false })
+    @lib.F64Eq => Some({ key: "f64.eq", commutative: false })
+    @lib.F64Ne => Some({ key: "f64.ne", commutative: false })
+    @lib.F64Lt => Some({ key: "f64.lt", commutative: false })
+    @lib.F64Gt => Some({ key: "f64.gt", commutative: false })
+    @lib.F64Le => Some({ key: "f64.le", commutative: false })
+    @lib.F64Ge => Some({ key: "f64.ge", commutative: false })
+    @lib.F32Add => Some({ key: "f32.add", commutative: false })
+    @lib.F32Sub => Some({ key: "f32.sub", commutative: false })
+    @lib.F32Mul => Some({ key: "f32.mul", commutative: false })
+    @lib.F32Div => Some({ key: "f32.div", commutative: false })
+    @lib.F32Min => Some({ key: "f32.min", commutative: false })
+    @lib.F32Max => Some({ key: "f32.max", commutative: false })
+    @lib.F32Copysign => Some({ key: "f32.copysign", commutative: false })
+    @lib.F64Add => Some({ key: "f64.add", commutative: false })
+    @lib.F64Sub => Some({ key: "f64.sub", commutative: false })
+    @lib.F64Mul => Some({ key: "f64.mul", commutative: false })
+    @lib.F64Div => Some({ key: "f64.div", commutative: false })
+    @lib.F64Min => Some({ key: "f64.min", commutative: false })
+    @lib.F64Max => Some({ key: "f64.max", commutative: false })
+    @lib.F64Copysign => Some({ key: "f64.copysign", commutative: false })
     _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
-  op_key : String,
-) -> Bool {
-  match op_key {
-    "i32.add"
-    | "i32.mul"
-    | "i32.and"
-    | "i32.or"
-    | "i32.xor"
-    | "i32.eq"
-    | "i32.ne"
-    | "i64.add"
-    | "i64.mul"
-    | "i64.and"
-    | "i64.or"
-    | "i64.xor"
-    | "i64.eq"
-    | "i64.ne" => true
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
-  op_key : String,
+fn RawOiFlatPureScalarBinaryOpFact::result_key(
+  self : RawOiFlatPureScalarBinaryOpFact,
   left_key : String,
   right_key : String,
-  commutative : Bool,
 ) -> String {
-  if commutative && right_key < left_key {
-    "\{op_key}(\{right_key},\{left_key})"
+  if self.commutative && right_key < left_key {
+    "\{self.key}(\{right_key},\{left_key})"
   } else {
-    "\{op_key}(\{left_key},\{right_key})"
+    "\{self.key}(\{left_key},\{right_key})"
   }
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(
-  key : String,
+fn RawOiFlatPureScalarStackValueFact::leaf(
+  fact : RawOiFlatPureScalarLeafFact,
 ) -> RawOiFlatPureScalarStackValueFact {
   {
-    key,
+    key: fact.key,
     binary_op: "",
     left_key: "",
     right_key: "",
     commutative: false,
+    fallthrough_local_tee: false,
+  }
+}
+
+///|
+fn RawOiFlatPureScalarStackValueFact::unary_result(
+  fact : RawOiFlatPureScalarUnaryOpFact,
+  child : RawOiFlatPureScalarStackValueFact,
+) -> RawOiFlatPureScalarStackValueFact {
+  {
+    key: "\{fact.key}(\{child.key})",
+    binary_op: "",
+    left_key: "",
+    right_key: "",
+    commutative: false,
+    fallthrough_local_tee: false,
+  }
+}
+
+///|
+fn RawOiFlatPureScalarStackValueFact::binary_result(
+  fact : RawOiFlatPureScalarBinaryOpFact,
+  left : RawOiFlatPureScalarStackValueFact,
+  right : RawOiFlatPureScalarStackValueFact,
+) -> RawOiFlatPureScalarStackValueFact {
+  {
+    key: fact.result_key(left.key, right.key),
+    binary_op: fact.key,
+    left_key: left.key,
+    right_key: right.key,
+    commutative: fact.commutative,
     fallthrough_local_tee: false,
   }
 }
@@ -32647,9 +32670,8 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   let mut idx = start
   while idx < instrs.length() &&
         idx - start < run_hot_pipeline_raw_oi_flat_pure_scalar_instr_budget() {
-    match run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_key(instrs[idx]) {
-      Some(key) =>
-        stack.push(run_hot_pipeline_raw_oi_flat_pure_scalar_leaf_fact(key))
+    match RawOiFlatPureScalarLeafFact::from_instr(instrs[idx]) {
+      Some(fact) => stack.push(RawOiFlatPureScalarStackValueFact::leaf(fact))
       None =>
         match instrs[idx] {
           @lib.LocalTee(_) => {
@@ -32674,49 +32696,29 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
             })
           }
           _ =>
-            match
-              run_hot_pipeline_raw_oi_flat_pure_scalar_unary_key(instrs[idx]) {
-              Some(op_key) => {
+            match RawOiFlatPureScalarUnaryOpFact::from_instr(instrs[idx]) {
+              Some(fact) => {
                 if stack.length() < 1 {
                   break
                 }
                 let child = stack.pop().unwrap()
-                stack.push({
-                  key: "\{op_key}(\{child.key})",
-                  binary_op: "",
-                  left_key: "",
-                  right_key: "",
-                  commutative: false,
-                  fallthrough_local_tee: false,
-                })
+                stack.push(
+                  RawOiFlatPureScalarStackValueFact::unary_result(fact, child),
+                )
               }
               None =>
-                match
-                  run_hot_pipeline_raw_oi_flat_pure_scalar_binary_key(
-                    instrs[idx],
-                  ) {
-                  Some(op_key) => {
+                match RawOiFlatPureScalarBinaryOpFact::from_instr(instrs[idx]) {
+                  Some(fact) => {
                     if stack.length() < 2 {
                       break
                     }
                     let right = stack.pop().unwrap()
                     let left = stack.pop().unwrap()
-                    let commutative = run_hot_pipeline_raw_oi_flat_pure_scalar_binary_is_commutative(
-                      op_key,
-                    )
-                    stack.push({
-                      key: run_hot_pipeline_raw_oi_flat_pure_scalar_ordered_binary_key(
-                        op_key,
-                        left.key,
-                        right.key,
-                        commutative,
+                    stack.push(
+                      RawOiFlatPureScalarStackValueFact::binary_result(
+                        fact, left, right,
                       ),
-                      binary_op: op_key,
-                      left_key: left.key,
-                      right_key: right.key,
-                      commutative,
-                      fallthrough_local_tee: false,
-                    })
+                    )
                   }
                   None => break
                 }
