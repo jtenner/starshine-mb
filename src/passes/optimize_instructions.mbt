@@ -20856,22 +20856,31 @@ fn optimize_instructions_try_fold_const_select(
 }
 
 ///|
-fn optimize_instructions_try_apply_demorgan_and_eqz(
-  ctx : HotPassContext,
+priv struct OiDeMorganAndEqzFact {
+  lhs_operand_id : Int
+  rhs_operand_id : Int
+}
+
+///|
+fn OiDeMorganAndEqzFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiDeMorganAndEqzFact? {
+  // Binaryen v130 `optimizeBoolean` rewrites the direct
+  // `i32.and(i32.eqz(x), i32.eqz(y))` shell to `i32.eqz(i32.or(x, y))` while
+  // keeping the original operand order. Keep the exact source-backed shell and
+  // preserved operands as a fact rather than an inline binary-visitor opcode
+  // scanner; broader boolean algebra remains outside this fact.
   match instr {
     @lib.Instruction::I32And => ()
-    _ => return false
+    _ => return None
   }
   if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
     !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-    return false
+    return None
   }
   match
     (
@@ -20879,23 +20888,33 @@ fn optimize_instructions_try_apply_demorgan_and_eqz(
       @ir.hot_node_exact_instr(func, rhs_id),
     ) {
     (Some(@lib.Instruction::I32Eqz), Some(@lib.Instruction::I32Eqz)) => ()
-    _ => return false
+    _ => return None
   }
   if @ir.hot_child_count(func, lhs_id) != 1 ||
     @ir.hot_child_count(func, rhs_id) != 1 {
-    return false
+    return None
   }
   let lhs_operand_id = @ir.hot_child_get(func, lhs_id, 0)
   let rhs_operand_id = @ir.hot_child_get(func, rhs_id, 0)
   if !OiLiveNodeFact::proves_node_live(func, dead, lhs_operand_id) ||
     !OiLiveNodeFact::proves_node_live(func, dead, rhs_operand_id) {
-    return false
+    return None
   }
+  Some({ lhs_operand_id, rhs_operand_id })
+}
+
+///|
+fn OiDeMorganAndEqzFact::apply(
+  self : OiDeMorganAndEqzFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
   let or_id = @ir.hot_build_binary(
     func,
     @lib.ValType::i32(),
-    lhs_operand_id,
-    rhs_operand_id,
+    self.lhs_operand_id,
+    self.rhs_operand_id,
   )
   @ir.hot_node_exact_instr_set(func, or_id, @lib.Instruction::i32_or())
   optimize_instructions_replace_with_exact_unary(
@@ -20905,7 +20924,25 @@ fn optimize_instructions_try_apply_demorgan_and_eqz(
     @lib.Instruction::i32_eqz(),
     or_id,
   )
-  true
+}
+
+///|
+fn optimize_instructions_try_apply_demorgan_and_eqz(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match OiDeMorganAndEqzFact::from_binary(func, dead, instr, lhs_id, rhs_id) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      true
+    }
+    None => false
+  }
 }
 
 ///|
