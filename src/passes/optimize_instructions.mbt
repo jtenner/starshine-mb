@@ -21333,6 +21333,101 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
 }
 
 ///|
+priv struct OiI32ExactConstBinaryFact {
+  result : @lib.I32
+}
+
+///|
+priv struct OiI64ExactConstBinaryFact {
+  result : @lib.I64
+}
+
+///|
+fn OiI32ExactConstBinaryFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI32ExactConstBinaryFact? {
+  // Binaryen v130 `visitBinary` asks the literal-evaluable integer constant
+  // subset before identity/absorbing rewrites. Keep the represented i32 add/sub
+  // pair as a source-shaped fact so the visitor no longer owns a const-opcode
+  // whitelist or repeats the wrapping arithmetic spellings inline.
+  match
+    (
+      instr,
+      optimize_instructions_i32_const(func, dead, lhs_id),
+      optimize_instructions_i32_const(func, dead, rhs_id),
+    ) {
+    (@lib.Instruction::I32Add, Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) =>
+      Some({
+        result: @lib.I32(
+          (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+        ),
+      })
+    (@lib.Instruction::I32Sub, Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) =>
+      Some({
+        result: @lib.I32(
+          (lhs_raw.reinterpret_as_uint() - rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+        ),
+      })
+    _ => None
+  }
+}
+
+///|
+fn OiI64ExactConstBinaryFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI64ExactConstBinaryFact? {
+  // Same Binaryen literal-evaluable constant add/sub fact for the i64 lane.
+  match
+    (
+      instr,
+      optimize_instructions_i64_const(func, dead, lhs_id),
+      optimize_instructions_i64_const(func, dead, rhs_id),
+    ) {
+    (@lib.Instruction::I64Add, Some(@lib.I64(lhs_raw)), Some(@lib.I64(rhs_raw))) =>
+      Some({
+        result: @lib.I64(
+          (lhs_raw.reinterpret_as_uint64() + rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+        ),
+      })
+    (@lib.Instruction::I64Sub, Some(@lib.I64(lhs_raw)), Some(@lib.I64(rhs_raw))) =>
+      Some({
+        result: @lib.I64(
+          (lhs_raw.reinterpret_as_uint64() - rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+        ),
+      })
+    _ => None
+  }
+}
+
+///|
+fn OiI32ExactConstBinaryFact::apply(
+  self : OiI32ExactConstBinaryFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i32(ctx, func, node_id, self.result)
+}
+
+///|
+fn OiI64ExactConstBinaryFact::apply(
+  self : OiI64ExactConstBinaryFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i64(ctx, func, node_id, self.result)
+}
+
+///|
 fn optimize_instructions_try_fold_exact_const_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -21343,60 +21438,20 @@ fn optimize_instructions_try_fold_exact_const_binary(
   rhs_id : Int,
 ) -> Bool {
   match
-    (
-      instr,
-      optimize_instructions_i32_const(func, dead, lhs_id),
-      optimize_instructions_i32_const(func, dead, rhs_id),
-    ) {
-    (@lib.Instruction::I32Add, Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) => {
-      let folded = @lib.I32(
-        (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
-      )
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, folded)
+    OiI32ExactConstBinaryFact::from_operands(func, dead, instr, lhs_id, rhs_id) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      return true
+    }
+    None => ()
+  }
+  match
+    OiI64ExactConstBinaryFact::from_operands(func, dead, instr, lhs_id, rhs_id) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       true
     }
-    (@lib.Instruction::I32Sub, Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) => {
-      let folded = @lib.I32(
-        (lhs_raw.reinterpret_as_uint() - rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
-      )
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, folded)
-      true
-    }
-    _ =>
-      match
-        (
-          instr,
-          optimize_instructions_i64_const(func, dead, lhs_id),
-          optimize_instructions_i64_const(func, dead, rhs_id),
-        ) {
-        (
-          @lib.Instruction::I64Add,
-          Some(@lib.I64(lhs_raw)),
-          Some(@lib.I64(rhs_raw)),
-        ) => {
-          let folded = @lib.I64(
-            (lhs_raw.reinterpret_as_uint64() + rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
-          )
-          optimize_instructions_replace_with_const_i64(
-            ctx, func, node_id, folded,
-          )
-          true
-        }
-        (
-          @lib.Instruction::I64Sub,
-          Some(@lib.I64(lhs_raw)),
-          Some(@lib.I64(rhs_raw)),
-        ) => {
-          let folded = @lib.I64(
-            (lhs_raw.reinterpret_as_uint64() - rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
-          )
-          optimize_instructions_replace_with_const_i64(
-            ctx, func, node_id, folded,
-          )
-          true
-        }
-        _ => false
-      }
+    None => false
   }
 }
 
