@@ -5625,6 +5625,11 @@ priv struct OiBooleanI32MaxBitsFact {
 }
 
 ///|
+priv struct OiDroppedChildrenReplacementFact {
+  drop_ids : Array[Int]
+}
+
+///|
 priv enum OiBooleanMaxBitsBinaryRewriteKind {
   BooleanMaxBitsForwardLeft
   BooleanMaxBitsEqzLeftI32
@@ -5638,6 +5643,7 @@ priv enum OiBooleanMaxBitsBinaryRewriteKind {
 priv struct OiBooleanMaxBitsBinaryRewriteFact {
   kind : OiBooleanMaxBitsBinaryRewriteKind
   left_id : Int
+  dropped_children : OiDroppedChildrenReplacementFact
 }
 
 ///|
@@ -5667,7 +5673,140 @@ fn OiBooleanI32MaxBitsFact::from_node(
 }
 
 ///|
+fn OiDroppedChildrenReplacementFact::empty() -> OiDroppedChildrenReplacementFact {
+  { drop_ids: [] }
+}
+
+///|
+fn OiDroppedChildrenReplacementFact::from_child_ids(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  child_ids : Array[Int],
+) -> OiDroppedChildrenReplacementFact {
+  // Binaryen v130 rewrites such as `replaceZeroBitsWithZero` and maxBits
+  // `bool | 1` delegate erased operands to `getDroppedChildrenAndAppend`.
+  // Represent the bounded HOT subset explicitly: each immediate child whose
+  // subtree has unremovable effects or traps is sequenced as `drop(child)` in
+  // original child order before the synthesized constant, while pure children
+  // are erased.
+  let effects = pass_require_effects(ctx, func)
+  let drop_ids : Array[Int] = []
+  for child_id in child_ids {
+    if !OiNodeEffectPurityFact::from_node_masks(effects.node_masks, child_id).proves_pure() {
+      drop_ids.push(child_id)
+    }
+  }
+  { drop_ids, }
+}
+
+///|
+fn OiDroppedChildrenReplacementFact::from_node_children(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDroppedChildrenReplacementFact {
+  let node = @ir.hot_node_get(func, node_id)
+  let child_ids : Array[Int] = []
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    child_ids.push(@ir.hot_child_get(func, node_id, slot))
+  }
+  OiDroppedChildrenReplacementFact::from_child_ids(ctx, func, child_ids)
+}
+
+///|
+fn OiDroppedChildrenReplacementFact::needs_drops(
+  self : OiDroppedChildrenReplacementFact,
+) -> Bool {
+  self.drop_ids.length() > 0
+}
+
+///|
+fn OiDroppedChildrenReplacementFact::replace_with_const_i32(
+  self : OiDroppedChildrenReplacementFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  value : @lib.I32,
+) -> Unit {
+  if !self.needs_drops() {
+    optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
+    return
+  }
+  let body : Array[Int] = []
+  for drop_id in self.drop_ids {
+    body.push(@ir.hot_build_drop(func, drop_id))
+  }
+  body.push(@ir.hot_build_const_i32(func, value))
+  optimize_instructions_replace_with_block_body(
+    ctx,
+    func,
+    node_id,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    body,
+  )
+}
+
+///|
+fn OiDroppedChildrenReplacementFact::replace_with_const_i64(
+  self : OiDroppedChildrenReplacementFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  value : @lib.I64,
+) -> Unit {
+  if !self.needs_drops() {
+    optimize_instructions_replace_with_const_i64(ctx, func, node_id, value)
+    return
+  }
+  let body : Array[Int] = []
+  for drop_id in self.drop_ids {
+    body.push(@ir.hot_build_drop(func, drop_id))
+  }
+  body.push(@ir.hot_build_const_i64(func, value))
+  optimize_instructions_replace_with_block_body(
+    ctx,
+    func,
+    node_id,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    body,
+  )
+}
+
+///|
+fn optimize_instructions_exact_instr_nontrapping_for_dropped_children(
+  instr : @lib.Instruction,
+) -> Bool {
+  // Keep the non-pure zero-bit rewrite bounded to source-probed numeric
+  // operators whose Binaryen v130 rewrite uses dropped-child preservation.
+  // Trapping div/rem, checked conversions, and effectful multiply-by-zero (kept
+  // by Binaryen) remain boundaries instead of treating nontrapping as enough.
+  match instr {
+    @lib.Instruction::I32And
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I64Or
+    | @lib.Instruction::I32Xor
+    | @lib.Instruction::I64Xor
+    | @lib.Instruction::I32Add
+    | @lib.Instruction::I64Add
+    | @lib.Instruction::I32Shl
+    | @lib.Instruction::I64Shl
+    | @lib.Instruction::I32ShrU
+    | @lib.Instruction::I64ShrU
+    | @lib.Instruction::I32ShrS
+    | @lib.Instruction::I64ShrS
+    | @lib.Instruction::I32Eqz
+    | @lib.Instruction::I64Eqz
+    | @lib.Instruction::I32WrapI64
+    | @lib.Instruction::I64ExtendI32S
+    | @lib.Instruction::I64ExtendI32U => true
+    _ => false
+  }
+}
+
+///|
 fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
@@ -5685,26 +5824,36 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
       ()
     _ => return None
   }
+  let dropped_children = OiDroppedChildrenReplacementFact::empty()
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32Eq, Some(@lib.I32(1)))
     | (@lib.Instruction::I32Ne, Some(@lib.I32(0)))
     | (@lib.Instruction::I32And, Some(@lib.I32(1))) =>
-      Some({ kind: BooleanMaxBitsForwardLeft, left_id: lhs_id })
+      Some({
+        kind: BooleanMaxBitsForwardLeft,
+        left_id: lhs_id,
+        dropped_children,
+      })
     (@lib.Instruction::I32Ne, Some(@lib.I32(1)))
     | (@lib.Instruction::I32Xor, Some(@lib.I32(1))) =>
-      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id })
+      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id, dropped_children })
     (@lib.Instruction::I32Or, Some(@lib.I32(1))) =>
-      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-        Some({ kind: BooleanMaxBitsConstI32One, left_id: lhs_id })
-      } else {
-        None
-      }
+      Some({
+        kind: BooleanMaxBitsConstI32One,
+        left_id: lhs_id,
+        dropped_children: OiDroppedChildrenReplacementFact::from_child_ids(
+          ctx,
+          func,
+          [lhs_id],
+        ),
+      })
     _ => None
   }
 }
 
 ///|
 fn OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
@@ -5721,22 +5870,39 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
       ()
     _ => return None
   }
+  let dropped_children = OiDroppedChildrenReplacementFact::empty()
   match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
     (@lib.Instruction::I64Eq, Some(@lib.I64(1L)))
     | (@lib.Instruction::I64Ne, Some(@lib.I64(0L))) =>
-      Some({ kind: BooleanMaxBitsWrapLeftI64, left_id: lhs_id })
+      Some({
+        kind: BooleanMaxBitsWrapLeftI64,
+        left_id: lhs_id,
+        dropped_children,
+      })
     (@lib.Instruction::I64And, Some(@lib.I64(1L))) =>
-      Some({ kind: BooleanMaxBitsForwardLeft, left_id: lhs_id })
+      Some({
+        kind: BooleanMaxBitsForwardLeft,
+        left_id: lhs_id,
+        dropped_children,
+      })
     (@lib.Instruction::I64Ne, Some(@lib.I64(1L))) =>
-      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id })
+      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id, dropped_children })
     (@lib.Instruction::I64Xor, Some(@lib.I64(1L))) =>
-      Some({ kind: BooleanMaxBitsEqzLeftI64ExtendU, left_id: lhs_id })
+      Some({
+        kind: BooleanMaxBitsEqzLeftI64ExtendU,
+        left_id: lhs_id,
+        dropped_children,
+      })
     (@lib.Instruction::I64Or, Some(@lib.I64(1L))) =>
-      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-        Some({ kind: BooleanMaxBitsConstI64One, left_id: lhs_id })
-      } else {
-        None
-      }
+      Some({
+        kind: BooleanMaxBitsConstI64One,
+        left_id: lhs_id,
+        dropped_children: OiDroppedChildrenReplacementFact::from_child_ids(
+          ctx,
+          func,
+          [lhs_id],
+        ),
+      })
     _ => None
   }
 }
@@ -5794,7 +5960,7 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
           )
       }
     BooleanMaxBitsConstI32One =>
-      optimize_instructions_replace_with_const_i32(
+      self.dropped_children.replace_with_const_i32(
         ctx,
         func,
         node_id,
@@ -5820,7 +5986,7 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
       )
     }
     BooleanMaxBitsConstI64One =>
-      optimize_instructions_replace_with_const_i64(
+      self.dropped_children.replace_with_const_i64(
         ctx,
         func,
         node_id,
@@ -6143,10 +6309,12 @@ priv enum OiZeroBitsReplacementKind {
 ///|
 priv struct OiZeroBitsReplacementFact {
   kind : OiZeroBitsReplacementKind
+  dropped_children : OiDroppedChildrenReplacementFact
 }
 
 ///|
 fn OiZeroBitsReplacementFact::from_node(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
@@ -6154,9 +6322,9 @@ fn OiZeroBitsReplacementFact::from_node(
 ) -> OiZeroBitsReplacementFact? {
   // Binaryen v130 `replaceZeroBitsWithZero` replaces non-constant integer
   // expressions when `Bits::getMaxBits(curr) == 0`, delegating effect
-  // preservation to `getDroppedChildrenAndAppend`. This first Starshine fact
-  // covers the pure expression subset represented by `OiSideEffectFreeExpressionFact`;
-  // effect-preserving dropped-child materialization remains a documented boundary.
+  // preservation to `getDroppedChildrenAndAppend`. Starshine keeps that
+  // decision explicit as dropped-child facts and bounds the non-pure path to
+  // non-trapping numeric roots so operator traps are not erased.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -6164,20 +6332,30 @@ fn OiZeroBitsReplacementFact::from_node(
     @ir.HotOp::Const => return None
     _ => ()
   }
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, node_id) {
-    return None
+  let dropped_children = if OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, node_id,
+    ) {
+    OiDroppedChildrenReplacementFact::empty()
+  } else {
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(instr) if optimize_instructions_exact_instr_nontrapping_for_dropped_children(
+          instr,
+        ) =>
+        OiDroppedChildrenReplacementFact::from_node_children(ctx, func, node_id)
+      _ => return None
+    }
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [value_type] if value_type == @lib.ValType::i32() =>
       match
         OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
-        Some(0) => Some({ kind: ZeroBitsI32 })
+        Some(0) => Some({ kind: ZeroBitsI32, dropped_children })
         _ => None
       }
     [value_type] if value_type == @lib.ValType::i64() =>
       match
         OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
-        Some(0L) => Some({ kind: ZeroBitsI64 })
+        Some(0L) => Some({ kind: ZeroBitsI64, dropped_children })
         _ => None
       }
     _ => None
@@ -6193,14 +6371,14 @@ fn OiZeroBitsReplacementFact::apply(
 ) -> Unit {
   match self.kind {
     ZeroBitsI32 =>
-      optimize_instructions_replace_with_const_i32(
+      self.dropped_children.replace_with_const_i32(
         ctx,
         func,
         node_id,
         @lib.I32(0),
       )
     ZeroBitsI64 =>
-      optimize_instructions_replace_with_const_i64(
+      self.dropped_children.replace_with_const_i64(
         ctx,
         func,
         node_id,
@@ -6466,6 +6644,26 @@ fn optimize_instructions_replace_with_const_i64(
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
   @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_replace_with_block_body(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  block_type : @lib.BlockType,
+  body : Array[Int],
+) -> Unit {
+  let temp = @ir.hot_build_block(func, block_type, body)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
   pass_mark_mutated(ctx, func)
 }
 
@@ -20215,6 +20413,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
 ) -> Bool {
   match
     OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
+      ctx,
       func,
       dead,
       Some(scratch.local_facts),
@@ -20230,6 +20429,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
   }
   match
     OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
+      ctx,
       func,
       dead,
       Some(scratch.local_facts),
@@ -20245,6 +20445,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
   }
   match
     OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
+      ctx,
       func,
       dead,
       Some(scratch.local_facts),
@@ -20260,6 +20461,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
   }
   match
     OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
+      ctx,
       func,
       dead,
       Some(scratch.local_facts),
@@ -20909,7 +21111,8 @@ fn optimize_instructions_try_replace_zero_bits_with_zero(
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Bool {
-  match OiZeroBitsReplacementFact::from_node(func, dead, scratch, node_id) {
+  match
+    OiZeroBitsReplacementFact::from_node(ctx, func, dead, scratch, node_id) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
       true

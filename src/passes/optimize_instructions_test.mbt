@@ -6258,6 +6258,53 @@ test "optimize-instructions replaces zero maxBits expressions with zero" {
 }
 
 ///|
+test "optimize-instructions preserves effects for zero maxBits replacement" {
+  // Red-first OI-D fact slice: Binaryen v130 `replaceZeroBitsWithZero`
+  // delegates erased children to `getDroppedChildrenAndAppend`. For a
+  // non-trapping zero-bit shift with an effectful left child, the effectful
+  // child is dropped before the typed zero replacement instead of blocking the
+  // rewrite.
+  let source =
+    #|(module
+    #|  (func $test (result i32)
+    #|    call $side
+    #|    i32.const 1
+    #|    i32.and
+    #|    i32.const 1
+    #|    i32.shr_u)
+    #|  (func $side (result i32) i32.const 7))
+    #|
+  let func = optimize_instructions_test_run_hot(source)
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected non-pure zero maxBits expression to become drop+const block",
+      )
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  let dropped = @ir.hot_region_get(func, body, 0)
+  match @ir.hot_node_get(func, dropped).op {
+    @ir.HotOp::Drop => ()
+    _ =>
+      fail(
+        "expected zero maxBits rewrite to preserve effectful child with drop",
+      )
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, dropped, 0)),
+    Some(@lib.Instruction::i32_and()),
+  )
+  let result = @ir.hot_region_get(func, body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions replaces boolean maxBits shifts with zero" {
   // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` proves `eqz`
   // and compare results are i32 booleans (maxBits == 1). A one-bit unsigned
@@ -6342,6 +6389,48 @@ test "optimize-instructions rewrites boolean maxBits binary consumers" {
   let xor_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   assert_true(xor_pretty.contains("i32.ne"), msg=xor_pretty)
   assert_false(xor_pretty.contains("i32.xor"), msg=xor_pretty)
+}
+
+///|
+test "optimize-instructions preserves effects for boolean maxBits or-one" {
+  // Red-first OI-D fact slice: Binaryen v130 rewrites one-bit `x | 1` to a
+  // typed constant one, but preserves an effectful boolean child with
+  // `getDroppedChildrenAndAppend`. This covers both i32 and i64 result types.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $side32 (result i32) i32.const 7)
+        #|  (func $side64 (result i64) i64.const 7)
+        #|  (func (result i32)
+        #|    call $side32
+        #|    i32.eqz
+        #|    i32.const 1
+        #|    i32.or)
+        #|  (func (result i64)
+        #|    call $side64
+        #|    i64.const 1
+        #|    i64.and
+        #|    i64.const 1
+        #|    i64.or))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful boolean or-one optimize success, got \{err}")
+  }
+  let i32_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(i32_pretty.contains("drop"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("i32.eqz"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("I32(1)"), msg=i32_pretty)
+  assert_false(i32_pretty.contains("i32.or"), msg=i32_pretty)
+  let i64_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(i64_pretty.contains("drop"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("i64.and"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("I64(1)"), msg=i64_pretty)
+  assert_false(i64_pretty.contains("i64.or"), msg=i64_pretty)
 }
 
 ///|
@@ -40880,13 +40969,16 @@ test "optimize-instructions folds absorbing binary operands" {
     op in ["i32.mul", "i32.and", "i32.rem_s", "i64.mul", "i64.and", "i64.rem_s"] {
     assert_false(id_pretty.contains(op), msg="\{op} not folded: \{id_pretty}")
   }
-  // Boundary: folding to zero would drop the effect, so effectful operands are kept.
+  // Binaryen v130 keeps the effectful multiply and trapping remainder boundary,
+  // but preserves the effectful `and 0` child as a dropped child before `0`.
   let mul_eff = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(mul_eff.contains("i32.mul"), msg=mul_eff)
   assert_true(mul_eff.contains("call"), msg=mul_eff)
   let and_eff = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_true(and_eff.contains("i32.and"), msg=and_eff)
+  assert_false(and_eff.contains("i32.and"), msg=and_eff)
+  assert_true(and_eff.contains("drop"), msg=and_eff)
   assert_true(and_eff.contains("call"), msg=and_eff)
+  assert_true(and_eff.contains("I32(0)"), msg=and_eff)
   let rem_neg1_eff = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   assert_true(rem_neg1_eff.contains("i32.rem_s"), msg=rem_neg1_eff)
   assert_true(rem_neg1_eff.contains("call"), msg=rem_neg1_eff)

@@ -25527,6 +25527,61 @@ priv struct RawOiStackCarriedEffectRegionFact {
 }
 
 ///|
+// Raw OI-D/F/G/H/K skip-decision fact for the stack-carried effect boundary.
+// Binaryen v130 can often localize operands across effect barriers. Starshine's
+// raw fallback no-ops when validation-stack-carried effects are present, except
+// for the already represented source-backed bypass families. Keep that final
+// dispatcher decision as a fact over bypass facts instead of open-coded boolean
+// proof logic in `run_hot_pipeline_raw_optimize_instructions_skip`.
+priv struct RawOiStackCarriedEffectSkipFact {
+  has_blocking_effect : Bool
+  simple_stack_call_binop : Bool
+  tiny_stack_bulk_memory : Bool
+  localtee_same_address_memory_copy : Bool
+  zero_size_stack_bulk_memory : Bool
+  call_indexed_table_get_call_ref : Bool
+  gc_selected_operand_forwarding : Bool
+  gc_effect_localization : Bool
+}
+
+///|
+fn RawOiStackCarriedEffectSkipFact::from_parts(
+  effect_region : RawOiStackCarriedEffectRegionFact,
+  simple_stack_call_binop : Bool,
+  tiny_stack_bulk_memory : Bool,
+  localtee_same_address_memory_copy : Bool,
+  zero_size_stack_bulk_memory : Bool,
+  call_indexed_table_get_call_ref : Bool,
+  gc_selected_operand_forwarding : Bool,
+  gc_effect_localization : Bool,
+) -> RawOiStackCarriedEffectSkipFact {
+  {
+    has_blocking_effect: effect_region.has_blocking_effect,
+    simple_stack_call_binop,
+    tiny_stack_bulk_memory,
+    localtee_same_address_memory_copy,
+    zero_size_stack_bulk_memory,
+    call_indexed_table_get_call_ref,
+    gc_selected_operand_forwarding,
+    gc_effect_localization,
+  }
+}
+
+///|
+fn RawOiStackCarriedEffectSkipFact::proves_accepted_raw_noop(
+  self : RawOiStackCarriedEffectSkipFact,
+) -> Bool {
+  self.has_blocking_effect &&
+  !self.simple_stack_call_binop &&
+  !self.tiny_stack_bulk_memory &&
+  !self.localtee_same_address_memory_copy &&
+  !self.zero_size_stack_bulk_memory &&
+  !self.call_indexed_table_get_call_ref &&
+  !self.gc_selected_operand_forwarding &&
+  !self.gc_effect_localization
+}
+
+///|
 fn RawOiStackCarriedEffectUseFact::is_stack_carried(
   self : RawOiStackCarriedEffectUseFact,
 ) -> Bool {
@@ -33174,14 +33229,17 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_binaryen_localization()
     None => false
   }
-  if RawOiStackCarriedEffectRegionFact::from_instrs(body, env, module_ctx).has_blocking_effect &&
-    !simple_stack_call_binop &&
-    !tiny_stack_bulk_memory &&
-    !localtee_same_address_memory_copy &&
-    !zero_size_stack_bulk_memory &&
-    !call_indexed_table_get_call_ref &&
-    !gc_selected_operand_forwarding &&
-    !gc_effect_localization {
+  let stack_carried_effect_skip = RawOiStackCarriedEffectSkipFact::from_parts(
+    RawOiStackCarriedEffectRegionFact::from_instrs(body, env, module_ctx),
+    simple_stack_call_binop,
+    tiny_stack_bulk_memory,
+    localtee_same_address_memory_copy,
+    zero_size_stack_bulk_memory,
+    call_indexed_table_get_call_ref,
+    gc_selected_operand_forwarding,
+    gc_effect_localization,
+  )
+  if stack_carried_effect_skip.proves_accepted_raw_noop() {
     return Some({
       reason: "stack-carried-effect-optimize-instructions-noop",
       func: skipped_func,
