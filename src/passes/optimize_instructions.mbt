@@ -28136,11 +28136,10 @@ priv struct OiDescriptorOperandEraseFact {
   live : Bool
   side_effect_free : Bool
   node_effects_pure : Bool
-  allocation_can_erase : Bool
-  ref_get_desc_can_erase : Bool
-  ref_as_non_null_can_erase_traps_never_happen : Bool
-  ref_get_desc_can_erase_traps_never_happen : Bool
-  can_erase_traps_never_happen : Bool
+  allocation_fact : OiDescriptorAllocationEraseFact
+  ref_get_desc_fact : OiRefGetDescOperandEraseFact
+  ref_as_non_null_tnh_fact : OiRefAsNonNullDescriptorOperandEraseTnhFact
+  traps_never_happen : Bool
   kind : OiDescriptorOperandEraseKind
 }
 
@@ -28163,34 +28162,27 @@ fn OiDescriptorOperandEraseFact::from_operand(
   let node_effects_pure = optimize_instructions_node_effects_are_pure(
     ctx, func, node_id,
   )
-  let allocation_can_erase = OiDescriptorAllocationEraseFact::from_node(
+  let allocation_fact = OiDescriptorAllocationEraseFact::from_node(
     func, node_id,
-  ).proves_can_erase()
+  )
   let ref_get_desc_fact = OiRefGetDescOperandEraseFact::from_node(
     func, dead, node_id,
   )
-  let ref_get_desc_can_erase = ref_get_desc_fact.proves_default_can_erase()
-  let ref_as_non_null_can_erase_traps_never_happen = OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
+  let ref_as_non_null_tnh_fact = OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
     func, dead, node_id,
-  ).proves_can_erase()
-  let ref_get_desc_can_erase_traps_never_happen = ref_get_desc_fact.proves_tnh_can_erase()
-  let can_erase_traps_never_happen = ctx.traps_never_happen &&
-    (
-      ref_as_non_null_can_erase_traps_never_happen ||
-      ref_get_desc_can_erase_traps_never_happen
-    )
+  )
   let kind = if side_effect_free {
     DescriptorOperandEraseSideEffectFree
   } else if node_effects_pure {
     DescriptorOperandErasePureNodeEffects
-  } else if allocation_can_erase {
+  } else if allocation_fact.proves_can_erase() {
     DescriptorOperandEraseAllocation
-  } else if ref_get_desc_can_erase {
+  } else if ref_get_desc_fact.proves_default_can_erase() {
     DescriptorOperandEraseRefGetDesc
   } else if ctx.traps_never_happen &&
-    ref_as_non_null_can_erase_traps_never_happen {
+    ref_as_non_null_tnh_fact.proves_can_erase() {
     DescriptorOperandEraseRefAsNonNullTrapsNeverHappen
-  } else if ctx.traps_never_happen && ref_get_desc_can_erase_traps_never_happen {
+  } else if ctx.traps_never_happen && ref_get_desc_fact.proves_tnh_can_erase() {
     DescriptorOperandEraseRefGetDescTrapsNeverHappen
   } else {
     DescriptorOperandMustPreserve
@@ -28199,11 +28191,10 @@ fn OiDescriptorOperandEraseFact::from_operand(
     live: true,
     side_effect_free,
     node_effects_pure,
-    allocation_can_erase,
-    ref_get_desc_can_erase,
-    ref_as_non_null_can_erase_traps_never_happen,
-    ref_get_desc_can_erase_traps_never_happen,
-    can_erase_traps_never_happen,
+    allocation_fact,
+    ref_get_desc_fact,
+    ref_as_non_null_tnh_fact,
+    traps_never_happen: ctx.traps_never_happen,
     kind,
   }
 }
@@ -28218,14 +28209,14 @@ fn OiDescriptorOperandEraseFact::proves_erases_without_effects(
   match self.kind {
     DescriptorOperandEraseSideEffectFree => self.side_effect_free
     DescriptorOperandErasePureNodeEffects => self.node_effects_pure
-    DescriptorOperandEraseAllocation => self.allocation_can_erase
-    DescriptorOperandEraseRefGetDesc => self.ref_get_desc_can_erase
+    DescriptorOperandEraseAllocation => self.allocation_fact.proves_can_erase()
+    DescriptorOperandEraseRefGetDesc =>
+      self.ref_get_desc_fact.proves_default_can_erase()
     DescriptorOperandEraseRefAsNonNullTrapsNeverHappen =>
-      self.can_erase_traps_never_happen &&
-      self.ref_as_non_null_can_erase_traps_never_happen
+      self.traps_never_happen &&
+      self.ref_as_non_null_tnh_fact.proves_can_erase()
     DescriptorOperandEraseRefGetDescTrapsNeverHappen =>
-      self.can_erase_traps_never_happen &&
-      self.ref_get_desc_can_erase_traps_never_happen
+      self.traps_never_happen && self.ref_get_desc_fact.proves_tnh_can_erase()
     DescriptorOperandMustPreserve => false
   }
 }
