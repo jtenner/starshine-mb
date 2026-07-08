@@ -30265,11 +30265,36 @@ fn RawOiDescriptorCallArgFact::append_instrs(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descriptor_miss(
+// Raw descriptor exact-miss producer shape for source-order bridge facts.
+// Binaryen v130 `optimizeKnownCastResult` proves a descriptor-cast failure from
+// reference strict-subtype facts plus descriptor producer facts, then preserves
+// observable producer side effects before replacing the failed cast with
+// `unreachable`.
+priv enum RawOiDescriptorMissProducerKind {
+  DescriptorMissProducerDirectCall
+  DescriptorMissProducerDirectCallRef
+  DescriptorMissProducerTableCallRef
+}
+
+///|
+priv struct RawOiDescriptorDirectCallMissFact {
+  end : Int
+  kind : RawOiDescriptorMissProducerKind
+  ref_func : @lib.FuncIdx
+  descriptor_func : @lib.FuncIdx?
+  type_idx : @lib.TypeIdx?
+  table_idx : @lib.TableIdx?
+  target : @lib.HeapType
+  ref_args : Array[@lib.Instruction]
+  desc_args : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiDescriptorDirectCallMissFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorDirectCallMissFact? {
   let ref_args : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
@@ -30316,21 +30341,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
                     descriptor_func,
                     target,
                     desc_args.length(),
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for arg in ref_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  rewritten.push(@lib.Instruction::drop())
-                  for arg in desc_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(descriptor_func))
-                  rewritten.push(@lib.Instruction::drop())
-                  rewritten.push(@lib.Instruction::unreachable_())
-                  return Some((rewritten, desc_scan + 2))
-                }
+                  ) =>
+                  return Some({
+                    end: desc_scan + 2,
+                    kind: DescriptorMissProducerDirectCall,
+                    ref_func,
+                    descriptor_func: Some(descriptor_func),
+                    type_idx: None,
+                    table_idx: None,
+                    target,
+                    ref_args,
+                    desc_args,
+                  })
                 _ => return None
               }
             @lib.RefFunc(descriptor_func) if desc_scan + 2 < instrs.length() =>
@@ -30352,21 +30374,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
                     type_idx,
                     target,
                     desc_args.length(),
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for arg in ref_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  rewritten.push(@lib.Instruction::drop())
-                  for arg in desc_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(descriptor_func))
-                  rewritten.push(@lib.Instruction::drop())
-                  rewritten.push(@lib.Instruction::unreachable_())
-                  return Some((rewritten, desc_scan + 3))
-                }
+                  ) =>
+                  return Some({
+                    end: desc_scan + 3,
+                    kind: DescriptorMissProducerDirectCallRef,
+                    ref_func,
+                    descriptor_func: Some(descriptor_func),
+                    type_idx: Some(type_idx),
+                    table_idx: None,
+                    target,
+                    ref_args,
+                    desc_args,
+                  })
                 _ => return None
               }
             @lib.TableGet(table_idx) if desc_args.length() > 0 &&
@@ -30383,23 +30402,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
                     type_idx,
                     target,
                     desc_args.length() - 1,
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for arg in ref_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  rewritten.push(@lib.Instruction::drop())
-                  for arg in desc_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(
-                    @lib.Instruction::call_indirect(type_idx, table_idx),
-                  )
-                  rewritten.push(@lib.Instruction::drop())
-                  rewritten.push(@lib.Instruction::unreachable_())
-                  return Some((rewritten, desc_scan + 3))
-                }
+                  ) =>
+                  return Some({
+                    end: desc_scan + 3,
+                    kind: DescriptorMissProducerTableCallRef,
+                    ref_func,
+                    descriptor_func: None,
+                    type_idx: Some(type_idx),
+                    table_idx: Some(table_idx),
+                    target,
+                    ref_args,
+                    desc_args,
+                  })
                 _ => return None
               }
             _ => return None
@@ -30414,13 +30428,75 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descri
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_operand_miss(
+fn RawOiDescriptorDirectCallMissFact::proves_binaryen_descriptor_miss(
+  self : RawOiDescriptorDirectCallMissFact,
+) -> Bool {
+  ignore(self.ref_func)
+  ignore(self.target)
+  self.end > 0 &&
+  (match self.kind {
+    DescriptorMissProducerDirectCall | DescriptorMissProducerDirectCallRef =>
+      self.descriptor_func is Some(_)
+    DescriptorMissProducerTableCallRef =>
+      self.type_idx is Some(_) && self.table_idx is Some(_)
+  })
+}
+
+///|
+fn RawOiDescriptorDirectCallMissFact::append_rewrite(
+  self : RawOiDescriptorDirectCallMissFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_descriptor_miss() {
+    return
+  }
+  for arg in self.ref_args {
+    rewritten.push(arg)
+  }
+  rewritten.push(@lib.Instruction::call(self.ref_func))
+  rewritten.push(@lib.Instruction::drop())
+  for arg in self.desc_args {
+    rewritten.push(arg)
+  }
+  match self.kind {
+    DescriptorMissProducerDirectCall | DescriptorMissProducerDirectCallRef =>
+      match self.descriptor_func {
+        Some(descriptor_func) =>
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+        None => return
+      }
+    DescriptorMissProducerTableCallRef =>
+      match (self.type_idx, self.table_idx) {
+        (Some(type_idx), Some(table_idx)) =>
+          rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+        _ => return
+      }
+  }
+  rewritten.push(@lib.Instruction::drop())
+  rewritten.push(@lib.Instruction::unreachable_())
+}
+
+///|
+priv struct RawOiDescriptorLocalOperandMissFact {
+  end : Int
+  kind : RawOiDescriptorMissProducerKind
+  local_idx : @lib.LocalIdx
+  descriptor_func : @lib.FuncIdx?
+  type_idx : @lib.TypeIdx?
+  table_idx : @lib.TableIdx?
+  target : @lib.HeapType
+  desc_value_count : Int
+  desc_args : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiDescriptorLocalOperandMissFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorLocalOperandMissFact? {
   let local_idx = match instrs[start] {
     @lib.LocalGet(local_idx) => local_idx
     _ => return None
@@ -30449,16 +30525,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
             ) &&
             RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
-            ) => {
-            let rewritten : Array[@lib.Instruction] = []
-            for arg in desc_args {
-              rewritten.push(arg)
-            }
-            rewritten.push(@lib.Instruction::call(descriptor_func))
-            rewritten.push(@lib.Instruction::drop())
-            rewritten.push(@lib.Instruction::unreachable_())
-            return Some((rewritten, scan + 2))
-          }
+            ) =>
+            return Some({
+              end: scan + 2,
+              kind: DescriptorMissProducerDirectCall,
+              local_idx,
+              descriptor_func: Some(descriptor_func),
+              type_idx: None,
+              table_idx: None,
+              target,
+              desc_value_count: desc_arg_count,
+              desc_args,
+            })
           _ =>
             match
               RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
@@ -30484,16 +30562,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
             ) &&
             RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
-            ) => {
-            let rewritten : Array[@lib.Instruction] = []
-            for arg in desc_args {
-              rewritten.push(arg)
-            }
-            rewritten.push(@lib.Instruction::call(descriptor_func))
-            rewritten.push(@lib.Instruction::drop())
-            rewritten.push(@lib.Instruction::unreachable_())
-            return Some((rewritten, scan + 3))
-          }
+            ) =>
+            return Some({
+              end: scan + 3,
+              kind: DescriptorMissProducerDirectCallRef,
+              local_idx,
+              descriptor_func: Some(descriptor_func),
+              type_idx: Some(type_idx),
+              table_idx: None,
+              target,
+              desc_value_count: desc_arg_count,
+              desc_args,
+            })
           _ => return None
         }
       @lib.TableGet(table_idx) if desc_arg_count > 0 &&
@@ -30507,16 +30587,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
             ) &&
             RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
-            ) => {
-            let rewritten : Array[@lib.Instruction] = []
-            for arg in desc_args {
-              rewritten.push(arg)
-            }
-            rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
-            rewritten.push(@lib.Instruction::drop())
-            rewritten.push(@lib.Instruction::unreachable_())
-            return Some((rewritten, scan + 3))
-          }
+            ) =>
+            return Some({
+              end: scan + 3,
+              kind: DescriptorMissProducerTableCallRef,
+              local_idx,
+              descriptor_func: None,
+              type_idx: Some(type_idx),
+              table_idx: Some(table_idx),
+              target,
+              desc_value_count: desc_arg_count,
+              desc_args,
+            })
           _ => return None
         }
       arg =>
@@ -30535,6 +30617,53 @@ fn run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_op
   }
   None
 }
+
+///|
+fn RawOiDescriptorLocalOperandMissFact::proves_binaryen_descriptor_miss(
+  self : RawOiDescriptorLocalOperandMissFact,
+) -> Bool {
+  ignore(self.local_idx)
+  ignore(self.target)
+  self.end > 0 &&
+  self.desc_value_count >= 0 &&
+  (match self.kind {
+    DescriptorMissProducerDirectCall | DescriptorMissProducerDirectCallRef =>
+      self.descriptor_func is Some(_)
+    DescriptorMissProducerTableCallRef =>
+      self.type_idx is Some(_) && self.table_idx is Some(_)
+  })
+}
+
+///|
+fn RawOiDescriptorLocalOperandMissFact::append_rewrite(
+  self : RawOiDescriptorLocalOperandMissFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_descriptor_miss() {
+    return
+  }
+  for arg in self.desc_args {
+    rewritten.push(arg)
+  }
+  match self.kind {
+    DescriptorMissProducerDirectCall | DescriptorMissProducerDirectCallRef =>
+      match self.descriptor_func {
+        Some(descriptor_func) =>
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+        None => return
+      }
+    DescriptorMissProducerTableCallRef =>
+      match (self.type_idx, self.table_idx) {
+        (Some(type_idx), Some(table_idx)) =>
+          rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+        _ => return
+      }
+  }
+  rewritten.push(@lib.Instruction::drop())
+  rewritten.push(@lib.Instruction::unreachable_())
+}
+
+///|
 
 ///|
 // Raw exact-descriptor success fact for balanced local-argument direct calls.
@@ -30643,11 +30772,34 @@ fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::append_rewrite(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descriptor_success(
+// Raw typed-table exact descriptor success facts. Binaryen v130 removes
+// exact descriptor casts when the reference producer is known exact and the
+// descriptor producer exactly describes the same target; Starshine preserves
+// the producer calls and drops only the now-unused descriptor result.
+priv enum RawOiDescriptorTnhExactSuccessKind {
+  DescriptorTnhIndirectReferenceDirectDescriptor
+  DescriptorTnhDirectReferenceIndirectDescriptor
+}
+
+///|
+priv struct RawOiDescriptorTnhCallIndirectExactSuccessFact {
+  end : Int
+  kind : RawOiDescriptorTnhExactSuccessKind
+  ref_func : @lib.FuncIdx?
+  descriptor_func : @lib.FuncIdx?
+  type_idx : @lib.TypeIdx
+  table_idx : @lib.TableIdx
+  target : @lib.HeapType
+  ref_inputs : Array[@lib.Instruction]
+  desc_inputs : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_reference_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorTnhCallIndirectExactSuccessFact? {
   let ref_inputs : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
@@ -30678,16 +30830,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descri
             ) &&
             RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx, descriptor_func, target, 0,
-            ) => {
-            let rewritten : Array[@lib.Instruction] = []
-            for input in ref_inputs {
-              rewritten.push(input)
-            }
-            rewritten.push(@lib.Instruction::call_indirect(type_idx, table_idx))
-            rewritten.push(@lib.Instruction::call(descriptor_func))
-            rewritten.push(@lib.Instruction::drop())
-            return Some((rewritten, scan + 3))
-          }
+            ) =>
+            return Some({
+              end: scan + 3,
+              kind: DescriptorTnhIndirectReferenceDirectDescriptor,
+              ref_func: None,
+              descriptor_func: Some(descriptor_func),
+              type_idx,
+              table_idx,
+              target,
+              ref_inputs,
+              desc_inputs: [],
+            })
           _ => return None
         }
       }
@@ -30698,11 +30852,11 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descri
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_exact_success(
+fn RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_descriptor_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorTnhCallIndirectExactSuccessFact? {
   let ref_inputs : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
@@ -30752,21 +30906,18 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_e
                     type_idx,
                     target,
                     desc_inputs.length() - 1,
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for input in ref_inputs {
-                    rewritten.push(input)
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  for input in desc_inputs {
-                    rewritten.push(input)
-                  }
-                  rewritten.push(
-                    @lib.Instruction::call_indirect(type_idx, table_idx),
-                  )
-                  rewritten.push(@lib.Instruction::drop())
-                  return Some((rewritten, desc_scan + 2))
-                }
+                  ) =>
+                  return Some({
+                    end: desc_scan + 2,
+                    kind: DescriptorTnhDirectReferenceIndirectDescriptor,
+                    ref_func: Some(ref_func),
+                    descriptor_func: None,
+                    type_idx,
+                    table_idx,
+                    target,
+                    ref_inputs,
+                    desc_inputs,
+                  })
                 _ => return None
               }
             _ => return None
@@ -30781,6 +30932,64 @@ fn run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_e
 }
 
 ///|
+fn RawOiDescriptorTnhCallIndirectExactSuccessFact::proves_binaryen_exact_success(
+  self : RawOiDescriptorTnhCallIndirectExactSuccessFact,
+) -> Bool {
+  ignore(self.target)
+  self.end > 0 &&
+  (match self.kind {
+    DescriptorTnhIndirectReferenceDirectDescriptor =>
+      self.descriptor_func is Some(_) && self.ref_inputs.length() > 0
+    DescriptorTnhDirectReferenceIndirectDescriptor =>
+      self.ref_func is Some(_) && self.desc_inputs.length() > 0
+  })
+}
+
+///|
+fn RawOiDescriptorTnhCallIndirectExactSuccessFact::append_rewrite(
+  self : RawOiDescriptorTnhCallIndirectExactSuccessFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_exact_success() {
+    return
+  }
+  match self.kind {
+    DescriptorTnhIndirectReferenceDirectDescriptor => {
+      for input in self.ref_inputs {
+        rewritten.push(input)
+      }
+      rewritten.push(
+        @lib.Instruction::call_indirect(self.type_idx, self.table_idx),
+      )
+      match self.descriptor_func {
+        Some(descriptor_func) =>
+          rewritten.push(@lib.Instruction::call(descriptor_func))
+        None => return
+      }
+      rewritten.push(@lib.Instruction::drop())
+    }
+    DescriptorTnhDirectReferenceIndirectDescriptor => {
+      for input in self.ref_inputs {
+        rewritten.push(input)
+      }
+      match self.ref_func {
+        Some(ref_func) => rewritten.push(@lib.Instruction::call(ref_func))
+        None => return
+      }
+      for input in self.desc_inputs {
+        rewritten.push(input)
+      }
+      rewritten.push(
+        @lib.Instruction::call_indirect(self.type_idx, self.table_idx),
+      )
+      rewritten.push(@lib.Instruction::drop())
+    }
+  }
+}
+
+///|
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor_success_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -30790,32 +30999,28 @@ fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor
   let mut i = 0
   while i < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_descriptor_exact_success(
+      RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_descriptor_instrs(
         instrs, i, module_ctx,
       ) {
-      Some((indirect_rewrite, next_i)) => {
-        for instr in indirect_rewrite {
-          rewritten.push(instr)
-        }
+      Some(fact) if fact.proves_binaryen_exact_success() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     match
-      run_hot_pipeline_raw_optimize_instructions_try_tnh_call_indirect_exact_descriptor_success(
+      RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_reference_instrs(
         instrs, i, module_ctx,
       ) {
-      Some((indirect_rewrite, next_i)) => {
-        for instr in indirect_rewrite {
-          rewritten.push(instr)
-        }
+      Some(fact) if fact.proves_binaryen_exact_success() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     rewritten.push(instrs[i])
     i = i + 1
@@ -30824,11 +31029,26 @@ fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_exactification(
+// Raw direct-call descriptor exactification fact. Binaryen v130
+// `optimizeKnownCastResult` strengthens nullable or inexact descriptor casts
+// when both the reference value and descriptor producer are known to target the
+// same described heap type.
+priv struct RawOiDescriptorDirectCallExactificationFact {
+  end : Int
+  ref_func : @lib.FuncIdx
+  descriptor_func : @lib.FuncIdx
+  target : @lib.HeapType
+  result_nullable : Bool
+  ref_args : Array[@lib.Instruction]
+  desc_args : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiDescriptorDirectCallExactificationFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Int)? {
+) -> RawOiDescriptorDirectCallExactificationFact? {
   let ref_args : Array[@lib.Instruction] = []
   let mut scan = start
   while scan < instrs.length() {
@@ -30880,23 +31100,16 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                     descriptor_func,
                     target,
                     desc_args.length(),
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for arg in ref_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  for arg in desc_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(descriptor_func))
-                  rewritten.push(
-                    @lib.Instruction::ref_cast_desc_eq_type(
-                      @lib.RefType::new(false, target, exact=true),
-                    ),
-                  )
-                  return Some((rewritten, desc_scan + 2))
-                }
+                  ) =>
+                  return Some({
+                    end: desc_scan + 2,
+                    ref_func,
+                    descriptor_func,
+                    target,
+                    result_nullable: false,
+                    ref_args,
+                    desc_args,
+                  })
                 _ => return None
               }
             @lib.RefFunc(descriptor_func) if desc_scan + 2 < instrs.length() =>
@@ -30904,61 +31117,44 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
                 (
                   @lib.CallRef(type_idx),
                   @lib.RefCastDescEq(nullable, exact, target),
-                ) if (nullable || !exact) &&
-                  (
-                    RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
-                      module_ctx,
-                      ref_func,
-                      target,
-                      ref_args.length(),
-                    ) ||
-                    (
-                      nullable &&
-                      !exact &&
-                      RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count(
-                        module_ctx,
-                        ref_func,
-                        target,
-                        ref_args.length(),
-                      )
-                    )
-                  ) &&
-                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+                ) => {
+                  let non_null_fact = RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
                     module_ctx,
-                    descriptor_func,
+                    ref_func,
                     target,
-                    desc_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
-                    module_ctx,
-                    type_idx,
-                    target,
-                    desc_args.length(),
-                  ) => {
-                  let rewritten : Array[@lib.Instruction] = []
-                  for arg in ref_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(ref_func))
-                  for arg in desc_args {
-                    rewritten.push(arg)
-                  }
-                  rewritten.push(@lib.Instruction::call(descriptor_func))
-                  rewritten.push(
-                    @lib.Instruction::ref_cast_desc_eq_type(
-                      @lib.RefType::new(
-                        !RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
-                          module_ctx,
-                          ref_func,
-                          target,
-                          ref_args.length(),
-                        ),
-                        target,
-                        exact=true,
-                      ),
-                    ),
+                    ref_args.length(),
                   )
-                  return Some((rewritten, desc_scan + 3))
+                  let nullable_fact = RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count(
+                    module_ctx,
+                    ref_func,
+                    target,
+                    ref_args.length(),
+                  )
+                  if (nullable || !exact) &&
+                    (non_null_fact || (nullable && !exact && nullable_fact)) &&
+                    RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+                      module_ctx,
+                      descriptor_func,
+                      target,
+                      desc_args.length(),
+                    ) &&
+                    RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+                      module_ctx,
+                      type_idx,
+                      target,
+                      desc_args.length(),
+                    ) {
+                    return Some({
+                      end: desc_scan + 3,
+                      ref_func,
+                      descriptor_func,
+                      target,
+                      result_nullable: !non_null_fact,
+                      ref_args,
+                      desc_args,
+                    })
+                  }
+                  return None
                 }
                 _ => return None
               }
@@ -30972,6 +31168,41 @@ fn run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descrip
   }
   None
 }
+
+///|
+fn RawOiDescriptorDirectCallExactificationFact::proves_binaryen_exactification(
+  self : RawOiDescriptorDirectCallExactificationFact,
+) -> Bool {
+  ignore(self.ref_func)
+  ignore(self.descriptor_func)
+  ignore(self.target)
+  self.end > 0
+}
+
+///|
+fn RawOiDescriptorDirectCallExactificationFact::append_rewrite(
+  self : RawOiDescriptorDirectCallExactificationFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  if !self.proves_binaryen_exactification() {
+    return
+  }
+  for arg in self.ref_args {
+    rewritten.push(arg)
+  }
+  rewritten.push(@lib.Instruction::call(self.ref_func))
+  for arg in self.desc_args {
+    rewritten.push(arg)
+  }
+  rewritten.push(@lib.Instruction::call(self.descriptor_func))
+  rewritten.push(
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(self.result_nullable, self.target, exact=true),
+    ),
+  )
+}
+
+///|
 
 ///|
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
@@ -31010,18 +31241,16 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_bo
   let mut i = 0
   while i < instrs.length() {
     match
-      run_hot_pipeline_raw_optimize_instructions_try_pure_local_direct_call_descriptor_exactification(
+      RawOiDescriptorDirectCallExactificationFact::from_instrs(
         instrs, i, module_ctx,
       ) {
-      Some((direct_call_rewrite, next_i)) => {
-        for instr in direct_call_rewrite {
-          rewritten.push(instr)
-        }
+      Some(fact) if fact.proves_binaryen_exactification() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     rewritten.push(instrs[i])
     i = i + 1
@@ -31423,32 +31652,26 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       _ => ()
     }
     match
-      run_hot_pipeline_raw_optimize_instructions_try_nontrapping_direct_call_descriptor_miss(
-        instrs, i, module_ctx,
-      ) {
-      Some((direct_call_rewrite, next_i)) => {
-        for instr in direct_call_rewrite {
-          rewritten.push(instr)
-        }
+      RawOiDescriptorDirectCallMissFact::from_instrs(instrs, i, module_ctx) {
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     match
-      run_hot_pipeline_raw_optimize_instructions_try_nontrapping_descriptor_call_operand_miss(
+      RawOiDescriptorLocalOperandMissFact::from_instrs(
         instrs, i, module_ctx, params, locals,
       ) {
-      Some((descriptor_call_rewrite, next_i)) => {
-        for instr in descriptor_call_rewrite {
-          rewritten.push(instr)
-        }
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
         changed = true
-        i = next_i
+        i = fact.end
         continue
       }
-      None => ()
+      _ => ()
     }
     match
       RawOiDescriptorLocalDefaultMissFact::from_instrs(
