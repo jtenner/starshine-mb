@@ -6598,6 +6598,35 @@ test "optimize-instructions rewrites unsigned maxBits signed div rem shift spell
 }
 
 ///|
+test "optimize-instructions rewrites eqz wrap_i64 with unsigned maxBits" {
+  // Red-first OI-D fact slice: Binaryen v130 rewrites
+  // `i32.eqz(i32.wrap_i64(x))` to `i64.eqz(x)` when `Bits::getMaxBits(x) <= 32`.
+  // Keep the proof in the shared unsigned-max fact so bounded i64 producers,
+  // including bitwise masks, feed both spelling and eqz-wrap consumers.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i64) (result i32)
+        #|    local.get $x
+        #|    i64.const 4294967295
+        #|    i64.and
+        #|    i32.wrap_i64
+        #|    i32.eqz))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected eqz wrap_i64 optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.eqz"), msg=pretty)
+  assert_false(pretty.contains("i32.wrap_i64"), msg=pretty)
+  assert_false(pretty.contains("i32.eqz"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds unsigned maxBits signed compares" {
   let pure_source =
     #|(module

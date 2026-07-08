@@ -5510,6 +5510,43 @@ fn optimize_instructions_i32_unsigned_max_fact_for_node(
 }
 
 ///|
+priv struct OiEqzWrapI64MaxBitsFact {
+  value_id : Int
+}
+
+///|
+fn OiEqzWrapI64MaxBitsFact::from_eqz_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  instr : @lib.Instruction,
+  operand_id : Int,
+) -> OiEqzWrapI64MaxBitsFact? {
+  // Binaryen v130 rewrites `i32.eqz(i32.wrap_i64(x))` to `i64.eqz(x)` when
+  // `Bits::getMaxBits(x) <= 32`. Reuse the shared unsigned-max fact instead of
+  // adding a local wrapper scanner so all source-backed maxBits producers feed
+  // this consumer.
+  match instr {
+    @lib.Instruction::I32Eqz => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, operand_id) {
+    Some(@lib.Instruction::I32WrapI64) if @ir.hot_child_count(func, operand_id) ==
+      1 => ()
+    _ => return None
+  }
+  let value_id = @ir.hot_child_get(func, operand_id, 0)
+  if !OiLiveNodeFact::proves_node_live(func, dead, value_id) {
+    return None
+  }
+  match
+    OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, value_id).i64_max {
+    Some(max_value) if max_value <= 4294967295L => Some({ value_id, })
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_i64_unsigned_max_fact_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -19070,12 +19107,29 @@ fn optimize_instructions_try_fold_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
   instr : @lib.Instruction,
   operand_id : Int,
 ) -> Bool {
   if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return false
+  }
+  match
+    OiEqzWrapI64MaxBitsFact::from_eqz_operand(
+      func, dead, scratch, instr, operand_id,
+    ) {
+    Some(fact) => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_eqz(),
+        fact.value_id,
+      )
+      return true
+    }
+    None => ()
   }
   let operand = func.nodes[operand_id]
   match (instr, operand.op, @ir.hot_node_exact_instr(func, operand_id)) {
@@ -25895,6 +25949,7 @@ fn optimize_instructions_visit_node(
           ctx,
           func,
           dead,
+          scratch,
           node_id,
           func.instr_payloads[node.imm0].instr,
           func.children[node.child_base],
