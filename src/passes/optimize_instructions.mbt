@@ -2502,100 +2502,178 @@ fn OiRefTestOperandFact::misses_exact_target_by_strict_subtype(
 }
 
 ///|
-fn OiRefTestOperandFact::success_only_if_non_null(
-  self : OiRefTestOperandFact,
+priv struct OiRefTestOperandTargetRelationFact {
+  source_exact_heap : Bool
+  source_final_heap : Bool
+  source_nullable_matches_target : Bool
+  source_non_null_matches_target : Bool
+  source_matches_exact_test_target : Bool
+  source_matches_final_exact_test_target : Bool
+  source_matches_nullable_exact_target_only_as_null : Bool
+  source_misses_target : Bool
+  source_null_or_known_miss_for_non_null_target : Bool
+  source_misses_exact_target : Bool
+  source_misses_exact_target_by_strict_subtype : Bool
+  producer_exact_heap : Bool
+  producer_final_heap : Bool
+  producer_nullable_matches_target : Bool
+  producer_non_null_matches_target : Bool
+  producer_matches_exact_test_target : Bool
+  producer_matches_final_exact_test_target : Bool
+  producer_matches_nullable_exact_target_only_as_null : Bool
+  producer_misses_target : Bool
+  producer_misses_exact_target : Bool
+  producer_misses_exact_target_by_strict_subtype : Bool
+}
+
+///|
+fn OiRefTestOperandTargetRelationFact::from_operand(
   ctx : HotPassContext,
+  operand_fact : OiRefTestOperandFact,
   target : @lib.HeapType,
+  target_nullable : Bool,
+) -> OiRefTestOperandTargetRelationFact {
+  // Binaryen v130 ordinary `ref.test` lowers `GCTypeUtils::evaluateCastCheck`
+  // source/target outcomes into Success, Failure, SuccessOnlyIfNull, and
+  // SuccessOnlyIfNonNull. Keep Starshine's direct source-type and fallthrough
+  // producer proofs in one relation fact before result-kind planning instead of
+  // leaving the evaluation table to recompute parallel predicate cascades.
+  {
+    source_exact_heap: operand_fact.source_has_exact_heap(target),
+    source_final_heap: operand_fact.source_has_final_heap(ctx, target),
+    source_nullable_matches_target: operand_fact.nullable_matches_target(
+      ctx, target,
+    ),
+    source_non_null_matches_target: operand_fact.non_null_matches_target(
+      ctx, target,
+    ),
+    source_matches_exact_test_target: operand_fact.matches_exact_test_target(
+      target, target_nullable,
+    ),
+    source_matches_final_exact_test_target: operand_fact.matches_final_exact_test_target(
+      ctx, target, target_nullable,
+    ),
+    source_matches_nullable_exact_target_only_as_null: operand_fact.matches_nullable_exact_target_only_as_null(
+      ctx, target, target_nullable,
+    ),
+    source_misses_target: operand_fact.misses_target(ctx, target),
+    source_null_or_known_miss_for_non_null_target: operand_fact.null_or_known_miss_for_non_null_target(
+      ctx, target,
+    ),
+    source_misses_exact_target: operand_fact.misses_exact_target(
+      target, target_nullable,
+    ),
+    source_misses_exact_target_by_strict_subtype: operand_fact.misses_exact_target_by_strict_subtype(
+      ctx, target, target_nullable,
+    ),
+    producer_exact_heap: operand_fact.producer_fact.exact_heap(target),
+    producer_final_heap: operand_fact.producer_fact.has_final_heap(ctx, target),
+    producer_nullable_matches_target: operand_fact.producer_fact.nullable_matches_target(
+      ctx, target,
+    ),
+    producer_non_null_matches_target: operand_fact.producer_fact.non_null_matches_target(
+      ctx, target,
+    ),
+    producer_matches_exact_test_target: operand_fact.producer_fact.matches_exact_test_target(
+      target, target_nullable,
+    ),
+    producer_matches_final_exact_test_target: operand_fact.producer_fact.matches_final_exact_test_target(
+      ctx, target, target_nullable,
+    ),
+    producer_matches_nullable_exact_target_only_as_null: operand_fact.producer_fact.matches_nullable_exact_target_only_as_null(
+      ctx, target, target_nullable,
+    ),
+    producer_misses_target: operand_fact.producer_fact.misses_target(
+      ctx, target, target_nullable,
+    ),
+    producer_misses_exact_target: operand_fact.producer_fact.misses_exact_target(
+      target, target_nullable,
+    ),
+    producer_misses_exact_target_by_strict_subtype: operand_fact.producer_fact.misses_exact_target_by_strict_subtype(
+      ctx, target, target_nullable,
+    ),
+  }
+}
+
+///|
+fn OiRefTestOperandTargetRelationFact::proves_success_only_if_non_null(
+  self : OiRefTestOperandTargetRelationFact,
   nullable : Bool,
   exact : Bool,
 ) -> Bool {
   not(nullable) &&
   (
     not(exact) ||
-    self.source_has_exact_heap(target) ||
-    self.source_has_final_heap(ctx, target) ||
-    self.producer_fact.exact_heap(target) ||
-    self.producer_fact.has_final_heap(ctx, target)
+    self.source_exact_heap ||
+    self.source_final_heap ||
+    self.producer_exact_heap ||
+    self.producer_final_heap
   ) &&
-  (
-    self.nullable_matches_target(ctx, target) ||
-    self.producer_fact.nullable_matches_target(ctx, target)
-  )
+  (self.source_nullable_matches_target || self.producer_nullable_matches_target)
 }
 
 ///|
-fn OiRefTestOperandFact::success_only_if_null(
-  self : OiRefTestOperandFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-  nullable : Bool,
+fn OiRefTestOperandTargetRelationFact::proves_success_only_if_null(
+  self : OiRefTestOperandTargetRelationFact,
   exact : Bool,
 ) -> Bool {
   exact &&
   (
-    self.matches_nullable_exact_target_only_as_null(ctx, target, nullable) ||
-    self.producer_fact.matches_nullable_exact_target_only_as_null(
-      ctx, target, nullable,
-    )
+    self.source_matches_nullable_exact_target_only_as_null ||
+    self.producer_matches_nullable_exact_target_only_as_null
   )
 }
 
 ///|
-fn OiRefTestOperandFact::known_success(
-  self : OiRefTestOperandFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
+fn OiRefTestOperandTargetRelationFact::proves_known_success(
+  self : OiRefTestOperandTargetRelationFact,
   nullable : Bool,
   exact : Bool,
 ) -> Bool {
   (
     not(exact) &&
     (
-      self.non_null_matches_target(ctx, target) ||
-      self.producer_fact.non_null_matches_target(ctx, target)
+      self.source_non_null_matches_target ||
+      self.producer_non_null_matches_target
     )
   ) ||
   (
     exact &&
     (
-      self.matches_exact_test_target(target, nullable) ||
-      self.matches_final_exact_test_target(ctx, target, nullable) ||
-      self.producer_fact.matches_exact_test_target(target, nullable) ||
-      self.producer_fact.matches_final_exact_test_target(ctx, target, nullable)
+      self.source_matches_exact_test_target ||
+      self.source_matches_final_exact_test_target ||
+      self.producer_matches_exact_test_target ||
+      self.producer_matches_final_exact_test_target
     )
   ) ||
   (
     not(exact) &&
     nullable &&
     (
-      self.nullable_matches_target(ctx, target) ||
-      self.producer_fact.nullable_matches_target(ctx, target)
+      self.source_nullable_matches_target ||
+      self.producer_nullable_matches_target
     )
   )
 }
 
 ///|
-fn OiRefTestOperandFact::known_failure(
-  self : OiRefTestOperandFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
+fn OiRefTestOperandTargetRelationFact::proves_known_failure(
+  self : OiRefTestOperandTargetRelationFact,
   nullable : Bool,
   exact : Bool,
 ) -> Bool {
-  self.misses_target(ctx, target) ||
-  self.producer_fact.misses_target(ctx, target, nullable) ||
+  self.source_misses_target ||
+  self.producer_misses_target ||
   (
     exact &&
     (
-      self.misses_exact_target(target, nullable) ||
-      self.misses_exact_target_by_strict_subtype(ctx, target, nullable) ||
-      self.producer_fact.misses_exact_target(target, nullable) ||
-      self.producer_fact.misses_exact_target_by_strict_subtype(
-        ctx, target, nullable,
-      )
+      self.source_misses_exact_target ||
+      self.source_misses_exact_target_by_strict_subtype ||
+      self.producer_misses_exact_target ||
+      self.producer_misses_exact_target_by_strict_subtype
     )
   ) ||
-  (not(nullable) && self.null_or_known_miss_for_non_null_target(ctx, target))
+  (not(nullable) && self.source_null_or_known_miss_for_non_null_target)
 }
 
 ///|
@@ -2726,16 +2804,19 @@ fn OiRefTestEvaluationFact::from_test(
       ).kind,
     }
   }
-  if operand_fact.success_only_if_non_null(ctx, target, nullable, exact) {
+  let relation_fact = OiRefTestOperandTargetRelationFact::from_operand(
+    ctx, operand_fact, target, nullable,
+  )
+  if relation_fact.proves_success_only_if_non_null(nullable, exact) {
     return { kind: RefTestSuccessOnlyIfNonNull }
   }
-  if operand_fact.success_only_if_null(ctx, target, nullable, exact) {
+  if relation_fact.proves_success_only_if_null(exact) {
     return { kind: RefTestSuccessOnlyIfNull }
   }
-  if operand_fact.known_success(ctx, target, nullable, exact) {
+  if relation_fact.proves_known_success(nullable, exact) {
     return { kind: RefTestSuccess }
   }
-  if operand_fact.known_failure(ctx, target, nullable, exact) {
+  if relation_fact.proves_known_failure(nullable, exact) {
     return { kind: RefTestFailure }
   }
   { kind: RefTestUnknown }
