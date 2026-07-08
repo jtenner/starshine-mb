@@ -5643,6 +5643,12 @@ priv struct OiCallRefIfFallthroughTargetFact {
 }
 
 ///|
+priv struct OiCallRefLoopFallthroughTargetFact {
+  body_id : Int
+  body_fact : OiCallRefFallthroughTargetFact
+}
+
+///|
 fn OiCallRefFallthroughTargetFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5700,6 +5706,14 @@ fn OiCallRefFallthroughTargetFact::from_node(
         depth=depth + 1,
       )
     }
+    @ir.HotOp::Loop =>
+      match
+        OiCallRefLoopFallthroughTargetFact::from_loop_target(
+          func, dead, node_id, depth,
+        ) {
+        Some(fact) if fact.proves_ref_func_body_fallthrough() => fact.body_fact
+        _ => OiCallRefFallthroughTargetFact::unknown()
+      }
     @ir.HotOp::If =>
       match
         OiCallRefIfFallthroughTargetFact::from_if_target(
@@ -5711,6 +5725,47 @@ fn OiCallRefFallthroughTargetFact::from_node(
       }
     _ => OiCallRefFallthroughTargetFact::unknown()
   }
+}
+
+///|
+fn OiCallRefLoopFallthroughTargetFact::from_loop_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth : Int,
+) -> OiCallRefLoopFallthroughTargetFact? {
+  // Binaryen v130 `Properties::getImmediateFallthrough` descends from a loop
+  // target to its body before `visitCallRef` asks whether the final fallthrough
+  // is a `ref.func`. The represented safe subset keeps the whole loop target in
+  // the later dropped evaluation but only proves a single explicit body root;
+  // multi-root blockified loop bodies and branch/EH loop exits remain reopening
+  // criteria for a ChildLocalizer/effect-aware loop fact.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Loop => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return None
+  }
+  let body_id = @ir.hot_region_get(func, body_ref, 0)
+  if !OiLiveNodeFact::proves_node_live(func, dead, body_id) {
+    return None
+  }
+  let body_fact = OiCallRefFallthroughTargetFact::from_node(
+    func,
+    dead,
+    body_id,
+    depth=depth + 1,
+  )
+  Some({ body_id, body_fact })
+}
+
+///|
+fn OiCallRefLoopFallthroughTargetFact::proves_ref_func_body_fallthrough(
+  self : OiCallRefLoopFallthroughTargetFact,
+) -> Bool {
+  self.body_id >= 0 && self.body_fact.has_direct_func()
 }
 
 ///|
