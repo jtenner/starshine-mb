@@ -1940,7 +1940,7 @@ fn OiDescriptorTypeFact::exactly_describes(
 priv struct OiDescriptorOperandFact {
   type_fact : OiDescriptorTypeFact
   traps_without_effects : Bool
-  can_erase : Bool
+  erases_without_effects : Bool
   should_localize_when_skipped : Bool
   may_drop_exactness_for_tnh_escaping_ref_get_desc : Bool
 }
@@ -1995,9 +1995,9 @@ fn OiDescriptorOperandFact::from_operand(
     traps_without_effects: OiDescriptorOperandTrapFact::from_operand(
       func, node_id,
     ).proves_traps_without_effects(),
-    can_erase: OiDescriptorOperandEraseFact::from_operand(
+    erases_without_effects: OiDescriptorOperandEraseFact::from_operand(
       ctx, func, dead, node_id,
-    ).proves_can_erase(),
+    ).proves_erases_without_effects(),
     should_localize_when_skipped: OiDescriptorOperandSkipLocalizationFact::from_operand(
       func, node_id,
     ).proves_should_localize_when_skipped(),
@@ -3822,8 +3822,8 @@ priv struct OiDescriptorExactMissFact {
   cast_fact : OiDescriptorCastFact
   descriptor_exactly_describes_target : Bool
   ref_operand_misses_target : Bool
-  descriptor_can_erase : Bool
-  ref_operand_can_erase : Bool
+  descriptor_erases_without_effects : Bool
+  ref_operand_erases_without_effects : Bool
   ref_operand_can_drop_before_unreachable : Bool
   descriptor_can_drop_before_unreachable : Bool
   descriptor_call_can_drop_before_unreachable : Bool
@@ -3863,13 +3863,13 @@ fn OiDescriptorExactMissFact::from_node(
       cast_fact.descriptor_id,
     ).exactly_describes(cast_fact.target),
     ref_operand_misses_target: ref_operand_fact.proves_exact_target_miss(),
-    descriptor_can_erase: OiDescriptorOperandEraseFact::from_operand(
+    descriptor_erases_without_effects: OiDescriptorOperandEraseFact::from_operand(
       ctx,
       func,
       dead,
       cast_fact.descriptor_id,
-    ).proves_can_erase(),
-    ref_operand_can_erase: ref_operand_fact.proves_operand_erases_without_effects(),
+    ).proves_erases_without_effects(),
+    ref_operand_erases_without_effects: ref_operand_fact.proves_operand_erases_without_effects(),
     ref_operand_can_drop_before_unreachable: operand_drop_fact.live &&
     (
       (
@@ -3926,13 +3926,13 @@ fn OiDescriptorExactMissRewritePlanFact::from_miss(
     !miss_fact.ref_operand_misses_target {
     return None
   }
-  let kind = if miss_fact.descriptor_can_erase &&
-    miss_fact.ref_operand_can_erase {
+  let kind = if miss_fact.descriptor_erases_without_effects &&
+    miss_fact.ref_operand_erases_without_effects {
     DescriptorExactMissUnreachable
-  } else if miss_fact.descriptor_can_erase &&
+  } else if miss_fact.descriptor_erases_without_effects &&
     miss_fact.ref_operand_can_drop_before_unreachable {
     DescriptorExactMissDropOperandThenUnreachable
-  } else if miss_fact.ref_operand_can_erase &&
+  } else if miss_fact.ref_operand_erases_without_effects &&
     (
       miss_fact.descriptor_can_drop_before_unreachable ||
       miss_fact.descriptor_call_can_drop_before_unreachable
@@ -4091,7 +4091,7 @@ fn OiDescriptorTnhSkipRewritePlanFact::from_skip(
   }
   let cast_fact = skip_fact.cast_fact
   let descriptor_fact = skip_fact.descriptor_fact
-  let kind = if descriptor_fact.can_erase {
+  let kind = if descriptor_fact.erases_without_effects {
     DescriptorTnhSkipForwardOperand
   } else if OiDescriptorSkipOrderFact::from_node(func, cast_fact.operand_id).proves_must_preserve_operand_order() {
     DescriptorTnhSkipLocalizeOperandThenDescriptor
@@ -4229,12 +4229,12 @@ fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
     return None
   }
   let kind = if cast_fact.nullable {
-    if descriptor_fact.can_erase {
+    if descriptor_fact.erases_without_effects {
       DescriptorNullCastTypedNull
     } else {
       DescriptorNullCastDropDescriptorThenTypedNull
     }
-  } else if descriptor_fact.can_erase {
+  } else if descriptor_fact.erases_without_effects {
     DescriptorNullCastUnreachable
   } else {
     DescriptorNullCastDropDescriptorThenUnreachable
@@ -27284,6 +27284,17 @@ fn OiRefAsNonNullDescriptorOperandEraseTnhFact::proves_can_erase(
 }
 
 ///|
+priv enum OiDescriptorOperandEraseKind {
+  DescriptorOperandMustPreserve
+  DescriptorOperandEraseSideEffectFree
+  DescriptorOperandErasePureNodeEffects
+  DescriptorOperandEraseAllocation
+  DescriptorOperandEraseRefGetDesc
+  DescriptorOperandEraseRefAsNonNullTrapsNeverHappen
+  DescriptorOperandEraseRefGetDescTrapsNeverHappen
+}
+
+///|
 priv struct OiDescriptorOperandEraseFact {
   live : Bool
   side_effect_free : Bool
@@ -27293,7 +27304,7 @@ priv struct OiDescriptorOperandEraseFact {
   ref_as_non_null_can_erase_traps_never_happen : Bool
   ref_get_desc_can_erase_traps_never_happen : Bool
   can_erase_traps_never_happen : Bool
-  can_erase : Bool
+  kind : OiDescriptorOperandEraseKind
 }
 
 ///|
@@ -27306,8 +27317,9 @@ fn OiDescriptorOperandEraseFact::from_operand(
   // Binaryen v130's descriptor-cast/test rewrites use `getDroppedChildren...`,
   // trap-on-null, skipNonNullCast, ChildLocalizer, and EffectAnalyzer to decide
   // whether descriptor operands may disappear. This fact records Starshine's
-  // current represented erasure reasons in one source-backed place instead of a
-  // helper-local cascade of raw purity, allocation, ref.get_desc, and TNH checks.
+  // current represented erasure reasons in one source-backed place and lowers
+  // them to an ordered result kind instead of a helper-local cascade of raw
+  // purity, allocation, ref.get_desc, and TNH checks.
   let side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func, dead, node_id,
   )
@@ -27330,11 +27342,22 @@ fn OiDescriptorOperandEraseFact::from_operand(
       ref_as_non_null_can_erase_traps_never_happen ||
       ref_get_desc_can_erase_traps_never_happen
     )
-  let can_erase = side_effect_free ||
-    node_effects_pure ||
-    allocation_can_erase ||
-    ref_get_desc_can_erase ||
-    can_erase_traps_never_happen
+  let kind = if side_effect_free {
+    DescriptorOperandEraseSideEffectFree
+  } else if node_effects_pure {
+    DescriptorOperandErasePureNodeEffects
+  } else if allocation_can_erase {
+    DescriptorOperandEraseAllocation
+  } else if ref_get_desc_can_erase {
+    DescriptorOperandEraseRefGetDesc
+  } else if ctx.traps_never_happen &&
+    ref_as_non_null_can_erase_traps_never_happen {
+    DescriptorOperandEraseRefAsNonNullTrapsNeverHappen
+  } else if ctx.traps_never_happen && ref_get_desc_can_erase_traps_never_happen {
+    DescriptorOperandEraseRefGetDescTrapsNeverHappen
+  } else {
+    DescriptorOperandMustPreserve
+  }
   {
     live: true,
     side_effect_free,
@@ -27344,29 +27367,30 @@ fn OiDescriptorOperandEraseFact::from_operand(
     ref_as_non_null_can_erase_traps_never_happen,
     ref_get_desc_can_erase_traps_never_happen,
     can_erase_traps_never_happen,
-    can_erase,
+    kind,
   }
 }
 
 ///|
-fn OiDescriptorOperandEraseFact::proves_can_erase(
+fn OiDescriptorOperandEraseFact::proves_erases_without_effects(
   self : OiDescriptorOperandEraseFact,
 ) -> Bool {
-  self.live &&
-  self.can_erase &&
-  (
-    self.side_effect_free ||
-    self.node_effects_pure ||
-    self.allocation_can_erase ||
-    self.ref_get_desc_can_erase ||
-    (
+  if !self.live {
+    return false
+  }
+  match self.kind {
+    DescriptorOperandEraseSideEffectFree => self.side_effect_free
+    DescriptorOperandErasePureNodeEffects => self.node_effects_pure
+    DescriptorOperandEraseAllocation => self.allocation_can_erase
+    DescriptorOperandEraseRefGetDesc => self.ref_get_desc_can_erase
+    DescriptorOperandEraseRefAsNonNullTrapsNeverHappen =>
       self.can_erase_traps_never_happen &&
-      (
-        self.ref_as_non_null_can_erase_traps_never_happen ||
-        self.ref_get_desc_can_erase_traps_never_happen
-      )
-    )
-  )
+      self.ref_as_non_null_can_erase_traps_never_happen
+    DescriptorOperandEraseRefGetDescTrapsNeverHappen =>
+      self.can_erase_traps_never_happen &&
+      self.ref_get_desc_can_erase_traps_never_happen
+    DescriptorOperandMustPreserve => false
+  }
 }
 
 ///|
