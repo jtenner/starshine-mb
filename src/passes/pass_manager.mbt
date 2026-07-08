@@ -32365,6 +32365,12 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
 }
 
 ///|
+// Accepted raw OI-G fact parser substrate. Binaryen proves
+// trap-relaxed same-address `memory.copy` through `ExpressionAnalyzer::equal`
+// and fallthrough facts; this flat raw bridge records the represented postfix
+// scalar-tree subset as `RawOiFlatPureScalarAddressFact` so the later copy
+// bridge consumes named address/equality facts instead of open-coded windows.
+// Reopen if these helpers grow rewrite actions or non-address proof logic.
 priv struct RawOiFlatPureScalarStackValueFact {
   key : String
   binary_op : String
@@ -32743,6 +32749,9 @@ fn RawOiFlatPureScalarAddressFact::proves_equal(
 }
 
 ///|
+// Accepted raw OI-G emission helper. The caller must have already proven a
+// `RawOiFlatPureScalarAddressFact`-backed rewrite; this routine only preserves
+// the dropped operand instructions and appends the required drop.
 fn run_hot_pipeline_raw_oi_push_dropped_range(
   out : Array[@lib.Instruction],
   instrs : Array[@lib.Instruction],
@@ -32756,6 +32765,10 @@ fn run_hot_pipeline_raw_oi_push_dropped_range(
 }
 
 ///|
+// Accepted raw OI-G traversal bridge over `RawOiFlatPureScalarAddressFact`.
+// The body-level loop remains responsible for recursion and drop emission, but
+// same-address proof must stay in the flat pure-scalar address facts rather
+// than reappearing as inline operand windows here.
 fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_instr(
   instr : @lib.Instruction,
 ) -> (@lib.Instruction, Bool) {
@@ -53369,6 +53382,9 @@ fn run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
 }
 
 ///|
+// Accepted raw OI-J label-retarget helper for escaping `ref.get_desc`
+// flattening. This only applies Binaryen-style block removal depth adjustment;
+// it is not a proof that flattening is legal.
 fn run_hot_pipeline_raw_oi_decrement_escaping_label(
   label_idx : @lib.LabelIdx,
 ) -> @lib.LabelIdx? {
@@ -53394,6 +53410,10 @@ fn run_hot_pipeline_raw_oi_decrement_escaping_label_vec(
 }
 
 ///|
+// Accepted raw OI-J descriptor-result type helper. It is a narrow module-type
+// lookup used by the escaping `ref.get_desc` flattening bridge when it must
+// rebuild a descriptor block; rewrite eligibility belongs in standalone
+// `ref.get_desc` / descriptor facts, not this helper.
 fn run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
   module_ctx : @ir.HotModuleContext,
   described_type : @lib.TypeIdx,
@@ -53416,6 +53436,13 @@ fn run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
 }
 
 ///|
+// Open raw OI-J scanner debt. This post-lowering canonicalization flattens a
+// narrow set of escaping `ref.get_desc` null-check/control wrappers that the
+// current HOT representation cannot yet express cleanly through the standalone
+// `ref.get_desc` facts. Keep it as a documented representation bridge only
+// until `RawOiEscapingRefGetDescFlattenFact` (or equivalent) can carry the
+// payload/control-shape proof and rewrite payload. Do not add new pattern arms
+// here without first extracting a named fact and red-first coverage.
 fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
