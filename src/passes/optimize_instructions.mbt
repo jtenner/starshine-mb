@@ -6715,15 +6715,6 @@ fn OiCallRefTargetClassificationFact::target_fact(
 }
 
 ///|
-fn OiCallRefTargetFact::from_target(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  callee_ref_id : Int,
-) -> OiCallRefTargetFact {
-  OiCallRefTargetClassificationFact::from_target(func, dead, callee_ref_id).target_fact()
-}
-
-///|
 priv struct OiCallRefSelectArmFact {
   direct_func : Int
   ref_func_heap : @lib.HeapType?
@@ -7765,10 +7756,16 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
 }
 
 ///|
-priv struct OiCallRefDirectizationFact {
+priv struct OiCallRefInvocationFact {
   source_target_id : Int
   effective_target_id : Int
   args : Array[Int]
+  target_classification_fact : OiCallRefTargetClassificationFact
+}
+
+///|
+priv struct OiCallRefDirectizationFact {
+  invocation_fact : OiCallRefInvocationFact
   plan_fact : OiCallRefDirectizePlanFact
 }
 
@@ -7786,12 +7783,21 @@ priv struct OiCallRefRewriteFact {
 }
 
 ///|
-fn OiCallRefDirectizationFact::from_call_ref(
+fn OiCallRefInvocationFact::from_call_ref(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
   node : @ir.HotNode,
-) -> OiCallRefDirectizationFact? {
+) -> OiCallRefInvocationFact? {
+  // Binaryen v130 `visitCallRef` treats the final child as the callee reference
+  // and all earlier children as call operands before applying target
+  // `skipNonNullCast` and direct/table/fallthrough/select classification. Keep
+  // that child-slot layout and the effective-target projection as one invocation
+  // fact so directization plans consume a source-shaped call_ref record instead
+  // of rebuilding the target/argument split inline.
+  if node.child_count < 1 {
+    return None
+  }
   let callee_ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
   if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
     return None
@@ -7804,24 +7810,50 @@ fn OiCallRefDirectizationFact::from_call_ref(
   if effective_callee_ref_id < 0 {
     return None
   }
-  let target_fact = OiCallRefTargetFact::from_target(
-    func, dead, effective_callee_ref_id,
-  )
   let args : Array[Int] = []
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
     args.push(@ir.hot_child_get(func, node_id, slot))
   }
-  let plan_fact = match
-    OiCallRefDirectizePlanFact::from_target(func, target_fact, args) {
-    Some(fact) => fact
-    None => return None
-  }
+  let target_classification_fact = OiCallRefTargetClassificationFact::from_target(
+    func, dead, effective_callee_ref_id,
+  )
   Some({
     source_target_id: callee_ref_id,
     effective_target_id: effective_callee_ref_id,
     args,
-    plan_fact,
+    target_classification_fact,
   })
+}
+
+///|
+fn OiCallRefInvocationFact::target_fact(
+  self : OiCallRefInvocationFact,
+) -> OiCallRefTargetFact {
+  self.target_classification_fact.target_fact()
+}
+
+///|
+fn OiCallRefDirectizationFact::from_call_ref(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  node : @ir.HotNode,
+) -> OiCallRefDirectizationFact? {
+  let invocation_fact = match
+    OiCallRefInvocationFact::from_call_ref(func, dead, node_id, node) {
+    Some(fact) => fact
+    None => return None
+  }
+  let plan_fact = match
+    OiCallRefDirectizePlanFact::from_target(
+      func,
+      invocation_fact.target_fact(),
+      invocation_fact.args,
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({ invocation_fact, plan_fact })
 }
 
 ///|
@@ -7831,7 +7863,8 @@ fn OiCallRefDirectizationFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  if self.source_target_id < 0 || self.effective_target_id < 0 {
+  if self.invocation_fact.source_target_id < 0 ||
+    self.invocation_fact.effective_target_id < 0 {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -7839,8 +7872,8 @@ fn OiCallRefDirectizationFact::apply(
     self.plan_fact.build_replacement(
       func,
       node,
-      self.effective_target_id,
-      self.args,
+      self.invocation_fact.effective_target_id,
+      self.invocation_fact.args,
     ) {
     Some(replacement) => replacement
     None => return false
