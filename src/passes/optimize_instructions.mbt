@@ -3132,6 +3132,90 @@ fn OiDescriptorCastFact::from_node(
 }
 
 ///|
+priv struct OiDescriptorCastTighteningFact {
+  cast_fact : OiDescriptorCastFact
+  operand_fallthrough_non_null : Bool
+  narrowed_ref_type : @lib.RefType
+}
+
+///|
+fn OiDescriptorCastTighteningFact::from_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cast_fact : OiDescriptorCastFact,
+) -> OiDescriptorCastTighteningFact? {
+  // Binaryen v130 `visitRefCast` tightens descriptor-cast nullability before
+  // known-result cleanup: descriptor casts cannot change their heap target from
+  // the reference operand because the descriptor child controls that, but a
+  // non-null fallthrough reference makes every successful result non-null. Keep
+  // this separate from descriptor success/exactness facts because it does not
+  // require proving that the operand heap already matches or subtypes the target.
+  if !cast_fact.nullable {
+    return None
+  }
+  let operand_fallthrough_non_null = match
+    OiRefFallthroughFact::from_node(ctx, func, cast_fact.operand_id).ref_type {
+    Some(ref_type) => ref_type.is_non_nullable()
+    None => false
+  }
+  if !operand_fallthrough_non_null {
+    return None
+  }
+  Some({
+    cast_fact,
+    operand_fallthrough_non_null,
+    narrowed_ref_type: @lib.RefType::new(
+      false,
+      cast_fact.target,
+      exact=cast_fact.exact,
+    ),
+  })
+}
+
+///|
+priv struct OiDescriptorCastTighteningRewritePlanFact {
+  tightening_fact : OiDescriptorCastTighteningFact
+}
+
+///|
+fn OiDescriptorCastTighteningRewritePlanFact::from_fact(
+  tightening_fact : OiDescriptorCastTighteningFact,
+) -> OiDescriptorCastTighteningRewritePlanFact? {
+  if !tightening_fact.operand_fallthrough_non_null {
+    return None
+  }
+  Some({ tightening_fact, })
+}
+
+///|
+fn OiDescriptorCastTighteningRewritePlanFact::apply(
+  self : OiDescriptorCastTighteningRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let cast_fact = self.tightening_fact.cast_fact
+  let narrowed_ref_type = self.tightening_fact.narrowed_ref_type
+  let payload_id = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(
+      @lib.Instruction::ref_cast_desc_eq_type(narrowed_ref_type),
+    ),
+  )
+  let narrowed = @ir.hot_build_node(
+    func,
+    @ir.hot_node_get(func, cast_fact.node_id).op,
+    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(narrowed_ref_type)),
+    imm1=payload_id,
+    children=[cast_fact.operand_id, cast_fact.descriptor_id],
+  )
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+  @ir.hot_delete_node(func, narrowed)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 priv struct OiDescriptorExactMissDropBeforeUnreachableFact {
   live : Bool
   control_or_exit_root : Bool
@@ -21267,7 +21351,16 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   )
   match
     OiDescriptorResultNarrowingRewritePlanFact::from_cast_root(narrowing_fact) {
-    Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+    Some(plan_fact) => return plan_fact.apply(ctx, func, node_id)
+    None => ()
+  }
+  match OiDescriptorCastTighteningFact::from_cast(ctx, func, cast_fact) {
+    Some(tightening_fact) =>
+      match
+        OiDescriptorCastTighteningRewritePlanFact::from_fact(tightening_fact) {
+        Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+        None => false
+      }
     None => false
   }
 }

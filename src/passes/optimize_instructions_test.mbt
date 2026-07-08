@@ -10767,6 +10767,97 @@ test "optimize-instructions narrows nullable descriptor casts on exact non-null 
 }
 
 ///|
+test "optimize-instructions tightens nullable descriptor casts from non-null fallthrough facts" {
+  // Binaryen v130 `visitRefCast` tightens descriptor-cast nullability from
+  // `getFallthroughType(ref)` before known-result cleanup. Unlike ordinary
+  // descriptor result narrowing, this does not require proving the reference
+  // heap matches/subtypes the descriptor target: a successful descriptor cast of
+  // any non-null reference still returns a non-null target or traps. Lock that
+  // source-backed step as a descriptor-cast fact rather than widening the old
+  // operand/target scanner.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap)),
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(false, descriptor_heap),
+                ),
+              ],
+              [@lib.ValType::ref_type(nullable_described_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected descriptor fallthrough tightening success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, described_heap),
+      ),
+    ),
+  )
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, root)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      @debug.assert_eq(ref_type.is_non_nullable(), true)
+      @debug.assert_eq(ref_type.is_exact(), false)
+      @debug.assert_eq(ref_type.get_heap_type(), described_heap)
+    }
+    other => fail("expected tightened descriptor cast type, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions preserves inexact descriptor casts on exact operands without exact descriptors" {
   // OI-J exactness/useful-type-info breadth: an exact reference operand alone is
   // not enough to spell an exact descriptor-cast immediate when the descriptor
