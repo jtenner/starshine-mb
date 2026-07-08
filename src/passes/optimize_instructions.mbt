@@ -15870,28 +15870,46 @@ fn optimize_instructions_replace_with_value_block(
 }
 
 ///|
-fn optimize_instructions_i32_const_is(
+priv struct OiStructAtomicI32IdentityValueFact {
+  value_id : Int
+}
+
+///|
+fn OiStructAtomicI32IdentityValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  value : Int,
-) -> Bool {
-  match optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(raw)) => raw == value
-    _ => false
+  value_id : Int,
+  expected : Int,
+) -> OiStructAtomicI32IdentityValueFact? {
+  // Binaryen v130 `visitStructRMW` recognizes aggregate-atomic identity
+  // constants by concrete field width: i32 add/sub/or/xor use zero and i32 and
+  // uses all-ones. Keep that literal proof as a width-specific fact instead of
+  // an `*_const_is` helper predicate.
+  match optimize_instructions_i32_const(func, dead, value_id) {
+    Some(@lib.I32(raw)) if raw == expected => Some({ value_id, })
+    _ => None
   }
 }
 
 ///|
-fn optimize_instructions_i64_const_is(
+priv struct OiStructAtomicI64IdentityValueFact {
+  value_id : Int
+}
+
+///|
+fn OiStructAtomicI64IdentityValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  value : Int64,
-) -> Bool {
-  match optimize_instructions_i64_const(func, dead, node_id) {
-    Some(@lib.I64(raw)) => raw == value
-    _ => false
+  value_id : Int,
+  expected : Int64,
+) -> OiStructAtomicI64IdentityValueFact? {
+  // Binaryen v130 `visitStructRMW` recognizes aggregate-atomic identity
+  // constants by concrete field width: i64 add/sub/or/xor use zero and i64 and
+  // uses all-ones. Keep that literal proof as a width-specific fact instead of
+  // an `*_const_is` helper predicate.
+  match optimize_instructions_i64_const(func, dead, value_id) {
+    Some(@lib.I64(raw)) if raw == expected => Some({ value_id, })
+    _ => None
   }
 }
 
@@ -15957,28 +15975,51 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
   // read-only struct.atomic.get when the value is a single constant fallthrough.
   // The HOT fact uses the existing literal facts for the represented i32/i64
   // field surface.
-  let is_identity = match op {
+  let identity_value_id = match op {
     @lib.AggregateAtomicRmwAdd
     | @lib.AggregateAtomicRmwSub
     | @lib.AggregateAtomicRmwOr
     | @lib.AggregateAtomicRmwXor =>
       if field_fact.value_type == @lib.ValType::i32() {
-        optimize_instructions_i32_const_is(func, dead, value_id, 0)
+        match
+          OiStructAtomicI32IdentityValueFact::from_value(
+            func, dead, value_id, 0,
+          ) {
+          Some(fact) => Some(fact.value_id)
+          None => None
+        }
       } else {
-        optimize_instructions_i64_const_is(func, dead, value_id, 0L)
+        match
+          OiStructAtomicI64IdentityValueFact::from_value(
+            func, dead, value_id, 0L,
+          ) {
+          Some(fact) => Some(fact.value_id)
+          None => None
+        }
       }
     @lib.AggregateAtomicRmwAnd =>
       if field_fact.value_type == @lib.ValType::i32() {
-        optimize_instructions_i32_const_is(func, dead, value_id, -1)
+        match
+          OiStructAtomicI32IdentityValueFact::from_value(
+            func, dead, value_id, -1,
+          ) {
+          Some(fact) => Some(fact.value_id)
+          None => None
+        }
       } else {
-        optimize_instructions_i64_const_is(func, dead, value_id, -1L)
+        match
+          OiStructAtomicI64IdentityValueFact::from_value(
+            func, dead, value_id, -1L,
+          ) {
+          Some(fact) => Some(fact.value_id)
+          None => None
+        }
       }
-    _ => false
+    _ => None
   }
-  if is_identity {
-    Some({ value_id, })
-  } else {
-    None
+  match identity_value_id {
+    Some(id) => Some({ value_id: id })
+    None => None
   }
 }
 
@@ -26183,14 +26224,32 @@ fn OiStandaloneRefGetDescControlShapeFact::proves_disallowed_control_or_multival
 }
 
 ///|
-fn optimize_instructions_standalone_ref_get_desc_label_owner_is(
+priv struct OiStandaloneRefGetDescLabelOwnerFact {
+  valid_label : Bool
+  owner_matches : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescLabelOwnerFact::from_label(
   func : @ir.HotFunc,
   label_id : Int,
   owner_id : Int,
+) -> OiStandaloneRefGetDescLabelOwnerFact {
+  // Binaryen-style standalone ref.get_desc movement needs to distinguish
+  // branches that stay inside the moved block from escaping branches. Keep that
+  // label-owner proof as data beside the root-shape facts instead of a helper
+  // predicate.
+  let valid_label = label_id >= 0 && label_id < func.labels.length()
+  let owner_matches = valid_label &&
+    @ir.hot_label_owner(func, label_id) == owner_id
+  { valid_label, owner_matches }
+}
+
+///|
+fn OiStandaloneRefGetDescLabelOwnerFact::proves_owner(
+  self : OiStandaloneRefGetDescLabelOwnerFact,
 ) -> Bool {
-  label_id >= 0 &&
-  label_id < func.labels.length() &&
-  @ir.hot_label_owner(func, label_id) == owner_id
+  self.valid_label && self.owner_matches
 }
 
 ///|
@@ -26313,11 +26372,11 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
   }
   let br_on_null_local_root = match root.op {
     @ir.HotOp::BrOnNull =>
-      optimize_instructions_standalone_ref_get_desc_label_owner_is(
+      OiStandaloneRefGetDescLabelOwnerFact::from_label(
         func,
         root.imm0,
         block_id,
-      ) &&
+      ).proves_owner() &&
       @ir.hot_child_count(func, root_id) == 1 &&
       (match @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op {
         @ir.HotOp::LocalGet =>
@@ -26335,9 +26394,9 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
         false
       } else {
         let inner_label = @ir.hot_control_node_label(func, root_id)
-        if !optimize_instructions_standalone_ref_get_desc_label_owner_is(
+        if !OiStandaloneRefGetDescLabelOwnerFact::from_label(
             func, inner_label, root_id,
-          ) ||
+          ).proves_owner() ||
           @ir.hot_label_branch_arity(func, inner_label) != 0 {
           false
         } else {
@@ -26348,11 +26407,11 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
             let branch = @ir.hot_node_get(func, branch_id)
             match branch.op {
               @ir.HotOp::Br =>
-                optimize_instructions_standalone_ref_get_desc_label_owner_is(
+                OiStandaloneRefGetDescLabelOwnerFact::from_label(
                   func,
                   branch.imm0,
                   block_id,
-                ) &&
+                ).proves_owner() &&
                 @ir.hot_child_count(func, branch_id) == 1 &&
                 OiStandaloneRefGetDescRootShapeFact::from_root(
                   func,
@@ -26372,11 +26431,11 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
               let branch = @ir.hot_node_get(func, value_branch)
               match branch.op {
                 @ir.HotOp::Br =>
-                  optimize_instructions_standalone_ref_get_desc_label_owner_is(
+                  OiStandaloneRefGetDescLabelOwnerFact::from_label(
                     func,
                     branch.imm0,
                     block_id,
-                  ) &&
+                  ).proves_owner() &&
                   @ir.hot_child_count(func, value_branch) == 0
                 _ => false
               }
