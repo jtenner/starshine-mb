@@ -4369,15 +4369,60 @@ fn OiDescriptorExactSuccessFact::from_node(
 }
 
 ///|
-fn OiDescriptorExactSuccessFact::can_skip_traps_never_happen(
-  self : OiDescriptorExactSuccessFact,
+priv enum OiDescriptorExactSuccessEligibilityKind {
+  DescriptorExactSuccessTrapsActive
+  DescriptorExactSuccessNullableTarget
+  DescriptorExactSuccessInexactTarget
+  DescriptorExactSuccessOperandNotExactNonNullTarget
+  DescriptorExactSuccessDescriptorNotExactTarget
+  DescriptorExactSuccessAllowed
+}
+
+///|
+priv struct OiDescriptorExactSuccessEligibilityFact {
+  kind : OiDescriptorExactSuccessEligibilityKind
+}
+
+///|
+fn OiDescriptorExactSuccessEligibilityFact::from_success(
   ctx : HotPassContext,
+  success_fact : OiDescriptorExactSuccessFact,
+) -> OiDescriptorExactSuccessEligibilityFact {
+  // Binaryen v130's descriptor equality cast skip under traps-never-happen
+  // is source fact driven: the cast target must be exact and non-null, the
+  // reference producer must already prove an exact non-null target, and the
+  // descriptor must exactly describe that target. Keep each blocker explicit
+  // before the replacement-order plan decides how to preserve evaluations.
+  if !ctx.traps_never_happen {
+    return { kind: DescriptorExactSuccessTrapsActive }
+  }
+  if success_fact.cast_fact.nullable {
+    return { kind: DescriptorExactSuccessNullableTarget }
+  }
+  if !success_fact.cast_fact.exact {
+    return { kind: DescriptorExactSuccessInexactTarget }
+  }
+  if !success_fact.direct_call_result_exact_non_null_target {
+    return { kind: DescriptorExactSuccessOperandNotExactNonNullTarget }
+  }
+  if !success_fact.descriptor_exactly_describes_target {
+    return { kind: DescriptorExactSuccessDescriptorNotExactTarget }
+  }
+  { kind: DescriptorExactSuccessAllowed }
+}
+
+///|
+fn OiDescriptorExactSuccessEligibilityFact::proves_tnh_exact_success_allowed(
+  self : OiDescriptorExactSuccessEligibilityFact,
 ) -> Bool {
-  ctx.traps_never_happen &&
-  !self.cast_fact.nullable &&
-  self.cast_fact.exact &&
-  self.direct_call_result_exact_non_null_target &&
-  self.descriptor_exactly_describes_target
+  match self.kind {
+    DescriptorExactSuccessTrapsActive => false
+    DescriptorExactSuccessNullableTarget => false
+    DescriptorExactSuccessInexactTarget => false
+    DescriptorExactSuccessOperandNotExactNonNullTarget => false
+    DescriptorExactSuccessDescriptorNotExactTarget => false
+    DescriptorExactSuccessAllowed => true
+  }
 }
 
 ///|
@@ -4402,7 +4447,10 @@ fn OiDescriptorExactSuccessRewritePlanFact::from_success(
   // full `optimizeKnownCastResult`: it requires a direct call-style reference
   // producer and an exact descriptor type fact, then preserves both operand
   // evaluations through the same ChildLocalizer-shaped replacement.
-  if !success_fact.can_skip_traps_never_happen(ctx) {
+  let eligibility_fact = OiDescriptorExactSuccessEligibilityFact::from_success(
+    ctx, success_fact,
+  )
+  if !eligibility_fact.proves_tnh_exact_success_allowed() {
     return None
   }
   Some({
