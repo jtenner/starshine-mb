@@ -1353,15 +1353,147 @@ fn OiFinalHeapFact::proves_final_heap(self : OiFinalHeapFact) -> Bool {
 }
 
 ///|
+priv enum OiHeapRelationMatchKind {
+  HeapRelationNoKnownMatch
+  HeapRelationSameHeap
+  HeapRelationI31MatchesTarget
+  HeapRelationAbsStructArrayMatchesTarget
+  HeapRelationModuleHeapMatchesTarget
+}
+
+///|
+priv struct OiHeapRelationMatchFact {
+  kind : OiHeapRelationMatchKind
+}
+
+///|
+fn OiHeapRelationMatchFact::from_heaps(
+  ctx : HotPassContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiHeapRelationMatchFact {
+  // Binaryen's GC cast utilities distinguish cheap exact/abstract target proofs
+  // from the module-subtyping walk. Preserve that order here so downstream facts
+  // can ask whether a match was known without full module subtyping.
+  let kind = if source == target {
+    HeapRelationSameHeap
+  } else if source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+    OiI31HeapTargetFact::from_target(target).proves_match_target() {
+    HeapRelationI31MatchesTarget
+  } else if OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_match_target() {
+    HeapRelationAbsStructArrayMatchesTarget
+  } else {
+    match ctx.module_ctx {
+      Some(module_ctx) if OiModuleHeapTargetFact::from_heaps(
+          module_ctx, source, target, 512,
+        ).proves_match_target() => HeapRelationModuleHeapMatchesTarget
+      _ => HeapRelationNoKnownMatch
+    }
+  }
+  { kind, }
+}
+
+///|
+fn OiHeapRelationMatchFact::proves_known_match_without_full_subtyping(
+  self : OiHeapRelationMatchFact,
+) -> Bool {
+  match self.kind {
+    HeapRelationSameHeap
+    | HeapRelationI31MatchesTarget
+    | HeapRelationAbsStructArrayMatchesTarget => true
+    _ => false
+  }
+}
+
+///|
+fn OiHeapRelationMatchFact::proves_known_match_target(
+  self : OiHeapRelationMatchFact,
+) -> Bool {
+  match self.kind {
+    HeapRelationNoKnownMatch => false
+    _ => true
+  }
+}
+
+///|
+fn OiHeapRelationMatchFact::proves_module_heap_match(
+  self : OiHeapRelationMatchFact,
+) -> Bool {
+  match self.kind {
+    HeapRelationModuleHeapMatchesTarget => true
+    _ => false
+  }
+}
+
+///|
+priv enum OiHeapRelationMissKind {
+  HeapRelationNoKnownMiss
+  HeapRelationI31CannotMatchTarget
+  HeapRelationAbsStructArrayDisjoint
+  HeapRelationConcreteSourceNoTargetOverlap
+}
+
+///|
+priv struct OiHeapRelationMissFact {
+  kind : OiHeapRelationMissKind
+}
+
+///|
+fn OiHeapRelationMissFact::from_heaps(
+  ctx : HotPassContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiHeapRelationMissFact {
+  // Binaryen's impossible-cast checks are a separate relation from successful
+  // target matching. Keep the miss reason explicit so ref.test/ref.cast/ref.eq
+  // consumers do not own parallel match/miss boolean fields.
+  let kind = if source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+    OiI31HeapTargetFact::from_target(target).proves_miss_target() {
+    HeapRelationI31CannotMatchTarget
+  } else if OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_disjoint_target() {
+    HeapRelationAbsStructArrayDisjoint
+  } else if OiConcreteSourceTargetOverlapFact::from_heaps(
+      ctx.module_ctx,
+      source,
+      target,
+    ).proves_no_target_overlap() {
+    HeapRelationConcreteSourceNoTargetOverlap
+  } else {
+    HeapRelationNoKnownMiss
+  }
+  { kind, }
+}
+
+///|
+fn OiHeapRelationMissFact::proves_known_miss_target(
+  self : OiHeapRelationMissFact,
+) -> Bool {
+  match self.kind {
+    HeapRelationNoKnownMiss => false
+    HeapRelationI31CannotMatchTarget
+    | HeapRelationAbsStructArrayDisjoint
+    | HeapRelationConcreteSourceNoTargetOverlap => true
+  }
+}
+
+///|
+fn OiHeapRelationMissFact::proves_abs_struct_array_disjoint(
+  self : OiHeapRelationMissFact,
+) -> Bool {
+  match self.kind {
+    HeapRelationAbsStructArrayDisjoint => true
+    HeapRelationNoKnownMiss
+    | HeapRelationI31CannotMatchTarget
+    | HeapRelationConcreteSourceNoTargetOverlap => false
+  }
+}
+
+///|
 priv struct OiHeapRelationFact {
+  match_fact : OiHeapRelationMatchFact
+  miss_fact : OiHeapRelationMissFact
   same_heap : Bool
-  i31_matches_target : Bool
-  i31_cannot_match_target : Bool
-  abs_struct_array_matches_target : Bool
-  abs_struct_array_disjoint : Bool
-  module_heap_matches_target : Bool
   known_subtype : Bool
-  concrete_source_has_no_target_overlap : Bool
   both_concrete_heaps : Bool
 }
 
@@ -1371,35 +1503,15 @@ fn OiHeapRelationFact::from_heaps(
   source : @lib.HeapType,
   target : @lib.HeapType,
 ) -> OiHeapRelationFact {
-  let module_heap_matches_target = match ctx.module_ctx {
-    Some(module_ctx) =>
-      OiModuleHeapTargetFact::from_heaps(module_ctx, source, target, 512).proves_match_target()
-    None => false
-  }
   let both_concrete_heaps = match (source, target) {
     (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => true
     _ => false
   }
   {
+    match_fact: OiHeapRelationMatchFact::from_heaps(ctx, source, target),
+    miss_fact: OiHeapRelationMissFact::from_heaps(ctx, source, target),
     same_heap: source == target,
-    i31_matches_target: source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-    OiI31HeapTargetFact::from_target(target).proves_match_target(),
-    i31_cannot_match_target: source ==
-    @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-    OiI31HeapTargetFact::from_target(target).proves_miss_target(),
-    abs_struct_array_matches_target: OiAbsStructArrayHeapRelationFact::from_heaps(
-      source, target,
-    ).proves_match_target(),
-    abs_struct_array_disjoint: OiAbsStructArrayHeapRelationFact::from_heaps(
-      source, target,
-    ).proves_disjoint_target(),
-    module_heap_matches_target,
     known_subtype: OiHeapSubtypeFact::from_heaps(ctx, source, target).proves_known_subtype(),
-    concrete_source_has_no_target_overlap: OiConcreteSourceTargetOverlapFact::from_heaps(
-      ctx.module_ctx,
-      source,
-      target,
-    ).proves_no_target_overlap(),
     both_concrete_heaps,
   }
 }
@@ -1408,28 +1520,29 @@ fn OiHeapRelationFact::from_heaps(
 fn OiHeapRelationFact::known_match_without_full_subtyping(
   self : OiHeapRelationFact,
 ) -> Bool {
-  self.same_heap ||
-  self.i31_matches_target ||
-  self.abs_struct_array_matches_target
+  self.match_fact.proves_known_match_without_full_subtyping()
 }
 
 ///|
 fn OiHeapRelationFact::known_match_target(self : OiHeapRelationFact) -> Bool {
-  self.known_match_without_full_subtyping() || self.module_heap_matches_target
+  self.match_fact.proves_known_match_target()
 }
 
 ///|
 fn OiHeapRelationFact::known_miss_target(self : OiHeapRelationFact) -> Bool {
-  self.i31_cannot_match_target ||
-  self.abs_struct_array_disjoint ||
-  self.concrete_source_has_no_target_overlap
+  self.miss_fact.proves_known_miss_target()
 }
 
 ///|
 fn OiHeapRelationFact::known_abs_struct_array_disjoint(
   self : OiHeapRelationFact,
 ) -> Bool {
-  self.abs_struct_array_disjoint
+  self.miss_fact.proves_abs_struct_array_disjoint()
+}
+
+///|
+fn OiHeapRelationFact::proves_known_subtype(self : OiHeapRelationFact) -> Bool {
+  self.known_subtype
 }
 
 ///|
@@ -1443,7 +1556,9 @@ fn OiHeapRelationFact::known_strict_concrete_subtype(
 fn OiHeapRelationFact::strict_concrete_heap_matches_target(
   self : OiHeapRelationFact,
 ) -> Bool {
-  self.both_concrete_heaps && !self.same_heap && self.module_heap_matches_target
+  self.both_concrete_heaps &&
+  !self.same_heap &&
+  self.match_fact.proves_module_heap_match()
 }
 
 ///|
@@ -1457,7 +1572,7 @@ fn OiHeapRelationFact::concrete_source_matches_nullable_exact_target_only_as_nul
   source_nullable &&
   self.both_concrete_heaps &&
   !self.same_heap &&
-  (source_exact || self.module_heap_matches_target)
+  (source_exact || self.match_fact.proves_module_heap_match())
 }
 
 ///|
@@ -3944,7 +4059,7 @@ fn OiDescriptorTnhSkipFact::can_skip(
         described_heap,
         false,
       )
-      if OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).known_subtype &&
+      if OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype() &&
         !described_relation.exact_heap &&
         !self.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
         return false
@@ -4332,7 +4447,7 @@ fn OiDescriptorResultNarrowingFact::from_cast(
   let descriptor_described_heap_subtypes_target = match
     descriptor_described_heap {
     Some(described_heap) =>
-      OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).known_subtype
+      OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype()
     None => false
   }
   let narrowed_target = match descriptor_described_heap {
