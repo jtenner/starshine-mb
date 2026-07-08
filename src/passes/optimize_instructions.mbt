@@ -17947,6 +17947,18 @@ fn optimize_instructions_replace_with_dropped_operands(
 }
 
 ///|
+priv enum OiDeadShellRewritePlanKind {
+  DeadShellBulkMemoryCopy
+  DeadShellBulkMemoryFill
+}
+
+///|
+priv struct OiDeadShellRewritePlanFact {
+  kind : OiDeadShellRewritePlanKind
+  bulk_plan : OiBulkMemoryRewritePlanFact
+}
+
+///|
 priv enum OiBulkMemoryRewritePlanKind {
   BulkMemoryDropSameAddressCopy
   BulkMemoryDropZeroSizeCopy
@@ -18162,6 +18174,46 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
   match OiBulkMemoryRewritePlanFact::from_fill(ctx, func, dead, node_id) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
     None => false
+  }
+}
+
+///|
+fn OiDeadShellRewritePlanFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDeadShellRewritePlanFact? {
+  // Binaryen still optimizes selected bulk-memory children under syntactically
+  // unreachable shells during the OI walk. Starshine keeps that dead-shell
+  // parity boundary as an explicit plan fact instead of a visitor-owned opcode
+  // whitelist: only OI-G bulk-memory rewrite plans may run on dead roots, and
+  // every accepted shape still passes through the ordinary bulk fact/plan layer.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::MemoryCopy =>
+      match OiBulkMemoryRewritePlanFact::from_copy(ctx, func, dead, node_id) {
+        Some(bulk_plan) => Some({ kind: DeadShellBulkMemoryCopy, bulk_plan })
+        None => None
+      }
+    @ir.HotOp::MemoryFill =>
+      match OiBulkMemoryRewritePlanFact::from_fill(ctx, func, dead, node_id) {
+        Some(bulk_plan) => Some({ kind: DeadShellBulkMemoryFill, bulk_plan })
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiDeadShellRewritePlanFact::apply(
+  self : OiDeadShellRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    DeadShellBulkMemoryCopy | DeadShellBulkMemoryFill =>
+      self.bulk_plan.apply(ctx, func, node_id)
   }
 }
 
@@ -26720,22 +26772,10 @@ fn optimize_instructions_visit_region(
         ) ||
         changed
     } else {
-      // OI-G dead-shell parity: Binaryen still applies tiny bulk-memory lowering
-      // inside syntactically unreachable if bodies. Keep this intentionally
-      // narrow to the memory.copy/fill lowering helpers so dead-region traversal
-      // does not broadly enable unrelated rewrites without red-first coverage.
-      changed = match @ir.hot_node_get(func, root_id).op {
-        @ir.HotOp::MemoryCopy =>
-          optimize_instructions_try_expand_tiny_memory_copy(
-            ctx, func, dead, root_id,
-          ) ||
-          changed
-        @ir.HotOp::MemoryFill =>
-          optimize_instructions_try_expand_tiny_memory_fill(
-            ctx, func, dead, root_id,
-          ) ||
-          changed
-        _ => changed
+      changed = match
+        OiDeadShellRewritePlanFact::from_node(ctx, func, dead, root_id) {
+        Some(plan_fact) => plan_fact.apply(ctx, func, root_id) || changed
+        None => changed
       }
     }
   }
