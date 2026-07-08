@@ -5193,101 +5193,111 @@ fn OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
 }
 
 ///|
-priv struct OiUnsignedLoadMaxBitsFact {
+priv struct OiI32UnsignedLoadMaxBitsFact {
   value_id : Int
-  i32_max : Int?
-  i64_max : Int64?
+  max_value : Int
 }
 
 ///|
-fn OiUnsignedLoadMaxBitsFact::from_i32_instr(
+priv struct OiI64UnsignedLoadMaxBitsFact {
+  value_id : Int
+  max_value : Int64
+}
+
+///|
+fn OiI32UnsignedLoadMaxBitsFact::from_instr(
   instr : @lib.Instruction,
   value_id : Int,
-) -> OiUnsignedLoadMaxBitsFact? {
+) -> OiI32UnsignedLoadMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` bounds unsigned narrow loads by the number
-  // of loaded bits. Keep those leaf producer facts explicit so load knowledge
-  // does not remain as an unsigned-max query-local opcode whitelist.
+  // of loaded bits. Keep width-specific leaf producer facts explicit so load
+  // knowledge does not remain as an unsigned-max query-local opcode whitelist.
   match instr {
-    @lib.Instruction::I32Load8U(_) =>
-      Some({ value_id, i32_max: Some(255), i64_max: None })
-    @lib.Instruction::I32Load16U(_) =>
-      Some({ value_id, i32_max: Some(65535), i64_max: None })
+    @lib.Instruction::I32Load8U(_) => Some({ value_id, max_value: 255 })
+    @lib.Instruction::I32Load16U(_) => Some({ value_id, max_value: 65535 })
     _ => None
   }
 }
 
 ///|
-fn OiUnsignedLoadMaxBitsFact::from_i64_instr(
+fn OiI64UnsignedLoadMaxBitsFact::from_instr(
   instr : @lib.Instruction,
   value_id : Int,
-) -> OiUnsignedLoadMaxBitsFact? {
+) -> OiI64UnsignedLoadMaxBitsFact? {
   // Same Binaryen v130 unsigned-load maxBits leaf facts for i64 loads.
   match instr {
-    @lib.Instruction::I64Load8U(_) =>
-      Some({ value_id, i32_max: None, i64_max: Some(255L) })
-    @lib.Instruction::I64Load16U(_) =>
-      Some({ value_id, i32_max: None, i64_max: Some(65535L) })
+    @lib.Instruction::I64Load8U(_) => Some({ value_id, max_value: 255L })
+    @lib.Instruction::I64Load16U(_) => Some({ value_id, max_value: 65535L })
     @lib.Instruction::I64Load32U(_) =>
-      Some({ value_id, i32_max: None, i64_max: Some(4294967295L) })
+      Some({ value_id, max_value: 4294967295L })
     _ => None
   }
 }
 
 ///|
-priv struct OiUnsignedConstMaxValueFact {
+priv struct OiI32UnsignedConstMaxValueFact {
   value_id : Int
-  i32_max : Int?
-  i64_max : Int64?
+  max_value : Int
 }
 
 ///|
-fn OiUnsignedConstMaxValueFact::from_i32_node(
+priv struct OiI64UnsignedConstMaxValueFact {
+  value_id : Int
+  max_value : Int64
+}
+
+///|
+fn OiI32UnsignedConstMaxValueFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> OiUnsignedConstMaxValueFact? {
+) -> OiI32UnsignedConstMaxValueFact? {
   // Binaryen v130 `Bits::getMaxBits` treats nonnegative integer constants as
   // exact unsigned maxima. Negative constants are not bounded here because their
   // high bit is set in the corresponding wasm integer width.
   match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
     @ir.HotConstPayload::I32Const(@lib.I32(raw)) if raw >= 0 =>
-      Some({ value_id: node_id, i32_max: Some(raw), i64_max: None })
+      Some({ value_id: node_id, max_value: raw })
     _ => None
   }
 }
 
 ///|
-fn OiUnsignedConstMaxValueFact::from_i64_node(
+fn OiI64UnsignedConstMaxValueFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> OiUnsignedConstMaxValueFact? {
+) -> OiI64UnsignedConstMaxValueFact? {
   // Same exact unsigned maximum fact for nonnegative i64 constants.
   match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
     @ir.HotConstPayload::I64Const(@lib.I64(raw)) if raw >= 0L =>
-      Some({ value_id: node_id, i32_max: None, i64_max: Some(raw) })
+      Some({ value_id: node_id, max_value: raw })
     _ => None
   }
 }
 
 ///|
-priv struct OiLocalUnsignedMaxValueFact {
+priv struct OiI32LocalUnsignedMaxValueFact {
   local_id : Int
-  i32_max : Int?
-  i64_max : Int64?
+  max_value : Int
 }
 
 ///|
-fn OiLocalUnsignedMaxValueFact::from_i32_get(
+priv struct OiI64LocalUnsignedMaxValueFact {
+  local_id : Int
+  max_value : Int64
+}
+
+///|
+fn OiI32LocalUnsignedMaxValueFact::from_get(
   local_facts : OptimizeInstructionsLocalFacts?,
   local_id : Int,
-) -> OiLocalUnsignedMaxValueFact? {
+) -> OiI32LocalUnsignedMaxValueFact? {
   // Binaryen's `LocalScanner`-style fact store feeds local.get maxBits queries.
-  // Keep the get-side consumption explicit and distinct from leaf constants,
-  // loads, and recursive producer rules.
+  // Keep width-specific get-side consumption explicit and distinct from leaf
+  // constants, loads, and recursive producer rules.
   match local_facts {
     Some(facts) =>
       match facts.i32_unsigned_max_for_get(local_id) {
-        Some(max_value) =>
-          Some({ local_id, i32_max: Some(max_value), i64_max: None })
+        Some(max_value) => Some({ local_id, max_value })
         None => None
       }
     None => None
@@ -5295,16 +5305,15 @@ fn OiLocalUnsignedMaxValueFact::from_i32_get(
 }
 
 ///|
-fn OiLocalUnsignedMaxValueFact::from_i64_get(
+fn OiI64LocalUnsignedMaxValueFact::from_get(
   local_facts : OptimizeInstructionsLocalFacts?,
   local_id : Int,
-) -> OiLocalUnsignedMaxValueFact? {
+) -> OiI64LocalUnsignedMaxValueFact? {
   // Same fact-store consumption for i64 local.get maxBits queries.
   match local_facts {
     Some(facts) =>
       match facts.i64_unsigned_max_for_get(local_id) {
-        Some(max_value) =>
-          Some({ local_id, i32_max: None, i64_max: Some(max_value) })
+        Some(max_value) => Some({ local_id, max_value })
         None => None
       }
     None => None
@@ -5312,20 +5321,25 @@ fn OiLocalUnsignedMaxValueFact::from_i64_get(
 }
 
 ///|
-priv struct OiConvertMaxBitsFact {
+priv struct OiI32ConvertMaxBitsFact {
   operand_id : Int
-  i32_max : Int?
-  i64_max : Int64?
+  max_value : Int
 }
 
 ///|
-fn OiConvertMaxBitsFact::from_i32_convert(
+priv struct OiI64ConvertMaxBitsFact {
+  operand_id : Int
+  max_value : Int64
+}
+
+///|
+fn OiI32ConvertMaxBitsFact::from_convert(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   operand_id : Int,
-) -> OiConvertMaxBitsFact? {
+) -> OiI32ConvertMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` keeps the bounded low-lane fact for
   // `i32.wrap_i64(x)` when the wrapped i64 is proven below the i32 sign bit.
   match instr {
@@ -5335,7 +5349,7 @@ fn OiConvertMaxBitsFact::from_i32_convert(
           func, dead, local_facts, operand_id,
         ) {
         Some(max_value) if max_value <= 2147483647L =>
-          Some({ operand_id, i32_max: Some(max_value.to_int()), i64_max: None })
+          Some({ operand_id, max_value: max_value.to_int() })
         _ => None
       }
     _ => None
@@ -5343,13 +5357,13 @@ fn OiConvertMaxBitsFact::from_i32_convert(
 }
 
 ///|
-fn OiConvertMaxBitsFact::from_i64_convert(
+fn OiI64ConvertMaxBitsFact::from_convert(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   operand_id : Int,
-) -> OiConvertMaxBitsFact? {
+) -> OiI64ConvertMaxBitsFact? {
   // Binaryen v130 i32-to-i64 producer facts preserve known unsigned i32 maxima;
   // unsigned extension has the full 32-bit fallback when the operand is not
   // otherwise bounded. Other represented i32-to-i64 shells keep the existing
@@ -5363,15 +5377,14 @@ fn OiConvertMaxBitsFact::from_i64_convert(
         Some(value) => value.to_int64()
         None => 4294967295L
       }
-      Some({ operand_id, i32_max: None, i64_max: Some(max_value) })
+      Some({ operand_id, max_value })
     }
     _ =>
       match
         OiUnsignedMaxValueFact::i32_max_for_node(
           func, dead, local_facts, operand_id,
         ) {
-        Some(value) =>
-          Some({ operand_id, i32_max: None, i64_max: Some(value.to_int64()) })
+        Some(value) => Some({ operand_id, max_value: value.to_int64() })
         None => None
       }
   }
@@ -6700,10 +6713,10 @@ fn OiI32MaxBitsProducerFact::from_node(
   let node = @ir.hot_node_get(func, node_id)
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) =>
-      match OiUnsignedLoadMaxBitsFact::from_i32_instr(instr, node_id) {
+      match OiI32UnsignedLoadMaxBitsFact::from_instr(instr, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          return Some({ value_id: node_id, max_value: fact.i32_max })
+          return Some({ value_id: node_id, max_value: Some(fact.max_value) })
         }
         None => ()
       }
@@ -6718,18 +6731,18 @@ fn OiI32MaxBitsProducerFact::from_node(
   }
   let max_value = match node.op {
     @ir.HotOp::Const =>
-      match OiUnsignedConstMaxValueFact::from_i32_node(func, node_id) {
+      match OiI32UnsignedConstMaxValueFact::from_node(func, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          fact.i32_max
+          Some(fact.max_value)
         }
         None => return None
       }
     @ir.HotOp::LocalGet =>
-      match OiLocalUnsignedMaxValueFact::from_i32_get(local_facts, node.imm0) {
+      match OiI32LocalUnsignedMaxValueFact::from_get(local_facts, node.imm0) {
         Some(fact) => {
           ignore(fact.local_id)
-          fact.i32_max
+          Some(fact.max_value)
         }
         None => return None
       }
@@ -6738,12 +6751,12 @@ fn OiI32MaxBitsProducerFact::from_node(
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(instr) =>
           match
-            OiConvertMaxBitsFact::from_i32_convert(
+            OiI32ConvertMaxBitsFact::from_convert(
               func, dead, local_facts, instr, operand_id,
             ) {
             Some(fact) => {
               ignore(fact.operand_id)
-              fact.i32_max
+              Some(fact.max_value)
             }
             None => return None
           }
@@ -6802,10 +6815,10 @@ fn OiI64MaxBitsProducerFact::from_node(
   let node = @ir.hot_node_get(func, node_id)
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) =>
-      match OiUnsignedLoadMaxBitsFact::from_i64_instr(instr, node_id) {
+      match OiI64UnsignedLoadMaxBitsFact::from_instr(instr, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          return Some({ value_id: node_id, max_value: fact.i64_max })
+          return Some({ value_id: node_id, max_value: Some(fact.max_value) })
         }
         None => ()
       }
@@ -6813,18 +6826,18 @@ fn OiI64MaxBitsProducerFact::from_node(
   }
   let max_value = match node.op {
     @ir.HotOp::Const =>
-      match OiUnsignedConstMaxValueFact::from_i64_node(func, node_id) {
+      match OiI64UnsignedConstMaxValueFact::from_node(func, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          fact.i64_max
+          Some(fact.max_value)
         }
         None => return None
       }
     @ir.HotOp::LocalGet =>
-      match OiLocalUnsignedMaxValueFact::from_i64_get(local_facts, node.imm0) {
+      match OiI64LocalUnsignedMaxValueFact::from_get(local_facts, node.imm0) {
         Some(fact) => {
           ignore(fact.local_id)
-          fact.i64_max
+          Some(fact.max_value)
         }
         None => return None
       }
@@ -6833,12 +6846,12 @@ fn OiI64MaxBitsProducerFact::from_node(
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(instr) =>
           match
-            OiConvertMaxBitsFact::from_i64_convert(
+            OiI64ConvertMaxBitsFact::from_convert(
               func, dead, local_facts, instr, operand_id,
             ) {
             Some(fact) => {
               ignore(fact.operand_id)
-              fact.i64_max
+              Some(fact.max_value)
             }
             None => return None
           }
