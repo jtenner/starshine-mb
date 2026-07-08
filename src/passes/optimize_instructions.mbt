@@ -4292,10 +4292,73 @@ priv enum OiDescriptorOperandSimplificationKind {
 }
 
 ///|
+priv struct OiDescriptorCallRefDirectizationFact {
+  operand_call_ref_id : Int
+  descriptor_call_ref_id : Int
+}
+
+///|
+fn OiDescriptorCallRefDirectizationFact::from_cast_fact(
+  func : @ir.HotFunc,
+  cast_fact : OiDescriptorCastFact,
+) -> OiDescriptorCallRefDirectizationFact? {
+  // Binaryen v130 reaches descriptor-cast operands after child visitors have had
+  // a chance to run `visitCallRef`; Starshine sometimes needs to request that
+  // same child directization while the descriptor-cast plan is active. Keep the
+  // operand-slot classification as a fact over the two descriptor-cast children,
+  // not as boolean opcode checks embedded in the simplification plan.
+  let operand_call_ref_id = match
+    @ir.hot_node_get(func, cast_fact.operand_id).op {
+    @ir.HotOp::CallRef => cast_fact.operand_id
+    _ => -1
+  }
+  let descriptor_call_ref_id = match
+    @ir.hot_node_get(func, cast_fact.descriptor_id).op {
+    @ir.HotOp::CallRef => cast_fact.descriptor_id
+    _ => -1
+  }
+  if operand_call_ref_id < 0 && descriptor_call_ref_id < 0 {
+    None
+  } else {
+    Some({ operand_call_ref_id, descriptor_call_ref_id })
+  }
+}
+
+///|
+fn OiDescriptorCallRefDirectizationFact::directize_children(
+  self : OiDescriptorCallRefDirectizationFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Bool {
+  let mut changed = false
+  if self.operand_call_ref_id >= 0 {
+    if optimize_instructions_try_directize_ref_func_call_ref(
+        ctx,
+        func,
+        dead,
+        self.operand_call_ref_id,
+      ) {
+      changed = true
+    }
+  }
+  if self.descriptor_call_ref_id >= 0 {
+    if optimize_instructions_try_directize_ref_func_call_ref(
+        ctx,
+        func,
+        dead,
+        self.descriptor_call_ref_id,
+      ) {
+      changed = true
+    }
+  }
+  changed
+}
+
+///|
 priv struct OiDescriptorOperandSimplificationFact {
   cast_fact : OiDescriptorCastFact
-  directize_operand_candidate : Bool
-  directize_descriptor_candidate : Bool
+  directization_fact : OiDescriptorCallRefDirectizationFact?
   kind : OiDescriptorOperandSimplificationKind
 }
 
@@ -4308,23 +4371,18 @@ fn OiDescriptorOperandSimplificationFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  let directize_operand_candidate = match
-    @ir.hot_node_get(func, cast_fact.operand_id).op {
-    @ir.HotOp::CallRef => true
-    _ => false
+  let directization_fact = OiDescriptorCallRefDirectizationFact::from_cast_fact(
+    func, cast_fact,
+  )
+  let has_directization_fact = match directization_fact {
+    Some(_) => true
+    None => false
   }
-  let directize_descriptor_candidate = match
-    @ir.hot_node_get(func, cast_fact.descriptor_id).op {
-    @ir.HotOp::CallRef => true
-    _ => false
-  }
-  let has_directize_candidate = directize_operand_candidate ||
-    directize_descriptor_candidate
   let kind = match @ir.hot_node_exact_instr(func, cast_fact.descriptor_id) {
     Some(@lib.Instruction::RefAsNonNull) =>
       if @ir.hot_child_count(func, cast_fact.descriptor_id) == 1 {
         DescriptorOperandStripRefAsNonNull
-      } else if has_directize_candidate {
+      } else if has_directization_fact {
         DescriptorOperandDirectizeOnly
       } else {
         return None
@@ -4332,18 +4390,13 @@ fn OiDescriptorOperandSimplificationFact::from_node(
     Some(@lib.Instruction::RefGetDesc(_)) =>
       DescriptorOperandMoveRefGetDescNullCheck
     _ =>
-      if has_directize_candidate {
+      if has_directization_fact {
         DescriptorOperandDirectizeOnly
       } else {
         return None
       }
   }
-  Some({
-    cast_fact,
-    directize_operand_candidate,
-    directize_descriptor_candidate,
-    kind,
-  })
+  Some({ cast_fact, directization_fact, kind })
 }
 
 ///|
@@ -4374,25 +4427,10 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
 ) -> Bool {
   let fact = self.simplification_fact
   let cast_fact = fact.cast_fact
-  let directized_operand = if fact.directize_operand_candidate {
-    optimize_instructions_try_directize_ref_func_call_ref(
-      ctx,
-      func,
-      dead,
-      cast_fact.operand_id,
-    )
-  } else {
-    false
-  }
-  let directized_descriptor = if fact.directize_descriptor_candidate {
-    optimize_instructions_try_directize_ref_func_call_ref(
-      ctx,
-      func,
-      dead,
-      cast_fact.descriptor_id,
-    )
-  } else {
-    false
+  let directized_children = match fact.directization_fact {
+    Some(directization_fact) =>
+      directization_fact.directize_children(ctx, func, dead)
+    None => false
   }
   if optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
       ctx, func, node_id,
@@ -4403,8 +4441,7 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
     return true
   }
   match fact.kind {
-    DescriptorOperandDirectizeOnly =>
-      directized_operand || directized_descriptor
+    DescriptorOperandDirectizeOnly => directized_children
     DescriptorOperandStripRefAsNonNull => {
       @ir.hot_child_set(
         func,
@@ -4421,8 +4458,7 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
         func,
         cast_fact.descriptor_id,
       ) ||
-      directized_operand ||
-      directized_descriptor
+      directized_children
   }
 }
 
