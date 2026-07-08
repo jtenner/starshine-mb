@@ -30,6 +30,17 @@ priv struct OptimizeInstructionsLocalFacts {
 }
 
 ///|
+priv struct OiLocalAssignmentFact {
+  live : Bool
+  supported_assignment : Bool
+  non_param_local : Bool
+  single_value_child : Bool
+  local_id : Int
+  value_id : Int
+  val_type : @lib.ValType?
+}
+
+///|
 fn OptimizeInstructionsLocalFacts::new(
   local_count : Int,
 ) -> OptimizeInstructionsLocalFacts {
@@ -155,6 +166,96 @@ fn OptimizeInstructionsLocalFacts::merge_i64_unsigned_max_for_local(
       }
     _ => self.i64_unsigned_max_by_local[local_id] = -1L
   }
+}
+
+///|
+fn OiLocalAssignmentFact::empty() -> OiLocalAssignmentFact {
+  {
+    live: false,
+    supported_assignment: false,
+    non_param_local: false,
+    single_value_child: false,
+    local_id: -1,
+    value_id: -1,
+    val_type: None,
+  }
+}
+
+///|
+fn OiLocalAssignmentFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiLocalAssignmentFact {
+  // Binaryen's `LocalScanner` records local-set/tee assignments as facts that
+  // later integer rewrites query, rather than each rewrite owning a separate
+  // tree scanner. Keep Starshine's represented local integer assignment shape
+  // explicit and shared by sign-extension and unsigned-max summaries.
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return OiLocalAssignmentFact::empty()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let supported_assignment = match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => true
+    _ => false
+  }
+  if !supported_assignment {
+    return OiLocalAssignmentFact::empty()
+  }
+  let single_value_child = node.child_count == 1
+  let local_id = node.imm0
+  {
+    live: true,
+    supported_assignment,
+    non_param_local: local_id >= @ir.hot_local_param_count(func),
+    single_value_child,
+    local_id,
+    value_id: if single_value_child {
+      func.children[node.child_base]
+    } else {
+      -1
+    },
+    val_type: @ir.hot_local_type(func, local_id),
+  }
+}
+
+///|
+fn OiLocalAssignmentFact::proves_sign_ext_integer_local(
+  self : OiLocalAssignmentFact,
+) -> Bool {
+  if !(self.live &&
+    self.supported_assignment &&
+    self.non_param_local &&
+    self.single_value_child) {
+    return false
+  }
+  match self.val_type {
+    Some(val_type) =>
+      val_type == @lib.ValType::i32() || val_type == @lib.ValType::i64()
+    None => false
+  }
+}
+
+///|
+fn OiLocalAssignmentFact::proves_i32_local(
+  self : OiLocalAssignmentFact,
+) -> Bool {
+  self.live &&
+  self.supported_assignment &&
+  self.non_param_local &&
+  self.single_value_child &&
+  self.val_type == Some(@lib.ValType::i32())
+}
+
+///|
+fn OiLocalAssignmentFact::proves_i64_local(
+  self : OiLocalAssignmentFact,
+) -> Bool {
+  self.live &&
+  self.supported_assignment &&
+  self.non_param_local &&
+  self.single_value_child &&
+  self.val_type == Some(@lib.ValType::i64())
 }
 
 ///|
@@ -3808,14 +3909,14 @@ fn optimize_instructions_sign_ext_bits_for_value(
 }
 
 ///|
-fn optimize_instructions_scan_sign_ext_local_sets_region(
+fn optimize_instructions_collect_sign_ext_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   region : @ir.HotRegionRef,
 ) -> Unit {
   for i = 0; i < @ir.hot_region_root_count(func, region); i = i + 1 {
-    optimize_instructions_scan_sign_ext_local_sets_expr(
+    optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
       scratch,
@@ -3825,7 +3926,7 @@ fn optimize_instructions_scan_sign_ext_local_sets_region(
 }
 
 ///|
-fn optimize_instructions_scan_sign_ext_local_sets_expr(
+fn optimize_instructions_collect_sign_ext_local_assignment_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
@@ -3836,7 +3937,7 @@ fn optimize_instructions_scan_sign_ext_local_sets_expr(
   }
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    optimize_instructions_scan_sign_ext_local_sets_expr(
+    optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
       scratch,
@@ -3845,14 +3946,14 @@ fn optimize_instructions_scan_sign_ext_local_sets_expr(
   }
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
-      optimize_instructions_scan_sign_ext_local_sets_region(
+      optimize_instructions_collect_sign_ext_local_assignment_region(
         func,
         dead,
         scratch,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
-      optimize_instructions_scan_sign_ext_local_sets_region(
+      optimize_instructions_collect_sign_ext_local_assignment_region(
         func,
         dead,
         scratch,
@@ -3860,33 +3961,32 @@ fn optimize_instructions_scan_sign_ext_local_sets_expr(
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
-          optimize_instructions_scan_sign_ext_local_sets_region(
+          optimize_instructions_collect_sign_ext_local_assignment_region(
             func, dead, scratch, else_region,
           )
         None => ()
       }
     }
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.child_count == 1 &&
-      node.imm0 >= @ir.hot_local_param_count(func) =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(val_type) if val_type == @lib.ValType::i32() ||
-          val_type == @lib.ValType::i64() =>
-          scratch.local_facts.merge_sign_ext_bits_for_local(
-            node.imm0,
-            OiSignExtValueFact::from_assigned_value(
-              func,
-              dead,
-              func.children[node.child_base],
-            ).bits,
-          )
-        _ => ()
+    _ => {
+      let assignment_fact = OiLocalAssignmentFact::from_node(
+        func, dead, node_id,
+      )
+      if assignment_fact.proves_sign_ext_integer_local() {
+        scratch.local_facts.merge_sign_ext_bits_for_local(
+          assignment_fact.local_id,
+          OiSignExtValueFact::from_assigned_value(
+            func,
+            dead,
+            assignment_fact.value_id,
+          ).bits,
+        )
       }
-    _ => ()
+    }
   }
 }
 
 ///|
-fn optimize_instructions_scan_sign_ext_facts(
+fn optimize_instructions_collect_sign_ext_facts(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
@@ -3895,7 +3995,7 @@ fn optimize_instructions_scan_sign_ext_facts(
     return
   }
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
-    optimize_instructions_scan_sign_ext_local_sets_expr(
+    optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
       scratch,
@@ -4230,14 +4330,14 @@ fn optimize_instructions_i64_unsigned_max_fact_for_node(
 }
 
 ///|
-fn optimize_instructions_scan_unsigned_max_local_sets_region(
+fn optimize_instructions_collect_unsigned_max_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   region : @ir.HotRegionRef,
 ) -> Unit {
   for i = 0; i < @ir.hot_region_root_count(func, region); i = i + 1 {
-    optimize_instructions_scan_unsigned_max_local_sets_expr(
+    optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
       scratch,
@@ -4247,7 +4347,7 @@ fn optimize_instructions_scan_unsigned_max_local_sets_region(
 }
 
 ///|
-fn optimize_instructions_scan_unsigned_max_local_sets_expr(
+fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
@@ -4258,7 +4358,7 @@ fn optimize_instructions_scan_unsigned_max_local_sets_expr(
   }
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    optimize_instructions_scan_unsigned_max_local_sets_expr(
+    optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
       scratch,
@@ -4267,14 +4367,14 @@ fn optimize_instructions_scan_unsigned_max_local_sets_expr(
   }
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
-      optimize_instructions_scan_unsigned_max_local_sets_region(
+      optimize_instructions_collect_unsigned_max_local_assignment_region(
         func,
         dead,
         scratch,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
-      optimize_instructions_scan_unsigned_max_local_sets_region(
+      optimize_instructions_collect_unsigned_max_local_assignment_region(
         func,
         dead,
         scratch,
@@ -4282,41 +4382,41 @@ fn optimize_instructions_scan_unsigned_max_local_sets_expr(
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
-          optimize_instructions_scan_unsigned_max_local_sets_region(
+          optimize_instructions_collect_unsigned_max_local_assignment_region(
             func, dead, scratch, else_region,
           )
         None => ()
       }
     }
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.child_count == 1 &&
-      node.imm0 >= @ir.hot_local_param_count(func) =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(val_type) if val_type == @lib.ValType::i32() =>
-          scratch.local_facts.merge_i32_unsigned_max_for_local(
-            node.imm0,
-            OiUnsignedMaxValueFact::from_assigned_i32_value(
-              func,
-              dead,
-              func.children[node.child_base],
-            ).i32_max,
-          )
-        Some(val_type) if val_type == @lib.ValType::i64() =>
-          scratch.local_facts.merge_i64_unsigned_max_for_local(
-            node.imm0,
-            OiUnsignedMaxValueFact::from_assigned_i64_value(
-              func,
-              dead,
-              func.children[node.child_base],
-            ).i64_max,
-          )
-        _ => ()
+    _ => {
+      let assignment_fact = OiLocalAssignmentFact::from_node(
+        func, dead, node_id,
+      )
+      if assignment_fact.proves_i32_local() {
+        scratch.local_facts.merge_i32_unsigned_max_for_local(
+          assignment_fact.local_id,
+          OiUnsignedMaxValueFact::from_assigned_i32_value(
+            func,
+            dead,
+            assignment_fact.value_id,
+          ).i32_max,
+        )
+      } else if assignment_fact.proves_i64_local() {
+        scratch.local_facts.merge_i64_unsigned_max_for_local(
+          assignment_fact.local_id,
+          OiUnsignedMaxValueFact::from_assigned_i64_value(
+            func,
+            dead,
+            assignment_fact.value_id,
+          ).i64_max,
+        )
       }
-    _ => ()
+    }
   }
 }
 
 ///|
-fn optimize_instructions_scan_unsigned_max_facts(
+fn optimize_instructions_collect_unsigned_max_facts(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
@@ -4336,7 +4436,7 @@ fn optimize_instructions_scan_unsigned_max_facts(
     }
   }
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
-    optimize_instructions_scan_unsigned_max_local_sets_expr(
+    optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
       scratch,
@@ -23035,22 +23135,22 @@ fn optimize_instructions_run(
   }
   let sign_ext_start_us = perf_start_timer_opt(
     ctx.perf,
-    "detail:optimize-instructions:scan-sign-ext-facts",
+    "detail:optimize-instructions:collect-sign-ext-facts",
   )
-  optimize_instructions_scan_sign_ext_facts(func, dead, scratch)
+  optimize_instructions_collect_sign_ext_facts(func, dead, scratch)
   perf_stop_timer_opt(
     ctx.perf,
-    "detail:optimize-instructions:scan-sign-ext-facts",
+    "detail:optimize-instructions:collect-sign-ext-facts",
     sign_ext_start_us,
   )
   let unsigned_max_start_us = perf_start_timer_opt(
     ctx.perf,
-    "detail:optimize-instructions:scan-unsigned-max-facts",
+    "detail:optimize-instructions:collect-unsigned-max-facts",
   )
-  optimize_instructions_scan_unsigned_max_facts(func, dead, scratch)
+  optimize_instructions_collect_unsigned_max_facts(func, dead, scratch)
   perf_stop_timer_opt(
     ctx.perf,
-    "detail:optimize-instructions:scan-unsigned-max-facts",
+    "detail:optimize-instructions:collect-unsigned-max-facts",
     unsigned_max_start_us,
   )
   let visit_start_us = perf_start_timer_opt(
