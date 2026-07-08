@@ -8237,10 +8237,6 @@ priv struct OiCallRefTargetClassificationFact {
 
 ///|
 priv struct OiCallRefTargetFact {
-  direct_func : Int
-  table_idx : Int
-  table_index_id : Int
-  fallthrough_func : Int
   select_fact : OiCallRefSelectTargetFact?
   direct_fact : OiCallRefDirectTargetFact?
   table_fact : OiCallRefTableTargetFact?
@@ -8250,10 +8246,6 @@ priv struct OiCallRefTargetFact {
 ///|
 fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
   {
-    direct_func: -1,
-    table_idx: -1,
-    table_index_id: -1,
-    fallthrough_func: -1,
     select_fact: None,
     direct_fact: None,
     table_fact: None,
@@ -8266,10 +8258,6 @@ fn OiCallRefTargetFact::from_direct_fact(
   fact : OiCallRefDirectTargetFact,
 ) -> OiCallRefTargetFact {
   {
-    direct_func: fact.direct_func,
-    table_idx: -1,
-    table_index_id: -1,
-    fallthrough_func: -1,
     select_fact: None,
     direct_fact: Some(fact),
     table_fact: None,
@@ -8282,10 +8270,6 @@ fn OiCallRefTargetFact::from_table_fact(
   fact : OiCallRefTableTargetFact,
 ) -> OiCallRefTargetFact {
   {
-    direct_func: -1,
-    table_idx: fact.table_idx,
-    table_index_id: fact.table_index_id,
-    fallthrough_func: -1,
     select_fact: None,
     direct_fact: None,
     table_fact: Some(fact),
@@ -8298,10 +8282,6 @@ fn OiCallRefTargetFact::from_fallthrough_direct_fact(
   fact : OiCallRefFallthroughDirectTargetFact,
 ) -> OiCallRefTargetFact {
   {
-    direct_func: -1,
-    table_idx: -1,
-    table_index_id: -1,
-    fallthrough_func: fact.fallthrough_func,
     select_fact: None,
     direct_fact: None,
     table_fact: None,
@@ -8314,10 +8294,6 @@ fn OiCallRefTargetFact::from_select_fact(
   fact : OiCallRefSelectTargetFact,
 ) -> OiCallRefTargetFact {
   {
-    direct_func: -1,
-    table_idx: -1,
-    table_index_id: -1,
-    fallthrough_func: -1,
     select_fact: Some(fact),
     direct_fact: None,
     table_fact: None,
@@ -8867,28 +8843,60 @@ fn OiCallRefSelectTargetFact::from_select(
 }
 
 ///|
-fn OiCallRefTargetFact::has_direct_func(self : OiCallRefTargetFact) -> Bool {
-  match self.direct_fact {
-    Some(fact) => fact.proves_direct_ref_func()
-    None => self.direct_func >= 0
+priv struct OiCallRefDirectFuncPlanFact {
+  direct_func : Int
+}
+
+///|
+priv struct OiCallRefTableTargetPlanFact {
+  table_idx : Int
+  table_index_id : Int
+}
+
+///|
+priv struct OiCallRefFallthroughFuncPlanFact {
+  direct_func : Int
+}
+
+///|
+fn OiCallRefDirectFuncPlanFact::from_target_fact(
+  target_fact : OiCallRefTargetFact,
+) -> OiCallRefDirectFuncPlanFact? {
+  // Binaryen v130 `visitCallRef` direct-target planning should consume the
+  // explicit immediate `ref.func` proof, not sentinel fields on the broader
+  // target record.
+  match target_fact.direct_fact {
+    Some(fact) if fact.proves_direct_ref_func() =>
+      Some({ direct_func: fact.direct_func })
+    _ => None
   }
 }
 
 ///|
-fn OiCallRefTargetFact::has_table_target(self : OiCallRefTargetFact) -> Bool {
-  match self.table_fact {
-    Some(fact) => fact.proves_table_get_target()
-    None => self.table_idx >= 0 && self.table_index_id >= 0
+fn OiCallRefTableTargetPlanFact::from_target_fact(
+  target_fact : OiCallRefTargetFact,
+) -> OiCallRefTableTargetPlanFact? {
+  // Binaryen v130 lowers only a proven immediate `table.get` callee to
+  // call_indirect. Keep the table/index payload behind that proof fact instead
+  // of asking sentinel-style questions of `OiCallRefTargetFact`.
+  match target_fact.table_fact {
+    Some(fact) if fact.proves_table_get_target() =>
+      Some({ table_idx: fact.table_idx, table_index_id: fact.table_index_id })
+    _ => None
   }
 }
 
 ///|
-fn OiCallRefTargetFact::has_fallthrough_func(
-  self : OiCallRefTargetFact,
-) -> Bool {
-  match self.fallthrough_direct_fact {
-    Some(fact) => fact.proves_fallthrough_ref_func()
-    None => self.fallthrough_func >= 0
+fn OiCallRefFallthroughFuncPlanFact::from_target_fact(
+  target_fact : OiCallRefTargetFact,
+) -> OiCallRefFallthroughFuncPlanFact? {
+  // Binaryen v130's fallthrough directization requires the fallthrough-target
+  // proof plus heap compatibility. Route the direct function payload through a
+  // plan fact so fallthrough calls do not depend on generic sentinel fields.
+  match target_fact.fallthrough_direct_fact {
+    Some(fact) if fact.proves_fallthrough_ref_func() =>
+      Some({ direct_func: fact.fallthrough_func })
+    _ => None
   }
 }
 
@@ -9280,25 +9288,32 @@ fn OiCallRefDirectizePlanFact::from_target(
 ) -> OiCallRefDirectizePlanFact? {
   // Binaryen v130 `visitCallRef` routes direct targets, typed-table targets,
   // fallthrough `ref.func` producers, and two-direct-arm selects through
-  // `CallUtils::convertToDirectCalls`. Keep that routing as an explicit plan
-  // fact so operand localization and call/return-call emission do not live in
+  // `CallUtils::convertToDirectCalls`. Keep that routing as explicit plan
+  // facts so operand localization and call/return-call emission do not live in
   // an ad hoc branch cascade inside the pass visitor.
-  if target_fact.has_direct_func() {
-    return Some({ kind: CallRefDirectFunc, target_fact, operand_fact: None })
+  match OiCallRefDirectFuncPlanFact::from_target_fact(target_fact) {
+    Some(_) =>
+      return Some({ kind: CallRefDirectFunc, target_fact, operand_fact: None })
+    None => ()
   }
-  if target_fact.has_table_target() {
-    return Some({ kind: CallRefTableTarget, target_fact, operand_fact: None })
+  match OiCallRefTableTargetPlanFact::from_target_fact(target_fact) {
+    Some(_) =>
+      return Some({ kind: CallRefTableTarget, target_fact, operand_fact: None })
+    None => ()
   }
-  if target_fact.has_fallthrough_func() {
-    let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
-      Some(fact) => fact
-      None => return None
+  match OiCallRefFallthroughFuncPlanFact::from_target_fact(target_fact) {
+    Some(_) => {
+      let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
+        Some(fact) => fact
+        None => return None
+      }
+      return Some({
+        kind: CallRefFallthroughFunc,
+        target_fact,
+        operand_fact: Some(operand_fact),
+      })
     }
-    return Some({
-      kind: CallRefFallthroughFunc,
-      target_fact,
-      operand_fact: Some(operand_fact),
-    })
+    None => ()
   }
   match target_fact.select_fact {
     Some(select_fact) =>
@@ -9395,8 +9410,10 @@ fn OiCallRefDirectizePlanFact::build_fallthrough_func_replacement(
   callee_ref_id : Int,
   operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  if !self.target_fact.has_fallthrough_func() {
-    return None
+  let fallthrough_plan = match
+    OiCallRefFallthroughFuncPlanFact::from_target_fact(self.target_fact) {
+    Some(fact) => fact
+    None => return None
   }
   match node.op {
     @ir.HotOp::CallRef => {
@@ -9416,19 +9433,14 @@ fn OiCallRefDirectizePlanFact::build_fallthrough_func_replacement(
           Some(
             @ir.hot_build_block(func, block_type, [
               @ir.hot_build_drop(func, callee_ref_id),
-              @ir.hot_build_call(
-                func,
-                self.target_fact.fallthrough_func,
-                results,
-                [],
-              ),
+              @ir.hot_build_call(func, fallthrough_plan.direct_func, results, []),
             ]),
           )
         Some(operands) =>
           Some(
             @ir.hot_build_call(
               func,
-              self.target_fact.fallthrough_func,
+              fallthrough_plan.direct_func,
               results,
               operands,
             ),
@@ -9445,18 +9457,14 @@ fn OiCallRefDirectizePlanFact::build_fallthrough_func_replacement(
           Some(
             @ir.hot_build_block(func, @lib.BlockType::void_(), [
               @ir.hot_build_drop(func, callee_ref_id),
-              @ir.hot_build_return_call(
-                func,
-                self.target_fact.fallthrough_func,
-                [],
-              ),
+              @ir.hot_build_return_call(func, fallthrough_plan.direct_func, []),
             ]),
           )
         Some(operands) =>
           Some(
             @ir.hot_build_return_call(
               func,
-              self.target_fact.fallthrough_func,
+              fallthrough_plan.direct_func,
               operands,
             ),
           )
@@ -9473,18 +9481,23 @@ fn OiCallRefDirectizePlanFact::build_direct_func_replacement(
   node : @ir.HotNode,
   args : Array[Int],
 ) -> Int? {
+  let direct_plan = match
+    OiCallRefDirectFuncPlanFact::from_target_fact(self.target_fact) {
+    Some(fact) => fact
+    None => return None
+  }
   match node.op {
     @ir.HotOp::CallRef =>
       Some(
         @ir.hot_build_call(
           func,
-          self.target_fact.direct_func,
+          direct_plan.direct_func,
           @ir.hot_type_results(func, node.ty),
           args,
         ),
       )
     @ir.HotOp::ReturnCallRef =>
-      Some(@ir.hot_build_return_call(func, self.target_fact.direct_func, args))
+      Some(@ir.hot_build_return_call(func, direct_plan.direct_func, args))
     _ => None
   }
 }
@@ -9496,6 +9509,11 @@ fn OiCallRefDirectizePlanFact::build_table_target_replacement(
   node : @ir.HotNode,
   args : Array[Int],
 ) -> Int? {
+  let table_plan = match
+    OiCallRefTableTargetPlanFact::from_target_fact(self.target_fact) {
+    Some(fact) => fact
+    None => return None
+  }
   let sig = @ir.hot_call_sig_get(func, node.imm0)
   match node.op {
     @ir.HotOp::CallRef =>
@@ -9503,10 +9521,10 @@ fn OiCallRefDirectizePlanFact::build_table_target_replacement(
         @ir.hot_build_call_indirect(
           func,
           sig.type_idx,
-          @lib.TableIdx::new(self.target_fact.table_idx.reinterpret_as_uint()),
+          @lib.TableIdx::new(table_plan.table_idx.reinterpret_as_uint()),
           @ir.hot_type_results(func, node.ty),
           args,
-          self.target_fact.table_index_id,
+          table_plan.table_index_id,
         ),
       )
     @ir.HotOp::ReturnCallRef =>
@@ -9514,9 +9532,9 @@ fn OiCallRefDirectizePlanFact::build_table_target_replacement(
         @ir.hot_build_return_call_indirect(
           func,
           sig.type_idx,
-          @lib.TableIdx::new(self.target_fact.table_idx.reinterpret_as_uint()),
+          @lib.TableIdx::new(table_plan.table_idx.reinterpret_as_uint()),
           args,
-          self.target_fact.table_index_id,
+          table_plan.table_index_id,
         ),
       )
     _ => None
