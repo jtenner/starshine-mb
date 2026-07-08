@@ -27393,21 +27393,74 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
 }
 
 ///|
-fn optimize_instructions_unsigned_domain_edge_compare_result(
+priv enum OiDomainEdgeKind {
+  DomainLowerEdge
+  DomainUpperEdge
+}
+
+///|
+priv struct OiSignedDomainEdgeCompareFact {
+  edge : OiDomainEdgeKind
+  result : @lib.I32
+}
+
+///|
+priv struct OiUnsignedDomainEdgeCompareFact {
+  edge : OiDomainEdgeKind
+  result : @lib.I32
+  lhs_id : Int
+  preserve_lhs : Bool
+}
+
+///|
+fn OiSignedDomainEdgeCompareFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  rhs_is_zero : Bool,
-  rhs_is_unsigned_max : Bool,
-) -> @lib.I32? {
-  if rhs_is_zero {
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiSignedDomainEdgeCompareFact? {
+  // Binaryen v130 folds signed integer comparisons at the unreachable domain
+  // endpoints only when the left operand can be erased without preserving
+  // effects. Keep the endpoint proof and boolean result as a fact instead of a
+  // helper-level compare/result table.
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+    return None
+  }
+  let (rhs_is_signed_min, rhs_is_signed_max) = match instr {
+    @lib.Instruction::I32LtS
+    | @lib.Instruction::I32LeS
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32GeS =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => (raw == -2147483648, raw == 2147483647)
+        _ => return None
+      }
+    @lib.Instruction::I64LtS
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64GeS =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) =>
+          (raw == -9223372036854775808L, raw == 9223372036854775807L)
+        _ => return None
+      }
+    _ => return None
+  }
+  if rhs_is_signed_min {
     match instr {
-      @lib.Instruction::I32LtU | @lib.Instruction::I64LtU => Some(@lib.I32(0))
-      @lib.Instruction::I32GeU | @lib.Instruction::I64GeU => Some(@lib.I32(1))
+      @lib.Instruction::I32LtS | @lib.Instruction::I64LtS =>
+        Some({ edge: DomainLowerEdge, result: @lib.I32(0) })
+      @lib.Instruction::I32GeS | @lib.Instruction::I64GeS =>
+        Some({ edge: DomainLowerEdge, result: @lib.I32(1) })
       _ => None
     }
-  } else if rhs_is_unsigned_max {
+  } else if rhs_is_signed_max {
     match instr {
-      @lib.Instruction::I32GtU | @lib.Instruction::I64GtU => Some(@lib.I32(0))
-      @lib.Instruction::I32LeU | @lib.Instruction::I64LeU => Some(@lib.I32(1))
+      @lib.Instruction::I32GtS | @lib.Instruction::I64GtS =>
+        Some({ edge: DomainUpperEdge, result: @lib.I32(0) })
+      @lib.Instruction::I32LeS | @lib.Instruction::I64LeS =>
+        Some({ edge: DomainUpperEdge, result: @lib.I32(1) })
       _ => None
     }
   } else {
@@ -27416,25 +27469,105 @@ fn optimize_instructions_unsigned_domain_edge_compare_result(
 }
 
 ///|
-fn optimize_instructions_signed_domain_edge_compare_result(
+fn OiUnsignedDomainEdgeCompareFact::from_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  rhs_is_signed_min : Bool,
-  rhs_is_signed_max : Bool,
-) -> @lib.I32? {
-  if rhs_is_signed_min {
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiUnsignedDomainEdgeCompareFact? {
+  // Binaryen v130 folds unsigned integer comparisons at the impossible domain
+  // endpoints and preserves left-operand effects by dropping the operand before
+  // the replacement constant. Carry that effect-preservation decision in the
+  // fact so the visitor does not own a separate unsigned endpoint whitelist.
+  let (rhs_is_zero, rhs_is_unsigned_max) = match instr {
+    @lib.Instruction::I32LtU
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I32GeU =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => (raw == 0, raw == -1)
+        _ => return None
+      }
+    @lib.Instruction::I64LtU
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I64GtU
+    | @lib.Instruction::I64GeU =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) => (raw == 0L, raw == -1L)
+        _ => return None
+      }
+    _ => return None
+  }
+  let (edge, result) = if rhs_is_zero {
     match instr {
-      @lib.Instruction::I32LtS | @lib.Instruction::I64LtS => Some(@lib.I32(0))
-      @lib.Instruction::I32GeS | @lib.Instruction::I64GeS => Some(@lib.I32(1))
-      _ => None
+      @lib.Instruction::I32LtU | @lib.Instruction::I64LtU =>
+        (DomainLowerEdge, @lib.I32(0))
+      @lib.Instruction::I32GeU | @lib.Instruction::I64GeU =>
+        (DomainLowerEdge, @lib.I32(1))
+      _ => return None
     }
-  } else if rhs_is_signed_max {
+  } else if rhs_is_unsigned_max {
     match instr {
-      @lib.Instruction::I32GtS | @lib.Instruction::I64GtS => Some(@lib.I32(0))
-      @lib.Instruction::I32LeS | @lib.Instruction::I64LeS => Some(@lib.I32(1))
-      _ => None
+      @lib.Instruction::I32GtU | @lib.Instruction::I64GtU =>
+        (DomainUpperEdge, @lib.I32(0))
+      @lib.Instruction::I32LeU | @lib.Instruction::I64LeU =>
+        (DomainUpperEdge, @lib.I32(1))
+      _ => return None
     }
   } else {
-    None
+    return None
+  }
+  Some({
+    edge,
+    result,
+    lhs_id,
+    preserve_lhs: OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, lhs_id,
+    ) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, lhs_id),
+  })
+}
+
+///|
+fn OiSignedDomainEdgeCompareFact::apply(
+  self : OiSignedDomainEdgeCompareFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.edge {
+    DomainLowerEdge | DomainUpperEdge => ()
+  }
+  optimize_instructions_replace_with_const_i32(ctx, func, node_id, self.result)
+}
+
+///|
+fn OiUnsignedDomainEdgeCompareFact::apply(
+  self : OiUnsignedDomainEdgeCompareFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.edge {
+    DomainLowerEdge | DomainUpperEdge => ()
+  }
+  if self.preserve_lhs {
+    optimize_instructions_replace_with_const_i32(
+      ctx,
+      func,
+      node_id,
+      self.result,
+    )
+  } else {
+    optimize_instructions_replace_with_drop_then_const_i32(
+      ctx,
+      func,
+      node_id,
+      self.lhs_id,
+      self.result,
+    )
   }
 }
 
@@ -27448,35 +27581,12 @@ fn optimize_instructions_try_fold_signed_domain_edge_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-    return false
-  }
-  let (rhs_is_signed_min, rhs_is_signed_max) = match instr {
-    @lib.Instruction::I32LtS
-    | @lib.Instruction::I32LeS
-    | @lib.Instruction::I32GtS
-    | @lib.Instruction::I32GeS =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) => (raw == -2147483648, raw == 2147483647)
-        _ => return false
-      }
-    @lib.Instruction::I64LtS
-    | @lib.Instruction::I64LeS
-    | @lib.Instruction::I64GtS
-    | @lib.Instruction::I64GeS =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(raw)) =>
-          (raw == -9223372036854775808L, raw == 9223372036854775807L)
-        _ => return false
-      }
-    _ => return false
-  }
   match
-    optimize_instructions_signed_domain_edge_compare_result(
-      instr, rhs_is_signed_min, rhs_is_signed_max,
+    OiSignedDomainEdgeCompareFact::from_operands(
+      func, dead, instr, lhs_id, rhs_id,
     ) {
-    Some(result) => {
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       true
     }
     None => false
@@ -27493,38 +27603,12 @@ fn optimize_instructions_try_fold_unsigned_domain_edge_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  let (rhs_is_zero, rhs_is_unsigned_max) = match instr {
-    @lib.Instruction::I32LtU
-    | @lib.Instruction::I32LeU
-    | @lib.Instruction::I32GtU
-    | @lib.Instruction::I32GeU =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) => (raw == 0, raw == -1)
-        _ => return false
-      }
-    @lib.Instruction::I64LtU
-    | @lib.Instruction::I64LeU
-    | @lib.Instruction::I64GtU
-    | @lib.Instruction::I64GeU =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(raw)) => (raw == 0L, raw == -1L)
-        _ => return false
-      }
-    _ => return false
-  }
   match
-    optimize_instructions_unsigned_domain_edge_compare_result(
-      instr, rhs_is_zero, rhs_is_unsigned_max,
+    OiUnsignedDomainEdgeCompareFact::from_operands(
+      ctx, func, dead, instr, lhs_id, rhs_id,
     ) {
-    Some(result) => {
-      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) ||
-        optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
-        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
-      } else {
-        optimize_instructions_replace_with_drop_then_const_i32(
-          ctx, func, node_id, lhs_id, result,
-        )
-      }
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       true
     }
     None => false
