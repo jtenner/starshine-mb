@@ -1783,20 +1783,26 @@ priv struct OiRefTestTighteningFact {
 }
 
 ///|
-fn OiRefTestTighteningFact::from_test(
+priv struct OiOrdinaryRefTestTighteningFact {
+  narrowed_ref_type : @lib.RefType
+}
+
+///|
+priv struct OiDescriptorRefTestTighteningFact {
+  boundary_only : Bool
+}
+
+///|
+fn OiOrdinaryRefTestTighteningFact::from_test(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   test_fact : OiRefTestFact,
-) -> OiRefTestTighteningFact? {
-  // Binaryen v130 `visitRefTest` first intersects the test cast type with
-  // `getFallthroughType(ref)` using `Type::getGreatestLowerBound`, then
+) -> OiOrdinaryRefTestTighteningFact? {
+  // Binaryen v130 `visitRefTest` first intersects the ordinary test cast type
+  // with `getFallthroughType(ref)` using `Type::getGreatestLowerBound`, then
   // evaluates the cast check. Keep the represented ordinary-test GLB/nullability
   // rule as a fact over the test target and operand fallthrough type instead of
-  // an opcode-local immediate scanner. Descriptor tests are held as a boundary
-  // until their descriptor semantics are represented by a dedicated fact.
-  if test_fact.descriptor_style {
-    return None
-  }
+  // an opcode-local immediate scanner.
   let current_ref_type = @lib.RefType::new(
     test_fact.nullable,
     test_fact.target,
@@ -1814,6 +1820,49 @@ fn OiRefTestTighteningFact::from_test(
     Some(narrowed_ref_type) if narrowed_ref_type != current_ref_type =>
       Some({ narrowed_ref_type, })
     _ => None
+  }
+}
+
+///|
+fn OiDescriptorRefTestTighteningFact::from_test(
+  test_fact : OiRefTestFact,
+) -> OiDescriptorRefTestTighteningFact? {
+  // Binaryen applies the same `visitRefTest` fallthrough/GLB phase to descriptor
+  // tests, but Starshine cannot yet construct a validated descriptor-test GLB
+  // fixture for same-shape or bottom-target cases. Preserve the boundary as a
+  // named fact so descriptor tightening can be reopened here with valid fixtures
+  // instead of living as an implicit `descriptor_style` escape in the ordinary
+  // ref-test path.
+  if test_fact.descriptor_style {
+    Some({ boundary_only: true })
+  } else {
+    None
+  }
+}
+
+///|
+fn OiDescriptorRefTestTighteningFact::proves_boundary_only(
+  self : OiDescriptorRefTestTighteningFact,
+) -> Bool {
+  self.boundary_only
+}
+
+///|
+fn OiRefTestTighteningFact::from_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  test_fact : OiRefTestFact,
+) -> OiRefTestTighteningFact? {
+  if test_fact.descriptor_style {
+    match OiDescriptorRefTestTighteningFact::from_test(test_fact) {
+      Some(fact) => ignore(fact.proves_boundary_only())
+      None => ()
+    }
+    return None
+  }
+  match OiOrdinaryRefTestTighteningFact::from_test(ctx, func, test_fact) {
+    Some(fact) => Some({ narrowed_ref_type: fact.narrowed_ref_type })
+    None => None
   }
 }
 
