@@ -8776,20 +8776,6 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
 }
 
 ///|
-fn OiCallRefSelectTargetFact::has_same_direct_func(
-  self : OiCallRefSelectTargetFact,
-) -> Bool {
-  self.same_func >= 0 && self.condition_id >= 0
-}
-
-///|
-fn OiCallRefSelectTargetFact::has_direct_funcs(
-  self : OiCallRefSelectTargetFact,
-) -> Bool {
-  self.true_func >= 0 && self.false_func >= 0 && self.condition_id >= 0
-}
-
-///|
 fn OiCallRefSelectTargetFact::condition_fact(
   self : OiCallRefSelectTargetFact,
   func : @ir.HotFunc,
@@ -8860,23 +8846,63 @@ fn OiCallRefTargetFact::has_fallthrough_func(
 }
 
 ///|
-fn OiCallRefTargetFact::has_select_same_direct_func(
-  self : OiCallRefTargetFact,
-) -> Bool {
-  match self.select_fact {
-    Some(fact) => fact.has_same_direct_func()
-    None => false
-  }
+priv struct OiCallRefSelectSameTargetFact {
+  direct_func : Int
+  residue_arm_id : Int
+  condition_fact : OiCallRefSelectConditionFact
 }
 
 ///|
-fn OiCallRefTargetFact::has_select_direct_funcs(
-  self : OiCallRefTargetFact,
-) -> Bool {
-  match self.select_fact {
-    Some(fact) => fact.has_direct_funcs()
-    None => false
+priv struct OiCallRefSelectDirectCallsFact {
+  true_func : Int
+  false_func : Int
+  condition_fact : OiCallRefSelectConditionFact
+}
+
+///|
+fn OiCallRefSelectSameTargetFact::from_select_target(
+  func : @ir.HotFunc,
+  select_fact : OiCallRefSelectTargetFact,
+) -> OiCallRefSelectSameTargetFact? {
+  // Binaryen v130 `CallUtils::convertToDirectCalls` takes the identical-arm
+  // select path only after both target arms are known direct functions and their
+  // function indices match. Keep that same-target proof as a dedicated fact so
+  // the directization plan does not ask sentinel-style questions of the broader
+  // select-target record.
+  if select_fact.same_func < 0 || select_fact.residue_arm_id < 0 {
+    return None
   }
+  let condition_fact = match select_fact.condition_fact(func) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({
+    direct_func: select_fact.same_func,
+    residue_arm_id: select_fact.residue_arm_id,
+    condition_fact,
+  })
+}
+
+///|
+fn OiCallRefSelectDirectCallsFact::from_select_target(
+  func : @ir.HotFunc,
+  select_fact : OiCallRefSelectTargetFact,
+) -> OiCallRefSelectDirectCallsFact? {
+  // Binaryen v130 falls back from the identical-arm path to an `if` that calls
+  // each proven direct target. This fact owns the two function indices and the
+  // typed i32 condition proof instead of leaving those as open sentinel fields.
+  if select_fact.true_func < 0 || select_fact.false_func < 0 {
+    return None
+  }
+  let condition_fact = match select_fact.condition_fact(func) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({
+    true_func: select_fact.true_func,
+    false_func: select_fact.false_func,
+    condition_fact,
+  })
 }
 
 ///|
@@ -9091,23 +9117,21 @@ fn OiCallRefSelectTargetResidueFact::from_same_target(
   callee_ref_id : Int,
   target_fact : OiCallRefTargetFact,
 ) -> OiCallRefSelectTargetResidueFact? {
-  let select_fact = match target_fact.select_fact {
-    Some(fact) if fact.has_same_direct_func() => fact
-    _ => return None
-  }
-  let condition_fact = match select_fact.condition_fact(func) {
-    Some(fact) => fact
+  let same_target_fact = match target_fact.select_fact {
+    Some(select_fact) =>
+      match
+        OiCallRefSelectSameTargetFact::from_select_target(func, select_fact) {
+        Some(fact) => fact
+        None => return None
+      }
     None => return None
-  }
-  if select_fact.residue_arm_id < 0 {
-    return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, callee_ref_id)) {
     [target_type] =>
       Some({
-        target_arm_id: select_fact.residue_arm_id,
+        target_arm_id: same_target_fact.residue_arm_id,
         target_type,
-        condition_fact,
+        condition_fact: same_target_fact.condition_fact,
       })
     _ => None
   }
@@ -9229,27 +9253,43 @@ fn OiCallRefDirectizePlanFact::from_target(
       operand_fact: Some(operand_fact),
     })
   }
-  if target_fact.has_select_same_direct_func() {
-    let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
-      Some(fact) => fact
-      None => return None
-    }
-    return Some({
-      kind: CallRefSelectSameDirectFunc,
-      target_fact,
-      operand_fact: Some(operand_fact),
-    })
+  match target_fact.select_fact {
+    Some(select_fact) =>
+      match
+        OiCallRefSelectSameTargetFact::from_select_target(func, select_fact) {
+        Some(_) => {
+          let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
+            Some(fact) => fact
+            None => return None
+          }
+          return Some({
+            kind: CallRefSelectSameDirectFunc,
+            target_fact,
+            operand_fact: Some(operand_fact),
+          })
+        }
+        None => ()
+      }
+    None => ()
   }
-  if target_fact.has_select_direct_funcs() {
-    let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
-      Some(fact) => fact
-      None => return None
-    }
-    return Some({
-      kind: CallRefSelectDirectFuncs,
-      target_fact,
-      operand_fact: Some(operand_fact),
-    })
+  match target_fact.select_fact {
+    Some(select_fact) =>
+      match
+        OiCallRefSelectDirectCallsFact::from_select_target(func, select_fact) {
+        Some(_) => {
+          let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
+            Some(fact) => fact
+            None => return None
+          }
+          return Some({
+            kind: CallRefSelectDirectFuncs,
+            target_fact,
+            operand_fact: Some(operand_fact),
+          })
+        }
+        None => ()
+      }
+    None => ()
   }
   None
 }
@@ -9444,9 +9484,14 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
   callee_ref_id : Int,
   operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  let select_fact = match self.target_fact.select_fact {
-    Some(fact) if fact.has_same_direct_func() => fact
-    _ => return None
+  let same_target_fact = match self.target_fact.select_fact {
+    Some(select_fact) =>
+      match
+        OiCallRefSelectSameTargetFact::from_select_target(func, select_fact) {
+        Some(fact) => fact
+        None => return None
+      }
+    None => return None
   }
   let residue_fact = match
     OiCallRefSelectTargetResidueFact::from_same_target(
@@ -9469,7 +9514,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
     @ir.HotOp::CallRef => {
       let direct_call = @ir.hot_build_call(
         func,
-        select_fact.same_func,
+        same_target_fact.direct_func,
         results,
         operands,
       )
@@ -9494,7 +9539,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
     @ir.HotOp::ReturnCallRef => {
       let direct_call = @ir.hot_build_return_call(
         func,
-        select_fact.same_func,
+        same_target_fact.direct_func,
         operands,
       )
       if residue_fact.has_effects() && operand_fact.args.length() == 0 {
@@ -9519,9 +9564,14 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
   node : @ir.HotNode,
   operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  let select_fact = match self.target_fact.select_fact {
-    Some(fact) if fact.has_direct_funcs() => fact
-    _ => return None
+  let direct_calls_fact = match self.target_fact.select_fact {
+    Some(select_fact) =>
+      match
+        OiCallRefSelectDirectCallsFact::from_select_target(func, select_fact) {
+        Some(fact) => fact
+        None => return None
+      }
+    None => return None
   }
   let block_type = match node.op {
     @ir.HotOp::CallRef => {
@@ -9542,11 +9592,11 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
       @ir.hot_build_if(
         func,
         block_type,
-        select_fact.condition_id,
+        direct_calls_fact.condition_fact.condition_id,
         [
           @ir.hot_build_call(
             func,
-            select_fact.true_func,
+            direct_calls_fact.true_func,
             @ir.hot_type_results(func, node.ty),
             localized_operands.local_gets(func),
           ),
@@ -9554,7 +9604,7 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
         else_body=Some([
           @ir.hot_build_call(
             func,
-            select_fact.false_func,
+            direct_calls_fact.false_func,
             @ir.hot_type_results(func, node.ty),
             localized_operands.local_gets(func),
           ),
@@ -9564,18 +9614,18 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
       @ir.hot_build_if(
         func,
         @lib.BlockType::void_(),
-        select_fact.condition_id,
+        direct_calls_fact.condition_fact.condition_id,
         [
           @ir.hot_build_return_call(
             func,
-            select_fact.true_func,
+            direct_calls_fact.true_func,
             localized_operands.local_gets(func),
           ),
         ],
         else_body=Some([
           @ir.hot_build_return_call(
             func,
-            select_fact.false_func,
+            direct_calls_fact.false_func,
             localized_operands.local_gets(func),
           ),
         ]),
