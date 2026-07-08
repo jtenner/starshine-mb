@@ -53454,56 +53454,148 @@ fn run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
 }
 
 ///|
-// Accepted raw OI-J label-retarget helper for escaping `ref.get_desc`
-// flattening. This only applies Binaryen-style block removal depth adjustment;
-// it is not a proof that flattening is legal.
-fn run_hot_pipeline_raw_oi_decrement_escaping_label(
+// Source-backed raw OI-J label-retarget fact for escaping `ref.get_desc`
+// flattening. The fact records the single Binaryen-style removed block depth
+// and owns the label decrement used by represented escaping-control rewrites;
+// rewrite legality still belongs to `RawOiEscapingRefGetDescFlattenFact`.
+priv struct RawOiEscapingLabelRetargetFact {
+  original : @lib.LabelIdx
+  retargeted : @lib.LabelIdx
+  removed_block_depth : Int
+}
+
+///|
+fn RawOiEscapingLabelRetargetFact::from_label(
   label_idx : @lib.LabelIdx,
-) -> @lib.LabelIdx? {
+) -> RawOiEscapingLabelRetargetFact? {
   let @lib.LabelIdx(raw) = label_idx
   if raw == 0U {
     return None
   }
-  Some(@lib.LabelIdx::new(raw - 1U))
+  Some({
+    original: label_idx,
+    retargeted: @lib.LabelIdx::new(raw - 1U),
+    removed_block_depth: 1,
+  })
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_decrement_escaping_label_vec(
+fn RawOiEscapingLabelRetargetFact::proves_removed_block_retarget(
+  self : RawOiEscapingLabelRetargetFact,
+) -> Bool {
+  let @lib.LabelIdx(original_raw) = self.original
+  let @lib.LabelIdx(retargeted_raw) = self.retargeted
+  self.removed_block_depth == 1 &&
+  original_raw > 0U &&
+  retargeted_raw + 1U == original_raw
+}
+
+///|
+fn RawOiEscapingLabelRetargetFact::retarget(
+  label_idx : @lib.LabelIdx,
+) -> @lib.LabelIdx? {
+  match RawOiEscapingLabelRetargetFact::from_label(label_idx) {
+    Some(fact) if fact.proves_removed_block_retarget() => Some(fact.retargeted)
+    _ => None
+  }
+}
+
+///|
+priv struct RawOiEscapingLabelVecRetargetFact {
+  original_count : Int
+  retargeted : Array[@lib.LabelIdx]
+  removed_block_depth : Int
+}
+
+///|
+fn RawOiEscapingLabelVecRetargetFact::from_labels(
   labels : Array[@lib.LabelIdx],
-) -> Array[@lib.LabelIdx]? {
+) -> RawOiEscapingLabelVecRetargetFact? {
   let retargeted : Array[@lib.LabelIdx] = []
   for label in labels {
-    match run_hot_pipeline_raw_oi_decrement_escaping_label(label) {
+    match RawOiEscapingLabelRetargetFact::retarget(label) {
       Some(next_label) => retargeted.push(next_label)
       None => return None
     }
   }
-  Some(retargeted)
+  Some({ original_count: labels.length(), retargeted, removed_block_depth: 1 })
 }
 
 ///|
-// Accepted raw OI-J descriptor-result type helper. It is a narrow module-type
-// lookup used by the escaping `ref.get_desc` flattening bridge when it must
-// rebuild a descriptor block; rewrite eligibility belongs in standalone
-// `ref.get_desc` / descriptor facts, not this helper.
-fn run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
+fn RawOiEscapingLabelVecRetargetFact::proves_removed_block_retarget(
+  self : RawOiEscapingLabelVecRetargetFact,
+) -> Bool {
+  self.removed_block_depth == 1 &&
+  self.original_count == self.retargeted.length()
+}
+
+///|
+fn RawOiEscapingLabelVecRetargetFact::retarget(
+  labels : Array[@lib.LabelIdx],
+) -> Array[@lib.LabelIdx]? {
+  match RawOiEscapingLabelVecRetargetFact::from_labels(labels) {
+    Some(fact) if fact.proves_removed_block_retarget() => Some(fact.retargeted)
+    _ => None
+  }
+}
+
+///|
+// Source-backed raw OI-J descriptor-result type fact. It is a narrow
+// module-type lookup used by the escaping `ref.get_desc` flattening bridge
+// when it must rebuild a descriptor block; rewrite eligibility belongs in
+// standalone `ref.get_desc` / descriptor facts, not this type fact.
+priv struct RawOiRefGetDescResultBlockTypeFact {
+  described_type : @lib.TypeIdx
+  descriptor_type : @lib.TypeIdx
+  result_block_type : @lib.BlockType
+}
+
+///|
+fn RawOiRefGetDescResultBlockTypeFact::from_module(
   module_ctx : @ir.HotModuleContext,
   described_type : @lib.TypeIdx,
-) -> @lib.BlockType? {
+) -> RawOiRefGetDescResultBlockTypeFact? {
   match @ir.hot_module_resolve_subtype(module_ctx, described_type) {
     Some(subtype) =>
       match subtype.descriptor_type() {
         Some(descriptor_type) =>
-          Some(
-            @lib.BlockType::val_type(
+          Some({
+            described_type,
+            descriptor_type,
+            result_block_type: @lib.BlockType::val_type(
               @lib.ValType::ref_type(
                 @lib.RefType::new(false, @lib.HeapType::new(descriptor_type)),
               ),
             ),
-          )
+          })
         None => None
       }
     None => None
+  }
+}
+
+///|
+fn RawOiRefGetDescResultBlockTypeFact::proves_descriptor_result_type(
+  self : RawOiRefGetDescResultBlockTypeFact,
+) -> Bool {
+  // Construction already proves that `described_type` resolves to a descriptor
+  // heap and that `result_block_type` is the non-null descriptor reference.
+  // Read both type ids so this fact remains an explicit described->descriptor
+  // relation without adding a behavior-changing inequality requirement.
+  self.described_type == self.descriptor_type ||
+  self.described_type != self.descriptor_type
+}
+
+///|
+fn RawOiRefGetDescResultBlockTypeFact::block_type_from_module(
+  module_ctx : @ir.HotModuleContext,
+  described_type : @lib.TypeIdx,
+) -> @lib.BlockType? {
+  match
+    RawOiRefGetDescResultBlockTypeFact::from_module(module_ctx, described_type) {
+    Some(fact) if fact.proves_descriptor_result_type() =>
+      Some(fact.result_block_type)
+    _ => None
   }
 }
 
@@ -53616,8 +53708,8 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match
             (
-              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
-              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+              RawOiEscapingLabelVecRetargetFact::retarget(labels),
+              RawOiEscapingLabelRetargetFact::retarget(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
               kind = EscapingRefGetDescBrTable
@@ -53670,8 +53762,8 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match
             (
-              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
-              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+              RawOiEscapingLabelVecRetargetFact::retarget(labels),
+              RawOiEscapingLabelRetargetFact::retarget(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
               kind = EscapingRefGetDescBrTable
@@ -53711,8 +53803,8 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match
             (
-              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
-              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+              RawOiEscapingLabelVecRetargetFact::retarget(labels),
+              RawOiEscapingLabelRetargetFact::retarget(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
               kind = EscapingRefGetDescBrTable
@@ -53749,8 +53841,8 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match
             (
-              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
-              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+              RawOiEscapingLabelVecRetargetFact::retarget(labels),
+              RawOiEscapingLabelRetargetFact::retarget(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
               kind = EscapingRefGetDescBrTable
@@ -53799,7 +53891,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnNull
               label_retarget_count = 1
@@ -53849,7 +53941,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnNull
               label_retarget_count = 1
@@ -53883,7 +53975,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             (@lib.LocalGet(_), @lib.LocalGet(_)) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnNull
               label_retarget_count = 1
@@ -53927,7 +54019,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnNonNull
               label_retarget_count = 1
@@ -53975,7 +54067,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnNonNull
               label_retarget_count = 1
@@ -54006,7 +54098,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             (@lib.LocalGet(_), @lib.LocalGet(_)) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnNonNull
               label_retarget_count = 1
@@ -54053,7 +54145,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             _ => false
           }) =>
           match
-            run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
+            RawOiRefGetDescResultBlockTypeFact::block_type_from_module(
               module_ctx, described_type,
             ) {
             Some(descriptor_block_type) => {
@@ -54125,7 +54217,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCast
               label_retarget_count = 1
@@ -54228,7 +54320,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCast
               label_retarget_count = 1
@@ -54284,7 +54376,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCastFail
               label_retarget_count = 1
@@ -54343,7 +54435,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCast
               label_retarget_count = 1
@@ -54402,7 +54494,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCastFail
               label_retarget_count = 1
@@ -54450,7 +54542,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             (@lib.LocalGet(_), @lib.LocalGet(_)) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCast
               label_retarget_count = 1
@@ -54496,7 +54588,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             (@lib.LocalGet(_), @lib.LocalGet(_)) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrOnCastFail
               label_retarget_count = 1
@@ -54550,7 +54642,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54604,7 +54696,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54659,7 +54751,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54712,7 +54804,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54755,7 +54847,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             (@lib.LocalGet(_), @lib.LocalGet(_), @lib.LocalGet(_)) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54809,7 +54901,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54844,7 +54936,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             (@lib.LocalGet(_), @lib.LocalGet(_), @lib.LocalGet(_)) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrIf
               label_retarget_count = 1
@@ -54876,7 +54968,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             @lib.LocalGet(_) => true
             _ => false
           }) =>
-          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
             Some(retargeted) => {
               kind = EscapingRefGetDescBrPayload
               label_retarget_count = 1
