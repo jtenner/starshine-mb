@@ -32768,6 +32768,74 @@ fn run_hot_pipeline_raw_oi_push_dropped_range(
 }
 
 ///|
+priv struct RawOiSameFlatPureScalarMemoryCopyFact {
+  dst_fact : RawOiFlatPureScalarAddressFact
+  src_fact : RawOiFlatPureScalarAddressFact
+  size_instr_idx : Int
+  copy_instr_idx : Int
+}
+
+///|
+fn RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
+  instrs : Array[@lib.Instruction],
+  dst_fact : RawOiFlatPureScalarAddressFact,
+  src_fact : RawOiFlatPureScalarAddressFact,
+) -> RawOiSameFlatPureScalarMemoryCopyFact? {
+  // Binaryen v130 `optimizeMemoryCopy` drops same-memory copies whose flat
+  // destination/source address facts prove equal under trap-relaxed modes. Keep
+  // the represented raw fallback as one copy fact so the traversal no longer
+  // embeds the size/copy opcode window beside the address-equality proof.
+  if dst_fact.fallthrough_local_tee || !dst_fact.proves_equal(src_fact) {
+    return None
+  }
+  let size_instr_idx = src_fact.end
+  let copy_instr_idx = src_fact.end + 1
+  if copy_instr_idx >= instrs.length() {
+    return None
+  }
+  if !run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
+      instrs[size_instr_idx],
+    ) {
+    return None
+  }
+  match instrs[copy_instr_idx] {
+    @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem =>
+      Some({ dst_fact, src_fact, size_instr_idx, copy_instr_idx })
+    _ => None
+  }
+}
+
+///|
+fn RawOiSameFlatPureScalarMemoryCopyFact::proves_same_memory_copy_drop(
+  self : RawOiSameFlatPureScalarMemoryCopyFact,
+) -> Bool {
+  self.size_instr_idx >= 0 && self.copy_instr_idx == self.size_instr_idx + 1
+}
+
+///|
+fn RawOiSameFlatPureScalarMemoryCopyFact::append_replacement(
+  self : RawOiSameFlatPureScalarMemoryCopyFact,
+  out : Array[@lib.Instruction],
+  instrs : Array[@lib.Instruction],
+) -> Int {
+  run_hot_pipeline_raw_oi_push_dropped_range(
+    out,
+    instrs,
+    self.dst_fact.start,
+    self.dst_fact.end,
+  )
+  run_hot_pipeline_raw_oi_push_dropped_range(
+    out,
+    instrs,
+    self.src_fact.start,
+    self.src_fact.end,
+  )
+  out.push(instrs[self.size_instr_idx])
+  out.push(@lib.Instruction::drop())
+  self.copy_instr_idx + 1
+}
+
+///|
 // Accepted raw OI-G traversal bridge over `RawOiFlatPureScalarAddressFact`.
 // The body-level loop remains responsible for recursion and drop emission, but
 // same-address proof must stay in the flat pure-scalar address facts rather
@@ -32848,34 +32916,16 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
         if matched {
           break
         }
-        if src_fact.end + 1 < instrs.length() &&
-          !dst_fact.fallthrough_local_tee &&
-          dst_fact.proves_equal(src_fact) &&
-          run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-            instrs[src_fact.end],
+        match
+          RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
+            instrs, dst_fact, src_fact,
           ) {
-          match instrs[src_fact.end + 1] {
-            @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem => {
-              run_hot_pipeline_raw_oi_push_dropped_range(
-                out,
-                instrs,
-                dst_fact.start,
-                dst_fact.end,
-              )
-              run_hot_pipeline_raw_oi_push_dropped_range(
-                out,
-                instrs,
-                src_fact.start,
-                src_fact.end,
-              )
-              out.push(instrs[src_fact.end])
-              out.push(@lib.Instruction::drop())
-              changed = true
-              matched = true
-              i = src_fact.end + 2
-            }
-            _ => ()
+          Some(copy_fact) if copy_fact.proves_same_memory_copy_drop() => {
+            i = copy_fact.append_replacement(out, instrs)
+            changed = true
+            matched = true
           }
+          _ => ()
         }
       }
     }
