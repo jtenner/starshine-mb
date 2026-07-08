@@ -5815,70 +5815,158 @@ fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool 
 }
 
 ///|
-fn optimize_instructions_local_get_id(
+priv struct OiLocalGetLeafFact {
+  local_id : Int?
+}
+
+///|
+fn OiLocalGetLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Int? {
+) -> OiLocalGetLeafFact {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return None
+    return { local_id: None }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  match node.op {
-    @ir.HotOp::LocalGet => Some(node.imm0)
-    _ => None
+  {
+    local_id: match node.op {
+      @ir.HotOp::LocalGet => Some(node.imm0)
+      _ => None
+    },
   }
 }
 
 ///|
-fn optimize_instructions_is_constlike(
+priv struct OiConstlikeLeafFact {
+  live : Bool
+  const_leaf : Bool
+  ref_null_leaf : Bool
+  ref_func_leaf : Bool
+}
+
+///|
+fn OiConstlikeLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiConstlikeLeafFact {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
+    return {
+      live: false,
+      const_leaf: false,
+      ref_null_leaf: false,
+      ref_func_leaf: false,
+    }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  match node.op {
-    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => true
+  let const_leaf = match node.op {
+    @ir.HotOp::Const => true
     _ => false
   }
+  let ref_null_leaf = match node.op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+  let ref_func_leaf = match node.op {
+    @ir.HotOp::RefFunc => true
+    _ => false
+  }
+  { live: true, const_leaf, ref_null_leaf, ref_func_leaf }
 }
 
 ///|
-fn optimize_instructions_is_shared_cross_safe_leaf(
+fn OiConstlikeLeafFact::proves_constlike(self : OiConstlikeLeafFact) -> Bool {
+  self.live && (self.const_leaf || self.ref_null_leaf || self.ref_func_leaf)
+}
+
+///|
+priv struct OiSharedCrossSafeLeafFact {
+  live : Bool
+  local_get_leaf : Bool
+  const_leaf : Bool
+  ref_null_leaf : Bool
+  ref_func_leaf : Bool
+}
+
+///|
+fn OiSharedCrossSafeLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiSharedCrossSafeLeafFact {
+  // Binaryen v130 local reordering and select cleanup only allow multiply used
+  // children to cross a local.get when the child is a direct immutable leaf.
+  // Keep Starshine's represented leaf set explicit so local-get crossing,
+  // relational canonicalization, and identical-select cleanup share facts
+  // instead of each owning an opcode whitelist.
   if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
+    return {
+      live: false,
+      local_get_leaf: false,
+      const_leaf: false,
+      ref_null_leaf: false,
+      ref_func_leaf: false,
+    }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  match node.op {
-    @ir.HotOp::LocalGet
-    | @ir.HotOp::Const
-    | @ir.HotOp::RefNull
-    | @ir.HotOp::RefFunc => true
+  let local_get_leaf = match node.op {
+    @ir.HotOp::LocalGet => true
     _ => false
   }
+  let const_leaf = match node.op {
+    @ir.HotOp::Const => true
+    _ => false
+  }
+  let ref_null_leaf = match node.op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+  let ref_func_leaf = match node.op {
+    @ir.HotOp::RefFunc => true
+    _ => false
+  }
+  { live: true, local_get_leaf, const_leaf, ref_null_leaf, ref_func_leaf }
 }
 
 ///|
-fn optimize_instructions_can_cross_local_get(
+fn OiSharedCrossSafeLeafFact::proves_safe(
+  self : OiSharedCrossSafeLeafFact,
+) -> Bool {
+  self.live &&
+  (
+    self.local_get_leaf ||
+    self.const_leaf ||
+    self.ref_null_leaf ||
+    self.ref_func_leaf
+  )
+}
+
+///|
+priv struct OiLocalGetCrossingFact {
+  live : Bool
+  repeated_visit : Bool
+  loop_input_boundary : Bool
+  unsupported_control : Bool
+  shared_use_hazard : Bool
+  same_local_write : Bool
+  children_can_cross : Bool
+}
+
+///|
+fn OiLocalGetCrossingFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
@@ -5888,31 +5976,61 @@ fn optimize_instructions_can_cross_local_get(
   loop_input_nodes : @bitset.BitSet,
   seen_stamps : Array[Int],
   seen_stamp : Int,
-) -> Bool {
+) -> OiLocalGetCrossingFact {
+  // Binaryen OI's operand canonicalization may move a subtree across a
+  // local.get only when the intervening subtree cannot write that local or hide
+  // unsupported control/EH. Preserve the previous Starshine subset as a
+  // fact-driven traversal: live/revisit boundaries, loop-input blockers,
+  // accepted control roots, shared-use leaf safety, same-local writes, and child
+  // crossing all become named evidence fields rather than a standalone scanner.
   if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return true
+    return {
+      live: false,
+      repeated_visit: false,
+      loop_input_boundary: false,
+      unsupported_control: false,
+      shared_use_hazard: false,
+      same_local_write: false,
+      children_can_cross: true,
+    }
   }
   if node_id < seen_stamps.length() && seen_stamps[node_id] == seen_stamp {
-    return true
+    return {
+      live: true,
+      repeated_visit: true,
+      loop_input_boundary: false,
+      unsupported_control: false,
+      shared_use_hazard: false,
+      same_local_write: false,
+      children_can_cross: true,
+    }
   }
   if node_id < seen_stamps.length() {
     seen_stamps[node_id] = seen_stamp
   }
   if node_id < loop_input_nodes.length() && loop_input_nodes[node_id] {
-    return false
+    return {
+      live: true,
+      repeated_visit: false,
+      loop_input_boundary: true,
+      unsupported_control: false,
+      shared_use_hazard: false,
+      same_local_write: false,
+      children_can_cross: true,
+    }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  match node.op {
-    @ir.HotOp::If => ()
+  let unsupported_control = match node.op {
+    @ir.HotOp::If => false
     @ir.HotOp::Block => {
       let label_id = @ir.hot_control_node_label(func, node_id)
       match @ir.hot_label_kind(func, label_id) {
-        @ir.HotLabelKind::RegionLabel => ()
-        _ => return false
+        @ir.HotLabelKind::RegionLabel => false
+        _ => true
       }
     }
     @ir.HotOp::Loop
@@ -5927,40 +6045,64 @@ fn optimize_instructions_can_cross_local_get(
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate
     | @ir.HotOp::Catch
-    | @ir.HotOp::CatchAll => return false
-    _ => ()
+    | @ir.HotOp::CatchAll => true
+    _ => false
   }
-  if @ir.node_use_count(use_def, node_id) > 1 {
-    if !optimize_instructions_is_shared_cross_safe_leaf(func, dead, node_id) ||
-      under_local_tee_payload {
-      return false
+  let shared_use_hazard = @ir.node_use_count(use_def, node_id) > 1 &&
+    (
+      !OiSharedCrossSafeLeafFact::from_node(func, dead, node_id).proves_safe() ||
+      under_local_tee_payload
+    )
+  let same_local_write = match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id => true
+    _ => false
+  }
+  let mut children_can_cross = true
+  if !unsupported_control && !shared_use_hazard && !same_local_write {
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_is_local_tee_payload = match node.op {
+        @ir.HotOp::LocalTee => slot == 0
+        _ => false
+      }
+      if !OiLocalGetCrossingFact::from_node(
+          func,
+          dead,
+          use_def,
+          func.children[node.child_base + slot],
+          local_id,
+          child_is_local_tee_payload,
+          loop_input_nodes,
+          seen_stamps,
+          seen_stamp,
+        ).proves_can_cross() {
+        children_can_cross = false
+      }
     }
   }
-  match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id =>
-      return false
-    _ => ()
+  {
+    live: true,
+    repeated_visit: false,
+    loop_input_boundary: false,
+    unsupported_control,
+    shared_use_hazard,
+    same_local_write,
+    children_can_cross,
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    let child_is_local_tee_payload = match node.op {
-      @ir.HotOp::LocalTee => slot == 0
-      _ => false
-    }
-    if !optimize_instructions_can_cross_local_get(
-        func,
-        dead,
-        use_def,
-        func.children[node.child_base + slot],
-        local_id,
-        child_is_local_tee_payload,
-        loop_input_nodes,
-        seen_stamps,
-        seen_stamp,
-      ) {
-      return false
-    }
-  }
-  true
+}
+
+///|
+fn OiLocalGetCrossingFact::proves_can_cross(
+  self : OiLocalGetCrossingFact,
+) -> Bool {
+  ignore(self.live)
+  self.repeated_visit ||
+  (
+    !self.loop_input_boundary &&
+    !self.unsupported_control &&
+    !self.shared_use_hazard &&
+    !self.same_local_write &&
+    self.children_can_cross
+  )
 }
 
 ///|
@@ -7585,8 +7727,8 @@ fn optimize_instructions_try_canonicalize_relational_const(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_is_constlike(func, dead, lhs_id) ||
-    optimize_instructions_is_constlike(func, dead, rhs_id) {
+  if !OiConstlikeLeafFact::from_node(func, dead, lhs_id).proves_constlike() ||
+    OiConstlikeLeafFact::from_node(func, dead, rhs_id).proves_constlike() {
     return false
   }
   match optimize_instructions_reverse_relational_instr(instr) {
@@ -7620,13 +7762,13 @@ fn optimize_instructions_try_canonicalize_relational_operands(
     None => return false
   }
   let lhs_canonicalized = match
-    optimize_instructions_local_get_id(func, dead, lhs_id) {
+    OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id {
     Some(local_id) => {
-      if optimize_instructions_is_constlike(func, dead, rhs_id) {
+      if OiConstlikeLeafFact::from_node(func, dead, rhs_id).proves_constlike() {
         return false
       }
       let should_swap = match
-        optimize_instructions_local_get_id(func, dead, rhs_id) {
+        OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id {
         Some(rhs_local_id) => local_id > rhs_local_id
         None => true
       }
@@ -7639,7 +7781,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = optimize_instructions_can_cross_local_get(
+      let can_cross = OiLocalGetCrossingFact::from_node(
         func,
         dead,
         use_def,
@@ -7649,7 +7791,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
-      )
+      ).proves_can_cross()
       if !can_cross {
         return false
       }
@@ -7667,9 +7809,9 @@ fn optimize_instructions_try_canonicalize_relational_operands(
   if lhs_canonicalized {
     return true
   }
-  match optimize_instructions_local_get_id(func, dead, rhs_id) {
+  match OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id {
     Some(local_id) => {
-      if optimize_instructions_is_constlike(func, dead, lhs_id) ||
+      if OiConstlikeLeafFact::from_node(func, dead, lhs_id).proves_constlike() ||
         !optimize_instructions_should_swap_commutative_node_kinds(
           func, dead, lhs_id, rhs_id,
         ) {
@@ -7681,7 +7823,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = optimize_instructions_can_cross_local_get(
+      let can_cross = OiLocalGetCrossingFact::from_node(
         func,
         dead,
         use_def,
@@ -7691,7 +7833,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
-      )
+      ).proves_can_cross()
       if !can_cross {
         return false
       }
@@ -14272,10 +14414,10 @@ fn OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
       let rhs_right = @ir.hot_child_get(func, rhs, 1)
       match
         (
-          optimize_instructions_local_get_id(func, dead, lhs_left),
-          optimize_instructions_local_get_id(func, dead, rhs_left),
-          optimize_instructions_local_get_id(func, dead, lhs_right),
-          optimize_instructions_local_get_id(func, dead, rhs_right),
+          OiLocalGetLeafFact::from_node(func, dead, lhs_left).local_id,
+          OiLocalGetLeafFact::from_node(func, dead, rhs_left).local_id,
+          OiLocalGetLeafFact::from_node(func, dead, lhs_right).local_id,
+          OiLocalGetLeafFact::from_node(func, dead, rhs_right).local_id,
         ) {
         (
           Some(lhs_left_local),
@@ -14441,8 +14583,8 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
       let mut matching_local_operand = false
       match
         (
-          optimize_instructions_local_get_id(func, dead, lhs_left),
-          optimize_instructions_local_get_id(func, dead, rhs_left),
+          OiLocalGetLeafFact::from_node(func, dead, lhs_left).local_id,
+          OiLocalGetLeafFact::from_node(func, dead, rhs_left).local_id,
         ) {
         (Some(lhs_local), Some(rhs_local)) =>
           matching_local_operand = lhs_local == rhs_local
@@ -14666,8 +14808,8 @@ fn OiUnaryLocalEqualityFact::from_nodes(
       let rhs_child = @ir.hot_child_get(func, rhs, 0)
       match
         (
-          optimize_instructions_local_get_id(func, dead, lhs_child),
-          optimize_instructions_local_get_id(func, dead, rhs_child),
+          OiLocalGetLeafFact::from_node(func, dead, lhs_child).local_id,
+          OiLocalGetLeafFact::from_node(func, dead, rhs_child).local_id,
         ) {
         (Some(lhs_local), Some(rhs_local)) =>
           matching_local_operand = lhs_local == rhs_local
@@ -14894,8 +15036,8 @@ fn OiRefI31PayloadEqualityFact::from_nodes(
       let rhs_payload = @ir.hot_child_get(func, rhs, 0)
       match
         (
-          optimize_instructions_local_get_id(func, dead, lhs_payload),
-          optimize_instructions_local_get_id(func, dead, rhs_payload),
+          OiLocalGetLeafFact::from_node(func, dead, lhs_payload).local_id,
+          OiLocalGetLeafFact::from_node(func, dead, rhs_payload).local_id,
         ) {
         (Some(lhs_local), Some(rhs_local)) =>
           matching_local_payload = lhs_local == rhs_local
@@ -15778,8 +15920,8 @@ fn optimize_instructions_try_fold_const_select(
     }
     if (
         (
-          optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_true) &&
-          optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_false)
+          OiSharedCrossSafeLeafFact::from_node(func, dead, if_true).proves_safe() &&
+          OiSharedCrossSafeLeafFact::from_node(func, dead, if_false).proves_safe()
         ) ||
         optimize_instructions_select_identical_immutable_global_arms(
           ctx, func, if_true, if_false,
@@ -21962,8 +22104,8 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
 ) -> Bool {
   match
     (
-      optimize_instructions_local_get_id(func, dead, lhs_id),
-      optimize_instructions_local_get_id(func, dead, rhs_id),
+      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
+      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
       optimize_instructions_same_local_integer_compare_result(instr),
     ) {
     (Some(lhs_local), Some(rhs_local), Some(result)) if lhs_local == rhs_local => {
@@ -21986,8 +22128,8 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
 ) -> Bool {
   match
     (
-      optimize_instructions_local_get_id(func, dead, lhs_id),
-      optimize_instructions_local_get_id(func, dead, rhs_id),
+      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
+      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
     ) {
     (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
     _ => return false
