@@ -28020,73 +28020,202 @@ fn OiRefEqRelationFact::from_operands(
 }
 
 ///|
-fn OiRefEqRelationFact::proves_equal(self : OiRefEqRelationFact) -> Bool {
+priv enum OiRefEqEqualityKind {
+  RefEqSameLocalEqual
+  RefEqSameI31LocalEqual
+  RefEqSameLocalNonNullTrapEqual
+  RefEqI31ConstEqual
+  RefEqI31ConstNotEqual
+}
+
+///|
+priv struct OiRefEqEqualityFact {
+  kind : OiRefEqEqualityKind
+  trap_id : Int?
+  result : @lib.I32
+}
+
+///|
+fn OiRefEqEqualityFact::from_relation(
+  relation : OiRefEqRelationFact,
+) -> OiRefEqEqualityFact? {
+  // Binaryen v130 `visitRefEq` first handles represented same-reference and
+  // i31-payload equalities, then the trap-preserving same-local
+  // `ref.as_non_null` case, then constant i31 payload comparisons. Keep that
+  // ordered relation result as a fact so the visitor does not own equality
+  // shape probes directly.
   match
-    (self.lhs.same_local_fact.local_index, self.rhs.same_local_fact.local_index) {
-    (Some(lhs), Some(rhs)) if lhs == rhs => return true
+    (
+      relation.lhs.same_local_fact.local_index,
+      relation.rhs.same_local_fact.local_index,
+    ) {
+    (Some(lhs), Some(rhs)) if lhs == rhs =>
+      return Some({
+        kind: RefEqSameLocalEqual,
+        trap_id: None,
+        result: @lib.I32(1),
+      })
     _ => ()
   }
   match
     (
-      self.lhs.i31_fact.source_fact.local_index,
-      self.rhs.i31_fact.source_fact.local_index,
-    ) {
-    (Some(lhs), Some(rhs)) => lhs == rhs
-    _ => false
-  }
-}
-
-///|
-fn OiRefEqRelationFact::same_local_non_null_trap(
-  self : OiRefEqRelationFact,
-) -> Int? {
-  match
-    (
-      self.lhs.same_non_null_fact.local_index,
-      self.rhs.same_non_null_fact.local_index,
+      relation.lhs.i31_fact.source_fact.local_index,
+      relation.rhs.i31_fact.source_fact.local_index,
     ) {
     (Some(lhs), Some(rhs)) if lhs == rhs =>
-      match self.lhs.same_non_null_fact.trap_id {
-        Some(trap_id) => Some(trap_id)
-        None => self.rhs.same_non_null_fact.trap_id
-      }
-    _ => None
+      return Some({
+        kind: RefEqSameI31LocalEqual,
+        trap_id: None,
+        result: @lib.I32(1),
+      })
+    _ => ()
   }
-}
-
-///|
-fn OiRefEqRelationFact::i31_const_result(
-  self : OiRefEqRelationFact,
-) -> @lib.I32? {
   match
     (
-      self.lhs.i31_fact.source_fact.const_value,
-      self.rhs.i31_fact.source_fact.const_value,
+      relation.lhs.same_non_null_fact.local_index,
+      relation.rhs.same_non_null_fact.local_index,
     ) {
-    (Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
-      Some(if lhs == rhs { @lib.I32(1) } else { @lib.I32(0) })
+    (Some(lhs), Some(rhs)) if lhs == rhs =>
+      match relation.lhs.same_non_null_fact.trap_id {
+        Some(trap_id) =>
+          return Some({
+            kind: RefEqSameLocalNonNullTrapEqual,
+            trap_id: Some(trap_id),
+            result: @lib.I32(1),
+          })
+        None =>
+          match relation.rhs.same_non_null_fact.trap_id {
+            Some(trap_id) =>
+              return Some({
+                kind: RefEqSameLocalNonNullTrapEqual,
+                trap_id: Some(trap_id),
+                result: @lib.I32(1),
+              })
+            None => ()
+          }
+      }
+    _ => ()
+  }
+  match
+    (
+      relation.lhs.i31_fact.source_fact.const_value,
+      relation.rhs.i31_fact.source_fact.const_value,
+    ) {
+    (Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let equal = lhs == rhs
+      Some({
+        kind: if equal {
+          RefEqI31ConstEqual
+        } else {
+          RefEqI31ConstNotEqual
+        },
+        trap_id: None,
+        result: if equal {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      })
+    }
     _ => None
   }
 }
 
 ///|
-fn OiRefEqRelationFact::proves_impossible_equal(
-  self : OiRefEqRelationFact,
+fn OiRefEqEqualityFact::apply(
+  self : OiRefEqEqualityFact,
   ctx : HotPassContext,
-) -> Bool {
-  if (self.lhs.i31_fact.known_non_null && self.rhs.i31_fact.cannot_match) ||
-    (self.rhs.i31_fact.known_non_null && self.lhs.i31_fact.cannot_match) {
-    return true
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.kind {
+    RefEqSameLocalNonNullTrapEqual =>
+      match self.trap_id {
+        Some(trap_id) =>
+          optimize_instructions_replace_with_drop_then_const_i32(
+            ctx,
+            func,
+            node_id,
+            trap_id,
+            self.result,
+          )
+        None =>
+          optimize_instructions_replace_with_const_i32(
+            ctx,
+            func,
+            node_id,
+            self.result,
+          )
+      }
+    RefEqSameLocalEqual
+    | RefEqSameI31LocalEqual
+    | RefEqI31ConstEqual
+    | RefEqI31ConstNotEqual =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.result,
+      )
   }
-  match (self.lhs.local_type_fact.ref_type, self.rhs.local_type_fact.ref_type) {
-    (Some(lhs), Some(rhs)) =>
-      (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
+}
+
+///|
+priv enum OiRefEqImpossibleKind {
+  RefEqI31AgainstDisjointHeap
+  RefEqDisjointLocalHeapTypes
+}
+
+///|
+priv struct OiRefEqImpossibleFact {
+  kind : OiRefEqImpossibleKind
+}
+
+///|
+fn OiRefEqImpossibleFact::apply(
+  self : OiRefEqImpossibleFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Unit {
+  match self.kind {
+    RefEqI31AgainstDisjointHeap | RefEqDisjointLocalHeapTypes =>
+      optimize_instructions_replace_ref_eq_impossible_with_const_i32(
+        ctx, func, node_id, lhs_id, rhs_id,
+      )
+  }
+}
+
+///|
+fn OiRefEqImpossibleFact::from_relation(
+  ctx : HotPassContext,
+  relation : OiRefEqRelationFact,
+) -> OiRefEqImpossibleFact? {
+  // Binaryen v130 `visitRefEq` can fold impossible equality for the represented
+  // non-null-i31 versus disjoint-heap case and for local ref types with
+  // abstract struct/array disjoint heaps. Keep the miss reason explicit before
+  // the effect-preserving false replacement is selected.
+  if (
+      relation.lhs.i31_fact.known_non_null && relation.rhs.i31_fact.cannot_match
+    ) ||
+    (relation.rhs.i31_fact.known_non_null && relation.lhs.i31_fact.cannot_match) {
+    return Some({ kind: RefEqI31AgainstDisjointHeap })
+  }
+  match
+    (
+      relation.lhs.local_type_fact.ref_type,
+      relation.rhs.local_type_fact.ref_type,
+    ) {
+    (Some(lhs), Some(rhs)) if (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
       OiHeapRelationFact::from_heaps(
         ctx,
         lhs.get_heap_type(),
         rhs.get_heap_type(),
-      ).known_abs_struct_array_disjoint()
-    _ => false
+      ).known_abs_struct_array_disjoint() =>
+      Some({ kind: RefEqDisjointLocalHeapTypes })
+    _ => None
   }
 }
 
@@ -28452,40 +28581,19 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   let mut relation_fact = OiRefEqRelationFact::from_operands(
     ctx, func, dead, lhs_id, rhs_id,
   )
-  if relation_fact.proves_equal() {
-    optimize_instructions_replace_with_const_i32(
-      ctx,
-      func,
-      node_id,
-      @lib.I32(1),
-    )
-    return true
-  }
-  match relation_fact.same_local_non_null_trap() {
-    Some(trap_id) => {
-      optimize_instructions_replace_with_drop_then_const_i32(
-        ctx,
-        func,
-        node_id,
-        trap_id,
-        @lib.I32(1),
-      )
+  match OiRefEqEqualityFact::from_relation(relation_fact) {
+    Some(equality_fact) => {
+      equality_fact.apply(ctx, func, node_id)
       return true
     }
-    _ => ()
+    None => ()
   }
-  match relation_fact.i31_const_result() {
-    Some(result) => {
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+  match OiRefEqImpossibleFact::from_relation(ctx, relation_fact) {
+    Some(impossible_fact) => {
+      impossible_fact.apply(ctx, func, node_id, lhs_id, rhs_id)
       return true
     }
-    _ => ()
-  }
-  if relation_fact.proves_impossible_equal(ctx) {
-    optimize_instructions_replace_ref_eq_impossible_with_const_i32(
-      ctx, func, node_id, lhs_id, rhs_id,
-    )
-    return true
+    None => ()
   }
   let skip_cast_fact = OiRefEqSkipCastFact::from_operands(
     ctx, func, lhs_id, rhs_id,
@@ -28497,34 +28605,12 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     relation_fact = OiRefEqRelationFact::from_operands(
       ctx, func, dead, lhs_id, rhs_id,
     )
-    if relation_fact.proves_equal() {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(1),
-      )
-      return true
-    }
-    match relation_fact.same_local_non_null_trap() {
-      Some(trap_id) => {
-        optimize_instructions_replace_with_drop_then_const_i32(
-          ctx,
-          func,
-          node_id,
-          trap_id,
-          @lib.I32(1),
-        )
+    match OiRefEqEqualityFact::from_relation(relation_fact) {
+      Some(equality_fact) => {
+        equality_fact.apply(ctx, func, node_id)
         return true
       }
-      _ => ()
-    }
-    match relation_fact.i31_const_result() {
-      Some(result) => {
-        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
-        return true
-      }
-      _ => ()
+      None => ()
     }
   }
   if relation_fact.lhs.nullability_fact.proves_known_null() &&
