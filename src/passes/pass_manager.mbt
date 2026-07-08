@@ -32650,13 +32650,35 @@ fn RawOiFlatPureScalarAddressFact::from_value(
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_instr_budget() -> Int {
-  32
+priv struct RawOiFlatPureScalarBudgetFact {
+  max_instrs : Int
+  max_stack : Int
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_flat_pure_scalar_stack_budget() -> Int {
-  8
+fn RawOiFlatPureScalarBudgetFact::default() -> RawOiFlatPureScalarBudgetFact {
+  // Keep the represented raw OI-G address parser bounded. Binaryen's full
+  // `ExpressionAnalyzer::equal` is tree-shaped and effect-aware; this raw
+  // fallback only accepts small flat postfix scalar trees until the HOT fact
+  // layer can replace it entirely.
+  { max_instrs: 32, max_stack: 8 }
+}
+
+///|
+fn RawOiFlatPureScalarBudgetFact::allows_instr(
+  self : RawOiFlatPureScalarBudgetFact,
+  start : Int,
+  idx : Int,
+) -> Bool {
+  idx - start < self.max_instrs
+}
+
+///|
+fn RawOiFlatPureScalarBudgetFact::exceeded_stack(
+  self : RawOiFlatPureScalarBudgetFact,
+  stack_len : Int,
+) -> Bool {
+  stack_len > self.max_stack
 }
 
 ///|
@@ -32665,11 +32687,11 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   start : Int,
   allow_fallthrough_local_tee : Bool,
 ) -> Array[RawOiFlatPureScalarAddressFact] {
+  let budget = RawOiFlatPureScalarBudgetFact::default()
   let facts : Array[RawOiFlatPureScalarAddressFact] = []
   let stack : Array[RawOiFlatPureScalarStackValueFact] = []
   let mut idx = start
-  while idx < instrs.length() &&
-        idx - start < run_hot_pipeline_raw_oi_flat_pure_scalar_instr_budget() {
+  while idx < instrs.length() && budget.allows_instr(start, idx) {
     match RawOiFlatPureScalarLeafFact::from_instr(instrs[idx]) {
       Some(fact) => stack.push(RawOiFlatPureScalarStackValueFact::leaf(fact))
       None =>
@@ -32729,8 +32751,7 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
       facts.push(
         RawOiFlatPureScalarAddressFact::from_value(start, idx + 1, stack[0]),
       )
-    } else if stack.length() >
-      run_hot_pipeline_raw_oi_flat_pure_scalar_stack_budget() {
+    } else if budget.exceeded_stack(stack.length()) {
       break
     }
     idx = idx + 1
@@ -32838,55 +32859,57 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::append_replacement(
 }
 
 ///|
-// Accepted raw OI-G traversal bridge over `RawOiFlatPureScalarAddressFact`.
-// The body-level loop remains responsible for recursion and drop emission, but
-// same-address proof must stay in the flat pure-scalar address facts rather
-// than reappearing as inline operand windows here.
-fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_instr(
+priv struct RawOiSameFlatPureScalarMemoryCopyRegionFact {
+  rewritten : Array[@lib.Instruction]
+  changed : Bool
+}
+
+///|
+fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
   instr : @lib.Instruction,
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
-        body,
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      (
+        @lib.Instruction::block(block_type, @lib.Expr::new(fact.rewritten)),
+        fact.changed,
       )
-      (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), changed)
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
-        body,
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      (
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(fact.rewritten)),
+        fact.changed,
       )
-      (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), changed)
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let (next_body, changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
-        body,
-      )
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
       (
         @lib.Instruction::try_table(
           block_type,
           catches,
-          @lib.Expr::new(next_body),
+          @lib.Expr::new(fact.rewritten),
         ),
-        changed,
+        fact.changed,
       )
     }
     @lib.If(block_type, then_body, else_body) => {
-      let (next_then, then_changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
+      let then_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
         then_body,
       )
       let (next_else, else_changed) = match else_body {
         Some(body) => {
-          let (rewritten, changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
+          let else_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
             body,
           )
-          (Some(rewritten), changed)
+          (Some(else_fact.rewritten), else_fact.changed)
         }
         None => (None, false)
       }
       (
-        @lib.Instruction::if_(block_type, next_then, next_else),
-        then_changed || else_changed,
+        @lib.Instruction::if_(block_type, then_fact.rewritten, next_else),
+        then_fact.changed || else_changed,
       )
     }
     _ => (instr, false)
@@ -32894,9 +32917,13 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_instr(
 }
 
 ///|
-fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
+fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Bool) {
+) -> RawOiSameFlatPureScalarMemoryCopyRegionFact {
+  // Accepted raw OI-G traversal fact over `RawOiFlatPureScalarAddressFact` and
+  // `RawOiSameFlatPureScalarMemoryCopyFact`. The region loop owns recursion and
+  // emission only after a named same-address memory.copy fact proves the drop;
+  // no inline opcode/equality windows should be added here.
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
@@ -32934,14 +32961,14 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
     if matched {
       continue
     }
-    let (rewritten, instr_changed) = run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_instr(
+    let (rewritten, instr_changed) = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
       instrs[i],
     )
     out.push(rewritten)
     changed = changed || instr_changed
     i = i + 1
   }
-  (out, changed)
+  { rewritten: out, changed }
 }
 
 ///|
@@ -32997,9 +33024,10 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     same_flat_pure_scalar_memory_copy_body,
     same_flat_pure_scalar_memory_copy_changed,
   ) = if options.traps_never_happen || options.ignore_implicit_traps {
-    run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
+    let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
       effectful_sibling_body,
     )
+    (fact.rewritten, fact.changed)
   } else {
     (effectful_sibling_body, false)
   }
