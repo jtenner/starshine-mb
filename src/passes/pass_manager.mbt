@@ -53439,11 +53439,29 @@ fn run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
 }
 
 ///|
+// Source-backed raw OI-J escaping `ref.get_desc` flatten subfamily. Each
+// variant corresponds to a represented Binaryen nullable-child movement shape
+// that can leave an escaping control wrapper immediately before the
+// `ref.get_desc; ref.cast_desc_eq` pair. Keep new windows as explicit variants
+// instead of rebuilding a coarse proof-family string.
+priv enum RawOiEscapingRefGetDescFlattenKind {
+  EscapingRefGetDescUnclassified
+  EscapingRefGetDescBrTable
+  EscapingRefGetDescBrOnNull
+  EscapingRefGetDescBrOnNonNull
+  EscapingRefGetDescDescriptorResultBlock
+  EscapingRefGetDescBrOnCast
+  EscapingRefGetDescBrOnCastFail
+  EscapingRefGetDescBrIf
+  EscapingRefGetDescBrPayload
+}
+
+///|
 priv struct RawOiEscapingRefGetDescFlattenFact {
   end : Int
-  proof_family : String
-  retargets_block_label : Bool
-  uses_descriptor_result_block : Bool
+  kind : RawOiEscapingRefGetDescFlattenKind
+  label_retarget_count : Int
+  rebuilds_descriptor_result_block : Bool
   rewrite : Array[@lib.Instruction]
 }
 
@@ -53452,12 +53470,20 @@ fn RawOiEscapingRefGetDescFlattenFact::proves_binaryen_escaping_ref_get_desc_fla
   self : RawOiEscapingRefGetDescFlattenFact,
 ) -> Bool {
   self.end > 0 &&
-  self.proof_family != "" &&
-  (
-    self.retargets_block_label ||
-    self.uses_descriptor_result_block ||
-    self.rewrite.length() > 0
-  )
+  self.rewrite.length() > 0 &&
+  (match self.kind {
+    EscapingRefGetDescUnclassified => false
+    EscapingRefGetDescBrTable => self.label_retarget_count >= 1
+    EscapingRefGetDescBrOnNull => self.label_retarget_count == 1
+    EscapingRefGetDescBrOnNonNull => self.label_retarget_count == 1
+    EscapingRefGetDescDescriptorResultBlock =>
+      self.rebuilds_descriptor_result_block
+    EscapingRefGetDescBrOnCast => self.label_retarget_count == 1
+    EscapingRefGetDescBrOnCastFail =>
+      self.label_retarget_count == 1 || !self.rebuilds_descriptor_result_block
+    EscapingRefGetDescBrIf => self.label_retarget_count == 1
+    EscapingRefGetDescBrPayload => self.label_retarget_count == 1
+  })
 }
 
 ///|
@@ -53486,8 +53512,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut end = start
-  let mut retargets_block_label = false
-  let mut uses_descriptor_result_block = false
+  let mut kind = EscapingRefGetDescUnclassified
+  let mut label_retarget_count = 0
+  let mut rebuilds_descriptor_result_block = false
   let i = start
   while !changed {
     if i + 4 < instrs.length() {
@@ -53524,7 +53551,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
               run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrTable
+              label_retarget_count = labels.length() + 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload_left)
               rewritten.push(payload_right)
@@ -53576,7 +53605,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
               run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrTable
+              label_retarget_count = labels.length() + 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(index_value)
@@ -53615,7 +53646,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
               run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrTable
+              label_retarget_count = labels.length() + 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(index)
@@ -53651,7 +53684,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
               run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
             ) {
             (Some(retargeted_labels), Some(retargeted_default)) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrTable
+              label_retarget_count = labels.length() + 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(index)
@@ -53697,7 +53732,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnNull
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested_value)
               rewritten.push(tested_effect)
@@ -53745,7 +53782,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnNull
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(@lib.Instruction::br_on_null(retargeted))
@@ -53777,7 +53816,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnNull
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(@lib.Instruction::br_on_null(retargeted))
@@ -53819,7 +53860,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnNonNull
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested_value)
               rewritten.push(tested_effect)
@@ -53865,7 +53908,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnNonNull
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(@lib.Instruction::br_on_non_null(retargeted))
@@ -53894,7 +53939,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnNonNull
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(@lib.Instruction::br_on_non_null(retargeted))
@@ -53941,7 +53988,8 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
               module_ctx, described_type,
             ) {
             Some(descriptor_block_type) => {
-              uses_descriptor_result_block = true
+              kind = EscapingRefGetDescDescriptorResultBlock
+              rebuilds_descriptor_result_block = true
               rewritten.push(instrs[i])
               rewritten.push(
                 @lib.Instruction::block(
@@ -54010,7 +54058,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCast
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested_value)
               rewritten.push(tested_effect)
@@ -54068,6 +54118,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
             ) => true
             _ => false
           }) => {
+          kind = EscapingRefGetDescBrOnCastFail
           rewritten.push(instrs[i])
           rewritten.push(instrs[i + 1])
           rewritten.push(instrs[i + 3])
@@ -54110,7 +54161,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCast
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested_value)
               rewritten.push(tested_effect)
@@ -54164,7 +54217,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCastFail
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested_value)
               rewritten.push(tested_effect)
@@ -54221,7 +54276,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCast
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(
@@ -54278,7 +54335,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCastFail
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(
@@ -54324,7 +54383,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCast
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(
@@ -54368,7 +54429,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrOnCastFail
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(tested)
               rewritten.push(
@@ -54420,7 +54483,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload_left)
               rewritten.push(payload_right)
@@ -54472,7 +54537,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload_value)
               rewritten.push(payload_effect)
@@ -54525,7 +54592,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(condition_value)
@@ -54576,7 +54645,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(condition_left)
@@ -54617,7 +54688,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(condition)
@@ -54669,7 +54742,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(condition)
@@ -54702,7 +54777,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrIf
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(condition)
@@ -54732,7 +54809,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
           }) =>
           match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
             Some(retargeted) => {
-              retargets_block_label = true
+              kind = EscapingRefGetDescBrPayload
+              label_retarget_count = 1
+
               rewritten.push(instrs[i])
               rewritten.push(payload)
               rewritten.push(@lib.Instruction::br(retargeted))
@@ -54752,9 +54831,9 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
   if changed {
     Some({
       end,
-      proof_family: "escaping-ref-get-desc-control-flatten",
-      retargets_block_label,
-      uses_descriptor_result_block,
+      kind,
+      label_retarget_count,
+      rebuilds_descriptor_result_block,
       rewrite: rewritten,
     })
   } else {
