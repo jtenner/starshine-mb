@@ -5208,6 +5208,39 @@ fn OiArithmeticMaxBitsFact::cap(width_bits : Int, max_bits : Int) -> Int {
 }
 
 ///|
+fn OiArithmeticMaxBitsFact::div_max_bits(
+  left_bits : Int,
+  right_bits : Int,
+) -> Int? {
+  // Binaryen v130 computes `leftBits - rightBits + 1`, then caps at leftBits.
+  // With unsigned C++ `Index`, the underflow case conservatively caps back to
+  // leftBits. Keep that conservative shape explicitly and avoid the zero-divisor
+  // trap case until Starshine has the effect/trap-preserving dropped-child path.
+  if right_bits == 0 {
+    None
+  } else if left_bits < right_bits {
+    Some(left_bits)
+  } else {
+    let quotient_bits = left_bits - right_bits + 1
+    Some(if quotient_bits < left_bits { quotient_bits } else { left_bits })
+  }
+}
+
+///|
+fn OiArithmeticMaxBitsFact::rem_max_bits(
+  left_bits : Int,
+  right_bits : Int,
+) -> Int? {
+  // Binaryen v130 bounds remainder by the smaller operand max-bit count. A zero
+  // max-bit divisor is a trap-preservation boundary for now, matching div above.
+  if right_bits == 0 {
+    None
+  } else {
+    Some(if left_bits < right_bits { left_bits } else { right_bits })
+  }
+}
+
+///|
 fn OiArithmeticMaxBitsFact::binary_i32(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5217,10 +5250,10 @@ fn OiArithmeticMaxBitsFact::binary_i32(
   rhs_id : Int,
 ) -> OiArithmeticMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` derives arithmetic max-bit counts from
-  // operand max bits for add, multiply, constant left shift, and arithmetic
-  // right shift. Keep those derivations in one source-backed fact so downstream
-  // zero-bit, signed-to-unsigned, and wrap/extend consumers do not grow their
-  // own operator whitelists.
+  // operand max bits for add, multiply, constant left shift, arithmetic right
+  // shift, division, and remainder. Keep those derivations in one source-backed
+  // fact so downstream zero-bit, signed-to-unsigned, and wrap/extend consumers
+  // do not grow their own operator whitelists.
   let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
     func, dead, local_facts, lhs_id,
   )
@@ -5242,6 +5275,22 @@ fn OiArithmeticMaxBitsFact::binary_i32(
         ),
       )
       Some(OiArithmeticMaxBitsFact::cap(32, lhs_bits + rhs_bits))
+    }
+    @lib.Instruction::I32DivS | @lib.Instruction::I32DivU => {
+      let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
+        OiUnsignedMaxValueFact::i32_max_for_node(
+          func, dead, local_facts, rhs_id,
+        ),
+      )
+      OiArithmeticMaxBitsFact::div_max_bits(lhs_bits, rhs_bits)
+    }
+    @lib.Instruction::I32RemS | @lib.Instruction::I32RemU => {
+      let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
+        OiUnsignedMaxValueFact::i32_max_for_node(
+          func, dead, local_facts, rhs_id,
+        ),
+      )
+      OiArithmeticMaxBitsFact::rem_max_bits(lhs_bits, rhs_bits)
     }
     @lib.Instruction::I32Shl =>
       match optimize_instructions_i32_const(func, dead, rhs_id) {
@@ -5297,6 +5346,22 @@ fn OiArithmeticMaxBitsFact::binary_i64(
         ),
       )
       Some(OiArithmeticMaxBitsFact::cap(64, lhs_bits + rhs_bits))
+    }
+    @lib.Instruction::I64DivS | @lib.Instruction::I64DivU => {
+      let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
+        OiUnsignedMaxValueFact::i64_max_for_node(
+          func, dead, local_facts, rhs_id,
+        ),
+      )
+      OiArithmeticMaxBitsFact::div_max_bits(lhs_bits, rhs_bits)
+    }
+    @lib.Instruction::I64RemS | @lib.Instruction::I64RemU => {
+      let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
+        OiUnsignedMaxValueFact::i64_max_for_node(
+          func, dead, local_facts, rhs_id,
+        ),
+      )
+      OiArithmeticMaxBitsFact::rem_max_bits(lhs_bits, rhs_bits)
     }
     @lib.Instruction::I64Shl =>
       match optimize_instructions_i64_const(func, dead, rhs_id) {

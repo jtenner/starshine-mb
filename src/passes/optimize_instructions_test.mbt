@@ -6348,6 +6348,77 @@ test "optimize-instructions replaces arithmetic maxBits shifts with zero" {
 }
 
 ///|
+test "optimize-instructions replaces div rem maxBits shifts with zero" {
+  // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` bounds
+  // div/rem from operand max-bit counts. When a following unsigned shift removes
+  // every possible quotient or remainder bit, `replaceZeroBitsWithZero` turns
+  // the pure expression into a typed zero.
+  let i32_div_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 255 i32.and i32.const 85 i32.div_u i32.const 2 i32.shr_u))",
+  )
+  let i32_div_root = @ir.hot_root_get(i32_div_func, 0)
+  match @ir.hot_node_get(i32_div_func, i32_div_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i32.div_u maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_div_func,
+      @ir.hot_node_get(i32_div_func, i32_div_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i32_rem_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 15 i32.and i32.const 9 i32.rem_s i32.const 4 i32.shr_u))",
+  )
+  let i32_rem_root = @ir.hot_root_get(i32_rem_func, 0)
+  match @ir.hot_node_get(i32_rem_func, i32_rem_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i32.rem_s maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_rem_func,
+      @ir.hot_node_get(i32_rem_func, i32_rem_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_div_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 65535 i64.and i64.const 257 i64.div_s i64.const 8 i64.shr_u))",
+  )
+  let i64_div_root = @ir.hot_root_get(i64_div_func, 0)
+  match @ir.hot_node_get(i64_div_func, i64_div_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i64.div_s maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_div_func,
+      @ir.hot_node_get(i64_div_func, i64_div_root).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let i64_rem_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 1023 i64.and i64.const 513 i64.rem_u i64.const 10 i64.shr_u))",
+  )
+  let i64_rem_root = @ir.hot_root_get(i64_rem_func, 0)
+  match @ir.hot_node_get(i64_rem_func, i64_rem_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i64.rem_u maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_rem_func,
+      @ir.hot_node_get(i64_rem_func, i64_rem_root).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned load maxBits compares" {
   let source =
     #|(module
