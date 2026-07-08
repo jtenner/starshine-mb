@@ -3905,6 +3905,67 @@ priv enum OiDescriptorExactMissRewritePlanKind {
 }
 
 ///|
+priv enum OiDescriptorExactMissEligibilityKind {
+  DescriptorExactMissTrapsDisabled
+  DescriptorExactMissDescriptorNotExactTarget
+  DescriptorExactMissOperandNotMissTarget
+  DescriptorExactMissBothErase
+  DescriptorExactMissDescriptorEraseOperandDrop
+  DescriptorExactMissOperandEraseDescriptorDrop
+  DescriptorExactMissBothDrop
+  DescriptorExactMissCannotPreserveEffects
+}
+
+///|
+priv struct OiDescriptorExactMissEligibilityFact {
+  kind : OiDescriptorExactMissEligibilityKind
+}
+
+///|
+fn OiDescriptorExactMissEligibilityFact::from_miss(
+  ctx : HotPassContext,
+  miss_fact : OiDescriptorExactMissFact,
+) -> OiDescriptorExactMissEligibilityFact {
+  // Binaryen v130 `visitRefCast`/descriptor-equality miss cleanup runs in
+  // normal trapping mode after the descriptor exactly describes the target and
+  // the reference operand is known to miss. Keep those blockers plus the
+  // represented source-order preservation outcomes as one result fact before the
+  // rewrite plan maps an allowed outcome to a concrete replacement shape.
+  if ctx.traps_never_happen || ctx.ignore_implicit_traps {
+    return { kind: DescriptorExactMissTrapsDisabled }
+  }
+  if !miss_fact.descriptor_exactly_describes_target {
+    return { kind: DescriptorExactMissDescriptorNotExactTarget }
+  }
+  if !miss_fact.ref_operand_misses_target {
+    return { kind: DescriptorExactMissOperandNotMissTarget }
+  }
+  if miss_fact.descriptor_erases_without_effects &&
+    miss_fact.ref_operand_erases_without_effects {
+    return { kind: DescriptorExactMissBothErase }
+  }
+  if miss_fact.descriptor_erases_without_effects &&
+    miss_fact.ref_operand_can_drop_before_unreachable {
+    return { kind: DescriptorExactMissDescriptorEraseOperandDrop }
+  }
+  if miss_fact.ref_operand_erases_without_effects &&
+    (
+      miss_fact.descriptor_can_drop_before_unreachable ||
+      miss_fact.descriptor_call_can_drop_before_unreachable
+    ) {
+    return { kind: DescriptorExactMissOperandEraseDescriptorDrop }
+  }
+  if miss_fact.ref_operand_can_drop_before_unreachable &&
+    (
+      miss_fact.descriptor_can_drop_before_unreachable ||
+      miss_fact.descriptor_call_can_drop_before_unreachable
+    ) {
+    return { kind: DescriptorExactMissBothDrop }
+  }
+  { kind: DescriptorExactMissCannotPreserveEffects }
+}
+
+///|
 priv struct OiDescriptorExactMissRewritePlanFact {
   kind : OiDescriptorExactMissRewritePlanKind
   miss_fact : OiDescriptorExactMissFact
@@ -3919,33 +3980,20 @@ fn OiDescriptorExactMissRewritePlanFact::from_miss(
   // normal trapping mode. Keep the source-level replacement choice as a plan
   // fact so descriptor casts do not hide a visitor-local drop/unreachable
   // branch cascade.
-  if ctx.traps_never_happen || ctx.ignore_implicit_traps {
-    return None
-  }
-  if !miss_fact.descriptor_exactly_describes_target ||
-    !miss_fact.ref_operand_misses_target {
-    return None
-  }
-  let kind = if miss_fact.descriptor_erases_without_effects &&
-    miss_fact.ref_operand_erases_without_effects {
-    DescriptorExactMissUnreachable
-  } else if miss_fact.descriptor_erases_without_effects &&
-    miss_fact.ref_operand_can_drop_before_unreachable {
-    DescriptorExactMissDropOperandThenUnreachable
-  } else if miss_fact.ref_operand_erases_without_effects &&
-    (
-      miss_fact.descriptor_can_drop_before_unreachable ||
-      miss_fact.descriptor_call_can_drop_before_unreachable
-    ) {
-    DescriptorExactMissDropDescriptorThenUnreachable
-  } else if miss_fact.ref_operand_can_drop_before_unreachable &&
-    (
-      miss_fact.descriptor_can_drop_before_unreachable ||
-      miss_fact.descriptor_call_can_drop_before_unreachable
-    ) {
-    DescriptorExactMissDropBothThenUnreachable
-  } else {
-    return None
+  let eligibility_fact = OiDescriptorExactMissEligibilityFact::from_miss(
+    ctx, miss_fact,
+  )
+  let kind = match eligibility_fact.kind {
+    DescriptorExactMissTrapsDisabled => return None
+    DescriptorExactMissDescriptorNotExactTarget => return None
+    DescriptorExactMissOperandNotMissTarget => return None
+    DescriptorExactMissCannotPreserveEffects => return None
+    DescriptorExactMissBothErase => DescriptorExactMissUnreachable
+    DescriptorExactMissDescriptorEraseOperandDrop =>
+      DescriptorExactMissDropOperandThenUnreachable
+    DescriptorExactMissOperandEraseDescriptorDrop =>
+      DescriptorExactMissDropDescriptorThenUnreachable
+    DescriptorExactMissBothDrop => DescriptorExactMissDropBothThenUnreachable
   }
   Some({ kind, miss_fact })
 }
