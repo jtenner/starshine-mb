@@ -27645,10 +27645,15 @@ fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
 }
 
 ///|
+priv struct OiRefEqNonNullLocalFact {
+  local_index : Int?
+  trap_id : Int?
+}
+
+///|
 priv struct OiRefEqOperandFact {
   same_local : Int?
-  same_non_null_local : Int?
-  same_non_null_trap_id : Int
+  same_non_null_fact : OiRefEqNonNullLocalFact
   i31_local : Int?
   i31_const : @lib.I32?
   known_non_null_i31 : Bool
@@ -27687,9 +27692,7 @@ fn OiRefEqOperandFact::from_node(
       )
     _ => None
   }
-  let (same_non_null_local, same_non_null_trap_id) = OiRefEqOperandFact::same_local_through_non_null(
-    func, node_id,
-  )
+  let same_non_null_fact = OiRefEqNonNullLocalFact::from_node(func, node_id)
   let i31_local = OiRefEqOperandFact::i31_local(func, node_id)
   let i31_const = OiRefEqOperandFact::i31_const(func, dead, node_id)
   let literal_fact = OiRefLiteralFact::from_node(func, node_id)
@@ -27730,8 +27733,7 @@ fn OiRefEqOperandFact::from_node(
   }
   {
     same_local,
-    same_non_null_local,
-    same_non_null_trap_id,
+    same_non_null_fact,
     i31_local,
     i31_const,
     known_non_null_i31,
@@ -27781,17 +27783,27 @@ fn OiRefEqOperandFact::same_local_through_nullable_ref_cast(
 }
 
 ///|
-fn OiRefEqOperandFact::same_local_through_non_null(
+fn OiRefEqNonNullLocalFact::none() -> OiRefEqNonNullLocalFact {
+  { local_index: None, trap_id: None }
+}
+
+///|
+fn OiRefEqNonNullLocalFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> (Int?, Int) {
+) -> OiRefEqNonNullLocalFact {
+  // Binaryen v130 can fold `ref.eq` of the same local through `ref.as_non_null`,
+  // but the wrapper may still be the operation that traps for nullable locals.
+  // Keep the local identity and optional trap-carrying wrapper as one fact rather
+  // than pairing the local with a sentinel trap id in the relation decision.
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::LocalGet => (Some(@ir.hot_node_get(func, node_id).imm0), -1)
+    @ir.HotOp::LocalGet =>
+      { local_index: Some(@ir.hot_node_get(func, node_id).imm0), trap_id: None }
     _ =>
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(@lib.Instruction::RefAsNonNull) => {
           if @ir.hot_child_count(func, node_id) != 1 {
-            return (None, -1)
+            return OiRefEqNonNullLocalFact::none()
           }
           let child_id = @ir.hot_child_get(func, node_id, 0)
           match @ir.hot_node_get(func, child_id).op {
@@ -27799,18 +27811,21 @@ fn OiRefEqOperandFact::same_local_through_non_null(
               let local_idx = @ir.hot_node_get(func, child_id).imm0
               match @ir.hot_local_type(func, local_idx) {
                 Some(@lib.ValType::RefTypeValType(ref_type)) =>
-                  if ref_type.is_non_nullable() {
-                    (Some(local_idx), -1)
-                  } else {
-                    (Some(local_idx), node_id)
+                  {
+                    local_index: Some(local_idx),
+                    trap_id: if ref_type.is_non_nullable() {
+                      None
+                    } else {
+                      Some(node_id)
+                    },
                   }
-                _ => (None, -1)
+                _ => OiRefEqNonNullLocalFact::none()
               }
             }
-            _ => (None, -1)
+            _ => OiRefEqNonNullLocalFact::none()
           }
         }
-        _ => (None, -1)
+        _ => OiRefEqNonNullLocalFact::none()
       }
   }
 }
@@ -27990,14 +28005,15 @@ fn OiRefEqRelationFact::proves_equal(self : OiRefEqRelationFact) -> Bool {
 fn OiRefEqRelationFact::same_local_non_null_trap(
   self : OiRefEqRelationFact,
 ) -> Int? {
-  match (self.lhs.same_non_null_local, self.rhs.same_non_null_local) {
+  match
+    (
+      self.lhs.same_non_null_fact.local_index,
+      self.rhs.same_non_null_fact.local_index,
+    ) {
     (Some(lhs), Some(rhs)) if lhs == rhs =>
-      if self.lhs.same_non_null_trap_id >= 0 {
-        Some(self.lhs.same_non_null_trap_id)
-      } else if self.rhs.same_non_null_trap_id >= 0 {
-        Some(self.rhs.same_non_null_trap_id)
-      } else {
-        None
+      match self.lhs.same_non_null_fact.trap_id {
+        Some(trap_id) => Some(trap_id)
+        None => self.rhs.same_non_null_fact.trap_id
       }
     _ => None
   }
