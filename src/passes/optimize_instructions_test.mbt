@@ -6348,6 +6348,76 @@ test "optimize-instructions replaces arithmetic maxBits shifts with zero" {
 }
 
 ///|
+test "optimize-instructions replaces effective shift maxBits with zero" {
+  // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` uses
+  // `Bits::getEffectiveShifts`, so negative and out-of-range constant shift
+  // amounts still bound shl/shr max bits by their masked WebAssembly amount.
+  let i32_shl_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 7 i32.and i32.const -30 i32.shl i32.const 5 i32.shr_u))",
+  )
+  let i32_shl_root = @ir.hot_root_get(i32_shl_func, 0)
+  match @ir.hot_node_get(i32_shl_func, i32_shl_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected effective i32.shl maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_shl_func,
+      @ir.hot_node_get(i32_shl_func, i32_shl_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i32_shru_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 15 i32.and i32.const -31 i32.shr_u i32.const 3 i32.shr_u))",
+  )
+  let i32_shru_root = @ir.hot_root_get(i32_shru_func, 0)
+  match @ir.hot_node_get(i32_shru_func, i32_shru_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected effective i32.shr_u maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_shru_func,
+      @ir.hot_node_get(i32_shru_func, i32_shru_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_shl_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 15 i64.and i64.const 66 i64.shl i64.const 6 i64.shr_u))",
+  )
+  let i64_shl_root = @ir.hot_root_get(i64_shl_func, 0)
+  match @ir.hot_node_get(i64_shl_func, i64_shl_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected effective i64.shl maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_shl_func,
+      @ir.hot_node_get(i64_shl_func, i64_shl_root).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let i64_shrs_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 63 i64.and i64.const -62 i64.shr_s i64.const 4 i64.shr_u))",
+  )
+  let i64_shrs_root = @ir.hot_root_get(i64_shrs_func, 0)
+  match @ir.hot_node_get(i64_shrs_func, i64_shrs_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected effective i64.shr_s maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_shrs_func,
+      @ir.hot_node_get(i64_shrs_func, i64_shrs_root).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+}
+
+///|
 test "optimize-instructions replaces div rem maxBits shifts with zero" {
   // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` bounds
   // div/rem from operand max-bit counts. When a following unsigned shift removes

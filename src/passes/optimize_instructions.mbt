@@ -5193,6 +5193,118 @@ fn OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
 }
 
 ///|
+priv struct OiEffectiveShiftAmountFact {
+  width_bits : Int
+  amount : Int
+}
+
+///|
+fn OiEffectiveShiftAmountFact::from_i32_const_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  rhs_id : Int,
+) -> OiEffectiveShiftAmountFact? {
+  // Binaryen v130 `Bits::getMaxBits` calls `Bits::getEffectiveShifts` for
+  // integer shift constants, matching WebAssembly's low-5-bit i32 shift amount
+  // even when the literal is negative or out of range. Keep the masked amount as
+  // an explicit fact so shl/shr_s/shr_u maxBits producers share one source rule.
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => Some({ width_bits: 32, amount: raw & 31 })
+    None => None
+  }
+}
+
+///|
+fn OiEffectiveShiftAmountFact::from_i64_const_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  rhs_id : Int,
+) -> OiEffectiveShiftAmountFact? {
+  // Same Binaryen v130 effective-shift fact for i64 shifts, using the low 6 bits
+  // of the i64 constant operand.
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(raw)) =>
+      Some({ width_bits: 64, amount: (raw & 63L).to_int() })
+    None => None
+  }
+}
+
+///|
+priv enum OiCombinedShiftZeroBitsKind {
+  CombinedShiftZeroI32
+  CombinedShiftZeroI64
+}
+
+///|
+priv struct OiCombinedShiftZeroBitsFact {
+  kind : OiCombinedShiftZeroBitsKind
+}
+
+///|
+fn OiCombinedShiftZeroBitsFact::from_i32_shr_u(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  amount : Int,
+) -> OiCombinedShiftZeroBitsFact? {
+  // When Starshine combines nested logical right shifts before the general
+  // zero-bits replacement gets a second look, preserve the same Binaryen
+  // `Bits::getMaxBits` fact: if all known lhs bits are shifted out and the lhs
+  // is pure, the combined shift is a typed zero.
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+    return None
+  }
+  match OiUnsignedMaxValueFact::i32_max_for_node(func, dead, None, lhs_id) {
+    Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) <=
+      amount => Some({ kind: CombinedShiftZeroI32 })
+    _ => None
+  }
+}
+
+///|
+fn OiCombinedShiftZeroBitsFact::from_i64_shr_u(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  amount : Int,
+) -> OiCombinedShiftZeroBitsFact? {
+  // Same combined-shift zero-bit fact for i64 logical right shifts.
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+    return None
+  }
+  match OiUnsignedMaxValueFact::i64_max_for_node(func, dead, None, lhs_id) {
+    Some(max_value) if OiUnsignedMaxValueFact::i64_bits_for_max(max_value) <=
+      amount => Some({ kind: CombinedShiftZeroI64 })
+    _ => None
+  }
+}
+
+///|
+fn OiCombinedShiftZeroBitsFact::apply(
+  self : OiCombinedShiftZeroBitsFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.kind {
+    CombinedShiftZeroI32 =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
+      )
+    CombinedShiftZeroI64 =>
+      optimize_instructions_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(0L),
+      )
+  }
+}
+
+///|
 priv struct OiArithmeticMaxBitsFact {
   width_bits : Int
   max_bits : Int
@@ -5293,15 +5405,24 @@ fn OiArithmeticMaxBitsFact::binary_i32(
       OiArithmeticMaxBitsFact::rem_max_bits(lhs_bits, rhs_bits)
     }
     @lib.Instruction::I32Shl =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) if raw >= 0 && raw < 32 =>
-          Some(OiArithmeticMaxBitsFact::cap(32, lhs_bits + raw))
-        _ => None
+      match
+        OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
+        Some(fact) => {
+          ignore(fact.width_bits)
+          Some(OiArithmeticMaxBitsFact::cap(32, lhs_bits + fact.amount))
+        }
+        None => None
       }
     @lib.Instruction::I32ShrS =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) if raw >= 0 && raw < 32 && lhs_bits < 32 => {
-          let shifts = if raw < lhs_bits { raw } else { lhs_bits }
+      match
+        OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
+        Some(fact) if lhs_bits < 32 => {
+          ignore(fact.width_bits)
+          let shifts = if fact.amount < lhs_bits {
+            fact.amount
+          } else {
+            lhs_bits
+          }
           Some(lhs_bits - shifts)
         }
         _ => None
@@ -5364,16 +5485,24 @@ fn OiArithmeticMaxBitsFact::binary_i64(
       OiArithmeticMaxBitsFact::rem_max_bits(lhs_bits, rhs_bits)
     }
     @lib.Instruction::I64Shl =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(raw)) if raw >= 0L && raw < 64L =>
-          Some(OiArithmeticMaxBitsFact::cap(64, lhs_bits + raw.to_int()))
-        _ => None
+      match
+        OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
+        Some(fact) => {
+          ignore(fact.width_bits)
+          Some(OiArithmeticMaxBitsFact::cap(64, lhs_bits + fact.amount))
+        }
+        None => None
       }
     @lib.Instruction::I64ShrS =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(raw)) if raw >= 0L && raw < 64L && lhs_bits < 64 => {
-          let shift = raw.to_int()
-          let shifts = if shift < lhs_bits { shift } else { lhs_bits }
+      match
+        OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
+        Some(fact) if lhs_bits < 64 => {
+          ignore(fact.width_bits)
+          let shifts = if fact.amount < lhs_bits {
+            fact.amount
+          } else {
+            lhs_bits
+          }
           Some(lhs_bits - shifts)
         }
         _ => None
@@ -5602,15 +5731,18 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
           OiUnsignedMaxValueFact::i32_max_for_bitwise_union(lhs_max, rhs_max)
         }
         Some(@lib.Instruction::I32ShrU) =>
-          match optimize_instructions_i32_const(func, dead, rhs_id) {
-            Some(@lib.I32(raw)) if raw > 0 && raw < 32 =>
+          match
+            OiEffectiveShiftAmountFact::from_i32_const_operand(
+              func, dead, rhs_id,
+            ) {
+            Some(fact) if fact.amount > 0 =>
               match
                 OiUnsignedMaxValueFact::i32_max_for_node(
                   func, dead, local_facts, lhs_id,
                 ) {
-                Some(value) => Some(value >> raw)
-                None if raw == 1 => Some(2147483647)
-                None => Some((1 << (32 - raw)) - 1)
+                Some(value) => Some(value >> fact.amount)
+                None if fact.amount == 1 => Some(2147483647)
+                None => Some((1 << (32 - fact.amount)) - 1)
               }
             _ => None
           }
@@ -5716,15 +5848,18 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
           OiUnsignedMaxValueFact::i64_max_for_bitwise_union(lhs_max, rhs_max)
         }
         Some(@lib.Instruction::I64ShrU) =>
-          match optimize_instructions_i64_const(func, dead, rhs_id) {
-            Some(@lib.I64(raw)) if raw > 0L && raw < 64L =>
+          match
+            OiEffectiveShiftAmountFact::from_i64_const_operand(
+              func, dead, rhs_id,
+            ) {
+            Some(fact) if fact.amount > 0 =>
               match
                 OiUnsignedMaxValueFact::i64_max_for_node(
                   func, dead, local_facts, lhs_id,
                 ) {
-                Some(value) => Some(value >> raw.to_int())
-                None if raw == 1L => Some(9223372036854775807L)
-                None => Some((1L << (64 - raw.to_int())) - 1L)
+                Some(value) => Some(value >> fact.amount)
+                None if fact.amount == 1 => Some(9223372036854775807L)
+                None => Some((1L << (64 - fact.amount)) - 1L)
               }
             _ => None
           }
@@ -21224,6 +21359,20 @@ fn optimize_instructions_try_combine_nested_const_shift(
         None => return false
       }
       let combined = (outer_amount + inner_amount) & mask_bits
+      match instr {
+        @lib.Instruction::I32ShrU =>
+          match
+            OiCombinedShiftZeroBitsFact::from_i32_shr_u(
+              func, dead, inner_lhs, combined,
+            ) {
+            Some(fact) => {
+              fact.apply(ctx, func, node_id)
+              return true
+            }
+            None => ()
+          }
+        _ => ()
+      }
       let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(combined))
       optimize_instructions_rewrite_exact_with_children(
         ctx,
@@ -21254,6 +21403,20 @@ fn optimize_instructions_try_combine_nested_const_shift(
         None => return false
       }
       let combined = (outer_amount + inner_amount) & mask_bits
+      match instr {
+        @lib.Instruction::I64ShrU =>
+          match
+            OiCombinedShiftZeroBitsFact::from_i64_shr_u(
+              func, dead, inner_lhs, combined,
+            ) {
+            Some(fact) => {
+              fact.apply(ctx, func, node_id)
+              return true
+            }
+            None => ()
+          }
+        _ => ()
+      }
       let replacement_rhs = @ir.hot_build_const_i64(
         func,
         @lib.I64(combined.to_int64()),
