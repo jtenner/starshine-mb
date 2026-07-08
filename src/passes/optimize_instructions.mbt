@@ -5626,11 +5626,12 @@ fn optimize_instructions_rewrite_exact_with_children(
 ///|
 priv struct OiCallRefFallthroughTargetFact {
   direct_func : Int
+  ref_func_heap : @lib.HeapType?
 }
 
 ///|
 fn OiCallRefFallthroughTargetFact::unknown() -> OiCallRefFallthroughTargetFact {
-  { direct_func: -1 }
+  { direct_func: -1, ref_func_heap: None }
 }
 
 ///|
@@ -5645,7 +5646,14 @@ fn OiCallRefFallthroughTargetFact::from_node(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::RefFunc => { direct_func: node.imm0 }
+    @ir.HotOp::RefFunc => {
+      let ref_func_heap = match
+        optimize_instructions_node_ref_result_type(func, node_id) {
+        Some(ref_type) => Some(ref_type.get_heap_type())
+        None => None
+      }
+      { direct_func: node.imm0, ref_func_heap }
+    }
     @ir.HotOp::LocalTee if node.child_count == 1 =>
       OiCallRefFallthroughTargetFact::from_node(
         func,
@@ -5664,6 +5672,13 @@ fn OiCallRefFallthroughTargetFact::from_node(
           )
         _ => OiCallRefFallthroughTargetFact::unknown()
       }
+    @ir.HotOp::RefCast if node.child_count == 1 =>
+      OiCallRefFallthroughTargetFact::from_node(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 0),
+        depth=depth + 1,
+      )
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       let root_count = @ir.hot_region_root_count(func, body_ref)
@@ -5686,6 +5701,46 @@ fn OiCallRefFallthroughTargetFact::has_direct_func(
   self : OiCallRefFallthroughTargetFact,
 ) -> Bool {
   self.direct_func >= 0
+}
+
+///|
+priv struct OiCallRefFallthroughTypeFact {
+  target_heap : @lib.HeapType?
+  fallthrough_heap : @lib.HeapType?
+  heaps_match : Bool
+}
+
+///|
+fn OiCallRefFallthroughTypeFact::from_target(
+  func : @ir.HotFunc,
+  target_id : Int,
+  fallthrough : OiCallRefFallthroughTargetFact,
+) -> OiCallRefFallthroughTypeFact {
+  // Binaryen v130 `visitCallRef` accepts `getFallthrough(curr->target)` only
+  // when `curr->target->type.getHeapType()` equals the fallthrough `ref.func`
+  // heap. A cast can expose a `ref.func` fallthrough that would trap at runtime
+  // because its static function type differs from the call_ref target type, so
+  // keep that compatibility proof separate from the wrapper-descent fact.
+  let target_heap = match
+    optimize_instructions_node_ref_result_type(func, target_id) {
+    Some(ref_type) => Some(ref_type.get_heap_type())
+    None => None
+  }
+  let fallthrough_heap = fallthrough.ref_func_heap
+  let heaps_match = match (target_heap, fallthrough_heap) {
+    (Some(target), Some(fallthrough)) => target == fallthrough
+    _ => false
+  }
+  { target_heap, fallthrough_heap, heaps_match }
+}
+
+///|
+fn OiCallRefFallthroughTypeFact::proves_target_heap_matches_ref_func_heap(
+  self : OiCallRefFallthroughTypeFact,
+) -> Bool {
+  ignore(self.target_heap)
+  ignore(self.fallthrough_heap)
+  self.heaps_match
 }
 
 ///|
@@ -5811,7 +5866,11 @@ fn OiCallRefTargetFact::from_target(
       let fallthrough = OiCallRefFallthroughTargetFact::from_node(
         func, dead, callee_ref_id,
       )
-      if fallthrough.has_direct_func() {
+      let type_fact = OiCallRefFallthroughTypeFact::from_target(
+        func, callee_ref_id, fallthrough,
+      )
+      if fallthrough.has_direct_func() &&
+        type_fact.proves_target_heap_matches_ref_func_heap() {
         {
           direct_func: -1,
           table_idx: -1,
@@ -5844,7 +5903,11 @@ fn OiCallRefTargetFact::from_fallthrough_block(
     return OiCallRefTargetFact::unknown()
   }
   let target = OiCallRefFallthroughTargetFact::from_node(func, dead, target_id)
-  if target.has_direct_func() {
+  let type_fact = OiCallRefFallthroughTypeFact::from_target(
+    func, callee_ref_id, target,
+  )
+  if target.has_direct_func() &&
+    type_fact.proves_target_heap_matches_ref_func_heap() {
     {
       direct_func: -1,
       table_idx: -1,

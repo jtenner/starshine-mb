@@ -8459,6 +8459,94 @@ test "optimize-instructions directizes call_ref after non-null target skip fact"
 }
 
 ///|
+test "optimize-instructions directizes call_ref through same-heap ref.cast fallthrough facts" {
+  // OI-H call_ref target fact slice: Binaryen version_130 asks
+  // `Properties::getFallthrough(curr->target)` for an underlying `ref.func`, but
+  // only directizes when the call_ref target's static heap matches the
+  // fallthrough `ref.func` heap. A same-heap `ref.cast` around a local.tee
+  // target should therefore directize while preserving the cast/drop side
+  // effect, and the proof belongs in target/fallthrough facts rather than a
+  // visitor-local wrapper scanner. Keep this HOT-only because Starshine's
+  // current public parser/validation surface rejects some typed function
+  // reference local spellings used by Binaryen-compatible probes.
+  let sig_type = @lib.TypeIdx::new(0U)
+  let nullable_sig_ref = @lib.RefType::new(true, @lib.HeapType::new(sig_type))
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([sig_type, sig_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::ref_type(nullable_sig_ref)),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(nullable_sig_ref),
+            @lib.Instruction::call_ref(sig_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected same-heap ref.cast call_ref target fact success, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail(
+        "expected same-heap ref.cast call_ref to become block+call, got \{other}",
+      )
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected cast target drop before direct call, got \{other}")
+  }
+  let call_id = @ir.hot_region_get(func, body, 1)
+  let call_node = @ir.hot_node_get(func, call_id)
+  match call_node.op {
+    @ir.HotOp::Call => @debug.assert_eq(call_node.imm0, 0)
+    other =>
+      fail("expected fallthrough target to become direct call, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions interposes fallthrough call_ref target at last operand fact" {
   // OI-H call_ref operand-order fact slice: Binaryen version_130 localizes only
   // the last call_ref operand when a fallthrough target directizes, then runs the
