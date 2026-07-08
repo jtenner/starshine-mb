@@ -5193,6 +5193,85 @@ fn OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
 }
 
 ///|
+priv struct OiBitwiseMaxBitsFact {
+  i32_max : Int?
+  i64_max : Int64?
+}
+
+///|
+fn OiBitwiseMaxBitsFact::from_i32_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiBitwiseMaxBitsFact? {
+  // Binaryen v130 `Bits::getMaxBits` treats integer `and` as the minimum of
+  // operand max-bit counts and `or` / `xor` as the maximum. Keep those bitwise
+  // producer rules in an explicit fact instead of embedding an opcode whitelist
+  // inside the unsigned-max recursive query.
+  let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
+    func, dead, local_facts, lhs_id,
+  )
+  let rhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
+    func, dead, local_facts, rhs_id,
+  )
+  match instr {
+    @lib.Instruction::I32And =>
+      Some({
+        i32_max: OiUnsignedMaxValueFact::i32_max_for_bitwise_and(
+          lhs_max, rhs_max,
+        ),
+        i64_max: None,
+      })
+    @lib.Instruction::I32Or | @lib.Instruction::I32Xor =>
+      Some({
+        i32_max: OiUnsignedMaxValueFact::i32_max_for_bitwise_union(
+          lhs_max, rhs_max,
+        ),
+        i64_max: None,
+      })
+    _ => None
+  }
+}
+
+///|
+fn OiBitwiseMaxBitsFact::from_i64_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiBitwiseMaxBitsFact? {
+  // Same Binaryen v130 bitwise maxBits fact for i64 producers.
+  let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
+    func, dead, local_facts, lhs_id,
+  )
+  let rhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
+    func, dead, local_facts, rhs_id,
+  )
+  match instr {
+    @lib.Instruction::I64And =>
+      Some({
+        i32_max: None,
+        i64_max: OiUnsignedMaxValueFact::i64_max_for_bitwise_and(
+          lhs_max, rhs_max,
+        ),
+      })
+    @lib.Instruction::I64Or | @lib.Instruction::I64Xor =>
+      Some({
+        i32_max: None,
+        i64_max: OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
+          lhs_max, rhs_max,
+        ),
+      })
+    _ => None
+  }
+}
+
+///|
 priv struct OiEffectiveShiftAmountFact {
   width_bits : Int
   amount : Int
@@ -5226,6 +5305,99 @@ fn OiEffectiveShiftAmountFact::from_i64_const_operand(
     Some(@lib.I64(raw)) =>
       Some({ width_bits: 64, amount: (raw & 63L).to_int() })
     None => None
+  }
+}
+
+///|
+priv struct OiLogicalShiftMaxBitsFact {
+  width_bits : Int
+  i32_max : Int?
+  i64_max : Int64?
+}
+
+///|
+fn OiLogicalShiftMaxBitsFact::from_i32_shr_u(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiLogicalShiftMaxBitsFact? {
+  // Binaryen v130 `Bits::getMaxBits` treats constant logical right shifts as
+  // max-bit reducers using the masked WebAssembly shift amount. Keep the `shr_u`
+  // producer in a named fact so it shares `OiEffectiveShiftAmountFact` with the
+  // arithmetic shl/shr_s fact instead of living as a recursive-query branch.
+  match instr {
+    @lib.Instruction::I32ShrU =>
+      match
+        OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
+        Some(fact) if fact.amount > 0 => {
+          let i32_max = match
+            OiUnsignedMaxValueFact::i32_max_for_node(
+              func, dead, local_facts, lhs_id,
+            ) {
+            Some(value) => Some(value >> fact.amount)
+            None if fact.amount == 1 => Some(2147483647)
+            None => Some((1 << (32 - fact.amount)) - 1)
+          }
+          Some({ width_bits: 32, i32_max, i64_max: None })
+        }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiLogicalShiftMaxBitsFact::from_i64_shr_u(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiLogicalShiftMaxBitsFact? {
+  // Same Binaryen v130 logical-right-shift maxBits fact for i64 producers.
+  match instr {
+    @lib.Instruction::I64ShrU =>
+      match
+        OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
+        Some(fact) if fact.amount > 0 => {
+          let i64_max = match
+            OiUnsignedMaxValueFact::i64_max_for_node(
+              func, dead, local_facts, lhs_id,
+            ) {
+            Some(value) => Some(value >> fact.amount)
+            None if fact.amount == 1 => Some(9223372036854775807L)
+            None => Some((1L << (64 - fact.amount)) - 1L)
+          }
+          Some({ width_bits: 64, i32_max: None, i64_max })
+        }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+priv struct OiMaxBitsFallthroughFact {
+  value_id : Int
+}
+
+///|
+fn OiMaxBitsFallthroughFact::from_single_value_block(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMaxBitsFallthroughFact? {
+  // Starshine's represented single-value block mirrors the local Binaryen
+  // `Properties::getFallthrough` maxBits path used by the local scanner. Record
+  // the fallthrough child as a fact before the unsigned-max query recurses.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block if node.child_count == 1 =>
+      Some({ value_id: func.children[node.child_base] })
+    _ => None
   }
 }
 
@@ -6048,70 +6220,48 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
       let lhs_id = func.children[node.child_base]
       let rhs_id = func.children[node.child_base + 1]
       match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::I32And) => {
-          // Binaryen v130 `Bits::getMaxBits` treats bitwise-and as the minimum
-          // of the operands' max-bit counts. Preserve that source rule through
-          // the stronger max-value fact instead of requiring a nonnegative direct
-          // mask: a negative mask still keeps a bounded left operand bounded,
-          // and two nonconstant bounded operands can feed the same proof.
-          let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-            func, dead, local_facts, lhs_id,
-          )
-          let rhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-            func, dead, local_facts, rhs_id,
-          )
-          OiUnsignedMaxValueFact::i32_max_for_bitwise_and(lhs_max, rhs_max)
-        }
-        Some(@lib.Instruction::I32Or) | Some(@lib.Instruction::I32Xor) => {
-          // Binaryen v130 `Bits::getMaxBits` keeps `or`/`xor` at the maximum of
-          // the operands' max-bit counts. Return the low-ones maximum implied by
-          // that fact; it is intentionally a maxBits fact, not an exact value
-          // range for the expression.
-          let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-            func, dead, local_facts, lhs_id,
-          )
-          let rhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-            func, dead, local_facts, rhs_id,
-          )
-          OiUnsignedMaxValueFact::i32_max_for_bitwise_union(lhs_max, rhs_max)
-        }
-        Some(@lib.Instruction::I32ShrU) =>
-          match
-            OiEffectiveShiftAmountFact::from_i32_const_operand(
-              func, dead, rhs_id,
-            ) {
-            Some(fact) if fact.amount > 0 =>
-              match
-                OiUnsignedMaxValueFact::i32_max_for_node(
-                  func, dead, local_facts, lhs_id,
-                ) {
-                Some(value) => Some(value >> fact.amount)
-                None if fact.amount == 1 => Some(2147483647)
-                None => Some((1 << (32 - fact.amount)) - 1)
-              }
-            _ => None
-          }
         Some(instr) =>
           match
-            OiArithmeticMaxBitsFact::binary_i32(
+            OiBitwiseMaxBitsFact::from_i32_binary(
               func, dead, local_facts, instr, lhs_id, rhs_id,
             ) {
-            Some(fact) => {
-              ignore(fact.width_bits)
-              OiUnsignedMaxValueFact::i32_max_for_bits(fact.max_bits)
-            }
-            None => None
+            Some(fact) => fact.i32_max
+            None =>
+              match
+                OiLogicalShiftMaxBitsFact::from_i32_shr_u(
+                  func, dead, local_facts, instr, lhs_id, rhs_id,
+                ) {
+                Some(fact) => {
+                  ignore(fact.width_bits)
+                  fact.i32_max
+                }
+                None =>
+                  match
+                    OiArithmeticMaxBitsFact::binary_i32(
+                      func, dead, local_facts, instr, lhs_id, rhs_id,
+                    ) {
+                    Some(fact) => {
+                      ignore(fact.width_bits)
+                      OiUnsignedMaxValueFact::i32_max_for_bits(fact.max_bits)
+                    }
+                    None => None
+                  }
+              }
           }
         _ => None
       }
     }
-    @ir.HotOp::Block if node.child_count == 1 =>
-      OiUnsignedMaxValueFact::i32_max_for_node(
-        func,
-        dead,
-        local_facts,
-        func.children[node.child_base],
-      )
+    @ir.HotOp::Block =>
+      match OiMaxBitsFallthroughFact::from_single_value_block(func, node_id) {
+        Some(fact) =>
+          OiUnsignedMaxValueFact::i32_max_for_node(
+            func,
+            dead,
+            local_facts,
+            fact.value_id,
+          )
+        None => None
+      }
     _ => None
   }
 }
@@ -6165,70 +6315,48 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
       let lhs_id = func.children[node.child_base]
       let rhs_id = func.children[node.child_base + 1]
       match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::I64And) => {
-          // Binaryen v130 `Bits::getMaxBits` treats bitwise-and as the minimum
-          // of the operands' max-bit counts. Preserve that source rule through
-          // the stronger max-value fact instead of requiring a nonnegative direct
-          // mask: a negative mask still keeps a bounded left operand bounded,
-          // and two nonconstant bounded operands can feed the same proof.
-          let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-            func, dead, local_facts, lhs_id,
-          )
-          let rhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-            func, dead, local_facts, rhs_id,
-          )
-          OiUnsignedMaxValueFact::i64_max_for_bitwise_and(lhs_max, rhs_max)
-        }
-        Some(@lib.Instruction::I64Or) | Some(@lib.Instruction::I64Xor) => {
-          // Binaryen v130 `Bits::getMaxBits` keeps `or`/`xor` at the maximum of
-          // the operands' max-bit counts. Return the low-ones maximum implied by
-          // that fact; it is intentionally a maxBits fact, not an exact value
-          // range for the expression.
-          let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-            func, dead, local_facts, lhs_id,
-          )
-          let rhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-            func, dead, local_facts, rhs_id,
-          )
-          OiUnsignedMaxValueFact::i64_max_for_bitwise_union(lhs_max, rhs_max)
-        }
-        Some(@lib.Instruction::I64ShrU) =>
-          match
-            OiEffectiveShiftAmountFact::from_i64_const_operand(
-              func, dead, rhs_id,
-            ) {
-            Some(fact) if fact.amount > 0 =>
-              match
-                OiUnsignedMaxValueFact::i64_max_for_node(
-                  func, dead, local_facts, lhs_id,
-                ) {
-                Some(value) => Some(value >> fact.amount)
-                None if fact.amount == 1 => Some(9223372036854775807L)
-                None => Some((1L << (64 - fact.amount)) - 1L)
-              }
-            _ => None
-          }
         Some(instr) =>
           match
-            OiArithmeticMaxBitsFact::binary_i64(
+            OiBitwiseMaxBitsFact::from_i64_binary(
               func, dead, local_facts, instr, lhs_id, rhs_id,
             ) {
-            Some(fact) => {
-              ignore(fact.width_bits)
-              OiUnsignedMaxValueFact::i64_max_for_bits(fact.max_bits)
-            }
-            None => None
+            Some(fact) => fact.i64_max
+            None =>
+              match
+                OiLogicalShiftMaxBitsFact::from_i64_shr_u(
+                  func, dead, local_facts, instr, lhs_id, rhs_id,
+                ) {
+                Some(fact) => {
+                  ignore(fact.width_bits)
+                  fact.i64_max
+                }
+                None =>
+                  match
+                    OiArithmeticMaxBitsFact::binary_i64(
+                      func, dead, local_facts, instr, lhs_id, rhs_id,
+                    ) {
+                    Some(fact) => {
+                      ignore(fact.width_bits)
+                      OiUnsignedMaxValueFact::i64_max_for_bits(fact.max_bits)
+                    }
+                    None => None
+                  }
+              }
           }
         _ => None
       }
     }
-    @ir.HotOp::Block if node.child_count == 1 =>
-      OiUnsignedMaxValueFact::i64_max_for_node(
-        func,
-        dead,
-        local_facts,
-        func.children[node.child_base],
-      )
+    @ir.HotOp::Block =>
+      match OiMaxBitsFallthroughFact::from_single_value_block(func, node_id) {
+        Some(fact) =>
+          OiUnsignedMaxValueFact::i64_max_for_node(
+            func,
+            dead,
+            local_facts,
+            fact.value_id,
+          )
+        None => None
+      }
     _ => None
   }
 }
