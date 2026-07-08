@@ -25678,6 +25678,9 @@ fn RawOiLocalUseCountFact::from_body(
 }
 
 ///|
+// Accepted raw OI-H child traversal boundary for call_ref/null-trap fallback
+// rewrites. It only descends through structured children; all flat decisions
+// remain in the sibling body facts below.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
   instr : @lib.Instruction,
   root_instrs : Array[@lib.Instruction],
@@ -26424,6 +26427,13 @@ fn RawOiRefNullTrapRewriteFact::from_instrs(
 }
 
 ///|
+// Accepted raw OI-H bridge boundary. This traversal only rebuilds nested
+// control bodies and dispatches to source-backed flat raw facts:
+// `RawOiRefNullTrapRewriteFact` for represented null/ref repair windows and
+// `RawOiCallRefDirectizeRewriteFact` for represented call_ref directization.
+// Reopen if this function starts matching target/operand spellings directly,
+// bypasses those facts, or a reduced mismatch needs broader Binaryen
+// `visitCallRef` / `trapOnNull` facts rather than another bridge case.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   instrs : Array[@lib.Instruction],
   root_instrs : Array[@lib.Instruction],
@@ -26468,6 +26478,8 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
 }
 
 ///|
+// Accepted raw OI-H root wrapper; the root body is passed through so local
+// fallthrough target preservation facts can count root `local.get` uses.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -26552,6 +26564,12 @@ fn RawOiSameGlobalIfSinkFact::from_if_arms(
 }
 
 ///|
+// Accepted raw OI-D/F/G/J bridge boundary. This function is only the recursive
+// control-body traversal for the effectful-sibling raw lane; the same-global
+// `if` rewrite decision is delegated to `RawOiSameGlobalIfSinkFact`, and all
+// straight-line windows are owned by facts in the sibling body dispatcher.
+// Reopen if it grows direct pattern windows, arity/name whitelists, or behavior
+// that should be represented as a Binaryen source-backed fact instead.
 fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
@@ -31343,6 +31361,9 @@ fn RawOiDescriptorTnhCallIndirectExactSuccessFact::append_rewrite(
 ///|
 
 ///|
+// Accepted raw OI-J descriptor bridge boundary. The body pass is a narrow
+// fact-consumer over `RawOiDescriptorTnhCallIndirectExactSuccessFact` variants;
+// it must not grow independent typed-table or exact-success pattern logic.
 fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor_success_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -31558,6 +31579,10 @@ fn RawOiDescriptorDirectCallExactificationFact::append_rewrite(
 ///|
 
 ///|
+// Accepted raw OI-J descriptor bridge boundary. The body pass only sequences
+// `RawOiDescriptorBalancedLocalDirectExactSuccessFact` rewrites for the covered
+// exact-success direct-call subset; broader success facts belong in that fact
+// family or the visitor-level descriptor facts, not in this loop.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -31585,6 +31610,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
 }
 
 ///|
+// Accepted raw OI-J descriptor bridge boundary. The body pass only sequences
+// `RawOiDescriptorDirectCallExactificationFact` rewrites for the covered
+// direct-call exactification subset; any new proof fields should live in that
+// fact or in shared descriptor type/producer facts.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -31978,6 +32007,13 @@ fn RawOiDescriptorLocalCallOperandMissFact::append_rewrite(
 }
 
 ///|
+// Accepted raw OI-J descriptor bridge boundary. This loop orchestrates the
+// exact-miss fact family (`RawOiDescriptorLocalCallOperandMissFact`,
+// `RawOiDescriptorDirectCallMissFact`, `RawOiDescriptorLocalOperandMissFact`,
+// `RawOiDescriptorLocalDefaultMissFact`, and
+// `RawOiDescriptorBalancedLocalDirectMissFact`) after resolving the function
+// parameter facts once. Reopen if it starts owning descriptor argument,
+// producer, target, arity, or preservation proofs outside those facts.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -32229,6 +32265,12 @@ fn RawOiBottomNullDescriptorCastRegionFact::from_instrs(
 }
 
 ///|
+// Accepted raw OI-D/F/G/J bridge boundary. This straight-line walker is now a
+// fact table: descriptor-bottom-null, bulk-lowering, dropped-branch, select,
+// memory-size boolean, narrow-store mask, scalar numeric, and memory-offset
+// fold rewrites each supply complete proof and rewrite payloads before the
+// walker recurses into child control bodies. Reopen if a new direct pattern
+// match appears here instead of a source-backed `RawOi*Fact`.
 fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -32835,6 +32877,10 @@ fn run_hot_pipeline_raw_oi_drop_same_flat_pure_scalar_memory_copy_body(
 }
 
 ///|
+// Accepted top-level raw OI bridge. This path exists to run fact-backed raw
+// fallback rewrites and fact-backed skip boundaries before the normal HOT pass
+// path; it should remain an orchestrator over `RawOi*Fact` producers rather
+// than a home for new scanner predicates.
 fn run_hot_pipeline_raw_optimize_instructions_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
