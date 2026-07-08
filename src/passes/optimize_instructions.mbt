@@ -692,27 +692,64 @@ fn OiRefLiteralFact::is_i31(self : OiRefLiteralFact) -> Bool {
 }
 
 ///|
-fn OiRefLiteralFact::matches_target(
-  self : OiRefLiteralFact,
+priv enum OiRefLiteralTargetKind {
+  NoRefLiteralTargetProof
+  RefLiteralMatchesTarget
+  I31RefLiteralMissesTarget
+}
+
+///|
+priv struct OiRefLiteralTargetFact {
+  kind : OiRefLiteralTargetKind
+}
+
+///|
+fn OiRefLiteralTargetFact::from_literal(
+  literal_fact : OiRefLiteralFact,
   target : @lib.HeapType,
+) -> OiRefLiteralTargetFact {
+  // Binaryen v130 treats direct `ref.func` and `ref.i31` operands as literal
+  // source facts before cast/test/equality target checks. Keep the target proof
+  // as its own fact so consumers do not each own a literal-kind-to-heap-target
+  // decision table.
+  let kind = match literal_fact.kind {
+    FuncRefLiteral =>
+      if OiRefFuncLiteralTargetFact::from_target(target).proves_match_target() {
+        RefLiteralMatchesTarget
+      } else {
+        NoRefLiteralTargetProof
+      }
+    I31RefLiteral => {
+      let target_fact = OiI31HeapTargetFact::from_target(target)
+      if target_fact.proves_match_target() {
+        RefLiteralMatchesTarget
+      } else if target_fact.proves_miss_target() {
+        I31RefLiteralMissesTarget
+      } else {
+        NoRefLiteralTargetProof
+      }
+    }
+    NoRefLiteral => NoRefLiteralTargetProof
+  }
+  { kind, }
+}
+
+///|
+fn OiRefLiteralTargetFact::proves_match_target(
+  self : OiRefLiteralTargetFact,
 ) -> Bool {
   match self.kind {
-    FuncRefLiteral =>
-      OiRefFuncLiteralTargetFact::from_target(target).proves_match_target()
-    I31RefLiteral =>
-      OiI31HeapTargetFact::from_target(target).proves_match_target()
-    NoRefLiteral => false
+    RefLiteralMatchesTarget => true
+    _ => false
   }
 }
 
 ///|
-fn OiRefLiteralFact::i31_cannot_match_target(
-  self : OiRefLiteralFact,
-  target : @lib.HeapType,
+fn OiRefLiteralTargetFact::proves_i31_miss_target(
+  self : OiRefLiteralTargetFact,
 ) -> Bool {
   match self.kind {
-    I31RefLiteral =>
-      OiI31HeapTargetFact::from_target(target).proves_miss_target()
+    I31RefLiteralMissesTarget => true
     _ => false
   }
 }
@@ -2383,7 +2420,7 @@ fn OiRefTestOperandFact::non_null_matches_target(
   ctx : HotPassContext,
   target : @lib.HeapType,
 ) -> Bool {
-  if self.literal_fact.matches_target(target) {
+  if OiRefLiteralTargetFact::from_literal(self.literal_fact, target).proves_match_target() {
     return true
   }
   match self.source_type {
@@ -2404,7 +2441,7 @@ fn OiRefTestOperandFact::misses_target(
   ctx : HotPassContext,
   target : @lib.HeapType,
 ) -> Bool {
-  if self.literal_fact.i31_cannot_match_target(target) {
+  if OiRefLiteralTargetFact::from_literal(self.literal_fact, target).proves_i31_miss_target() {
     return true
   }
   match self.source_type {
@@ -3059,7 +3096,7 @@ fn OiRefCastOperandTargetFact::known_match_target(
   ctx : HotPassContext,
   target : @lib.HeapType,
 ) -> Bool {
-  if self.literal_fact.matches_target(target) {
+  if OiRefLiteralTargetFact::from_literal(self.literal_fact, target).proves_match_target() {
     return true
   }
   match self.node_op {
@@ -3098,7 +3135,7 @@ fn OiRefCastOperandTargetFact::known_miss_target(
   ctx : HotPassContext,
   target : @lib.HeapType,
 ) -> Bool {
-  if self.literal_fact.i31_cannot_match_target(target) {
+  if OiRefLiteralTargetFact::from_literal(self.literal_fact, target).proves_i31_miss_target() {
     return true
   }
   match self.node_op {
@@ -27669,7 +27706,10 @@ fn OiRefEqOperandFact::from_node(
   }
   let cannot_be_i31 = match local_ref_type {
     Some(ref_type) =>
-      OiRefLiteralFact::i31().i31_cannot_match_target(ref_type.get_heap_type())
+      OiRefLiteralTargetFact::from_literal(
+        OiRefLiteralFact::i31(),
+        ref_type.get_heap_type(),
+      ).proves_i31_miss_target()
     None => false
   }
   let known_null = match node.op {
