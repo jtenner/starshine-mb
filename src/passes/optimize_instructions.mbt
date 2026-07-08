@@ -21772,6 +21772,108 @@ fn OiRefEqOperandFact::i31_const(
 }
 
 ///|
+priv struct OiRefEqSkipCastOperandFact {
+  replacement_id : Int
+  changed : Bool
+}
+
+///|
+fn OiRefEqSkipCastOperandFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefEqSkipCastOperandFact {
+  // Binaryen v130 `visitRefEq` calls `skipCast(input, (ref null eq))` only
+  // under traps-never-happen. Keep the required-type check with the skip fact:
+  // an operand wrapper is removable only when its child is already a nullable-eq
+  // subtype, so removing the cast cannot make the resulting `ref.eq` invalid.
+  if !ctx.traps_never_happen {
+    return { replacement_id: node_id, changed: false }
+  }
+  let mut current_id = node_id
+  let mut changed = false
+  while current_id >= 0 && @ir.hot_node_is_live(func, current_id) {
+    let child_id = match @ir.hot_node_get(func, current_id).op {
+      @ir.HotOp::RefCast if @ir.hot_child_count(func, current_id) == 1 =>
+        @ir.hot_child_get(func, current_id, 0)
+      @ir.HotOp::Heap if @ir.hot_child_count(func, current_id) == 1 =>
+        match @ir.hot_node_exact_instr(func, current_id) {
+          Some(@lib.Instruction::RefAsNonNull) =>
+            @ir.hot_child_get(func, current_id, 0)
+          _ => -1
+        }
+      _ => -1
+    }
+    if child_id < 0 ||
+      !OiRefEqSkipCastOperandFact::node_satisfies_nullable_eq_requirement(
+        ctx, func, child_id,
+      ) {
+      break
+    }
+    current_id = child_id
+    changed = true
+  }
+  { replacement_id: current_id, changed }
+}
+
+///|
+fn OiRefEqSkipCastOperandFact::node_satisfies_nullable_eq_requirement(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let ref_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => ref_type
+    _ => return false
+  }
+  OiHeapRelationFact::from_heaps(
+    ctx,
+    ref_type.get_heap_type(),
+    @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+  ).known_match_target()
+}
+
+///|
+priv struct OiRefEqSkipCastFact {
+  lhs_replacement_id : Int
+  rhs_replacement_id : Int
+  changed : Bool
+}
+
+///|
+fn OiRefEqSkipCastFact::from_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiRefEqSkipCastFact {
+  let lhs = OiRefEqSkipCastOperandFact::from_node(ctx, func, lhs_id)
+  let rhs = OiRefEqSkipCastOperandFact::from_node(ctx, func, rhs_id)
+  {
+    lhs_replacement_id: lhs.replacement_id,
+    rhs_replacement_id: rhs.replacement_id,
+    changed: lhs.changed || rhs.changed,
+  }
+}
+
+///|
+fn OiRefEqSkipCastFact::apply(
+  self : OiRefEqSkipCastFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !self.changed {
+    return false
+  }
+  @ir.hot_child_set(func, node_id, 0, self.lhs_replacement_id)
+  @ir.hot_child_set(func, node_id, 1, self.rhs_replacement_id)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 priv struct OiRefEqRelationFact {
   lhs : OiRefEqOperandFact
   rhs : OiRefEqOperandFact
@@ -22209,9 +22311,9 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     Some(@lib.Instruction::RefEq) => ()
     _ => return false
   }
-  let lhs_id = @ir.hot_child_get(func, node_id, 0)
-  let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  let relation_fact = OiRefEqRelationFact::from_operands(
+  let mut lhs_id = @ir.hot_child_get(func, node_id, 0)
+  let mut rhs_id = @ir.hot_child_get(func, node_id, 1)
+  let mut relation_fact = OiRefEqRelationFact::from_operands(
     ctx, func, dead, lhs_id, rhs_id,
   )
   if relation_fact.proves_equal() {
@@ -22248,6 +22350,46 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
       ctx, func, node_id, lhs_id, rhs_id,
     )
     return true
+  }
+  let skip_cast_fact = OiRefEqSkipCastFact::from_operands(
+    ctx, func, lhs_id, rhs_id,
+  )
+  let skipped_cast = skip_cast_fact.apply(ctx, func, node_id)
+  if skipped_cast {
+    lhs_id = skip_cast_fact.lhs_replacement_id
+    rhs_id = skip_cast_fact.rhs_replacement_id
+    relation_fact = OiRefEqRelationFact::from_operands(
+      ctx, func, dead, lhs_id, rhs_id,
+    )
+    if relation_fact.proves_equal() {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(1),
+      )
+      return true
+    }
+    match relation_fact.same_local_non_null_trap() {
+      Some(trap_id) => {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx,
+          func,
+          node_id,
+          trap_id,
+          @lib.I32(1),
+        )
+        return true
+      }
+      _ => ()
+    }
+    match relation_fact.i31_const_result() {
+      Some(result) => {
+        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+        return true
+      }
+      _ => ()
+    }
   }
   if relation_fact.lhs.known_null && relation_fact.rhs.known_null {
     optimize_instructions_replace_with_const_i32(
@@ -22308,7 +22450,7 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     }
     return true
   }
-  false
+  skipped_cast
 }
 
 ///|

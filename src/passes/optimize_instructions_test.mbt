@@ -7324,6 +7324,88 @@ test "optimize-instructions skips nullable ref.is_null casts under traps-never-h
 }
 
 ///|
+test "optimize-instructions skips ref.eq operand casts under traps-never-happen" {
+  // Binaryen v130 `visitRefEq` checks impossible heap pairs before calling
+  // `skipCast(curr->left/right, (ref null eq))`. A cast whose input already
+  // has a nullable-eq subtype is therefore preserved by default but erased
+  // under TNH even when `ref.eq` itself remains live.
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let eq_ref = @lib.ValType::ref_null(eq_heap)
+  let func_type = @lib.TypeIdx::new(0U)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([eq_ref, eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, i31_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+      ]),
+    )
+  let default_optimized = optimize_instructions_test_run_module(module_)
+  match default_optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(default_body))])) => {
+      assert_true(
+        default_body.any(fn(instr) {
+          match instr {
+            @lib.Instruction::RefCast(true, false, target) => target == i31_heap
+            _ => false
+          }
+        }),
+        msg="\{default_body}",
+      )
+      assert_true(
+        default_body.any(fn(instr) { instr == @lib.Instruction::ref_eq() }),
+        msg="\{default_body}",
+      )
+    }
+    _ => fail("expected one default optimized ref.eq function")
+  }
+  let tnh_optimized = match
+    run_hot_pipeline(
+      module_,
+      HotPipelineOptions::new(traps_never_happen=true),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected TNH ref.eq cast skip success, got \{err}")
+  }
+  match tnh_optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(tnh_body))])) => {
+      assert_false(
+        tnh_body.any(fn(instr) {
+          match instr {
+            @lib.Instruction::RefCast(true, false, target) => target == i31_heap
+            _ => false
+          }
+        }),
+        msg="\{tnh_body}",
+      )
+      assert_true(
+        tnh_body.any(fn(instr) { instr == @lib.Instruction::ref_eq() }),
+        msg="\{tnh_body}",
+      )
+    }
+    _ => fail("expected one TNH optimized ref.eq function")
+  }
+}
+
+///|
 test "optimize-instructions folds reference checks on non-null local refs" {
   let source =
     #|(module
