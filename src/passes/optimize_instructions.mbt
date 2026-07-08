@@ -4029,20 +4029,44 @@ fn OiDescriptorTnhSkipFact::from_node(
 }
 
 ///|
-fn OiDescriptorTnhSkipFact::can_skip(
-  self : OiDescriptorTnhSkipFact,
+priv enum OiDescriptorTnhSkipEligibilityKind {
+  DescriptorTnhSkipTrapsActive
+  DescriptorTnhSkipOperandMissesTarget
+  DescriptorTnhSkipTargetNullabilityMismatch
+  DescriptorTnhSkipTargetExactnessMismatch
+  DescriptorTnhSkipDescriptorExactnessPreserved
+  DescriptorTnhSkipAllowed
+}
+
+///|
+priv struct OiDescriptorTnhSkipEligibilityFact {
+  kind : OiDescriptorTnhSkipEligibilityKind
+}
+
+///|
+fn OiDescriptorTnhSkipEligibilityFact::from_skip(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-) -> Bool {
-  if !ctx.traps_never_happen || !self.operand_matches_target {
-    return false
+  skip_fact : OiDescriptorTnhSkipFact,
+) -> OiDescriptorTnhSkipEligibilityFact {
+  // Binaryen v130 removes descriptor equality casts under TNH only after the
+  // reference operand relation proves the cast target and after exact descriptor
+  // operands are known not to carry a stronger exactness proof. Keep each miss
+  // reason as an explicit result kind instead of a helper-style skip predicate.
+  if !ctx.traps_never_happen {
+    return { kind: DescriptorTnhSkipTrapsActive }
   }
-  let cast_fact = self.cast_fact
-  if (!cast_fact.nullable && self.operand_nullable) ||
-    (cast_fact.exact && !self.operand_exact) {
-    return false
+  if !skip_fact.operand_matches_target {
+    return { kind: DescriptorTnhSkipOperandMissesTarget }
   }
-  match self.descriptor_fact.type_fact.exact_described_heap {
+  let cast_fact = skip_fact.cast_fact
+  if !cast_fact.nullable && skip_fact.operand_nullable {
+    return { kind: DescriptorTnhSkipTargetNullabilityMismatch }
+  }
+  if cast_fact.exact && !skip_fact.operand_exact {
+    return { kind: DescriptorTnhSkipTargetExactnessMismatch }
+  }
+  match skip_fact.descriptor_fact.type_fact.exact_described_heap {
     Some(described_heap) => {
       let described_relation = OiRefProducerTargetRelationFact::from_producer(
         ctx,
@@ -4052,13 +4076,27 @@ fn OiDescriptorTnhSkipFact::can_skip(
       )
       if OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype() &&
         !described_relation.exact_heap &&
-        !self.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
-        return false
+        !skip_fact.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
+        return { kind: DescriptorTnhSkipDescriptorExactnessPreserved }
       }
     }
     None => ()
   }
-  true
+  { kind: DescriptorTnhSkipAllowed }
+}
+
+///|
+fn OiDescriptorTnhSkipEligibilityFact::proves_tnh_skip_allowed(
+  self : OiDescriptorTnhSkipEligibilityFact,
+) -> Bool {
+  match self.kind {
+    DescriptorTnhSkipTrapsActive => false
+    DescriptorTnhSkipOperandMissesTarget => false
+    DescriptorTnhSkipTargetNullabilityMismatch => false
+    DescriptorTnhSkipTargetExactnessMismatch => false
+    DescriptorTnhSkipDescriptorExactnessPreserved => false
+    DescriptorTnhSkipAllowed => true
+  }
 }
 
 ///|
@@ -4086,7 +4124,10 @@ fn OiDescriptorTnhSkipRewritePlanFact::from_skip(
   // as non-trapping. Preserve the replacement-order decision as a fact: erase
   // the descriptor, localize around ordered effects, localize descriptor-only
   // values, or append a descriptor drop.
-  if !skip_fact.can_skip(ctx, func) {
+  let eligibility_fact = OiDescriptorTnhSkipEligibilityFact::from_skip(
+    ctx, func, skip_fact,
+  )
+  if !eligibility_fact.proves_tnh_skip_allowed() {
     return None
   }
   let cast_fact = skip_fact.cast_fact
