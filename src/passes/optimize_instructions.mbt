@@ -22,11 +22,138 @@ pub fn optimize_instructions_summary() -> String {
 
 ///|
 priv struct OptimizeInstructionsLocalFacts {
-  sign_ext_bits_by_local : Array[Int]
-  i32_unsigned_max_by_local : Array[Int]
-  i64_unsigned_max_by_local : Array[Int64]
+  sign_ext_state_by_local : Array[OiSignExtLocalStateFact]
+  i32_unsigned_max_state_by_local : Array[OiI32UnsignedMaxLocalStateFact]
+  i64_unsigned_max_state_by_local : Array[OiI64UnsignedMaxLocalStateFact]
   mut sign_ext_ready : Bool
   mut unsigned_max_ready : Bool
+}
+
+///|
+priv enum OiSignExtLocalStateKind {
+  // Binaryen `LocalScanner` keeps a per-local summary that becomes unusable
+  // after conflicting or unsupported assignments. Keep that state explicit
+  // instead of encoding unknown/known/conflict as 0/positive/-1 bits.
+  UnknownSignExtLocalState
+  KnownSignExtLocalState
+  ConflictingSignExtLocalState
+}
+
+///|
+priv struct OiSignExtLocalStateFact {
+  kind : OiSignExtLocalStateKind
+  bits : Int
+}
+
+///|
+fn OiSignExtLocalStateFact::unknown() -> OiSignExtLocalStateFact {
+  { kind: UnknownSignExtLocalState, bits: 0 }
+}
+
+///|
+fn OiSignExtLocalStateFact::from_assignment_bits(
+  bits : Int,
+) -> OiSignExtLocalStateFact {
+  if bits > 0 {
+    { kind: KnownSignExtLocalState, bits }
+  } else {
+    { kind: ConflictingSignExtLocalState, bits: 0 }
+  }
+}
+
+///|
+fn OiSignExtLocalStateFact::merge_assignment_bits(
+  self : OiSignExtLocalStateFact,
+  bits : Int,
+) -> OiSignExtLocalStateFact {
+  let candidate = OiSignExtLocalStateFact::from_assignment_bits(bits)
+  match self.kind {
+    UnknownSignExtLocalState => candidate
+    KnownSignExtLocalState =>
+      match candidate.kind {
+        KnownSignExtLocalState if self.bits == candidate.bits => self
+        _ => { kind: ConflictingSignExtLocalState, bits: 0 }
+      }
+    ConflictingSignExtLocalState => self
+  }
+}
+
+///|
+fn OiSignExtLocalStateFact::final_bits(self : OiSignExtLocalStateFact) -> Int {
+  match self.kind {
+    KnownSignExtLocalState => self.bits
+    UnknownSignExtLocalState | ConflictingSignExtLocalState => 0
+  }
+}
+
+///|
+fn OiSignExtLocalStateFact::finalized(
+  self : OiSignExtLocalStateFact,
+) -> OiSignExtLocalStateFact {
+  match self.kind {
+    KnownSignExtLocalState => self
+    UnknownSignExtLocalState | ConflictingSignExtLocalState =>
+      OiSignExtLocalStateFact::unknown()
+  }
+}
+
+///|
+priv struct OiI32UnsignedMaxLocalStateFact {
+  // Local unsigned-max summaries start at zero for known i32 locals, grow to
+  // the largest proven assigned maximum, and fall back to None for unsupported
+  // or conflicting assignments instead of storing a -1 sentinel.
+  max_value : Int?
+}
+
+///|
+fn OiI32UnsignedMaxLocalStateFact::unknown() -> OiI32UnsignedMaxLocalStateFact {
+  { max_value: None }
+}
+
+///|
+fn OiI32UnsignedMaxLocalStateFact::zero() -> OiI32UnsignedMaxLocalStateFact {
+  { max_value: Some(0) }
+}
+
+///|
+fn OiI32UnsignedMaxLocalStateFact::merge_assignment_max(
+  self : OiI32UnsignedMaxLocalStateFact,
+  max_value : Int?,
+) -> OiI32UnsignedMaxLocalStateFact {
+  match (self.max_value, max_value) {
+    (Some(current), Some(value)) if value >= 0 =>
+      { max_value: Some(if value > current { value } else { current }) }
+    _ => OiI32UnsignedMaxLocalStateFact::unknown()
+  }
+}
+
+///|
+priv struct OiI64UnsignedMaxLocalStateFact {
+  // Mirrors the i32 local unsigned-max state for i64 locals without the old
+  // -1L sentinel payload.
+  max_value : Int64?
+}
+
+///|
+fn OiI64UnsignedMaxLocalStateFact::unknown() -> OiI64UnsignedMaxLocalStateFact {
+  { max_value: None }
+}
+
+///|
+fn OiI64UnsignedMaxLocalStateFact::zero() -> OiI64UnsignedMaxLocalStateFact {
+  { max_value: Some(0L) }
+}
+
+///|
+fn OiI64UnsignedMaxLocalStateFact::merge_assignment_max(
+  self : OiI64UnsignedMaxLocalStateFact,
+  max_value : Int64?,
+) -> OiI64UnsignedMaxLocalStateFact {
+  match (self.max_value, max_value) {
+    (Some(current), Some(value)) if value >= 0L =>
+      { max_value: Some(if value > current { value } else { current }) }
+    _ => OiI64UnsignedMaxLocalStateFact::unknown()
+  }
 }
 
 ///|
@@ -46,9 +173,18 @@ fn OptimizeInstructionsLocalFacts::new(
   local_count : Int,
 ) -> OptimizeInstructionsLocalFacts {
   {
-    sign_ext_bits_by_local: Array::make(local_count, 0),
-    i32_unsigned_max_by_local: Array::make(local_count, -1),
-    i64_unsigned_max_by_local: Array::make(local_count, -1L),
+    sign_ext_state_by_local: Array::make(
+      local_count,
+      OiSignExtLocalStateFact::unknown(),
+    ),
+    i32_unsigned_max_state_by_local: Array::make(
+      local_count,
+      OiI32UnsignedMaxLocalStateFact::unknown(),
+    ),
+    i64_unsigned_max_state_by_local: Array::make(
+      local_count,
+      OiI64UnsignedMaxLocalStateFact::unknown(),
+    ),
     sign_ext_ready: false,
     unsigned_max_ready: false,
   }
@@ -59,8 +195,8 @@ fn OptimizeInstructionsLocalFacts::sign_ext_bits_for_get(
   self : OptimizeInstructionsLocalFacts,
   local_id : Int,
 ) -> Int {
-  if local_id >= 0 && local_id < self.sign_ext_bits_by_local.length() {
-    self.sign_ext_bits_by_local[local_id]
+  if local_id >= 0 && local_id < self.sign_ext_state_by_local.length() {
+    self.sign_ext_state_by_local[local_id].final_bits()
   } else {
     0
   }
@@ -72,26 +208,20 @@ fn OptimizeInstructionsLocalFacts::merge_sign_ext_bits_for_local(
   local_id : Int,
   bits : Int,
 ) -> Unit {
-  if local_id < 0 || local_id >= self.sign_ext_bits_by_local.length() {
+  if local_id < 0 || local_id >= self.sign_ext_state_by_local.length() {
     return
   }
-  let candidate = if bits > 0 { bits } else { -1 }
-  let current = self.sign_ext_bits_by_local[local_id]
-  if current == 0 {
-    self.sign_ext_bits_by_local[local_id] = candidate
-  } else if current != candidate {
-    self.sign_ext_bits_by_local[local_id] = -1
-  }
+  self.sign_ext_state_by_local[local_id] = self.sign_ext_state_by_local[local_id].merge_assignment_bits(
+    bits,
+  )
 }
 
 ///|
 fn OptimizeInstructionsLocalFacts::finalize_sign_ext_bits(
   self : OptimizeInstructionsLocalFacts,
 ) -> Unit {
-  for i = 0; i < self.sign_ext_bits_by_local.length(); i = i + 1 {
-    if self.sign_ext_bits_by_local[i] < 0 {
-      self.sign_ext_bits_by_local[i] = 0
-    }
+  for i = 0; i < self.sign_ext_state_by_local.length(); i = i + 1 {
+    self.sign_ext_state_by_local[i] = self.sign_ext_state_by_local[i].finalized()
   }
 }
 
@@ -100,13 +230,8 @@ fn OptimizeInstructionsLocalFacts::i32_unsigned_max_for_get(
   self : OptimizeInstructionsLocalFacts,
   local_id : Int,
 ) -> Int? {
-  if local_id >= 0 && local_id < self.i32_unsigned_max_by_local.length() {
-    let max_value = self.i32_unsigned_max_by_local[local_id]
-    if max_value >= 0 {
-      Some(max_value)
-    } else {
-      None
-    }
+  if local_id >= 0 && local_id < self.i32_unsigned_max_state_by_local.length() {
+    self.i32_unsigned_max_state_by_local[local_id].max_value
   } else {
     None
   }
@@ -117,15 +242,30 @@ fn OptimizeInstructionsLocalFacts::i64_unsigned_max_for_get(
   self : OptimizeInstructionsLocalFacts,
   local_id : Int,
 ) -> Int64? {
-  if local_id >= 0 && local_id < self.i64_unsigned_max_by_local.length() {
-    let max_value = self.i64_unsigned_max_by_local[local_id]
-    if max_value >= 0L {
-      Some(max_value)
-    } else {
-      None
-    }
+  if local_id >= 0 && local_id < self.i64_unsigned_max_state_by_local.length() {
+    self.i64_unsigned_max_state_by_local[local_id].max_value
   } else {
     None
+  }
+}
+
+///|
+fn OptimizeInstructionsLocalFacts::seed_i32_unsigned_max_local(
+  self : OptimizeInstructionsLocalFacts,
+  local_id : Int,
+) -> Unit {
+  if local_id >= 0 && local_id < self.i32_unsigned_max_state_by_local.length() {
+    self.i32_unsigned_max_state_by_local[local_id] = OiI32UnsignedMaxLocalStateFact::zero()
+  }
+}
+
+///|
+fn OptimizeInstructionsLocalFacts::seed_i64_unsigned_max_local(
+  self : OptimizeInstructionsLocalFacts,
+  local_id : Int,
+) -> Unit {
+  if local_id >= 0 && local_id < self.i64_unsigned_max_state_by_local.length() {
+    self.i64_unsigned_max_state_by_local[local_id] = OiI64UnsignedMaxLocalStateFact::zero()
   }
 }
 
@@ -135,18 +275,12 @@ fn OptimizeInstructionsLocalFacts::merge_i32_unsigned_max_for_local(
   local_id : Int,
   max_value : Int?,
 ) -> Unit {
-  if local_id < 0 || local_id >= self.i32_unsigned_max_by_local.length() {
+  if local_id < 0 || local_id >= self.i32_unsigned_max_state_by_local.length() {
     return
   }
-  match max_value {
-    Some(value) if value >= 0 =>
-      if self.i32_unsigned_max_by_local[local_id] >= 0 {
-        if value > self.i32_unsigned_max_by_local[local_id] {
-          self.i32_unsigned_max_by_local[local_id] = value
-        }
-      }
-    _ => self.i32_unsigned_max_by_local[local_id] = -1
-  }
+  self.i32_unsigned_max_state_by_local[local_id] = self.i32_unsigned_max_state_by_local[local_id].merge_assignment_max(
+    max_value,
+  )
 }
 
 ///|
@@ -155,18 +289,12 @@ fn OptimizeInstructionsLocalFacts::merge_i64_unsigned_max_for_local(
   local_id : Int,
   max_value : Int64?,
 ) -> Unit {
-  if local_id < 0 || local_id >= self.i64_unsigned_max_by_local.length() {
+  if local_id < 0 || local_id >= self.i64_unsigned_max_state_by_local.length() {
     return
   }
-  match max_value {
-    Some(value) if value >= 0L =>
-      if self.i64_unsigned_max_by_local[local_id] >= 0L {
-        if value > self.i64_unsigned_max_by_local[local_id] {
-          self.i64_unsigned_max_by_local[local_id] = value
-        }
-      }
-    _ => self.i64_unsigned_max_by_local[local_id] = -1L
-  }
+  self.i64_unsigned_max_state_by_local[local_id] = self.i64_unsigned_max_state_by_local[local_id].merge_assignment_max(
+    max_value,
+  )
 }
 
 ///|
@@ -7998,9 +8126,9 @@ fn optimize_instructions_collect_unsigned_max_facts(
       local_id = local_id + 1 {
     match @ir.hot_local_type(func, local_id) {
       Some(val_type) if val_type == @lib.ValType::i32() =>
-        scratch.local_facts.i32_unsigned_max_by_local[local_id] = 0
+        scratch.local_facts.seed_i32_unsigned_max_local(local_id)
       Some(val_type) if val_type == @lib.ValType::i64() =>
-        scratch.local_facts.i64_unsigned_max_by_local[local_id] = 0L
+        scratch.local_facts.seed_i64_unsigned_max_local(local_id)
       _ => ()
     }
   }
