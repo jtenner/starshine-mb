@@ -376,20 +376,72 @@ fn OiRefIsNullFact::can_erase_operand(self : OiRefIsNullFact) -> Bool {
 }
 
 ///|
+priv struct OiRefIsNullSkipCastFact {
+  replacement_operand_id : Int
+}
+
+///|
+fn OiRefIsNullSkipCastFact::from_fact(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  fact : OiRefIsNullFact,
+) -> OiRefIsNullSkipCastFact? {
+  // Binaryen v130 `visitRefIsNull` calls `skipCast(curr->value)` only under
+  // traps-never-happen and only after direct known-null / known-non-null folds.
+  // Keep the cast-chain traversal as a fact so the visitor and rewrite plan do
+  // not grow a raw opcode scanner for nullable reference casts.
+  if !ctx.traps_never_happen {
+    return None
+  }
+  let mut current_id = fact.operand_id
+  let mut changed = false
+  while current_id >= 0 && @ir.hot_node_is_live(func, current_id) {
+    let node = @ir.hot_node_get(func, current_id)
+    match node.op {
+      @ir.HotOp::RefCast if node.child_count == 1 => {
+        current_id = @ir.hot_child_get(func, current_id, 0)
+        changed = true
+        continue
+      }
+      @ir.HotOp::Heap if node.child_count == 1 =>
+        match @ir.hot_node_exact_instr(func, current_id) {
+          Some(@lib.Instruction::RefAsNonNull) => {
+            current_id = @ir.hot_child_get(func, current_id, 0)
+            changed = true
+            continue
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+    break
+  }
+  if changed {
+    Some({ replacement_operand_id: current_id })
+  } else {
+    None
+  }
+}
+
+///|
 priv enum OiRefIsNullRewritePlanKind {
   RefIsNullRewriteToConst
   RefIsNullDropOperandThenConst
+  RefIsNullSkipCast
 }
 
 ///|
 priv struct OiRefIsNullRewritePlanFact {
   kind : OiRefIsNullRewritePlanKind
   operand_id : Int
+  replacement_operand_id : Int
   const_result : @lib.I32
 }
 
 ///|
 fn OiRefIsNullRewritePlanFact::from_fact(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
   fact : OiRefIsNullFact,
 ) -> OiRefIsNullRewritePlanFact? {
   match fact.known_result() {
@@ -401,9 +453,20 @@ fn OiRefIsNullRewritePlanFact::from_fact(
           RefIsNullDropOperandThenConst
         },
         operand_id: fact.operand_id,
+        replacement_operand_id: fact.operand_id,
         const_result: value,
       })
-    None => None
+    None =>
+      match OiRefIsNullSkipCastFact::from_fact(ctx, func, fact) {
+        Some(skip_fact) =>
+          Some({
+            kind: RefIsNullSkipCast,
+            operand_id: fact.operand_id,
+            replacement_operand_id: skip_fact.replacement_operand_id,
+            const_result: @lib.I32(0),
+          })
+        None => None
+      }
   }
 }
 
@@ -414,7 +477,7 @@ fn OiRefIsNullRewritePlanFact::from_node(
   node_id : Int,
 ) -> OiRefIsNullRewritePlanFact? {
   match OiRefIsNullFact::from_node(ctx, func, node_id) {
-    Some(fact) => OiRefIsNullRewritePlanFact::from_fact(fact)
+    Some(fact) => OiRefIsNullRewritePlanFact::from_fact(ctx, func, fact)
     None => None
   }
 }
@@ -459,6 +522,15 @@ fn OiRefIsNullRewritePlanFact::apply(
         node_id,
         self.operand_id,
         self.const_result,
+      )
+      true
+    }
+    RefIsNullSkipCast => {
+      OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
+        ctx,
+        func,
+        node_id,
+        self.replacement_operand_id,
       )
       true
     }

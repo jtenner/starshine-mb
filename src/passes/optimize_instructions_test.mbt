@@ -7245,6 +7245,85 @@ test "optimize-instructions folds ref.is_null on locally known non-null refs" {
 }
 
 ///|
+test "optimize-instructions skips nullable ref.is_null casts under traps-never-happen" {
+  // Binaryen v130 `visitRefIsNull` calls `skipCast(curr->value)` only in
+  // traps-never-happen mode after direct non-null folds. A nullable cast from
+  // anyref to eqref must therefore be preserved by default but erased under TNH,
+  // leaving the null predicate on the original value.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let func_type = @lib.TypeIdx::new(0U)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::anyref()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  let default_optimized = optimize_instructions_test_run_module(module_)
+  match default_optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(default_body))])) => {
+      assert_true(
+        default_body.any(fn(instr) {
+          match instr {
+            @lib.Instruction::RefCast(true, false, target) => target == eq_heap
+            _ => false
+          }
+        }),
+        msg="\{default_body}",
+      )
+      assert_true(
+        default_body.any(fn(instr) { instr == @lib.Instruction::ref_is_null() }),
+        msg="\{default_body}",
+      )
+    }
+    _ => fail("expected one default optimized function")
+  }
+  let tnh_optimized = match
+    run_hot_pipeline(
+      module_,
+      HotPipelineOptions::new(traps_never_happen=true),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected TNH ref.is_null cast skip success, got \{err}")
+  }
+  match tnh_optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(tnh_body))])) => {
+      assert_false(
+        tnh_body.any(fn(instr) {
+          match instr {
+            @lib.Instruction::RefCast(true, false, target) => target == eq_heap
+            _ => false
+          }
+        }),
+        msg="\{tnh_body}",
+      )
+      assert_true(
+        tnh_body.any(fn(instr) { instr == @lib.Instruction::ref_is_null() }),
+        msg="\{tnh_body}",
+      )
+    }
+    _ => fail("expected one TNH optimized function")
+  }
+}
+
+///|
 test "optimize-instructions folds reference checks on non-null local refs" {
   let source =
     #|(module
