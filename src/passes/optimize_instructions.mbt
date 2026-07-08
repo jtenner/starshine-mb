@@ -5391,24 +5391,28 @@ fn OiI64ConvertMaxBitsFact::from_convert(
 }
 
 ///|
-priv struct OiBitwiseMaxBitsFact {
-  i32_max : Int?
-  i64_max : Int64?
+priv struct OiI32BitwiseMaxBitsFact {
+  max_value : Int?
 }
 
 ///|
-fn OiBitwiseMaxBitsFact::from_i32_binary(
+priv struct OiI64BitwiseMaxBitsFact {
+  max_value : Int64?
+}
+
+///|
+fn OiI32BitwiseMaxBitsFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> OiBitwiseMaxBitsFact? {
+) -> OiI32BitwiseMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats integer `and` as the minimum of
   // operand max-bit counts and `or` / `xor` as the maximum. Keep those bitwise
-  // producer rules in an explicit fact instead of embedding an opcode whitelist
-  // inside the unsigned-max recursive query.
+  // producer rules in an explicit width-specific fact instead of embedding an
+  // opcode whitelist inside the unsigned-max recursive query.
   let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
     func, dead, local_facts, lhs_id,
   )
@@ -5418,31 +5422,29 @@ fn OiBitwiseMaxBitsFact::from_i32_binary(
   match instr {
     @lib.Instruction::I32And =>
       Some({
-        i32_max: OiUnsignedMaxValueFact::i32_max_for_bitwise_and(
+        max_value: OiUnsignedMaxValueFact::i32_max_for_bitwise_and(
           lhs_max, rhs_max,
         ),
-        i64_max: None,
       })
     @lib.Instruction::I32Or | @lib.Instruction::I32Xor =>
       Some({
-        i32_max: OiUnsignedMaxValueFact::i32_max_for_bitwise_union(
+        max_value: OiUnsignedMaxValueFact::i32_max_for_bitwise_union(
           lhs_max, rhs_max,
         ),
-        i64_max: None,
       })
     _ => None
   }
 }
 
 ///|
-fn OiBitwiseMaxBitsFact::from_i64_binary(
+fn OiI64BitwiseMaxBitsFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> OiBitwiseMaxBitsFact? {
+) -> OiI64BitwiseMaxBitsFact? {
   // Same Binaryen v130 bitwise maxBits fact for i64 producers.
   let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
     func, dead, local_facts, lhs_id,
@@ -5453,15 +5455,13 @@ fn OiBitwiseMaxBitsFact::from_i64_binary(
   match instr {
     @lib.Instruction::I64And =>
       Some({
-        i32_max: None,
-        i64_max: OiUnsignedMaxValueFact::i64_max_for_bitwise_and(
+        max_value: OiUnsignedMaxValueFact::i64_max_for_bitwise_and(
           lhs_max, rhs_max,
         ),
       })
     @lib.Instruction::I64Or | @lib.Instruction::I64Xor =>
       Some({
-        i32_max: None,
-        i64_max: OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
+        max_value: OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
           lhs_max, rhs_max,
         ),
       })
@@ -5507,31 +5507,35 @@ fn OiEffectiveShiftAmountFact::from_i64_const_operand(
 }
 
 ///|
-priv struct OiLogicalShiftMaxBitsFact {
-  width_bits : Int
-  i32_max : Int?
-  i64_max : Int64?
+priv struct OiI32LogicalShiftMaxBitsFact {
+  max_value : Int?
 }
 
 ///|
-fn OiLogicalShiftMaxBitsFact::from_i32_shr_u(
+priv struct OiI64LogicalShiftMaxBitsFact {
+  max_value : Int64?
+}
+
+///|
+fn OiI32LogicalShiftMaxBitsFact::from_shr_u(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> OiLogicalShiftMaxBitsFact? {
+) -> OiI32LogicalShiftMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats constant logical right shifts as
   // max-bit reducers using the masked WebAssembly shift amount. Keep the `shr_u`
-  // producer in a named fact so it shares `OiEffectiveShiftAmountFact` with the
-  // arithmetic shl/shr_s fact instead of living as a recursive-query branch.
+  // producer in a named width-specific fact so it shares
+  // `OiEffectiveShiftAmountFact` with the arithmetic shl/shr_s fact instead of
+  // living as a recursive-query branch.
   match instr {
     @lib.Instruction::I32ShrU =>
       match
         OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
         Some(fact) if fact.amount > 0 => {
-          let i32_max = match
+          let max_value = match
             OiUnsignedMaxValueFact::i32_max_for_node(
               func, dead, local_facts, lhs_id,
             ) {
@@ -5539,7 +5543,7 @@ fn OiLogicalShiftMaxBitsFact::from_i32_shr_u(
             None if fact.amount == 1 => Some(2147483647)
             None => Some((1 << (32 - fact.amount)) - 1)
           }
-          Some({ width_bits: 32, i32_max, i64_max: None })
+          Some({ max_value, })
         }
         _ => None
       }
@@ -5548,21 +5552,21 @@ fn OiLogicalShiftMaxBitsFact::from_i32_shr_u(
 }
 
 ///|
-fn OiLogicalShiftMaxBitsFact::from_i64_shr_u(
+fn OiI64LogicalShiftMaxBitsFact::from_shr_u(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> OiLogicalShiftMaxBitsFact? {
+) -> OiI64LogicalShiftMaxBitsFact? {
   // Same Binaryen v130 logical-right-shift maxBits fact for i64 producers.
   match instr {
     @lib.Instruction::I64ShrU =>
       match
         OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
         Some(fact) if fact.amount > 0 => {
-          let i64_max = match
+          let max_value = match
             OiUnsignedMaxValueFact::i64_max_for_node(
               func, dead, local_facts, lhs_id,
             ) {
@@ -5570,7 +5574,7 @@ fn OiLogicalShiftMaxBitsFact::from_i64_shr_u(
             None if fact.amount == 1 => Some(9223372036854775807L)
             None => Some((1L << (64 - fact.amount)) - 1L)
           }
-          Some({ width_bits: 64, i32_max: None, i64_max })
+          Some({ max_value, })
         }
         _ => None
       }
@@ -6613,19 +6617,16 @@ fn OiI32BinaryMaxBitsProducerFact::from_binary(
   // Keep that source order in one i32 fact so the width-specific producer
   // dispatcher does not grow its own nested opcode list.
   let max_value = match
-    OiBitwiseMaxBitsFact::from_i32_binary(
+    OiI32BitwiseMaxBitsFact::from_binary(
       func, dead, local_facts, instr, lhs_id, rhs_id,
     ) {
-    Some(fact) => fact.i32_max
+    Some(fact) => fact.max_value
     None =>
       match
-        OiLogicalShiftMaxBitsFact::from_i32_shr_u(
+        OiI32LogicalShiftMaxBitsFact::from_shr_u(
           func, dead, local_facts, instr, lhs_id, rhs_id,
         ) {
-        Some(fact) => {
-          ignore(fact.width_bits)
-          fact.i32_max
-        }
+        Some(fact) => fact.max_value
         None =>
           match
             OiArithmeticMaxBitsFact::binary_i32(
@@ -6654,19 +6655,16 @@ fn OiI64BinaryMaxBitsProducerFact::from_binary(
 ) -> OiI64BinaryMaxBitsProducerFact? {
   // Same Binaryen v130 binary-producer dispatch for i64 maxBits queries.
   let max_value = match
-    OiBitwiseMaxBitsFact::from_i64_binary(
+    OiI64BitwiseMaxBitsFact::from_binary(
       func, dead, local_facts, instr, lhs_id, rhs_id,
     ) {
-    Some(fact) => fact.i64_max
+    Some(fact) => fact.max_value
     None =>
       match
-        OiLogicalShiftMaxBitsFact::from_i64_shr_u(
+        OiI64LogicalShiftMaxBitsFact::from_shr_u(
           func, dead, local_facts, instr, lhs_id, rhs_id,
         ) {
-        Some(fact) => {
-          ignore(fact.width_bits)
-          fact.i64_max
-        }
+        Some(fact) => fact.max_value
         None =>
           match
             OiArithmeticMaxBitsFact::binary_i64(
