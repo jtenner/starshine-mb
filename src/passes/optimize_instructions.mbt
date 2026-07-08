@@ -27238,11 +27238,23 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
 }
 
 ///|
-fn optimize_instructions_i32_sign_extension_range(
+priv struct OiI32SignExtensionRangeFact {
+  child_id : Int
+  min_value : Int
+  max_value : Int
+  mask_value : Int
+}
+
+///|
+fn OiI32SignExtensionRangeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> (Int, Int, Int)? {
+) -> OiI32SignExtensionRangeFact? {
+  // Binaryen v130 recognizes the bounded signed result ranges for i32
+  // sign-extension opcodes before applying the equality and unsigned-top compare
+  // rewrites below. Store the range, child, and masking value together so those
+  // consumers do not reconstruct a local opcode/range scanner.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -27253,49 +27265,212 @@ fn optimize_instructions_i32_sign_extension_range(
   }
   let child_id = @ir.hot_child_get(func, node_id, 0)
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32Extend8S) => Some((-128, 127, child_id))
-    Some(@lib.Instruction::I32Extend16S) => Some((-32768, 32767, child_id))
+    Some(@lib.Instruction::I32Extend8S) =>
+      Some({ child_id, min_value: -128, max_value: 127, mask_value: 255 })
+    Some(@lib.Instruction::I32Extend16S) =>
+      Some({ child_id, min_value: -32768, max_value: 32767, mask_value: 65535 })
     _ => None
   }
 }
 
 ///|
-fn optimize_instructions_i64_sign_extension_node(
+priv struct OiI64SignExtensionNodeFact {
+  node_id : Int
+}
+
+///|
+fn OiI64SignExtensionNodeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
+) -> OiI64SignExtensionNodeFact? {
+  // Binaryen v130's unsigned-top i64 compare rewrite only needs proof that the
+  // left operand is a live i64 sign-extension unary. Keep that producer proof as
+  // an explicit fact instead of a boolean node-shape helper.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return false
+    return None
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Unary if node.child_count == 1 => ()
-    _ => return false
+    _ => return None
   }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I64Extend8S)
     | Some(@lib.Instruction::I64Extend16S)
-    | Some(@lib.Instruction::I64Extend32S) => true
-    _ => false
+    | Some(@lib.Instruction::I64Extend32S) => Some({ node_id, })
+    _ => None
   }
 }
 
 ///|
-fn optimize_instructions_i32_sign_extension_equality_result(
+priv struct OiI32SignExtensionEqualityFoldFact {
+  compare_id : Int
+  sign_ext_fact : OiI32SignExtensionRangeFact
+  result : @lib.I32
+}
+
+///|
+fn OiI32SignExtensionEqualityFoldFact::from_compare(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  compare_id : Int,
   instr : @lib.Instruction,
-  min_value : Int,
-  max_value : Int,
-  rhs : Int,
-) -> @lib.I32? {
-  if rhs >= min_value && rhs <= max_value {
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI32SignExtensionEqualityFoldFact? {
+  let sign_ext_fact = match
+    OiI32SignExtensionRangeFact::from_node(func, dead, lhs_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let rhs_value = match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => raw
+    _ => return None
+  }
+  if rhs_value >= sign_ext_fact.min_value &&
+    rhs_value <= sign_ext_fact.max_value {
     return None
   }
-  match instr {
-    @lib.Instruction::I32Eq => Some(@lib.I32(0))
-    @lib.Instruction::I32Ne => Some(@lib.I32(1))
-    _ => None
+  let result = match instr {
+    @lib.Instruction::I32Eq => @lib.I32(0)
+    @lib.Instruction::I32Ne => @lib.I32(1)
+    _ => return None
   }
+  Some({ compare_id, sign_ext_fact, result })
+}
+
+///|
+fn OiI32SignExtensionEqualityFoldFact::apply(
+  self : OiI32SignExtensionEqualityFoldFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Unit {
+  let drop_id = self.sign_ext_fact.child_id
+  if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, drop_id) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, drop_id) {
+    optimize_instructions_replace_with_const_i32(
+      ctx,
+      func,
+      self.compare_id,
+      self.result,
+    )
+  } else {
+    optimize_instructions_replace_with_drop_then_const_i32(
+      ctx,
+      func,
+      self.compare_id,
+      drop_id,
+      self.result,
+    )
+  }
+}
+
+///|
+priv struct OiI32SignExtensionUnsignedTopCompareFact {
+  compare_id : Int
+  sign_ext_fact : OiI32SignExtensionRangeFact
+  replacement_instr : @lib.Instruction
+}
+
+///|
+fn OiI32SignExtensionUnsignedTopCompareFact::from_compare(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  compare_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI32SignExtensionUnsignedTopCompareFact? {
+  let sign_ext_fact = match
+    OiI32SignExtensionRangeFact::from_node(func, dead, lhs_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) if raw == -1 => ()
+    _ => return None
+  }
+  let replacement_instr = match instr {
+    @lib.Instruction::I32LtU => @lib.Instruction::i32_ne()
+    @lib.Instruction::I32GeU => @lib.Instruction::i32_eq()
+    _ => return None
+  }
+  Some({ compare_id, sign_ext_fact, replacement_instr })
+}
+
+///|
+fn OiI32SignExtensionUnsignedTopCompareFact::apply(
+  self : OiI32SignExtensionUnsignedTopCompareFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Unit {
+  let sign_ext_fact = self.sign_ext_fact
+  let mask_value = sign_ext_fact.mask_value
+  let masked = optimize_instructions_build_i32_binary(
+    func,
+    @lib.Instruction::i32_and(),
+    sign_ext_fact.child_id,
+    @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
+  )
+  optimize_instructions_replace_with_exact_compare(
+    ctx,
+    func,
+    self.compare_id,
+    self.replacement_instr,
+    masked,
+    @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
+  )
+}
+
+///|
+priv struct OiI64SignExtensionUnsignedTopCompareFact {
+  compare_id : Int
+  sign_ext_fact : OiI64SignExtensionNodeFact
+  replacement_instr : @lib.Instruction
+}
+
+///|
+fn OiI64SignExtensionUnsignedTopCompareFact::from_compare(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  compare_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI64SignExtensionUnsignedTopCompareFact? {
+  let sign_ext_fact = match
+    OiI64SignExtensionNodeFact::from_node(func, dead, lhs_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(raw)) if raw == -1L => ()
+    _ => return None
+  }
+  let replacement_instr = match instr {
+    @lib.Instruction::I64LtU => @lib.Instruction::i64_ne()
+    @lib.Instruction::I64GeU => @lib.Instruction::i64_eq()
+    _ => return None
+  }
+  Some({ compare_id, sign_ext_fact, replacement_instr })
+}
+
+///|
+fn OiI64SignExtensionUnsignedTopCompareFact::apply(
+  self : OiI64SignExtensionUnsignedTopCompareFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Unit {
+  optimize_instructions_replace_with_exact_compare(
+    ctx,
+    func,
+    self.compare_id,
+    self.replacement_instr,
+    self.sign_ext_fact.node_id,
+    @ir.hot_build_const_i64(func, @lib.I64(-1L)),
+  )
 }
 
 ///|
@@ -27308,28 +27483,12 @@ fn optimize_instructions_try_fold_i32_sign_extension_equality_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  let (min_value, max_value, drop_id) = match
-    optimize_instructions_i32_sign_extension_range(func, dead, lhs_id) {
-    Some(range) => range
-    None => return false
-  }
-  let rhs = match optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(raw)) => raw
-    _ => return false
-  }
   match
-    optimize_instructions_i32_sign_extension_equality_result(
-      instr, min_value, max_value, rhs,
+    OiI32SignExtensionEqualityFoldFact::from_compare(
+      func, dead, node_id, instr, lhs_id, rhs_id,
     ) {
-    Some(result) => {
-      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, drop_id) ||
-        optimize_instructions_node_effects_are_pure(ctx, func, drop_id) {
-        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
-      } else {
-        optimize_instructions_replace_with_drop_then_const_i32(
-          ctx, func, node_id, drop_id, result,
-        )
-      }
+    Some(fact) => {
+      fact.apply(ctx, func, dead)
       true
     }
     None => false
@@ -27346,37 +27505,16 @@ fn optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  let mask = match
-    optimize_instructions_i32_sign_extension_range(func, dead, lhs_id) {
-    Some((-128, 127, child_id)) => (255, child_id)
-    Some((-32768, 32767, child_id)) => (65535, child_id)
-    _ => return false
+  match
+    OiI32SignExtensionUnsignedTopCompareFact::from_compare(
+      func, dead, node_id, instr, lhs_id, rhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func)
+      true
+    }
+    None => false
   }
-  match optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(raw)) if raw == -1 => ()
-    _ => return false
-  }
-  let replacement_instr = match instr {
-    @lib.Instruction::I32LtU => @lib.Instruction::i32_ne()
-    @lib.Instruction::I32GeU => @lib.Instruction::i32_eq()
-    _ => return false
-  }
-  let (mask_value, child_id) = mask
-  let masked = optimize_instructions_build_i32_binary(
-    func,
-    @lib.Instruction::i32_and(),
-    child_id,
-    @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
-  )
-  optimize_instructions_replace_with_exact_compare(
-    ctx,
-    func,
-    node_id,
-    replacement_instr,
-    masked,
-    @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
-  )
-  true
 }
 
 ///|
@@ -27389,27 +27527,16 @@ fn optimize_instructions_try_rewrite_i64_sign_extension_unsigned_top_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_i64_sign_extension_node(func, dead, lhs_id) {
-    return false
+  match
+    OiI64SignExtensionUnsignedTopCompareFact::from_compare(
+      func, dead, node_id, instr, lhs_id, rhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func)
+      true
+    }
+    None => false
   }
-  match optimize_instructions_i64_const(func, dead, rhs_id) {
-    Some(@lib.I64(raw)) if raw == -1L => ()
-    _ => return false
-  }
-  let replacement_instr = match instr {
-    @lib.Instruction::I64LtU => @lib.Instruction::i64_ne()
-    @lib.Instruction::I64GeU => @lib.Instruction::i64_eq()
-    _ => return false
-  }
-  optimize_instructions_replace_with_exact_compare(
-    ctx,
-    func,
-    node_id,
-    replacement_instr,
-    lhs_id,
-    @ir.hot_build_const_i64(func, @lib.I64(-1L)),
-  )
-  true
 }
 
 ///|
