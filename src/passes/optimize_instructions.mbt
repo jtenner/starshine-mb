@@ -21401,41 +21401,162 @@ fn optimize_instructions_try_fold_exact_const_binary(
 }
 
 ///|
-fn optimize_instructions_i32_identity_operand(
+priv struct OiI32BinaryIdentityOperandFact {
+  retained_id : Int
+}
+
+///|
+priv struct OiI64BinaryIdentityOperandFact {
+  retained_id : Int
+}
+
+///|
+fn OiI32BinaryIdentityOperandFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
   identity : Int,
-) -> Int? {
+) -> OiI32BinaryIdentityOperandFact? {
+  // Binaryen v130 `visitBinary` first asks whether a constant identity operand
+  // makes the binary operator a no-op. Keep the symmetric i32 proof as a fact
+  // so the visitor consumes the retained child instead of owning a constant-side
+  // whitelist. The lhs case intentionally wins when both sides are identities,
+  // preserving the previous replacement shape.
   match
     (
       optimize_instructions_i32_const(func, dead, lhs_id),
       optimize_instructions_i32_const(func, dead, rhs_id),
     ) {
-    (Some(@lib.I32(raw)), _) if raw == identity => Some(rhs_id)
-    (_, Some(@lib.I32(raw))) if raw == identity => Some(lhs_id)
+    (Some(@lib.I32(raw)), _) if raw == identity => Some({ retained_id: rhs_id })
+    (_, Some(@lib.I32(raw))) if raw == identity => Some({ retained_id: lhs_id })
     _ => None
   }
 }
 
 ///|
-fn optimize_instructions_i64_identity_operand(
+fn OiI64BinaryIdentityOperandFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
   identity : Int64,
-) -> Int? {
+) -> OiI64BinaryIdentityOperandFact? {
+  // Same Binaryen v130 constant-identity operand proof for the i64 lane.
   match
     (
       optimize_instructions_i64_const(func, dead, lhs_id),
       optimize_instructions_i64_const(func, dead, rhs_id),
     ) {
-    (Some(@lib.I64(raw)), _) if raw == identity => Some(rhs_id)
-    (_, Some(@lib.I64(raw))) if raw == identity => Some(lhs_id)
+    (Some(@lib.I64(raw)), _) if raw == identity => Some({ retained_id: rhs_id })
+    (_, Some(@lib.I64(raw))) if raw == identity => Some({ retained_id: lhs_id })
     _ => None
   }
+}
+
+///|
+fn OiI32BinaryIdentityOperandFact::from_right_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+  identity : Int,
+) -> OiI32BinaryIdentityOperandFact? {
+  // Noncommutative identity rewrites are one-sided: `x - 0`, `x / 1`, and
+  // rotates by zero retain only the left operand. Keep that asymmetry explicit.
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) if raw == identity => Some({ retained_id: lhs_id })
+    _ => None
+  }
+}
+
+///|
+fn OiI64BinaryIdentityOperandFact::from_right_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+  identity : Int64,
+) -> OiI64BinaryIdentityOperandFact? {
+  // Same one-sided noncommutative identity proof for the i64 lane.
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(raw)) if raw == identity => Some({ retained_id: lhs_id })
+    _ => None
+  }
+}
+
+///|
+priv struct OiI32RemainderOneFact {
+  replacement : @lib.I32
+}
+
+///|
+priv struct OiI64RemainderOneFact {
+  replacement : @lib.I64
+}
+
+///|
+fn OiI32RemainderOneFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI32RemainderOneFact? {
+  // Binaryen folds `rem(_, 1)` to zero only when the dividend can be erased
+  // without losing effects. Keep that asymmetric trap/effect boundary as a fact
+  // next to the ordinary identity facts instead of a visitor-local predicate.
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(1)) if OiSideEffectFreeExpressionFact::proves_node_free(
+        func, dead, lhs_id,
+      ) => Some({ replacement: @lib.I32(0) })
+    _ => None
+  }
+}
+
+///|
+fn OiI64RemainderOneFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI64RemainderOneFact? {
+  // Same asymmetric Binaryen `rem(_, 1) -> 0` proof for i64.
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(1L)) if OiSideEffectFreeExpressionFact::proves_node_free(
+        func, dead, lhs_id,
+      ) => Some({ replacement: @lib.I64(0L) })
+    _ => None
+  }
+}
+
+///|
+fn OiI32RemainderOneFact::apply(
+  self : OiI32RemainderOneFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i32(
+    ctx,
+    func,
+    node_id,
+    self.replacement,
+  )
+}
+
+///|
+fn OiI64RemainderOneFact::apply(
+  self : OiI64RemainderOneFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i64(
+    ctx,
+    func,
+    node_id,
+    self.replacement,
+  )
 }
 
 ///|
@@ -21454,40 +21575,22 @@ fn optimize_instructions_try_fold_identity_binary(
   // pure lhs operand, because folding to the constant would otherwise drop the
   // lhs effect (Binaryen keeps `rem(effect, 1)`).
   match instr {
-    @lib.Instruction::I32RemS | @lib.Instruction::I32RemU => {
-      let rhs_is_one = match
-        optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) => raw == 1
-        _ => false
+    @lib.Instruction::I32RemS | @lib.Instruction::I32RemU =>
+      match OiI32RemainderOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          return true
+        }
+        None => ()
       }
-      if rhs_is_one &&
-        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(0),
-        )
-        return true
+    @lib.Instruction::I64RemS | @lib.Instruction::I64RemU =>
+      match OiI64RemainderOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          return true
+        }
+        None => ()
       }
-    }
-    @lib.Instruction::I64RemS | @lib.Instruction::I64RemU => {
-      let rhs_is_one = match
-        optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(raw)) => raw == 1L
-        _ => false
-      }
-      if rhs_is_one &&
-        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-        optimize_instructions_replace_with_const_i64(
-          ctx,
-          func,
-          node_id,
-          @lib.I64(0L),
-        )
-        return true
-      }
-    }
     _ => ()
   }
   let keep_id = match instr {
@@ -21497,25 +21600,52 @@ fn optimize_instructions_try_fold_identity_binary(
     | @lib.Instruction::I32Shl
     | @lib.Instruction::I32ShrU
     | @lib.Instruction::I32ShrS =>
-      optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, 0)
+      match
+        OiI32BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, 0,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
     @lib.Instruction::I32And =>
-      optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, -1)
+      match
+        OiI32BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, -1,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
     @lib.Instruction::I32Mul =>
-      optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, 1)
+      match
+        OiI32BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, 1,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
     @lib.Instruction::I32Sub =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(0)) => Some(lhs_id)
-        _ => None
+      match
+        OiI32BinaryIdentityOperandFact::from_right_operand(
+          func, dead, lhs_id, rhs_id, 0,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
       }
     @lib.Instruction::I32DivS | @lib.Instruction::I32DivU =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(1)) => Some(lhs_id)
-        _ => None
+      match
+        OiI32BinaryIdentityOperandFact::from_right_operand(
+          func, dead, lhs_id, rhs_id, 1,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
       }
     @lib.Instruction::I32Rotl | @lib.Instruction::I32Rotr =>
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(0)) => Some(lhs_id)
-        _ => None
+      match
+        OiI32BinaryIdentityOperandFact::from_right_operand(
+          func, dead, lhs_id, rhs_id, 0,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
       }
     @lib.Instruction::I64Or
     | @lib.Instruction::I64Xor
@@ -21523,27 +21653,52 @@ fn optimize_instructions_try_fold_identity_binary(
     | @lib.Instruction::I64Shl
     | @lib.Instruction::I64ShrU
     | @lib.Instruction::I64ShrS =>
-      optimize_instructions_i64_identity_operand(func, dead, lhs_id, rhs_id, 0L)
+      match
+        OiI64BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, 0L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
     @lib.Instruction::I64And =>
-      optimize_instructions_i64_identity_operand(
-        func, dead, lhs_id, rhs_id, -1L,
-      )
+      match
+        OiI64BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, -1L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
     @lib.Instruction::I64Mul =>
-      optimize_instructions_i64_identity_operand(func, dead, lhs_id, rhs_id, 1L)
+      match
+        OiI64BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, 1L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
     @lib.Instruction::I64Sub =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(0L)) => Some(lhs_id)
-        _ => None
+      match
+        OiI64BinaryIdentityOperandFact::from_right_operand(
+          func, dead, lhs_id, rhs_id, 0L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
       }
     @lib.Instruction::I64DivS | @lib.Instruction::I64DivU =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(1L)) => Some(lhs_id)
-        _ => None
+      match
+        OiI64BinaryIdentityOperandFact::from_right_operand(
+          func, dead, lhs_id, rhs_id, 1L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
       }
     @lib.Instruction::I64Rotl | @lib.Instruction::I64Rotr =>
-      match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(0L)) => Some(lhs_id)
-        _ => None
+      match
+        OiI64BinaryIdentityOperandFact::from_right_operand(
+          func, dead, lhs_id, rhs_id, 0L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
       }
     _ => None
   }
