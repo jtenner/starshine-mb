@@ -588,8 +588,14 @@ fn OiRefLiteralFact::matches_target(
   self : OiRefLiteralFact,
   target : @lib.HeapType,
 ) -> Bool {
-  (self.func_literal && optimize_instructions_ref_func_matches_target(target)) ||
-  (self.i31_literal && optimize_instructions_ref_i31_matches_target(target))
+  (
+    self.func_literal &&
+    OiRefFuncLiteralTargetFact::from_target(target).proves_match_target()
+  ) ||
+  (
+    self.i31_literal &&
+    OiI31HeapTargetFact::from_target(target).proves_match_target()
+  )
 }
 
 ///|
@@ -597,7 +603,8 @@ fn OiRefLiteralFact::i31_cannot_match_target(
   self : OiRefLiteralFact,
   target : @lib.HeapType,
 ) -> Bool {
-  self.i31_literal && optimize_instructions_ref_i31_cannot_match_target(target)
+  self.i31_literal &&
+  OiI31HeapTargetFact::from_target(target).proves_miss_target()
 }
 
 ///|
@@ -882,6 +889,254 @@ fn OiHeapSubtypeFact::proves_known_subtype(self : OiHeapSubtypeFact) -> Bool {
 }
 
 ///|
+priv struct OiI31HeapTargetFact {
+  match_target : Bool
+  miss_target : Bool
+}
+
+///|
+fn OiI31HeapTargetFact::from_target(
+  target : @lib.HeapType,
+) -> OiI31HeapTargetFact {
+  // Binaryen's GC cast checks treat i31 as a value under i31/eq/any and
+  // disjoint from aggregate or concrete heaps. Keep that abstract-heap relation
+  // in a fact used by ref.test/ref.cast/ref.eq literal and heap facts instead
+  // of helper-level i31 match predicates.
+  match target {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
+      {
+        match_target: abs == @lib.AbsHeapType::i31() ||
+        abs == @lib.AbsHeapType::eq() ||
+        abs == @lib.AbsHeapType::any(),
+        miss_target: abs == @lib.AbsHeapType::struct_() ||
+        abs == @lib.AbsHeapType::array(),
+      }
+    @lib.HeapType::HeapType(_) | @lib.HeapType::DefTypeHeapType(_) =>
+      { match_target: false, miss_target: true }
+  }
+}
+
+///|
+fn OiI31HeapTargetFact::proves_match_target(self : OiI31HeapTargetFact) -> Bool {
+  self.match_target
+}
+
+///|
+fn OiI31HeapTargetFact::proves_miss_target(self : OiI31HeapTargetFact) -> Bool {
+  self.miss_target
+}
+
+///|
+priv struct OiRefFuncLiteralTargetFact {
+  match_target : Bool
+}
+
+///|
+fn OiRefFuncLiteralTargetFact::from_target(
+  target : @lib.HeapType,
+) -> OiRefFuncLiteralTargetFact {
+  // Preserve the existing direct `ref.func` literal target proof exactly: this
+  // narrow literal fact only recognizes the concrete func heap. Broader func ->
+  // any compatibility remains in the module heap-target fact used for typed
+  // producers.
+  let match_target = match target {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::func()
+    _ => false
+  }
+  { match_target, }
+}
+
+///|
+fn OiRefFuncLiteralTargetFact::proves_match_target(
+  self : OiRefFuncLiteralTargetFact,
+) -> Bool {
+  self.match_target
+}
+
+///|
+priv struct OiAbsStructArrayHeapRelationFact {
+  match_target : Bool
+  disjoint_target : Bool
+}
+
+///|
+fn OiAbsStructArrayHeapRelationFact::from_heaps(
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiAbsStructArrayHeapRelationFact {
+  // Binaryen's abstract struct/array lattice facts are separate from full
+  // module subtype walks: struct/array values flow to eq/any, and struct and
+  // array are disjoint from one another.
+  match (source, target) {
+    (
+      @lib.HeapType::AbsHeapTypeHeapType(source_abs),
+      @lib.HeapType::AbsHeapTypeHeapType(target_abs),
+    ) => {
+      let aggregate_source = source_abs == @lib.AbsHeapType::struct_() ||
+        source_abs == @lib.AbsHeapType::array()
+      {
+        match_target: aggregate_source &&
+        (
+          target_abs == @lib.AbsHeapType::eq() ||
+          target_abs == @lib.AbsHeapType::any()
+        ),
+        disjoint_target: (
+          source_abs == @lib.AbsHeapType::struct_() &&
+          target_abs == @lib.AbsHeapType::array()
+        ) ||
+        (
+          source_abs == @lib.AbsHeapType::array() &&
+          target_abs == @lib.AbsHeapType::struct_()
+        ),
+      }
+    }
+    _ => { match_target: false, disjoint_target: false }
+  }
+}
+
+///|
+fn OiAbsStructArrayHeapRelationFact::proves_match_target(
+  self : OiAbsStructArrayHeapRelationFact,
+) -> Bool {
+  self.match_target
+}
+
+///|
+fn OiAbsStructArrayHeapRelationFact::proves_disjoint_target(
+  self : OiAbsStructArrayHeapRelationFact,
+) -> Bool {
+  self.disjoint_target
+}
+
+///|
+priv struct OiConcreteCompAbsTargetFact {
+  match_target : Bool
+}
+
+///|
+fn OiConcreteCompAbsTargetFact::from_comp_abs(
+  comp : @lib.CompType,
+  target : @lib.AbsHeapType,
+) -> OiConcreteCompAbsTargetFact {
+  let match_target = match comp {
+    @lib.StructCompType(_) =>
+      target == @lib.AbsHeapType::struct_() ||
+      target == @lib.AbsHeapType::eq() ||
+      target == @lib.AbsHeapType::any()
+    @lib.ArrayCompType(_) =>
+      target == @lib.AbsHeapType::array() ||
+      target == @lib.AbsHeapType::eq() ||
+      target == @lib.AbsHeapType::any()
+    @lib.FuncCompType(_, _) =>
+      target == @lib.AbsHeapType::func() || target == @lib.AbsHeapType::any()
+  }
+  { match_target, }
+}
+
+///|
+fn OiConcreteCompAbsTargetFact::proves_match_target(
+  self : OiConcreteCompAbsTargetFact,
+) -> Bool {
+  self.match_target
+}
+
+///|
+priv struct OiModuleHeapTargetFact {
+  match_target : Bool
+}
+
+///|
+fn OiModuleHeapTargetFact::from_heaps(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> OiModuleHeapTargetFact {
+  // Source-backed equivalent of Binaryen's heap-target compatibility walk: fast
+  // abstract-heap lattice facts first, then bounded module subtype traversal.
+  if source == target {
+    return { match_target: true }
+  }
+  if fuel <= 0 {
+    return { match_target: false }
+  }
+  let match_target = match (source, target) {
+    (
+      @lib.HeapType::AbsHeapTypeHeapType(source_abs),
+      @lib.HeapType::AbsHeapTypeHeapType(target_abs),
+    ) =>
+      source_abs == target_abs ||
+      (
+        source_abs == @lib.AbsHeapType::i31() &&
+        OiI31HeapTargetFact::from_target(target).proves_match_target()
+      ) ||
+      OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_match_target() ||
+      (
+        source_abs == @lib.AbsHeapType::eq() &&
+        target_abs == @lib.AbsHeapType::any()
+      ) ||
+      (
+        source_abs == @lib.AbsHeapType::func() &&
+        target_abs == @lib.AbsHeapType::any()
+      )
+    (@lib.HeapType::HeapType(source_idx), _) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+        Some(subtype) =>
+          OiModuleHeapTargetFact::subtype_matches_target(
+            module_ctx,
+            subtype,
+            target,
+            fuel - 1,
+          )
+        None => false
+      }
+    _ => false
+  }
+  { match_target, }
+}
+
+///|
+fn OiModuleHeapTargetFact::subtype_matches_target(
+  module_ctx : @ir.HotModuleContext,
+  subtype : @lib.SubType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if fuel <= 0 {
+    return false
+  }
+  let (_, supers, comp) = match subtype {
+    @lib.CompTypeSubType(_, comp) => (false, [], comp)
+    @lib.SubType(is_final, supers, _, comp) => (is_final, supers, comp)
+  }
+  match target {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
+      if OiConcreteCompAbsTargetFact::from_comp_abs(comp, abs).proves_match_target() {
+        return true
+      }
+    _ => ()
+  }
+  for super_idx in supers {
+    if OiModuleHeapTargetFact::from_heaps(
+        module_ctx,
+        @lib.HeapType::new(super_idx),
+        target,
+        fuel - 1,
+      ).proves_match_target() {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn OiModuleHeapTargetFact::proves_match_target(
+  self : OiModuleHeapTargetFact,
+) -> Bool {
+  self.match_target
+}
+
+///|
 priv struct OiConcreteSourceTargetOverlapFact {
   no_target_overlap : Bool
 }
@@ -904,14 +1159,14 @@ fn OiConcreteSourceTargetOverlapFact::from_heaps(
     @lib.HeapType::HeapType(_) => ()
     _ => return { no_target_overlap: false }
   }
-  if optimize_instructions_heap_matches_target(ctx, source, target, 512) {
+  if OiModuleHeapTargetFact::from_heaps(ctx, source, target, 512).proves_match_target() {
     return { no_target_overlap: false }
   }
   let subtype_count = @ir.hot_module_subtype_count(ctx)
   for i = 0; i < subtype_count; i = i + 1 {
     let heap = @lib.HeapType::new(@lib.TypeIdx::new(i.reinterpret_as_uint()))
-    if optimize_instructions_heap_matches_target(ctx, heap, source, 512) &&
-      optimize_instructions_heap_matches_target(ctx, heap, target, 512) {
+    if OiModuleHeapTargetFact::from_heaps(ctx, heap, source, 512).proves_match_target() &&
+      OiModuleHeapTargetFact::from_heaps(ctx, heap, target, 512).proves_match_target() {
       return { no_target_overlap: false }
     }
   }
@@ -973,7 +1228,7 @@ fn OiHeapRelationFact::from_heaps(
 ) -> OiHeapRelationFact {
   let module_heap_matches_target = match ctx.module_ctx {
     Some(module_ctx) =>
-      optimize_instructions_heap_matches_target(module_ctx, source, target, 512)
+      OiModuleHeapTargetFact::from_heaps(module_ctx, source, target, 512).proves_match_target()
     None => false
   }
   let both_concrete_heaps = match (source, target) {
@@ -983,16 +1238,16 @@ fn OiHeapRelationFact::from_heaps(
   {
     same_heap: source == target,
     i31_matches_target: source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-    optimize_instructions_ref_i31_matches_target(target),
+    OiI31HeapTargetFact::from_target(target).proves_match_target(),
     i31_cannot_match_target: source ==
     @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-    optimize_instructions_ref_i31_cannot_match_target(target),
-    abs_struct_array_matches_target: optimize_instructions_abs_struct_array_matches_target(
+    OiI31HeapTargetFact::from_target(target).proves_miss_target(),
+    abs_struct_array_matches_target: OiAbsStructArrayHeapRelationFact::from_heaps(
       source, target,
-    ),
-    abs_struct_array_disjoint: optimize_instructions_abs_struct_array_disjoint(
+    ).proves_match_target(),
+    abs_struct_array_disjoint: OiAbsStructArrayHeapRelationFact::from_heaps(
       source, target,
-    ),
+    ).proves_disjoint_target(),
     module_heap_matches_target,
     known_subtype: OiHeapSubtypeFact::from_heaps(ctx, source, target).proves_known_subtype(),
     concrete_source_has_no_target_overlap: OiConcreteSourceTargetOverlapFact::from_heaps(
@@ -1098,10 +1353,10 @@ fn optimize_instructions_ref_fallthrough_lower_bound(
   if outer.is_exact() || inner.is_exact() {
     return None
   }
-  if optimize_instructions_ref_type_heap_matches_target(ctx, inner, outer_heap) {
+  if OiHeapRelationFact::from_heaps(ctx, inner_heap, outer_heap).known_match_target() {
     return Some(@lib.RefType::new(nullable, inner_heap, exact=inner.is_exact()))
   }
-  if optimize_instructions_ref_type_heap_matches_target(ctx, outer, inner_heap) {
+  if OiHeapRelationFact::from_heaps(ctx, outer_heap, inner_heap).known_match_target() {
     return Some(@lib.RefType::new(nullable, outer_heap, exact=outer.is_exact()))
   }
   None
@@ -24416,189 +24671,6 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
   }
   optimize_instructions_i64_const(func, dead, lhs_id) == Some(@lib.I64(0L)) ||
   optimize_instructions_i64_const(func, dead, rhs_id) == Some(@lib.I64(0L))
-}
-
-///|
-fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
-  match ht {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
-      abs == @lib.AbsHeapType::i31() ||
-      abs == @lib.AbsHeapType::eq() ||
-      abs == @lib.AbsHeapType::any()
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_abs_struct_array_matches_target(
-  source : @lib.HeapType,
-  target : @lib.HeapType,
-) -> Bool {
-  match (source, target) {
-    (
-      @lib.HeapType::AbsHeapTypeHeapType(source_abs),
-      @lib.HeapType::AbsHeapTypeHeapType(target_abs),
-    ) =>
-      (
-        source_abs == @lib.AbsHeapType::struct_() ||
-        source_abs == @lib.AbsHeapType::array()
-      ) &&
-      (
-        target_abs == @lib.AbsHeapType::eq() ||
-        target_abs == @lib.AbsHeapType::any()
-      )
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_func_matches_target(ht : @lib.HeapType) -> Bool {
-  match ht {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::func()
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_type_heap_matches_target(
-  ctx : HotPassContext,
-  ref_type : @lib.RefType,
-  target : @lib.HeapType,
-) -> Bool {
-  OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_match_target()
-}
-
-///|
-fn optimize_instructions_ref_i31_cannot_match_target(
-  ht : @lib.HeapType,
-) -> Bool {
-  match ht {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
-      abs == @lib.AbsHeapType::struct_() || abs == @lib.AbsHeapType::array()
-    @lib.HeapType::HeapType(_) | @lib.HeapType::DefTypeHeapType(_) => true
-  }
-}
-
-///|
-fn optimize_instructions_abs_struct_array_disjoint(
-  lhs : @lib.HeapType,
-  rhs : @lib.HeapType,
-) -> Bool {
-  match (lhs, rhs) {
-    (
-      @lib.HeapType::AbsHeapTypeHeapType(lhs_abs),
-      @lib.HeapType::AbsHeapTypeHeapType(rhs_abs),
-    ) =>
-      (
-        lhs_abs == @lib.AbsHeapType::struct_() &&
-        rhs_abs == @lib.AbsHeapType::array()
-      ) ||
-      (
-        lhs_abs == @lib.AbsHeapType::array() &&
-        rhs_abs == @lib.AbsHeapType::struct_()
-      )
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_concrete_comptype_matches_abs(
-  comp : @lib.CompType,
-  abs : @lib.AbsHeapType,
-) -> Bool {
-  match comp {
-    @lib.StructCompType(_) =>
-      abs == @lib.AbsHeapType::struct_() ||
-      abs == @lib.AbsHeapType::eq() ||
-      abs == @lib.AbsHeapType::any()
-    @lib.ArrayCompType(_) =>
-      abs == @lib.AbsHeapType::array() ||
-      abs == @lib.AbsHeapType::eq() ||
-      abs == @lib.AbsHeapType::any()
-    @lib.FuncCompType(_, _) =>
-      abs == @lib.AbsHeapType::func() || abs == @lib.AbsHeapType::any()
-  }
-}
-
-///|
-fn optimize_instructions_heap_matches_target(
-  module_ctx : @ir.HotModuleContext,
-  source : @lib.HeapType,
-  target : @lib.HeapType,
-  fuel : Int,
-) -> Bool {
-  if source == target {
-    return true
-  }
-  if fuel <= 0 {
-    return false
-  }
-  match (source, target) {
-    (
-      @lib.HeapType::AbsHeapTypeHeapType(source_abs),
-      @lib.HeapType::AbsHeapTypeHeapType(target_abs),
-    ) =>
-      source_abs == target_abs ||
-      (
-        source_abs == @lib.AbsHeapType::i31() &&
-        optimize_instructions_ref_i31_matches_target(target)
-      ) ||
-      optimize_instructions_abs_struct_array_matches_target(source, target) ||
-      (
-        source_abs == @lib.AbsHeapType::eq() &&
-        target_abs == @lib.AbsHeapType::any()
-      ) ||
-      (
-        source_abs == @lib.AbsHeapType::func() &&
-        target_abs == @lib.AbsHeapType::any()
-      )
-    (@lib.HeapType::HeapType(source_idx), _) =>
-      match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
-        Some(subtype) =>
-          optimize_instructions_subtype_heap_matches_target(
-            module_ctx,
-            subtype,
-            target,
-            fuel - 1,
-          )
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_subtype_heap_matches_target(
-  module_ctx : @ir.HotModuleContext,
-  subtype : @lib.SubType,
-  target : @lib.HeapType,
-  fuel : Int,
-) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
-  let (_, supers, comp) = match subtype {
-    @lib.CompTypeSubType(_, comp) => (false, [], comp)
-    @lib.SubType(is_final, supers, _, comp) => (is_final, supers, comp)
-  }
-  match target {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
-      if optimize_instructions_concrete_comptype_matches_abs(comp, abs) {
-        return true
-      }
-    _ => ()
-  }
-  for super_idx in supers {
-    if optimize_instructions_heap_matches_target(
-        module_ctx,
-        @lib.HeapType::new(super_idx),
-        target,
-        fuel - 1,
-      ) {
-      return true
-    }
-  }
-  false
 }
 
 ///|
