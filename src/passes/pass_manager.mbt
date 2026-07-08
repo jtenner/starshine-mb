@@ -24434,16 +24434,38 @@ fn run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_const_offset_load_then_call(
+// Raw OI-G load/call skip-gate exception fact. Binaryen v130 can fold the
+// constant-address offset before preserving the following call, so the raw
+// lowered dispatcher lets this narrow shape bypass the conservative load+call
+// skip gate. Keep the proof as data instead of a boolean window helper.
+priv struct RawOiConstOffsetLoadThenCallFact {
+  load_has_nonzero_offset : Bool
+}
+
+///|
+fn RawOiConstOffsetLoadThenCallFact::from_instrs(
   instrs : Array[@lib.Instruction],
-) -> Bool {
+) -> RawOiConstOffsetLoadThenCallFact? {
   match instrs {
-    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] =>
-      run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
+    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] => {
+      let load_has_nonzero_offset = run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
         load,
       )
-    _ => false
+      if load_has_nonzero_offset {
+        Some({ load_has_nonzero_offset, })
+      } else {
+        None
+      }
+    }
+    _ => None
   }
+}
+
+///|
+fn RawOiConstOffsetLoadThenCallFact::proves_binaryen_offset_fold_bypass(
+  self : RawOiConstOffsetLoadThenCallFact,
+) -> Bool {
+  self.load_has_nonzero_offset
 }
 
 ///|
@@ -24624,12 +24646,24 @@ fn run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
+// Raw OI-J/OI-K GC selected-operand forwarding fact for the public lowered
+// dispatcher. Binaryen v130 `ChildLocalizer` can preserve constructor operands
+// while forwarding an immediately selected struct/array lane; keep the raw
+// stack spelling as a fact instead of a skip-gate-owned whitelist.
+priv struct RawOiGcSelectedOperandForwardingFact {
+  is_struct_get_after_new : Bool
+  is_array_get_after_fixed_new : Bool
+  operand_count : Int
+  saw_effectful_operand_call : Bool
+}
+
+///|
+fn RawOiGcSelectedOperandForwardingFact::from_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> RawOiGcSelectedOperandForwardingFact? {
   if instrs.length() < 3 {
-    return false
+    return None
   }
   match (instrs[instrs.length() - 2], instrs[instrs.length() - 1]) {
     (@lib.StructNew(new_type), @lib.StructGet(get_type, _)) if new_type ==
@@ -24644,14 +24678,19 @@ fn run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
             instrs[i],
             module_ctx,
           ) {
-          return false
+          return None
         }
       }
-      saw_call
+      Some({
+        is_struct_get_after_new: true,
+        is_array_get_after_fixed_new: false,
+        operand_count: instrs.length() - 2,
+        saw_effectful_operand_call: saw_call,
+      })
     }
     _ => {
       if instrs.length() < 4 {
-        return false
+        return None
       }
       match
         (
@@ -24666,7 +24705,7 @@ fn run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
         ) if new_type == get_type => {
           let len = raw_len.reinterpret_as_int()
           if len < 0 || len != instrs.length() - 3 {
-            return false
+            return None
           }
           let mut saw_call = false
           for i = 0; i < instrs.length() - 3; i = i + 1 {
@@ -24678,72 +24717,119 @@ fn run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
                 instrs[i],
                 module_ctx,
               ) {
-              return false
+              return None
             }
           }
-          saw_call
+          Some({
+            is_struct_get_after_new: false,
+            is_array_get_after_fixed_new: true,
+            operand_count: len,
+            saw_effectful_operand_call: saw_call,
+          })
         }
-        _ => false
+        _ => None
       }
     }
   }
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
+fn RawOiGcSelectedOperandForwardingFact::proves_binaryen_forwarding(
+  self : RawOiGcSelectedOperandForwardingFact,
+) -> Bool {
+  self.saw_effectful_operand_call &&
+  self.operand_count >= 0 &&
+  (self.is_struct_get_after_new || self.is_array_get_after_fixed_new)
+}
+
+///|
+// Raw OI-K/OI-L GC effect-localization fact for stack-root constructors whose
+// selected/updated child carries a direct call. This mirrors the represented
+// Binaryen v130 `ChildLocalizer` preservation subset while keeping the public
+// lowered skip gate fact-driven.
+priv struct RawOiGcEffectLocalizationFact {
+  is_array_len_after_new : Bool
+  is_array_get_after_new : Bool
+  is_array_set_after_fixed_new : Bool
+  is_array_set_after_default_new : Bool
+  is_array_set_after_new : Bool
+  operand_count : Int
+  saw_effectful_operand_call : Bool
+}
+
+///|
+fn RawOiGcEffectLocalizationFact::from_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> RawOiGcEffectLocalizationFact? {
   let len = instrs.length()
   if len < 4 {
-    return false
+    return None
   }
   let mut saw_call = false
   match (instrs[len - 2], instrs[len - 1]) {
     (@lib.ArrayNew(new_type), @lib.ArrayLen) => {
       if len != 4 {
-        return false
+        return None
       }
       ignore(new_type)
       if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
           instrs[0],
           module_ctx,
         ) {
-        return false
+        return None
       }
       match instrs[1] {
         @lib.I32Const(_) => ()
-        _ => return false
+        _ => return None
       }
-      match instrs[0] {
+      saw_call = match instrs[0] {
         @lib.Call(_) => true
         _ => false
       }
+      Some({
+        is_array_len_after_new: true,
+        is_array_get_after_new: false,
+        is_array_set_after_fixed_new: false,
+        is_array_set_after_default_new: false,
+        is_array_set_after_new: false,
+        operand_count: 2,
+        saw_effectful_operand_call: saw_call,
+      })
     }
     _ => {
       if len < 5 {
-        return false
+        return None
       }
       match (instrs[len - 3], instrs[len - 2], instrs[len - 1]) {
         (@lib.ArrayNew(new_type), @lib.I32Const(_), @lib.ArrayGet(get_type)) if new_type ==
           get_type => {
           if len != 5 {
-            return false
+            return None
           }
           if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
               instrs[0],
               module_ctx,
             ) {
-            return false
+            return None
           }
           match instrs[1] {
             @lib.I32Const(_) => ()
-            _ => return false
+            _ => return None
           }
-          match instrs[0] {
+          saw_call = match instrs[0] {
             @lib.Call(_) => true
             _ => false
           }
+          Some({
+            is_array_len_after_new: false,
+            is_array_get_after_new: true,
+            is_array_set_after_fixed_new: false,
+            is_array_set_after_default_new: false,
+            is_array_set_after_new: false,
+            operand_count: 2,
+            saw_effectful_operand_call: saw_call,
+          })
         }
         _ =>
           match (instrs[len - 4], instrs[len - 3], instrs[len - 1]) {
@@ -24754,7 +24840,7 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
             ) if new_type == set_type => {
               let fixed_len = raw_len.reinterpret_as_int()
               if fixed_len < 0 || len != fixed_len + 4 {
-                return false
+                return None
               }
               for i = 0; i < fixed_len; i = i + 1 {
                 match instrs[i] {
@@ -24765,7 +24851,7 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
                     instrs[i],
                     module_ctx,
                   ) {
-                  return false
+                  return None
                 }
               }
               match instrs[len - 2] {
@@ -24775,10 +24861,18 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
                       instrs[len - 2],
                       module_ctx,
                     ) {
-                    return false
+                    return None
                   }
               }
-              saw_call
+              Some({
+                is_array_len_after_new: false,
+                is_array_get_after_new: false,
+                is_array_set_after_fixed_new: true,
+                is_array_set_after_default_new: false,
+                is_array_set_after_new: false,
+                operand_count: fixed_len + 1,
+                saw_effectful_operand_call: saw_call,
+              })
             }
             (
               @lib.ArrayNewDefault(new_type),
@@ -24786,31 +24880,40 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
               @lib.ArraySet(set_type),
             ) if new_type == set_type => {
               if len != 5 {
-                return false
+                return None
               }
               match instrs[0] {
                 @lib.I32Const(_) => ()
-                _ => return false
+                _ => return None
               }
-              match instrs[3] {
+              saw_call = match instrs[3] {
                 @lib.Call(_) => true
                 _ => false
               }
+              Some({
+                is_array_len_after_new: false,
+                is_array_get_after_new: false,
+                is_array_set_after_fixed_new: false,
+                is_array_set_after_default_new: true,
+                is_array_set_after_new: false,
+                operand_count: 2,
+                saw_effectful_operand_call: saw_call,
+              })
             }
             (@lib.ArrayNew(new_type), @lib.I32Const(_), @lib.ArraySet(set_type)) if new_type ==
               set_type => {
               if len != 6 {
-                return false
+                return None
               }
               if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
                   instrs[0],
                   module_ctx,
                 ) {
-                return false
+                return None
               }
               match instrs[1] {
                 @lib.I32Const(_) => ()
-                _ => return false
+                _ => return None
               }
               match instrs[0] {
                 @lib.Call(_) => saw_call = true
@@ -24823,12 +24926,20 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
                       instrs[4],
                       module_ctx,
                     ) {
-                    return false
+                    return None
                   }
               }
-              saw_call
+              Some({
+                is_array_len_after_new: false,
+                is_array_get_after_new: false,
+                is_array_set_after_fixed_new: false,
+                is_array_set_after_default_new: false,
+                is_array_set_after_new: true,
+                operand_count: 3,
+                saw_effectful_operand_call: saw_call,
+              })
             }
-            _ => false
+            _ => None
           }
       }
     }
@@ -24836,57 +24947,122 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
+fn RawOiGcEffectLocalizationFact::proves_binaryen_localization(
+  self : RawOiGcEffectLocalizationFact,
+) -> Bool {
+  self.saw_effectful_operand_call &&
+  self.operand_count >= 0 &&
+  (
+    self.is_array_len_after_new ||
+    self.is_array_get_after_new ||
+    self.is_array_set_after_fixed_new ||
+    self.is_array_set_after_default_new ||
+    self.is_array_set_after_new
+  )
+}
+
+///|
+// Raw OI-D stack-call/binop bypass fact for the stack-carried-effect gate. The
+// shape is accepted because Binaryen can localize a no-parameter one-result
+// call operand around a commutative integer binop.
+priv struct RawOiSimpleStackCallBinopFact {
+  operand_is_pure_stack_value : Bool
+  call_has_no_params_one_result : Bool
+  binop_is_commutative_integer : Bool
+}
+
+///|
+fn RawOiSimpleStackCallBinopFact::from_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> RawOiSimpleStackCallBinopFact? {
   match instrs {
     [lhs, call, binop] =>
-      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-        lhs,
-      ) &&
-      run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
-        call, module_ctx,
-      ) &&
-      run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
-        binop,
-      )
-    _ => false
+      Some({
+        operand_is_pure_stack_value: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+          lhs,
+        ),
+        call_has_no_params_one_result: run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+          call, module_ctx,
+        ),
+        binop_is_commutative_integer: run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
+          binop,
+        ),
+      })
+    _ => None
   }
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
+fn RawOiSimpleStackCallBinopFact::proves_binaryen_stack_localization(
+  self : RawOiSimpleStackCallBinopFact,
+) -> Bool {
+  self.operand_is_pure_stack_value &&
+  self.call_has_no_params_one_result &&
+  self.binop_is_commutative_integer
+}
+
+///|
+// Raw OI-H call-indexed table.get + call_ref bypass fact. This keeps the raw
+// stack-carried-effect skip exception aligned with the call_ref target facts
+// instead of spelling the table/call_ref window directly in the skip gate.
+priv struct RawOiCallIndexedTableGetCallRefFact {
+  pure_prefix_count : Int
+  index_call_has_no_params_one_result : Bool
+  is_table_get_target : Bool
+  is_call_ref : Bool
+}
+
+///|
+fn RawOiCallIndexedTableGetCallRefFact::from_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> RawOiCallIndexedTableGetCallRefFact? {
   if instrs.length() < 3 {
-    return false
+    return None
   }
   let index_call = instrs[instrs.length() - 3]
   let table_get = instrs[instrs.length() - 2]
   let ref_call = instrs[instrs.length() - 1]
-  if !run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
-      index_call, module_ctx,
-    ) {
-    return false
+  let index_call_has_no_params_one_result = run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+    index_call, module_ctx,
+  )
+  let is_table_get_target = match table_get {
+    @lib.TableGet(_) => true
+    _ => false
   }
-  match table_get {
-    @lib.TableGet(_) => ()
-    _ => return false
+  let is_call_ref = match ref_call {
+    @lib.CallRef(_) | @lib.ReturnCallRef(_) => true
+    _ => false
   }
-  match ref_call {
-    @lib.CallRef(_) | @lib.ReturnCallRef(_) => ()
-    _ => return false
+  if !index_call_has_no_params_one_result ||
+    !is_table_get_target ||
+    !is_call_ref {
+    return None
   }
   for i = 0; i < instrs.length() - 3; i = i + 1 {
     if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
         instrs[i],
       ) {
-      return false
+      return None
     }
   }
-  true
+  Some({
+    pure_prefix_count: instrs.length() - 3,
+    index_call_has_no_params_one_result,
+    is_table_get_target,
+    is_call_ref,
+  })
+}
+
+///|
+fn RawOiCallIndexedTableGetCallRefFact::proves_binaryen_call_ref_directization(
+  self : RawOiCallIndexedTableGetCallRefFact,
+) -> Bool {
+  self.pure_prefix_count >= 0 &&
+  self.index_call_has_no_params_one_result &&
+  self.is_table_get_target &&
+  self.is_call_ref
 }
 
 ///|
@@ -25092,55 +25268,70 @@ fn RawOiStackBulkMemoryFact::matches_trap_relaxed_zero_size_drop(
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_tiny_stack_bulk_memory(
-  instrs : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext,
-) -> Bool {
-  if instrs.length() == 0 {
-    return false
-  }
-  let mut i = 0
-  let mut saw_stack_call_operand = false
-  while i < instrs.length() {
-    let fact = match
-      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
-      Some(fact) => fact
-      None => return false
-    }
-    if !fact.matches_binaryen_tiny_rewrite() {
-      return false
-    }
-    if fact.has_stack_carried_call_operand() {
-      saw_stack_call_operand = true
-    }
-    i = fact.end
-  }
-  saw_stack_call_operand
+// Raw OI-G stack-bulk region fact for skip-gate bypasses. Binaryen v130
+// `optimizeMemoryCopy` / `optimizeMemoryFill` treat tiny constant-size and
+// trap-relaxed zero-size operations from operand facts; this region fact records
+// whether an entire lowered body is made only from those stack-bulk operations.
+priv struct RawOiStackBulkMemoryRegionFact {
+  operation_count : Int
+  all_tiny_rewrites : Bool
+  all_trap_relaxed_zero_size_drops : Bool
+  saw_stack_carried_call_operand : Bool
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_memory(
+fn RawOiStackBulkMemoryRegionFact::from_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> RawOiStackBulkMemoryRegionFact? {
   if instrs.length() == 0 {
-    return false
+    return None
   }
   let mut i = 0
-  let mut saw_bulk = false
+  let mut operation_count = 0
+  let mut all_tiny_rewrites = true
+  let mut all_trap_relaxed_zero_size_drops = true
+  let mut saw_stack_carried_call_operand = false
   while i < instrs.length() {
     let fact = match
       RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
       Some(fact) => fact
-      None => return false
+      None => return None
+    }
+    if !fact.matches_binaryen_tiny_rewrite() {
+      all_tiny_rewrites = false
     }
     if !fact.matches_trap_relaxed_zero_size_drop() {
-      return false
+      all_trap_relaxed_zero_size_drops = false
     }
-    saw_bulk = true
+    if fact.has_stack_carried_call_operand() {
+      saw_stack_carried_call_operand = true
+    }
+    operation_count = operation_count + 1
     i = fact.end
   }
-  saw_bulk
+  Some({
+    operation_count,
+    all_tiny_rewrites,
+    all_trap_relaxed_zero_size_drops,
+    saw_stack_carried_call_operand,
+  })
+}
+
+///|
+fn RawOiStackBulkMemoryRegionFact::proves_binaryen_tiny_rewrite_region(
+  self : RawOiStackBulkMemoryRegionFact,
+) -> Bool {
+  self.operation_count > 0 &&
+  self.all_tiny_rewrites &&
+  self.saw_stack_carried_call_operand
+}
+
+///|
+fn RawOiStackBulkMemoryRegionFact::proves_trap_relaxed_zero_size_drop_region(
+  self : RawOiStackBulkMemoryRegionFact,
+) -> Bool {
+  self.operation_count > 0 && self.all_trap_relaxed_zero_size_drops
 }
 
 ///|
@@ -32632,10 +32823,19 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
     None => false
   }
+  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_instrs(
+    body, module_ctx,
+  )
+  let tiny_stack_bulk_memory = match stack_bulk_region {
+    Some(fact) => fact.proves_binaryen_tiny_rewrite_region()
+    None => false
+  }
+  let zero_size_stack_bulk_memory_region = match stack_bulk_region {
+    Some(fact) => fact.proves_trap_relaxed_zero_size_drop_region()
+    None => false
+  }
   let zero_size_stack_bulk_memory = trap_relaxed &&
-    run_hot_pipeline_optimize_instructions_is_trap_relaxed_zero_size_stack_bulk_memory(
-      body, module_ctx,
-    )
+    zero_size_stack_bulk_memory_region
   if RawOiMemoryLocalTeeRegionFact::from_instrs(
       body, localtee_same_address_memory_copy,
     ).has_blocking_use {
@@ -32657,24 +32857,34 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
     mod_, func_idx, module_ctx, locals,
   )
+  let simple_stack_call_binop = match
+    RawOiSimpleStackCallBinopFact::from_instrs(body, module_ctx) {
+    Some(fact) => fact.proves_binaryen_stack_localization()
+    None => false
+  }
+  let call_indexed_table_get_call_ref = match
+    RawOiCallIndexedTableGetCallRefFact::from_instrs(body, module_ctx) {
+    Some(fact) => fact.proves_binaryen_call_ref_directization()
+    None => false
+  }
+  let gc_selected_operand_forwarding = match
+    RawOiGcSelectedOperandForwardingFact::from_instrs(body, module_ctx) {
+    Some(fact) => fact.proves_binaryen_forwarding()
+    None => false
+  }
+  let gc_effect_localization = match
+    RawOiGcEffectLocalizationFact::from_instrs(body, module_ctx) {
+    Some(fact) => fact.proves_binaryen_localization()
+    None => false
+  }
   if RawOiStackCarriedEffectRegionFact::from_instrs(body, env, module_ctx).has_blocking_effect &&
-    !run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
-      body, module_ctx,
-    ) &&
-    !run_hot_pipeline_optimize_instructions_is_tiny_stack_bulk_memory(
-      body, module_ctx,
-    ) &&
+    !simple_stack_call_binop &&
+    !tiny_stack_bulk_memory &&
     !localtee_same_address_memory_copy &&
     !zero_size_stack_bulk_memory &&
-    !run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
-      body, module_ctx,
-    ) &&
-    !run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
-      body, module_ctx,
-    ) &&
-    !run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
-      body, module_ctx,
-    ) {
+    !call_indexed_table_get_call_ref &&
+    !gc_selected_operand_forwarding &&
+    !gc_effect_localization {
     return Some({
       reason: "stack-carried-effect-optimize-instructions-noop",
       func: skipped_func,
@@ -32723,9 +32933,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if stats.loads > 0 &&
-    stats.calls > 0 &&
-    !run_hot_pipeline_optimize_instructions_is_const_offset_load_then_call(body) {
+  let const_offset_load_then_call = match
+    RawOiConstOffsetLoadThenCallFact::from_instrs(body) {
+    Some(fact) => fact.proves_binaryen_offset_fold_bypass()
+    None => false
+  }
+  if stats.loads > 0 && stats.calls > 0 && !const_offset_load_then_call {
     return Some({
       reason: "load-call-optimize-instructions-noop",
       func: skipped_func,
