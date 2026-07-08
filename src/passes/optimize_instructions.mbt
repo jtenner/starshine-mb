@@ -745,6 +745,18 @@ priv struct OiNullTrapFact {
 }
 
 ///|
+priv enum OiNullTrapRewriteKind {
+  NullTrapNoRewrite
+  NullTrapReplaceParentWithUnreachable
+  NullTrapSkipExplicitNonNullCheck
+}
+
+///|
+priv struct OiNullTrapRewriteFact {
+  kind : OiNullTrapRewriteKind
+}
+
+///|
 fn OiNullTrapFact::for_operand(
   func : @ir.HotFunc,
   operand_id : Int,
@@ -755,17 +767,24 @@ fn OiNullTrapFact::for_operand(
 }
 
 ///|
-fn OiNullTrapFact::can_replace_parent_with_unreachable(
-  self : OiNullTrapFact,
-) -> Bool {
-  self.traps_on_null && self.operand_nullability_fact.proves_known_null()
-}
-
-///|
-fn OiNullTrapFact::can_skip_explicit_non_null_check(
-  self : OiNullTrapFact,
-) -> Bool {
-  self.operand_nullability_fact.proves_known_non_null()
+fn OiNullTrapRewriteFact::from_trap_fact(
+  trap_fact : OiNullTrapFact,
+) -> OiNullTrapRewriteFact {
+  // Binaryen v130 routes both `ref.as_non_null` and descriptor/call_ref
+  // null-trap rewrites through `trapOnNull`: a definitely null trapping
+  // operand makes the parent unreachable, while a definitely non-null operand
+  // can skip the explicit check. Keep that ordered decision as one fact instead
+  // of exposing two helper-style `can_*` predicates over the same nullability
+  // proof.
+  let kind = if trap_fact.traps_on_null &&
+    trap_fact.operand_nullability_fact.proves_known_null() {
+    NullTrapReplaceParentWithUnreachable
+  } else if trap_fact.operand_nullability_fact.proves_known_non_null() {
+    NullTrapSkipExplicitNonNullCheck
+  } else {
+    NullTrapNoRewrite
+  }
+  { kind, }
 }
 
 ///|
@@ -8188,13 +8207,15 @@ fn OiCallRefKnownNullTargetFact::from_target(
     target_id,
     traps_on_null=true,
   )
-  if null_trap_fact.can_replace_parent_with_unreachable() {
-    return Some({
-      target_id,
-      fallthrough_null_id: target_id,
-      target_effects_are_elidable: true,
-      target_effect_drop_id: -1,
-    })
+  match OiNullTrapRewriteFact::from_trap_fact(null_trap_fact).kind {
+    NullTrapReplaceParentWithUnreachable =>
+      return Some({
+        target_id,
+        fallthrough_null_id: target_id,
+        target_effects_are_elidable: true,
+        target_effect_drop_id: -1,
+      })
+    _ => ()
   }
   let target = @ir.hot_node_get(func, target_id)
   match target.op {
@@ -8213,8 +8234,9 @@ fn OiCallRefKnownNullTargetFact::from_target(
         tail_id,
         traps_on_null=true,
       )
-      if !tail_trap_fact.can_replace_parent_with_unreachable() {
-        return None
+      match OiNullTrapRewriteFact::from_trap_fact(tail_trap_fact).kind {
+        NullTrapReplaceParentWithUnreachable => ()
+        _ => return None
       }
       if root_count == 1 {
         return Some({
@@ -26734,9 +26756,12 @@ fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
     get_desc_fact.child_id,
     traps_on_null=true,
   )
-  if null_trap_fact.can_replace_parent_with_unreachable() {
-    optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
-    return true
+  match OiNullTrapRewriteFact::from_trap_fact(null_trap_fact).kind {
+    NullTrapReplaceParentWithUnreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id)
+      return true
+    }
+    _ => ()
   }
   match OiRefGetDescKnownNullChildFact::from_get_desc(func, get_desc_fact) {
     Some(null_child_fact) => null_child_fact.apply(ctx, func, descriptor_id)
@@ -27378,14 +27403,16 @@ fn optimize_instructions_try_fold_ref_as_non_null(
     operand_id,
     traps_on_null=true,
   )
-  if null_trap_fact.can_replace_parent_with_unreachable() {
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-    true
-  } else if null_trap_fact.can_skip_explicit_non_null_check() {
-    optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
-    true
-  } else {
-    false
+  match OiNullTrapRewriteFact::from_trap_fact(null_trap_fact).kind {
+    NullTrapReplaceParentWithUnreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
+    }
+    NullTrapSkipExplicitNonNullCheck => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+      true
+    }
+    _ => false
   }
 }
 
