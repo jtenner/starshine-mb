@@ -32285,6 +32285,69 @@ test "optimize-instructions lowers select ref.func call_ref targets to direct if
 }
 
 ///|
+test "optimize-instructions collapses same-target select call_ref facts to one direct call" {
+  // OI-H call_ref select-target fact slice: Binaryen version_130's
+  // `CallUtils::convertToDirectCalls` can collapse a select whose known arms are
+  // the same `ref.func` to one direct call. Keep same-target select as its own
+  // fact instead of broadening the two-arm-if directization path or adding a
+  // visitor-local condition scanner; effectful conditions remain a separate
+  // ChildLocalizer/order-sensitive widening.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(@lib.FuncSec::new([target_type_idx, caller_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("if"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_false(caller.contains("select"), msg=caller)
+  assert_false(caller.contains("ref.func"), msg=caller)
+}
+
+///|
 test "optimize-instructions directizes select call_ref targets through arm wrapper facts" {
   // OI-H call_ref select-arm fact slice: Binaryen version_130 visits child
   // wrappers before `CallUtils::convertToDirectCalls`, so no-op non-null checks

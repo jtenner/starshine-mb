@@ -6044,6 +6044,7 @@ priv struct OiCallRefTargetFact {
   table_idx : Int
   table_index_id : Int
   fallthrough_func : Int
+  select_same_func : Int
   select_true_func : Int
   select_false_func : Int
   select_condition_id : Int
@@ -6056,6 +6057,7 @@ fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
     table_idx: -1,
     table_index_id: -1,
     fallthrough_func: -1,
+    select_same_func: -1,
     select_true_func: -1,
     select_false_func: -1,
     select_condition_id: -1,
@@ -6079,6 +6081,7 @@ fn OiCallRefTargetFact::from_target(
         table_idx: -1,
         table_index_id: -1,
         fallthrough_func: -1,
+        select_same_func: -1,
         select_true_func: -1,
         select_false_func: -1,
         select_condition_id: -1,
@@ -6091,6 +6094,7 @@ fn OiCallRefTargetFact::from_target(
           table_idx: callee_ref.imm0,
           table_index_id,
           fallthrough_func: -1,
+          select_same_func: -1,
           select_true_func: -1,
           select_false_func: -1,
           select_condition_id: -1,
@@ -6117,6 +6121,7 @@ fn OiCallRefTargetFact::from_target(
           table_idx: -1,
           table_index_id: -1,
           fallthrough_func: fallthrough.direct_func,
+          select_same_func: -1,
           select_true_func: -1,
           select_false_func: -1,
           select_condition_id: -1,
@@ -6154,6 +6159,7 @@ fn OiCallRefTargetFact::from_fallthrough_block(
       table_idx: -1,
       table_index_id: -1,
       fallthrough_func: target.direct_func,
+      select_same_func: -1,
       select_true_func: -1,
       select_false_func: -1,
       select_condition_id: -1,
@@ -6336,11 +6342,17 @@ fn OiCallRefTargetFact::from_select(
     func, dead, false_ref_id,
   )
   if true_fact.has_direct_func() && false_fact.has_direct_func() {
+    let same_func = if true_fact.direct_func == false_fact.direct_func {
+      true_fact.direct_func
+    } else {
+      -1
+    }
     {
       direct_func: -1,
       table_idx: -1,
       table_index_id: -1,
       fallthrough_func: -1,
+      select_same_func: same_func,
       select_true_func: true_fact.direct_func,
       select_false_func: false_fact.direct_func,
       select_condition_id: condition_id,
@@ -6365,6 +6377,13 @@ fn OiCallRefTargetFact::has_fallthrough_func(
   self : OiCallRefTargetFact,
 ) -> Bool {
   self.fallthrough_func >= 0
+}
+
+///|
+fn OiCallRefTargetFact::has_select_same_direct_func(
+  self : OiCallRefTargetFact,
+) -> Bool {
+  self.select_same_func >= 0 && self.select_condition_id >= 0
 }
 
 ///|
@@ -6465,6 +6484,41 @@ fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
 }
 
 ///|
+fn OiCallRefOperandFact::args_with_condition_after_last_operand(
+  self : OiCallRefOperandFact,
+  func : @ir.HotFunc,
+  condition_id : Int,
+) -> Array[Int]? {
+  // Binaryen v130 collapses same-target select call_ref producers to a single
+  // direct call but keeps the select condition in the target-evaluation slot:
+  // after ordinary call_ref operands and before the direct call. Because the two
+  // select arms are proven pure equivalent ref.func producers by
+  // `OiCallRefSelectArmFact`, only the condition effects need to be interposed.
+  let arg_count = self.args.length()
+  if arg_count == 0 {
+    return Some([])
+  }
+  let last_index = arg_count - 1
+  let operands : Array[Int] = []
+  for i = 0; i < last_index; i = i + 1 {
+    operands.push(self.args[i])
+  }
+  let temp_local = @ir.hot_append_body_local(func, self.arg_types[last_index])
+  operands.push(
+    @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(self.arg_types[last_index]),
+      [
+        @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
+        @ir.hot_build_drop(func, condition_id),
+        @ir.hot_build_local_get(func, temp_local),
+      ],
+    ),
+  )
+  Some(operands)
+}
+
+///|
 fn optimize_instructions_call_ref_result_block_type(
   func : @ir.HotFunc,
   node : @ir.HotNode,
@@ -6550,6 +6604,7 @@ priv enum OiCallRefDirectizePlanKind {
   CallRefDirectFunc
   CallRefTableTarget
   CallRefFallthroughFunc
+  CallRefSelectSameDirectFunc
   CallRefSelectDirectFuncs
 }
 
@@ -6584,6 +6639,17 @@ fn OiCallRefDirectizePlanFact::from_target(
     }
     return Some({
       kind: CallRefFallthroughFunc,
+      target_fact,
+      operand_fact: Some(operand_fact),
+    })
+  }
+  if target_fact.has_select_same_direct_func() {
+    let operand_fact = match OiCallRefOperandFact::from_args(func, args) {
+      Some(fact) => fact
+      None => return None
+    }
+    return Some({
+      kind: CallRefSelectSameDirectFunc,
       target_fact,
       operand_fact: Some(operand_fact),
     })
@@ -6632,6 +6698,13 @@ fn OiCallRefDirectizePlanFact::build_replacement(
         self.target_fact,
         operand_fact,
       )
+    }
+    CallRefSelectSameDirectFunc => {
+      let operand_fact = match self.operand_fact() {
+        Some(fact) => fact
+        None => return None
+      }
+      self.build_select_same_direct_func_replacement(func, node, operand_fact)
     }
     CallRefSelectDirectFuncs => {
       let operand_fact = match self.operand_fact() {
@@ -6696,6 +6769,75 @@ fn OiCallRefDirectizePlanFact::build_table_target_replacement(
           self.target_fact.table_index_id,
         ),
       )
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
+  self : OiCallRefDirectizePlanFact,
+  func : @ir.HotFunc,
+  node : @ir.HotNode,
+  operand_fact : OiCallRefOperandFact,
+) -> Int? {
+  let condition_id = self.target_fact.select_condition_id
+  if condition_id < 0 || self.target_fact.select_same_func < 0 {
+    return None
+  }
+  let condition_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, condition_id),
+  )
+  if condition_results.length() != 1 {
+    return None
+  }
+  let results = @ir.hot_type_results(func, node.ty)
+  let operands = match
+    operand_fact.args_with_condition_after_last_operand(func, condition_id) {
+    Some(operands) => operands
+    None => return None
+  }
+  match node.op {
+    @ir.HotOp::CallRef => {
+      let direct_call = @ir.hot_build_call(
+        func,
+        self.target_fact.select_same_func,
+        results,
+        operands,
+      )
+      if operand_fact.args.length() == 0 {
+        let block_type = match
+          optimize_instructions_call_ref_result_block_type(func, node) {
+          Some(block_type) => block_type
+          None => return None
+        }
+        Some(
+          @ir.hot_build_block(func, block_type, [
+            @ir.hot_build_drop(func, condition_id),
+            direct_call,
+          ]),
+        )
+      } else {
+        Some(direct_call)
+      }
+    }
+    @ir.HotOp::ReturnCallRef => {
+      let direct_call = @ir.hot_build_return_call(
+        func,
+        self.target_fact.select_same_func,
+        operands,
+      )
+      if operand_fact.args.length() == 0 {
+        Some(
+          @ir.hot_build_block(func, @lib.BlockType::void_(), [
+            @ir.hot_build_drop(func, condition_id),
+            direct_call,
+          ]),
+        )
+      } else {
+        Some(direct_call)
+      }
+    }
     _ => None
   }
 }
