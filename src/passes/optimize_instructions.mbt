@@ -4745,9 +4745,17 @@ priv enum OiDescriptorOperandSimplificationKind {
 }
 
 ///|
+priv enum OiDescriptorCallRefDirectizationKind {
+  DescriptorCallRefDirectizeOperand
+  DescriptorCallRefDirectizeDescriptor
+  DescriptorCallRefDirectizeOperandAndDescriptor
+}
+
+///|
 priv struct OiDescriptorCallRefDirectizationFact {
-  operand_call_ref_id : Int
-  descriptor_call_ref_id : Int
+  kind : OiDescriptorCallRefDirectizationKind
+  operand_call_ref_id : Int?
+  descriptor_call_ref_id : Int?
 }
 
 ///|
@@ -4758,22 +4766,71 @@ fn OiDescriptorCallRefDirectizationFact::from_cast_fact(
   // Binaryen v130 reaches descriptor-cast operands after child visitors have had
   // a chance to run `visitCallRef`; Starshine sometimes needs to request that
   // same child directization while the descriptor-cast plan is active. Keep the
-  // operand-slot classification as a fact over the two descriptor-cast children,
-  // not as boolean opcode checks embedded in the simplification plan.
+  // operand-slot classification as an explicit result kind over the two
+  // descriptor-cast children, not as boolean opcode checks or sentinel payloads
+  // embedded in the simplification plan.
   let operand_call_ref_id = match
     @ir.hot_node_get(func, cast_fact.operand_id).op {
-    @ir.HotOp::CallRef => cast_fact.operand_id
-    _ => -1
+    @ir.HotOp::CallRef => Some(cast_fact.operand_id)
+    _ => None
   }
   let descriptor_call_ref_id = match
     @ir.hot_node_get(func, cast_fact.descriptor_id).op {
-    @ir.HotOp::CallRef => cast_fact.descriptor_id
-    _ => -1
+    @ir.HotOp::CallRef => Some(cast_fact.descriptor_id)
+    _ => None
   }
-  if operand_call_ref_id < 0 && descriptor_call_ref_id < 0 {
-    None
-  } else {
-    Some({ operand_call_ref_id, descriptor_call_ref_id })
+  match (operand_call_ref_id, descriptor_call_ref_id) {
+    (Some(_), Some(_)) =>
+      Some({
+        kind: DescriptorCallRefDirectizeOperandAndDescriptor,
+        operand_call_ref_id,
+        descriptor_call_ref_id,
+      })
+    (Some(_), None) =>
+      Some({
+        kind: DescriptorCallRefDirectizeOperand,
+        operand_call_ref_id,
+        descriptor_call_ref_id,
+      })
+    (None, Some(_)) =>
+      Some({
+        kind: DescriptorCallRefDirectizeDescriptor,
+        operand_call_ref_id,
+        descriptor_call_ref_id,
+      })
+    (None, None) => None
+  }
+}
+
+///|
+fn OiDescriptorCallRefDirectizationFact::directize_operand_child(
+  self : OiDescriptorCallRefDirectizationFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Bool {
+  match self.operand_call_ref_id {
+    Some(call_ref_id) =>
+      optimize_instructions_try_directize_ref_func_call_ref(
+        ctx, func, dead, call_ref_id,
+      )
+    None => false
+  }
+}
+
+///|
+fn OiDescriptorCallRefDirectizationFact::directize_descriptor_child(
+  self : OiDescriptorCallRefDirectizationFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+) -> Bool {
+  match self.descriptor_call_ref_id {
+    Some(call_ref_id) =>
+      optimize_instructions_try_directize_ref_func_call_ref(
+        ctx, func, dead, call_ref_id,
+      )
+    None => false
   }
 }
 
@@ -4784,28 +4841,17 @@ fn OiDescriptorCallRefDirectizationFact::directize_children(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
 ) -> Bool {
-  let mut changed = false
-  if self.operand_call_ref_id >= 0 {
-    if optimize_instructions_try_directize_ref_func_call_ref(
-        ctx,
-        func,
-        dead,
-        self.operand_call_ref_id,
-      ) {
-      changed = true
+  match self.kind {
+    DescriptorCallRefDirectizeOperand =>
+      self.directize_operand_child(ctx, func, dead)
+    DescriptorCallRefDirectizeDescriptor =>
+      self.directize_descriptor_child(ctx, func, dead)
+    DescriptorCallRefDirectizeOperandAndDescriptor => {
+      let operand_changed = self.directize_operand_child(ctx, func, dead)
+      let descriptor_changed = self.directize_descriptor_child(ctx, func, dead)
+      operand_changed || descriptor_changed
     }
   }
-  if self.descriptor_call_ref_id >= 0 {
-    if optimize_instructions_try_directize_ref_func_call_ref(
-        ctx,
-        func,
-        dead,
-        self.descriptor_call_ref_id,
-      ) {
-      changed = true
-    }
-  }
-  changed
 }
 
 ///|
