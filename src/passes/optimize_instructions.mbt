@@ -1664,199 +1664,110 @@ fn OiRefProducerFact::from_node(
 }
 
 ///|
-fn OiRefProducerFact::non_null_matches_target(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      ref_type.is_non_nullable() &&
-      OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_match_target()
-    None => false
-  }
+priv struct OiRefProducerTargetRelationFact {
+  exact_heap : Bool
+  exact_non_null_heap : Bool
+  final_heap : Bool
+  nullable_matches_target : Bool
+  non_null_matches_target : Bool
+  matches_exact_test_target : Bool
+  matches_final_exact_test_target : Bool
+  matches_nullable_exact_target_only_as_null : Bool
+  misses_target : Bool
+  misses_exact_target : Bool
+  misses_exact_target_by_strict_subtype : Bool
+  matches_or_subtypes_heap : Bool
+  matches_or_subtypes_nullable : Bool
+  matches_or_subtypes_exact : Bool
 }
 
 ///|
-fn OiRefProducerFact::nullable_matches_target(
-  self : OiRefProducerFact,
+fn OiRefProducerTargetRelationFact::from_producer(
   ctx : HotPassContext,
-  target : @lib.HeapType,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      ref_type.is_nullable() &&
-      OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_match_target()
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::matches_exact_test_target(
-  self : OiRefProducerFact,
+  producer_fact : OiRefProducerFact,
   target : @lib.HeapType,
   target_nullable : Bool,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      ref_type.is_exact() &&
-      ref_type.get_heap_type() == target &&
-      (target_nullable || ref_type.is_non_nullable())
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::misses_target(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_miss_target() &&
-      (ref_type.is_non_nullable() || !target_nullable)
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::misses_exact_target(
-  self : OiRefProducerFact,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      ref_type.is_exact() &&
-      ref_type.get_heap_type() != target &&
-      (ref_type.is_non_nullable() || !target_nullable)
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::misses_exact_target_by_strict_subtype(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) => {
-      let relation = OiHeapRelationFact::from_heaps(
-        ctx,
-        ref_type.get_heap_type(),
-        target,
-      )
-      (ref_type.is_non_nullable() || !target_nullable) &&
-      relation.strict_concrete_heap_matches_target()
-    }
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::matches_nullable_exact_target_only_as_null(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  if !target_nullable {
-    return false
-  }
-  match self.ref_type {
-    Some(ref_type) => {
-      let relation = OiHeapRelationFact::from_heaps(
-        ctx,
-        ref_type.get_heap_type(),
-        target,
-      )
-      relation.concrete_source_matches_nullable_exact_target_only_as_null(
-        ref_type.is_nullable(),
-        ref_type.is_exact(),
-        target_nullable,
-      )
-    }
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::has_final_heap(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-) -> Bool {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return false
-  }
-  match self.ref_type {
-    Some(ref_type) =>
-      ref_type.get_heap_type() == target &&
-      OiFinalHeapFact::from_heap(module_ctx, target).proves_final_heap()
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::matches_final_exact_test_target(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      (target_nullable || ref_type.is_non_nullable()) &&
-      self.has_final_heap(ctx, target)
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::exact_non_null_heap(
-  self : OiRefProducerFact,
-  heap : @lib.HeapType,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) =>
-      ref_type.is_non_nullable() &&
-      ref_type.is_exact() &&
-      ref_type.get_heap_type() == heap
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::exact_heap(
-  self : OiRefProducerFact,
-  heap : @lib.HeapType,
-) -> Bool {
-  match self.ref_type {
-    Some(ref_type) => ref_type.is_exact() && ref_type.get_heap_type() == heap
-    None => false
-  }
-}
-
-///|
-fn OiRefProducerFact::matches_or_subtypes_heap(
-  self : OiRefProducerFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-) -> (Bool, Bool)? {
-  match self.ref_type {
+) -> OiRefProducerTargetRelationFact {
+  // Binaryen v130's call, call_ref, and fallthrough reference producers feed the
+  // same source/target relation table as ordinary source types. Keep the
+  // producer-derived target proof as an explicit fact so descriptor and ref.test
+  // consumers no longer re-run ad hoc match/miss/exact helper predicates.
+  match producer_fact.ref_type {
     Some(ref_type) => {
       let source = ref_type.get_heap_type()
-      OiHeapRelationFact::from_heaps(ctx, source, target).matches_or_strict_subtypes_heap(
+      let relation = OiHeapRelationFact::from_heaps(ctx, source, target)
+      let matches_or_subtypes = relation.matches_or_strict_subtypes_heap(
         ref_type.is_nullable(),
         ref_type.is_exact(),
       )
+      let (
+        matches_or_subtypes_heap,
+        matches_or_subtypes_nullable,
+        matches_or_subtypes_exact,
+      ) = match matches_or_subtypes {
+        Some((nullable, exact)) => (true, nullable, exact)
+        None => (false, false, false)
+      }
+      let final_heap = match ctx.module_ctx {
+        Some(module_ctx) =>
+          source == target &&
+          OiFinalHeapFact::from_heap(module_ctx, target).proves_final_heap()
+        None => false
+      }
+      {
+        exact_heap: ref_type.is_exact() && source == target,
+        exact_non_null_heap: ref_type.is_non_nullable() &&
+        ref_type.is_exact() &&
+        source == target,
+        final_heap,
+        nullable_matches_target: ref_type.is_nullable() &&
+        relation.known_match_target(),
+        non_null_matches_target: ref_type.is_non_nullable() &&
+        relation.known_match_target(),
+        matches_exact_test_target: ref_type.is_exact() &&
+        source == target &&
+        (target_nullable || ref_type.is_non_nullable()),
+        matches_final_exact_test_target: (
+          target_nullable || ref_type.is_non_nullable()
+        ) &&
+        final_heap,
+        matches_nullable_exact_target_only_as_null: target_nullable &&
+        relation.concrete_source_matches_nullable_exact_target_only_as_null(
+          ref_type.is_nullable(),
+          ref_type.is_exact(),
+          target_nullable,
+        ),
+        misses_target: relation.known_miss_target() &&
+        (ref_type.is_non_nullable() || !target_nullable),
+        misses_exact_target: ref_type.is_exact() &&
+        source != target &&
+        (ref_type.is_non_nullable() || !target_nullable),
+        misses_exact_target_by_strict_subtype: (
+          ref_type.is_non_nullable() || !target_nullable
+        ) &&
+        relation.strict_concrete_heap_matches_target(),
+        matches_or_subtypes_heap,
+        matches_or_subtypes_nullable,
+        matches_or_subtypes_exact,
+      }
     }
-    None => None
+    None =>
+      {
+        exact_heap: false,
+        exact_non_null_heap: false,
+        final_heap: false,
+        nullable_matches_target: false,
+        non_null_matches_target: false,
+        matches_exact_test_target: false,
+        matches_final_exact_test_target: false,
+        matches_nullable_exact_target_only_as_null: false,
+        misses_target: false,
+        misses_exact_target: false,
+        misses_exact_target_by_strict_subtype: false,
+        matches_or_subtypes_heap: false,
+        matches_or_subtypes_nullable: false,
+        matches_or_subtypes_exact: false,
+      }
   }
 }
 
@@ -2293,15 +2204,6 @@ fn OiRefTestOperandFact::proves_known_null(self : OiRefTestOperandFact) -> Bool 
 }
 
 ///|
-fn OiRefTestOperandFact::descriptor_matches_or_subtypes_heap(
-  self : OiRefTestOperandFact,
-  ctx : HotPassContext,
-  target : @lib.HeapType,
-) -> (Bool, Bool)? {
-  self.producer_fact.matches_or_subtypes_heap(ctx, target)
-}
-
-///|
 fn OiRefTestOperandFact::heap_matches_target_without_subtyping(
   ctx : HotPassContext,
   source : @lib.HeapType,
@@ -2514,16 +2416,7 @@ priv struct OiRefTestOperandTargetRelationFact {
   source_null_or_known_miss_for_non_null_target : Bool
   source_misses_exact_target : Bool
   source_misses_exact_target_by_strict_subtype : Bool
-  producer_exact_heap : Bool
-  producer_final_heap : Bool
-  producer_nullable_matches_target : Bool
-  producer_non_null_matches_target : Bool
-  producer_matches_exact_test_target : Bool
-  producer_matches_final_exact_test_target : Bool
-  producer_matches_nullable_exact_target_only_as_null : Bool
-  producer_misses_target : Bool
-  producer_misses_exact_target : Bool
-  producer_misses_exact_target_by_strict_subtype : Bool
+  producer_relation : OiRefProducerTargetRelationFact
 }
 
 ///|
@@ -2566,31 +2459,11 @@ fn OiRefTestOperandTargetRelationFact::from_operand(
     source_misses_exact_target_by_strict_subtype: operand_fact.misses_exact_target_by_strict_subtype(
       ctx, target, target_nullable,
     ),
-    producer_exact_heap: operand_fact.producer_fact.exact_heap(target),
-    producer_final_heap: operand_fact.producer_fact.has_final_heap(ctx, target),
-    producer_nullable_matches_target: operand_fact.producer_fact.nullable_matches_target(
-      ctx, target,
-    ),
-    producer_non_null_matches_target: operand_fact.producer_fact.non_null_matches_target(
-      ctx, target,
-    ),
-    producer_matches_exact_test_target: operand_fact.producer_fact.matches_exact_test_target(
-      target, target_nullable,
-    ),
-    producer_matches_final_exact_test_target: operand_fact.producer_fact.matches_final_exact_test_target(
-      ctx, target, target_nullable,
-    ),
-    producer_matches_nullable_exact_target_only_as_null: operand_fact.producer_fact.matches_nullable_exact_target_only_as_null(
-      ctx, target, target_nullable,
-    ),
-    producer_misses_target: operand_fact.producer_fact.misses_target(
-      ctx, target, target_nullable,
-    ),
-    producer_misses_exact_target: operand_fact.producer_fact.misses_exact_target(
-      target, target_nullable,
-    ),
-    producer_misses_exact_target_by_strict_subtype: operand_fact.producer_fact.misses_exact_target_by_strict_subtype(
-      ctx, target, target_nullable,
+    producer_relation: OiRefProducerTargetRelationFact::from_producer(
+      ctx,
+      operand_fact.producer_fact,
+      target,
+      target_nullable,
     ),
   }
 }
@@ -2606,10 +2479,13 @@ fn OiRefTestOperandTargetRelationFact::proves_success_only_if_non_null(
     not(exact) ||
     self.source_exact_heap ||
     self.source_final_heap ||
-    self.producer_exact_heap ||
-    self.producer_final_heap
+    self.producer_relation.exact_heap ||
+    self.producer_relation.final_heap
   ) &&
-  (self.source_nullable_matches_target || self.producer_nullable_matches_target)
+  (
+    self.source_nullable_matches_target ||
+    self.producer_relation.nullable_matches_target
+  )
 }
 
 ///|
@@ -2620,7 +2496,7 @@ fn OiRefTestOperandTargetRelationFact::proves_success_only_if_null(
   exact &&
   (
     self.source_matches_nullable_exact_target_only_as_null ||
-    self.producer_matches_nullable_exact_target_only_as_null
+    self.producer_relation.matches_nullable_exact_target_only_as_null
   )
 }
 
@@ -2634,7 +2510,7 @@ fn OiRefTestOperandTargetRelationFact::proves_known_success(
     not(exact) &&
     (
       self.source_non_null_matches_target ||
-      self.producer_non_null_matches_target
+      self.producer_relation.non_null_matches_target
     )
   ) ||
   (
@@ -2642,8 +2518,8 @@ fn OiRefTestOperandTargetRelationFact::proves_known_success(
     (
       self.source_matches_exact_test_target ||
       self.source_matches_final_exact_test_target ||
-      self.producer_matches_exact_test_target ||
-      self.producer_matches_final_exact_test_target
+      self.producer_relation.matches_exact_test_target ||
+      self.producer_relation.matches_final_exact_test_target
     )
   ) ||
   (
@@ -2651,7 +2527,7 @@ fn OiRefTestOperandTargetRelationFact::proves_known_success(
     nullable &&
     (
       self.source_nullable_matches_target ||
-      self.producer_nullable_matches_target
+      self.producer_relation.nullable_matches_target
     )
   )
 }
@@ -2663,14 +2539,14 @@ fn OiRefTestOperandTargetRelationFact::proves_known_failure(
   exact : Bool,
 ) -> Bool {
   self.source_misses_target ||
-  self.producer_misses_target ||
+  self.producer_relation.misses_target ||
   (
     exact &&
     (
       self.source_misses_exact_target ||
       self.source_misses_exact_target_by_strict_subtype ||
-      self.producer_misses_exact_target ||
-      self.producer_misses_exact_target_by_strict_subtype
+      self.producer_relation.misses_exact_target ||
+      self.producer_relation.misses_exact_target_by_strict_subtype
     )
   ) ||
   (not(nullable) && self.source_null_or_known_miss_for_non_null_target)
@@ -2746,24 +2622,27 @@ fn OiDescriptorRefTestEvaluationFact::from_operand(
   // subset today. Keep that descriptor-specific evaluation as its own fact so
   // future descriptor miss, GLB, and bottom-target widening can extend this
   // table without reintroducing an opcode-local proof branch.
-  let kind = match
-    operand_fact.descriptor_matches_or_subtypes_heap(ctx, target) {
-    Some((operand_nullable, _)) =>
-      if !nullable && operand_nullable {
-        RefTestSuccessOnlyIfNonNull
-      } else {
-        RefTestSuccess
-      }
-    None => {
-      match
-        OiDescriptorRefTestMissFact::from_operand(
-          ctx, operand_fact, target, nullable,
-        ) {
-        Some(fact) => ignore(fact.proves_boundary_only())
-        None => ()
-      }
-      RefTestUnknown
+  let relation_fact = OiRefProducerTargetRelationFact::from_producer(
+    ctx,
+    operand_fact.producer_fact,
+    target,
+    nullable,
+  )
+  let kind = if relation_fact.matches_or_subtypes_heap {
+    if !nullable && relation_fact.matches_or_subtypes_nullable {
+      RefTestSuccessOnlyIfNonNull
+    } else {
+      RefTestSuccess
     }
+  } else {
+    match
+      OiDescriptorRefTestMissFact::from_operand(
+        ctx, operand_fact, target, nullable,
+      ) {
+      Some(fact) => ignore(fact.proves_boundary_only())
+      None => ()
+    }
+    RefTestUnknown
   }
   { kind, }
 }
@@ -4272,14 +4151,12 @@ fn OiDescriptorTnhSkipFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  let (operand_matches_target, operand_nullable, operand_exact) = match
-    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).matches_or_subtypes_heap(
-      ctx,
-      cast_fact.target,
-    ) {
-    Some((nullable, exact)) => (true, nullable, exact)
-    None => (false, false, false)
-  }
+  let operand_relation = OiRefProducerTargetRelationFact::from_producer(
+    ctx,
+    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
+    cast_fact.target,
+    cast_fact.nullable,
+  )
   Some({
     cast_fact,
     descriptor_fact: OiDescriptorOperandFact::from_operand(
@@ -4288,9 +4165,9 @@ fn OiDescriptorTnhSkipFact::from_node(
       dead,
       cast_fact.descriptor_id,
     ),
-    operand_matches_target,
-    operand_nullable,
-    operand_exact,
+    operand_matches_target: operand_relation.matches_or_subtypes_heap,
+    operand_nullable: operand_relation.matches_or_subtypes_nullable,
+    operand_exact: operand_relation.matches_or_subtypes_exact,
   })
 }
 
@@ -4309,14 +4186,19 @@ fn OiDescriptorTnhSkipFact::can_skip(
     return false
   }
   match self.descriptor_fact.type_fact.exact_described_heap {
-    Some(described_heap) =>
+    Some(described_heap) => {
+      let described_relation = OiRefProducerTargetRelationFact::from_producer(
+        ctx,
+        OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
+        described_heap,
+        false,
+      )
       if OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).known_subtype &&
-        !OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).exact_heap(
-          described_heap,
-        ) &&
+        !described_relation.exact_heap &&
         !self.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
         return false
       }
+    }
     None => ()
   }
   true
@@ -4569,9 +4451,12 @@ fn OiDescriptorExactSuccessFact::from_node(
   let direct_call_result_exact_non_null_target = match
     @ir.hot_node_get(func, cast_fact.operand_id).op {
     @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
-      OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).exact_non_null_heap(
+      OiRefProducerTargetRelationFact::from_producer(
+        ctx,
+        OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
         cast_fact.target,
-      )
+        cast_fact.nullable,
+      ).exact_non_null_heap
     _ => false
   }
   Some({
@@ -4679,14 +4564,14 @@ fn OiDescriptorResultNarrowingFact::from_cast(
     cast_fact.descriptor_id,
     cast_fact.descriptor_id,
   ).proves_has_escaping_branch_control()
-  let (operand_matches_or_subtypes_target, operand_nullable) = match
-    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id).matches_or_subtypes_heap(
-      ctx,
-      cast_fact.target,
-    ) {
-    Some((nullable, _)) => (true, nullable)
-    None => (false, false)
-  }
+  let operand_relation = OiRefProducerTargetRelationFact::from_producer(
+    ctx,
+    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
+    cast_fact.target,
+    cast_fact.nullable,
+  )
+  let operand_matches_or_subtypes_target = operand_relation.matches_or_subtypes_heap
+  let operand_nullable = operand_relation.matches_or_subtypes_nullable
   let descriptor_type_fact = OiDescriptorTypeFact::from_node(
     ctx,
     func,
