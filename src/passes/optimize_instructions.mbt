@@ -174,12 +174,13 @@ fn OiRefFact::from_node(func : @ir.HotFunc, node_id : Int) -> OiRefFact {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiRefFact::unknown()
   }
+  let node = @ir.hot_node_get(func, node_id)
   let ref_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
     _ => None
   }
-  let known_null = match @ir.hot_node_get(func, node_id).op {
+  let known_null = match node.op {
     @ir.HotOp::RefNull => true
     _ => false
   }
@@ -188,7 +189,22 @@ fn OiRefFact::from_node(func : @ir.HotFunc, node_id : Int) -> OiRefFact {
   } else {
     match ref_type {
       Some(ref_type) if ref_type.is_non_nullable() => true
-      _ => optimize_instructions_ref_is_known_non_null(func, node_id)
+      _ =>
+        match node.op {
+          @ir.HotOp::LocalGet =>
+            match @ir.hot_local_type(func, node.imm0) {
+              Some(@lib.ValType::RefTypeValType(ref_type)) =>
+                ref_type.is_non_nullable()
+              _ => false
+            }
+          @ir.HotOp::RefFunc => true
+          @ir.HotOp::Heap =>
+            match @ir.hot_node_exact_instr(func, node_id) {
+              Some(@lib.Instruction::RefI31) => true
+              _ => false
+            }
+          _ => false
+        }
     }
   }
   { ref_type, known_null, known_non_null }
@@ -1723,6 +1739,287 @@ fn OiRefCastFact::from_node(
 }
 
 ///|
+priv struct OiRefCastOperandTargetFact {
+  node_op : @ir.HotOp
+  source_type : @lib.RefType?
+  local_ref_type : @lib.RefType?
+}
+
+///|
+fn OiRefCastOperandTargetFact::from_operand(
+  func : @ir.HotFunc,
+  operand_id : Int,
+) -> OiRefCastOperandTargetFact {
+  let node = @ir.hot_node_get(func, operand_id)
+  let source_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
+    _ => None
+  }
+  let local_ref_type = match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) => Some(ref_type)
+        _ => None
+      }
+    _ => None
+  }
+  { node_op: node.op, source_type, local_ref_type }
+}
+
+///|
+fn OiRefCastOperandTargetFact::is_direct_null(
+  self : OiRefCastOperandTargetFact,
+) -> Bool {
+  match self.node_op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::is_ref_i31_literal(
+  self : OiRefCastOperandTargetFact,
+  func : @ir.HotFunc,
+  operand_id : Int,
+) -> Bool {
+  match self.node_op {
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, operand_id) {
+        Some(@lib.Instruction::RefI31) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::source_is_nullable_exact_heap(
+  self : OiRefCastOperandTargetFact,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.source_type {
+    Some(ref_type) =>
+      ref_type.is_nullable() && ref_type.get_heap_type() == target
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::source_has_exact_heap(
+  self : OiRefCastOperandTargetFact,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.source_type {
+    Some(ref_type) => ref_type.is_exact() && ref_type.get_heap_type() == target
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::heap_is_known_miss_for_target(
+  ctx : HotPassContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  (
+    source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+    optimize_instructions_ref_i31_cannot_match_target(target)
+  ) ||
+  optimize_instructions_abs_struct_array_disjoint(source, target) ||
+  optimize_instructions_concrete_source_has_no_target_overlap(
+    ctx.module_ctx,
+    source,
+    target,
+  )
+}
+
+///|
+fn OiRefCastOperandTargetFact::known_match_target(
+  self : OiRefCastOperandTargetFact,
+  func : @ir.HotFunc,
+  operand_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.node_op {
+    @ir.HotOp::LocalGet =>
+      match self.local_ref_type {
+        Some(ref_type) =>
+          ref_type.is_non_nullable() &&
+          (
+            ref_type.get_heap_type() == target ||
+            (
+              ref_type.get_heap_type() ==
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+              optimize_instructions_ref_i31_matches_target(target)
+            ) ||
+            optimize_instructions_abs_struct_array_matches_target(
+              ref_type.get_heap_type(),
+              target,
+            )
+          )
+        _ => false
+      }
+    @ir.HotOp::RefFunc => optimize_instructions_ref_func_matches_target(target)
+    @ir.HotOp::Heap if self.is_ref_i31_literal(func, operand_id) =>
+      optimize_instructions_ref_i31_matches_target(target)
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::known_match_nullable_target(
+  self : OiRefCastOperandTargetFact,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.node_op {
+    @ir.HotOp::LocalGet =>
+      match self.local_ref_type {
+        Some(ref_type) =>
+          ref_type.is_nullable() &&
+          (
+            ref_type.get_heap_type() == target ||
+            (
+              ref_type.get_heap_type() ==
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+              optimize_instructions_ref_i31_matches_target(target)
+            ) ||
+            optimize_instructions_abs_struct_array_matches_target(
+              ref_type.get_heap_type(),
+              target,
+            )
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::known_miss_target(
+  self : OiRefCastOperandTargetFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.node_op {
+    @ir.HotOp::LocalGet =>
+      match self.local_ref_type {
+        Some(ref_type) =>
+          ref_type.is_non_nullable() &&
+          OiRefCastOperandTargetFact::heap_is_known_miss_for_target(
+            ctx,
+            ref_type.get_heap_type(),
+            target,
+          )
+        _ => false
+      }
+    @ir.HotOp::Heap if self.is_ref_i31_literal(func, operand_id) =>
+      optimize_instructions_ref_i31_cannot_match_target(target)
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::null_or_known_miss_for_non_null_target(
+  self : OiRefCastOperandTargetFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+) -> Bool {
+  match self.node_op {
+    @ir.HotOp::LocalGet =>
+      match self.local_ref_type {
+        Some(ref_type) =>
+          OiRefCastOperandTargetFact::heap_is_known_miss_for_target(
+            ctx,
+            ref_type.get_heap_type(),
+            target,
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::misses_exact_target(
+  self : OiRefCastOperandTargetFact,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match self.source_type {
+    Some(ref_type) =>
+      ref_type.is_exact() &&
+      ref_type.get_heap_type() != target &&
+      (ref_type.is_non_nullable() || !target_nullable)
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::misses_exact_target_by_strict_subtype(
+  self : OiRefCastOperandTargetFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match self.source_type {
+    Some(ref_type) => {
+      let source = ref_type.get_heap_type()
+      match (source, target) {
+        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
+        _ => return false
+      }
+      source != target &&
+      (ref_type.is_non_nullable() || !target_nullable) &&
+      optimize_instructions_heap_matches_target(module_ctx, source, target, 512)
+    }
+    _ => false
+  }
+}
+
+///|
+fn OiRefCastOperandTargetFact::matches_nullable_exact_target_only_as_null(
+  self : OiRefCastOperandTargetFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  if !target_nullable {
+    return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match self.source_type {
+    Some(ref_type) => {
+      if ref_type.is_non_nullable() {
+        return false
+      }
+      let source = ref_type.get_heap_type()
+      match (source, target) {
+        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
+        _ => return false
+      }
+      source != target &&
+      (
+        ref_type.is_exact() ||
+        optimize_instructions_heap_matches_target(
+          module_ctx, source, target, 512,
+        )
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 priv struct OiRefCastOperandFact {
   direct_null_operand : Bool
   nullable_exact_target_type : Bool
@@ -1750,10 +2047,7 @@ fn OiRefCastOperandFact::from_operand(
   // effects must be preserved before trapping. Keep Starshine's represented
   // operand/target relation as one fact so ref.cast and descriptor exact-miss
   // plans do not own parallel helper-level predicate cascades.
-  let direct_null_operand = match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::RefNull => true
-    _ => false
-  }
+  let target_fact = OiRefCastOperandTargetFact::from_operand(func, operand_id)
   let trivially_pure = optimize_instructions_is_trivially_pure_operand(
     func, operand_id,
   )
@@ -1761,33 +2055,27 @@ fn OiRefCastOperandFact::from_operand(
     ctx, func, operand_id,
   )
   {
-    direct_null_operand,
-    nullable_exact_target_type: optimize_instructions_ref_operand_is_nullable_exact_heap(
-      func, operand_id, target,
+    direct_null_operand: target_fact.is_direct_null(),
+    nullable_exact_target_type: target_fact.source_is_nullable_exact_heap(
+      target,
     ),
-    has_exact_target_heap: optimize_instructions_ref_operand_has_exact_heap(
-      func, operand_id, target,
-    ),
-    known_match_target: optimize_instructions_ref_is_known_match_for_target(
-      func, operand_id, target,
-    ),
-    known_match_nullable_target: optimize_instructions_ref_is_known_match_for_nullable_target(
-      func, operand_id, target,
-    ),
-    known_miss_target: optimize_instructions_ref_is_known_miss_for_target(
+    has_exact_target_heap: target_fact.source_has_exact_heap(target),
+    known_match_target: target_fact.known_match_target(func, operand_id, target),
+    known_match_nullable_target: target_fact.known_match_nullable_target(target),
+    known_miss_target: target_fact.known_miss_target(
       ctx, func, operand_id, target,
     ),
-    null_or_known_miss_for_non_null_target: optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
-      ctx, func, operand_id, target,
+    null_or_known_miss_for_non_null_target: target_fact.null_or_known_miss_for_non_null_target(
+      ctx, target,
     ),
-    misses_exact_target: optimize_instructions_ref_operand_misses_exact_target(
-      func, operand_id, target, target_nullable,
+    misses_exact_target: target_fact.misses_exact_target(
+      target, target_nullable,
     ),
-    misses_exact_target_by_strict_subtype: optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
-      ctx, func, operand_id, target, target_nullable,
+    misses_exact_target_by_strict_subtype: target_fact.misses_exact_target_by_strict_subtype(
+      ctx, target, target_nullable,
     ),
-    matches_nullable_exact_target_only_as_null: optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
-      ctx, func, operand_id, target, target_nullable,
+    matches_nullable_exact_target_only_as_null: target_fact.matches_nullable_exact_target_only_as_null(
+      ctx, target, target_nullable,
     ),
     can_erase: trivially_pure || effects_pure,
   }
@@ -17281,29 +17569,6 @@ fn optimize_instructions_replace_with_ref_is_non_null_test(
 }
 
 ///|
-fn optimize_instructions_ref_is_known_non_null(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          ref_type.is_non_nullable()
-        _ => false
-      }
-    @ir.HotOp::RefFunc => true
-    @ir.HotOp::Heap =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefI31) => true
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
 fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
@@ -17528,159 +17793,6 @@ fn optimize_instructions_concrete_source_has_no_target_overlap(
 }
 
 ///|
-fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          (
-            ref_type.get_heap_type() ==
-            @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-            optimize_instructions_ref_i31_cannot_match_target(target)
-          ) ||
-          optimize_instructions_abs_struct_array_disjoint(
-            ref_type.get_heap_type(),
-            target,
-          ) ||
-          optimize_instructions_concrete_source_has_no_target_overlap(
-            ctx.module_ctx,
-            ref_type.get_heap_type(),
-            target,
-          )
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_is_known_miss_for_target(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          ref_type.is_non_nullable() &&
-          (
-            (
-              ref_type.get_heap_type() ==
-              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-              optimize_instructions_ref_i31_cannot_match_target(target)
-            ) ||
-            optimize_instructions_abs_struct_array_disjoint(
-              ref_type.get_heap_type(),
-              target,
-            ) ||
-            optimize_instructions_concrete_source_has_no_target_overlap(
-              ctx.module_ctx,
-              ref_type.get_heap_type(),
-              target,
-            )
-          )
-        _ => false
-      }
-    @ir.HotOp::Heap =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefI31) =>
-          optimize_instructions_ref_i31_cannot_match_target(target)
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_is_known_match_for_target(
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          ref_type.is_non_nullable() &&
-          (
-            ref_type.get_heap_type() == target ||
-            (
-              ref_type.get_heap_type() ==
-              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-              optimize_instructions_ref_i31_matches_target(target)
-            ) ||
-            optimize_instructions_abs_struct_array_matches_target(
-              ref_type.get_heap_type(),
-              target,
-            )
-          )
-        _ => false
-      }
-    @ir.HotOp::RefFunc => optimize_instructions_ref_func_matches_target(target)
-    @ir.HotOp::Heap =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefI31) =>
-          optimize_instructions_ref_i31_matches_target(target)
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_is_known_match_for_nullable_target(
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          ref_type.is_nullable() &&
-          (
-            ref_type.get_heap_type() == target ||
-            (
-              ref_type.get_heap_type() ==
-              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-              optimize_instructions_ref_i31_matches_target(target)
-            ) ||
-            optimize_instructions_abs_struct_array_matches_target(
-              ref_type.get_heap_type(),
-              target,
-            )
-          )
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_operand_is_nullable_exact_heap(
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] =>
-      ref_type.is_nullable() && ref_type.get_heap_type() == target
-    _ => false
-  }
-}
-
-///|
 fn optimize_instructions_heap_is_final(
   module_ctx : @ir.HotModuleContext,
   heap : @lib.HeapType,
@@ -17692,99 +17804,6 @@ fn optimize_instructions_heap_is_final(
         Some(@lib.SubType(true, _, _, _)) => true
         _ => false
       }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_operand_misses_exact_target(
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] =>
-      ref_type.is_exact() &&
-      ref_type.get_heap_type() != target &&
-      (ref_type.is_non_nullable() || !target_nullable)
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_operand_misses_exact_target_by_strict_subtype(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return false
-  }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => {
-      let source = ref_type.get_heap_type()
-      match (source, target) {
-        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
-        _ => return false
-      }
-      source != target &&
-      (ref_type.is_non_nullable() || !target_nullable) &&
-      optimize_instructions_heap_matches_target(module_ctx, source, target, 512)
-    }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_operand_matches_nullable_exact_target_only_as_null(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-  target_nullable : Bool,
-) -> Bool {
-  if !target_nullable {
-    return false
-  }
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return false
-  }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => {
-      if ref_type.is_non_nullable() {
-        return false
-      }
-      let source = ref_type.get_heap_type()
-      match (source, target) {
-        (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => ()
-        _ => return false
-      }
-      source != target &&
-      (
-        ref_type.is_exact() ||
-        optimize_instructions_heap_matches_target(
-          module_ctx, source, target, 512,
-        )
-      )
-    }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_operand_has_exact_heap(
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] =>
-      ref_type.is_exact() && ref_type.get_heap_type() == target
     _ => false
   }
 }
