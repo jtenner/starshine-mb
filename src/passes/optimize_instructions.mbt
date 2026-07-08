@@ -5635,6 +5635,14 @@ fn OiCallRefFallthroughTargetFact::unknown() -> OiCallRefFallthroughTargetFact {
 }
 
 ///|
+priv struct OiCallRefIfFallthroughTargetFact {
+  then_explicitly_stops : Bool
+  else_explicitly_stops : Bool
+  fallthrough_arm_id : Int
+  arm_fact : OiCallRefFallthroughTargetFact
+}
+
+///|
 fn OiCallRefFallthroughTargetFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5692,8 +5700,80 @@ fn OiCallRefFallthroughTargetFact::from_node(
         depth=depth + 1,
       )
     }
+    @ir.HotOp::If =>
+      match
+        OiCallRefIfFallthroughTargetFact::from_if_target(
+          func, dead, node_id, depth,
+        ) {
+        Some(fact) if fact.proves_one_sided_ref_func_fallthrough() =>
+          fact.arm_fact
+        _ => OiCallRefFallthroughTargetFact::unknown()
+      }
     _ => OiCallRefFallthroughTargetFact::unknown()
   }
+}
+
+///|
+fn OiCallRefIfFallthroughTargetFact::from_if_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth : Int,
+) -> OiCallRefIfFallthroughTargetFact? {
+  // Binaryen v130 `Properties::getImmediateFallthrough` descends through an
+  // `if` only when exactly one arm is unreachable. `visitCallRef` still drops
+  // the original target before the direct call, so this fact only proves which
+  // arm supplies the target's fallthrough `ref.func`; it does not claim general
+  // two-arm control localization or branch/EH/multivalue preservation.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  let else_ref = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return None
+  }
+  let then_ref = @ir.hot_region_then_ref(func, node_id)
+  let then_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+    func, then_ref,
+  )
+  let else_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+    func, else_ref,
+  )
+  let fallthrough_region = if then_explicitly_stops && !else_explicitly_stops {
+    else_ref
+  } else if else_explicitly_stops && !then_explicitly_stops {
+    then_ref
+  } else {
+    return None
+  }
+  let fallthrough_arm_id = match
+    optimize_instructions_region_tail_id(func, fallthrough_region) {
+    Some(tail_id) if OiLiveNodeFact::proves_node_live(func, dead, tail_id) =>
+      tail_id
+    _ => return None
+  }
+  let arm_fact = OiCallRefFallthroughTargetFact::from_node(
+    func,
+    dead,
+    fallthrough_arm_id,
+    depth=depth + 1,
+  )
+  Some({
+    then_explicitly_stops,
+    else_explicitly_stops,
+    fallthrough_arm_id,
+    arm_fact,
+  })
+}
+
+///|
+fn OiCallRefIfFallthroughTargetFact::proves_one_sided_ref_func_fallthrough(
+  self : OiCallRefIfFallthroughTargetFact,
+) -> Bool {
+  self.fallthrough_arm_id >= 0 &&
+  self.arm_fact.has_direct_func() &&
+  self.then_explicitly_stops != self.else_explicitly_stops
 }
 
 ///|

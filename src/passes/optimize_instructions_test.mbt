@@ -32205,6 +32205,86 @@ test "optimize-instructions replaces effectful fallthrough-null call_ref targets
 }
 
 ///|
+test "optimize-instructions directizes one-sided if fallthrough call_ref targets" {
+  // OI-H call_ref fallthrough target fact slice: Binaryen version_130
+  // `Properties::getImmediateFallthrough` looks through an `if` only when one
+  // side is unreachable, then `visitCallRef` preserves the whole target in a
+  // dropped evaluation before emitting a direct call. Keep this as an if-target
+  // fallthrough fact, not a broad select/control localizer: two live arms,
+  // branch/EH control, target-side locals, and multivalue operands remain open.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([target_type_idx, caller_type_idx, caller_type_idx]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(typed_func_ref),
+              [@lib.Instruction::unreachable_()],
+              Some([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+            ),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(typed_func_ref),
+              [@lib.Instruction::unreachable_()],
+              Some([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+            ),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(caller.contains("drop"), msg=caller)
+  assert_true(caller.contains("if"), msg=caller)
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_true(tail.contains("drop"), msg=tail)
+  assert_true(tail.contains("if"), msg=tail)
+  assert_true(tail.contains("return_call (Func 0)"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+}
+
+///|
 test "optimize-instructions lowers select ref.func call_ref targets to direct if calls" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
