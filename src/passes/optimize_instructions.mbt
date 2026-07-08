@@ -2073,10 +2073,17 @@ fn OiRefGetDescTrapFact::proves_traps_without_effects(
 }
 
 ///|
+priv enum OiDescriptorOperandTrapKind {
+  DescriptorOperandTrapNone
+  DescriptorOperandTrapDirectUnreachable
+  DescriptorOperandTrapRefGetDesc
+}
+
+///|
 priv struct OiDescriptorOperandTrapFact {
   direct_unreachable : Bool
   ref_get_desc_traps_without_effects : Bool
-  traps_without_effects : Bool
+  kind : OiDescriptorOperandTrapKind
 }
 
 ///|
@@ -2086,8 +2093,9 @@ fn OiDescriptorOperandTrapFact::from_operand(
 ) -> OiDescriptorOperandTrapFact {
   // Descriptor casts/tests can become `unreachable` when the descriptor operand
   // itself is already an unconditional trap with no preceding side effects.
-  // Keep the direct-unreachable and ref.get_desc trap cases as fact fields
-  // instead of a descriptor-operand helper cascade.
+  // Lower the represented direct-unreachable and ref.get_desc trap cases through
+  // one ordered result kind instead of a descriptor-operand helper cascade or
+  // parallel trap-result boolean.
   let direct_unreachable = match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Unreachable => true
     _ => false
@@ -2095,20 +2103,25 @@ fn OiDescriptorOperandTrapFact::from_operand(
   let ref_get_desc_traps_without_effects = OiRefGetDescTrapFact::from_node(
     func, node_id,
   ).proves_traps_without_effects()
-  {
-    direct_unreachable,
-    ref_get_desc_traps_without_effects,
-    traps_without_effects: direct_unreachable ||
-    ref_get_desc_traps_without_effects,
+  let kind = if direct_unreachable {
+    DescriptorOperandTrapDirectUnreachable
+  } else if ref_get_desc_traps_without_effects {
+    DescriptorOperandTrapRefGetDesc
+  } else {
+    DescriptorOperandTrapNone
   }
+  { direct_unreachable, ref_get_desc_traps_without_effects, kind }
 }
 
 ///|
 fn OiDescriptorOperandTrapFact::proves_traps_without_effects(
   self : OiDescriptorOperandTrapFact,
 ) -> Bool {
-  self.traps_without_effects &&
-  (self.direct_unreachable || self.ref_get_desc_traps_without_effects)
+  match self.kind {
+    DescriptorOperandTrapDirectUnreachable => self.direct_unreachable
+    DescriptorOperandTrapRefGetDesc => self.ref_get_desc_traps_without_effects
+    DescriptorOperandTrapNone => false
+  }
 }
 
 ///|
