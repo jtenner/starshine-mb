@@ -8391,6 +8391,74 @@ test "optimize-instructions directizes call_ref from local.tee ref.func target f
 }
 
 ///|
+test "optimize-instructions directizes call_ref after non-null target skip fact" {
+  // OI-H call_ref target fact slice: Binaryen version_130 first runs
+  // `skipNonNullCast(curr->target, curr)`, so a statically non-null target such
+  // as `ref.as_non_null(ref.func)` should be classified as the direct target
+  // rather than the fallthrough/drop target path. This keeps the target
+  // skip-cast decision in a fact before broader descriptor-producer work.
+  let sig_type = @lib.TypeIdx::new(0U)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([sig_type, sig_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::call_ref(sig_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected call_ref non-null target fact success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::Call => @debug.assert_eq(root_node.imm0, 0)
+    other =>
+      fail(
+        "expected skipped non-null call_ref target to direct call, got \{other}",
+      )
+  }
+  @debug.assert_eq(root_node.child_count, 0)
+}
+
+///|
 test "optimize-instructions interposes fallthrough call_ref target at last operand fact" {
   // OI-H call_ref operand-order fact slice: Binaryen version_130 localizes only
   // the last call_ref operand when a fallthrough target directizes, then runs the

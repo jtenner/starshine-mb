@@ -5689,6 +5689,60 @@ fn OiCallRefFallthroughTargetFact::has_direct_func(
 }
 
 ///|
+priv struct OiCallRefTargetSkipNonNullFact {
+  replacement_target_id : Int
+  skipped_non_null_cast : Bool
+}
+
+///|
+fn OiCallRefTargetSkipNonNullFact::from_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  target_id : Int,
+) -> OiCallRefTargetSkipNonNullFact? {
+  // Binaryen v130 `visitCallRef` runs `skipNonNullCast(curr->target, curr)`
+  // before target directization. Keep that pre-target step explicit so direct,
+  // table, fallthrough, select, and future descriptor-producer target facts do
+  // not need their own wrapper-skipping scanners.
+  if !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
+    return None
+  }
+  let target = @ir.hot_node_get(func, target_id)
+  match target.op {
+    @ir.HotOp::Heap if target.child_count == 1 =>
+      match @ir.hot_node_exact_instr(func, target_id) {
+        Some(@lib.Instruction::RefAsNonNull) => {
+          let child_id = @ir.hot_child_get(func, target_id, 0)
+          if !OiLiveNodeFact::proves_node_live(func, dead, child_id) {
+            return None
+          }
+          match optimize_instructions_node_ref_result_type(func, child_id) {
+            Some(ref_type) if ref_type.is_non_nullable() =>
+              Some({
+                replacement_target_id: child_id,
+                skipped_non_null_cast: true,
+              })
+            _ => None
+          }
+        }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefTargetSkipNonNullFact::effective_target_id(
+  self : OiCallRefTargetSkipNonNullFact,
+) -> Int {
+  if self.skipped_non_null_cast {
+    self.replacement_target_id
+  } else {
+    -1
+  }
+}
+
+///|
 priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
@@ -6316,7 +6370,17 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
     return false
   }
-  let target_fact = OiCallRefTargetFact::from_target(func, dead, callee_ref_id)
+  let effective_callee_ref_id = match
+    OiCallRefTargetSkipNonNullFact::from_target(func, dead, callee_ref_id) {
+    Some(fact) => fact.effective_target_id()
+    None => callee_ref_id
+  }
+  if effective_callee_ref_id < 0 {
+    return false
+  }
+  let target_fact = OiCallRefTargetFact::from_target(
+    func, dead, effective_callee_ref_id,
+  )
   let args : Array[Int] = []
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
     args.push(@ir.hot_child_get(func, node_id, slot))
@@ -6327,7 +6391,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
     None => return false
   }
   let temp = match
-    plan_fact.build_replacement(func, node, callee_ref_id, args) {
+    plan_fact.build_replacement(func, node, effective_callee_ref_id, args) {
     Some(replacement) => replacement
     None => return false
   }
