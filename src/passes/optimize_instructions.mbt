@@ -6913,6 +6913,20 @@ priv struct OiCallRefLocalizedOperandFact {
 }
 
 ///|
+priv struct OiCallRefFallthroughOperandInterpositionFact {
+  args : Array[Int]
+  arg_types : Array[@lib.ValType]
+  callee_ref_id : Int
+}
+
+///|
+priv struct OiCallRefSelectResidueOperandInterpositionFact {
+  args : Array[Int]
+  arg_types : Array[@lib.ValType]
+  residue_fact : OiCallRefSelectTargetResidueFact
+}
+
+///|
 fn OiCallRefOperandFact::from_args(
   func : @ir.HotFunc,
   args : Array[Int],
@@ -6959,10 +6973,28 @@ fn OiCallRefLocalizedOperandFact::local_gets(
 }
 
 ///|
-fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
-  self : OiCallRefOperandFact,
-  func : @ir.HotFunc,
+fn OiCallRefFallthroughOperandInterpositionFact::from_operand_fact(
+  operand_fact : OiCallRefOperandFact,
   callee_ref_id : Int,
+) -> OiCallRefFallthroughOperandInterpositionFact? {
+  // Binaryen v130 fallthrough-target directization preserves call_ref operand
+  // order by interposing the original target evaluation after the last operand:
+  // `set(last); drop(target); get(last)`. Keep that last-operand proof as an
+  // explicit operand fact instead of open-coding it in the directization plan.
+  if callee_ref_id < 0 {
+    return None
+  }
+  Some({
+    args: operand_fact.args,
+    arg_types: operand_fact.arg_types,
+    callee_ref_id,
+  })
+}
+
+///|
+fn OiCallRefFallthroughOperandInterpositionFact::build_args(
+  self : OiCallRefFallthroughOperandInterpositionFact,
+  func : @ir.HotFunc,
 ) -> Array[Int]? {
   let arg_count = self.args.length()
   if arg_count == 0 {
@@ -6980,7 +7012,7 @@ fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
       @lib.BlockType::val_type(self.arg_types[last_index]),
       [
         @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
-        @ir.hot_build_drop(func, callee_ref_id),
+        @ir.hot_build_drop(func, self.callee_ref_id),
         @ir.hot_build_local_get(func, temp_local),
       ],
     ),
@@ -6989,17 +7021,43 @@ fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
 }
 
 ///|
-fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
+fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
   self : OiCallRefOperandFact,
   func : @ir.HotFunc,
-  residue_fact : OiCallRefSelectTargetResidueFact,
+  callee_ref_id : Int,
 ) -> Array[Int]? {
+  match
+    OiCallRefFallthroughOperandInterpositionFact::from_operand_fact(
+      self, callee_ref_id,
+    ) {
+    Some(fact) => fact.build_args(func)
+    None => None
+  }
+}
+
+///|
+fn OiCallRefSelectResidueOperandInterpositionFact::from_operand_fact(
+  operand_fact : OiCallRefOperandFact,
+  residue_fact : OiCallRefSelectTargetResidueFact,
+) -> OiCallRefSelectResidueOperandInterpositionFact? {
   // Binaryen v130 collapses same-target select call_ref producers to a single
   // direct call but keeps the effectful select target evaluation in the original
   // target slot: after ordinary call_ref operands and before the direct call.
-  // `OiCallRefSelectTargetResidueFact` owns that target residue so this operand
-  // fact only decides where to interpose it relative to the last operand.
-  if !residue_fact.has_effects() {
+  // `OiCallRefSelectTargetResidueFact` owns that target residue; this fact owns
+  // the matching last-operand interposition rule.
+  Some({
+    args: operand_fact.args,
+    arg_types: operand_fact.arg_types,
+    residue_fact,
+  })
+}
+
+///|
+fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
+  self : OiCallRefSelectResidueOperandInterpositionFact,
+  func : @ir.HotFunc,
+) -> Array[Int]? {
+  if !self.residue_fact.has_effects() {
     return Some(self.args.copy())
   }
   let arg_count = self.args.length()
@@ -7018,12 +7076,27 @@ fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
       @lib.BlockType::val_type(self.arg_types[last_index]),
       [
         @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
-        residue_fact.build_dropped_target_evaluation(func),
+        self.residue_fact.build_dropped_target_evaluation(func),
         @ir.hot_build_local_get(func, temp_local),
       ],
     ),
   )
   Some(operands)
+}
+
+///|
+fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
+  self : OiCallRefOperandFact,
+  func : @ir.HotFunc,
+  residue_fact : OiCallRefSelectTargetResidueFact,
+) -> Array[Int]? {
+  match
+    OiCallRefSelectResidueOperandInterpositionFact::from_operand_fact(
+      self, residue_fact,
+    ) {
+    Some(fact) => fact.build_args(func)
+    None => None
+  }
 }
 
 ///|
