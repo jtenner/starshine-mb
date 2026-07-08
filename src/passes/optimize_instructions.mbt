@@ -8542,14 +8542,6 @@ fn OiCallRefTargetClassificationFact::target_fact(
 }
 
 ///|
-priv struct OiCallRefSelectArmFact {
-  direct_func : Int
-  ref_func_heap : @lib.HeapType?
-  elided_non_null_wrapper_depth : Int
-  elided_cast_wrapper_depth : Int
-}
-
-///|
 priv struct OiCallRefSelectArmDirectFact {
   direct_func : Int
   ref_func_heap : @lib.HeapType?
@@ -8558,13 +8550,13 @@ priv struct OiCallRefSelectArmDirectFact {
 }
 
 ///|
+priv struct OiCallRefSelectArmFact {
+  direct_fact : OiCallRefSelectArmDirectFact?
+}
+
+///|
 fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
-  {
-    direct_func: -1,
-    ref_func_heap: None,
-    elided_non_null_wrapper_depth: 0,
-    elided_cast_wrapper_depth: 0,
-  }
+  { direct_fact: None }
 }
 
 ///|
@@ -8575,10 +8567,12 @@ fn OiCallRefSelectArmFact::direct(
   elided_cast_wrapper_depth? : Int = 0,
 ) -> OiCallRefSelectArmFact {
   {
-    direct_func,
-    ref_func_heap,
-    elided_non_null_wrapper_depth,
-    elided_cast_wrapper_depth,
+    direct_fact: Some({
+      direct_func,
+      ref_func_heap,
+      elided_non_null_wrapper_depth,
+      elided_cast_wrapper_depth,
+    }),
   }
 }
 
@@ -8589,17 +8583,9 @@ fn OiCallRefSelectArmDirectFact::from_arm_fact(
   // Binaryen v130 `CallUtils::convertToDirectCalls` select classification needs
   // both target arms to be known direct functions before it chooses either the
   // same-target residue path or the two-direct-call `if` path. Keep that proof
-  // as a source-shaped fact instead of using the raw sentinel fields as an arm
-  // predicate at each call site.
-  if fact.direct_func < 0 {
-    return None
-  }
-  Some({
-    direct_func: fact.direct_func,
-    ref_func_heap: fact.ref_func_heap,
-    elided_non_null_wrapper_depth: fact.elided_non_null_wrapper_depth,
-    elided_cast_wrapper_depth: fact.elided_cast_wrapper_depth,
-  })
+  // as a source-shaped fact instead of leaving direct-arm payloads as open
+  // sentinel fields on the arm traversal record.
+  fact.direct_fact
 }
 
 ///|
