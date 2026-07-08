@@ -27814,12 +27814,24 @@ priv struct OiRefEqI31Fact {
 }
 
 ///|
+priv enum OiRefEqNullabilityKind {
+  RefEqUnknownNullability
+  RefEqKnownNull
+  RefEqKnownNonNullLocalType
+  RefEqKnownNonNullLiteral
+}
+
+///|
+priv struct OiRefEqNullabilityFact {
+  kind : OiRefEqNullabilityKind
+}
+
+///|
 priv struct OiRefEqOperandFact {
   same_local : Int?
   same_non_null_fact : OiRefEqNonNullLocalFact
   i31_fact : OiRefEqI31Fact
-  known_null : Bool
-  known_non_null : Bool
+  nullability_fact : OiRefEqNullabilityFact
   local_ref_type : @lib.RefType?
 }
 
@@ -27857,30 +27869,10 @@ fn OiRefEqOperandFact::from_node(
   let i31_fact = OiRefEqI31Fact::from_node(
     func, dead, node_id, local_ref_type, literal_fact,
   )
-  let known_null = match node.op {
-    @ir.HotOp::RefNull => true
-    _ =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefNull(_)) => true
-        _ => false
-      }
-  }
-  let known_non_null = match node.op {
-    @ir.HotOp::LocalGet =>
-      match local_ref_type {
-        Some(ref_type) => ref_type.is_non_nullable()
-        None => false
-      }
-    _ => literal_fact.is_known_non_null()
-  }
-  {
-    same_local,
-    same_non_null_fact,
-    i31_fact,
-    known_null,
-    known_non_null,
-    local_ref_type,
-  }
+  let nullability_fact = OiRefEqNullabilityFact::from_node(
+    func, node_id, local_ref_type, literal_fact,
+  )
+  { same_local, same_non_null_fact, i31_fact, nullability_fact, local_ref_type }
 }
 
 ///|
@@ -27966,6 +27958,58 @@ fn OiRefEqNonNullLocalFact::from_node(
         }
         _ => OiRefEqNonNullLocalFact::none()
       }
+  }
+}
+
+///|
+fn OiRefEqNullabilityFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_ref_type : @lib.RefType?,
+  literal_fact : OiRefLiteralFact,
+) -> OiRefEqNullabilityFact {
+  // Binaryen v130 `visitRefEq` folds direct null-vs-null and null-vs-non-null
+  // pairs from explicit operand nullability. Keep Starshine's intentionally
+  // represented subset source-shaped: direct `ref.null`, non-null local types,
+  // and direct non-null literals, without broadening to every non-null result
+  // type that the shared `OiRefFact` can prove for other visitors.
+  let kind = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefNull => RefEqKnownNull
+    @ir.HotOp::LocalGet =>
+      match local_ref_type {
+        Some(ref_type) if ref_type.is_non_nullable() =>
+          RefEqKnownNonNullLocalType
+        _ => RefEqUnknownNullability
+      }
+    _ =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefNull(_)) => RefEqKnownNull
+        _ if literal_fact.is_known_non_null() => RefEqKnownNonNullLiteral
+        _ => RefEqUnknownNullability
+      }
+  }
+  { kind, }
+}
+
+///|
+fn OiRefEqNullabilityFact::proves_known_null(
+  self : OiRefEqNullabilityFact,
+) -> Bool {
+  match self.kind {
+    RefEqKnownNull => true
+    RefEqUnknownNullability
+    | RefEqKnownNonNullLocalType
+    | RefEqKnownNonNullLiteral => false
+  }
+}
+
+///|
+fn OiRefEqNullabilityFact::proves_known_non_null(
+  self : OiRefEqNullabilityFact,
+) -> Bool {
+  match self.kind {
+    RefEqKnownNonNullLocalType | RefEqKnownNonNullLiteral => true
+    RefEqUnknownNullability | RefEqKnownNull => false
   }
 }
 
@@ -28640,7 +28684,8 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
       _ => ()
     }
   }
-  if relation_fact.lhs.known_null && relation_fact.rhs.known_null {
+  if relation_fact.lhs.nullability_fact.proves_known_null() &&
+    relation_fact.rhs.nullability_fact.proves_known_null() {
     optimize_instructions_replace_with_const_i32(
       ctx,
       func,
@@ -28649,8 +28694,8 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     )
     return true
   }
-  if relation_fact.lhs.known_null {
-    if relation_fact.rhs.known_non_null {
+  if relation_fact.lhs.nullability_fact.proves_known_null() {
+    if relation_fact.rhs.nullability_fact.proves_known_non_null() {
       if optimize_instructions_node_effects_are_pure(ctx, func, rhs_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
@@ -28674,8 +28719,8 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     }
     return true
   }
-  if relation_fact.rhs.known_null {
-    if relation_fact.lhs.known_non_null {
+  if relation_fact.rhs.nullability_fact.proves_known_null() {
+    if relation_fact.lhs.nullability_fact.proves_known_non_null() {
       if optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
