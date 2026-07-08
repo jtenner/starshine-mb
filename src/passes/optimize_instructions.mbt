@@ -27741,10 +27741,16 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
 }
 
 ///|
+priv enum OiDescriptorAllocationEraseKind {
+  DescriptorAllocationMustPreserve
+  DescriptorAllocationEraseStructNewDefault
+}
+
+///|
 priv struct OiDescriptorAllocationEraseFact {
   live : Bool
   struct_new_default : Bool
-  can_erase : Bool
+  kind : OiDescriptorAllocationEraseKind
 }
 
 ///|
@@ -27754,20 +27760,32 @@ fn OiDescriptorAllocationEraseFact::from_node(
 ) -> OiDescriptorAllocationEraseFact {
   // Binaryen v130 can drop allocation-only descriptor operands while replacing
   // descriptor casts/tests with statically-known results. Keep Starshine's
-  // represented allocation subset explicit instead of hiding it as a raw
-  // instruction whitelist in the descriptor erasure predicate.
+  // represented allocation subset as an explicit result kind instead of hiding
+  // it as a raw instruction whitelist or parallel `can_erase` predicate in the
+  // descriptor erasure fact.
   let struct_new_default = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructNewDefault(_)) => true
     _ => false
   }
-  { live: true, struct_new_default, can_erase: struct_new_default }
+  let kind = if struct_new_default {
+    DescriptorAllocationEraseStructNewDefault
+  } else {
+    DescriptorAllocationMustPreserve
+  }
+  { live: true, struct_new_default, kind }
 }
 
 ///|
 fn OiDescriptorAllocationEraseFact::proves_can_erase(
   self : OiDescriptorAllocationEraseFact,
 ) -> Bool {
-  self.live && self.struct_new_default && self.can_erase
+  if !self.live {
+    return false
+  }
+  match self.kind {
+    DescriptorAllocationEraseStructNewDefault => self.struct_new_default
+    DescriptorAllocationMustPreserve => false
+  }
 }
 
 ///|
