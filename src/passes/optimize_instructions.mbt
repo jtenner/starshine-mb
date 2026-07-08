@@ -1782,6 +1782,57 @@ fn OiRefProducerFact::from_node(
 }
 
 ///|
+priv struct OiRefProducerSubtypeRelationFact {
+  matches_heap : Bool
+  nullable : Bool
+  exact : Bool
+}
+
+///|
+fn OiRefProducerSubtypeRelationFact::unknown() -> OiRefProducerSubtypeRelationFact {
+  { matches_heap: false, nullable: false, exact: false }
+}
+
+///|
+fn OiRefProducerSubtypeRelationFact::from_heap_relation(
+  relation : OiHeapRelationFact,
+  source_nullable : Bool,
+  source_exact : Bool,
+) -> OiRefProducerSubtypeRelationFact {
+  // Binaryen v130 descriptor tests and descriptor equality casts share the
+  // `matches || strict-subtype` producer-target outcome from
+  // `GCTypeUtils::evaluateCastCheck`. Keep that outcome as one fact with the
+  // tightened nullable/exact payload instead of three parallel booleans on the
+  // broader producer relation.
+  match
+    relation.matches_or_strict_subtypes_heap(source_nullable, source_exact) {
+    Some((nullable, exact)) => { matches_heap: true, nullable, exact }
+    None => OiRefProducerSubtypeRelationFact::unknown()
+  }
+}
+
+///|
+fn OiRefProducerSubtypeRelationFact::proves_matches_heap(
+  self : OiRefProducerSubtypeRelationFact,
+) -> Bool {
+  self.matches_heap
+}
+
+///|
+fn OiRefProducerSubtypeRelationFact::proves_nullable(
+  self : OiRefProducerSubtypeRelationFact,
+) -> Bool {
+  self.nullable
+}
+
+///|
+fn OiRefProducerSubtypeRelationFact::proves_exact(
+  self : OiRefProducerSubtypeRelationFact,
+) -> Bool {
+  self.exact
+}
+
+///|
 priv struct OiRefProducerTargetRelationFact {
   exact_heap : Bool
   exact_non_null_heap : Bool
@@ -1794,9 +1845,7 @@ priv struct OiRefProducerTargetRelationFact {
   misses_target : Bool
   misses_exact_target : Bool
   misses_exact_target_by_strict_subtype : Bool
-  matches_or_subtypes_heap : Bool
-  matches_or_subtypes_nullable : Bool
-  matches_or_subtypes_exact : Bool
+  subtype_relation : OiRefProducerSubtypeRelationFact
 }
 
 ///|
@@ -1814,18 +1863,11 @@ fn OiRefProducerTargetRelationFact::from_producer(
     Some(ref_type) => {
       let source = ref_type.get_heap_type()
       let relation = OiHeapRelationFact::from_heaps(ctx, source, target)
-      let matches_or_subtypes = relation.matches_or_strict_subtypes_heap(
+      let subtype_relation = OiRefProducerSubtypeRelationFact::from_heap_relation(
+        relation,
         ref_type.is_nullable(),
         ref_type.is_exact(),
       )
-      let (
-        matches_or_subtypes_heap,
-        matches_or_subtypes_nullable,
-        matches_or_subtypes_exact,
-      ) = match matches_or_subtypes {
-        Some((nullable, exact)) => (true, nullable, exact)
-        None => (false, false, false)
-      }
       let final_heap = match ctx.module_ctx {
         Some(module_ctx) =>
           source == target &&
@@ -1864,9 +1906,7 @@ fn OiRefProducerTargetRelationFact::from_producer(
           ref_type.is_non_nullable() || !target_nullable
         ) &&
         relation.strict_concrete_heap_matches_target(),
-        matches_or_subtypes_heap,
-        matches_or_subtypes_nullable,
-        matches_or_subtypes_exact,
+        subtype_relation,
       }
     }
     None =>
@@ -1882,9 +1922,7 @@ fn OiRefProducerTargetRelationFact::from_producer(
         misses_target: false,
         misses_exact_target: false,
         misses_exact_target_by_strict_subtype: false,
-        matches_or_subtypes_heap: false,
-        matches_or_subtypes_nullable: false,
-        matches_or_subtypes_exact: false,
+        subtype_relation: OiRefProducerSubtypeRelationFact::unknown(),
       }
   }
 }
@@ -2617,8 +2655,8 @@ fn OiDescriptorRefTestEvaluationFact::from_operand(
     target,
     nullable,
   )
-  let kind = if relation_fact.matches_or_subtypes_heap {
-    if !nullable && relation_fact.matches_or_subtypes_nullable {
+  let kind = if relation_fact.subtype_relation.proves_matches_heap() {
+    if !nullable && relation_fact.subtype_relation.proves_nullable() {
       RefTestSuccessOnlyIfNonNull
     } else {
       RefTestSuccess
@@ -4172,21 +4210,21 @@ fn OiDescriptorOperandTargetRelationFact::from_operand(
 fn OiDescriptorOperandTargetRelationFact::proves_matches_or_subtypes_target(
   self : OiDescriptorOperandTargetRelationFact,
 ) -> Bool {
-  self.relation_fact.matches_or_subtypes_heap
+  self.relation_fact.subtype_relation.proves_matches_heap()
 }
 
 ///|
 fn OiDescriptorOperandTargetRelationFact::proves_nullable_target(
   self : OiDescriptorOperandTargetRelationFact,
 ) -> Bool {
-  self.relation_fact.matches_or_subtypes_nullable
+  self.relation_fact.subtype_relation.proves_nullable()
 }
 
 ///|
 fn OiDescriptorOperandTargetRelationFact::proves_exact_target(
   self : OiDescriptorOperandTargetRelationFact,
 ) -> Bool {
-  self.relation_fact.matches_or_subtypes_exact
+  self.relation_fact.subtype_relation.proves_exact()
 }
 
 ///|
