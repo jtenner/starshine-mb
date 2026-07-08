@@ -7160,15 +7160,49 @@ fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
 }
 
 ///|
-fn optimize_instructions_call_ref_result_block_type(
+priv struct OiCallRefResultBlockTypeFact {
+  result_count : Int
+  block_type : @lib.BlockType?
+}
+
+///|
+fn OiCallRefResultBlockTypeFact::from_call_ref(
   func : @ir.HotFunc,
   node : @ir.HotNode,
-) -> @lib.BlockType? {
+) -> OiCallRefResultBlockTypeFact {
+  // Binaryen v130 `visitCallRef` rebuilds directized `call_ref` replacements
+  // with `curr->type`. Starshine's HOT builder needs the equivalent block
+  // wrapper type only for fallthrough/select residue cases that must sequence a
+  // dropped target before the direct call. Keep the single-result/multivalue
+  // boundary as a fact instead of a generic helper hidden in replacement code.
   let results = @ir.hot_type_results(func, node.ty)
-  match results.length() {
+  let block_type = match results.length() {
     0 => Some(@lib.BlockType::void_())
     1 => Some(@lib.BlockType::val_type(results[0]))
     _ => None
+  }
+  { result_count: results.length(), block_type }
+}
+
+///|
+fn OiCallRefResultBlockTypeFact::proves_representable_block_type(
+  self : OiCallRefResultBlockTypeFact,
+) -> Bool {
+  self.result_count <= 1
+}
+
+///|
+fn OiCallRefResultBlockTypeFact::representable_block_type(
+  self : OiCallRefResultBlockTypeFact,
+) -> @lib.BlockType? {
+  match self.block_type {
+    Some(block_type) =>
+      if self.proves_representable_block_type() {
+        Some(block_type)
+      } else {
+        None
+      }
+    None => None
   }
 }
 
@@ -7185,8 +7219,10 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
   }
   match node.op {
     @ir.HotOp::CallRef => {
-      let block_type = match
-        optimize_instructions_call_ref_result_block_type(func, node) {
+      let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
+        func, node,
+      )
+      let block_type = match result_type_fact.representable_block_type() {
         Some(block_type) => block_type
         None => return None
       }
@@ -7454,8 +7490,10 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
         operands,
       )
       if residue_fact.has_effects() && operand_fact.args.length() == 0 {
-        let block_type = match
-          optimize_instructions_call_ref_result_block_type(func, node) {
+        let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
+          func, node,
+        )
+        let block_type = match result_type_fact.representable_block_type() {
           Some(block_type) => block_type
           None => return None
         }
@@ -7502,11 +7540,15 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
     _ => return None
   }
   let block_type = match node.op {
-    @ir.HotOp::CallRef =>
-      match optimize_instructions_call_ref_result_block_type(func, node) {
+    @ir.HotOp::CallRef => {
+      let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
+        func, node,
+      )
+      match result_type_fact.representable_block_type() {
         Some(block_type) => block_type
         None => return None
       }
+    }
     @ir.HotOp::ReturnCallRef => @lib.BlockType::void_()
     _ => return None
   }
