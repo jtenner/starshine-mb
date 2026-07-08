@@ -2725,18 +2725,86 @@ fn OiRefCastOperandFact::can_prove_trap(
 }
 
 ///|
+priv struct OiRefCastChildCastFact {
+  replacement_operand_id : Int
+}
+
+///|
+fn OiRefCastChildCastFact::ref_type_is_subtype(
+  ctx : HotPassContext,
+  source : @lib.RefType,
+  target : @lib.RefType,
+) -> Bool {
+  let nullable_ok = target.is_nullable() || source.is_non_nullable()
+  if !nullable_ok {
+    return false
+  }
+  if target.is_exact() {
+    return source.is_exact() && source.get_heap_type() == target.get_heap_type()
+  }
+  OiHeapRelationFact::from_heaps(
+    ctx,
+    source.get_heap_type(),
+    target.get_heap_type(),
+  ).known_match_target()
+}
+
+///|
+fn OiRefCastChildCastFact::from_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cast_fact : OiRefCastFact,
+) -> OiRefCastChildCastFact? {
+  // Binaryen v130 `visitRefCast` removes an ordinary child `RefCast` after all
+  // known-result folds when the parent cast is at least as strong as the child
+  // cast (`Type::isSubType(curr->type, child->type)`). Keep that source rule as
+  // a fact over current/child ref types instead of a rewrite-local opcode scan;
+  // descriptor child casts remain excluded until Starshine has the child
+  // localization needed to drop/reorder their descriptor operands.
+  let child_id = cast_fact.operand_id
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, child_id).op {
+    @ir.HotOp::RefCast => ()
+    _ => return None
+  }
+  let child_fact = match OiRefCastFact::from_node(func, child_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let parent_type = @lib.RefType::new(
+    cast_fact.nullable,
+    cast_fact.target,
+    exact=cast_fact.exact,
+  )
+  let child_type = @lib.RefType::new(
+    child_fact.nullable,
+    child_fact.target,
+    exact=child_fact.exact,
+  )
+  if OiRefCastChildCastFact::ref_type_is_subtype(ctx, parent_type, child_type) {
+    Some({ replacement_operand_id: child_fact.operand_id })
+  } else {
+    None
+  }
+}
+
+///|
 priv enum OiRefCastRewritePlanKind {
   RefCastForwardOperand
   RefCastUnreachable
   RefCastDropOperandThenUnreachable
   RefCastAsNonNull
   RefCastNullrefCast
+  RefCastSkipChildCast
 }
 
 ///|
 priv struct OiRefCastRewritePlanFact {
   kind : OiRefCastRewritePlanKind
   cast_fact : OiRefCastFact
+  replacement_operand_id : Int
 }
 
 ///|
@@ -2768,16 +2836,29 @@ fn OiRefCastRewritePlanFact::from_cast(
         RefCastUnreachable
       },
       cast_fact,
+      replacement_operand_id: -1,
     })
   }
   if operand_fact.can_rewrite_as_non_null(nullable, exact) {
-    return Some({ kind: RefCastAsNonNull, cast_fact })
+    return Some({
+      kind: RefCastAsNonNull,
+      cast_fact,
+      replacement_operand_id: -1,
+    })
   }
   if operand_fact.can_rewrite_nullable_exact_target_only_as_null(exact) {
-    return Some({ kind: RefCastNullrefCast, cast_fact })
+    return Some({
+      kind: RefCastNullrefCast,
+      cast_fact,
+      replacement_operand_id: -1,
+    })
   }
   if operand_fact.can_forward_operand(nullable, exact) {
-    return Some({ kind: RefCastForwardOperand, cast_fact })
+    return Some({
+      kind: RefCastForwardOperand,
+      cast_fact,
+      replacement_operand_id: -1,
+    })
   }
   if operand_fact.can_prove_trap(nullable, exact) {
     let kind = if operand_fact.can_erase {
@@ -2785,7 +2866,16 @@ fn OiRefCastRewritePlanFact::from_cast(
     } else {
       RefCastDropOperandThenUnreachable
     }
-    return Some({ kind, cast_fact })
+    return Some({ kind, cast_fact, replacement_operand_id: -1 })
+  }
+  match OiRefCastChildCastFact::from_cast(ctx, func, cast_fact) {
+    Some(child_fact) =>
+      return Some({
+        kind: RefCastSkipChildCast,
+        cast_fact,
+        replacement_operand_id: child_fact.replacement_operand_id,
+      })
+    None => ()
   }
   None
 }
@@ -2819,6 +2909,11 @@ fn OiRefCastRewritePlanFact::apply(
       optimize_instructions_replace_ref_cast_with_nullref_cast(
         ctx, func, node_id, operand_id,
       )
+    RefCastSkipChildCast => {
+      @ir.hot_child_set(func, node_id, 0, self.replacement_operand_id)
+      pass_mark_mutated(ctx, func)
+      true
+    }
   }
 }
 
