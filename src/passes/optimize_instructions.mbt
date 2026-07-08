@@ -27771,6 +27771,14 @@ fn OiDescriptorAllocationEraseFact::proves_can_erase(
 }
 
 ///|
+priv enum OiDescriptorNullableChildEraseTnhKind {
+  DescriptorNullableChildMustPreserve
+  DescriptorNullableChildEraseSideEffectFree
+  DescriptorNullableChildEraseBlockInternalControl
+  DescriptorNullableChildEraseIfNullCheckMove
+}
+
+///|
 priv struct OiDescriptorNullableChildEraseTnhFact {
   live : Bool
   side_effect_free : Bool
@@ -27780,7 +27788,7 @@ priv struct OiDescriptorNullableChildEraseTnhFact {
   block_children_effect_free_internal_control : Bool
   if_root : Bool
   if_can_move_null_check : Bool
-  can_erase : Bool
+  kind : OiDescriptorNullableChildEraseTnhKind
 }
 
 ///|
@@ -27838,14 +27846,18 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
     }
     _ => ()
   }
-  let can_erase = side_effect_free ||
-    (
-      block_root &&
-      block_nonempty &&
-      block_no_escaping_branch_control &&
-      block_children_effect_free_internal_control
-    ) ||
-    (if_root && if_can_move_null_check)
+  let kind = if side_effect_free {
+    DescriptorNullableChildEraseSideEffectFree
+  } else if block_root &&
+    block_nonempty &&
+    block_no_escaping_branch_control &&
+    block_children_effect_free_internal_control {
+    DescriptorNullableChildEraseBlockInternalControl
+  } else if if_root && if_can_move_null_check {
+    DescriptorNullableChildEraseIfNullCheckMove
+  } else {
+    DescriptorNullableChildMustPreserve
+  }
   {
     live: true,
     side_effect_free,
@@ -27855,7 +27867,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
     block_children_effect_free_internal_control,
     if_root,
     if_can_move_null_check,
-    can_erase,
+    kind,
   }
 }
 
@@ -27863,18 +27875,20 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
 fn OiDescriptorNullableChildEraseTnhFact::proves_can_erase(
   self : OiDescriptorNullableChildEraseTnhFact,
 ) -> Bool {
-  self.live &&
-  self.can_erase &&
-  (
-    self.side_effect_free ||
-    (
+  if !self.live {
+    return false
+  }
+  match self.kind {
+    DescriptorNullableChildEraseSideEffectFree => self.side_effect_free
+    DescriptorNullableChildEraseBlockInternalControl =>
       self.block_root &&
       self.block_nonempty &&
       self.block_no_escaping_branch_control &&
       self.block_children_effect_free_internal_control
-    ) ||
-    (self.if_root && self.if_can_move_null_check)
-  )
+    DescriptorNullableChildEraseIfNullCheckMove =>
+      self.if_root && self.if_can_move_null_check
+    DescriptorNullableChildMustPreserve => false
+  }
 }
 
 ///|
