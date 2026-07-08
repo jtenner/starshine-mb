@@ -21712,14 +21712,25 @@ fn optimize_instructions_try_fold_identity_binary(
 }
 
 ///|
-fn optimize_instructions_try_fold_absorbing_zero_i32(
-  ctx : HotPassContext,
+priv struct OiI32AbsorbingZeroFact {
+  replacement : @lib.I32
+}
+
+///|
+priv struct OiI64AbsorbingZeroFact {
+  replacement : @lib.I64
+}
+
+///|
+fn OiI32AbsorbingZeroFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiI32AbsorbingZeroFact? {
+  // Binaryen v130 folds zero-absorbing integer ops to zero only when the other
+  // operand can be erased. Keep the constant-side and effect boundary explicit
+  // so the visitor no longer owns this opcode-local whitelist.
   let zero_on_lhs = match optimize_instructions_i32_const(func, dead, lhs_id) {
     Some(@lib.I32(0)) => true
     _ => false
@@ -21732,33 +21743,24 @@ fn optimize_instructions_try_fold_absorbing_zero_i32(
     OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id)
   } else if zero_on_rhs && !zero_on_lhs {
     OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id)
-  } else if zero_on_lhs && zero_on_rhs {
-    true
   } else {
-    false
+    zero_on_lhs && zero_on_rhs
   }
   if pure_other {
-    optimize_instructions_replace_with_const_i32(
-      ctx,
-      func,
-      node_id,
-      @lib.I32(0),
-    )
-    true
+    Some({ replacement: @lib.I32(0) })
   } else {
-    false
+    None
   }
 }
 
 ///|
-fn optimize_instructions_try_fold_absorbing_zero_i64(
-  ctx : HotPassContext,
+fn OiI64AbsorbingZeroFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiI64AbsorbingZeroFact? {
+  // Same Binaryen zero-absorbing fact for the i64 lane.
   let zero_on_lhs = match optimize_instructions_i64_const(func, dead, lhs_id) {
     Some(@lib.I64(0L)) => true
     _ => false
@@ -21771,33 +21773,68 @@ fn optimize_instructions_try_fold_absorbing_zero_i64(
     OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id)
   } else if zero_on_rhs && !zero_on_lhs {
     OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id)
-  } else if zero_on_lhs && zero_on_rhs {
-    true
   } else {
-    false
+    zero_on_lhs && zero_on_rhs
   }
   if pure_other {
-    optimize_instructions_replace_with_const_i64(
-      ctx,
-      func,
-      node_id,
-      @lib.I64(0L),
-    )
-    true
+    Some({ replacement: @lib.I64(0L) })
   } else {
-    false
+    None
   }
 }
 
 ///|
-fn optimize_instructions_try_fold_absorbing_neg_one_or_i32(
+fn OiI32AbsorbingZeroFact::apply(
+  self : OiI32AbsorbingZeroFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i32(
+    ctx,
+    func,
+    node_id,
+    self.replacement,
+  )
+}
+
+///|
+fn OiI64AbsorbingZeroFact::apply(
+  self : OiI64AbsorbingZeroFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i64(
+    ctx,
+    func,
+    node_id,
+    self.replacement,
+  )
+}
+
+///|
+priv struct OiI32AbsorbingAllOnesOrFact {
+  replacement : @lib.I32
+  drop_id : Int?
+}
+
+///|
+priv struct OiI64AbsorbingAllOnesOrFact {
+  replacement : @lib.I64
+  drop_id : Int?
+}
+
+///|
+fn OiI32AbsorbingAllOnesOrFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiI32AbsorbingAllOnesOrFact? {
+  // Binaryen v130 treats `or -1` as an absorbing all-ones result while keeping
+  // effects from the non-constant operand. Preserve that effectful-drop payload
+  // in the fact rather than burying it in the visitor branch.
   let neg_one_on_lhs = match
     optimize_instructions_i32_const(func, dead, lhs_id) {
     Some(@lib.I32(-1)) => true
@@ -21809,9 +21846,9 @@ fn optimize_instructions_try_fold_absorbing_neg_one_or_i32(
     _ => false
   }
   if !neg_one_on_lhs && !neg_one_on_rhs {
-    return false
+    return None
   }
-  let effectful_id = if neg_one_on_lhs && !neg_one_on_rhs {
+  let drop_id = if neg_one_on_lhs && !neg_one_on_rhs {
     if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id) {
       None
     } else {
@@ -21826,35 +21863,17 @@ fn optimize_instructions_try_fold_absorbing_neg_one_or_i32(
   } else {
     None
   }
-  match effectful_id {
-    Some(drop_id) =>
-      optimize_instructions_replace_with_drop_then_const_i32(
-        ctx,
-        func,
-        node_id,
-        drop_id,
-        @lib.I32(-1),
-      )
-    None =>
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(-1),
-      )
-  }
-  true
+  Some({ replacement: @lib.I32(-1), drop_id })
 }
 
 ///|
-fn optimize_instructions_try_fold_absorbing_neg_one_or_i64(
-  ctx : HotPassContext,
+fn OiI64AbsorbingAllOnesOrFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiI64AbsorbingAllOnesOrFact? {
+  // Same all-ones absorbing OR fact for the i64 lane.
   let neg_one_on_lhs = match
     optimize_instructions_i64_const(func, dead, lhs_id) {
     Some(@lib.I64(-1L)) => true
@@ -21866,9 +21885,9 @@ fn optimize_instructions_try_fold_absorbing_neg_one_or_i64(
     _ => false
   }
   if !neg_one_on_lhs && !neg_one_on_rhs {
-    return false
+    return None
   }
-  let effectful_id = if neg_one_on_lhs && !neg_one_on_rhs {
+  let drop_id = if neg_one_on_lhs && !neg_one_on_rhs {
     if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id) {
       None
     } else {
@@ -21883,24 +21902,133 @@ fn optimize_instructions_try_fold_absorbing_neg_one_or_i64(
   } else {
     None
   }
-  match effectful_id {
+  Some({ replacement: @lib.I64(-1L), drop_id })
+}
+
+///|
+fn OiI32AbsorbingAllOnesOrFact::apply(
+  self : OiI32AbsorbingAllOnesOrFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.drop_id {
+    Some(drop_id) =>
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        drop_id,
+        self.replacement,
+      )
+    None =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.replacement,
+      )
+  }
+}
+
+///|
+fn OiI64AbsorbingAllOnesOrFact::apply(
+  self : OiI64AbsorbingAllOnesOrFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.drop_id {
     Some(drop_id) =>
       optimize_instructions_replace_with_drop_then_const_i64(
         ctx,
         func,
         node_id,
         drop_id,
-        @lib.I64(-1L),
+        self.replacement,
       )
     None =>
       optimize_instructions_replace_with_const_i64(
         ctx,
         func,
         node_id,
-        @lib.I64(-1L),
+        self.replacement,
       )
   }
-  true
+}
+
+///|
+priv struct OiI32RemainderNegOneFact {
+  replacement : @lib.I32
+}
+
+///|
+priv struct OiI64RemainderNegOneFact {
+  replacement : @lib.I64
+}
+
+///|
+fn OiI32RemainderNegOneFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI32RemainderNegOneFact? {
+  // Binaryen also folds signed `rem(_, -1)` to zero only when the dividend can
+  // be erased. This remains intentionally separate from `rem(_, 1)` because it
+  // belongs to the absorbing family and applies only to signed remainder.
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(-1)) if OiSideEffectFreeExpressionFact::proves_node_free(
+        func, dead, lhs_id,
+      ) => Some({ replacement: @lib.I32(0) })
+    _ => None
+  }
+}
+
+///|
+fn OiI64RemainderNegOneFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI64RemainderNegOneFact? {
+  // Same signed-remainder absorbing fact for i64.
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(-1L)) if OiSideEffectFreeExpressionFact::proves_node_free(
+        func, dead, lhs_id,
+      ) => Some({ replacement: @lib.I64(0L) })
+    _ => None
+  }
+}
+
+///|
+fn OiI32RemainderNegOneFact::apply(
+  self : OiI32RemainderNegOneFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i32(
+    ctx,
+    func,
+    node_id,
+    self.replacement,
+  )
+}
+
+///|
+fn OiI64RemainderNegOneFact::apply(
+  self : OiI64RemainderNegOneFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i64(
+    ctx,
+    func,
+    node_id,
+    self.replacement,
+  )
 }
 
 ///|
@@ -21913,64 +22041,61 @@ fn optimize_instructions_try_fold_absorbing_binary(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  // A zero-absorbing operand reduces these binops to `0` when the other operand
-  // is side-effect-free. Folding would otherwise drop a non-pure lhs/rhs effect
-  // (Binaryen keeps e.g. `mul(effect, 0)` and `rem(effect, -1)`).
+  // Binaryen v130's absorbing binary folds are now expressed as width-specific
+  // facts that carry both constant-side proof and any effect-preserving payload.
   match instr {
     @lib.Instruction::I32Mul | @lib.Instruction::I32And =>
-      optimize_instructions_try_fold_absorbing_zero_i32(
-        ctx, func, dead, node_id, lhs_id, rhs_id,
-      )
+      match OiI32AbsorbingZeroFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          true
+        }
+        None => false
+      }
     @lib.Instruction::I64Mul | @lib.Instruction::I64And =>
-      optimize_instructions_try_fold_absorbing_zero_i64(
-        ctx, func, dead, node_id, lhs_id, rhs_id,
-      )
-    @lib.Instruction::I32RemS => {
-      let rhs_is_neg_one = match
-        optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(-1)) => true
-        _ => false
+      match OiI64AbsorbingZeroFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          true
+        }
+        None => false
       }
-      if rhs_is_neg_one &&
-        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(0),
-        )
-        true
-      } else {
-        false
+    @lib.Instruction::I32RemS =>
+      match
+        OiI32RemainderNegOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          true
+        }
+        None => false
       }
-    }
-    @lib.Instruction::I64RemS => {
-      let rhs_is_neg_one = match
-        optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(-1L)) => true
-        _ => false
+    @lib.Instruction::I64RemS =>
+      match
+        OiI64RemainderNegOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          true
+        }
+        None => false
       }
-      if rhs_is_neg_one &&
-        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
-        optimize_instructions_replace_with_const_i64(
-          ctx,
-          func,
-          node_id,
-          @lib.I64(0L),
-        )
-        true
-      } else {
-        false
-      }
-    }
     @lib.Instruction::I32Or =>
-      optimize_instructions_try_fold_absorbing_neg_one_or_i32(
-        ctx, func, dead, node_id, lhs_id, rhs_id,
-      )
+      match
+        OiI32AbsorbingAllOnesOrFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          true
+        }
+        None => false
+      }
     @lib.Instruction::I64Or =>
-      optimize_instructions_try_fold_absorbing_neg_one_or_i64(
-        ctx, func, dead, node_id, lhs_id, rhs_id,
-      )
+      match
+        OiI64AbsorbingAllOnesOrFact::from_operands(func, dead, lhs_id, rhs_id) {
+        Some(fact) => {
+          fact.apply(ctx, func, node_id)
+          true
+        }
+        None => false
+      }
     _ => false
   }
 }
