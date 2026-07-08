@@ -229,6 +229,69 @@ fn OiRefFact::type_is_non_nullable(self : OiRefFact) -> Bool {
 }
 
 ///|
+priv struct OiRefLiteralFact {
+  i31_literal : Bool
+  func_literal : Bool
+}
+
+///|
+fn OiRefLiteralFact::none() -> OiRefLiteralFact {
+  { i31_literal: false, func_literal: false }
+}
+
+///|
+fn OiRefLiteralFact::i31() -> OiRefLiteralFact {
+  { i31_literal: true, func_literal: false }
+}
+
+///|
+fn OiRefLiteralFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefLiteralFact {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return OiRefLiteralFact::none()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let i31_literal = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) => true
+    _ => false
+  }
+  let func_literal = match node.op {
+    @ir.HotOp::RefFunc => true
+    _ => false
+  }
+  { i31_literal, func_literal }
+}
+
+///|
+fn OiRefLiteralFact::is_known_non_null(self : OiRefLiteralFact) -> Bool {
+  self.i31_literal || self.func_literal
+}
+
+///|
+fn OiRefLiteralFact::is_i31(self : OiRefLiteralFact) -> Bool {
+  self.i31_literal
+}
+
+///|
+fn OiRefLiteralFact::matches_target(
+  self : OiRefLiteralFact,
+  target : @lib.HeapType,
+) -> Bool {
+  (self.func_literal && optimize_instructions_ref_func_matches_target(target)) ||
+  (self.i31_literal && optimize_instructions_ref_i31_matches_target(target))
+}
+
+///|
+fn OiRefLiteralFact::i31_cannot_match_target(
+  self : OiRefLiteralFact,
+  target : @lib.HeapType,
+) -> Bool {
+  self.i31_literal && optimize_instructions_ref_i31_cannot_match_target(target)
+}
+
+///|
 priv struct OiNullTrapFact {
   traps_on_null : Bool
   operand_known_null : Bool
@@ -439,6 +502,13 @@ fn OiHeapRelationFact::known_miss_target(self : OiHeapRelationFact) -> Bool {
   self.i31_cannot_match_target ||
   self.abs_struct_array_disjoint ||
   self.concrete_source_has_no_target_overlap
+}
+
+///|
+fn OiHeapRelationFact::known_abs_struct_array_disjoint(
+  self : OiHeapRelationFact,
+) -> Bool {
+  self.abs_struct_array_disjoint
 }
 
 ///|
@@ -1179,9 +1249,8 @@ fn OiRefTestFact::known_null_result(self : OiRefTestFact) -> @lib.I32 {
 priv struct OiRefTestOperandFact {
   ref_fact : OiRefFact
   producer_fact : OiRefProducerFact
+  literal_fact : OiRefLiteralFact
   source_type : @lib.RefType?
-  is_ref_i31_literal : Bool
-  is_ref_func_literal : Bool
 }
 
 ///|
@@ -1192,27 +1261,11 @@ fn OiRefTestOperandFact::from_node(
 ) -> OiRefTestOperandFact {
   let ref_fact = OiRefFact::from_node(func, operand_id)
   let producer_fact = OiRefProducerFact::from_node(ctx, func, operand_id)
-  let (is_ref_i31_literal, is_ref_func_literal) = if operand_id >= 0 &&
-    @ir.hot_node_is_live(func, operand_id) {
-    let node = @ir.hot_node_get(func, operand_id)
-    let is_i31 = match @ir.hot_node_exact_instr(func, operand_id) {
-      Some(@lib.Instruction::RefI31) => true
-      _ => false
-    }
-    let is_ref_func = match node.op {
-      @ir.HotOp::RefFunc => true
-      _ => false
-    }
-    (is_i31, is_ref_func)
-  } else {
-    (false, false)
-  }
   {
     ref_fact,
     producer_fact,
+    literal_fact: OiRefLiteralFact::from_node(func, operand_id),
     source_type: ref_fact.ref_type,
-    is_ref_i31_literal,
-    is_ref_func_literal,
   }
 }
 
@@ -1349,11 +1402,8 @@ fn OiRefTestOperandFact::non_null_matches_target(
   ctx : HotPassContext,
   target : @lib.HeapType,
 ) -> Bool {
-  if self.is_ref_func_literal {
-    return optimize_instructions_ref_func_matches_target(target)
-  }
-  if self.is_ref_i31_literal {
-    return optimize_instructions_ref_i31_matches_target(target)
+  if self.literal_fact.matches_target(target) {
+    return true
   }
   match self.source_type {
     Some(ref_type) =>
@@ -1373,8 +1423,8 @@ fn OiRefTestOperandFact::misses_target(
   ctx : HotPassContext,
   target : @lib.HeapType,
 ) -> Bool {
-  if self.is_ref_i31_literal {
-    return optimize_instructions_ref_i31_cannot_match_target(target)
+  if self.literal_fact.i31_cannot_match_target(target) {
+    return true
   }
   match self.source_type {
     Some(ref_type) =>
@@ -1803,6 +1853,7 @@ priv struct OiRefCastOperandTargetFact {
   node_op : @ir.HotOp
   source_type : @lib.RefType?
   local_ref_type : @lib.RefType?
+  literal_fact : OiRefLiteralFact
 }
 
 ///|
@@ -1824,7 +1875,12 @@ fn OiRefCastOperandTargetFact::from_operand(
       }
     _ => None
   }
-  { node_op: node.op, source_type, local_ref_type }
+  {
+    node_op: node.op,
+    source_type,
+    local_ref_type,
+    literal_fact: OiRefLiteralFact::from_node(func, operand_id),
+  }
 }
 
 ///|
@@ -1833,22 +1889,6 @@ fn OiRefCastOperandTargetFact::is_direct_null(
 ) -> Bool {
   match self.node_op {
     @ir.HotOp::RefNull => true
-    _ => false
-  }
-}
-
-///|
-fn OiRefCastOperandTargetFact::is_ref_i31_literal(
-  self : OiRefCastOperandTargetFact,
-  func : @ir.HotFunc,
-  operand_id : Int,
-) -> Bool {
-  match self.node_op {
-    @ir.HotOp::Heap =>
-      match @ir.hot_node_exact_instr(func, operand_id) {
-        Some(@lib.Instruction::RefI31) => true
-        _ => false
-      }
     _ => false
   }
 }
@@ -1889,10 +1929,11 @@ fn OiRefCastOperandTargetFact::heap_is_known_miss_for_target(
 fn OiRefCastOperandTargetFact::known_match_target(
   self : OiRefCastOperandTargetFact,
   ctx : HotPassContext,
-  func : @ir.HotFunc,
-  operand_id : Int,
   target : @lib.HeapType,
 ) -> Bool {
+  if self.literal_fact.matches_target(target) {
+    return true
+  }
   match self.node_op {
     @ir.HotOp::LocalGet =>
       match self.local_ref_type {
@@ -1901,9 +1942,6 @@ fn OiRefCastOperandTargetFact::known_match_target(
           OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_match_without_full_subtyping()
         _ => false
       }
-    @ir.HotOp::RefFunc => optimize_instructions_ref_func_matches_target(target)
-    @ir.HotOp::Heap if self.is_ref_i31_literal(func, operand_id) =>
-      optimize_instructions_ref_i31_matches_target(target)
     _ => false
   }
 }
@@ -1930,10 +1968,11 @@ fn OiRefCastOperandTargetFact::known_match_nullable_target(
 fn OiRefCastOperandTargetFact::known_miss_target(
   self : OiRefCastOperandTargetFact,
   ctx : HotPassContext,
-  func : @ir.HotFunc,
-  operand_id : Int,
   target : @lib.HeapType,
 ) -> Bool {
+  if self.literal_fact.i31_cannot_match_target(target) {
+    return true
+  }
   match self.node_op {
     @ir.HotOp::LocalGet =>
       match self.local_ref_type {
@@ -1946,8 +1985,6 @@ fn OiRefCastOperandTargetFact::known_miss_target(
           )
         _ => false
       }
-    @ir.HotOp::Heap if self.is_ref_i31_literal(func, operand_id) =>
-      optimize_instructions_ref_i31_cannot_match_target(target)
     _ => false
   }
 }
@@ -2077,15 +2114,11 @@ fn OiRefCastOperandFact::from_operand(
       target,
     ),
     has_exact_target_heap: target_fact.source_has_exact_heap(target),
-    known_match_target: target_fact.known_match_target(
-      ctx, func, operand_id, target,
-    ),
+    known_match_target: target_fact.known_match_target(ctx, target),
     known_match_nullable_target: target_fact.known_match_nullable_target(
       ctx, target,
     ),
-    known_miss_target: target_fact.known_miss_target(
-      ctx, func, operand_id, target,
-    ),
+    known_miss_target: target_fact.known_miss_target(ctx, target),
     null_or_known_miss_for_non_null_target: target_fact.null_or_known_miss_for_non_null_target(
       ctx, target,
     ),
@@ -20761,6 +20794,7 @@ fn OiRefEqOperandFact::from_node(
   )
   let i31_local = OiRefEqOperandFact::i31_local(func, node_id)
   let i31_const = OiRefEqOperandFact::i31_const(func, dead, node_id)
+  let literal_fact = OiRefLiteralFact::from_node(func, node_id)
   let known_non_null_i31 = match node.op {
     @ir.HotOp::LocalGet =>
       match local_ref_type {
@@ -20770,17 +20804,11 @@ fn OiRefEqOperandFact::from_node(
           @lib.HeapType::abs(@lib.AbsHeapType::i31())
         None => false
       }
-    _ =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefI31) => true
-        _ => false
-      }
+    _ => literal_fact.is_i31()
   }
   let cannot_be_i31 = match local_ref_type {
     Some(ref_type) =>
-      optimize_instructions_ref_i31_cannot_match_target(
-        ref_type.get_heap_type(),
-      )
+      OiRefLiteralFact::i31().i31_cannot_match_target(ref_type.get_heap_type())
     None => false
   }
   let known_null = match node.op {
@@ -20797,12 +20825,7 @@ fn OiRefEqOperandFact::from_node(
         Some(ref_type) => ref_type.is_non_nullable()
         None => false
       }
-    @ir.HotOp::RefFunc => true
-    _ =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefI31) => true
-        _ => false
-      }
+    _ => literal_fact.is_known_non_null()
   }
   {
     same_local,
@@ -20837,16 +20860,11 @@ fn OiRefEqOperandFact::same_local_through_nullable_ref_cast(
             Some(@lib.ValType::RefTypeValType(ref_type)) =>
               if ctx.ignore_implicit_traps || ctx.traps_never_happen {
                 Some(local_idx)
-              } else if ref_type.get_heap_type() == target ||
-                (
-                  ref_type.get_heap_type() ==
-                  @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-                  optimize_instructions_ref_i31_matches_target(target)
-                ) ||
-                optimize_instructions_abs_struct_array_matches_target(
+              } else if OiHeapRelationFact::from_heaps(
+                  ctx,
                   ref_type.get_heap_type(),
                   target,
-                ) {
+                ).known_match_without_full_subtyping() {
                 Some(local_idx)
               } else {
                 None
@@ -20996,6 +21014,7 @@ fn OiRefEqRelationFact::i31_const_result(
 ///|
 fn OiRefEqRelationFact::proves_impossible_equal(
   self : OiRefEqRelationFact,
+  ctx : HotPassContext,
 ) -> Bool {
   if (self.lhs.known_non_null_i31 && self.rhs.cannot_be_i31) ||
     (self.rhs.known_non_null_i31 && self.lhs.cannot_be_i31) {
@@ -21004,10 +21023,11 @@ fn OiRefEqRelationFact::proves_impossible_equal(
   match (self.lhs.local_ref_type, self.rhs.local_ref_type) {
     (Some(lhs), Some(rhs)) =>
       (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
-      optimize_instructions_abs_struct_array_disjoint(
+      OiHeapRelationFact::from_heaps(
+        ctx,
         lhs.get_heap_type(),
         rhs.get_heap_type(),
-      )
+      ).known_abs_struct_array_disjoint()
     _ => false
   }
 }
@@ -21403,7 +21423,7 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     }
     _ => ()
   }
-  if relation_fact.proves_impossible_equal() {
+  if relation_fact.proves_impossible_equal(ctx) {
     optimize_instructions_replace_ref_eq_impossible_with_const_i32(
       ctx, func, node_id, lhs_id, rhs_id,
     )
