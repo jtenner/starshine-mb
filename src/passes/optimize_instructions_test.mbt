@@ -9054,6 +9054,62 @@ test "optimize-instructions folds ref.test from precise fallthrough block facts"
 }
 
 ///|
+test "optimize-instructions folds ref.test misses from fallthrough producer facts" {
+  // Binaryen version_130 `visitRefTest` evaluates the cast check against
+  // `getFallthroughType(curr->ref)`, so a broad block result whose live value is
+  // an `i31ref` still proves a non-null `structref` test false. This locks the
+  // miss as a producer/fallthrough fact instead of an opcode-local block scan.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))
+  let struct_ref_type = @lib.RefType::new(false, struct_heap)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(eq_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::ref_i31(),
+              ]),
+            ),
+            @lib.Instruction::ref_test_type(struct_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = match optimized.code_sec {
+    Some(@lib.CodeSec([func])) => func
+    _ => fail("expected optimized fallthrough-miss ref.test function")
+  }
+  assert_false(
+    body.any(fn(instr) {
+      instr == @lib.Instruction::ref_test_type(struct_ref_type)
+    }),
+    msg="expected fallthrough producer miss to fold ref.test, got \{body}",
+  )
+  assert_true(
+    "\{body}".contains("I32(0)"),
+    msg="expected folded false ref.test result, got \{body}",
+  )
+}
+
+///|
 test "optimize-instructions tightens ref.test nullability from fallthrough GLB facts" {
   // Binaryen version_130 `visitRefTest` first intersects the test cast type
   // with `getFallthroughType(curr->ref)` before evaluating the cast. A non-null

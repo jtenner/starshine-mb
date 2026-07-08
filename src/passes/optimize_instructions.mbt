@@ -1310,6 +1310,21 @@ fn OiRefProducerFact::matches_exact_test_target(
 }
 
 ///|
+fn OiRefProducerFact::misses_target(
+  self : OiRefProducerFact,
+  ctx : HotPassContext,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> Bool {
+  match self.ref_type {
+    Some(ref_type) =>
+      OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_miss_target() &&
+      (ref_type.is_non_nullable() || !target_nullable)
+    None => false
+  }
+}
+
+///|
 fn OiRefProducerFact::misses_exact_target(
   self : OiRefProducerFact,
   target : @lib.HeapType,
@@ -2122,6 +2137,7 @@ fn OiRefTestOperandFact::known_failure(
   exact : Bool,
 ) -> Bool {
   self.misses_target(ctx, target) ||
+  self.producer_fact.misses_target(ctx, target, nullable) ||
   (
     exact &&
     (
