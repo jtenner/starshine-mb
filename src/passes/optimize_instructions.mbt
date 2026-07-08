@@ -330,6 +330,142 @@ fn OiRefFact::type_is_non_nullable(self : OiRefFact) -> Bool {
 }
 
 ///|
+priv struct OiRefIsNullFact {
+  operand_id : Int
+  operand_fact : OiRefFact
+  operand_effects_are_pure : Bool
+}
+
+///|
+fn OiRefIsNullFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefIsNullFact? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  // Binaryen v130 `visitRefIsNull` makes the direct decision from reference
+  // nullability/source facts, then preserves operand effects with a drop when
+  // the operand cannot be erased. Keep that as a named fact so the visitor does
+  // not own a one-off ref-null / non-null / purity cascade.
+  Some({
+    operand_id,
+    operand_fact: OiRefFact::from_node(func, operand_id),
+    operand_effects_are_pure: optimize_instructions_node_effects_are_pure(
+      ctx, func, operand_id,
+    ),
+  })
+}
+
+///|
+fn OiRefIsNullFact::known_result(self : OiRefIsNullFact) -> @lib.I32? {
+  if self.operand_fact.is_known_null() {
+    Some(@lib.I32(1))
+  } else if self.operand_fact.is_known_non_null() {
+    Some(@lib.I32(0))
+  } else {
+    None
+  }
+}
+
+///|
+fn OiRefIsNullFact::can_erase_operand(self : OiRefIsNullFact) -> Bool {
+  self.operand_effects_are_pure
+}
+
+///|
+priv enum OiRefIsNullRewritePlanKind {
+  RefIsNullRewriteToConst
+  RefIsNullDropOperandThenConst
+}
+
+///|
+priv struct OiRefIsNullRewritePlanFact {
+  kind : OiRefIsNullRewritePlanKind
+  operand_id : Int
+  const_result : @lib.I32
+}
+
+///|
+fn OiRefIsNullRewritePlanFact::from_fact(
+  fact : OiRefIsNullFact,
+) -> OiRefIsNullRewritePlanFact? {
+  match fact.known_result() {
+    Some(value) =>
+      Some({
+        kind: if fact.can_erase_operand() {
+          RefIsNullRewriteToConst
+        } else {
+          RefIsNullDropOperandThenConst
+        },
+        operand_id: fact.operand_id,
+        const_result: value,
+      })
+    None => None
+  }
+}
+
+///|
+fn OiRefIsNullRewritePlanFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefIsNullRewritePlanFact? {
+  match OiRefIsNullFact::from_node(ctx, func, node_id) {
+    Some(fact) => OiRefIsNullRewritePlanFact::from_fact(fact)
+    None => None
+  }
+}
+
+///|
+fn OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_exact_unary(
+    ctx,
+    func,
+    node_id,
+    @lib.Instruction::ref_is_null(),
+    operand_id,
+  )
+}
+
+///|
+fn OiRefIsNullRewritePlanFact::apply(
+  self : OiRefIsNullRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    RefIsNullRewriteToConst => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.const_result,
+      )
+      true
+    }
+    RefIsNullDropOperandThenConst => {
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.operand_id,
+        self.const_result,
+      )
+      true
+    }
+  }
+}
+
+///|
 priv struct OiRefLiteralFact {
   i31_literal : Bool
   func_literal : Bool
@@ -2084,6 +2220,39 @@ fn OiRefTestRewritePlanFact::from_test(
 }
 
 ///|
+fn OiRefTestRewritePlanFact::replace_with_ref_is_null(
+  self : OiRefTestRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
+    ctx,
+    func,
+    node_id,
+    self.test_fact.operand_id,
+  )
+}
+
+///|
+fn OiRefTestRewritePlanFact::replace_with_ref_is_non_null_test(
+  self : OiRefTestRewritePlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  let operand_id = self.test_fact.operand_id
+  let is_null = @ir.hot_build_unary(func, @lib.ValType::i32(), operand_id)
+  @ir.hot_node_exact_instr_set(func, is_null, @lib.Instruction::ref_is_null())
+  let non_null = @ir.hot_build_unary(func, @lib.ValType::i32(), is_null)
+  @ir.hot_node_exact_instr_set(func, non_null, @lib.Instruction::i32_eqz())
+  let replacement = @ir.hot_node_get(func, non_null)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_delete_node(func, non_null)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn OiRefTestRewritePlanFact::apply(
   self : OiRefTestRewritePlanFact,
   ctx : HotPassContext,
@@ -2093,15 +2262,11 @@ fn OiRefTestRewritePlanFact::apply(
   let operand_id = self.test_fact.operand_id
   match self.kind {
     RefTestRewriteToNonNullCheck => {
-      optimize_instructions_replace_with_ref_is_non_null_test(
-        ctx, func, node_id, operand_id,
-      )
+      self.replace_with_ref_is_non_null_test(ctx, func, node_id)
       true
     }
     RefTestRewriteToNullCheck => {
-      optimize_instructions_replace_with_ref_is_null(
-        ctx, func, node_id, operand_id,
-      )
+      self.replace_with_ref_is_null(ctx, func, node_id)
       true
     }
     RefTestRewriteToConst =>
@@ -18335,39 +18500,6 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
 }
 
 ///|
-fn optimize_instructions_replace_with_ref_is_null(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  operand_id : Int,
-) -> Unit {
-  optimize_instructions_replace_with_exact_unary(
-    ctx,
-    func,
-    node_id,
-    @lib.Instruction::ref_is_null(),
-    operand_id,
-  )
-}
-
-///|
-fn optimize_instructions_replace_with_ref_is_non_null_test(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  operand_id : Int,
-) -> Unit {
-  let is_null = @ir.hot_build_unary(func, @lib.ValType::i32(), operand_id)
-  @ir.hot_node_exact_instr_set(func, is_null, @lib.Instruction::ref_is_null())
-  let non_null = @ir.hot_build_unary(func, @lib.ValType::i32(), is_null)
-  @ir.hot_node_exact_instr_set(func, non_null, @lib.Instruction::i32_eqz())
-  let replacement = @ir.hot_node_get(func, non_null)
-  @ir.hot_replace_node(func, node_id, replacement)
-  @ir.hot_delete_node(func, non_null)
-  pass_mark_mutated(ctx, func)
-}
-
-///|
 fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
@@ -18761,49 +18893,6 @@ fn optimize_instructions_try_collapse_dropped_unreachable_block(
   }
   optimize_instructions_replace_with_unreachable(ctx, func, node_id)
   true
-}
-
-///|
-fn optimize_instructions_try_fold_ref_is_null(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  let operand_id = @ir.hot_child_get(func, node_id, 0)
-  match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::RefNull => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(1),
-      )
-      true
-    }
-    _ if OiRefFact::from_node(func, operand_id).is_known_non_null() => {
-      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(0),
-        )
-      } else {
-        optimize_instructions_replace_with_drop_then_const_i32(
-          ctx,
-          func,
-          node_id,
-          operand_id,
-          @lib.I32(0),
-        )
-      }
-      true
-    }
-    _ => false
-  }
 }
 
 ///|
@@ -22116,7 +22205,9 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
         )
       }
     } else {
-      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, rhs_id)
+      OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
+        ctx, func, node_id, rhs_id,
+      )
     }
     return true
   }
@@ -22139,7 +22230,9 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
         )
       }
     } else {
-      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, lhs_id)
+      OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
+        ctx, func, node_id, lhs_id,
+      )
     }
     return true
   }
@@ -23502,7 +23595,10 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       )
     @ir.HotOp::RefIsNull =>
-      optimize_instructions_try_fold_ref_is_null(ctx, func, node_id)
+      match OiRefIsNullRewritePlanFact::from_node(ctx, func, node_id) {
+        Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
+        None => false
+      }
     @ir.HotOp::RefTest | @ir.HotOp::RefTestDesc =>
       optimize_instructions_try_fold_ref_test_null(ctx, func, node_id)
     @ir.HotOp::RefCast =>
