@@ -6293,6 +6293,61 @@ test "optimize-instructions replaces boolean maxBits shifts with zero" {
 }
 
 ///|
+test "optimize-instructions replaces arithmetic maxBits shifts with zero" {
+  // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` bounds add,
+  // multiply, and left shift from their operands. When a following unsigned
+  // shift removes every possible result bit, `replaceZeroBitsWithZero` turns
+  // the pure expression into a typed zero.
+  let i32_add_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 0 i32.const 15 i32.and local.get 1 i32.const 15 i32.and i32.add i32.const 5 i32.shr_u))",
+  )
+  let i32_add_root = @ir.hot_root_get(i32_add_func, 0)
+  match @ir.hot_node_get(i32_add_func, i32_add_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i32.add maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_add_func,
+      @ir.hot_node_get(i32_add_func, i32_add_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i32_shl_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 3 i32.and i32.const 2 i32.shl i32.const 4 i32.shr_u))",
+  )
+  let i32_shl_root = @ir.hot_root_get(i32_shl_func, 0)
+  match @ir.hot_node_get(i32_shl_func, i32_shl_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i32.shl maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_shl_func,
+      @ir.hot_node_get(i32_shl_func, i32_shl_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_mul_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i64) local.get 0 i64.const 7 i64.and local.get 1 i64.const 3 i64.and i64.mul i64.const 5 i64.shr_u))",
+  )
+  let i64_mul_root = @ir.hot_root_get(i64_mul_func, 0)
+  match @ir.hot_node_get(i64_mul_func, i64_mul_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted bounded i64.mul maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_mul_func,
+      @ir.hot_node_get(i64_mul_func, i64_mul_root).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned load maxBits compares" {
   let source =
     #|(module
