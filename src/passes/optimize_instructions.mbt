@@ -27230,11 +27230,31 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
 }
 
 ///|
-fn optimize_instructions_same_local_integer_compare_result(
+priv struct OiSameLocalIntegerCompareFact {
+  result : @lib.I32
+}
+
+///|
+fn OiSameLocalIntegerCompareFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   instr : @lib.Instruction,
-) -> @lib.I32? {
-  match instr {
-    @lib.Instruction::I32Eq | @lib.Instruction::I64Eq => Some(@lib.I32(1))
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiSameLocalIntegerCompareFact? {
+  // Binaryen v130 folds integer relational compares of the same local value to
+  // constants in `visitBinary`. Keep the local-equality proof and per-opcode
+  // truth table as one fact so the visitor does not own a compare whitelist.
+  match
+    (
+      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
+      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
+    ) {
+    (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
+    _ => return None
+  }
+  let result = match instr {
+    @lib.Instruction::I32Eq | @lib.Instruction::I64Eq => @lib.I32(1)
     @lib.Instruction::I32Ne
     | @lib.Instruction::I64Ne
     | @lib.Instruction::I32LtS
@@ -27244,7 +27264,7 @@ fn optimize_instructions_same_local_integer_compare_result(
     | @lib.Instruction::I32GtS
     | @lib.Instruction::I32GtU
     | @lib.Instruction::I64GtS
-    | @lib.Instruction::I64GtU => Some(@lib.I32(0))
+    | @lib.Instruction::I64GtU => @lib.I32(0)
     @lib.Instruction::I32LeS
     | @lib.Instruction::I32LeU
     | @lib.Instruction::I64LeS
@@ -27252,9 +27272,20 @@ fn optimize_instructions_same_local_integer_compare_result(
     | @lib.Instruction::I32GeS
     | @lib.Instruction::I32GeU
     | @lib.Instruction::I64GeS
-    | @lib.Instruction::I64GeU => Some(@lib.I32(1))
-    _ => None
+    | @lib.Instruction::I64GeU => @lib.I32(1)
+    _ => return None
   }
+  Some({ result, })
+}
+
+///|
+fn OiSameLocalIntegerCompareFact::apply(
+  self : OiSameLocalIntegerCompareFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_const_i32(ctx, func, node_id, self.result)
 }
 
 ///|
@@ -27511,16 +27542,94 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
   rhs_id : Int,
 ) -> Bool {
   match
+    OiSameLocalIntegerCompareFact::from_operands(
+      func, dead, instr, lhs_id, rhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      true
+    }
+    None => false
+  }
+}
+
+///|
+priv enum OiSameLocalIntegerBinaryRewriteKind {
+  SameLocalBinaryConstI32Zero
+  SameLocalBinaryConstI64Zero
+  SameLocalBinaryRetainLeft
+}
+
+///|
+priv struct OiSameLocalIntegerBinaryFact {
+  kind : OiSameLocalIntegerBinaryRewriteKind
+  retained_id : Int
+}
+
+///|
+fn OiSameLocalIntegerBinaryFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiSameLocalIntegerBinaryFact? {
+  // Binaryen v130 folds same-local integer `sub` / `xor` to typed zero and
+  // idempotent integer `and` / `or` to the local. Store the same-local proof,
+  // opcode family, and retained child as a fact instead of a visitor-local
+  // opcode whitelist.
+  match
     (
       OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
       OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
-      optimize_instructions_same_local_integer_compare_result(instr),
     ) {
-    (Some(lhs_local), Some(rhs_local), Some(result)) if lhs_local == rhs_local => {
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
-      true
-    }
-    _ => false
+    (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
+    _ => return None
+  }
+  let kind = match instr {
+    @lib.Instruction::I32Sub | @lib.Instruction::I32Xor =>
+      OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryConstI32Zero
+    @lib.Instruction::I64Sub | @lib.Instruction::I64Xor =>
+      OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryConstI64Zero
+    @lib.Instruction::I32And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I64Or =>
+      OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryRetainLeft
+    _ => return None
+  }
+  Some({ kind, retained_id: lhs_id })
+}
+
+///|
+fn OiSameLocalIntegerBinaryFact::apply(
+  self : OiSameLocalIntegerBinaryFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.kind {
+    OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryConstI32Zero =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
+      )
+    OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryConstI64Zero =>
+      optimize_instructions_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(0L),
+      )
+    OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryRetainLeft =>
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        self.retained_id,
+      )
   }
 }
 
@@ -27535,40 +27644,14 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
   rhs_id : Int,
 ) -> Bool {
   match
-    (
-      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
-      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
+    OiSameLocalIntegerBinaryFact::from_operands(
+      func, dead, instr, lhs_id, rhs_id,
     ) {
-    (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
-    _ => return false
-  }
-  match instr {
-    @lib.Instruction::I32Sub | @lib.Instruction::I32Xor => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(0),
-      )
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       true
     }
-    @lib.Instruction::I64Sub | @lib.Instruction::I64Xor => {
-      optimize_instructions_replace_with_const_i64(
-        ctx,
-        func,
-        node_id,
-        @lib.I64(0L),
-      )
-      true
-    }
-    @lib.Instruction::I32And
-    | @lib.Instruction::I32Or
-    | @lib.Instruction::I64And
-    | @lib.Instruction::I64Or => {
-      optimize_instructions_replace_with_node_id(ctx, func, node_id, lhs_id)
-      true
-    }
-    _ => false
+    None => false
   }
 }
 
