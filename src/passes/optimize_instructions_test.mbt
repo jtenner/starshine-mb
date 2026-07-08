@@ -10830,6 +10830,74 @@ test "optimize-instructions folds ref.test_desc null operands from descriptor te
 }
 
 ///|
+test "optimize-instructions documents descriptor ref.test_desc miss validation boundary" {
+  // OI-J descriptor-test miss boundary: Binaryen version_130 routes
+  // `ref.test_desc` through the same `GCTypeUtils::evaluateCastCheck` family as
+  // ordinary `ref.test`, but Starshine's current validation rejects a disjoint
+  // descriptor-test target before OI can observe or fold the miss. Keep this as
+  // an explicit invalid-shape boundary; reopen only with a validated public/HOT
+  // fixture whose descriptor target can miss the operand type.
+  let described_a_type = @lib.TypeIdx::new(0U)
+  let descriptor_a_type = @lib.TypeIdx::new(1U)
+  let described_b_type = @lib.TypeIdx::new(2U)
+  let descriptor_b_type = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let described_b_heap = @lib.HeapType::new(described_b_type)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_a_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_a_type)),
+          ),
+        ]),
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_b_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_b_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_a_type),
+            @lib.Instruction::struct_new_default_desc(described_a_type),
+            @lib.Instruction::ref_test_desc(false, described_b_heap),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(module_) {
+    Ok(_) =>
+      fail("expected disjoint ref.test_desc target to stay validation-blocked")
+    Err(err) =>
+      assert_true(
+        "\{err}".contains("ref.test_desc target does not match operand type"),
+        msg="expected descriptor miss validation boundary, got \{err}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds same-heap ref.test_desc successes from descriptor test facts" {
   // OI-J descriptor-test fact slice: Binaryen version_130 evaluates
   // `ref.test_desc` through the RefTest cast-check path. A non-null operand

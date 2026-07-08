@@ -2221,6 +2221,44 @@ priv struct OiDescriptorRefTestEvaluationFact {
 }
 
 ///|
+priv struct OiDescriptorRefTestMissFact {
+  boundary_only : Bool
+}
+
+///|
+fn OiDescriptorRefTestMissFact::from_operand(
+  ctx : HotPassContext,
+  operand_fact : OiRefTestOperandFact,
+  target : @lib.HeapType,
+  nullable : Bool,
+) -> OiDescriptorRefTestMissFact? {
+  // Binaryen v130 evaluates descriptor tests through the same cast-check table
+  // that can prove ordinary `ref.test` misses. Starshine currently validates
+  // `ref.test_desc` targets against the operand type before OI runs, so a public
+  // disjoint descriptor-test miss fixture is rejected locally. Keep that miss
+  // reopening point as an explicit descriptor-test fact rather than hiding it in
+  // the descriptor evaluation's `Unknown` fallback.
+  ignore(nullable)
+  let candidate_miss = match operand_fact.source_type {
+    Some(ref_type) =>
+      OiHeapRelationFact::from_heaps(ctx, ref_type.get_heap_type(), target).known_miss_target()
+    None => false
+  }
+  if candidate_miss {
+    Some({ boundary_only: true })
+  } else {
+    None
+  }
+}
+
+///|
+fn OiDescriptorRefTestMissFact::proves_boundary_only(
+  self : OiDescriptorRefTestMissFact,
+) -> Bool {
+  self.boundary_only
+}
+
+///|
 fn OiDescriptorRefTestEvaluationFact::from_operand(
   ctx : HotPassContext,
   operand_fact : OiRefTestOperandFact,
@@ -2241,7 +2279,16 @@ fn OiDescriptorRefTestEvaluationFact::from_operand(
       } else {
         RefTestSuccess
       }
-    None => RefTestUnknown
+    None => {
+      match
+        OiDescriptorRefTestMissFact::from_operand(
+          ctx, operand_fact, target, nullable,
+        ) {
+        Some(fact) => ignore(fact.proves_boundary_only())
+        None => ()
+      }
+      RefTestUnknown
+    }
   }
   { kind, }
 }
