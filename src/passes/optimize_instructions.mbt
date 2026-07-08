@@ -27892,6 +27892,13 @@ fn OiDescriptorNullableChildEraseTnhFact::proves_can_erase(
 }
 
 ///|
+priv enum OiRefGetDescOperandEraseKind {
+  RefGetDescOperandMustPreserve
+  RefGetDescOperandEraseDefault
+  RefGetDescOperandEraseTrapsNeverHappen
+}
+
+///|
 priv struct OiRefGetDescOperandEraseFact {
   live : Bool
   ref_get_desc : Bool
@@ -27900,8 +27907,7 @@ priv struct OiRefGetDescOperandEraseFact {
   child_side_effect_free : Bool
   explicit_nullable_child : Bool
   nullable_child_can_erase_traps_never_happen : Bool
-  can_erase_default : Bool
-  can_erase_traps_never_happen : Bool
+  kind : OiRefGetDescOperandEraseKind
 }
 
 ///|
@@ -27912,8 +27918,9 @@ fn OiRefGetDescOperandEraseFact::from_node(
 ) -> OiRefGetDescOperandEraseFact {
   // Binaryen v130 descriptor rewrites may drop `ref.get_desc` when the operand
   // is already known non-null and side-effect-free, or when TNH lets the
-  // descriptor-side null check be erased. Store both modes as facts so callers
-  // do not rescan the wrapper and nullable child independently.
+  // descriptor-side null check be erased. Store that ordered result as a fact
+  // kind so callers do not rescan the wrapper and nullable child independently
+  // or consume parallel default/TNH booleans.
   let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
     Some(fact) => fact
     None =>
@@ -27925,8 +27932,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
         child_side_effect_free: false,
         explicit_nullable_child: false,
         nullable_child_can_erase_traps_never_happen: false,
-        can_erase_default: false,
-        can_erase_traps_never_happen: false,
+        kind: RefGetDescOperandMustPreserve,
       }
   }
   let child_ref_fact = OiRefFact::from_node(func, get_desc_fact.child_id)
@@ -27937,7 +27943,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
     dead,
     get_desc_fact.child_id,
   )
-  let can_erase_default = (child_non_nullable_type || child_known_non_null) &&
+  let default_can_erase = (child_non_nullable_type || child_known_non_null) &&
     child_side_effect_free
   let (explicit_nullable_child, nullable_child_can_erase_traps_never_happen) = match
     get_desc_fact.explicit_nullable_child() {
@@ -27950,6 +27956,14 @@ fn OiRefGetDescOperandEraseFact::from_node(
       )
     None => (false, false)
   }
+  let kind = if default_can_erase {
+    RefGetDescOperandEraseDefault
+  } else if explicit_nullable_child &&
+    nullable_child_can_erase_traps_never_happen {
+    RefGetDescOperandEraseTrapsNeverHappen
+  } else {
+    RefGetDescOperandMustPreserve
+  }
   {
     live: true,
     ref_get_desc: true,
@@ -27958,8 +27972,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
     child_side_effect_free,
     explicit_nullable_child,
     nullable_child_can_erase_traps_never_happen,
-    can_erase_default,
-    can_erase_traps_never_happen: nullable_child_can_erase_traps_never_happen,
+    kind,
   }
 }
 
@@ -27969,9 +27982,13 @@ fn OiRefGetDescOperandEraseFact::proves_default_can_erase(
 ) -> Bool {
   self.live &&
   self.ref_get_desc &&
-  self.can_erase_default &&
-  (self.child_non_nullable_type || self.child_known_non_null) &&
-  self.child_side_effect_free
+  (match self.kind {
+    RefGetDescOperandEraseDefault =>
+      (self.child_non_nullable_type || self.child_known_non_null) &&
+      self.child_side_effect_free
+    RefGetDescOperandEraseTrapsNeverHappen | RefGetDescOperandMustPreserve =>
+      false
+  })
 }
 
 ///|
@@ -27980,9 +27997,12 @@ fn OiRefGetDescOperandEraseFact::proves_tnh_can_erase(
 ) -> Bool {
   self.live &&
   self.ref_get_desc &&
-  self.explicit_nullable_child &&
-  self.nullable_child_can_erase_traps_never_happen &&
-  self.can_erase_traps_never_happen
+  (match self.kind {
+    RefGetDescOperandEraseTrapsNeverHappen =>
+      self.explicit_nullable_child &&
+      self.nullable_child_can_erase_traps_never_happen
+    RefGetDescOperandEraseDefault | RefGetDescOperandMustPreserve => false
+  })
 }
 
 ///|
