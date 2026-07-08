@@ -973,13 +973,72 @@ fn OiFallthroughTailFact::proves_branch_to_fallthrough_child(
 }
 
 ///|
+priv enum OiRefFallthroughTailUseKind {
+  NoRefFallthroughTail
+  BranchFreeRefFallthroughTail
+  BrOnReferenceChildRefFallthroughTail
+  BranchControlBlockedRefFallthroughTail
+}
+
+///|
+priv struct OiRefFallthroughTailUseFact {
+  kind : OiRefFallthroughTailUseKind
+  region_branch_control : OiDescriptorBranchControlRegionFact
+  prefix_branch_control : OiDescriptorBranchControlRegionFact
+  tail_fact : OiFallthroughTailFact
+}
+
+///|
+fn OiRefFallthroughTailUseFact::empty() -> OiRefFallthroughTailUseFact {
+  {
+    kind: NoRefFallthroughTail,
+    region_branch_control: OiDescriptorBranchControlRegionFact::empty(),
+    prefix_branch_control: OiDescriptorBranchControlRegionFact::empty(),
+    tail_fact: OiFallthroughTailFact::empty(),
+  }
+}
+
+///|
+fn OiRefFallthroughTailUseFact::from_facts(
+  region_branch_control : OiDescriptorBranchControlRegionFact,
+  prefix_branch_control : OiDescriptorBranchControlRegionFact,
+  tail_fact : OiFallthroughTailFact,
+) -> OiRefFallthroughTailUseFact {
+  // Binaryen's Properties::getFallthroughType can use a branch-free tail, or a
+  // br_on_* reference child when no earlier prefix branch control would escape.
+  // Keep that region-control outcome explicit instead of carrying parallel
+  // has-branch / prefix-has-branch / tail-branches booleans on the region fact.
+  let has_branch_control = region_branch_control.proves_has_branch_control()
+  let prefix_has_branch_control = prefix_branch_control.proves_has_branch_control()
+  let tail_branches_to_fallthrough_child = tail_fact.proves_branch_to_fallthrough_child()
+  let kind = if !has_branch_control {
+    BranchFreeRefFallthroughTail
+  } else if tail_branches_to_fallthrough_child && !prefix_has_branch_control {
+    BrOnReferenceChildRefFallthroughTail
+  } else {
+    BranchControlBlockedRefFallthroughTail
+  }
+  { kind, region_branch_control, prefix_branch_control, tail_fact }
+}
+
+///|
+fn OiRefFallthroughTailUseFact::proves_usable_tail(
+  self : OiRefFallthroughTailUseFact,
+) -> Bool {
+  ignore(self.region_branch_control)
+  ignore(self.prefix_branch_control)
+  ignore(self.tail_fact)
+  match self.kind {
+    BranchFreeRefFallthroughTail | BrOnReferenceChildRefFallthroughTail => true
+    NoRefFallthroughTail | BranchControlBlockedRefFallthroughTail => false
+  }
+}
+
+///|
 priv struct OiRefFallthroughRegionFact {
   root_count : Int
-  tail_id : Int
-  has_branch_control : Bool
-  prefix_has_branch_control : Bool
-  tail_branches_to_fallthrough_child : Bool
-  usable_tail : Bool
+  tail_id : Int?
+  tail_use : OiRefFallthroughTailUseFact
   ref_type : @lib.RefType?
 }
 
@@ -987,11 +1046,8 @@ priv struct OiRefFallthroughRegionFact {
 fn OiRefFallthroughRegionFact::empty() -> OiRefFallthroughRegionFact {
   {
     root_count: 0,
-    tail_id: -1,
-    has_branch_control: false,
-    prefix_has_branch_control: false,
-    tail_branches_to_fallthrough_child: false,
-    usable_tail: false,
+    tail_id: None,
+    tail_use: OiRefFallthroughTailUseFact::empty(),
     ref_type: None,
   }
 }
@@ -1005,42 +1061,32 @@ fn OiRefFallthroughRegionFact::from_region(
   // Binaryen's Properties::getFallthroughType descends through block/loop/if
   // tails, but the represented descriptor path must not hide earlier branch
   // control unless the live tail itself is the branch-on-reference fallthrough.
-  // Carry the region-wide branch-control summary, prefix summary, tail proof,
-  // and resulting type as one fact instead of scattered fallthrough helpers.
+  // Carry the region-control result and resulting type as facts instead of
+  // scattered fallthrough helpers or sentinel tail ids.
   let root_count = @ir.hot_region_root_count(func, region_ref)
   let tail_id = match optimize_instructions_region_tail_id(func, region_ref) {
     Some(tail_id) => tail_id
     None => return OiRefFallthroughRegionFact::empty()
   }
-  let has_branch_control = OiDescriptorBranchControlRegionFact::from_region(
-    func,
-    region_ref.holder,
-    region_ref,
-  ).proves_has_branch_control()
-  let prefix_has_branch_control = OiDescriptorBranchControlRegionFact::from_region_prefix_excluding_tail(
-    func,
-    region_ref.holder,
-    region_ref,
-  ).proves_has_branch_control()
-  let tail_branches_to_fallthrough_child = OiFallthroughTailFact::from_node(
-    func, tail_id,
-  ).proves_branch_to_fallthrough_child()
-  let usable_tail = !has_branch_control ||
-    (tail_branches_to_fallthrough_child && !prefix_has_branch_control)
-  let ref_type = if usable_tail {
+  let tail_use = OiRefFallthroughTailUseFact::from_facts(
+    OiDescriptorBranchControlRegionFact::from_region(
+      func,
+      region_ref.holder,
+      region_ref,
+    ),
+    OiDescriptorBranchControlRegionFact::from_region_prefix_excluding_tail(
+      func,
+      region_ref.holder,
+      region_ref,
+    ),
+    OiFallthroughTailFact::from_node(func, tail_id),
+  )
+  let ref_type = if tail_use.proves_usable_tail() {
     OiRefFallthroughFact::from_node(ctx, func, tail_id).ref_type
   } else {
     None
   }
-  {
-    root_count,
-    tail_id,
-    has_branch_control,
-    prefix_has_branch_control,
-    tail_branches_to_fallthrough_child,
-    usable_tail,
-    ref_type,
-  }
+  { root_count, tail_id: Some(tail_id), tail_use, ref_type }
 }
 
 ///|
@@ -1048,18 +1094,9 @@ fn OiRefFallthroughRegionFact::proven_ref_type(
   self : OiRefFallthroughRegionFact,
 ) -> @lib.RefType? {
   ignore(self.root_count)
-  if self.tail_id >= 0 &&
-    self.usable_tail &&
-    (
-      !self.has_branch_control ||
-      (
-        self.tail_branches_to_fallthrough_child &&
-        !self.prefix_has_branch_control
-      )
-    ) {
-    self.ref_type
-  } else {
-    None
+  match self.tail_id {
+    Some(_) if self.tail_use.proves_usable_tail() => self.ref_type
+    _ => None
   }
 }
 
