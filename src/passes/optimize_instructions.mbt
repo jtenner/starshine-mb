@@ -2600,10 +2600,17 @@ fn OiRefTestEvaluationFact::from_test(
 }
 
 ///|
+priv enum OiRefTestResultKind {
+  RefTestResultUnknown
+  RefTestResultConst
+  RefTestResultRefIsNonNull
+  RefTestResultRefIsNull
+}
+
+///|
 priv struct OiRefTestResultFact {
-  known_const_result : @lib.I32?
-  rewrite_to_ref_is_non_null : Bool
-  rewrite_to_ref_is_null : Bool
+  kind : OiRefTestResultKind
+  const_result : @lib.I32?
 }
 
 ///|
@@ -2612,35 +2619,14 @@ fn OiRefTestResultFact::from_evaluation(
 ) -> OiRefTestResultFact {
   match evaluation.kind {
     RefTestSuccess =>
-      {
-        known_const_result: Some(@lib.I32(1)),
-        rewrite_to_ref_is_non_null: false,
-        rewrite_to_ref_is_null: false,
-      }
+      { kind: RefTestResultConst, const_result: Some(@lib.I32(1)) }
     RefTestFailure =>
-      {
-        known_const_result: Some(@lib.I32(0)),
-        rewrite_to_ref_is_non_null: false,
-        rewrite_to_ref_is_null: false,
-      }
+      { kind: RefTestResultConst, const_result: Some(@lib.I32(0)) }
     RefTestSuccessOnlyIfNull =>
-      {
-        known_const_result: None,
-        rewrite_to_ref_is_non_null: false,
-        rewrite_to_ref_is_null: true,
-      }
+      { kind: RefTestResultRefIsNull, const_result: None }
     RefTestSuccessOnlyIfNonNull =>
-      {
-        known_const_result: None,
-        rewrite_to_ref_is_non_null: true,
-        rewrite_to_ref_is_null: false,
-      }
-    RefTestUnknown =>
-      {
-        known_const_result: None,
-        rewrite_to_ref_is_non_null: false,
-        rewrite_to_ref_is_null: false,
-      }
+      { kind: RefTestResultRefIsNonNull, const_result: None }
+    RefTestUnknown => { kind: RefTestResultUnknown, const_result: None }
   }
 }
 
@@ -2700,48 +2686,52 @@ fn OiRefTestRewritePlanFact::from_test(
     None => (test_fact, None)
   }
   let result_fact = OiRefTestResultFact::from_test(ctx, func, active_test_fact)
-  if result_fact.rewrite_to_ref_is_non_null {
-    return Some({
-      kind: RefTestRewriteToNonNullCheck,
-      test_fact: active_test_fact,
-      const_result: None,
-      narrowed_ref_type: None,
-    })
-  }
-  if result_fact.rewrite_to_ref_is_null {
-    return Some({
-      kind: RefTestRewriteToNullCheck,
-      test_fact: active_test_fact,
-      const_result: None,
-      narrowed_ref_type: None,
-    })
-  }
-  match result_fact.known_const_result {
-    Some(value) => {
-      let operand_id = test_fact.operand_id
-      let can_erase_operand = (
-          value == @lib.I32(0) &&
-          (
-            OiTriviallyPureOperandFact::proves_node_pure(func, operand_id) ||
-            optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
-          )
-        ) ||
-        (
-          value != @lib.I32(0) &&
-          optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
-        )
+  match result_fact.kind {
+    RefTestResultRefIsNonNull =>
       Some({
-        kind: if can_erase_operand {
-          RefTestRewriteToConst
-        } else {
-          RefTestDropOperandThenConst
-        },
+        kind: RefTestRewriteToNonNullCheck,
         test_fact: active_test_fact,
-        const_result: Some(value),
+        const_result: None,
         narrowed_ref_type: None,
       })
-    }
-    None =>
+    RefTestResultRefIsNull =>
+      Some({
+        kind: RefTestRewriteToNullCheck,
+        test_fact: active_test_fact,
+        const_result: None,
+        narrowed_ref_type: None,
+      })
+    RefTestResultConst =>
+      match result_fact.const_result {
+        Some(value) => {
+          let operand_id = test_fact.operand_id
+          let can_erase_operand = (
+              value == @lib.I32(0) &&
+              (
+                OiTriviallyPureOperandFact::proves_node_pure(func, operand_id) ||
+                optimize_instructions_node_effects_are_pure(
+                  ctx, func, operand_id,
+                )
+              )
+            ) ||
+            (
+              value != @lib.I32(0) &&
+              optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
+            )
+          Some({
+            kind: if can_erase_operand {
+              RefTestRewriteToConst
+            } else {
+              RefTestDropOperandThenConst
+            },
+            test_fact: active_test_fact,
+            const_result: Some(value),
+            narrowed_ref_type: None,
+          })
+        }
+        None => None
+      }
+    RefTestResultUnknown =>
       match pending_tightening {
         Some(narrowed_ref_type) =>
           Some({
