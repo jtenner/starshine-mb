@@ -3141,7 +3141,7 @@ fn OiRefCastOperandErasureFact::from_operand(
 }
 
 ///|
-fn OiRefCastOperandErasureFact::proves_can_erase(
+fn OiRefCastOperandErasureFact::proves_erases_without_effects(
   self : OiRefCastOperandErasureFact,
 ) -> Bool {
   self.trivially_pure || self.effects_pure
@@ -3178,50 +3178,10 @@ fn OiRefCastOperandFact::from_operand(
 }
 
 ///|
-fn OiRefCastOperandFact::proves_direct_null_operand(
+fn OiRefCastOperandFact::proves_operand_erases_without_effects(
   self : OiRefCastOperandFact,
 ) -> Bool {
-  self.target_relation_fact.source_relation.direct_null_operand
-}
-
-///|
-fn OiRefCastOperandFact::proves_can_erase(self : OiRefCastOperandFact) -> Bool {
-  self.erasure_fact.proves_can_erase()
-}
-
-///|
-fn OiRefCastOperandFact::can_rewrite_as_non_null(
-  self : OiRefCastOperandFact,
-  nullable : Bool,
-  exact : Bool,
-) -> Bool {
-  let relation = self.target_relation_fact.source_relation
-  !nullable &&
-  (!exact || relation.has_exact_target_heap) &&
-  relation.nullable_exact_target_type
-}
-
-///|
-fn OiRefCastOperandFact::can_rewrite_nullable_exact_target_only_as_null(
-  self : OiRefCastOperandFact,
-  exact : Bool,
-) -> Bool {
-  exact &&
-  self.target_relation_fact.source_relation.matches_nullable_exact_target_only_as_null
-}
-
-///|
-fn OiRefCastOperandFact::can_forward_operand(
-  self : OiRefCastOperandFact,
-  nullable : Bool,
-  exact : Bool,
-) -> Bool {
-  let relation = self.target_relation_fact.source_relation
-  (!exact || relation.has_exact_target_heap) &&
-  (
-    relation.known_match_target ||
-    (nullable && relation.known_match_nullable_target)
-  )
+  self.erasure_fact.proves_erases_without_effects()
 }
 
 ///|
@@ -3233,15 +3193,72 @@ fn OiRefCastOperandFact::proves_exact_target_miss(
 }
 
 ///|
-fn OiRefCastOperandFact::can_prove_trap(
-  self : OiRefCastOperandFact,
+priv enum OiRefCastOperandRewriteKind {
+  RefCastOperandDirectNullForward
+  RefCastOperandDirectNullTrap
+  RefCastOperandAsNonNull
+  RefCastOperandNullrefCast
+  RefCastOperandForward
+  RefCastOperandEraseTrap
+  RefCastOperandPreserveTrap
+}
+
+///|
+priv struct OiRefCastOperandRewriteFact {
+  kind : OiRefCastOperandRewriteKind
+}
+
+///|
+fn OiRefCastOperandRewriteFact::from_operand_fact(
+  operand_fact : OiRefCastOperandFact,
   nullable : Bool,
   exact : Bool,
-) -> Bool {
-  let relation = self.target_relation_fact.source_relation
-  relation.known_miss_target ||
-  (exact && self.proves_exact_target_miss()) ||
-  (!nullable && relation.null_or_known_miss_for_non_null_target)
+) -> OiRefCastOperandRewriteFact? {
+  // Binaryen v130 `visitRefCast` asks `GCTypeUtils::evaluateCastCheck` for a
+  // known source/target outcome, then chooses the first matching result in this
+  // order: direct-null forwarding/trapping, non-null check, nullable-exact
+  // null-only materialization, operand forwarding, and finally trap emission
+  // with or without operand preservation. Capture that ordered decision as a
+  // result fact instead of exposing several helper-shaped `can_*` predicates on
+  // `OiRefCastOperandFact`.
+  let relation = operand_fact.target_relation_fact.source_relation
+  if relation.direct_null_operand {
+    return Some({
+      kind: if nullable {
+        RefCastOperandDirectNullForward
+      } else {
+        RefCastOperandDirectNullTrap
+      },
+    })
+  }
+  if !nullable &&
+    (!exact || relation.has_exact_target_heap) &&
+    relation.nullable_exact_target_type {
+    return Some({ kind: RefCastOperandAsNonNull })
+  }
+  if exact && relation.matches_nullable_exact_target_only_as_null {
+    return Some({ kind: RefCastOperandNullrefCast })
+  }
+  if (!exact || relation.has_exact_target_heap) &&
+    (
+      relation.known_match_target ||
+      (nullable && relation.known_match_nullable_target)
+    ) {
+    return Some({ kind: RefCastOperandForward })
+  }
+  let traps = relation.known_miss_target ||
+    (exact && operand_fact.proves_exact_target_miss()) ||
+    (!nullable && relation.null_or_known_miss_for_non_null_target)
+  if traps {
+    return Some({
+      kind: if operand_fact.proves_operand_erases_without_effects() {
+        RefCastOperandEraseTrap
+      } else {
+        RefCastOperandPreserveTrap
+      },
+    })
+  }
+  None
 }
 
 ///|
@@ -3447,54 +3464,28 @@ fn OiRefCastRewritePlanFact::from_cast(
     active_cast_fact.target,
     nullable,
   )
-  if operand_fact.proves_direct_null_operand() {
-    return Some({
-      kind: if nullable {
-        RefCastForwardOperand
-      } else {
-        RefCastUnreachable
-      },
-      cast_fact: active_cast_fact,
-      replacement_operand_id: -1,
-      narrowed_ref_type: None,
-    })
-  }
-  if operand_fact.can_rewrite_as_non_null(nullable, exact) {
-    return Some({
-      kind: RefCastAsNonNull,
-      cast_fact: active_cast_fact,
-      replacement_operand_id: -1,
-      narrowed_ref_type: None,
-    })
-  }
-  if operand_fact.can_rewrite_nullable_exact_target_only_as_null(exact) {
-    return Some({
-      kind: RefCastNullrefCast,
-      cast_fact: active_cast_fact,
-      replacement_operand_id: -1,
-      narrowed_ref_type: None,
-    })
-  }
-  if operand_fact.can_forward_operand(nullable, exact) {
-    return Some({
-      kind: RefCastForwardOperand,
-      cast_fact: active_cast_fact,
-      replacement_operand_id: -1,
-      narrowed_ref_type: None,
-    })
-  }
-  if operand_fact.can_prove_trap(nullable, exact) {
-    let kind = if operand_fact.proves_can_erase() {
-      RefCastUnreachable
-    } else {
-      RefCastDropOperandThenUnreachable
+  match
+    OiRefCastOperandRewriteFact::from_operand_fact(
+      operand_fact, nullable, exact,
+    ) {
+    Some(rewrite_fact) => {
+      let kind = match rewrite_fact.kind {
+        RefCastOperandDirectNullForward => RefCastForwardOperand
+        RefCastOperandDirectNullTrap => RefCastUnreachable
+        RefCastOperandAsNonNull => RefCastAsNonNull
+        RefCastOperandNullrefCast => RefCastNullrefCast
+        RefCastOperandForward => RefCastForwardOperand
+        RefCastOperandEraseTrap => RefCastUnreachable
+        RefCastOperandPreserveTrap => RefCastDropOperandThenUnreachable
+      }
+      return Some({
+        kind,
+        cast_fact: active_cast_fact,
+        replacement_operand_id: -1,
+        narrowed_ref_type: None,
+      })
     }
-    return Some({
-      kind,
-      cast_fact: active_cast_fact,
-      replacement_operand_id: -1,
-      narrowed_ref_type: None,
-    })
+    None => ()
   }
   match OiRefCastChildCastFact::from_cast(ctx, func, active_cast_fact) {
     Some(child_fact) =>
@@ -3878,7 +3869,7 @@ fn OiDescriptorExactMissFact::from_node(
       dead,
       cast_fact.descriptor_id,
     ).proves_can_erase(),
-    ref_operand_can_erase: ref_operand_fact.proves_can_erase(),
+    ref_operand_can_erase: ref_operand_fact.proves_operand_erases_without_effects(),
     ref_operand_can_drop_before_unreachable: operand_drop_fact.live &&
     (
       (
