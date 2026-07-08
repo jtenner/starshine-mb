@@ -32613,6 +32613,96 @@ test "optimize-instructions lowers table.get call_ref targets to indirect calls"
 }
 
 ///|
+test "optimize-instructions lowers ref.as_non_null table.get call_ref targets" {
+  // OI-H call_ref target skip fact slice: Binaryen version_130 runs
+  // `skipNonNullCast(curr->target, curr)` before table-target directization.
+  // Because the call_ref target is the final child, removing a top-level
+  // `ref.as_non_null` does not cross later sibling effects; the subsequent
+  // table-target fact can lower to call_indirect while preserving the null trap
+  // through call_indirect. This keeps nullable-child skipping source-backed and
+  // limited to the call_ref target slot rather than adding a broad cast scanner.
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let typed_func_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(callee_type_idx),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([callee_type_idx, callee_type_idx, callee_type_idx]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(typed_func_ref, @lib.Limits::i32(1U, Some(1U))),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::typed_exprs(typed_func_ref, [
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::call_ref(callee_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::return_call_ref(callee_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(caller.contains("call_indirect (Type 0) (Table 0)"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_false(caller.contains("ref.as_non_null"), msg=caller)
+  assert_false(caller.contains("table.get"), msg=caller)
+  assert_true(
+    tail.contains("return_call_indirect (Type 0) (Table 0)"),
+    msg=tail,
+  )
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+  assert_false(tail.contains("ref.as_non_null"), msg=tail)
+  assert_false(tail.contains("table.get"), msg=tail)
+}
+
+///|
 test "optimize-instructions directizes call-indexed table.get call_ref targets" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let index_type_idx = @lib.TypeIdx::new(1U)

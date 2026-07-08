@@ -5747,18 +5747,32 @@ fn OiCallRefFallthroughTypeFact::proves_target_heap_matches_ref_func_heap(
 priv struct OiCallRefTargetSkipNonNullFact {
   replacement_target_id : Int
   skipped_non_null_cast : Bool
+  child_static_ref_type : @lib.RefType?
+  target_is_final_call_ref_child : Bool
 }
 
 ///|
-fn OiCallRefTargetSkipNonNullFact::from_target(
+fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  target_id : Int,
+  call_ref_id : Int,
 ) -> OiCallRefTargetSkipNonNullFact? {
   // Binaryen v130 `visitCallRef` runs `skipNonNullCast(curr->target, curr)`
-  // before target directization. Keep that pre-target step explicit so direct,
-  // table, fallthrough, select, and future descriptor-producer target facts do
-  // not need their own wrapper-skipping scanners.
+  // before target directization. `skipNonNullCast` may remove a nullable
+  // `ref.as_non_null` when doing so does not cross later sibling effects. For
+  // call_ref / return_call_ref the target is the final child, so this fact can
+  // prove that nullable-child skip without turning target classifiers into
+  // wrapper scanners. Direct, table, fallthrough, select, and future
+  // descriptor-producer facts all consume the same effective target.
+  let call_ref = @ir.hot_node_get(func, call_ref_id)
+  match call_ref.op {
+    @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef => ()
+    _ => return None
+  }
+  if call_ref.child_count < 1 {
+    return None
+  }
+  let target_id = @ir.hot_child_get(func, call_ref_id, call_ref.child_count - 1)
   if !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
     return None
   }
@@ -5771,11 +5785,18 @@ fn OiCallRefTargetSkipNonNullFact::from_target(
           if !OiLiveNodeFact::proves_node_live(func, dead, child_id) {
             return None
           }
-          match optimize_instructions_node_ref_result_type(func, child_id) {
-            Some(ref_type) if ref_type.is_non_nullable() =>
+          let child_static_ref_type = optimize_instructions_node_ref_result_type(
+            func, child_id,
+          )
+          let target_is_final_call_ref_child = true
+          match child_static_ref_type {
+            Some(ref_type) if ref_type.is_non_nullable() ||
+              target_is_final_call_ref_child =>
               Some({
                 replacement_target_id: child_id,
                 skipped_non_null_cast: true,
+                child_static_ref_type,
+                target_is_final_call_ref_child,
               })
             _ => None
           }
@@ -5787,10 +5808,20 @@ fn OiCallRefTargetSkipNonNullFact::from_target(
 }
 
 ///|
+fn OiCallRefTargetSkipNonNullFact::proves_skip_preserves_order(
+  self : OiCallRefTargetSkipNonNullFact,
+) -> Bool {
+  match self.child_static_ref_type {
+    Some(ref_type) if ref_type.is_non_nullable() => true
+    _ => self.target_is_final_call_ref_child
+  }
+}
+
+///|
 fn OiCallRefTargetSkipNonNullFact::effective_target_id(
   self : OiCallRefTargetSkipNonNullFact,
 ) -> Int {
-  if self.skipped_non_null_cast {
+  if self.skipped_non_null_cast && self.proves_skip_preserves_order() {
     self.replacement_target_id
   } else {
     -1
@@ -6434,7 +6465,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
     return false
   }
   let effective_callee_ref_id = match
-    OiCallRefTargetSkipNonNullFact::from_target(func, dead, callee_ref_id) {
+    OiCallRefTargetSkipNonNullFact::from_call_ref_target(func, dead, node_id) {
     Some(fact) => fact.effective_target_id()
     None => callee_ref_id
   }
