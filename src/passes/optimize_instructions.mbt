@@ -2112,11 +2112,16 @@ fn OiDescriptorOperandTrapFact::proves_traps_without_effects(
 }
 
 ///|
+priv enum OiDescriptorOperandSkipLocalizationKind {
+  DescriptorOperandSkipNoLocalization
+  DescriptorOperandSkipCallRoot
+  DescriptorOperandSkipCallRefRoot
+  DescriptorOperandSkipRefGetDescRoot
+}
+
+///|
 priv struct OiDescriptorOperandSkipLocalizationFact {
-  call_root : Bool
-  call_ref_root : Bool
-  ref_get_desc_root : Bool
-  should_localize_when_skipped : Bool
+  kind : OiDescriptorOperandSkipLocalizationKind
 }
 
 ///|
@@ -2126,37 +2131,32 @@ fn OiDescriptorOperandSkipLocalizationFact::from_operand(
 ) -> OiDescriptorOperandSkipLocalizationFact {
   // Binaryen's descriptor TNH skip path uses ChildLocalizer-like decisions to
   // preserve descriptor operand evaluation when the descriptor is a call-like or
-  // ref.get_desc producer. Keep Starshine's represented producer subset as data
-  // so skip/replacement code does not own an opcode whitelist.
+  // ref.get_desc producer. Keep Starshine's represented producer subset as an
+  // explicit result kind so skip/replacement code does not own an opcode
+  // whitelist or parallel boolean sentinels.
   let node = @ir.hot_node_get(func, node_id)
-  let call_root = match node.op {
-    @ir.HotOp::Call => true
-    _ => false
+  let kind = match node.op {
+    @ir.HotOp::Call => DescriptorOperandSkipCallRoot
+    @ir.HotOp::CallRef => DescriptorOperandSkipCallRefRoot
+    _ =>
+      match OiRefGetDescFact::from_node(func, node_id) {
+        Some(_) => DescriptorOperandSkipRefGetDescRoot
+        None => DescriptorOperandSkipNoLocalization
+      }
   }
-  let call_ref_root = match node.op {
-    @ir.HotOp::CallRef => true
-    _ => false
-  }
-  let ref_get_desc_root = match OiRefGetDescFact::from_node(func, node_id) {
-    Some(_) => true
-    None => false
-  }
-  {
-    call_root,
-    call_ref_root,
-    ref_get_desc_root,
-    should_localize_when_skipped: call_root ||
-    call_ref_root ||
-    ref_get_desc_root,
-  }
+  { kind, }
 }
 
 ///|
 fn OiDescriptorOperandSkipLocalizationFact::proves_should_localize_when_skipped(
   self : OiDescriptorOperandSkipLocalizationFact,
 ) -> Bool {
-  self.should_localize_when_skipped &&
-  (self.call_root || self.call_ref_root || self.ref_get_desc_root)
+  match self.kind {
+    DescriptorOperandSkipNoLocalization => false
+    DescriptorOperandSkipCallRoot => true
+    DescriptorOperandSkipCallRefRoot => true
+    DescriptorOperandSkipRefGetDescRoot => true
+  }
 }
 
 ///|
