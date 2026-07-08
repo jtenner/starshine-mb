@@ -32437,6 +32437,149 @@ test "optimize-instructions directizes multi-root loop fallthrough call_ref targ
 }
 
 ///|
+test "optimize-instructions directizes br_on_null fallthrough call_ref targets" {
+  // OI-H call_ref br_on fallthrough target fact slice: Binaryen version_130
+  // `Properties::getImmediateFallthrough` descends through `BrOn::ref`, so a
+  // target-side `br_on_null` with a direct `ref.func` input still directizes
+  // while preserving the whole branch target as the dropped pre-call
+  // evaluation. This is a BrOn fallthrough-target fact, not a general
+  // ChildLocalizer/control/EH or branch-retargeting claim.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([target_type_idx, caller_type_idx, caller_type_idx]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    )
+  let rewrite_target_to_br_on_null = fn(func : @ir.HotFunc, root : Int) {
+    let ref_func = @ir.hot_child_get(func, root, 0)
+    let branch_target = @ir.hot_control_node_label(
+      func,
+      @ir.hot_build_block(func, @lib.BlockType::void_(), []),
+    )
+    let br_on_null = @ir.hot_build_node(
+      func,
+      @ir.HotOp::br_on_null(),
+      @ir.hot_node_type(func, ref_func),
+      imm0=branch_target,
+      children=[ref_func],
+    )
+    @ir.hot_child_set(func, root, 0, br_on_null)
+  }
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  let call_ref_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let call_ref = @ir.hot_root_get(call_ref_func, 0)
+  rewrite_target_to_br_on_null(call_ref_func, call_ref)
+  match hot_pass_run(ctx, call_ref_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected br_on_null call_ref target fact success, got \{err}")
+  }
+  match @ir.hot_node_get(call_ref_func, @ir.hot_root_get(call_ref_func, 0)).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail(
+        "expected br_on_null call_ref target to become block+call, got \{other}",
+      )
+  }
+  let call_ref_body = @ir.hot_region_body_ref(
+    call_ref_func,
+    @ir.hot_root_get(call_ref_func, 0),
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(call_ref_func, call_ref_body), 2)
+  match
+    @ir.hot_node_get(
+      call_ref_func,
+      @ir.hot_region_get(call_ref_func, call_ref_body, 1),
+    ).op {
+    @ir.HotOp::Call => ()
+    other =>
+      fail("expected direct call after dropped br_on_null target, got \{other}")
+  }
+
+  let return_call_ref_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(2U))
+  let return_call_ref = @ir.hot_root_get(return_call_ref_func, 0)
+  rewrite_target_to_br_on_null(return_call_ref_func, return_call_ref)
+  match hot_pass_run(ctx, return_call_ref_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected br_on_null return_call_ref target fact success, got \{err}",
+      )
+  }
+  match
+    @ir.hot_node_get(
+      return_call_ref_func,
+      @ir.hot_root_get(return_call_ref_func, 0),
+    ).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail(
+        "expected br_on_null return_call_ref target to become block+return_call, got \{other}",
+      )
+  }
+  let return_body = @ir.hot_region_body_ref(
+    return_call_ref_func,
+    @ir.hot_root_get(return_call_ref_func, 0),
+  )
+  @debug.assert_eq(
+    @ir.hot_region_root_count(return_call_ref_func, return_body),
+    2,
+  )
+  match
+    @ir.hot_node_get(
+      return_call_ref_func,
+      @ir.hot_region_get(return_call_ref_func, return_body, 1),
+    ).op {
+    @ir.HotOp::ReturnCall => ()
+    other =>
+      fail("expected return_call after dropped br_on_null target, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions lowers select ref.func call_ref targets to direct if calls" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

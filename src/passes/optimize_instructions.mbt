@@ -5649,6 +5649,12 @@ priv struct OiCallRefLoopFallthroughTargetFact {
 }
 
 ///|
+priv struct OiCallRefBrOnFallthroughTargetFact {
+  ref_id : Int
+  ref_fact : OiCallRefFallthroughTargetFact
+}
+
+///|
 fn OiCallRefFallthroughTargetFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5723,8 +5729,63 @@ fn OiCallRefFallthroughTargetFact::from_node(
           fact.arm_fact
         _ => OiCallRefFallthroughTargetFact::unknown()
       }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      match
+        OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
+          func, dead, node_id, depth,
+        ) {
+        Some(fact) if fact.proves_ref_func_ref_fallthrough() => fact.ref_fact
+        _ => OiCallRefFallthroughTargetFact::unknown()
+      }
     _ => OiCallRefFallthroughTargetFact::unknown()
   }
+}
+
+///|
+fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth : Int,
+) -> OiCallRefBrOnFallthroughTargetFact? {
+  // Binaryen v130 `Properties::getImmediateFallthroughPtr` returns `BrOn::ref`
+  // for every `br_on_*` target before `visitCallRef` checks for a `ref.func`.
+  // Starshine's represented subset keeps the original branch target intact in
+  // the later dropped evaluation, so this fact only proves that the explicit
+  // reference child falls through to a direct function. It does not claim broad
+  // branch retargeting, branch-value localization, EH, or multivalue repair.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => ()
+    _ => return None
+  }
+  if node.child_count < 1 {
+    return None
+  }
+  let ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
+  if !OiLiveNodeFact::proves_node_live(func, dead, ref_id) {
+    return None
+  }
+  let ref_fact = OiCallRefFallthroughTargetFact::from_node(
+    func,
+    dead,
+    ref_id,
+    depth=depth + 1,
+  )
+  Some({ ref_id, ref_fact })
+}
+
+///|
+fn OiCallRefBrOnFallthroughTargetFact::proves_ref_func_ref_fallthrough(
+  self : OiCallRefBrOnFallthroughTargetFact,
+) -> Bool {
+  self.ref_id >= 0 && self.ref_fact.has_direct_func()
 }
 
 ///|
