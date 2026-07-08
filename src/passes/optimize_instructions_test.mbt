@@ -6258,6 +6258,41 @@ test "optimize-instructions replaces zero maxBits expressions with zero" {
 }
 
 ///|
+test "optimize-instructions replaces boolean maxBits shifts with zero" {
+  // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` proves `eqz`
+  // and compare results are i32 booleans (maxBits == 1). A one-bit unsigned
+  // right shift therefore has maxBits zero and feeds `replaceZeroBitsWithZero`.
+  let eqz_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.const 1 i32.shr_u))",
+  )
+  let eqz_root = @ir.hot_root_get(eqz_func, 0)
+  match @ir.hot_node_get(eqz_func, eqz_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted i32.eqz boolean maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(eqz_func, @ir.hot_node_get(eqz_func, eqz_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let compare_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 local.get 0 i64.eq i32.const 1 i32.shr_u))",
+  )
+  let compare_root = @ir.hot_root_get(compare_func, 0)
+  match @ir.hot_node_get(compare_func, compare_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected shifted compare boolean maxBits to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      compare_func,
+      @ir.hot_node_get(compare_func, compare_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned load maxBits compares" {
   let source =
     #|(module

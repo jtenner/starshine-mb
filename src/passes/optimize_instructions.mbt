@@ -5297,6 +5297,37 @@ fn OiUnsignedMaxValueFact::from_assigned_i64_value(
 }
 
 ///|
+priv struct OiBooleanI32MaxBitsFact {
+  value_id : Int
+}
+
+///|
+fn OiBooleanI32MaxBitsFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBooleanI32MaxBitsFact? {
+  // Binaryen v130 `Bits::getMaxBits` treats integer comparisons and `eqz`
+  // results as i32 booleans, so they require at most one bit. Keep this as an
+  // explicit fact instead of scattering compare/eqz whitelists across maxBits
+  // consumers.
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Compare => Some({ value_id: node_id })
+    @ir.HotOp::Unary =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::I32Eqz) | Some(@lib.Instruction::I64Eqz) =>
+          Some({ value_id: node_id })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn OiUnsignedMaxValueFact::i32_max_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5311,6 +5342,13 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
     Some(@lib.Instruction::I32Load8U(_)) => return Some(255)
     Some(@lib.Instruction::I32Load16U(_)) => return Some(65535)
     _ => ()
+  }
+  match OiBooleanI32MaxBitsFact::from_node(func, dead, node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      return Some(1)
+    }
+    None => ()
   }
   match node.op {
     @ir.HotOp::Const =>
