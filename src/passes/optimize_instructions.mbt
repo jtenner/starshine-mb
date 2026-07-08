@@ -3239,7 +3239,7 @@ fn OiRefCastOperandTargetFact::matches_nullable_exact_target_only_as_null(
 }
 
 ///|
-priv struct OiRefCastOperandFact {
+priv struct OiRefCastOperandTargetRelationFact {
   direct_null_operand : Bool
   nullable_exact_target_type : Bool
   has_exact_target_heap : Bool
@@ -3250,29 +3250,20 @@ priv struct OiRefCastOperandFact {
   misses_exact_target : Bool
   misses_exact_target_by_strict_subtype : Bool
   matches_nullable_exact_target_only_as_null : Bool
-  can_erase : Bool
 }
 
 ///|
-fn OiRefCastOperandFact::from_operand(
+fn OiRefCastOperandTargetRelationFact::from_target_fact(
   ctx : HotPassContext,
-  func : @ir.HotFunc,
-  operand_id : Int,
+  target_fact : OiRefCastOperandTargetFact,
   target : @lib.HeapType,
   target_nullable : Bool,
-) -> OiRefCastOperandFact {
-  // Binaryen v130 `visitRefCast` centralizes cast-check knowledge in
-  // `GCTypeUtils::evaluateCastCheck` and then separately asks whether operand
-  // effects must be preserved before trapping. Keep Starshine's represented
-  // operand/target relation as one fact so ref.cast and descriptor exact-miss
-  // plans do not own parallel helper-level predicate cascades.
-  let target_fact = OiRefCastOperandTargetFact::from_operand(func, operand_id)
-  let trivially_pure = OiTriviallyPureOperandFact::proves_node_pure(
-    func, operand_id,
-  )
-  let effects_pure = optimize_instructions_node_effects_are_pure(
-    ctx, func, operand_id,
-  )
+) -> OiRefCastOperandTargetRelationFact {
+  // Binaryen v130 `visitRefCast` asks `GCTypeUtils::evaluateCastCheck` for the
+  // source/target relation before deciding how to preserve operand effects.
+  // Keep Starshine's represented relation proofs nested so the cast plan and
+  // descriptor exact-miss plan consume one relation fact rather than parallel
+  // source/local/literal predicate fields.
   {
     direct_null_operand: target_fact.is_direct_null(),
     nullable_exact_target_type: target_fact.source_is_nullable_exact_heap(
@@ -3296,8 +3287,81 @@ fn OiRefCastOperandFact::from_operand(
     matches_nullable_exact_target_only_as_null: target_fact.matches_nullable_exact_target_only_as_null(
       ctx, target, target_nullable,
     ),
-    can_erase: trivially_pure || effects_pure,
   }
+}
+
+///|
+priv struct OiRefCastOperandErasureFact {
+  trivially_pure : Bool
+  effects_pure : Bool
+}
+
+///|
+fn OiRefCastOperandErasureFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+) -> OiRefCastOperandErasureFact {
+  // Binaryen only drops a trapping ref.cast operand when its effects need not
+  // be preserved. Keep that effect-preservation proof separate from the
+  // source/target relation so miss rewrites cannot accidentally widen erasure.
+  {
+    trivially_pure: OiTriviallyPureOperandFact::proves_node_pure(
+      func, operand_id,
+    ),
+    effects_pure: optimize_instructions_node_effects_are_pure(
+      ctx, func, operand_id,
+    ),
+  }
+}
+
+///|
+fn OiRefCastOperandErasureFact::proves_can_erase(
+  self : OiRefCastOperandErasureFact,
+) -> Bool {
+  self.trivially_pure || self.effects_pure
+}
+
+///|
+priv struct OiRefCastOperandFact {
+  target_relation_fact : OiRefCastOperandTargetRelationFact
+  erasure_fact : OiRefCastOperandErasureFact
+}
+
+///|
+fn OiRefCastOperandFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> OiRefCastOperandFact {
+  // Binaryen v130 `visitRefCast` centralizes cast-check knowledge in
+  // `GCTypeUtils::evaluateCastCheck` and then separately asks whether operand
+  // effects must be preserved before trapping. Keep those as nested facts so
+  // ref.cast and descriptor exact-miss plans do not own parallel helper-level
+  // predicate cascades.
+  let target_fact = OiRefCastOperandTargetFact::from_operand(func, operand_id)
+  {
+    target_relation_fact: OiRefCastOperandTargetRelationFact::from_target_fact(
+      ctx, target_fact, target, target_nullable,
+    ),
+    erasure_fact: OiRefCastOperandErasureFact::from_operand(
+      ctx, func, operand_id,
+    ),
+  }
+}
+
+///|
+fn OiRefCastOperandFact::proves_direct_null_operand(
+  self : OiRefCastOperandFact,
+) -> Bool {
+  self.target_relation_fact.direct_null_operand
+}
+
+///|
+fn OiRefCastOperandFact::proves_can_erase(self : OiRefCastOperandFact) -> Bool {
+  self.erasure_fact.proves_can_erase()
 }
 
 ///|
@@ -3307,8 +3371,8 @@ fn OiRefCastOperandFact::can_rewrite_as_non_null(
   exact : Bool,
 ) -> Bool {
   !nullable &&
-  (!exact || self.has_exact_target_heap) &&
-  self.nullable_exact_target_type
+  (!exact || self.target_relation_fact.has_exact_target_heap) &&
+  self.target_relation_fact.nullable_exact_target_type
 }
 
 ///|
@@ -3316,7 +3380,7 @@ fn OiRefCastOperandFact::can_rewrite_nullable_exact_target_only_as_null(
   self : OiRefCastOperandFact,
   exact : Bool,
 ) -> Bool {
-  exact && self.matches_nullable_exact_target_only_as_null
+  exact && self.target_relation_fact.matches_nullable_exact_target_only_as_null
 }
 
 ///|
@@ -3325,8 +3389,19 @@ fn OiRefCastOperandFact::can_forward_operand(
   nullable : Bool,
   exact : Bool,
 ) -> Bool {
-  (!exact || self.has_exact_target_heap) &&
-  (self.known_match_target || (nullable && self.known_match_nullable_target))
+  (!exact || self.target_relation_fact.has_exact_target_heap) &&
+  (
+    self.target_relation_fact.known_match_target ||
+    (nullable && self.target_relation_fact.known_match_nullable_target)
+  )
+}
+
+///|
+fn OiRefCastOperandFact::proves_exact_target_miss(
+  self : OiRefCastOperandFact,
+) -> Bool {
+  self.target_relation_fact.misses_exact_target ||
+  self.target_relation_fact.misses_exact_target_by_strict_subtype
 }
 
 ///|
@@ -3335,12 +3410,12 @@ fn OiRefCastOperandFact::can_prove_trap(
   nullable : Bool,
   exact : Bool,
 ) -> Bool {
-  self.known_miss_target ||
+  self.target_relation_fact.known_miss_target ||
+  (exact && self.proves_exact_target_miss()) ||
   (
-    exact &&
-    (self.misses_exact_target || self.misses_exact_target_by_strict_subtype)
-  ) ||
-  (!nullable && self.null_or_known_miss_for_non_null_target)
+    !nullable &&
+    self.target_relation_fact.null_or_known_miss_for_non_null_target
+  )
 }
 
 ///|
@@ -3546,7 +3621,7 @@ fn OiRefCastRewritePlanFact::from_cast(
     active_cast_fact.target,
     nullable,
   )
-  if operand_fact.direct_null_operand {
+  if operand_fact.proves_direct_null_operand() {
     return Some({
       kind: if nullable {
         RefCastForwardOperand
@@ -3583,7 +3658,7 @@ fn OiRefCastRewritePlanFact::from_cast(
     })
   }
   if operand_fact.can_prove_trap(nullable, exact) {
-    let kind = if operand_fact.can_erase {
+    let kind = if operand_fact.proves_can_erase() {
       RefCastUnreachable
     } else {
       RefCastDropOperandThenUnreachable
@@ -3970,15 +4045,14 @@ fn OiDescriptorExactMissFact::from_node(
       func,
       cast_fact.descriptor_id,
     ).exactly_describes(cast_fact.target),
-    ref_operand_misses_target: ref_operand_fact.misses_exact_target ||
-    ref_operand_fact.misses_exact_target_by_strict_subtype,
+    ref_operand_misses_target: ref_operand_fact.proves_exact_target_miss(),
     descriptor_can_erase: OiDescriptorOperandEraseFact::from_operand(
       ctx,
       func,
       dead,
       cast_fact.descriptor_id,
     ).proves_can_erase(),
-    ref_operand_can_erase: ref_operand_fact.can_erase,
+    ref_operand_can_erase: ref_operand_fact.proves_can_erase(),
     ref_operand_can_drop_before_unreachable: operand_drop_fact.live &&
     (
       (
