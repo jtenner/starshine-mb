@@ -27827,12 +27827,22 @@ priv struct OiRefEqNullabilityFact {
 }
 
 ///|
+priv struct OiRefEqSameLocalFact {
+  local_index : Int?
+}
+
+///|
+priv struct OiRefEqLocalTypeFact {
+  ref_type : @lib.RefType?
+}
+
+///|
 priv struct OiRefEqOperandFact {
-  same_local : Int?
+  same_local_fact : OiRefEqSameLocalFact
   same_non_null_fact : OiRefEqNonNullLocalFact
   i31_fact : OiRefEqI31Fact
   nullability_fact : OiRefEqNullabilityFact
-  local_ref_type : @lib.RefType?
+  local_type_fact : OiRefEqLocalTypeFact
 }
 
 ///|
@@ -27847,36 +27857,54 @@ fn OiRefEqOperandFact::from_node(
   // reference heap facts. Keep those facts in one source-backed operand summary
   // instead of spreading same-local, ref.i31, null, and local-heap scanners
   // through the visitor.
-  let node = @ir.hot_node_get(func, node_id)
-  let local_ref_type = match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) => Some(ref_type)
-        _ => None
-      }
-    _ => None
-  }
-  let same_local = match node.op {
-    @ir.HotOp::LocalGet => Some(node.imm0)
-    @ir.HotOp::RefCast =>
-      OiRefEqOperandFact::same_local_through_nullable_ref_cast(
-        ctx, func, node_id,
-      )
-    _ => None
-  }
+  let local_type_fact = OiRefEqLocalTypeFact::from_node(func, node_id)
+  let same_local_fact = OiRefEqSameLocalFact::from_node(ctx, func, node_id)
   let same_non_null_fact = OiRefEqNonNullLocalFact::from_node(func, node_id)
   let literal_fact = OiRefLiteralFact::from_node(func, node_id)
   let i31_fact = OiRefEqI31Fact::from_node(
-    func, dead, node_id, local_ref_type, literal_fact,
+    func,
+    dead,
+    node_id,
+    local_type_fact.ref_type,
+    literal_fact,
   )
   let nullability_fact = OiRefEqNullabilityFact::from_node(
-    func, node_id, local_ref_type, literal_fact,
+    func,
+    node_id,
+    local_type_fact.ref_type,
+    literal_fact,
   )
-  { same_local, same_non_null_fact, i31_fact, nullability_fact, local_ref_type }
+  {
+    same_local_fact,
+    same_non_null_fact,
+    i31_fact,
+    nullability_fact,
+    local_type_fact,
+  }
 }
 
 ///|
-fn OiRefEqOperandFact::same_local_through_nullable_ref_cast(
+fn OiRefEqSameLocalFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefEqSameLocalFact {
+  // Binaryen v130 `visitRefEq` first recognizes operands that are provably the
+  // same local value, including the represented nullable `ref.cast(local.get)`
+  // shell when removing that shell cannot add an implicit trap. Keep that local
+  // identity as its own fact instead of a parallel optional field on the wider
+  // operand summary.
+  let local_index = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet => Some(@ir.hot_node_get(func, node_id).imm0)
+    @ir.HotOp::RefCast =>
+      OiRefEqSameLocalFact::from_nullable_ref_cast(ctx, func, node_id)
+    _ => None
+  }
+  { local_index, }
+}
+
+///|
+fn OiRefEqSameLocalFact::from_nullable_ref_cast(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
@@ -27911,6 +27939,26 @@ fn OiRefEqOperandFact::same_local_through_nullable_ref_cast(
     }
     _ => None
   }
+}
+
+///|
+fn OiRefEqLocalTypeFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefEqLocalTypeFact {
+  // Keep the direct-local static ref type as a named `visitRefEq` fact. It feeds
+  // only the represented local-type nullability, i31-disjointness, and local
+  // heap-disjoint equality decisions; fallthrough/result-type non-null proofs
+  // intentionally remain outside this no-widening ref.eq operand slice.
+  let ref_type = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, @ir.hot_node_get(func, node_id).imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) => Some(ref_type)
+        _ => None
+      }
+    _ => None
+  }
+  { ref_type, }
 }
 
 ///|
@@ -28187,7 +28235,8 @@ fn OiRefEqRelationFact::from_operands(
 
 ///|
 fn OiRefEqRelationFact::proves_equal(self : OiRefEqRelationFact) -> Bool {
-  match (self.lhs.same_local, self.rhs.same_local) {
+  match
+    (self.lhs.same_local_fact.local_index, self.rhs.same_local_fact.local_index) {
     (Some(lhs), Some(rhs)) if lhs == rhs => return true
     _ => ()
   }
@@ -28235,7 +28284,7 @@ fn OiRefEqRelationFact::proves_impossible_equal(
     (self.rhs.i31_fact.known_non_null && self.lhs.i31_fact.cannot_match) {
     return true
   }
-  match (self.lhs.local_ref_type, self.rhs.local_ref_type) {
+  match (self.lhs.local_type_fact.ref_type, self.rhs.local_type_fact.ref_type) {
     (Some(lhs), Some(rhs)) =>
       (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
       OiHeapRelationFact::from_heaps(
