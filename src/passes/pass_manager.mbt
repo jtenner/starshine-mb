@@ -28386,10 +28386,10 @@ fn RawOiBulkLoweringRewriteFact::append_rewrite(
 }
 
 ///|
-// Accepted raw OI-G emission helper. This only copies already-proven operand
-// chunks into fact-owned rewrite payloads such as `RawOiBulkLoweringRewriteFact`;
-// eligibility and proof logic must stay in the caller's named facts.
-fn run_hot_pipeline_raw_oi_push_instrs(
+// Fact-owned raw OI-G emission for already-proven lowered-bulk operand chunks.
+// Eligibility and proof logic stays in `RawOiBulkLoweringRewriteFact`; this
+// method only copies the chunk into the fact's complete rewrite payload.
+fn RawOiBulkLoweringRewriteFact::append_operand_chunk(
   out : Array[@lib.Instruction],
   instrs : Array[@lib.Instruction],
 ) -> Unit {
@@ -28414,8 +28414,8 @@ fn RawOiBulkLoweringRewriteFact::copy_from_parts(
   match RawOiBulkCopyLoadStoreFact::from_parts(size, src_mem, dst_mem) {
     Some(copy_access) if copy_access.proves_binaryen_copy_load_store() => {
       let rewrite : Array[@lib.Instruction] = []
-      run_hot_pipeline_raw_oi_push_instrs(rewrite, dest)
-      run_hot_pipeline_raw_oi_push_instrs(rewrite, source)
+      RawOiBulkLoweringRewriteFact::append_operand_chunk(rewrite, dest)
+      RawOiBulkLoweringRewriteFact::append_operand_chunk(rewrite, source)
       rewrite.push(copy_access.load)
       rewrite.push(copy_access.store)
       Some({
@@ -28452,7 +28452,7 @@ fn RawOiBulkLoweringRewriteFact::fill_from_parts(
     (Some(fill_value), Some(fill_store)) if fill_value.proves_binaryen_repeated_byte_value() &&
       fill_store.proves_binaryen_fill_store() => {
       let rewrite : Array[@lib.Instruction] = []
-      run_hot_pipeline_raw_oi_push_instrs(rewrite, dest)
+      RawOiBulkLoweringRewriteFact::append_operand_chunk(rewrite, dest)
       rewrite.push(fill_value.value)
       rewrite.push(fill_store.store)
       Some({
@@ -32775,16 +32775,15 @@ fn RawOiFlatPureScalarAddressFact::proves_equal(
 }
 
 ///|
-// Accepted raw OI-G emission helper. The caller must have already proven a
-// `RawOiFlatPureScalarAddressFact`-backed rewrite; this routine only preserves
-// the dropped operand instructions and appends the required drop.
-fn run_hot_pipeline_raw_oi_push_dropped_range(
+// Fact-owned raw OI-G emission for preserving and dropping a proven flat
+// pure-scalar address operand. The caller supplies only the original body; the
+// address fact owns the exact `[start, end)` range.
+fn RawOiFlatPureScalarAddressFact::append_dropped_operand(
+  self : RawOiFlatPureScalarAddressFact,
   out : Array[@lib.Instruction],
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
 ) -> Unit {
-  for idx = start; idx < end; idx = idx + 1 {
+  for idx = self.start; idx < self.end; idx = idx + 1 {
     out.push(instrs[idx])
   }
   out.push(@lib.Instruction::drop())
@@ -32841,18 +32840,8 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::append_replacement(
   out : Array[@lib.Instruction],
   instrs : Array[@lib.Instruction],
 ) -> Int {
-  run_hot_pipeline_raw_oi_push_dropped_range(
-    out,
-    instrs,
-    self.dst_fact.start,
-    self.dst_fact.end,
-  )
-  run_hot_pipeline_raw_oi_push_dropped_range(
-    out,
-    instrs,
-    self.src_fact.start,
-    self.src_fact.end,
-  )
+  self.dst_fact.append_dropped_operand(out, instrs)
+  self.src_fact.append_dropped_operand(out, instrs)
   out.push(instrs[self.size_instr_idx])
   out.push(@lib.Instruction::drop())
   self.copy_instr_idx + 1
