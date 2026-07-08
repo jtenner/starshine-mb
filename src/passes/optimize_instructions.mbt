@@ -4535,9 +4535,59 @@ fn OiDescriptorNullCastRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiDescriptorExactSuccessOperandKind {
+  DescriptorExactSuccessOperandExactNonNullTarget
+  DescriptorExactSuccessOperandUnsupported
+}
+
+///|
+priv struct OiDescriptorExactSuccessOperandFact {
+  kind : OiDescriptorExactSuccessOperandKind
+}
+
+///|
+fn OiDescriptorExactSuccessOperandFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> OiDescriptorExactSuccessOperandFact {
+  // Binaryen v130's descriptor exact-success skip only applies after the
+  // reference operand is a call-like producer whose result is already exact,
+  // non-null, and on the descriptor target heap. Keep that operand proof as a
+  // separate source fact before TNH exact-success eligibility consumes it.
+  let kind = match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+      if OiRefProducerTargetRelationFact::from_producer(
+          ctx,
+          OiRefProducerFact::from_node(ctx, func, operand_id),
+          target,
+          target_nullable,
+        ).exact_non_null_heap {
+        DescriptorExactSuccessOperandExactNonNullTarget
+      } else {
+        DescriptorExactSuccessOperandUnsupported
+      }
+    _ => DescriptorExactSuccessOperandUnsupported
+  }
+  { kind, }
+}
+
+///|
+fn OiDescriptorExactSuccessOperandFact::proves_exact_non_null_target(
+  self : OiDescriptorExactSuccessOperandFact,
+) -> Bool {
+  match self.kind {
+    DescriptorExactSuccessOperandExactNonNullTarget => true
+    DescriptorExactSuccessOperandUnsupported => false
+  }
+}
+
+///|
 priv struct OiDescriptorExactSuccessFact {
   cast_fact : OiDescriptorCastFact
-  direct_call_result_exact_non_null_target : Bool
+  operand_fact : OiDescriptorExactSuccessOperandFact
   descriptor_exactly_describes_target : Bool
 }
 
@@ -4551,20 +4601,15 @@ fn OiDescriptorExactSuccessFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  let direct_call_result_exact_non_null_target = match
-    @ir.hot_node_get(func, cast_fact.operand_id).op {
-    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
-      OiRefProducerTargetRelationFact::from_producer(
-        ctx,
-        OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
-        cast_fact.target,
-        cast_fact.nullable,
-      ).exact_non_null_heap
-    _ => false
-  }
   Some({
     cast_fact,
-    direct_call_result_exact_non_null_target,
+    operand_fact: OiDescriptorExactSuccessOperandFact::from_operand(
+      ctx,
+      func,
+      cast_fact.operand_id,
+      cast_fact.target,
+      cast_fact.nullable,
+    ),
     descriptor_exactly_describes_target: OiDescriptorTypeFact::from_node(
       ctx,
       func,
@@ -4607,7 +4652,7 @@ fn OiDescriptorExactSuccessEligibilityFact::from_success(
   if !success_fact.cast_fact.exact {
     return { kind: DescriptorExactSuccessInexactTarget }
   }
-  if !success_fact.direct_call_result_exact_non_null_target {
+  if !success_fact.operand_fact.proves_exact_non_null_target() {
     return { kind: DescriptorExactSuccessOperandNotExactNonNullTarget }
   }
   if !success_fact.descriptor_exactly_describes_target {
