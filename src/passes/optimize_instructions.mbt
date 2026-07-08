@@ -2730,6 +2730,12 @@ priv struct OiRefCastChildCastFact {
 }
 
 ///|
+priv struct OiRefCastChildNonNullFact {
+  replacement_operand_id : Int
+  narrowed_ref_type : @lib.RefType
+}
+
+///|
 fn OiRefCastChildCastFact::ref_type_is_subtype(
   ctx : HotPassContext,
   source : @lib.RefType,
@@ -2791,6 +2797,41 @@ fn OiRefCastChildCastFact::from_cast(
 }
 
 ///|
+fn OiRefCastChildNonNullFact::from_cast(
+  func : @ir.HotFunc,
+  cast_fact : OiRefCastFact,
+) -> OiRefCastChildNonNullFact? {
+  // Binaryen v130 `visitRefCast` removes an ordinary child `ref.as_non_null`
+  // after known-result and child-cast folds by retyping the parent cast as
+  // non-null and rewiring it to the `ref.as_non_null` operand. Keep the child
+  // wrapper classification, replacement operand, and narrowed target type in a
+  // fact so the ref.cast plan does not own another opcode-local scanner.
+  let child_id = cast_fact.operand_id
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, child_id).op {
+    @ir.HotOp::Heap => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, child_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, child_id) != 1 {
+    return None
+  }
+  Some({
+    replacement_operand_id: @ir.hot_child_get(func, child_id, 0),
+    narrowed_ref_type: @lib.RefType::new(
+      false,
+      cast_fact.target,
+      exact=cast_fact.exact,
+    ),
+  })
+}
+
+///|
 priv enum OiRefCastRewritePlanKind {
   RefCastForwardOperand
   RefCastUnreachable
@@ -2798,6 +2839,7 @@ priv enum OiRefCastRewritePlanKind {
   RefCastAsNonNull
   RefCastNullrefCast
   RefCastSkipChildCast
+  RefCastSkipChildNonNull
 }
 
 ///|
@@ -2805,6 +2847,7 @@ priv struct OiRefCastRewritePlanFact {
   kind : OiRefCastRewritePlanKind
   cast_fact : OiRefCastFact
   replacement_operand_id : Int
+  narrowed_ref_type : @lib.RefType?
 }
 
 ///|
@@ -2837,6 +2880,7 @@ fn OiRefCastRewritePlanFact::from_cast(
       },
       cast_fact,
       replacement_operand_id: -1,
+      narrowed_ref_type: None,
     })
   }
   if operand_fact.can_rewrite_as_non_null(nullable, exact) {
@@ -2844,6 +2888,7 @@ fn OiRefCastRewritePlanFact::from_cast(
       kind: RefCastAsNonNull,
       cast_fact,
       replacement_operand_id: -1,
+      narrowed_ref_type: None,
     })
   }
   if operand_fact.can_rewrite_nullable_exact_target_only_as_null(exact) {
@@ -2851,6 +2896,7 @@ fn OiRefCastRewritePlanFact::from_cast(
       kind: RefCastNullrefCast,
       cast_fact,
       replacement_operand_id: -1,
+      narrowed_ref_type: None,
     })
   }
   if operand_fact.can_forward_operand(nullable, exact) {
@@ -2858,6 +2904,7 @@ fn OiRefCastRewritePlanFact::from_cast(
       kind: RefCastForwardOperand,
       cast_fact,
       replacement_operand_id: -1,
+      narrowed_ref_type: None,
     })
   }
   if operand_fact.can_prove_trap(nullable, exact) {
@@ -2866,7 +2913,12 @@ fn OiRefCastRewritePlanFact::from_cast(
     } else {
       RefCastDropOperandThenUnreachable
     }
-    return Some({ kind, cast_fact, replacement_operand_id: -1 })
+    return Some({
+      kind,
+      cast_fact,
+      replacement_operand_id: -1,
+      narrowed_ref_type: None,
+    })
   }
   match OiRefCastChildCastFact::from_cast(ctx, func, cast_fact) {
     Some(child_fact) =>
@@ -2874,6 +2926,17 @@ fn OiRefCastRewritePlanFact::from_cast(
         kind: RefCastSkipChildCast,
         cast_fact,
         replacement_operand_id: child_fact.replacement_operand_id,
+        narrowed_ref_type: None,
+      })
+    None => ()
+  }
+  match OiRefCastChildNonNullFact::from_cast(func, cast_fact) {
+    Some(child_fact) =>
+      return Some({
+        kind: RefCastSkipChildNonNull,
+        cast_fact,
+        replacement_operand_id: child_fact.replacement_operand_id,
+        narrowed_ref_type: Some(child_fact.narrowed_ref_type),
       })
     None => ()
   }
@@ -2911,6 +2974,32 @@ fn OiRefCastRewritePlanFact::apply(
       )
     RefCastSkipChildCast => {
       @ir.hot_child_set(func, node_id, 0, self.replacement_operand_id)
+      pass_mark_mutated(ctx, func)
+      true
+    }
+    RefCastSkipChildNonNull => {
+      let narrowed_ref_type = match self.narrowed_ref_type {
+        Some(ref_type) => ref_type
+        None => return false
+      }
+      let payload_id = @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(
+          @lib.Instruction::ref_cast_type(narrowed_ref_type),
+        ),
+      )
+      let narrowed = @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, node_id).op,
+        @ir.hot_type_intern_value(
+          func,
+          @lib.ValType::ref_type(narrowed_ref_type),
+        ),
+        imm1=payload_id,
+        children=[self.replacement_operand_id],
+      )
+      @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+      @ir.hot_delete_node(func, narrowed)
       pass_mark_mutated(ctx, func)
       true
     }

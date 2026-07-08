@@ -8779,6 +8779,57 @@ test "optimize-instructions removes redundant nested ref.cast through fact" {
 }
 
 ///|
+test "optimize-instructions removes child ref.as_non_null from ref.cast through fact" {
+  // Binaryen v130 `visitRefCast` removes a child `ref.as_non_null` after the
+  // known-result and child-cast folds by tightening the parent cast to a
+  // non-null target. This locks that ordinary child-wrapper rewrite as a
+  // fact-driven ref.cast plan instead of a visitor-local scanner.
+  let foo_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let foo_heap = @lib.HeapType::new(foo_type)
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(true, eq_heap))
+  let nullable_foo_ref_type = @lib.RefType::new(true, foo_heap)
+  let nullable_foo_ref = @lib.ValType::ref_type(nullable_foo_ref_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([eq_ref], [nullable_foo_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_cast_type(nullable_foo_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds exact ref.cast on already exact locals" {
   // OI-J exactness positive: Binaryen version_130 removes exact casts when the
   // operand is already exactly the target heap. Nullable-to-non-null exact casts
