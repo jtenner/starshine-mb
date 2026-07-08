@@ -5557,6 +5557,44 @@ fn optimize_instructions_i64_unsigned_max_fact_for_node(
 }
 
 ///|
+priv struct OiExtendWrapI64MaxBitsFact {
+  value_id : Int
+}
+
+///|
+fn OiExtendWrapI64MaxBitsFact::from_extend_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  instr : @lib.Instruction,
+  operand_id : Int,
+) -> OiExtendWrapI64MaxBitsFact? {
+  // Binaryen v130 rewrites `i64.extend_i32_s(i32.wrap_i64(x))` to `x` when
+  // `Bits::getMaxBits(x) <= 31`, and the unsigned spelling when maxBits <= 32.
+  // Use the shared unsigned-max fact so all source-backed maxBits producers feed
+  // the extend-wrap consumer instead of adding another wrapper-specific scanner.
+  let max_value_limit = match instr {
+    @lib.Instruction::I64ExtendI32S => 2147483647L
+    @lib.Instruction::I64ExtendI32U => 4294967295L
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, operand_id) {
+    Some(@lib.Instruction::I32WrapI64) if @ir.hot_child_count(func, operand_id) ==
+      1 => ()
+    _ => return None
+  }
+  let value_id = @ir.hot_child_get(func, operand_id, 0)
+  if !OiLiveNodeFact::proves_node_live(func, dead, value_id) {
+    return None
+  }
+  match
+    OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, value_id).i64_max {
+    Some(max_value) if max_value <= max_value_limit => Some({ value_id, })
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_collect_unsigned_max_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -20051,10 +20089,26 @@ fn optimize_instructions_try_fold_convert(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
   instr : @lib.Instruction,
   operand_id : Int,
 ) -> Bool {
+  match
+    OiExtendWrapI64MaxBitsFact::from_extend_operand(
+      func, dead, scratch, instr, operand_id,
+    ) {
+    Some(fact) => {
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        fact.value_id,
+      )
+      return true
+    }
+    None => ()
+  }
   match (instr, optimize_instructions_i64_const(func, dead, operand_id)) {
     (@lib.Instruction::I32WrapI64, Some(@lib.I64(raw))) => {
       optimize_instructions_replace_with_const_i32(
@@ -26092,6 +26146,7 @@ fn optimize_instructions_visit_node(
           ctx,
           func,
           dead,
+          scratch,
           node_id,
           func.instr_payloads[node.imm0].instr,
           func.children[node.child_base],
