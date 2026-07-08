@@ -8779,6 +8779,57 @@ test "optimize-instructions removes redundant nested ref.cast through fact" {
 }
 
 ///|
+test "optimize-instructions tightens ref.cast with fallthrough type fact" {
+  // Binaryen v130 `visitRefCast` first intersects the cast target with
+  // `getFallthroughType(ref)`. A non-null eqref operand cast to nullable `$foo`
+  // becomes a non-null `$foo` cast before the known-result and child-wrapper
+  // folds. This locks that GLB/nullability step as a fact-driven ref.cast plan.
+  let foo_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let foo_heap = @lib.HeapType::new(foo_type)
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nonnull_eq_ref = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))
+  let nullable_foo_ref_type = @lib.RefType::new(true, foo_heap)
+  let nonnull_foo_ref_type = @lib.RefType::new(false, foo_heap)
+  let nullable_foo_ref = @lib.ValType::ref_type(nullable_foo_ref_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nonnull_eq_ref], [nullable_foo_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(nullable_foo_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = match optimized.code_sec {
+    Some(@lib.CodeSec([func])) => func
+    _ => fail("expected optimized ref.cast GLB function")
+  }
+  @debug.assert_eq(body, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_cast_type(nonnull_foo_ref_type),
+  ])
+}
+
+///|
 test "optimize-instructions removes child ref.as_non_null from ref.cast through fact" {
   // Binaryen v130 `visitRefCast` removes a child `ref.as_non_null` after the
   // known-result and child-cast folds by tightening the parent cast to a

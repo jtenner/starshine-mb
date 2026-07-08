@@ -2725,6 +2725,11 @@ fn OiRefCastOperandFact::can_prove_trap(
 }
 
 ///|
+priv struct OiRefCastTighteningFact {
+  narrowed_ref_type : @lib.RefType
+}
+
+///|
 priv struct OiRefCastChildCastFact {
   replacement_operand_id : Int
 }
@@ -2733,6 +2738,37 @@ priv struct OiRefCastChildCastFact {
 priv struct OiRefCastChildNonNullFact {
   replacement_operand_id : Int
   narrowed_ref_type : @lib.RefType
+}
+
+///|
+fn OiRefCastTighteningFact::from_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cast_fact : OiRefCastFact,
+) -> OiRefCastTighteningFact? {
+  // Binaryen v130 `visitRefCast` first intersects ordinary cast result type
+  // with `getFallthroughType(ref)` using `Type::getGreatestLowerBound`, then
+  // re-optimizes the cast before known-result and child-wrapper folds. Keep the
+  // represented GLB/nullability rule as a fact over the cast target and operand
+  // fallthrough type instead of another visitor-local ref-type scanner.
+  let current_ref_type = @lib.RefType::new(
+    cast_fact.nullable,
+    cast_fact.target,
+    exact=cast_fact.exact,
+  )
+  let fallthrough_ref_type = match
+    OiRefFallthroughFact::from_node(ctx, func, cast_fact.operand_id).ref_type {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  match
+    optimize_instructions_ref_fallthrough_lower_bound(
+      ctx, current_ref_type, fallthrough_ref_type,
+    ) {
+    Some(narrowed_ref_type) if narrowed_ref_type != current_ref_type =>
+      Some({ narrowed_ref_type, })
+    _ => None
+  }
 }
 
 ///|
@@ -2833,6 +2869,7 @@ fn OiRefCastChildNonNullFact::from_cast(
 
 ///|
 priv enum OiRefCastRewritePlanKind {
+  RefCastTightenTarget
   RefCastForwardOperand
   RefCastUnreachable
   RefCastDropOperandThenUnreachable
@@ -2856,19 +2893,38 @@ fn OiRefCastRewritePlanFact::from_cast(
   func : @ir.HotFunc,
   cast_fact : OiRefCastFact,
 ) -> OiRefCastRewritePlanFact? {
-  // Binaryen v130 `visitRefCast` routes source-level cast outcomes through
-  // `GCTypeUtils::evaluateCastCheck` and then chooses whether to forward the
-  // operand, keep only a null check, materialize null, or trap. Keep the
-  // represented Starshine subset as a plan fact fed by `OiRefCastOperandFact`
-  // so the visitor does not own a scanner-like cascade of local/ref/null/
-  // exactness predicates.
-  let nullable = cast_fact.nullable
-  let exact = cast_fact.exact
+  // Binaryen v130 `visitRefCast` first tightens ordinary cast type with
+  // fallthrough/GLB information, then routes source-level cast outcomes through
+  // `GCTypeUtils::evaluateCastCheck` and chooses whether to forward the operand,
+  // keep only a null check, materialize null, or trap. Keep the represented
+  // Starshine subset as a plan fact fed by cast/fallthrough and operand facts so
+  // the visitor does not own a scanner-like cascade of local/ref/null/exactness
+  // predicates. When a tightening fact unlocks an existing known-result or child
+  // rewrite, use the tightened cast fact immediately; Binaryen reaches the same
+  // state by replacing and re-optimizing the cast.
+  let (active_cast_fact, pending_tightening) = match
+    OiRefCastTighteningFact::from_cast(ctx, func, cast_fact) {
+    Some(tightening_fact) => {
+      let narrowed_ref_type = tightening_fact.narrowed_ref_type
+      (
+        {
+          nullable: narrowed_ref_type.is_nullable(),
+          exact: narrowed_ref_type.is_exact(),
+          target: narrowed_ref_type.get_heap_type(),
+          operand_id: cast_fact.operand_id,
+        },
+        Some(narrowed_ref_type),
+      )
+    }
+    None => (cast_fact, None)
+  }
+  let nullable = active_cast_fact.nullable
+  let exact = active_cast_fact.exact
   let operand_fact = OiRefCastOperandFact::from_operand(
     ctx,
     func,
-    cast_fact.operand_id,
-    cast_fact.target,
+    active_cast_fact.operand_id,
+    active_cast_fact.target,
     nullable,
   )
   if operand_fact.direct_null_operand {
@@ -2878,7 +2934,7 @@ fn OiRefCastRewritePlanFact::from_cast(
       } else {
         RefCastUnreachable
       },
-      cast_fact,
+      cast_fact: active_cast_fact,
       replacement_operand_id: -1,
       narrowed_ref_type: None,
     })
@@ -2886,7 +2942,7 @@ fn OiRefCastRewritePlanFact::from_cast(
   if operand_fact.can_rewrite_as_non_null(nullable, exact) {
     return Some({
       kind: RefCastAsNonNull,
-      cast_fact,
+      cast_fact: active_cast_fact,
       replacement_operand_id: -1,
       narrowed_ref_type: None,
     })
@@ -2894,7 +2950,7 @@ fn OiRefCastRewritePlanFact::from_cast(
   if operand_fact.can_rewrite_nullable_exact_target_only_as_null(exact) {
     return Some({
       kind: RefCastNullrefCast,
-      cast_fact,
+      cast_fact: active_cast_fact,
       replacement_operand_id: -1,
       narrowed_ref_type: None,
     })
@@ -2902,7 +2958,7 @@ fn OiRefCastRewritePlanFact::from_cast(
   if operand_fact.can_forward_operand(nullable, exact) {
     return Some({
       kind: RefCastForwardOperand,
-      cast_fact,
+      cast_fact: active_cast_fact,
       replacement_operand_id: -1,
       narrowed_ref_type: None,
     })
@@ -2915,32 +2971,41 @@ fn OiRefCastRewritePlanFact::from_cast(
     }
     return Some({
       kind,
-      cast_fact,
+      cast_fact: active_cast_fact,
       replacement_operand_id: -1,
       narrowed_ref_type: None,
     })
   }
-  match OiRefCastChildCastFact::from_cast(ctx, func, cast_fact) {
+  match OiRefCastChildCastFact::from_cast(ctx, func, active_cast_fact) {
     Some(child_fact) =>
       return Some({
         kind: RefCastSkipChildCast,
-        cast_fact,
+        cast_fact: active_cast_fact,
         replacement_operand_id: child_fact.replacement_operand_id,
         narrowed_ref_type: None,
       })
     None => ()
   }
-  match OiRefCastChildNonNullFact::from_cast(func, cast_fact) {
+  match OiRefCastChildNonNullFact::from_cast(func, active_cast_fact) {
     Some(child_fact) =>
       return Some({
         kind: RefCastSkipChildNonNull,
-        cast_fact,
+        cast_fact: active_cast_fact,
         replacement_operand_id: child_fact.replacement_operand_id,
         narrowed_ref_type: Some(child_fact.narrowed_ref_type),
       })
     None => ()
   }
-  None
+  match pending_tightening {
+    Some(narrowed_ref_type) =>
+      Some({
+        kind: RefCastTightenTarget,
+        cast_fact: active_cast_fact,
+        replacement_operand_id: active_cast_fact.operand_id,
+        narrowed_ref_type: Some(narrowed_ref_type),
+      })
+    None => None
+  }
 }
 
 ///|
@@ -2952,6 +3017,32 @@ fn OiRefCastRewritePlanFact::apply(
 ) -> Bool {
   let operand_id = self.cast_fact.operand_id
   match self.kind {
+    RefCastTightenTarget => {
+      let narrowed_ref_type = match self.narrowed_ref_type {
+        Some(ref_type) => ref_type
+        None => return false
+      }
+      let payload_id = @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(
+          @lib.Instruction::ref_cast_type(narrowed_ref_type),
+        ),
+      )
+      let narrowed = @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, node_id).op,
+        @ir.hot_type_intern_value(
+          func,
+          @lib.ValType::ref_type(narrowed_ref_type),
+        ),
+        imm1=payload_id,
+        children=[self.replacement_operand_id],
+      )
+      @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+      @ir.hot_delete_node(func, narrowed)
+      pass_mark_mutated(ctx, func)
+      true
+    }
     RefCastForwardOperand => {
       optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
       true
