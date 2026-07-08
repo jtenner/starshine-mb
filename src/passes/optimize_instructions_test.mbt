@@ -6293,6 +6293,58 @@ test "optimize-instructions replaces boolean maxBits shifts with zero" {
 }
 
 ///|
+test "optimize-instructions rewrites boolean maxBits binary consumers" {
+  // Red-first OI-D fact slice: Binaryen v130 uses `Bits::getMaxBits(left) == 1`
+  // in `visitBinary` to erase boolean comparisons and boolean `or 1` / `xor 1`
+  // shells. Keep this as a consumer of `OiUnsignedMaxValueFact`, not a direct
+  // compare/eqz whitelist in the binary visitor.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.eqz
+        #|    i32.const 1
+        #|    i32.eq)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.eqz
+        #|    i32.const 0
+        #|    i32.ne)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.eqz
+        #|    i32.const 1
+        #|    i32.or)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.eqz
+        #|    i32.const 1
+        #|    i32.xor))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected boolean maxBits binary optimize success, got \{err}")
+  }
+  let eq_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(eq_pretty.contains("i32.eqz"), msg=eq_pretty)
+  assert_false(eq_pretty.contains("i32.eq\n"), msg=eq_pretty)
+  let ne_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(ne_pretty.contains("i32.eqz"), msg=ne_pretty)
+  assert_false(ne_pretty.contains("i32.ne"), msg=ne_pretty)
+  let or_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(or_pretty.contains("I32(1)"), msg=or_pretty)
+  assert_false(or_pretty.contains("i32.or"), msg=or_pretty)
+  let xor_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(xor_pretty.contains("i32.ne"), msg=xor_pretty)
+  assert_false(xor_pretty.contains("i32.xor"), msg=xor_pretty)
+}
+
+///|
 test "optimize-instructions replaces arithmetic maxBits shifts with zero" {
   // Red-first OI-D fact slice: Binaryen v130 `Bits::getMaxBits` bounds add,
   // multiply, and left shift from their operands. When a following unsigned

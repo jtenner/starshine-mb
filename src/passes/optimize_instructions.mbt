@@ -5625,6 +5625,19 @@ priv struct OiBooleanI32MaxBitsFact {
 }
 
 ///|
+priv enum OiBooleanMaxBitsBinaryRewriteKind {
+  BooleanMaxBitsForwardLeft
+  BooleanMaxBitsEqzLeftI32
+  BooleanMaxBitsConstI32One
+}
+
+///|
+priv struct OiBooleanMaxBitsBinaryRewriteFact {
+  kind : OiBooleanMaxBitsBinaryRewriteKind
+  left_id : Int
+}
+
+///|
 fn OiBooleanI32MaxBitsFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5647,6 +5660,92 @@ fn OiBooleanI32MaxBitsFact::from_node(
         _ => None
       }
     _ => None
+  }
+}
+
+///|
+fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiBooleanMaxBitsBinaryRewriteFact? {
+  // Binaryen v130 `visitBinary` uses `Bits::getMaxBits(left) == 1` to simplify
+  // boolean-valued integer expressions in `== 1`, `!= 0`, `& 1`, `!= 1`,
+  // `^ 1`, and `| 1` shells. Keep that as a maxBits consumer fact so compare,
+  // eqz, and future one-bit producers do not reappear as visitor whitelists.
+  match
+    OiUnsignedMaxValueFact::i32_max_for_node(func, dead, local_facts, lhs_id) {
+    Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) == 1 =>
+      ()
+    _ => return None
+  }
+  match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
+    (@lib.Instruction::I32Eq, Some(@lib.I32(1)))
+    | (@lib.Instruction::I32Ne, Some(@lib.I32(0)))
+    | (@lib.Instruction::I32And, Some(@lib.I32(1))) =>
+      Some({ kind: BooleanMaxBitsForwardLeft, left_id: lhs_id })
+    (@lib.Instruction::I32Ne, Some(@lib.I32(1)))
+    | (@lib.Instruction::I32Xor, Some(@lib.I32(1))) =>
+      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id })
+    (@lib.Instruction::I32Or, Some(@lib.I32(1))) =>
+      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+        Some({ kind: BooleanMaxBitsConstI32One, left_id: lhs_id })
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiBooleanMaxBitsBinaryRewriteFact::apply(
+  self : OiBooleanMaxBitsBinaryRewriteFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.kind {
+    BooleanMaxBitsForwardLeft =>
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        self.left_id,
+      )
+    BooleanMaxBitsEqzLeftI32 =>
+      match @ir.hot_node_exact_instr(func, self.left_id) {
+        Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(
+            func,
+            self.left_id,
+          ) ==
+          1 =>
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_ne(),
+            @ir.hot_child_get(func, self.left_id, 0),
+            @ir.hot_build_const_i32(func, @lib.I32(0)),
+          )
+        _ =>
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eqz(),
+            self.left_id,
+          )
+      }
+    BooleanMaxBitsConstI32One =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(1),
+      )
   }
 }
 
@@ -19972,6 +20071,34 @@ fn optimize_instructions_try_fold_eqz(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
+      func,
+      dead,
+      Some(scratch.local_facts),
+      instr,
+      lhs_id,
+      rhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_exact_const_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -26605,6 +26732,9 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_canonicalize_signed_const_unsigned(
             ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
+          optimize_instructions_try_rewrite_boolean_maxbits_binary(
+            ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
           optimize_instructions_try_fold_exact_const_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
@@ -26672,6 +26802,9 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_remove_redundant_unsigned_mask(
+            ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_boolean_maxbits_binary(
             ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_fold_exact_const_binary(
