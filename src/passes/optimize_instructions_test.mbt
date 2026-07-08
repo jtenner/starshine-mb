@@ -32290,7 +32290,7 @@ test "optimize-instructions directizes select call_ref targets through arm wrapp
   // wrappers before `CallUtils::convertToDirectCalls`, so no-op non-null checks
   // around `ref.func` arms expose direct arms to the select classifier. This
   // locks wrapper arm classification as a fact instead of broadening the mixed
-  // known/unknown select family; same-heap cast arms remain a separate blocker.
+  // known/unknown select family; same-heap cast arms are covered separately.
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
   let target_type = @lib.RecType::new(
@@ -32350,6 +32350,74 @@ test "optimize-instructions directizes select call_ref targets through arm wrapp
   assert_false(nonnull_arms.contains("call_ref"), msg=nonnull_arms)
   assert_false(nonnull_arms.contains("select"), msg=nonnull_arms)
   assert_false(nonnull_arms.contains("ref.as_non_null"), msg=nonnull_arms)
+}
+
+///|
+test "optimize-instructions directizes select call_ref targets through cast arm facts" {
+  // OI-H call_ref select-arm fact slice: Binaryen version_130 child visits can
+  // erase known-success same-heap `ref.cast` wrappers around direct `ref.func`
+  // arms before `CallUtils::convertToDirectCalls`. Keep this to pure arm-local
+  // casts and do not admit effectful fallthrough arms or nested selects without
+  // a separate ChildLocalizer/control fact.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_heap = @lib.HeapType::new(target_type_idx)
+  let nullable_target_ref = @lib.RefType::new(true, target_heap)
+  let select_type = @lib.ValType::ref_type(nullable_target_ref)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([target_type_idx, target_type_idx, caller_type_idx]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(10))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(20))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(nullable_target_ref),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_cast_type(nullable_target_ref),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([select_type])),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let cast_arms = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(cast_arms.contains("if"), msg=cast_arms)
+  assert_true(cast_arms.contains("call (Func 0)"), msg=cast_arms)
+  assert_true(cast_arms.contains("call (Func 1)"), msg=cast_arms)
+  assert_false(cast_arms.contains("call_ref"), msg=cast_arms)
+  assert_false(cast_arms.contains("select"), msg=cast_arms)
+  assert_false(cast_arms.contains("ref.cast"), msg=cast_arms)
 }
 
 ///|

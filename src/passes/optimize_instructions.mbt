@@ -6166,20 +6166,80 @@ fn OiCallRefTargetFact::from_fallthrough_block(
 ///|
 priv struct OiCallRefSelectArmFact {
   direct_func : Int
-  elided_wrapper_depth : Int
+  ref_func_heap : @lib.HeapType?
+  elided_non_null_wrapper_depth : Int
+  elided_cast_wrapper_depth : Int
 }
 
 ///|
 fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
-  { direct_func: -1, elided_wrapper_depth: 0 }
+  {
+    direct_func: -1,
+    ref_func_heap: None,
+    elided_non_null_wrapper_depth: 0,
+    elided_cast_wrapper_depth: 0,
+  }
 }
 
 ///|
 fn OiCallRefSelectArmFact::direct(
   direct_func : Int,
-  elided_wrapper_depth? : Int = 0,
+  ref_func_heap : @lib.HeapType?,
+  elided_non_null_wrapper_depth? : Int = 0,
+  elided_cast_wrapper_depth? : Int = 0,
 ) -> OiCallRefSelectArmFact {
-  { direct_func, elided_wrapper_depth }
+  {
+    direct_func,
+    ref_func_heap,
+    elided_non_null_wrapper_depth,
+    elided_cast_wrapper_depth,
+  }
+}
+
+///|
+priv struct OiCallRefSelectArmCastFact {
+  child_fact : OiCallRefSelectArmFact
+  ref_func_heap : @lib.HeapType?
+  heaps_match : Bool
+}
+
+///|
+fn OiCallRefSelectArmCastFact::from_cast_arm(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  arm_id : Int,
+  depth : Int,
+) -> OiCallRefSelectArmCastFact? {
+  let arm = @ir.hot_node_get(func, arm_id)
+  match arm.op {
+    @ir.HotOp::RefCast if arm.child_count == 1 => ()
+    _ => return None
+  }
+  let cast_heap = match @ir.hot_node_exact_instr(func, arm_id) {
+    Some(@lib.Instruction::RefCast(_, _, heap)) => heap
+    _ => return None
+  }
+  let child_fact = OiCallRefSelectArmFact::from_target_arm(
+    func,
+    dead,
+    @ir.hot_child_get(func, arm_id, 0),
+    depth=depth + 1,
+  )
+  if !child_fact.has_direct_func() {
+    return None
+  }
+  let heaps_match = match child_fact.ref_func_heap {
+    Some(ref_func_heap) => ref_func_heap == cast_heap
+    None => false
+  }
+  Some({ child_fact, ref_func_heap: child_fact.ref_func_heap, heaps_match })
+}
+
+///|
+fn OiCallRefSelectArmCastFact::proves_known_success(
+  self : OiCallRefSelectArmCastFact,
+) -> Bool {
+  self.heaps_match
 }
 
 ///|
@@ -6201,7 +6261,14 @@ fn OiCallRefSelectArmFact::from_target_arm(
     // effectful fallthrough arms such as
     // `local.tee(ref.func)` out of this fact until a source-backed
     // ChildLocalizer fact can preserve arm-side effects.
-    @ir.HotOp::RefFunc => OiCallRefSelectArmFact::direct(arm.imm0)
+    @ir.HotOp::RefFunc => {
+      let ref_func_heap = match
+        optimize_instructions_node_ref_result_type(func, arm_id) {
+        Some(ref_type) => Some(ref_type.get_heap_type())
+        None => None
+      }
+      OiCallRefSelectArmFact::direct(arm.imm0, ref_func_heap)
+    }
     @ir.HotOp::Heap if arm.child_count == 1 =>
       match @ir.hot_node_exact_instr(func, arm_id) {
         Some(@lib.Instruction::RefAsNonNull) => {
@@ -6215,12 +6282,28 @@ fn OiCallRefSelectArmFact::from_target_arm(
           if child_fact.has_direct_func() {
             OiCallRefSelectArmFact::direct(
               child_fact.direct_func,
-              elided_wrapper_depth=child_fact.elided_wrapper_depth + 1,
+              child_fact.ref_func_heap,
+              elided_non_null_wrapper_depth=child_fact.elided_non_null_wrapper_depth +
+                1,
+              elided_cast_wrapper_depth=child_fact.elided_cast_wrapper_depth,
             )
           } else {
             OiCallRefSelectArmFact::unknown()
           }
         }
+        _ => OiCallRefSelectArmFact::unknown()
+      }
+    @ir.HotOp::RefCast =>
+      match
+        OiCallRefSelectArmCastFact::from_cast_arm(func, dead, arm_id, depth) {
+        Some(cast_fact) if cast_fact.proves_known_success() =>
+          OiCallRefSelectArmFact::direct(
+            cast_fact.child_fact.direct_func,
+            cast_fact.ref_func_heap,
+            elided_non_null_wrapper_depth=cast_fact.child_fact.elided_non_null_wrapper_depth,
+            elided_cast_wrapper_depth=cast_fact.child_fact.elided_cast_wrapper_depth +
+              1,
+          )
         _ => OiCallRefSelectArmFact::unknown()
       }
     _ => OiCallRefSelectArmFact::unknown()
