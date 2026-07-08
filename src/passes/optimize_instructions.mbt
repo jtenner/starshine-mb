@@ -5629,6 +5629,9 @@ priv enum OiBooleanMaxBitsBinaryRewriteKind {
   BooleanMaxBitsForwardLeft
   BooleanMaxBitsEqzLeftI32
   BooleanMaxBitsConstI32One
+  BooleanMaxBitsWrapLeftI64
+  BooleanMaxBitsEqzLeftI64ExtendU
+  BooleanMaxBitsConstI64One
 }
 
 ///|
@@ -5701,6 +5704,44 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
 }
 
 ///|
+fn OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiBooleanMaxBitsBinaryRewriteFact? {
+  // Same Binaryen v130 maxBits consumer family for i64 boolean values. Compare
+  // shells return i32 via `i32.wrap_i64(left)`, while `xor 1` inverts the i64
+  // boolean and extends the i32 predicate result back to i64.
+  match
+    OiUnsignedMaxValueFact::i64_max_for_node(func, dead, local_facts, lhs_id) {
+    Some(max_value) if OiUnsignedMaxValueFact::i64_bits_for_max(max_value) == 1 =>
+      ()
+    _ => return None
+  }
+  match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
+    (@lib.Instruction::I64Eq, Some(@lib.I64(1L)))
+    | (@lib.Instruction::I64Ne, Some(@lib.I64(0L))) =>
+      Some({ kind: BooleanMaxBitsWrapLeftI64, left_id: lhs_id })
+    (@lib.Instruction::I64And, Some(@lib.I64(1L))) =>
+      Some({ kind: BooleanMaxBitsForwardLeft, left_id: lhs_id })
+    (@lib.Instruction::I64Ne, Some(@lib.I64(1L))) =>
+      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id })
+    (@lib.Instruction::I64Xor, Some(@lib.I64(1L))) =>
+      Some({ kind: BooleanMaxBitsEqzLeftI64ExtendU, left_id: lhs_id })
+    (@lib.Instruction::I64Or, Some(@lib.I64(1L))) =>
+      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+        Some({ kind: BooleanMaxBitsConstI64One, left_id: lhs_id })
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
 fn OiBooleanMaxBitsBinaryRewriteFact::apply(
   self : OiBooleanMaxBitsBinaryRewriteFact,
   ctx : HotPassContext,
@@ -5730,6 +5771,19 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
             @ir.hot_child_get(func, self.left_id, 0),
             @ir.hot_build_const_i32(func, @lib.I32(0)),
           )
+        Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(
+            func,
+            self.left_id,
+          ) ==
+          1 =>
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            @ir.hot_child_get(func, self.left_id, 0),
+            @ir.hot_build_const_i64(func, @lib.I64(0L)),
+          )
         _ =>
           optimize_instructions_replace_with_exact_unary(
             ctx,
@@ -5745,6 +5799,32 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
         func,
         node_id,
         @lib.I32(1),
+      )
+    BooleanMaxBitsWrapLeftI64 =>
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_wrap_i64(),
+        self.left_id,
+      )
+    BooleanMaxBitsEqzLeftI64ExtendU => {
+      let eqz_id = @ir.hot_build_unary(func, @lib.ValType::i32(), self.left_id)
+      @ir.hot_node_exact_instr_set(func, eqz_id, @lib.Instruction::i64_eqz())
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_extend_i32u(),
+        eqz_id,
+      )
+    }
+    BooleanMaxBitsConstI64One =>
+      optimize_instructions_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(1L),
       )
   }
 }
@@ -20092,6 +20172,51 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
+      return true
+    }
+    None => ()
+  }
+  match
+    OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
+      func,
+      dead,
+      Some(scratch.local_facts),
+      instr,
+      rhs_id,
+      lhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      return true
+    }
+    None => ()
+  }
+  match
+    OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
+      func,
+      dead,
+      Some(scratch.local_facts),
+      instr,
+      lhs_id,
+      rhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      return true
+    }
+    None => ()
+  }
+  match
+    OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
+      func,
+      dead,
+      Some(scratch.local_facts),
+      instr,
+      rhs_id,
+      lhs_id,
+    ) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       true
     }
     None => false
@@ -26884,6 +27009,9 @@ fn optimize_instructions_visit_node(
           ) ||
           optimize_instructions_try_fold_same_local_integer_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_boolean_maxbits_binary(
+            ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_compare_eqz(
             ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
