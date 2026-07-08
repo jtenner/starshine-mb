@@ -7537,8 +7537,37 @@ priv struct OiCallRefFallthroughTargetFact {
 }
 
 ///|
+priv struct OiCallRefFallthroughDirectFuncFact {
+  direct_func : Int
+  ref_func_heap : @lib.HeapType?
+}
+
+///|
 fn OiCallRefFallthroughTargetFact::unknown() -> OiCallRefFallthroughTargetFact {
   { direct_func: -1, ref_func_heap: None }
+}
+
+///|
+fn OiCallRefFallthroughDirectFuncFact::from_fallthrough(
+  fact : OiCallRefFallthroughTargetFact,
+) -> OiCallRefFallthroughDirectFuncFact? {
+  // Binaryen v130 `visitCallRef` only consumes a `Properties::getFallthrough`
+  // target when that fallthrough is a concrete `ref.func`. Keep the direct
+  // fallthrough proof separate from the broader recursive target-descent record
+  // so loop/if/br_on wrappers and the call_ref target classifier do not ask
+  // sentinel-style `has direct function` questions of the traversal fact.
+  if fact.direct_func < 0 {
+    return None
+  }
+  Some({ direct_func: fact.direct_func, ref_func_heap: fact.ref_func_heap })
+}
+
+///|
+fn OiCallRefFallthroughDirectFuncFact::proves_direct_ref_func_fallthrough(
+  self : OiCallRefFallthroughDirectFuncFact,
+) -> Bool {
+  ignore(self.ref_func_heap)
+  self.direct_func >= 0
 }
 
 ///|
@@ -7716,11 +7745,16 @@ fn OiCallRefBrOnFallthroughTargetFact::proves_ref_func_ref_fallthrough(
     | CallRefBrOnCastFallthroughRef
     | CallRefBrOnCastFailFallthroughRef => true
   }
+  let direct_ref_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.ref_fact) {
+    Some(fact) => fact
+    None => return false
+  }
   supported_br_on_kind &&
   self.branch_target_id >= 0 &&
   self.ref_id >= 0 &&
   self.ref_is_final_child &&
-  self.ref_fact.has_direct_func()
+  direct_ref_fact.proves_direct_ref_func_fallthrough()
 }
 
 ///|
@@ -7762,7 +7796,12 @@ fn OiCallRefLoopFallthroughTargetFact::from_loop_target(
 fn OiCallRefLoopFallthroughTargetFact::proves_ref_func_body_fallthrough(
   self : OiCallRefLoopFallthroughTargetFact,
 ) -> Bool {
-  self.body_id >= 0 && self.body_fact.has_direct_func()
+  let direct_body_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.body_fact) {
+    Some(fact) => fact
+    None => return false
+  }
+  self.body_id >= 0 && direct_body_fact.proves_direct_ref_func_fallthrough()
 }
 
 ///|
@@ -7823,16 +7862,14 @@ fn OiCallRefIfFallthroughTargetFact::from_if_target(
 fn OiCallRefIfFallthroughTargetFact::proves_one_sided_ref_func_fallthrough(
   self : OiCallRefIfFallthroughTargetFact,
 ) -> Bool {
+  let direct_arm_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.arm_fact) {
+    Some(fact) => fact
+    None => return false
+  }
   self.fallthrough_arm_id >= 0 &&
-  self.arm_fact.has_direct_func() &&
+  direct_arm_fact.proves_direct_ref_func_fallthrough() &&
   self.then_explicitly_stops != self.else_explicitly_stops
-}
-
-///|
-fn OiCallRefFallthroughTargetFact::has_direct_func(
-  self : OiCallRefFallthroughTargetFact,
-) -> Bool {
-  self.direct_func >= 0
 }
 
 ///|
@@ -8378,11 +8415,16 @@ fn OiCallRefFallthroughDirectTargetFact::from_target(
   let type_fact = OiCallRefFallthroughTypeFact::from_target(
     func, target_id, fallthrough_fact,
   )
-  if fallthrough_fact.has_direct_func() &&
+  let direct_fallthrough_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(fallthrough_fact) {
+    Some(fact) => fact
+    None => return None
+  }
+  if direct_fallthrough_fact.proves_direct_ref_func_fallthrough() &&
     type_fact.proves_target_heap_matches_ref_func_heap() {
     Some({
       target_id,
-      fallthrough_func: fallthrough_fact.direct_func,
+      fallthrough_func: direct_fallthrough_fact.direct_func,
       fallthrough_fact,
       type_fact,
     })
@@ -8395,9 +8437,14 @@ fn OiCallRefFallthroughDirectTargetFact::from_target(
 fn OiCallRefFallthroughDirectTargetFact::proves_fallthrough_ref_func(
   self : OiCallRefFallthroughDirectTargetFact,
 ) -> Bool {
+  let direct_fallthrough_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.fallthrough_fact) {
+    Some(fact) => fact
+    None => return false
+  }
   self.target_id >= 0 &&
   self.fallthrough_func >= 0 &&
-  self.fallthrough_fact.has_direct_func() &&
+  direct_fallthrough_fact.proves_direct_ref_func_fallthrough() &&
   self.type_fact.proves_target_heap_matches_ref_func_heap()
 }
 
