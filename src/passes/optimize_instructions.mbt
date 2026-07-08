@@ -6353,12 +6353,29 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i32_max_for_node(
+priv struct OiI32MaxBitsProducerFact {
+  value_id : Int
+  max_value : Int?
+}
+
+///|
+priv struct OiI64MaxBitsProducerFact {
+  value_id : Int
+  max_value : Int64?
+}
+
+///|
+fn OiI32MaxBitsProducerFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
-) -> Int? {
+) -> OiI32MaxBitsProducerFact? {
+  // Binaryen v130 `Bits::getMaxBits` asks a single producer classifier for the
+  // current expression before consumers use the resulting unsigned maximum.
+  // Keep the i32 dispatch itself fact-owned so the query method remains a thin
+  // accessor over source-backed leaf, local, boolean, conversion, bitwise,
+  // shift/arithmetic, and fallthrough producer facts.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -6368,7 +6385,7 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
       match OiUnsignedLoadMaxBitsFact::from_i32_instr(instr, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          return fact.i32_max
+          return Some({ value_id: node_id, max_value: fact.i32_max })
         }
         None => ()
       }
@@ -6377,18 +6394,18 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
   match OiBooleanI32MaxBitsFact::from_node(func, dead, node_id) {
     Some(fact) => {
       ignore(fact.value_id)
-      return Some(1)
+      return Some({ value_id: node_id, max_value: Some(1) })
     }
     None => ()
   }
-  match node.op {
+  let max_value = match node.op {
     @ir.HotOp::Const =>
       match OiUnsignedConstMaxValueFact::from_i32_node(func, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
           fact.i32_max
         }
-        None => None
+        None => return None
       }
     @ir.HotOp::LocalGet =>
       match OiLocalUnsignedMaxValueFact::from_i32_get(local_facts, node.imm0) {
@@ -6396,7 +6413,7 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
           ignore(fact.local_id)
           fact.i32_max
         }
-        None => None
+        None => return None
       }
     @ir.HotOp::Unary | @ir.HotOp::Convert => {
       let operand_id = func.children[node.child_base]
@@ -6410,9 +6427,9 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
               ignore(fact.operand_id)
               fact.i32_max
             }
-            None => None
+            None => return None
           }
-        None => None
+        None => return None
       }
     }
     @ir.HotOp::Binary => {
@@ -6443,11 +6460,11 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
                       ignore(fact.width_bits)
                       OiUnsignedMaxValueFact::i32_max_for_bits(fact.max_bits)
                     }
-                    None => None
+                    None => return None
                   }
               }
           }
-        _ => None
+        _ => return None
       }
     }
     @ir.HotOp::Block =>
@@ -6459,19 +6476,23 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
             local_facts,
             fact.value_id,
           )
-        None => None
+        None => return None
       }
-    _ => None
+    _ => return None
   }
+  Some({ value_id: node_id, max_value })
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i64_max_for_node(
+fn OiI64MaxBitsProducerFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
-) -> Int64? {
+) -> OiI64MaxBitsProducerFact? {
+  // Same fact-owned producer dispatch for i64 maxBits queries. I64 does not use
+  // the i32 boolean-result fact directly; i64 one-bit values come from ordinary
+  // i64 producers such as zero/sign-extension, bitwise, shifts, and arithmetic.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -6481,20 +6502,20 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
       match OiUnsignedLoadMaxBitsFact::from_i64_instr(instr, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          return fact.i64_max
+          return Some({ value_id: node_id, max_value: fact.i64_max })
         }
         None => ()
       }
     None => ()
   }
-  match node.op {
+  let max_value = match node.op {
     @ir.HotOp::Const =>
       match OiUnsignedConstMaxValueFact::from_i64_node(func, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
           fact.i64_max
         }
-        None => None
+        None => return None
       }
     @ir.HotOp::LocalGet =>
       match OiLocalUnsignedMaxValueFact::from_i64_get(local_facts, node.imm0) {
@@ -6502,7 +6523,7 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
           ignore(fact.local_id)
           fact.i64_max
         }
-        None => None
+        None => return None
       }
     @ir.HotOp::Unary | @ir.HotOp::Convert => {
       let operand_id = func.children[node.child_base]
@@ -6516,9 +6537,9 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
               ignore(fact.operand_id)
               fact.i64_max
             }
-            None => None
+            None => return None
           }
-        None => None
+        None => return None
       }
     }
     @ir.HotOp::Binary => {
@@ -6549,11 +6570,11 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
                       ignore(fact.width_bits)
                       OiUnsignedMaxValueFact::i64_max_for_bits(fact.max_bits)
                     }
-                    None => None
+                    None => return None
                   }
               }
           }
-        _ => None
+        _ => return None
       }
     }
     @ir.HotOp::Block =>
@@ -6565,9 +6586,42 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
             local_facts,
             fact.value_id,
           )
-        None => None
+        None => return None
       }
-    _ => None
+    _ => return None
+  }
+  Some({ value_id: node_id, max_value })
+}
+
+///|
+fn OiUnsignedMaxValueFact::i32_max_for_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  node_id : Int,
+) -> Int? {
+  match OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      fact.max_value
+    }
+    None => None
+  }
+}
+
+///|
+fn OiUnsignedMaxValueFact::i64_max_for_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  node_id : Int,
+) -> Int64? {
+  match OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      fact.max_value
+    }
+    None => None
   }
 }
 
