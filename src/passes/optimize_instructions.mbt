@@ -7243,76 +7243,6 @@ fn OiCallRefResultBlockTypeFact::representable_block_type(
 }
 
 ///|
-fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
-  func : @ir.HotFunc,
-  node : @ir.HotNode,
-  callee_ref_id : Int,
-  target_fact : OiCallRefTargetFact,
-  operand_fact : OiCallRefOperandFact,
-) -> Int? {
-  if !target_fact.has_fallthrough_func() {
-    return None
-  }
-  match node.op {
-    @ir.HotOp::CallRef => {
-      let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
-        func, node,
-      )
-      let block_type = match result_type_fact.representable_block_type() {
-        Some(block_type) => block_type
-        None => return None
-      }
-      let results = @ir.hot_type_results(func, node.ty)
-      match
-        operand_fact.args_with_fallthrough_target_after_last_operand(
-          func, callee_ref_id,
-        ) {
-        Some([]) =>
-          Some(
-            @ir.hot_build_block(func, block_type, [
-              @ir.hot_build_drop(func, callee_ref_id),
-              @ir.hot_build_call(func, target_fact.fallthrough_func, results, []),
-            ]),
-          )
-        Some(operands) =>
-          Some(
-            @ir.hot_build_call(
-              func,
-              target_fact.fallthrough_func,
-              results,
-              operands,
-            ),
-          )
-        None => None
-      }
-    }
-    @ir.HotOp::ReturnCallRef =>
-      match
-        operand_fact.args_with_fallthrough_target_after_last_operand(
-          func, callee_ref_id,
-        ) {
-        Some([]) =>
-          Some(
-            @ir.hot_build_block(func, @lib.BlockType::void_(), [
-              @ir.hot_build_drop(func, callee_ref_id),
-              @ir.hot_build_return_call(func, target_fact.fallthrough_func, []),
-            ]),
-          )
-        Some(operands) =>
-          Some(
-            @ir.hot_build_return_call(
-              func,
-              target_fact.fallthrough_func,
-              operands,
-            ),
-          )
-        None => None
-      }
-    _ => None
-  }
-}
-
-///|
 priv enum OiCallRefDirectizePlanKind {
   CallRefDirectFunc
   CallRefTableTarget
@@ -7404,12 +7334,8 @@ fn OiCallRefDirectizePlanFact::build_replacement(
         Some(fact) => fact
         None => return None
       }
-      optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
-        func,
-        node,
-        callee_ref_id,
-        self.target_fact,
-        operand_fact,
+      self.build_fallthrough_func_replacement(
+        func, node, callee_ref_id, operand_fact,
       )
     }
     CallRefSelectSameDirectFunc => {
@@ -7428,6 +7354,85 @@ fn OiCallRefDirectizePlanFact::build_replacement(
       }
       self.build_select_direct_funcs_replacement(func, node, operand_fact)
     }
+  }
+}
+
+///|
+fn OiCallRefDirectizePlanFact::build_fallthrough_func_replacement(
+  self : OiCallRefDirectizePlanFact,
+  func : @ir.HotFunc,
+  node : @ir.HotNode,
+  callee_ref_id : Int,
+  operand_fact : OiCallRefOperandFact,
+) -> Int? {
+  if !self.target_fact.has_fallthrough_func() {
+    return None
+  }
+  match node.op {
+    @ir.HotOp::CallRef => {
+      let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
+        func, node,
+      )
+      let block_type = match result_type_fact.representable_block_type() {
+        Some(block_type) => block_type
+        None => return None
+      }
+      let results = @ir.hot_type_results(func, node.ty)
+      match
+        operand_fact.args_with_fallthrough_target_after_last_operand(
+          func, callee_ref_id,
+        ) {
+        Some([]) =>
+          Some(
+            @ir.hot_build_block(func, block_type, [
+              @ir.hot_build_drop(func, callee_ref_id),
+              @ir.hot_build_call(
+                func,
+                self.target_fact.fallthrough_func,
+                results,
+                [],
+              ),
+            ]),
+          )
+        Some(operands) =>
+          Some(
+            @ir.hot_build_call(
+              func,
+              self.target_fact.fallthrough_func,
+              results,
+              operands,
+            ),
+          )
+        None => None
+      }
+    }
+    @ir.HotOp::ReturnCallRef =>
+      match
+        operand_fact.args_with_fallthrough_target_after_last_operand(
+          func, callee_ref_id,
+        ) {
+        Some([]) =>
+          Some(
+            @ir.hot_build_block(func, @lib.BlockType::void_(), [
+              @ir.hot_build_drop(func, callee_ref_id),
+              @ir.hot_build_return_call(
+                func,
+                self.target_fact.fallthrough_func,
+                [],
+              ),
+            ]),
+          )
+        Some(operands) =>
+          Some(
+            @ir.hot_build_return_call(
+              func,
+              self.target_fact.fallthrough_func,
+              operands,
+            ),
+          )
+        None => None
+      }
+    _ => None
   }
 }
 
@@ -7644,27 +7649,36 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
 }
 
 ///|
-fn optimize_instructions_try_directize_ref_func_call_ref(
-  ctx : HotPassContext,
+priv struct OiCallRefDirectizationFact {
+  source_target_id : Int
+  effective_target_id : Int
+  args : Array[Int]
+  plan_fact : OiCallRefDirectizePlanFact
+}
+
+///|
+priv enum OiCallRefRewriteKind {
+  CallRefNullTrapRewrite
+  CallRefDirectizationRewrite
+}
+
+///|
+priv struct OiCallRefRewriteFact {
+  kind : OiCallRefRewriteKind
+  null_trap_plan : OiCallRefNullTrapPlanFact?
+  directization_fact : OiCallRefDirectizationFact?
+}
+
+///|
+fn OiCallRefDirectizationFact::from_call_ref(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef => ()
-    _ => return false
-  }
-  if node.child_count < 1 {
-    return false
-  }
-  match OiCallRefNullTrapPlanFact::from_call_ref_target(func, dead, node_id) {
-    Some(fact) => return fact.apply(ctx, func, node_id)
-    None => ()
-  }
+  node : @ir.HotNode,
+) -> OiCallRefDirectizationFact? {
   let callee_ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
   if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
-    return false
+    return None
   }
   let effective_callee_ref_id = match
     OiCallRefTargetSkipNonNullFact::from_call_ref_target(func, dead, node_id) {
@@ -7672,7 +7686,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
     None => callee_ref_id
   }
   if effective_callee_ref_id < 0 {
-    return false
+    return None
   }
   let target_fact = OiCallRefTargetFact::from_target(
     func, dead, effective_callee_ref_id,
@@ -7684,10 +7698,34 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   let plan_fact = match
     OiCallRefDirectizePlanFact::from_target(func, target_fact, args) {
     Some(fact) => fact
-    None => return false
+    None => return None
   }
+  Some({
+    source_target_id: callee_ref_id,
+    effective_target_id: effective_callee_ref_id,
+    args,
+    plan_fact,
+  })
+}
+
+///|
+fn OiCallRefDirectizationFact::apply(
+  self : OiCallRefDirectizationFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if self.source_target_id < 0 || self.effective_target_id < 0 {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
   let temp = match
-    plan_fact.build_replacement(func, node, effective_callee_ref_id, args) {
+    self.plan_fact.build_replacement(
+      func,
+      node,
+      self.effective_target_id,
+      self.args,
+    ) {
     Some(replacement) => replacement
     None => return false
   }
@@ -7709,6 +7747,79 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   @ir.hot_delete_node(func, temp)
   pass_mark_mutated(ctx, func)
   true
+}
+
+///|
+fn OiCallRefRewriteFact::from_call_ref(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiCallRefRewriteFact? {
+  // Binaryen v130 `visitCallRef` runs target `skipNonNullCast`, target
+  // `trapOnNull`, direct `ref.func`, immediate `table.get`, fallthrough
+  // `ref.func`, and `CallUtils::convertToDirectCalls` in one visitor. Keep that
+  // order as a fact-owned rewrite record so callers request a call_ref rewrite
+  // without rebuilding the visitor's proof cascade themselves.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef => ()
+    _ => return None
+  }
+  if node.child_count < 1 {
+    return None
+  }
+  match OiCallRefNullTrapPlanFact::from_call_ref_target(func, dead, node_id) {
+    Some(fact) =>
+      return Some({
+        kind: CallRefNullTrapRewrite,
+        null_trap_plan: Some(fact),
+        directization_fact: None,
+      })
+    None => ()
+  }
+  match OiCallRefDirectizationFact::from_call_ref(func, dead, node_id, node) {
+    Some(fact) =>
+      Some({
+        kind: CallRefDirectizationRewrite,
+        null_trap_plan: None,
+        directization_fact: Some(fact),
+      })
+    None => None
+  }
+}
+
+///|
+fn OiCallRefRewriteFact::apply(
+  self : OiCallRefRewriteFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    CallRefNullTrapRewrite =>
+      match self.null_trap_plan {
+        Some(fact) => fact.apply(ctx, func, node_id)
+        None => false
+      }
+    CallRefDirectizationRewrite =>
+      match self.directization_fact {
+        Some(fact) => fact.apply(ctx, func, node_id)
+        None => false
+      }
+  }
+}
+
+///|
+fn optimize_instructions_try_directize_ref_func_call_ref(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match OiCallRefRewriteFact::from_call_ref(func, dead, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
 }
 
 ///|
