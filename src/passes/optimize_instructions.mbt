@@ -6274,12 +6274,28 @@ priv struct OiCallRefSelectTargetFact {
 }
 
 ///|
+priv struct OiCallRefDirectTargetFact {
+  target_id : Int
+  direct_func : Int
+  ref_func_heap : @lib.HeapType?
+}
+
+///|
+priv struct OiCallRefTableTargetFact {
+  target_id : Int
+  table_idx : Int
+  table_index_id : Int
+}
+
+///|
 priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
   table_index_id : Int
   fallthrough_func : Int
   select_fact : OiCallRefSelectTargetFact?
+  direct_fact : OiCallRefDirectTargetFact?
+  table_fact : OiCallRefTableTargetFact?
 }
 
 ///|
@@ -6290,7 +6306,108 @@ fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
     table_index_id: -1,
     fallthrough_func: -1,
     select_fact: None,
+    direct_fact: None,
+    table_fact: None,
   }
+}
+
+///|
+fn OiCallRefTargetFact::from_direct_fact(
+  fact : OiCallRefDirectTargetFact,
+) -> OiCallRefTargetFact {
+  {
+    direct_func: fact.direct_func,
+    table_idx: -1,
+    table_index_id: -1,
+    fallthrough_func: -1,
+    select_fact: None,
+    direct_fact: Some(fact),
+    table_fact: None,
+  }
+}
+
+///|
+fn OiCallRefTargetFact::from_table_fact(
+  fact : OiCallRefTableTargetFact,
+) -> OiCallRefTargetFact {
+  {
+    direct_func: -1,
+    table_idx: fact.table_idx,
+    table_index_id: fact.table_index_id,
+    fallthrough_func: -1,
+    select_fact: None,
+    direct_fact: None,
+    table_fact: Some(fact),
+  }
+}
+
+///|
+fn OiCallRefDirectTargetFact::from_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  target_id : Int,
+) -> OiCallRefDirectTargetFact? {
+  // Binaryen v130 `visitCallRef` handles immediate `RefFunc` targets before
+  // the fallthrough and select paths. Keep the direct target classifier as its
+  // own source-shaped fact so the generic call_ref plan consumes a proven
+  // target rather than doing an opcode-local direct-call scan.
+  if target_id < 0 || !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
+    return None
+  }
+  let target = @ir.hot_node_get(func, target_id)
+  match target.op {
+    @ir.HotOp::RefFunc => {
+      let ref_func_heap = match
+        optimize_instructions_node_ref_result_type(func, target_id) {
+        Some(ref_type) => Some(ref_type.get_heap_type())
+        None => None
+      }
+      Some({ target_id, direct_func: target.imm0, ref_func_heap })
+    }
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefDirectTargetFact::proves_direct_ref_func(
+  self : OiCallRefDirectTargetFact,
+) -> Bool {
+  ignore(self.ref_func_heap)
+  self.target_id >= 0 && self.direct_func >= 0
+}
+
+///|
+fn OiCallRefTableTargetFact::from_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  target_id : Int,
+) -> OiCallRefTableTargetFact? {
+  // Binaryen v130 `visitCallRef` handles immediate `TableGet` targets as the
+  // table/index fact that lowers `call_ref` to `call_indirect`. Keep that fact
+  // separate from direct, fallthrough, and select target facts so table lowering
+  // is not an ad hoc branch inside the generic target classifier.
+  if target_id < 0 || !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
+    return None
+  }
+  let target = @ir.hot_node_get(func, target_id)
+  match target.op {
+    @ir.HotOp::TableGet if target.child_count == 1 => {
+      let table_index_id = @ir.hot_child_get(func, target_id, 0)
+      if OiLiveNodeFact::proves_node_live(func, dead, table_index_id) {
+        Some({ target_id, table_idx: target.imm0, table_index_id })
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefTableTargetFact::proves_table_get_target(
+  self : OiCallRefTableTargetFact,
+) -> Bool {
+  self.target_id >= 0 && self.table_idx >= 0 && self.table_index_id >= 0
 }
 
 ///|
@@ -6303,29 +6420,17 @@ fn OiCallRefTargetFact::from_target(
     return OiCallRefTargetFact::unknown()
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
+  match OiCallRefDirectTargetFact::from_target(func, dead, callee_ref_id) {
+    Some(fact) if fact.proves_direct_ref_func() =>
+      return OiCallRefTargetFact::from_direct_fact(fact)
+    _ => ()
+  }
+  match OiCallRefTableTargetFact::from_target(func, dead, callee_ref_id) {
+    Some(fact) if fact.proves_table_get_target() =>
+      return OiCallRefTargetFact::from_table_fact(fact)
+    _ => ()
+  }
   match callee_ref.op {
-    @ir.HotOp::RefFunc =>
-      {
-        direct_func: callee_ref.imm0,
-        table_idx: -1,
-        table_index_id: -1,
-        fallthrough_func: -1,
-        select_fact: None,
-      }
-    @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
-      let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
-      if OiLiveNodeFact::proves_node_live(func, dead, table_index_id) {
-        {
-          direct_func: -1,
-          table_idx: callee_ref.imm0,
-          table_index_id,
-          fallthrough_func: -1,
-          select_fact: None,
-        }
-      } else {
-        OiCallRefTargetFact::unknown()
-      }
-    }
     @ir.HotOp::Block =>
       OiCallRefTargetFact::from_fallthrough_block(func, dead, callee_ref_id)
     @ir.HotOp::Select if callee_ref.child_count == 3 =>
@@ -6345,6 +6450,8 @@ fn OiCallRefTargetFact::from_target(
           table_index_id: -1,
           fallthrough_func: fallthrough.direct_func,
           select_fact: None,
+          direct_fact: None,
+          table_fact: None,
         }
       } else {
         OiCallRefTargetFact::unknown()
@@ -6380,6 +6487,8 @@ fn OiCallRefTargetFact::from_fallthrough_block(
       table_index_id: -1,
       fallthrough_func: target.direct_func,
       select_fact: None,
+      direct_fact: None,
+      table_fact: None,
     }
   } else {
     OiCallRefTargetFact::unknown()
@@ -6670,6 +6779,8 @@ fn OiCallRefTargetFact::from_select(
         table_index_id: -1,
         fallthrough_func: -1,
         select_fact: Some(select_fact),
+        direct_fact: None,
+        table_fact: None,
       }
     None => OiCallRefTargetFact::unknown()
   }
@@ -6677,12 +6788,18 @@ fn OiCallRefTargetFact::from_select(
 
 ///|
 fn OiCallRefTargetFact::has_direct_func(self : OiCallRefTargetFact) -> Bool {
-  self.direct_func >= 0
+  match self.direct_fact {
+    Some(fact) => fact.proves_direct_ref_func()
+    None => self.direct_func >= 0
+  }
 }
 
 ///|
 fn OiCallRefTargetFact::has_table_target(self : OiCallRefTargetFact) -> Bool {
-  self.table_idx >= 0 && self.table_index_id >= 0
+  match self.table_fact {
+    Some(fact) => fact.proves_table_get_target()
+    None => self.table_idx >= 0 && self.table_index_id >= 0
+  }
 }
 
 ///|
