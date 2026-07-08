@@ -12239,10 +12239,21 @@ fn optimize_instructions_array_new_len_is_known_non_trapping(len : Int) -> Bool 
 }
 
 ///|
-fn optimize_instructions_forward_selected_operand_has_control_shape(
+priv enum OiOrderedOperandControlShapeFact {
+  OrderedOperandExpressionRoot
+  OrderedOperandControlBoundary
+}
+
+///|
+fn OiOrderedOperandControlShapeFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> Bool {
+) -> OiOrderedOperandControlShapeFact {
+  // Binaryen v130 ordered-effect rewrites rely on ChildLocalizer-like
+  // root-shape facts: scalar expression roots can be sequenced by appending
+  // their effects, while structured control, branches, returns, and EH roots
+  // need a broader control-aware localizer. Keep that boundary as an explicit
+  // fact rather than a helper-owned opcode predicate.
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block
     | @ir.HotOp::Loop
@@ -12262,22 +12273,65 @@ fn optimize_instructions_forward_selected_operand_has_control_shape(
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate
     | @ir.HotOp::Catch
-    | @ir.HotOp::CatchAll => true
-    _ => false
+    | @ir.HotOp::CatchAll => OrderedOperandControlBoundary
+    _ => OrderedOperandExpressionRoot
   }
 }
 
 ///|
-fn optimize_instructions_forward_selected_operand_append_discard(
+fn OiOrderedOperandControlShapeFact::allows_order_preservation(
+  self : OiOrderedOperandControlShapeFact,
+) -> Bool {
+  match self {
+    OrderedOperandExpressionRoot => true
+    OrderedOperandControlBoundary => false
+  }
+}
+
+///|
+priv enum OiOrderedOperandDiscardFact {
+  OrderedOperandAppendEffectRoot
+  OrderedOperandDropSingleResult
+  OrderedOperandUnsupportedMultiResult
+}
+
+///|
+fn OiOrderedOperandDiscardFact::from_results(
+  results : Array[@lib.ValType],
+) -> OiOrderedOperandDiscardFact {
+  // Binaryen v130 `getDroppedChildrenAndAppend` can preserve a no-result
+  // effect root directly or drop a single-result effect. Starshine's current
+  // ordered-effect fact boundary does not synthesize scratch locals for
+  // multi-result operands, so keep that unsupported case visible as a fact.
+  match results.length() {
+    0 => OrderedOperandAppendEffectRoot
+    1 => OrderedOperandDropSingleResult
+    _ => OrderedOperandUnsupportedMultiResult
+  }
+}
+
+///|
+fn OiOrderedOperandDiscardFact::can_materialize_ordered_effect(
+  self : OiOrderedOperandDiscardFact,
+) -> Bool {
+  match self {
+    OrderedOperandAppendEffectRoot | OrderedOperandDropSingleResult => true
+    OrderedOperandUnsupportedMultiResult => false
+  }
+}
+
+///|
+fn OiOrderedOperandDiscardFact::append(
+  self : OiOrderedOperandDiscardFact,
   func : @ir.HotFunc,
-  child_id : Int,
-  child_results : Array[@lib.ValType],
+  node_id : Int,
   body : Array[Int],
 ) -> Bool {
-  match child_results.length() {
-    0 => body.push(child_id)
-    1 => body.push(@ir.hot_build_drop(func, child_id))
-    _ => return false
+  match self {
+    OrderedOperandAppendEffectRoot => body.push(node_id)
+    OrderedOperandDropSingleResult =>
+      body.push(@ir.hot_build_drop(func, node_id))
+    OrderedOperandUnsupportedMultiResult => return false
   }
   true
 }
@@ -12286,7 +12340,8 @@ fn optimize_instructions_forward_selected_operand_append_discard(
 priv struct OiOrderedOperandFact {
   node_id : Int
   results : Array[@lib.ValType]
-  has_control_shape : Bool
+  control_shape_fact : OiOrderedOperandControlShapeFact
+  discard_fact : OiOrderedOperandDiscardFact
   is_trivially_pure : Bool
   is_effect_pure : Bool
 }
@@ -12298,12 +12353,14 @@ fn OiOrderedOperandFact::from_node(
   node_id : Int,
 ) -> OiOrderedOperandFact {
   let effects = pass_require_effects(ctx, func)
+  let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
   {
     node_id,
-    results: @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)),
-    has_control_shape: optimize_instructions_forward_selected_operand_has_control_shape(
+    results,
+    control_shape_fact: OiOrderedOperandControlShapeFact::from_node(
       func, node_id,
     ),
+    discard_fact: OiOrderedOperandDiscardFact::from_results(results),
     is_trivially_pure: optimize_instructions_is_trivially_pure_operand(
       func, node_id,
     ),
@@ -12323,7 +12380,16 @@ fn OiOrderedOperandFact::is_pure(self : OiOrderedOperandFact) -> Bool {
 fn OiOrderedOperandFact::can_preserve_order(
   self : OiOrderedOperandFact,
 ) -> Bool {
-  !self.has_control_shape && self.results.length() <= 1
+  self.control_shape_fact.allows_order_preservation() &&
+  self.discard_fact.can_materialize_ordered_effect()
+}
+
+///|
+fn OiOrderedOperandFact::can_preserve_scalar_selected_value(
+  self : OiOrderedOperandFact,
+) -> Bool {
+  self.control_shape_fact.allows_order_preservation() &&
+  self.results.length() == 1
 }
 
 ///|
@@ -12332,12 +12398,52 @@ fn OiOrderedOperandFact::append_discard(
   func : @ir.HotFunc,
   body : Array[Int],
 ) -> Bool {
-  optimize_instructions_forward_selected_operand_append_discard(
-    func,
-    self.node_id,
-    self.results,
-    body,
-  )
+  self.discard_fact.append(func, self.node_id, body)
+}
+
+///|
+priv struct OiOrderedSelectedSiblingEffectFact {
+  has_effectful_non_selected : Bool
+  has_later_effectful_non_selected : Bool
+}
+
+///|
+fn OiOrderedSelectedSiblingEffectFact::from_operands(
+  operand_facts : Array[OiOrderedOperandFact],
+  selected_index : Int,
+) -> OiOrderedSelectedSiblingEffectFact {
+  // Forward-selected and null-trap rewrites use the same Binaryen-shaped order
+  // evidence as tuple extraction: pure siblings can disappear, earlier
+  // effectful siblings are emitted before the selected value, and later
+  // effectful siblings force selected-value localization. Keep that sibling
+  // summary reusable instead of recomputing booleans in each selected-operand
+  // rewrite helper.
+  let mut has_effectful_non_selected = false
+  let mut has_later_effectful_non_selected = false
+  for i = 0; i < operand_facts.length(); i = i + 1 {
+    if i == selected_index || operand_facts[i].is_pure() {
+      continue
+    }
+    has_effectful_non_selected = true
+    if i > selected_index {
+      has_later_effectful_non_selected = true
+    }
+  }
+  { has_effectful_non_selected, has_later_effectful_non_selected }
+}
+
+///|
+fn OiOrderedSelectedSiblingEffectFact::allows_direct_forward(
+  self : OiOrderedSelectedSiblingEffectFact,
+) -> Bool {
+  !self.has_effectful_non_selected
+}
+
+///|
+fn OiOrderedSelectedSiblingEffectFact::needs_selected_local(
+  self : OiOrderedSelectedSiblingEffectFact,
+) -> Bool {
+  self.has_later_effectful_non_selected
 }
 
 ///|
@@ -12495,18 +12601,10 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
     [val_type] => val_type
     _ => return false
   }
-  let mut has_effectful_non_selected = false
-  let mut has_later_effectful_non_selected = false
-  for i = 0; i < operand_facts.length(); i = i + 1 {
-    if i == selected_index || operand_facts[i].is_pure() {
-      continue
-    }
-    has_effectful_non_selected = true
-    if i > selected_index {
-      has_later_effectful_non_selected = true
-    }
-  }
-  if !has_effectful_non_selected {
+  let sibling_effect_fact = OiOrderedSelectedSiblingEffectFact::from_operands(
+    operand_facts, selected_index,
+  )
+  if sibling_effect_fact.allows_direct_forward() {
     optimize_instructions_replace_with_node_id(
       ctx,
       func,
@@ -12518,7 +12616,7 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
   let body : Array[Int] = []
   let mut selected_local = -1
   let mut selected_result_id = selected_fact.node_id
-  if has_later_effectful_non_selected {
+  if sibling_effect_fact.needs_selected_local() {
     let local_type = match
       optimize_instructions_defaultable_scratch_type(selected_value_type) {
       Some(local_type) => local_type
@@ -12539,7 +12637,7 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
   for i = 0; i < operand_facts.length(); i = i + 1 {
     let operand_fact = operand_facts[i]
     if i == selected_index {
-      if has_later_effectful_non_selected {
+      if sibling_effect_fact.needs_selected_local() {
         body.push(
           @ir.hot_build_local_set(func, selected_local, selected_fact.node_id),
         )
@@ -12555,7 +12653,7 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
       return false
     }
   }
-  if has_later_effectful_non_selected {
+  if sibling_effect_fact.needs_selected_local() {
     body.push(selected_result_id)
   }
   let replacement = @ir.hot_build_block(
@@ -13572,13 +13670,7 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
   }
   if array_kind == 2 {
     let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
-    if optimize_instructions_forward_selected_operand_has_control_shape(
-        func, repeated_value_id,
-      ) {
-      return false
-    }
-    if @ir.hot_type_results(func, @ir.hot_node_type(func, repeated_value_id)).length() !=
-      1 {
+    if !OiOrderedOperandFact::from_node(ctx, func, repeated_value_id).can_preserve_scalar_selected_value() {
       return false
     }
   }
