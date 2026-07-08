@@ -30,14 +30,15 @@ priv struct OptimizeInstructionsLocalFacts {
 }
 
 ///|
-priv struct OiLocalAssignmentFact {
-  live : Bool
-  supported_assignment : Bool
-  non_param_local : Bool
-  single_value_child : Bool
+priv struct OiLocalAssignmentPayloadFact {
   local_id : Int
   value_id : Int
-  val_type : @lib.ValType?
+  val_type : @lib.ValType
+}
+
+///|
+priv struct OiLocalAssignmentFact {
+  payload : OiLocalAssignmentPayloadFact?
 }
 
 ///|
@@ -170,15 +171,7 @@ fn OptimizeInstructionsLocalFacts::merge_i64_unsigned_max_for_local(
 
 ///|
 fn OiLocalAssignmentFact::empty() -> OiLocalAssignmentFact {
-  {
-    live: false,
-    supported_assignment: false,
-    non_param_local: false,
-    single_value_child: false,
-    local_id: -1,
-    value_id: -1,
-    val_type: None,
-  }
+  { payload: None }
 }
 
 ///|
@@ -190,72 +183,62 @@ fn OiLocalAssignmentFact::from_node(
   // Binaryen's `LocalScanner` records local-set/tee assignments as facts that
   // later integer rewrites query, rather than each rewrite owning a separate
   // tree scanner. Keep Starshine's represented local integer assignment shape
-  // explicit and shared by sign-extension and unsigned-max summaries.
+  // explicit and shared by sign-extension and unsigned-max summaries. Unsupported
+  // shapes carry no payload instead of sentinel local/value ids.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiLocalAssignmentFact::empty()
   }
   let node = @ir.hot_node_get(func, node_id)
-  let supported_assignment = match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => true
-    _ => false
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+    _ => return OiLocalAssignmentFact::empty()
   }
-  if !supported_assignment {
+  let local_id = node.imm0
+  if local_id < @ir.hot_local_param_count(func) || node.child_count != 1 {
     return OiLocalAssignmentFact::empty()
   }
-  let single_value_child = node.child_count == 1
-  let local_id = node.imm0
-  {
-    live: true,
-    supported_assignment,
-    non_param_local: local_id >= @ir.hot_local_param_count(func),
-    single_value_child,
-    local_id,
-    value_id: if single_value_child {
-      func.children[node.child_base]
-    } else {
-      -1
-    },
-    val_type: @ir.hot_local_type(func, local_id),
-  }
-}
-
-///|
-fn OiLocalAssignmentFact::proves_sign_ext_integer_local(
-  self : OiLocalAssignmentFact,
-) -> Bool {
-  if !(self.live &&
-    self.supported_assignment &&
-    self.non_param_local &&
-    self.single_value_child) {
-    return false
-  }
-  match self.val_type {
+  match @ir.hot_local_type(func, local_id) {
     Some(val_type) =>
-      val_type == @lib.ValType::i32() || val_type == @lib.ValType::i64()
-    None => false
+      {
+        payload: Some({
+          local_id,
+          value_id: func.children[node.child_base],
+          val_type,
+        }),
+      }
+    None => OiLocalAssignmentFact::empty()
   }
 }
 
 ///|
-fn OiLocalAssignmentFact::proves_i32_local(
+fn OiLocalAssignmentFact::sign_ext_integer_assignment(
   self : OiLocalAssignmentFact,
-) -> Bool {
-  self.live &&
-  self.supported_assignment &&
-  self.non_param_local &&
-  self.single_value_child &&
-  self.val_type == Some(@lib.ValType::i32())
+) -> OiLocalAssignmentPayloadFact? {
+  match self.payload {
+    Some(payload) if payload.val_type == @lib.ValType::i32() ||
+      payload.val_type == @lib.ValType::i64() => Some(payload)
+    _ => None
+  }
 }
 
 ///|
-fn OiLocalAssignmentFact::proves_i64_local(
+fn OiLocalAssignmentFact::i32_assignment(
   self : OiLocalAssignmentFact,
-) -> Bool {
-  self.live &&
-  self.supported_assignment &&
-  self.non_param_local &&
-  self.single_value_child &&
-  self.val_type == Some(@lib.ValType::i64())
+) -> OiLocalAssignmentPayloadFact? {
+  match self.payload {
+    Some(payload) if payload.val_type == @lib.ValType::i32() => Some(payload)
+    _ => None
+  }
+}
+
+///|
+fn OiLocalAssignmentFact::i64_assignment(
+  self : OiLocalAssignmentFact,
+) -> OiLocalAssignmentPayloadFact? {
+  match self.payload {
+    Some(payload) if payload.val_type == @lib.ValType::i64() => Some(payload)
+    _ => None
+  }
 }
 
 ///|
@@ -5746,15 +5729,17 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
       let assignment_fact = OiLocalAssignmentFact::from_node(
         func, dead, node_id,
       )
-      if assignment_fact.proves_sign_ext_integer_local() {
-        scratch.local_facts.merge_sign_ext_bits_for_local(
-          assignment_fact.local_id,
-          OiSignExtValueFact::from_assigned_value(
-            func,
-            dead,
-            assignment_fact.value_id,
-          ).bits,
-        )
+      match assignment_fact.sign_ext_integer_assignment() {
+        Some(payload) =>
+          scratch.local_facts.merge_sign_ext_bits_for_local(
+            payload.local_id,
+            OiSignExtValueFact::from_assigned_value(
+              func,
+              dead,
+              payload.value_id,
+            ).bits,
+          )
+        None => ()
       }
     }
   }
@@ -7971,24 +7956,29 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
       let assignment_fact = OiLocalAssignmentFact::from_node(
         func, dead, node_id,
       )
-      if assignment_fact.proves_i32_local() {
-        scratch.local_facts.merge_i32_unsigned_max_for_local(
-          assignment_fact.local_id,
-          OiUnsignedMaxValueFact::from_assigned_i32_value(
-            func,
-            dead,
-            assignment_fact.value_id,
-          ).i32_max,
-        )
-      } else if assignment_fact.proves_i64_local() {
-        scratch.local_facts.merge_i64_unsigned_max_for_local(
-          assignment_fact.local_id,
-          OiUnsignedMaxValueFact::from_assigned_i64_value(
-            func,
-            dead,
-            assignment_fact.value_id,
-          ).i64_max,
-        )
+      match assignment_fact.i32_assignment() {
+        Some(payload) =>
+          scratch.local_facts.merge_i32_unsigned_max_for_local(
+            payload.local_id,
+            OiUnsignedMaxValueFact::from_assigned_i32_value(
+              func,
+              dead,
+              payload.value_id,
+            ).i32_max,
+          )
+        None =>
+          match assignment_fact.i64_assignment() {
+            Some(payload) =>
+              scratch.local_facts.merge_i64_unsigned_max_for_local(
+                payload.local_id,
+                OiUnsignedMaxValueFact::from_assigned_i64_value(
+                  func,
+                  dead,
+                  payload.value_id,
+                ).i64_max,
+              )
+            None => ()
+          }
       }
     }
   }
