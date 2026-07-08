@@ -32342,9 +32342,115 @@ test "optimize-instructions collapses same-target select call_ref facts to one d
   let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(caller.contains("call (Func 0)"), msg=caller)
   assert_false(caller.contains("if"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+  assert_false(caller.contains("local.set"), msg=caller)
   assert_false(caller.contains("call_ref"), msg=caller)
   assert_false(caller.contains("select"), msg=caller)
   assert_false(caller.contains("ref.func"), msg=caller)
+}
+
+///|
+test "optimize-instructions preserves same-target select call_ref effectful condition facts" {
+  // OI-H call_ref same-target select condition fact: Binaryen version_130
+  // `CallUtils::convertToDirectCalls` collapses identical select target arms to a
+  // single direct call while preserving the select condition in the original
+  // target-evaluation slot. Keep the condition as a fact with an explicit i32
+  // guard instead of a visitor-local side-effect scanner; nested select arms,
+  // control/EH, and multivalue operands remain separate localization work.
+  let effect_type_idx = @lib.TypeIdx::new(0U)
+  let target_type_idx = @lib.TypeIdx::new(1U)
+  let caller_type_idx = @lib.TypeIdx::new(2U)
+  let effect_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([effect_type, target_type, caller_type]))
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type_idx),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([target_type_idx, caller_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(2U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected effectful select call_ref fact success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::Call => @debug.assert_eq(root_node.imm0, 1)
+    other =>
+      fail("expected same-target select call_ref to direct call, got \{other}")
+  }
+  @debug.assert_eq(root_node.child_count, 1)
+  let interposed_arg = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, interposed_arg).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail("expected condition-preserving last-operand block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, interposed_arg)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+    @ir.HotOp::Drop => ()
+    other =>
+      fail(
+        "expected effectful condition drop before reloaded operand, got \{other}",
+      )
+  }
 }
 
 ///|
