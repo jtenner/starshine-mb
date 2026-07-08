@@ -3658,11 +3658,42 @@ priv enum OiRefCastRewritePlanKind {
 }
 
 ///|
+priv struct OiRefCastRewritePayloadFact {
+  replacement_operand_id : Int?
+  narrowed_ref_type : @lib.RefType?
+}
+
+///|
+fn OiRefCastRewritePayloadFact::empty() -> OiRefCastRewritePayloadFact {
+  { replacement_operand_id: None, narrowed_ref_type: None }
+}
+
+///|
+fn OiRefCastRewritePayloadFact::replacement_operand(
+  replacement_operand_id : Int,
+) -> OiRefCastRewritePayloadFact {
+  {
+    replacement_operand_id: Some(replacement_operand_id),
+    narrowed_ref_type: None,
+  }
+}
+
+///|
+fn OiRefCastRewritePayloadFact::replacement_operand_and_type(
+  replacement_operand_id : Int,
+  narrowed_ref_type : @lib.RefType,
+) -> OiRefCastRewritePayloadFact {
+  {
+    replacement_operand_id: Some(replacement_operand_id),
+    narrowed_ref_type: Some(narrowed_ref_type),
+  }
+}
+
+///|
 priv struct OiRefCastRewritePlanFact {
   kind : OiRefCastRewritePlanKind
   cast_fact : OiRefCastFact
-  replacement_operand_id : Int
-  narrowed_ref_type : @lib.RefType?
+  payload : OiRefCastRewritePayloadFact
 }
 
 ///|
@@ -3722,8 +3753,7 @@ fn OiRefCastRewritePlanFact::from_cast(
       return Some({
         kind,
         cast_fact: active_cast_fact,
-        replacement_operand_id: -1,
-        narrowed_ref_type: None,
+        payload: OiRefCastRewritePayloadFact::empty(),
       })
     }
     None => ()
@@ -3733,8 +3763,9 @@ fn OiRefCastRewritePlanFact::from_cast(
       return Some({
         kind: RefCastSkipChildCast,
         cast_fact: active_cast_fact,
-        replacement_operand_id: child_fact.replacement_operand_id,
-        narrowed_ref_type: None,
+        payload: OiRefCastRewritePayloadFact::replacement_operand(
+          child_fact.replacement_operand_id,
+        ),
       })
     None => ()
   }
@@ -3743,8 +3774,10 @@ fn OiRefCastRewritePlanFact::from_cast(
       return Some({
         kind: RefCastSkipChildNonNull,
         cast_fact: active_cast_fact,
-        replacement_operand_id: child_fact.replacement_operand_id,
-        narrowed_ref_type: Some(child_fact.narrowed_ref_type),
+        payload: OiRefCastRewritePayloadFact::replacement_operand_and_type(
+          child_fact.replacement_operand_id,
+          child_fact.narrowed_ref_type,
+        ),
       })
     None => ()
   }
@@ -3753,8 +3786,10 @@ fn OiRefCastRewritePlanFact::from_cast(
       Some({
         kind: RefCastTightenTarget,
         cast_fact: active_cast_fact,
-        replacement_operand_id: active_cast_fact.operand_id,
-        narrowed_ref_type: Some(narrowed_ref_type),
+        payload: OiRefCastRewritePayloadFact::replacement_operand_and_type(
+          active_cast_fact.operand_id,
+          narrowed_ref_type,
+        ),
       })
     None => None
   }
@@ -3770,7 +3805,11 @@ fn OiRefCastRewritePlanFact::apply(
   let operand_id = self.cast_fact.operand_id
   match self.kind {
     RefCastTightenTarget => {
-      let narrowed_ref_type = match self.narrowed_ref_type {
+      let replacement_operand_id = match self.payload.replacement_operand_id {
+        Some(id) => id
+        None => return false
+      }
+      let narrowed_ref_type = match self.payload.narrowed_ref_type {
         Some(ref_type) => ref_type
         None => return false
       }
@@ -3788,7 +3827,7 @@ fn OiRefCastRewritePlanFact::apply(
           @lib.ValType::ref_type(narrowed_ref_type),
         ),
         imm1=payload_id,
-        children=[self.replacement_operand_id],
+        children=[replacement_operand_id],
       )
       @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
       @ir.hot_delete_node(func, narrowed)
@@ -3816,12 +3855,20 @@ fn OiRefCastRewritePlanFact::apply(
         ctx, func, node_id, operand_id,
       )
     RefCastSkipChildCast => {
-      @ir.hot_child_set(func, node_id, 0, self.replacement_operand_id)
+      let replacement_operand_id = match self.payload.replacement_operand_id {
+        Some(id) => id
+        None => return false
+      }
+      @ir.hot_child_set(func, node_id, 0, replacement_operand_id)
       pass_mark_mutated(ctx, func)
       true
     }
     RefCastSkipChildNonNull => {
-      let narrowed_ref_type = match self.narrowed_ref_type {
+      let replacement_operand_id = match self.payload.replacement_operand_id {
+        Some(id) => id
+        None => return false
+      }
+      let narrowed_ref_type = match self.payload.narrowed_ref_type {
         Some(ref_type) => ref_type
         None => return false
       }
@@ -3839,7 +3886,7 @@ fn OiRefCastRewritePlanFact::apply(
           @lib.ValType::ref_type(narrowed_ref_type),
         ),
         imm1=payload_id,
-        children=[self.replacement_operand_id],
+        children=[replacement_operand_id],
       )
       @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
       @ir.hot_delete_node(func, narrowed)
