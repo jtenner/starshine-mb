@@ -609,6 +609,142 @@ fn optimize_instructions_node_ref_result_type(
 }
 
 ///|
+priv struct OiHeapSubtypeFact {
+  known : Bool
+}
+
+///|
+fn OiHeapSubtypeFact::from_heaps(
+  ctx : HotPassContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiHeapSubtypeFact {
+  if source == target {
+    return { known: true }
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return { known: false }
+  }
+  {
+    known: OiHeapSubtypeFact::proves_subtype_with_fuel(
+      module_ctx, source, target, 64,
+    ),
+  }
+}
+
+///|
+fn OiHeapSubtypeFact::proves_subtype_with_fuel(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  if fuel <= 0 {
+    return false
+  }
+  let source_idx = match source {
+    @lib.HeapType(source_idx) => source_idx
+    _ => return false
+  }
+  match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+    Some(subtype) => {
+      for super_idx in subtype.super_types() {
+        if OiHeapSubtypeFact::proves_subtype_with_fuel(
+            module_ctx,
+            @lib.HeapType::new(super_idx),
+            target,
+            fuel - 1,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn OiHeapSubtypeFact::proves_known_subtype(self : OiHeapSubtypeFact) -> Bool {
+  self.known
+}
+
+///|
+priv struct OiConcreteSourceTargetOverlapFact {
+  no_target_overlap : Bool
+}
+
+///|
+fn OiConcreteSourceTargetOverlapFact::from_heaps(
+  module_ctx : @ir.HotModuleContext?,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiConcreteSourceTargetOverlapFact {
+  // Binaryen proves a ref.test/ref.cast miss for concrete sources by checking
+  // that no declared subtype can simultaneously flow to both source and target.
+  // Keep the expensive module walk behind an explicit fact rather than a
+  // caller-owned subtype scanner.
+  let ctx = match module_ctx {
+    Some(ctx) => ctx
+    None => return { no_target_overlap: false }
+  }
+  match source {
+    @lib.HeapType::HeapType(_) => ()
+    _ => return { no_target_overlap: false }
+  }
+  if optimize_instructions_heap_matches_target(ctx, source, target, 512) {
+    return { no_target_overlap: false }
+  }
+  let subtype_count = @ir.hot_module_subtype_count(ctx)
+  for i = 0; i < subtype_count; i = i + 1 {
+    let heap = @lib.HeapType::new(@lib.TypeIdx::new(i.reinterpret_as_uint()))
+    if optimize_instructions_heap_matches_target(ctx, heap, source, 512) &&
+      optimize_instructions_heap_matches_target(ctx, heap, target, 512) {
+      return { no_target_overlap: false }
+    }
+  }
+  { no_target_overlap: true }
+}
+
+///|
+fn OiConcreteSourceTargetOverlapFact::proves_no_target_overlap(
+  self : OiConcreteSourceTargetOverlapFact,
+) -> Bool {
+  self.no_target_overlap
+}
+
+///|
+priv struct OiFinalHeapFact {
+  final_heap : Bool
+}
+
+///|
+fn OiFinalHeapFact::from_heap(
+  module_ctx : @ir.HotModuleContext,
+  heap : @lib.HeapType,
+) -> OiFinalHeapFact {
+  let final_heap = match heap {
+    @lib.HeapType::HeapType(type_idx) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+        Some(@lib.CompTypeSubType(_, _)) => true
+        Some(@lib.SubType(true, _, _, _)) => true
+        _ => false
+      }
+    _ => false
+  }
+  { final_heap, }
+}
+
+///|
+fn OiFinalHeapFact::proves_final_heap(self : OiFinalHeapFact) -> Bool {
+  self.final_heap
+}
+
+///|
 priv struct OiHeapRelationFact {
   same_heap : Bool
   i31_matches_target : Bool
@@ -650,14 +786,12 @@ fn OiHeapRelationFact::from_heaps(
       source, target,
     ),
     module_heap_matches_target,
-    known_subtype: optimize_instructions_heap_is_known_subtype(
-      ctx, source, target,
-    ),
-    concrete_source_has_no_target_overlap: optimize_instructions_concrete_source_has_no_target_overlap(
+    known_subtype: OiHeapSubtypeFact::from_heaps(ctx, source, target).proves_known_subtype(),
+    concrete_source_has_no_target_overlap: OiConcreteSourceTargetOverlapFact::from_heaps(
       ctx.module_ctx,
       source,
       target,
-    ),
+    ).proves_no_target_overlap(),
     both_concrete_heaps,
   }
 }
@@ -1043,7 +1177,7 @@ fn OiRefProducerFact::has_final_heap(
   match self.ref_type {
     Some(ref_type) =>
       ref_type.get_heap_type() == target &&
-      optimize_instructions_heap_is_final(module_ctx, target)
+      OiFinalHeapFact::from_heap(module_ctx, target).proves_final_heap()
     None => false
   }
 }
@@ -1491,7 +1625,7 @@ fn OiRefTestOperandFact::source_has_final_heap(
   match self.source_type {
     Some(ref_type) =>
       ref_type.get_heap_type() == target &&
-      optimize_instructions_heap_is_final(module_ctx, target)
+      OiFinalHeapFact::from_heap(module_ctx, target).proves_final_heap()
     None => false
   }
 }
@@ -18123,20 +18257,40 @@ fn optimize_instructions_try_fold_compare_zero(
 }
 
 ///|
-fn optimize_instructions_is_remainder_instr(
+priv struct OiRemainderInstructionFact {
+  live : Bool
+  exact_instr : @lib.Instruction?
+}
+
+///|
+fn OiRemainderInstructionFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return false
+) -> OiRemainderInstructionFact {
+  // Binaryen keeps eq-zero wrappers around integer remainder because remainder
+  // may trap. Record Starshine's represented direct/local.tee remainder shape as
+  // fact data so compare-to-zero cleanup does not own a bespoke recursive scan.
+  let live = OiLiveNodeFact::proves_node_live(func, dead, node_id)
+  if !live {
+    return { live, exact_instr: None }
   }
   let exact_id = match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 =>
       @ir.hot_child_get(func, node_id, 0)
     _ => node_id
   }
-  match @ir.hot_node_exact_instr(func, exact_id) {
+  { live, exact_instr: @ir.hot_node_exact_instr(func, exact_id) }
+}
+
+///|
+fn OiRemainderInstructionFact::proves_remainder(
+  self : OiRemainderInstructionFact,
+) -> Bool {
+  if !self.live {
+    return false
+  }
+  match self.exact_instr {
     Some(
       @lib.Instruction::I32RemS
       | @lib.Instruction::I32RemU
@@ -18145,6 +18299,15 @@ fn optimize_instructions_is_remainder_instr(
     ) => true
     _ => false
   }
+}
+
+///|
+fn OiRemainderInstructionFact::proves_node_remainder(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  OiRemainderInstructionFact::from_node(func, dead, node_id).proves_remainder()
 }
 
 ///|
@@ -18385,50 +18548,6 @@ fn optimize_instructions_subtype_heap_matches_target(
     }
   }
   false
-}
-
-///|
-fn optimize_instructions_concrete_source_has_no_target_overlap(
-  module_ctx : @ir.HotModuleContext?,
-  source : @lib.HeapType,
-  target : @lib.HeapType,
-) -> Bool {
-  let ctx = match module_ctx {
-    Some(ctx) => ctx
-    None => return false
-  }
-  match source {
-    @lib.HeapType::HeapType(_) => ()
-    _ => return false
-  }
-  if optimize_instructions_heap_matches_target(ctx, source, target, 512) {
-    return false
-  }
-  let subtype_count = @ir.hot_module_subtype_count(ctx)
-  for i = 0; i < subtype_count; i = i + 1 {
-    let heap = @lib.HeapType::new(@lib.TypeIdx::new(i.reinterpret_as_uint()))
-    if optimize_instructions_heap_matches_target(ctx, heap, source, 512) &&
-      optimize_instructions_heap_matches_target(ctx, heap, target, 512) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn optimize_instructions_heap_is_final(
-  module_ctx : @ir.HotModuleContext,
-  heap : @lib.HeapType,
-) -> Bool {
-  match heap {
-    @lib.HeapType::HeapType(type_idx) =>
-      match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
-        Some(@lib.CompTypeSubType(_, _)) => true
-        Some(@lib.SubType(true, _, _, _)) => true
-        _ => false
-      }
-    _ => false
-  }
 }
 
 ///|
@@ -20718,59 +20837,6 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
 }
 
 ///|
-fn optimize_instructions_heap_is_known_subtype(
-  ctx : HotPassContext,
-  source : @lib.HeapType,
-  target : @lib.HeapType,
-) -> Bool {
-  if source == target {
-    return true
-  }
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return false
-  }
-  optimize_instructions_heap_is_known_subtype_with_fuel(
-    module_ctx, source, target, 64,
-  )
-}
-
-///|
-fn optimize_instructions_heap_is_known_subtype_with_fuel(
-  module_ctx : @ir.HotModuleContext,
-  source : @lib.HeapType,
-  target : @lib.HeapType,
-  fuel : Int,
-) -> Bool {
-  if source == target {
-    return true
-  }
-  if fuel <= 0 {
-    return false
-  }
-  let source_idx = match source {
-    @lib.HeapType(source_idx) => source_idx
-    _ => return false
-  }
-  match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
-    Some(subtype) => {
-      for super_idx in subtype.super_types() {
-        if optimize_instructions_heap_is_known_subtype_with_fuel(
-            module_ctx,
-            @lib.HeapType::new(super_idx),
-            target,
-            fuel - 1,
-          ) {
-          return true
-        }
-      }
-      false
-    }
-    None => false
-  }
-}
-
-///|
 fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -22932,7 +22998,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
       optimize_instructions_i32_const(func, dead, rhs_id),
     ) {
     (@lib.Instruction::I32Eq, Some(@lib.I32(0)), _) =>
-      if optimize_instructions_is_remainder_instr(func, dead, rhs_id) {
+      if OiRemainderInstructionFact::proves_node_remainder(func, dead, rhs_id) {
         ()
       } else {
         optimize_instructions_replace_with_exact_unary(
@@ -22945,7 +23011,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
         return true
       }
     (@lib.Instruction::I32Eq, _, Some(@lib.I32(0))) =>
-      if optimize_instructions_is_remainder_instr(func, dead, lhs_id) {
+      if OiRemainderInstructionFact::proves_node_remainder(func, dead, lhs_id) {
         ()
       } else {
         optimize_instructions_replace_with_exact_unary(
@@ -22966,7 +23032,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
       optimize_instructions_i64_const(func, dead, rhs_id),
     ) {
     (@lib.Instruction::I64Eq, Some(@lib.I64(0L)), _) =>
-      if optimize_instructions_is_remainder_instr(func, dead, rhs_id) {
+      if OiRemainderInstructionFact::proves_node_remainder(func, dead, rhs_id) {
         false
       } else {
         optimize_instructions_replace_with_exact_unary(
@@ -22979,7 +23045,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
         true
       }
     (@lib.Instruction::I64Eq, _, Some(@lib.I64(0L))) =>
-      if optimize_instructions_is_remainder_instr(func, dead, lhs_id) {
+      if OiRemainderInstructionFact::proves_node_remainder(func, dead, lhs_id) {
         false
       } else {
         optimize_instructions_replace_with_exact_unary(
@@ -23588,9 +23654,17 @@ fn optimize_instructions_visit_node(
 }
 
 ///|
-fn optimize_instructions_func_has_unsupported_aggregate_atomic_receiver(
+priv struct OiUnsupportedAggregateAtomicReceiverFact {
+  found_unsupported_receiver : Bool
+}
+
+///|
+fn OiUnsupportedAggregateAtomicReceiverFact::from_func(
   func : @ir.HotFunc,
-) -> Bool {
+) -> OiUnsupportedAggregateAtomicReceiverFact {
+  // Current HOT can contain aggregate atomic receiver-less shapes that OI cannot
+  // safely rewrite. Keep the fail-closed preflight as a named representation
+  // fact until the aggregate-atomic receiver representation is repaired.
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -23599,12 +23673,19 @@ fn optimize_instructions_func_has_unsupported_aggregate_atomic_receiver(
       Some(@lib.Instruction::StructAtomicRmw(_, _, _))
       | Some(@lib.Instruction::StructAtomicCmpxchg(_, _)) =>
         if @ir.hot_child_count(func, node_id) == 0 {
-          return true
+          return { found_unsupported_receiver: true }
         }
       _ => ()
     }
   }
-  false
+  { found_unsupported_receiver: false }
+}
+
+///|
+fn OiUnsupportedAggregateAtomicReceiverFact::requires_fail_closed_skip(
+  self : OiUnsupportedAggregateAtomicReceiverFact,
+) -> Bool {
+  self.found_unsupported_receiver
 }
 
 ///|
@@ -23612,7 +23693,7 @@ fn optimize_instructions_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  if optimize_instructions_func_has_unsupported_aggregate_atomic_receiver(func) {
+  if OiUnsupportedAggregateAtomicReceiverFact::from_func(func).requires_fail_closed_skip() {
     return HotPassResult::unchanged()
   }
   let mut changed = false
