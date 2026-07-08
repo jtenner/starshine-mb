@@ -32359,6 +32359,84 @@ test "optimize-instructions directizes loop fallthrough call_ref targets" {
 }
 
 ///|
+test "optimize-instructions directizes multi-root loop fallthrough call_ref targets" {
+  // OI-H call_ref loop fallthrough target fact slice: Binaryen version_130
+  // `Properties::getImmediateFallthrough` descends through a loop to its body,
+  // and ordinary loop-body sequencing then exposes the final `ref.func` tail.
+  // The directization must still preserve the entire multi-root loop target as
+  // a dropped evaluation before the direct call / return_call. Branching loop
+  // exits, EH, and multivalue operands remain separate source-backed facts.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let multi_root_loop_target = fn(seed : Int) {
+    @lib.Instruction::loop_(
+      @lib.BlockType::val_type(typed_func_ref),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(seed)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+      ]),
+    )
+  }
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([target_type_idx, caller_type_idx, caller_type_idx]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            multi_root_loop_target(42),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            multi_root_loop_target(99),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(caller.contains("drop"), msg=caller)
+  assert_true(caller.contains("loop"), msg=caller)
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_true(tail.contains("drop"), msg=tail)
+  assert_true(tail.contains("loop"), msg=tail)
+  assert_true(tail.contains("return_call (Func 0)"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+}
+
+///|
 test "optimize-instructions lowers select ref.func call_ref targets to direct if calls" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

@@ -5737,18 +5737,19 @@ fn OiCallRefLoopFallthroughTargetFact::from_loop_target(
   // Binaryen v130 `Properties::getImmediateFallthrough` descends from a loop
   // target to its body before `visitCallRef` asks whether the final fallthrough
   // is a `ref.func`. The represented safe subset keeps the whole loop target in
-  // the later dropped evaluation but only proves a single explicit body root;
-  // multi-root blockified loop bodies and branch/EH loop exits remain reopening
-  // criteria for a ChildLocalizer/effect-aware loop fact.
+  // the later dropped evaluation and proves the explicit live tail root of the
+  // loop body; branch/EH loop exits remain reopening criteria for a
+  // ChildLocalizer/effect-aware loop fact.
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Loop => ()
     _ => return None
   }
   let body_ref = @ir.hot_region_body_ref(func, node_id)
-  if @ir.hot_region_root_count(func, body_ref) != 1 {
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 1 {
     return None
   }
-  let body_id = @ir.hot_region_get(func, body_ref, 0)
+  let body_id = @ir.hot_region_get(func, body_ref, root_count - 1)
   if !OiLiveNodeFact::proves_node_live(func, dead, body_id) {
     return None
   }
