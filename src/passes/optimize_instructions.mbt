@@ -1927,7 +1927,7 @@ fn OiRefTestRewritePlanFact::from_test(
       let can_erase_operand = (
           value == @lib.I32(0) &&
           (
-            optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+            OiTriviallyPureOperandFact::proves_node_pure(func, operand_id) ||
             optimize_instructions_node_effects_are_pure(ctx, func, operand_id)
           )
         ) ||
@@ -2277,7 +2277,7 @@ fn OiRefCastOperandFact::from_operand(
   // operand/target relation as one fact so ref.cast and descriptor exact-miss
   // plans do not own parallel helper-level predicate cascades.
   let target_fact = OiRefCastOperandTargetFact::from_operand(func, operand_id)
-  let trivially_pure = optimize_instructions_is_trivially_pure_operand(
+  let trivially_pure = OiTriviallyPureOperandFact::proves_node_pure(
     func, operand_id,
   )
   let effects_pure = optimize_instructions_node_effects_are_pure(
@@ -5435,8 +5435,8 @@ fn optimize_instructions_try_sink_same_global_set_if(
   }
   let then_value = @ir.hot_child_get(func, then_set_id, 0)
   let else_value = @ir.hot_child_get(func, else_set_id, 0)
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, then_value) ||
-    !optimize_instructions_is_side_effect_free_expr(func, dead, else_value) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, then_value) ||
+    !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, else_value) {
     return false
   }
   let then_results = @ir.hot_type_results(
@@ -6254,7 +6254,7 @@ fn optimize_instructions_try_canonicalize_commutative(
     ) {
     return false
   }
-  if !optimize_instructions_can_swap_leading_operands(ctx, func, lhs_id, rhs_id) {
+  if !OiLeadingOperandSwapFact::from_operands(ctx, func, lhs_id, rhs_id).proves_swappable() {
     return false
   }
   optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
@@ -6350,7 +6350,7 @@ fn OiTriviallyPureOperandFact::proves_pure(
 }
 
 ///|
-fn optimize_instructions_is_trivially_pure_operand(
+fn OiTriviallyPureOperandFact::proves_node_pure(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
@@ -6358,13 +6358,13 @@ fn optimize_instructions_is_trivially_pure_operand(
 }
 
 ///|
-fn optimize_instructions_is_trivially_pure_value(
+fn OiTriviallyPureOperandFact::proves_live_node_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   optimize_instructions_node_is_live(func, dead, node_id) &&
-  OiTriviallyPureOperandFact::from_node(func, node_id).proves_pure()
+  OiTriviallyPureOperandFact::proves_node_pure(func, node_id)
 }
 
 ///|
@@ -6580,7 +6580,7 @@ fn OiSideEffectFreeExpressionFact::proves_free(
 }
 
 ///|
-fn optimize_instructions_is_side_effect_free_expr(
+fn OiSideEffectFreeExpressionFact::proves_node_free(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
@@ -6799,7 +6799,7 @@ fn OiBooleanConstantTreeFact::proves_boolean_tree(
 }
 
 ///|
-fn optimize_instructions_is_boolean_constant_tree(
+fn OiBooleanConstantTreeFact::proves_node_boolean_tree(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
@@ -7105,7 +7105,9 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
     return false
   }
   let inner_cond_id = @ir.hot_child_get(func, inner_if_id, 0)
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, inner_cond_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, inner_cond_id,
+    ) {
     return false
   }
   let then_root = @ir.hot_region_get(func, inner_then, 0)
@@ -7172,6 +7174,22 @@ fn OiZeroSentinelFact::proves_drop_zero_sentinel(
   self : OiZeroSentinelFact,
 ) -> Bool {
   self.drop_shell && self.single_drop_child && self.child_zero_sentinel
+}
+
+///|
+fn OiZeroSentinelFact::proves_node_zero_sentinel(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  OiZeroSentinelFact::from_node(func, node_id).proves_zero_sentinel()
+}
+
+///|
+fn OiZeroSentinelFact::proves_node_drop_zero_sentinel(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  OiZeroSentinelFact::from_node(func, node_id).proves_drop_zero_sentinel()
 }
 
 ///|
@@ -7586,22 +7604,6 @@ fn OiControlExitRegionFact::proves_exits_via_nonbranch_terminal(
 }
 
 ///|
-fn optimize_instructions_node_is_zero_sentinel(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  OiZeroSentinelFact::from_node(func, node_id).proves_zero_sentinel()
-}
-
-///|
-fn optimize_instructions_node_is_drop_zero_sentinel(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  OiZeroSentinelFact::from_node(func, node_id).proves_drop_zero_sentinel()
-}
-
-///|
 fn optimize_instructions_holder_flows_to_drop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7698,7 +7700,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         _ => false
       }
       if root_is_if &&
-        optimize_instructions_node_is_drop_zero_sentinel(func, tail_id) {
+        OiZeroSentinelFact::proves_node_drop_zero_sentinel(func, tail_id) {
         return false
       }
       let root_is_result_carrier = match root_op {
@@ -7707,7 +7709,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
       }
       let keep_result_zero_sentinel = root_is_result_carrier &&
         root_exit_fact.proves_exits_via_nonbranch_terminal()
-      if optimize_instructions_node_is_zero_sentinel(func, tail_id) &&
+      if OiZeroSentinelFact::proves_node_zero_sentinel(func, tail_id) &&
         (
           optimize_instructions_holder_flows_to_drop(ctx, func, region_ref) ||
           keep_result_zero_sentinel
@@ -8319,8 +8321,8 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
   if plain_boolean_const_arms {
     return false
   }
-  if optimize_instructions_is_boolean_constant_tree(func, dead, then_root) &&
-    optimize_instructions_is_boolean_constant_tree(func, dead, else_root) {
+  if OiBooleanConstantTreeFact::proves_node_boolean_tree(func, dead, then_root) &&
+    OiBooleanConstantTreeFact::proves_node_boolean_tree(func, dead, else_root) {
     return false
   }
   let use_def = pass_require_use_def(ctx, func)
@@ -8591,6 +8593,14 @@ priv struct OiSubtreeReorderEffectFact {
 }
 
 ///|
+priv struct OiLeadingOperandSwapFact {
+  left_in_bounds : Bool
+  right_in_bounds : Bool
+  left_effects : OiSubtreeReorderEffectFact
+  right_effects : OiSubtreeReorderEffectFact
+}
+
+///|
 priv struct OiNodeEffectPurityFact {
   effect_mask : UInt
   mask_is_pure : Bool
@@ -8741,6 +8751,19 @@ fn OiNodeEffectPurityFact::proves_pure(self : OiNodeEffectPurityFact) -> Bool {
 }
 
 ///|
+fn OiSubtreeReorderEffectFact::empty() -> OiSubtreeReorderEffectFact {
+  {
+    effect_mask: 0U,
+    read_mask: 0U,
+    write_mask: 0U,
+    state_writes: OiStateWriteSetFact::empty(),
+    carries_control: false,
+    disrupts: false,
+    has_side_effect: false,
+  }
+}
+
+///|
 fn OiSubtreeReorderEffectFact::read_effect_mask() -> UInt {
   @ir.EFFECT_MASK_LOCAL_STATE |
   @ir.EFFECT_MASK_GLOBAL_STATE |
@@ -8842,7 +8865,14 @@ fn optimize_instructions_mask_without_global_state(mask : UInt) -> UInt {
 }
 
 ///|
-fn optimize_instructions_is_pure_scalar_equal_tree_op(op : @ir.HotOp) -> Bool {
+priv struct OiPureScalarEqualTreeShellFact {
+  branchless_scalar_shell : Bool
+}
+
+///|
+fn OiPureScalarEqualTreeShellFact::from_op(
+  op : @ir.HotOp,
+) -> OiPureScalarEqualTreeShellFact {
   // Source-mapped subset of Binaryen v130 `ExpressionAnalyzer::equal` used by
   // OI's consecutive-input equality facts: branchless scalar expression shells
   // whose children are recursively deterministic under the enclosing ordered-
@@ -8852,9 +8882,16 @@ fn optimize_instructions_is_pure_scalar_equal_tree_op(op : @ir.HotOp) -> Bool {
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
     | @ir.HotOp::Convert
-    | @ir.HotOp::Select => true
-    _ => false
+    | @ir.HotOp::Select => { branchless_scalar_shell: true }
+    _ => { branchless_scalar_shell: false }
   }
+}
+
+///|
+fn OiPureScalarEqualTreeShellFact::proves_shell(
+  self : OiPureScalarEqualTreeShellFact,
+) -> Bool {
+  self.branchless_scalar_shell
 }
 
 ///|
@@ -8913,7 +8950,7 @@ fn optimize_instructions_scalar_tree_metadata_equal(
   right : @ir.HotNode,
 ) -> Bool {
   if left.op != right.op ||
-    !optimize_instructions_is_pure_scalar_equal_tree_op(left.op) ||
+    !OiPureScalarEqualTreeShellFact::from_op(left.op).proves_shell() ||
     left.ty != right.ty ||
     left.flags != right.flags ||
     left.imm1 != right.imm1 ||
@@ -11202,7 +11239,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
   let body : Array[Int] = []
   for operand in operands_to_drop {
     if !optimize_instructions_node_is_live(func, dead, operand) ||
-      !optimize_instructions_is_side_effect_free_expr(func, dead, operand) {
+      !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, operand) {
       return false
     }
     body.push(@ir.hot_build_drop(func, operand))
@@ -11360,7 +11397,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
     Some(fact) => fact
     None => return false
   }
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, value_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, value_id) {
     return false
   }
   let receiver_local = optimize_instructions_add_temp_local(
@@ -11461,8 +11498,10 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
     Some(fact) => fact
     None => return false
   }
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, expected_id) ||
-    !optimize_instructions_is_side_effect_free_expr(func, dead, replacement_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, expected_id) ||
+    !OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, replacement_id,
+    ) {
     return false
   }
   let receiver_local = optimize_instructions_add_temp_local(
@@ -12577,7 +12616,7 @@ fn OiOrderedOperandFact::from_node(
       func, node_id,
     ),
     discard_fact: OiOrderedOperandDiscardFact::from_results(results),
-    is_trivially_pure: optimize_instructions_is_trivially_pure_operand(
+    is_trivially_pure: OiTriviallyPureOperandFact::proves_node_pure(
       func, node_id,
     ),
     is_effect_pure: OiNodeEffectPurityFact::from_node_masks(
@@ -13779,7 +13818,7 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
       match optimize_instructions_i32_const(func, dead, repeated_value_id) {
         Some(_) => len
         None => {
-          if optimize_instructions_is_trivially_pure_operand(
+          if OiTriviallyPureOperandFact::proves_node_pure(
               func, repeated_value_id,
             ) ||
             optimize_instructions_node_effects_are_pure(
@@ -15463,8 +15502,8 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   let effect_safe = if state_read || state_scalar_tree {
     true
   } else {
-    optimize_instructions_is_side_effect_free_expr(func, dead, if_true) &&
-    optimize_instructions_is_side_effect_free_expr(func, dead, if_false)
+    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, if_true) &&
+    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, if_false)
   }
   if !effect_safe {
     return {
@@ -15988,7 +16027,7 @@ fn optimize_instructions_try_fold_const_select(
     func, dead, if_true, if_false,
   )
   if identical_arm_fact.proves_equal() {
-    if optimize_instructions_is_side_effect_free_expr(func, dead, condition) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, condition) {
       optimize_instructions_replace_with_node_id(ctx, func, node_id, if_true)
       return true
     }
@@ -16029,10 +16068,10 @@ fn optimize_instructions_try_fold_const_select(
     Some(@lib.I32(_)) => (if_true, if_false)
     _ => return false
   }
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, dead_arm) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, dead_arm) {
     return false
   }
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, chosen) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, chosen) {
     let use_def = pass_require_use_def(ctx, func)
     if @ir.node_use_count(use_def, chosen) != 1 {
       return false
@@ -16554,7 +16593,7 @@ fn optimize_instructions_try_fold_identity_binary(
         _ => false
       }
       if rhs_is_one &&
-        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
           func,
@@ -16571,7 +16610,7 @@ fn optimize_instructions_try_fold_identity_binary(
         _ => false
       }
       if rhs_is_one &&
-        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
         optimize_instructions_replace_with_const_i64(
           ctx,
           func,
@@ -16667,9 +16706,9 @@ fn optimize_instructions_try_fold_absorbing_zero_i32(
     _ => false
   }
   let pure_other = if zero_on_lhs && !zero_on_rhs {
-    optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id)
   } else if zero_on_rhs && !zero_on_lhs {
-    optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id)
   } else if zero_on_lhs && zero_on_rhs {
     true
   } else {
@@ -16706,9 +16745,9 @@ fn optimize_instructions_try_fold_absorbing_zero_i64(
     _ => false
   }
   let pure_other = if zero_on_lhs && !zero_on_rhs {
-    optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id)
   } else if zero_on_rhs && !zero_on_lhs {
-    optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id)
   } else if zero_on_lhs && zero_on_rhs {
     true
   } else {
@@ -16750,13 +16789,13 @@ fn optimize_instructions_try_fold_absorbing_neg_one_or_i32(
     return false
   }
   let effectful_id = if neg_one_on_lhs && !neg_one_on_rhs {
-    if optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id) {
       None
     } else {
       Some(rhs_id)
     }
   } else if neg_one_on_rhs && !neg_one_on_lhs {
-    if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
       None
     } else {
       Some(lhs_id)
@@ -16807,13 +16846,13 @@ fn optimize_instructions_try_fold_absorbing_neg_one_or_i64(
     return false
   }
   let effectful_id = if neg_one_on_lhs && !neg_one_on_rhs {
-    if optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id) {
       None
     } else {
       Some(rhs_id)
     }
   } else if neg_one_on_rhs && !neg_one_on_lhs {
-    if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
       None
     } else {
       Some(lhs_id)
@@ -16870,7 +16909,7 @@ fn optimize_instructions_try_fold_absorbing_binary(
         _ => false
       }
       if rhs_is_neg_one &&
-        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
           func,
@@ -16889,7 +16928,7 @@ fn optimize_instructions_try_fold_absorbing_binary(
         _ => false
       }
       if rhs_is_neg_one &&
-        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
         optimize_instructions_replace_with_const_i64(
           ctx,
           func,
@@ -17133,30 +17172,39 @@ fn optimize_instructions_i64_zero_sub_negated_operand(
 }
 
 ///|
-fn optimize_instructions_can_swap_leading_operands(
+fn OiLeadingOperandSwapFact::from_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   a_id : Int,
   b_id : Int,
-) -> Bool {
+) -> OiLeadingOperandSwapFact {
+  // Binaryen's leading-operand normalization asks `EffectAnalyzer` whether the
+  // two operand subtrees may exchange evaluation order. Keep the bounds check
+  // and both subtree effect facts as a named proof so callers consume the same
+  // OI-G reorder fact instead of a helper-level predicate.
   let effects = pass_require_effects(ctx, func)
-  if a_id < 0 ||
-    a_id >= effects.node_masks.length() ||
-    b_id < 0 ||
-    b_id >= effects.node_masks.length() {
-    return false
+  let left_in_bounds = a_id >= 0 && a_id < effects.node_masks.length()
+  let right_in_bounds = b_id >= 0 && b_id < effects.node_masks.length()
+  let left_effects = if left_in_bounds {
+    OiSubtreeReorderEffectFact::from_node(func, effects.node_masks, a_id)
+  } else {
+    OiSubtreeReorderEffectFact::empty()
   }
-  let a_effect_fact = OiSubtreeReorderEffectFact::from_node(
-    func,
-    effects.node_masks,
-    a_id,
-  )
-  let b_effect_fact = OiSubtreeReorderEffectFact::from_node(
-    func,
-    effects.node_masks,
-    b_id,
-  )
-  a_effect_fact.can_swap_with(b_effect_fact)
+  let right_effects = if right_in_bounds {
+    OiSubtreeReorderEffectFact::from_node(func, effects.node_masks, b_id)
+  } else {
+    OiSubtreeReorderEffectFact::empty()
+  }
+  { left_in_bounds, right_in_bounds, left_effects, right_effects }
+}
+
+///|
+fn OiLeadingOperandSwapFact::proves_swappable(
+  self : OiLeadingOperandSwapFact,
+) -> Bool {
+  self.left_in_bounds &&
+  self.right_in_bounds &&
+  self.left_effects.can_swap_with(self.right_effects)
 }
 
 ///|
@@ -17266,9 +17314,9 @@ fn optimize_instructions_try_rewrite_add_sub(
             let sub_rhs_id = func.children[lhs.child_base + 1]
             if optimize_instructions_i32_const(func, dead, zero_id) ==
               Some(@lib.I32(0)) &&
-              optimize_instructions_can_swap_leading_operands(
+              OiLeadingOperandSwapFact::from_operands(
                 ctx, func, rhs_id, sub_rhs_id,
-              ) {
+              ).proves_swappable() {
               optimize_instructions_rewrite_exact_with_children(
                 ctx,
                 func,
@@ -17315,9 +17363,9 @@ fn optimize_instructions_try_rewrite_add_sub(
             let sub_rhs_id = func.children[lhs.child_base + 1]
             if optimize_instructions_i64_const(func, dead, zero_id) ==
               Some(@lib.I64(0L)) &&
-              optimize_instructions_can_swap_leading_operands(
+              OiLeadingOperandSwapFact::from_operands(
                 ctx, func, rhs_id, sub_rhs_id,
-              ) {
+              ).proves_swappable() {
               optimize_instructions_rewrite_exact_with_children(
                 ctx,
                 func,
@@ -17877,7 +17925,7 @@ fn optimize_instructions_try_fold_compare_zero(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_is_trivially_pure_value(func, dead, lhs_id) {
+  if !OiTriviallyPureOperandFact::proves_live_node_pure(func, dead, lhs_id) {
     return false
   }
   match instr {
@@ -18661,7 +18709,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
       can_move_null_check: false,
     }
   }
-  let condition_side_effect_free = optimize_instructions_is_side_effect_free_expr(
+  let condition_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func,
     dead,
     @ir.hot_child_get(func, node_id, 0),
@@ -18684,13 +18732,13 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
   let single_root_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
     @ir.hot_region_root_count(func, else_region) == 1
   let then_side_effect_free = single_root_arms &&
-    optimize_instructions_is_side_effect_free_expr(
+    OiSideEffectFreeExpressionFact::proves_node_free(
       func,
       dead,
       @ir.hot_region_get(func, then_region, 0),
     )
   let else_side_effect_free = single_root_arms &&
-    optimize_instructions_is_side_effect_free_expr(
+    OiSideEffectFreeExpressionFact::proves_node_free(
       func,
       dead,
       @ir.hot_region_get(func, else_region, 0),
@@ -19417,7 +19465,7 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
   // represented Binaryen `trapOnNull` subset as data: direct side-effect-free
   // proof, an allowed internal-control shell, block-region summaries, and
   // recursively effect-free children.
-  let direct_side_effect_free = optimize_instructions_is_side_effect_free_expr(
+  let direct_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func, dead, node_id,
   )
   if direct_side_effect_free {
@@ -20658,7 +20706,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
   // whose roots are internally-control-safe, and the existing nullable-if
   // movement proof. It is intentionally narrower than full ChildLocalizer and
   // EffectAnalyzer parity.
-  let side_effect_free = optimize_instructions_is_side_effect_free_expr(
+  let side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func, dead, node_id,
   )
   let node = @ir.hot_node_get(func, node_id)
@@ -20781,7 +20829,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
   let child_ref_fact = OiRefFact::from_node(func, get_desc_fact.child_id)
   let child_non_nullable_type = child_ref_fact.type_is_non_nullable()
   let child_known_non_null = child_ref_fact.is_known_non_null()
-  let child_side_effect_free = optimize_instructions_is_side_effect_free_expr(
+  let child_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func,
     dead,
     get_desc_fact.child_id,
@@ -20915,7 +20963,7 @@ fn OiDescriptorOperandEraseFact::from_operand(
   // whether descriptor operands may disappear. This fact records Starshine's
   // current represented erasure reasons in one source-backed place instead of a
   // helper-local cascade of raw purity, allocation, ref.get_desc, and TNH checks.
-  let side_effect_free = optimize_instructions_is_side_effect_free_expr(
+  let side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func, dead, node_id,
   )
   let node_effects_pure = optimize_instructions_node_effects_are_pure(
@@ -22083,7 +22131,7 @@ fn optimize_instructions_try_fold_signed_domain_edge_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
     return false
   }
   let (rhs_is_signed_min, rhs_is_signed_max) = match instr {
@@ -22152,7 +22200,7 @@ fn optimize_instructions_try_fold_unsigned_domain_edge_compare(
       instr, rhs_is_zero, rhs_is_unsigned_max,
     ) {
     Some(result) => {
-      if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) ||
+      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) ||
         optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       } else {
@@ -22323,7 +22371,7 @@ fn optimize_instructions_try_fold_i32_sign_extension_equality_compare(
       instr, min_value, max_value, rhs,
     ) {
     Some(result) => {
-      if optimize_instructions_is_side_effect_free_expr(func, dead, drop_id) ||
+      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, drop_id) ||
         optimize_instructions_node_effects_are_pure(ctx, func, drop_id) {
         optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       } else {
@@ -22508,7 +22556,7 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
       instr, max_value, rhs,
     ) {
     Some(result) => {
-      if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) ||
+      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) ||
         optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       } else {
@@ -22626,7 +22674,7 @@ fn optimize_instructions_try_fold_i64_masked_unsigned_compare(
       instr, max_value, rhs,
     ) {
     Some(result) => {
-      if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) ||
+      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) ||
         optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       } else {
