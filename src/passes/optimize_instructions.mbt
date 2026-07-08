@@ -259,15 +259,88 @@ fn OiLocalAssignmentFact::proves_i64_local(
 }
 
 ///|
+priv enum OiRefNullabilityKind {
+  UnknownRefNullability
+  KnownNullRef
+  KnownNonNullResultType
+  KnownNonNullLocalType
+  KnownNonNullRefFunc
+  KnownNonNullRefI31
+}
+
+///|
+priv struct OiRefNullabilityFact {
+  kind : OiRefNullabilityKind
+}
+
+///|
+fn OiRefNullabilityFact::unknown() -> OiRefNullabilityFact {
+  { kind: UnknownRefNullability }
+}
+
+///|
+fn OiRefNullabilityFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  ref_type : @lib.RefType?,
+) -> OiRefNullabilityFact {
+  let node = @ir.hot_node_get(func, node_id)
+  let kind = match node.op {
+    @ir.HotOp::RefNull => KnownNullRef
+    _ =>
+      match ref_type {
+        Some(ref_type) if ref_type.is_non_nullable() => KnownNonNullResultType
+        _ =>
+          match node.op {
+            @ir.HotOp::LocalGet =>
+              match @ir.hot_local_type(func, node.imm0) {
+                Some(@lib.ValType::RefTypeValType(ref_type)) if ref_type.is_non_nullable() =>
+                  KnownNonNullLocalType
+                _ => UnknownRefNullability
+              }
+            @ir.HotOp::RefFunc => KnownNonNullRefFunc
+            @ir.HotOp::Heap =>
+              match @ir.hot_node_exact_instr(func, node_id) {
+                Some(@lib.Instruction::RefI31) => KnownNonNullRefI31
+                _ => UnknownRefNullability
+              }
+            _ => UnknownRefNullability
+          }
+      }
+  }
+  { kind, }
+}
+
+///|
+fn OiRefNullabilityFact::proves_known_null(self : OiRefNullabilityFact) -> Bool {
+  match self.kind {
+    KnownNullRef => true
+    _ => false
+  }
+}
+
+///|
+fn OiRefNullabilityFact::proves_known_non_null(
+  self : OiRefNullabilityFact,
+) -> Bool {
+  match self.kind {
+    KnownNonNullResultType
+    | KnownNonNullLocalType
+    | KnownNonNullRefFunc
+    | KnownNonNullRefI31 => true
+    UnknownRefNullability | KnownNullRef => false
+  }
+}
+
+///|
 priv struct OiRefFact {
   ref_type : @lib.RefType?
-  known_null : Bool
-  known_non_null : Bool
+  nullability_fact : OiRefNullabilityFact
 }
 
 ///|
 fn OiRefFact::unknown() -> OiRefFact {
-  { ref_type: None, known_null: false, known_non_null: false }
+  { ref_type: None, nullability_fact: OiRefNullabilityFact::unknown() }
 }
 
 ///|
@@ -275,54 +348,29 @@ fn OiRefFact::from_node(func : @ir.HotFunc, node_id : Int) -> OiRefFact {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiRefFact::unknown()
   }
-  let node = @ir.hot_node_get(func, node_id)
   let ref_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
     _ => None
   }
-  let known_null = match node.op {
-    @ir.HotOp::RefNull => true
-    _ => false
+  {
+    ref_type,
+    nullability_fact: OiRefNullabilityFact::from_node(func, node_id, ref_type),
   }
-  let known_non_null = if known_null {
-    false
-  } else {
-    match ref_type {
-      Some(ref_type) if ref_type.is_non_nullable() => true
-      _ =>
-        match node.op {
-          @ir.HotOp::LocalGet =>
-            match @ir.hot_local_type(func, node.imm0) {
-              Some(@lib.ValType::RefTypeValType(ref_type)) =>
-                ref_type.is_non_nullable()
-              _ => false
-            }
-          @ir.HotOp::RefFunc => true
-          @ir.HotOp::Heap =>
-            match @ir.hot_node_exact_instr(func, node_id) {
-              Some(@lib.Instruction::RefI31) => true
-              _ => false
-            }
-          _ => false
-        }
-    }
-  }
-  { ref_type, known_null, known_non_null }
 }
 
 ///|
-fn OiRefFact::is_known_null(self : OiRefFact) -> Bool {
-  self.known_null
+fn OiRefFact::proves_known_null(self : OiRefFact) -> Bool {
+  self.nullability_fact.proves_known_null()
 }
 
 ///|
-fn OiRefFact::is_known_non_null(self : OiRefFact) -> Bool {
-  self.known_non_null
+fn OiRefFact::proves_known_non_null(self : OiRefFact) -> Bool {
+  self.nullability_fact.proves_known_non_null()
 }
 
 ///|
-fn OiRefFact::type_is_non_nullable(self : OiRefFact) -> Bool {
+fn OiRefFact::proves_type_non_nullable(self : OiRefFact) -> Bool {
   match self.ref_type {
     Some(ref_type) => ref_type.is_non_nullable()
     None => false
@@ -361,9 +409,9 @@ fn OiRefIsNullFact::from_node(
 
 ///|
 fn OiRefIsNullFact::known_result(self : OiRefIsNullFact) -> @lib.I32? {
-  if self.operand_fact.is_known_null() {
+  if self.operand_fact.proves_known_null() {
     Some(@lib.I32(1))
-  } else if self.operand_fact.is_known_non_null() {
+  } else if self.operand_fact.proves_known_non_null() {
     Some(@lib.I32(0))
   } else {
     None
@@ -624,8 +672,7 @@ fn OiRefLiteralFact::i31_cannot_match_target(
 ///|
 priv struct OiNullTrapFact {
   traps_on_null : Bool
-  operand_known_null : Bool
-  operand_known_non_null : Bool
+  operand_nullability_fact : OiRefNullabilityFact
 }
 
 ///|
@@ -635,25 +682,21 @@ fn OiNullTrapFact::for_operand(
   traps_on_null~ : Bool,
 ) -> OiNullTrapFact {
   let ref_fact = OiRefFact::from_node(func, operand_id)
-  {
-    traps_on_null,
-    operand_known_null: ref_fact.is_known_null(),
-    operand_known_non_null: ref_fact.is_known_non_null(),
-  }
+  { traps_on_null, operand_nullability_fact: ref_fact.nullability_fact }
 }
 
 ///|
 fn OiNullTrapFact::can_replace_parent_with_unreachable(
   self : OiNullTrapFact,
 ) -> Bool {
-  self.traps_on_null && self.operand_known_null
+  self.traps_on_null && self.operand_nullability_fact.proves_known_null()
 }
 
 ///|
 fn OiNullTrapFact::can_skip_explicit_non_null_check(
   self : OiNullTrapFact,
 ) -> Bool {
-  self.operand_known_non_null
+  self.operand_nullability_fact.proves_known_non_null()
 }
 
 ///|
@@ -2160,8 +2203,8 @@ fn OiRefTestOperandFact::from_node(
 }
 
 ///|
-fn OiRefTestOperandFact::is_known_null(self : OiRefTestOperandFact) -> Bool {
-  self.ref_fact.is_known_null()
+fn OiRefTestOperandFact::proves_known_null(self : OiRefTestOperandFact) -> Bool {
+  self.ref_fact.proves_known_null()
 }
 
 ///|
@@ -2582,7 +2625,7 @@ fn OiRefTestEvaluationFact::from_test(
     func,
     test_fact.operand_id,
   )
-  if operand_fact.is_known_null() {
+  if operand_fact.proves_known_null() {
     return {
       kind: if test_fact.known_null_result() == @lib.I32(1) {
         RefTestSuccess
@@ -4160,7 +4203,7 @@ fn OiDescriptorNullCastFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  if !OiRefFact::from_node(func, cast_fact.operand_id).is_known_null() {
+  if !OiRefFact::from_node(func, cast_fact.operand_id).proves_known_null() {
     return None
   }
   Some({
@@ -27141,8 +27184,8 @@ fn OiRefGetDescOperandEraseFact::from_node(
       }
   }
   let child_ref_fact = OiRefFact::from_node(func, get_desc_fact.child_id)
-  let child_non_nullable_type = child_ref_fact.type_is_non_nullable()
-  let child_known_non_null = child_ref_fact.is_known_non_null()
+  let child_non_nullable_type = child_ref_fact.proves_type_non_nullable()
+  let child_known_non_null = child_ref_fact.proves_known_non_null()
   let child_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func,
     dead,
