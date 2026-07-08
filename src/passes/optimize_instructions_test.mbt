@@ -32580,6 +32580,138 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
 }
 
 ///|
+test "optimize-instructions directizes br_on_non_null and cast fallthrough call_ref targets" {
+  // Structure-only OI-H BrOn fallthrough-target coverage: the preceding slice
+  // implemented the Binaryen v130 `Properties::getImmediateFallthrough`
+  // `BrOn::ref` fact for every represented `br_on_*` opcode. This regression
+  // guard locks the non-null/cast/fail siblings without widening beyond the
+  // existing target-drop semantics or claiming ChildLocalizer/control/EH repair.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_heap = @lib.HeapType::new(target_type_idx)
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, target_heap),
+  )
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(@lib.FuncSec::new([target_type_idx, caller_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    )
+  let rewrite_target_to_br_on = fn(func : @ir.HotFunc, root : Int, kind : Int) {
+    let ref_func = @ir.hot_child_get(func, root, 0)
+    let branch_target = @ir.hot_control_node_label(
+      func,
+      @ir.hot_build_block(func, @lib.BlockType::val_type(typed_func_ref), []),
+    )
+    let hot_op = if kind == 0 {
+      @ir.HotOp::br_on_non_null()
+    } else if kind == 1 {
+      @ir.HotOp::br_on_cast()
+    } else {
+      @ir.HotOp::br_on_cast_fail()
+    }
+    let payload_id = if kind == 1 {
+      @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            false,
+            target_heap,
+            false,
+            target_heap,
+          ),
+        ),
+      )
+    } else if kind == 2 {
+      @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(
+          @lib.Instruction::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            false,
+            target_heap,
+            false,
+            target_heap,
+          ),
+        ),
+      )
+    } else {
+      0
+    }
+    let branch = @ir.hot_build_node(
+      func,
+      hot_op,
+      @ir.hot_node_type(func, ref_func),
+      imm0=branch_target,
+      imm1=payload_id,
+      children=[ref_func],
+    )
+    @ir.hot_child_set(func, root, 0, branch)
+  }
+  let assert_directized = fn(kind : Int, name : String) raise {
+    let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
+    let root = @ir.hot_root_get(func, 0)
+    rewrite_target_to_br_on(func, root, kind)
+    let ctx = HotPassContext::new(
+      optimize_instructions_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::final_module_only(),
+      false,
+      fn(_) { () },
+    )
+    match hot_pass_run(ctx, func) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{name} call_ref target fact success, got \{err}")
+    }
+    let result_root = @ir.hot_root_get(func, 0)
+    match @ir.hot_node_get(func, result_root).op {
+      @ir.HotOp::Block => ()
+      other =>
+        fail("expected \{name} target to become block+call, got \{other}")
+    }
+    let body = @ir.hot_region_body_ref(func, result_root)
+    @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+    match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+      @ir.HotOp::Call => ()
+      other =>
+        fail("expected direct call after dropped \{name} target, got \{other}")
+    }
+  }
+  assert_directized(0, "br_on_non_null")
+  assert_directized(1, "br_on_cast")
+  assert_directized(2, "br_on_cast_fail")
+}
+
+///|
 test "optimize-instructions lowers select ref.func call_ref targets to direct if calls" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

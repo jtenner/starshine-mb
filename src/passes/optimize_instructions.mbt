@@ -5649,8 +5649,19 @@ priv struct OiCallRefLoopFallthroughTargetFact {
 }
 
 ///|
+priv enum OiCallRefBrOnFallthroughTargetKind {
+  CallRefBrOnNullFallthroughRef
+  CallRefBrOnNonNullFallthroughRef
+  CallRefBrOnCastFallthroughRef
+  CallRefBrOnCastFailFallthroughRef
+}
+
+///|
 priv struct OiCallRefBrOnFallthroughTargetFact {
+  kind : OiCallRefBrOnFallthroughTargetKind
+  branch_target_id : Int
   ref_id : Int
+  ref_is_final_child : Bool
   ref_fact : OiCallRefFallthroughTargetFact
 }
 
@@ -5758,17 +5769,18 @@ fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
   // reference child falls through to a direct function. It does not claim broad
   // branch retargeting, branch-value localization, EH, or multivalue repair.
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::BrOnNull
-    | @ir.HotOp::BrOnNonNull
-    | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail => ()
+  let kind = match node.op {
+    @ir.HotOp::BrOnNull => CallRefBrOnNullFallthroughRef
+    @ir.HotOp::BrOnNonNull => CallRefBrOnNonNullFallthroughRef
+    @ir.HotOp::BrOnCast => CallRefBrOnCastFallthroughRef
+    @ir.HotOp::BrOnCastFail => CallRefBrOnCastFailFallthroughRef
     _ => return None
   }
   if node.child_count < 1 {
     return None
   }
-  let ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
+  let ref_slot = node.child_count - 1
+  let ref_id = @ir.hot_child_get(func, node_id, ref_slot)
   if !OiLiveNodeFact::proves_node_live(func, dead, ref_id) {
     return None
   }
@@ -5778,14 +5790,30 @@ fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
     ref_id,
     depth=depth + 1,
   )
-  Some({ ref_id, ref_fact })
+  Some({
+    kind,
+    branch_target_id: node.imm0,
+    ref_id,
+    ref_is_final_child: ref_slot == node.child_count - 1,
+    ref_fact,
+  })
 }
 
 ///|
 fn OiCallRefBrOnFallthroughTargetFact::proves_ref_func_ref_fallthrough(
   self : OiCallRefBrOnFallthroughTargetFact,
 ) -> Bool {
-  self.ref_id >= 0 && self.ref_fact.has_direct_func()
+  let supported_br_on_kind = match self.kind {
+    CallRefBrOnNullFallthroughRef
+    | CallRefBrOnNonNullFallthroughRef
+    | CallRefBrOnCastFallthroughRef
+    | CallRefBrOnCastFailFallthroughRef => true
+  }
+  supported_br_on_kind &&
+  self.branch_target_id >= 0 &&
+  self.ref_id >= 0 &&
+  self.ref_is_final_child &&
+  self.ref_fact.has_direct_func()
 }
 
 ///|
