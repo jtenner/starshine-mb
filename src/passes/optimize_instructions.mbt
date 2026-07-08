@@ -6049,6 +6049,7 @@ priv struct OiCallRefTargetFact {
   select_false_func : Int
   select_condition_id : Int
   select_condition_has_effects : Bool
+  select_residue_arm_id : Int
 }
 
 ///|
@@ -6063,6 +6064,7 @@ fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
     select_false_func: -1,
     select_condition_id: -1,
     select_condition_has_effects: false,
+    select_residue_arm_id: -1,
   }
 }
 
@@ -6088,6 +6090,7 @@ fn OiCallRefTargetFact::from_target(
         select_false_func: -1,
         select_condition_id: -1,
         select_condition_has_effects: false,
+        select_residue_arm_id: -1,
       }
     @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
@@ -6102,6 +6105,7 @@ fn OiCallRefTargetFact::from_target(
           select_false_func: -1,
           select_condition_id: -1,
           select_condition_has_effects: false,
+          select_residue_arm_id: -1,
         }
       } else {
         OiCallRefTargetFact::unknown()
@@ -6130,6 +6134,7 @@ fn OiCallRefTargetFact::from_target(
           select_false_func: -1,
           select_condition_id: -1,
           select_condition_has_effects: false,
+          select_residue_arm_id: -1,
         }
       } else {
         OiCallRefTargetFact::unknown()
@@ -6169,6 +6174,7 @@ fn OiCallRefTargetFact::from_fallthrough_block(
       select_false_func: -1,
       select_condition_id: -1,
       select_condition_has_effects: false,
+      select_residue_arm_id: -1,
     }
   } else {
     OiCallRefTargetFact::unknown()
@@ -6407,6 +6413,7 @@ fn OiCallRefTargetFact::from_select(
       select_false_func: false_fact.direct_func,
       select_condition_id: condition_fact.condition_id,
       select_condition_has_effects: condition_fact.has_effects,
+      select_residue_arm_id: true_ref_id,
     }
   } else {
     OiCallRefTargetFact::unknown()
@@ -6538,14 +6545,14 @@ fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
 fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
   self : OiCallRefOperandFact,
   func : @ir.HotFunc,
-  condition_fact : OiCallRefSelectConditionFact,
+  residue_fact : OiCallRefSelectTargetResidueFact,
 ) -> Array[Int]? {
   // Binaryen v130 collapses same-target select call_ref producers to a single
-  // direct call but keeps the select condition in the target-evaluation slot:
-  // after ordinary call_ref operands and before the direct call. Because the two
-  // select arms are proven pure equivalent ref.func producers by
-  // `OiCallRefSelectArmFact`, only the condition effects need to be interposed.
-  if !condition_fact.has_effects {
+  // direct call but keeps the effectful select target evaluation in the original
+  // target slot: after ordinary call_ref operands and before the direct call.
+  // `OiCallRefSelectTargetResidueFact` owns that target residue so this operand
+  // fact only decides where to interpose it relative to the last operand.
+  if !residue_fact.has_effects() {
     return Some(self.args.copy())
   }
   let arg_count = self.args.length()
@@ -6564,12 +6571,76 @@ fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
       @lib.BlockType::val_type(self.arg_types[last_index]),
       [
         @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
-        @ir.hot_build_drop(func, condition_fact.condition_id),
+        residue_fact.build_dropped_target_evaluation(func),
         @ir.hot_build_local_get(func, temp_local),
       ],
     ),
   )
   Some(operands)
+}
+
+///|
+priv struct OiCallRefSelectTargetResidueFact {
+  target_arm_id : Int
+  target_type : @lib.ValType
+  condition_fact : OiCallRefSelectConditionFact
+}
+
+///|
+fn OiCallRefSelectTargetResidueFact::from_same_target(
+  func : @ir.HotFunc,
+  callee_ref_id : Int,
+  target_fact : OiCallRefTargetFact,
+) -> OiCallRefSelectTargetResidueFact? {
+  if !target_fact.has_select_same_direct_func() {
+    return None
+  }
+  let condition_fact = match
+    OiCallRefSelectConditionFact::from_recorded_condition(
+      func,
+      target_fact.select_condition_id,
+      target_fact.select_condition_has_effects,
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  if target_fact.select_residue_arm_id < 0 {
+    return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, callee_ref_id)) {
+    [target_type] =>
+      Some({
+        target_arm_id: target_fact.select_residue_arm_id,
+        target_type,
+        condition_fact,
+      })
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefSelectTargetResidueFact::has_effects(
+  self : OiCallRefSelectTargetResidueFact,
+) -> Bool {
+  self.condition_fact.has_effects
+}
+
+///|
+fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
+  self : OiCallRefSelectTargetResidueFact,
+  func : @ir.HotFunc,
+) -> Int {
+  // This mirrors the Binaryen v130 `CallUtils::convertToDirectCalls` residue for
+  // identical select arms: the i32 condition is dropped for effects, then a
+  // fact-proven target arm is materialized as the block result and the whole
+  // target evaluation is dropped before the direct call.
+  @ir.hot_build_drop(
+    func,
+    @ir.hot_build_block(func, @lib.BlockType::val_type(self.target_type), [
+      @ir.hot_build_drop(func, self.condition_fact.condition_id),
+      self.target_arm_id,
+    ]),
+  )
 }
 
 ///|
@@ -6758,7 +6829,9 @@ fn OiCallRefDirectizePlanFact::build_replacement(
         Some(fact) => fact
         None => return None
       }
-      self.build_select_same_direct_func_replacement(func, node, operand_fact)
+      self.build_select_same_direct_func_replacement(
+        func, node, callee_ref_id, operand_fact,
+      )
     }
     CallRefSelectDirectFuncs => {
       let operand_fact = match self.operand_fact() {
@@ -6832,17 +6905,14 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
   self : OiCallRefDirectizePlanFact,
   func : @ir.HotFunc,
   node : @ir.HotNode,
+  callee_ref_id : Int,
   operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  let condition_id = self.target_fact.select_condition_id
-  if condition_id < 0 || self.target_fact.select_same_func < 0 {
-    return None
-  }
-  let condition_fact = match
-    OiCallRefSelectConditionFact::from_recorded_condition(
+  let residue_fact = match
+    OiCallRefSelectTargetResidueFact::from_same_target(
       func,
-      condition_id,
-      self.target_fact.select_condition_has_effects,
+      callee_ref_id,
+      self.target_fact,
     ) {
     Some(fact) => fact
     None => return None
@@ -6850,7 +6920,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
   let results = @ir.hot_type_results(func, node.ty)
   let operands = match
     operand_fact.args_with_select_condition_after_last_operand(
-      func, condition_fact,
+      func, residue_fact,
     ) {
     Some(operands) => operands
     None => return None
@@ -6863,7 +6933,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
         results,
         operands,
       )
-      if condition_fact.has_effects && operand_fact.args.length() == 0 {
+      if residue_fact.has_effects() && operand_fact.args.length() == 0 {
         let block_type = match
           optimize_instructions_call_ref_result_block_type(func, node) {
           Some(block_type) => block_type
@@ -6871,7 +6941,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
         }
         Some(
           @ir.hot_build_block(func, block_type, [
-            @ir.hot_build_drop(func, condition_fact.condition_id),
+            residue_fact.build_dropped_target_evaluation(func),
             direct_call,
           ]),
         )
@@ -6885,10 +6955,10 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
         self.target_fact.select_same_func,
         operands,
       )
-      if condition_fact.has_effects && operand_fact.args.length() == 0 {
+      if residue_fact.has_effects() && operand_fact.args.length() == 0 {
         Some(
           @ir.hot_build_block(func, @lib.BlockType::void_(), [
-            @ir.hot_build_drop(func, condition_fact.condition_id),
+            residue_fact.build_dropped_target_evaluation(func),
             direct_call,
           ]),
         )

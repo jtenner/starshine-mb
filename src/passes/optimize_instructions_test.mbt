@@ -32444,12 +32444,25 @@ test "optimize-instructions preserves same-target select call_ref effectful cond
   }
   let body = @ir.hot_region_body_ref(func, interposed_arg)
   @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
-  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+  let target_drop = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, target_drop).op {
     @ir.HotOp::Drop => ()
     other =>
       fail(
-        "expected effectful condition drop before reloaded operand, got \{other}",
+        "expected effectful target-evaluation drop before reloaded operand, got \{other}",
       )
+  }
+  let target_residue = @ir.hot_child_get(func, target_drop, 0)
+  match @ir.hot_node_get(func, target_residue).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected dropped select-target residue block, got \{other}")
+  }
+  let target_residue_body = @ir.hot_region_body_ref(func, target_residue)
+  @debug.assert_eq(@ir.hot_region_root_count(func, target_residue_body), 2)
+  match
+    @ir.hot_node_get(func, @ir.hot_region_get(func, target_residue_body, 1)).op {
+    @ir.HotOp::RefFunc => ()
+    other => fail("expected same-target ref.func residue, got \{other}")
   }
 }
 
