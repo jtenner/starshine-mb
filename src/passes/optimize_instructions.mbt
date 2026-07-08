@@ -3727,15 +3727,16 @@ fn OiDescriptorCastTighteningRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiDescriptorExactMissDropBeforeUnreachableKind {
+  DescriptorExactMissDropUnsupported
+  DescriptorExactMissDropStraightLine
+  DescriptorExactMissDropBlockBeforeUnreachable
+  DescriptorExactMissDropCallBeforeUnreachable
+}
+
+///|
 priv struct OiDescriptorExactMissDropBeforeUnreachableFact {
-  live : Bool
-  control_or_exit_root : Bool
-  all_children_straight_line : Bool
-  straight_line : Bool
-  direct_call_root : Bool
-  block_region_straight_line : Bool
-  block_can_drop_before_unreachable : Bool
-  call_can_drop_before_unreachable : Bool
+  kind : OiDescriptorExactMissDropBeforeUnreachableKind
 }
 
 ///|
@@ -3746,9 +3747,9 @@ fn OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
   // Binaryen v130 lowers statically-impossible descriptor equality casts with
   // `getDroppedChildrenAndAppend(..., unreachable, IgnoreParentEffects)`. Keep
   // Starshine's represented source-order preservation subset as an explicit
-  // fact: a subtree may be dropped before the replacement trap only when every
-  // evaluated expression is straight-line, and only block/direct-call roots are
-  // currently materialized by the exact-miss rewrite plans.
+  // result fact: ordinary subtrees must be straight-line, and only block/direct
+  // call roots are currently materialized as dropped values before the
+  // exact-miss replacement trap.
   let node = @ir.hot_node_get(func, node_id)
   let control_or_exit_root = match node.op {
     @ir.HotOp::Block
@@ -3777,12 +3778,11 @@ fn OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
       if !OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
           func,
           @ir.hot_child_get(func, node_id, slot),
-        ).straight_line {
+        ).proves_straight_line() {
         all_children_straight_line = false
       }
     }
   }
-  let straight_line = !control_or_exit_root && all_children_straight_line
   let direct_call_root = match node.op {
     @ir.HotOp::Call => true
     _ => false
@@ -3798,22 +3798,60 @@ fn OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
         if !OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
             func,
             @ir.hot_region_get(func, body, slot),
-          ).straight_line {
+          ).proves_straight_line() {
           block_region_straight_line = false
         }
       }
     }
     _ => ()
   }
-  {
-    live: true,
-    control_or_exit_root,
-    all_children_straight_line,
-    straight_line,
-    direct_call_root,
-    block_region_straight_line,
-    block_can_drop_before_unreachable: block_region_straight_line,
-    call_can_drop_before_unreachable: direct_call_root && straight_line,
+  let kind = if block_region_straight_line {
+    DescriptorExactMissDropBlockBeforeUnreachable
+  } else if control_or_exit_root {
+    DescriptorExactMissDropUnsupported
+  } else if !all_children_straight_line {
+    DescriptorExactMissDropUnsupported
+  } else if direct_call_root {
+    DescriptorExactMissDropCallBeforeUnreachable
+  } else {
+    DescriptorExactMissDropStraightLine
+  }
+  { kind, }
+}
+
+///|
+fn OiDescriptorExactMissDropBeforeUnreachableFact::proves_straight_line(
+  self : OiDescriptorExactMissDropBeforeUnreachableFact,
+) -> Bool {
+  match self.kind {
+    DescriptorExactMissDropStraightLine
+    | DescriptorExactMissDropCallBeforeUnreachable => true
+    DescriptorExactMissDropUnsupported
+    | DescriptorExactMissDropBlockBeforeUnreachable => false
+  }
+}
+
+///|
+fn OiDescriptorExactMissDropBeforeUnreachableFact::proves_block_drop_before_unreachable(
+  self : OiDescriptorExactMissDropBeforeUnreachableFact,
+) -> Bool {
+  match self.kind {
+    DescriptorExactMissDropBlockBeforeUnreachable => true
+    DescriptorExactMissDropUnsupported
+    | DescriptorExactMissDropStraightLine
+    | DescriptorExactMissDropCallBeforeUnreachable => false
+  }
+}
+
+///|
+fn OiDescriptorExactMissDropBeforeUnreachableFact::proves_call_drop_before_unreachable(
+  self : OiDescriptorExactMissDropBeforeUnreachableFact,
+) -> Bool {
+  match self.kind {
+    DescriptorExactMissDropCallBeforeUnreachable => true
+    DescriptorExactMissDropUnsupported
+    | DescriptorExactMissDropStraightLine
+    | DescriptorExactMissDropBlockBeforeUnreachable => false
   }
 }
 
@@ -3870,29 +3908,10 @@ fn OiDescriptorExactMissFact::from_node(
       cast_fact.descriptor_id,
     ).proves_erases_without_effects(),
     ref_operand_erases_without_effects: ref_operand_fact.proves_operand_erases_without_effects(),
-    ref_operand_can_drop_before_unreachable: operand_drop_fact.live &&
-    (
-      (
-        operand_drop_fact.block_can_drop_before_unreachable &&
-        operand_drop_fact.control_or_exit_root &&
-        operand_drop_fact.block_region_straight_line
-      ) ||
-      (
-        operand_drop_fact.call_can_drop_before_unreachable &&
-        !operand_drop_fact.control_or_exit_root &&
-        operand_drop_fact.direct_call_root &&
-        operand_drop_fact.all_children_straight_line
-      )
-    ),
-    descriptor_can_drop_before_unreachable: descriptor_drop_fact.live &&
-    descriptor_drop_fact.control_or_exit_root &&
-    descriptor_drop_fact.block_region_straight_line &&
-    descriptor_drop_fact.block_can_drop_before_unreachable,
-    descriptor_call_can_drop_before_unreachable: descriptor_drop_fact.live &&
-    !descriptor_drop_fact.control_or_exit_root &&
-    descriptor_drop_fact.direct_call_root &&
-    descriptor_drop_fact.all_children_straight_line &&
-    descriptor_drop_fact.call_can_drop_before_unreachable,
+    ref_operand_can_drop_before_unreachable: operand_drop_fact.proves_block_drop_before_unreachable() ||
+    operand_drop_fact.proves_call_drop_before_unreachable(),
+    descriptor_can_drop_before_unreachable: descriptor_drop_fact.proves_block_drop_before_unreachable(),
+    descriptor_call_can_drop_before_unreachable: descriptor_drop_fact.proves_call_drop_before_unreachable(),
   })
 }
 
