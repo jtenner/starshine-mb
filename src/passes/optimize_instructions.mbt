@@ -5829,6 +5829,83 @@ fn OiCallRefTargetSkipNonNullFact::effective_target_id(
 }
 
 ///|
+priv struct OiCallRefNullTrapPlanFact {
+  target_id : Int
+  arg_ids : Array[Int]
+}
+
+///|
+fn OiCallRefNullTrapPlanFact::from_call_ref_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  call_ref_id : Int,
+) -> OiCallRefNullTrapPlanFact? {
+  // Binaryen v130 `visitCallRef` runs `skipNonNullCast(curr->target, curr)` and
+  // then `trapOnNull(curr, curr->target)` before any direct/table/fallthrough
+  // target classification. Keep that null-trap step as its own target-slot fact
+  // so known-null targets do not become another branch in the directization
+  // classifier. The represented Starshine subset is direct known-null reference
+  // leaves after the target-slot non-null skip fact; broader fallthrough-known
+  // null targets with target-side effects need the general effect/localization
+  // model before they can be widened safely.
+  let call_ref = @ir.hot_node_get(func, call_ref_id)
+  match call_ref.op {
+    @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef => ()
+    _ => return None
+  }
+  if call_ref.child_count < 1 {
+    return None
+  }
+  let raw_target_id = @ir.hot_child_get(
+    func,
+    call_ref_id,
+    call_ref.child_count - 1,
+  )
+  if !OiLiveNodeFact::proves_node_live(func, dead, raw_target_id) {
+    return None
+  }
+  let target_id = match
+    OiCallRefTargetSkipNonNullFact::from_call_ref_target(
+      func, dead, call_ref_id,
+    ) {
+    Some(fact) => fact.effective_target_id()
+    None => raw_target_id
+  }
+  if target_id < 0 {
+    return None
+  }
+  let null_trap_fact = OiNullTrapFact::for_operand(
+    func,
+    target_id,
+    traps_on_null=true,
+  )
+  if !null_trap_fact.can_replace_parent_with_unreachable() {
+    return None
+  }
+  let arg_ids : Array[Int] = []
+  for slot = 0; slot < call_ref.child_count - 1; slot = slot + 1 {
+    arg_ids.push(@ir.hot_child_get(func, call_ref_id, slot))
+  }
+  Some({ target_id, arg_ids })
+}
+
+///|
+fn OiCallRefNullTrapPlanFact::apply(
+  self : OiCallRefNullTrapPlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  ignore(self.target_id)
+  optimize_instructions_try_replace_with_ordered_effects_then_unreachable(
+    ctx,
+    func,
+    node_id,
+    self.arg_ids,
+  )
+}
+
+///|
 priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
@@ -6459,6 +6536,10 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   }
   if node.child_count < 1 {
     return false
+  }
+  match OiCallRefNullTrapPlanFact::from_call_ref_target(func, dead, node_id) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
+    None => ()
   }
   let callee_ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
   if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
