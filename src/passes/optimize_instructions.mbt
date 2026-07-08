@@ -538,19 +538,25 @@ fn OiRefIsNullRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiRefLiteralKind {
+  NoRefLiteral
+  I31RefLiteral
+  FuncRefLiteral
+}
+
+///|
 priv struct OiRefLiteralFact {
-  i31_literal : Bool
-  func_literal : Bool
+  kind : OiRefLiteralKind
 }
 
 ///|
 fn OiRefLiteralFact::none() -> OiRefLiteralFact {
-  { i31_literal: false, func_literal: false }
+  { kind: NoRefLiteral }
 }
 
 ///|
 fn OiRefLiteralFact::i31() -> OiRefLiteralFact {
-  { i31_literal: true, func_literal: false }
+  { kind: I31RefLiteral }
 }
 
 ///|
@@ -562,25 +568,31 @@ fn OiRefLiteralFact::from_node(
     return OiRefLiteralFact::none()
   }
   let node = @ir.hot_node_get(func, node_id)
-  let i31_literal = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefI31) => true
-    _ => false
+  let kind = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) => I31RefLiteral
+    _ =>
+      match node.op {
+        @ir.HotOp::RefFunc => FuncRefLiteral
+        _ => NoRefLiteral
+      }
   }
-  let func_literal = match node.op {
-    @ir.HotOp::RefFunc => true
-    _ => false
-  }
-  { i31_literal, func_literal }
+  { kind, }
 }
 
 ///|
 fn OiRefLiteralFact::is_known_non_null(self : OiRefLiteralFact) -> Bool {
-  self.i31_literal || self.func_literal
+  match self.kind {
+    I31RefLiteral | FuncRefLiteral => true
+    NoRefLiteral => false
+  }
 }
 
 ///|
 fn OiRefLiteralFact::is_i31(self : OiRefLiteralFact) -> Bool {
-  self.i31_literal
+  match self.kind {
+    I31RefLiteral => true
+    _ => false
+  }
 }
 
 ///|
@@ -588,14 +600,13 @@ fn OiRefLiteralFact::matches_target(
   self : OiRefLiteralFact,
   target : @lib.HeapType,
 ) -> Bool {
-  (
-    self.func_literal &&
-    OiRefFuncLiteralTargetFact::from_target(target).proves_match_target()
-  ) ||
-  (
-    self.i31_literal &&
-    OiI31HeapTargetFact::from_target(target).proves_match_target()
-  )
+  match self.kind {
+    FuncRefLiteral =>
+      OiRefFuncLiteralTargetFact::from_target(target).proves_match_target()
+    I31RefLiteral =>
+      OiI31HeapTargetFact::from_target(target).proves_match_target()
+    NoRefLiteral => false
+  }
 }
 
 ///|
@@ -603,8 +614,11 @@ fn OiRefLiteralFact::i31_cannot_match_target(
   self : OiRefLiteralFact,
   target : @lib.HeapType,
 ) -> Bool {
-  self.i31_literal &&
-  OiI31HeapTargetFact::from_target(target).proves_miss_target()
+  match self.kind {
+    I31RefLiteral =>
+      OiI31HeapTargetFact::from_target(target).proves_miss_target()
+    _ => false
+  }
 }
 
 ///|
