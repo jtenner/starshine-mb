@@ -20371,6 +20371,73 @@ fn optimize_instructions_inverted_select_compare(
 }
 
 ///|
+priv enum OiBooleanConstSelectRewriteKind {
+  BooleanConstSelectConditionNonzero
+  BooleanConstSelectConditionEqz
+}
+
+///|
+priv struct OiBooleanConstSelectFact {
+  condition_id : Int
+  kind : OiBooleanConstSelectRewriteKind
+}
+
+///|
+fn OiBooleanConstSelectFact::from_select_arms(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  condition_id : Int,
+  if_true : Int,
+  if_false : Int,
+) -> OiBooleanConstSelectFact? {
+  // Binaryen v130 `optimizeBoolean` rewrites exact i32 boolean select arms:
+  // `select 1 0 cond` becomes `i32.ne(cond, 0)` and `select 0 1 cond`
+  // becomes `i32.eqz(cond)`. Keep this final fallback as a fact with the
+  // preserved condition and literal-arm proof instead of an inline select-arm
+  // scanner; earlier eqz/compare condition facts keep their more specific
+  // output shapes before this fallback is queried.
+  match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
+      Some({ condition_id, kind: BooleanConstSelectConditionNonzero })
+    (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
+      Some({ condition_id, kind: BooleanConstSelectConditionEqz })
+    _ => None
+  }
+}
+
+///|
+fn OiBooleanConstSelectFact::apply(
+  self : OiBooleanConstSelectFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.kind {
+    BooleanConstSelectConditionNonzero =>
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        self.condition_id,
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+      )
+    BooleanConstSelectConditionEqz =>
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_eqz(),
+        self.condition_id,
+      )
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -20770,29 +20837,11 @@ fn optimize_instructions_try_fold_const_select(
     _ => ()
   }
   match
-    (
-      optimize_instructions_i32_const(func, dead, if_true),
-      optimize_instructions_i32_const(func, dead, if_false),
+    OiBooleanConstSelectFact::from_select_arms(
+      func, dead, condition, if_true, if_false,
     ) {
-    (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-      optimize_instructions_replace_with_exact_compare(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_ne(),
-        condition,
-        @ir.hot_build_const_i32(func, @lib.I32(0)),
-      )
-      return true
-    }
-    (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-      optimize_instructions_replace_with_exact_unary(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_eqz(),
-        condition,
-      )
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
       return true
     }
     _ => ()
