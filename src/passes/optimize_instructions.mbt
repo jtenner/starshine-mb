@@ -25770,6 +25770,12 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
 }
 
 ///|
+priv enum OiDescriptorNullableIfNoEffectMoveKind {
+  DescriptorNullableIfNoEffectMoveNullCheck
+  DescriptorNullableIfNoEffectMoveBlocked
+}
+
+///|
 priv struct OiDescriptorNullableIfNoEffectMoveFact {
   if_root : Bool
   has_three_children : Bool
@@ -25778,7 +25784,7 @@ priv struct OiDescriptorNullableIfNoEffectMoveFact {
   single_root_arms : Bool
   then_side_effect_free : Bool
   else_side_effect_free : Bool
-  can_move_null_check : Bool
+  kind : OiDescriptorNullableIfNoEffectMoveKind
 }
 
 ///|
@@ -25790,7 +25796,8 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
   // TNH descriptor operand erasure can drop a nullable `if` child when the
   // condition and both single-result arms are side-effect-free. This preserves
   // the old represented shape as a fact rather than a helper-owned recursive
-  // side-effect-free scan.
+  // side-effect-free scan. The explicit kind records the represented null-check
+  // movement result instead of carrying a parallel `can_move` boolean.
   let node = @ir.hot_node_get(func, node_id)
   let if_root = match node.op {
     @ir.HotOp::If => true
@@ -25805,7 +25812,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
       single_root_arms: false,
       then_side_effect_free: false,
       else_side_effect_free: false,
-      can_move_null_check: false,
+      kind: DescriptorNullableIfNoEffectMoveBlocked,
     }
   }
   let has_three_children = node.child_count == 3
@@ -25818,7 +25825,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
       single_root_arms: false,
       then_side_effect_free: false,
       else_side_effect_free: false,
-      can_move_null_check: false,
+      kind: DescriptorNullableIfNoEffectMoveBlocked,
     }
   }
   let condition_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
@@ -25838,7 +25845,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
         single_root_arms: false,
         then_side_effect_free: false,
         else_side_effect_free: false,
-        can_move_null_check: false,
+        kind: DescriptorNullableIfNoEffectMoveBlocked,
       }
   }
   let single_root_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -25863,11 +25870,15 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
     single_root_arms,
     then_side_effect_free,
     else_side_effect_free,
-    can_move_null_check: has_three_children &&
-    condition_side_effect_free &&
-    single_root_arms &&
-    then_side_effect_free &&
-    else_side_effect_free,
+    kind: if has_three_children &&
+      condition_side_effect_free &&
+      single_root_arms &&
+      then_side_effect_free &&
+      else_side_effect_free {
+      DescriptorNullableIfNoEffectMoveNullCheck
+    } else {
+      DescriptorNullableIfNoEffectMoveBlocked
+    },
   }
 }
 
@@ -25875,14 +25886,23 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
 fn OiDescriptorNullableIfNoEffectMoveFact::proves_can_move_null_check(
   self : OiDescriptorNullableIfNoEffectMoveFact,
 ) -> Bool {
-  self.if_root &&
-  self.has_three_children &&
-  self.condition_side_effect_free &&
-  self.has_else &&
-  self.single_root_arms &&
-  self.then_side_effect_free &&
-  self.else_side_effect_free &&
-  self.can_move_null_check
+  match self.kind {
+    DescriptorNullableIfNoEffectMoveNullCheck =>
+      self.if_root &&
+      self.has_three_children &&
+      self.condition_side_effect_free &&
+      self.has_else &&
+      self.single_root_arms &&
+      self.then_side_effect_free &&
+      self.else_side_effect_free
+    DescriptorNullableIfNoEffectMoveBlocked => false
+  }
+}
+
+///|
+priv enum OiDescriptorNullableIfControlMoveKind {
+  DescriptorNullableIfControlMoveNullCheck
+  DescriptorNullableIfControlMoveBlocked
 }
 
 ///|
@@ -25894,7 +25914,7 @@ priv struct OiDescriptorNullableIfControlMoveFact {
   single_root_arms : Bool
   then_no_escaping_branch_control : Bool
   else_no_escaping_branch_control : Bool
-  can_move_null_check : Bool
+  kind : OiDescriptorNullableIfControlMoveKind
 }
 
 ///|
@@ -25904,7 +25924,8 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
 ) -> OiDescriptorNullableIfControlMoveFact {
   // Standalone ref.get_desc null-check movement may preserve effectful arms, but
   // only while proving that the condition and both arms have no escaping branch
-  // control. Store that Binaryen ChildLocalizer-adjacent boundary explicitly.
+  // control. Store that Binaryen ChildLocalizer-adjacent boundary explicitly as
+  // a result kind instead of a parallel `can_move` boolean.
   let node = @ir.hot_node_get(func, node_id)
   let if_root = match node.op {
     @ir.HotOp::If => true
@@ -25919,7 +25940,7 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
       single_root_arms: false,
       then_no_escaping_branch_control: false,
       else_no_escaping_branch_control: false,
-      can_move_null_check: false,
+      kind: DescriptorNullableIfControlMoveBlocked,
     }
   }
   let has_three_children = node.child_count == 3
@@ -25932,7 +25953,7 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
       single_root_arms: false,
       then_no_escaping_branch_control: false,
       else_no_escaping_branch_control: false,
-      can_move_null_check: false,
+      kind: DescriptorNullableIfControlMoveBlocked,
     }
   }
   let condition_id = @ir.hot_child_get(func, node_id, 0)
@@ -25951,7 +25972,7 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
         single_root_arms: false,
         then_no_escaping_branch_control: false,
         else_no_escaping_branch_control: false,
-        can_move_null_check: false,
+        kind: DescriptorNullableIfControlMoveBlocked,
       }
   }
   let single_root_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -25972,11 +25993,15 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
     single_root_arms,
     then_no_escaping_branch_control,
     else_no_escaping_branch_control,
-    can_move_null_check: has_three_children &&
-    condition_no_escaping_branch_control &&
-    single_root_arms &&
-    then_no_escaping_branch_control &&
-    else_no_escaping_branch_control,
+    kind: if has_three_children &&
+      condition_no_escaping_branch_control &&
+      single_root_arms &&
+      then_no_escaping_branch_control &&
+      else_no_escaping_branch_control {
+      DescriptorNullableIfControlMoveNullCheck
+    } else {
+      DescriptorNullableIfControlMoveBlocked
+    },
   }
 }
 
@@ -25984,14 +26009,17 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
 fn OiDescriptorNullableIfControlMoveFact::proves_can_move_null_check(
   self : OiDescriptorNullableIfControlMoveFact,
 ) -> Bool {
-  self.if_root &&
-  self.has_three_children &&
-  self.condition_no_escaping_branch_control &&
-  self.has_else &&
-  self.single_root_arms &&
-  self.then_no_escaping_branch_control &&
-  self.else_no_escaping_branch_control &&
-  self.can_move_null_check
+  match self.kind {
+    DescriptorNullableIfControlMoveNullCheck =>
+      self.if_root &&
+      self.has_three_children &&
+      self.condition_no_escaping_branch_control &&
+      self.has_else &&
+      self.single_root_arms &&
+      self.then_no_escaping_branch_control &&
+      self.else_no_escaping_branch_control
+    DescriptorNullableIfControlMoveBlocked => false
+  }
 }
 
 ///|
@@ -27804,8 +27832,7 @@ priv struct OiDescriptorNullableChildEraseTnhFact {
   block_nonempty : Bool
   block_no_escaping_branch_control : Bool
   block_children_effect_free_internal_control : Bool
-  if_root : Bool
-  if_can_move_null_check : Bool
+  if_no_effect_move_fact : OiDescriptorNullableIfNoEffectMoveFact
   kind : OiDescriptorNullableChildEraseTnhKind
 }
 
@@ -27829,8 +27856,9 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
   let mut block_nonempty = false
   let mut block_no_escaping_branch_control = false
   let mut block_children_effect_free_internal_control = false
-  let mut if_root = false
-  let mut if_can_move_null_check = false
+  let if_no_effect_move_fact = OiDescriptorNullableIfNoEffectMoveFact::from_if(
+    func, dead, node_id,
+  )
   match node.op {
     @ir.HotOp::Block => {
       block_root = true
@@ -27856,12 +27884,6 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
         }
       }
     }
-    @ir.HotOp::If => {
-      if_root = true
-      if_can_move_null_check = OiDescriptorNullableIfNoEffectMoveFact::from_if(
-        func, dead, node_id,
-      ).proves_can_move_null_check()
-    }
     _ => ()
   }
   let kind = if side_effect_free {
@@ -27871,7 +27893,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
     block_no_escaping_branch_control &&
     block_children_effect_free_internal_control {
     DescriptorNullableChildEraseBlockInternalControl
-  } else if if_root && if_can_move_null_check {
+  } else if if_no_effect_move_fact.proves_can_move_null_check() {
     DescriptorNullableChildEraseIfNullCheckMove
   } else {
     DescriptorNullableChildMustPreserve
@@ -27883,8 +27905,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
     block_nonempty,
     block_no_escaping_branch_control,
     block_children_effect_free_internal_control,
-    if_root,
-    if_can_move_null_check,
+    if_no_effect_move_fact,
     kind,
   }
 }
@@ -27904,7 +27925,7 @@ fn OiDescriptorNullableChildEraseTnhFact::proves_can_erase(
       self.block_no_escaping_branch_control &&
       self.block_children_effect_free_internal_control
     DescriptorNullableChildEraseIfNullCheckMove =>
-      self.if_root && self.if_can_move_null_check
+      self.if_no_effect_move_fact.proves_can_move_null_check()
     DescriptorNullableChildMustPreserve => false
   }
 }
