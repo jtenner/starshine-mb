@@ -5677,10 +5677,58 @@ fn OiArithmeticMaxBitsFact::cap(width_bits : Int, max_bits : Int) -> Int {
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::div_max_bits(
+priv struct OiAddMaxBitsFact {
+  width_bits : Int
+  max_bits : Int
+}
+
+///|
+fn OiAddMaxBitsFact::from_bits(
+  width_bits : Int,
   left_bits : Int,
   right_bits : Int,
-) -> Int? {
+) -> OiAddMaxBitsFact {
+  // Binaryen v130 add maxBits is one more than the widest operand, capped to the
+  // lane width.
+  let operand_bits = if left_bits > right_bits { left_bits } else { right_bits }
+  {
+    width_bits,
+    max_bits: OiArithmeticMaxBitsFact::cap(width_bits, operand_bits + 1),
+  }
+}
+
+///|
+priv struct OiMulMaxBitsFact {
+  width_bits : Int
+  max_bits : Int
+}
+
+///|
+fn OiMulMaxBitsFact::from_bits(
+  width_bits : Int,
+  left_bits : Int,
+  right_bits : Int,
+) -> OiMulMaxBitsFact {
+  // Binaryen v130 multiply maxBits sums operand max-bit counts, capped to the
+  // lane width.
+  {
+    width_bits,
+    max_bits: OiArithmeticMaxBitsFact::cap(width_bits, left_bits + right_bits),
+  }
+}
+
+///|
+priv struct OiDivMaxBitsFact {
+  width_bits : Int
+  max_bits : Int
+}
+
+///|
+fn OiDivMaxBitsFact::from_bits(
+  width_bits : Int,
+  left_bits : Int,
+  right_bits : Int,
+) -> OiDivMaxBitsFact? {
   // Binaryen v130 computes `leftBits - rightBits + 1`, then caps at leftBits.
   // With unsigned C++ `Index`, the underflow case conservatively caps back to
   // leftBits. Keep that conservative shape explicitly and avoid the zero-divisor
@@ -5688,24 +5736,185 @@ fn OiArithmeticMaxBitsFact::div_max_bits(
   if right_bits == 0 {
     None
   } else if left_bits < right_bits {
-    Some(left_bits)
+    Some({ width_bits, max_bits: left_bits })
   } else {
     let quotient_bits = left_bits - right_bits + 1
-    Some(if quotient_bits < left_bits { quotient_bits } else { left_bits })
+    Some({
+      width_bits,
+      max_bits: if quotient_bits < left_bits {
+        quotient_bits
+      } else {
+        left_bits
+      },
+    })
   }
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::rem_max_bits(
+priv struct OiRemMaxBitsFact {
+  width_bits : Int
+  max_bits : Int
+}
+
+///|
+fn OiRemMaxBitsFact::from_bits(
+  width_bits : Int,
   left_bits : Int,
   right_bits : Int,
-) -> Int? {
+) -> OiRemMaxBitsFact? {
   // Binaryen v130 bounds remainder by the smaller operand max-bit count. A zero
   // max-bit divisor is a trap-preservation boundary for now, matching div above.
   if right_bits == 0 {
     None
   } else {
-    Some(if left_bits < right_bits { left_bits } else { right_bits })
+    Some({
+      width_bits,
+      max_bits: if left_bits < right_bits {
+        left_bits
+      } else {
+        right_bits
+      },
+    })
+  }
+}
+
+///|
+priv enum OiArithmeticShiftMaxBitsKind {
+  ArithmeticShlMaxBits
+  ArithmeticShrSMaxBits
+}
+
+///|
+priv struct OiArithmeticShiftMaxBitsFact {
+  kind : OiArithmeticShiftMaxBitsKind
+  width_bits : Int
+  amount : Int
+  max_bits : Int
+}
+
+///|
+fn OiArithmeticShiftMaxBitsFact::from_i32_shl(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_bits : Int,
+  rhs_id : Int,
+) -> OiArithmeticShiftMaxBitsFact? {
+  match OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
+    Some(fact) => {
+      ignore(fact.width_bits)
+      Some({
+        kind: ArithmeticShlMaxBits,
+        width_bits: 32,
+        amount: fact.amount,
+        max_bits: OiArithmeticMaxBitsFact::cap(32, lhs_bits + fact.amount),
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn OiArithmeticShiftMaxBitsFact::from_i32_shr_s(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_bits : Int,
+  rhs_id : Int,
+) -> OiArithmeticShiftMaxBitsFact? {
+  match OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
+    Some(fact) if lhs_bits < 32 => {
+      ignore(fact.width_bits)
+      let shifts = if fact.amount < lhs_bits { fact.amount } else { lhs_bits }
+      Some({
+        kind: ArithmeticShrSMaxBits,
+        width_bits: 32,
+        amount: fact.amount,
+        max_bits: lhs_bits - shifts,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn OiArithmeticShiftMaxBitsFact::from_i64_shl(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_bits : Int,
+  rhs_id : Int,
+) -> OiArithmeticShiftMaxBitsFact? {
+  match OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
+    Some(fact) => {
+      ignore(fact.width_bits)
+      Some({
+        kind: ArithmeticShlMaxBits,
+        width_bits: 64,
+        amount: fact.amount,
+        max_bits: OiArithmeticMaxBitsFact::cap(64, lhs_bits + fact.amount),
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn OiArithmeticShiftMaxBitsFact::from_i64_shr_s(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_bits : Int,
+  rhs_id : Int,
+) -> OiArithmeticShiftMaxBitsFact? {
+  match OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
+    Some(fact) if lhs_bits < 64 => {
+      ignore(fact.width_bits)
+      let shifts = if fact.amount < lhs_bits { fact.amount } else { lhs_bits }
+      Some({
+        kind: ArithmeticShrSMaxBits,
+        width_bits: 64,
+        amount: fact.amount,
+        max_bits: lhs_bits - shifts,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn OiArithmeticMaxBitsFact::from_add(
+  fact : OiAddMaxBitsFact,
+) -> OiArithmeticMaxBitsFact {
+  { width_bits: fact.width_bits, max_bits: fact.max_bits }
+}
+
+///|
+fn OiArithmeticMaxBitsFact::from_mul(
+  fact : OiMulMaxBitsFact,
+) -> OiArithmeticMaxBitsFact {
+  { width_bits: fact.width_bits, max_bits: fact.max_bits }
+}
+
+///|
+fn OiArithmeticMaxBitsFact::from_div(
+  fact : OiDivMaxBitsFact,
+) -> OiArithmeticMaxBitsFact {
+  { width_bits: fact.width_bits, max_bits: fact.max_bits }
+}
+
+///|
+fn OiArithmeticMaxBitsFact::from_rem(
+  fact : OiRemMaxBitsFact,
+) -> OiArithmeticMaxBitsFact {
+  { width_bits: fact.width_bits, max_bits: fact.max_bits }
+}
+
+///|
+fn OiArithmeticMaxBitsFact::from_shift(
+  fact : OiArithmeticShiftMaxBitsFact,
+) -> OiArithmeticMaxBitsFact {
+  match fact.kind {
+    ArithmeticShlMaxBits | ArithmeticShrSMaxBits => {
+      ignore(fact.amount)
+      { width_bits: fact.width_bits, max_bits: fact.max_bits }
+    }
   }
 }
 
@@ -5734,8 +5943,11 @@ fn OiArithmeticMaxBitsFact::binary_i32(
           func, dead, local_facts, rhs_id,
         ),
       )
-      let operand_bits = if lhs_bits > rhs_bits { lhs_bits } else { rhs_bits }
-      Some(OiArithmeticMaxBitsFact::cap(32, operand_bits + 1))
+      Some(
+        OiArithmeticMaxBitsFact::from_add(
+          OiAddMaxBitsFact::from_bits(32, lhs_bits, rhs_bits),
+        ).max_bits,
+      )
     }
     @lib.Instruction::I32Mul => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
@@ -5743,7 +5955,11 @@ fn OiArithmeticMaxBitsFact::binary_i32(
           func, dead, local_facts, rhs_id,
         ),
       )
-      Some(OiArithmeticMaxBitsFact::cap(32, lhs_bits + rhs_bits))
+      Some(
+        OiArithmeticMaxBitsFact::from_mul(
+          OiMulMaxBitsFact::from_bits(32, lhs_bits, rhs_bits),
+        ).max_bits,
+      )
     }
     @lib.Instruction::I32DivS | @lib.Instruction::I32DivU => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
@@ -5751,7 +5967,10 @@ fn OiArithmeticMaxBitsFact::binary_i32(
           func, dead, local_facts, rhs_id,
         ),
       )
-      OiArithmeticMaxBitsFact::div_max_bits(lhs_bits, rhs_bits)
+      match OiDivMaxBitsFact::from_bits(32, lhs_bits, rhs_bits) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_div(fact).max_bits)
+        None => None
+      }
     }
     @lib.Instruction::I32RemS | @lib.Instruction::I32RemU => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
@@ -5759,30 +5978,24 @@ fn OiArithmeticMaxBitsFact::binary_i32(
           func, dead, local_facts, rhs_id,
         ),
       )
-      OiArithmeticMaxBitsFact::rem_max_bits(lhs_bits, rhs_bits)
+      match OiRemMaxBitsFact::from_bits(32, lhs_bits, rhs_bits) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_rem(fact).max_bits)
+        None => None
+      }
     }
     @lib.Instruction::I32Shl =>
       match
-        OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
-        Some(fact) => {
-          ignore(fact.width_bits)
-          Some(OiArithmeticMaxBitsFact::cap(32, lhs_bits + fact.amount))
-        }
+        OiArithmeticShiftMaxBitsFact::from_i32_shl(func, dead, lhs_bits, rhs_id) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
         None => None
       }
     @lib.Instruction::I32ShrS =>
       match
-        OiEffectiveShiftAmountFact::from_i32_const_operand(func, dead, rhs_id) {
-        Some(fact) if lhs_bits < 32 => {
-          ignore(fact.width_bits)
-          let shifts = if fact.amount < lhs_bits {
-            fact.amount
-          } else {
-            lhs_bits
-          }
-          Some(lhs_bits - shifts)
-        }
-        _ => None
+        OiArithmeticShiftMaxBitsFact::from_i32_shr_s(
+          func, dead, lhs_bits, rhs_id,
+        ) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
+        None => None
       }
     _ => None
   }
@@ -5814,8 +6027,11 @@ fn OiArithmeticMaxBitsFact::binary_i64(
           func, dead, local_facts, rhs_id,
         ),
       )
-      let operand_bits = if lhs_bits > rhs_bits { lhs_bits } else { rhs_bits }
-      Some(OiArithmeticMaxBitsFact::cap(64, operand_bits + 1))
+      Some(
+        OiArithmeticMaxBitsFact::from_add(
+          OiAddMaxBitsFact::from_bits(64, lhs_bits, rhs_bits),
+        ).max_bits,
+      )
     }
     @lib.Instruction::I64Mul => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
@@ -5823,7 +6039,11 @@ fn OiArithmeticMaxBitsFact::binary_i64(
           func, dead, local_facts, rhs_id,
         ),
       )
-      Some(OiArithmeticMaxBitsFact::cap(64, lhs_bits + rhs_bits))
+      Some(
+        OiArithmeticMaxBitsFact::from_mul(
+          OiMulMaxBitsFact::from_bits(64, lhs_bits, rhs_bits),
+        ).max_bits,
+      )
     }
     @lib.Instruction::I64DivS | @lib.Instruction::I64DivU => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
@@ -5831,7 +6051,10 @@ fn OiArithmeticMaxBitsFact::binary_i64(
           func, dead, local_facts, rhs_id,
         ),
       )
-      OiArithmeticMaxBitsFact::div_max_bits(lhs_bits, rhs_bits)
+      match OiDivMaxBitsFact::from_bits(64, lhs_bits, rhs_bits) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_div(fact).max_bits)
+        None => None
+      }
     }
     @lib.Instruction::I64RemS | @lib.Instruction::I64RemU => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
@@ -5839,30 +6062,24 @@ fn OiArithmeticMaxBitsFact::binary_i64(
           func, dead, local_facts, rhs_id,
         ),
       )
-      OiArithmeticMaxBitsFact::rem_max_bits(lhs_bits, rhs_bits)
+      match OiRemMaxBitsFact::from_bits(64, lhs_bits, rhs_bits) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_rem(fact).max_bits)
+        None => None
+      }
     }
     @lib.Instruction::I64Shl =>
       match
-        OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
-        Some(fact) => {
-          ignore(fact.width_bits)
-          Some(OiArithmeticMaxBitsFact::cap(64, lhs_bits + fact.amount))
-        }
+        OiArithmeticShiftMaxBitsFact::from_i64_shl(func, dead, lhs_bits, rhs_id) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
         None => None
       }
     @lib.Instruction::I64ShrS =>
       match
-        OiEffectiveShiftAmountFact::from_i64_const_operand(func, dead, rhs_id) {
-        Some(fact) if lhs_bits < 64 => {
-          ignore(fact.width_bits)
-          let shifts = if fact.amount < lhs_bits {
-            fact.amount
-          } else {
-            lhs_bits
-          }
-          Some(lhs_bits - shifts)
-        }
-        _ => None
+        OiArithmeticShiftMaxBitsFact::from_i64_shr_s(
+          func, dead, lhs_bits, rhs_id,
+        ) {
+        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
+        None => None
       }
     _ => None
   }
