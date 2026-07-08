@@ -4069,12 +4069,65 @@ fn OiDescriptorExactMissRewritePlanFact::apply(
 }
 
 ///|
+priv struct OiDescriptorOperandTargetRelationFact {
+  relation_fact : OiRefProducerTargetRelationFact
+}
+
+///|
+fn OiDescriptorOperandTargetRelationFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> OiDescriptorOperandTargetRelationFact {
+  // Descriptor equality casts reuse Binaryen v130's source/target relation for
+  // the reference operand before TNH skip and result-narrowing decisions. Keep
+  // that producer-target relation nested here so descriptor consumers read one
+  // source-backed fact instead of parallel match/nullability/exactness booleans.
+  {
+    relation_fact: OiRefProducerTargetRelationFact::from_producer(
+      ctx,
+      OiRefProducerFact::from_node(ctx, func, operand_id),
+      target,
+      target_nullable,
+    ),
+  }
+}
+
+///|
+fn OiDescriptorOperandTargetRelationFact::proves_matches_or_subtypes_target(
+  self : OiDescriptorOperandTargetRelationFact,
+) -> Bool {
+  self.relation_fact.matches_or_subtypes_heap
+}
+
+///|
+fn OiDescriptorOperandTargetRelationFact::proves_nullable_target(
+  self : OiDescriptorOperandTargetRelationFact,
+) -> Bool {
+  self.relation_fact.matches_or_subtypes_nullable
+}
+
+///|
+fn OiDescriptorOperandTargetRelationFact::proves_exact_target(
+  self : OiDescriptorOperandTargetRelationFact,
+) -> Bool {
+  self.relation_fact.matches_or_subtypes_exact
+}
+
+///|
+fn OiDescriptorOperandTargetRelationFact::proves_exact_heap_target(
+  self : OiDescriptorOperandTargetRelationFact,
+) -> Bool {
+  self.relation_fact.exact_heap
+}
+
+///|
 priv struct OiDescriptorTnhSkipFact {
   cast_fact : OiDescriptorCastFact
   descriptor_fact : OiDescriptorOperandFact
-  operand_matches_target : Bool
-  operand_nullable : Bool
-  operand_exact : Bool
+  operand_relation : OiDescriptorOperandTargetRelationFact
 }
 
 ///|
@@ -4088,12 +4141,6 @@ fn OiDescriptorTnhSkipFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  let operand_relation = OiRefProducerTargetRelationFact::from_producer(
-    ctx,
-    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
-    cast_fact.target,
-    cast_fact.nullable,
-  )
   Some({
     cast_fact,
     descriptor_fact: OiDescriptorOperandFact::from_operand(
@@ -4102,9 +4149,13 @@ fn OiDescriptorTnhSkipFact::from_node(
       dead,
       cast_fact.descriptor_id,
     ),
-    operand_matches_target: operand_relation.matches_or_subtypes_heap,
-    operand_nullable: operand_relation.matches_or_subtypes_nullable,
-    operand_exact: operand_relation.matches_or_subtypes_exact,
+    operand_relation: OiDescriptorOperandTargetRelationFact::from_operand(
+      ctx,
+      func,
+      cast_fact.operand_id,
+      cast_fact.target,
+      cast_fact.nullable,
+    ),
   })
 }
 
@@ -4136,26 +4187,27 @@ fn OiDescriptorTnhSkipEligibilityFact::from_skip(
   if !ctx.traps_never_happen {
     return { kind: DescriptorTnhSkipTrapsActive }
   }
-  if !skip_fact.operand_matches_target {
+  if !skip_fact.operand_relation.proves_matches_or_subtypes_target() {
     return { kind: DescriptorTnhSkipOperandMissesTarget }
   }
   let cast_fact = skip_fact.cast_fact
-  if !cast_fact.nullable && skip_fact.operand_nullable {
+  if !cast_fact.nullable && skip_fact.operand_relation.proves_nullable_target() {
     return { kind: DescriptorTnhSkipTargetNullabilityMismatch }
   }
-  if cast_fact.exact && !skip_fact.operand_exact {
+  if cast_fact.exact && !skip_fact.operand_relation.proves_exact_target() {
     return { kind: DescriptorTnhSkipTargetExactnessMismatch }
   }
   match skip_fact.descriptor_fact.type_fact.exact_described_heap {
     Some(described_heap) => {
-      let described_relation = OiRefProducerTargetRelationFact::from_producer(
+      let described_relation = OiDescriptorOperandTargetRelationFact::from_operand(
         ctx,
-        OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
+        func,
+        cast_fact.operand_id,
         described_heap,
         false,
       )
       if OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype() &&
-        !described_relation.exact_heap &&
+        !described_relation.proves_exact_heap_target() &&
         !skip_fact.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
         return { kind: DescriptorTnhSkipDescriptorExactnessPreserved }
       }
@@ -4562,8 +4614,7 @@ fn OiDescriptorExactSuccessRewritePlanFact::apply(
 priv struct OiDescriptorResultNarrowingFact {
   cast_fact : OiDescriptorCastFact
   descriptor_no_escaping_branch_control : Bool
-  operand_matches_or_subtypes_target : Bool
-  operand_nullable : Bool
+  operand_relation : OiDescriptorOperandTargetRelationFact
   descriptor_described_heap : @lib.HeapType?
   descriptor_described_heap_subtypes_target : Bool
   descriptor_exactly_describes_target : Bool
@@ -4590,14 +4641,13 @@ fn OiDescriptorResultNarrowingFact::from_cast(
     cast_fact.descriptor_id,
     cast_fact.descriptor_id,
   ).proves_has_escaping_branch_control()
-  let operand_relation = OiRefProducerTargetRelationFact::from_producer(
+  let operand_relation = OiDescriptorOperandTargetRelationFact::from_operand(
     ctx,
-    OiRefProducerFact::from_node(ctx, func, cast_fact.operand_id),
+    func,
+    cast_fact.operand_id,
     cast_fact.target,
     cast_fact.nullable,
   )
-  let operand_matches_or_subtypes_target = operand_relation.matches_or_subtypes_heap
-  let operand_nullable = operand_relation.matches_or_subtypes_nullable
   let descriptor_type_fact = OiDescriptorTypeFact::from_node(
     ctx,
     func,
@@ -4623,8 +4673,7 @@ fn OiDescriptorResultNarrowingFact::from_cast(
   {
     cast_fact,
     descriptor_no_escaping_branch_control,
-    operand_matches_or_subtypes_target,
-    operand_nullable,
+    operand_relation,
     descriptor_described_heap,
     descriptor_described_heap_subtypes_target,
     descriptor_exactly_describes_target,
@@ -4632,7 +4681,7 @@ fn OiDescriptorResultNarrowingFact::from_cast(
     narrowed_nullable: if force_non_null {
       false
     } else {
-      cast_fact.nullable && operand_nullable
+      cast_fact.nullable && operand_relation.proves_nullable_target()
     },
     narrowed_exact: cast_fact.exact || descriptor_exact,
   }
@@ -4655,7 +4704,7 @@ fn OiDescriptorResultNarrowingFact::proves_can_narrow_result_type(
   ignore(self.descriptor_described_heap_subtypes_target)
   ignore(self.descriptor_exactly_describes_target)
   self.descriptor_no_escaping_branch_control &&
-  self.operand_matches_or_subtypes_target &&
+  self.operand_relation.proves_matches_or_subtypes_target() &&
   self.changes_result_type()
 }
 
@@ -4663,8 +4712,7 @@ fn OiDescriptorResultNarrowingFact::proves_can_narrow_result_type(
 fn OiDescriptorResultNarrowingFact::proves_can_move_ref_as_non_null_into_cast(
   self : OiDescriptorResultNarrowingFact,
 ) -> Bool {
-  ignore(self.operand_matches_or_subtypes_target)
-  ignore(self.operand_nullable)
+  ignore(self.operand_relation)
   self.cast_fact.nullable && self.descriptor_no_escaping_branch_control
 }
 
