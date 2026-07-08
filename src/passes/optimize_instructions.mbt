@@ -10114,136 +10114,246 @@ fn optimize_instructions_shift_rhs_i64_amount(
 }
 
 ///|
-priv struct OiNonNegativeIntegerFact {
-  width_bits : Int
+priv struct OiI32NonNegativeIntegerFact {
   proven : Bool
 }
 
 ///|
-fn OiNonNegativeIntegerFact::from_i32_const(
+priv struct OiI64NonNegativeIntegerFact {
+  proven : Bool
+}
+
+///|
+fn OiI32NonNegativeIntegerFact::from_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> OiNonNegativeIntegerFact {
+) -> OiI32NonNegativeIntegerFact {
   let proven = match optimize_instructions_i32_const(func, dead, node_id) {
     Some(@lib.I32(raw)) => raw >= 0
     None => false
   }
-  { width_bits: 32, proven }
+  { proven, }
 }
 
 ///|
-fn OiNonNegativeIntegerFact::from_i64_const(
+fn OiI64NonNegativeIntegerFact::from_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> OiNonNegativeIntegerFact {
+) -> OiI64NonNegativeIntegerFact {
   let proven = match optimize_instructions_i64_const(func, dead, node_id) {
     Some(@lib.I64(raw)) => raw >= 0L
     None => false
   }
-  { width_bits: 64, proven }
+  { proven, }
 }
 
 ///|
-fn OiNonNegativeIntegerFact::from_unsigned_max(
+fn OiI32NonNegativeIntegerFact::from_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
-  width_bits : Int,
-) -> OiNonNegativeIntegerFact {
+) -> OiI32NonNegativeIntegerFact {
   // Binaryen v130 uses `Bits::getMaxBits(left, this) <= signBit - 1` before
   // rewriting signed compare/div/rem/shr operations to unsigned spellings. The
   // Starshine equivalent is the shared unsigned-max fact: if the fact proves the
   // value cannot reach the sign bit, signed and unsigned operations observe the
   // same nonnegative domain. This owns both direct nonnegative constants and
   // LocalScanner-shaped local/mask/load/shift summaries.
-  let proven = match width_bits {
-    32 =>
-      match
-        OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
-        Some(value) => value <= 2147483647
-        None => false
-      }
-    64 =>
-      match
-        OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
-        Some(value) => value <= 9223372036854775807L
-        None => false
-      }
-    _ => false
+  let proven = match
+    OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
+    Some(value) => value <= 2147483647
+    None => false
   }
-  { width_bits, proven }
+  { proven, }
 }
 
 ///|
-fn OiNonNegativeIntegerFact::proves_non_negative(
-  self : OiNonNegativeIntegerFact,
-  width_bits : Int,
+fn OiI64NonNegativeIntegerFact::from_unsigned_max(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+) -> OiI64NonNegativeIntegerFact {
+  let proven = match
+    OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
+    Some(value) => value <= 9223372036854775807L
+    None => false
+  }
+  { proven, }
+}
+
+///|
+fn OiI32NonNegativeIntegerFact::proves_non_negative(
+  self : OiI32NonNegativeIntegerFact,
 ) -> Bool {
-  self.width_bits == width_bits && self.proven
+  self.proven
 }
 
 ///|
-priv struct OiSignedToUnsignedOpcodeFact {
-  width_bits : Int
+fn OiI64NonNegativeIntegerFact::proves_non_negative(
+  self : OiI64NonNegativeIntegerFact,
+) -> Bool {
+  self.proven
+}
+
+///|
+priv struct OiI32SignedToUnsignedOpcodeFact {
   unsigned_instr : @lib.Instruction?
 }
 
 ///|
-fn OiSignedToUnsignedOpcodeFact::from_instr(
+priv struct OiI64SignedToUnsignedOpcodeFact {
+  unsigned_instr : @lib.Instruction?
+}
+
+///|
+fn OiI32SignedToUnsignedOpcodeFact::from_instr(
   instr : @lib.Instruction,
-) -> OiSignedToUnsignedOpcodeFact {
+) -> OiI32SignedToUnsignedOpcodeFact {
   // Mirrors Binaryen v130 `makeUnsignedBinaryOp`: only signed integer
   // comparisons, div/rem, and arithmetic right shift have an unsigned spelling
   // that can replace the original when operand facts prove the nonnegative
   // domain. Keep this table as a fact instead of a naked opcode whitelist.
   match instr {
     @lib.Instruction::I32LtS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_lt_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_lt_u()) }
     @lib.Instruction::I32GtS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_gt_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_gt_u()) }
     @lib.Instruction::I32LeS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_le_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_le_u()) }
     @lib.Instruction::I32GeS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_ge_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_ge_u()) }
     @lib.Instruction::I32DivS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_div_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_div_u()) }
     @lib.Instruction::I32RemS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_rem_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_rem_u()) }
     @lib.Instruction::I32ShrS =>
-      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_shr_u()) }
-    @lib.Instruction::I64LtS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_lt_u()) }
-    @lib.Instruction::I64GtS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_gt_u()) }
-    @lib.Instruction::I64LeS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_le_u()) }
-    @lib.Instruction::I64GeS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_ge_u()) }
-    @lib.Instruction::I64DivS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_div_u()) }
-    @lib.Instruction::I64RemS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_rem_u()) }
-    @lib.Instruction::I64ShrS =>
-      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_shr_u()) }
-    _ => { width_bits: 0, unsigned_instr: None }
+      { unsigned_instr: Some(@lib.Instruction::i32_shr_u()) }
+    _ => { unsigned_instr: None }
   }
 }
 
 ///|
-fn OiSignedToUnsignedOpcodeFact::replacement(
-  self : OiSignedToUnsignedOpcodeFact,
+fn OiI64SignedToUnsignedOpcodeFact::from_instr(
+  instr : @lib.Instruction,
+) -> OiI64SignedToUnsignedOpcodeFact {
+  match instr {
+    @lib.Instruction::I64LtS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_lt_u()) }
+    @lib.Instruction::I64GtS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_gt_u()) }
+    @lib.Instruction::I64LeS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_le_u()) }
+    @lib.Instruction::I64GeS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_ge_u()) }
+    @lib.Instruction::I64DivS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_div_u()) }
+    @lib.Instruction::I64RemS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_rem_u()) }
+    @lib.Instruction::I64ShrS =>
+      { unsigned_instr: Some(@lib.Instruction::i64_shr_u()) }
+    _ => { unsigned_instr: None }
+  }
+}
+
+///|
+fn OiI32SignedToUnsignedOpcodeFact::replacement(
+  self : OiI32SignedToUnsignedOpcodeFact,
 ) -> @lib.Instruction? {
   self.unsigned_instr
 }
 
 ///|
-priv struct OiSignedConstUnsignedCanonicalizationFact {
-  opcode_fact : OiSignedToUnsignedOpcodeFact
-  lhs_fact : OiNonNegativeIntegerFact
-  rhs_fact : OiNonNegativeIntegerFact
+fn OiI64SignedToUnsignedOpcodeFact::replacement(
+  self : OiI64SignedToUnsignedOpcodeFact,
+) -> @lib.Instruction? {
+  self.unsigned_instr
+}
+
+///|
+priv struct OiI32SignedConstUnsignedCanonicalizationFact {
+  opcode_fact : OiI32SignedToUnsignedOpcodeFact
+  lhs_fact : OiI32NonNegativeIntegerFact
+  rhs_fact : OiI32NonNegativeIntegerFact
+}
+
+///|
+priv struct OiI64SignedConstUnsignedCanonicalizationFact {
+  opcode_fact : OiI64SignedToUnsignedOpcodeFact
+  lhs_fact : OiI64NonNegativeIntegerFact
+  rhs_fact : OiI64NonNegativeIntegerFact
+}
+
+///|
+priv enum OiSignedConstUnsignedCanonicalizationFact {
+  I32SignedConstUnsignedCanonicalization(
+    OiI32SignedConstUnsignedCanonicalizationFact
+  )
+  I64SignedConstUnsignedCanonicalization(
+    OiI64SignedConstUnsignedCanonicalizationFact
+  )
+}
+
+///|
+fn OiI32SignedConstUnsignedCanonicalizationFact::from_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI32SignedConstUnsignedCanonicalizationFact? {
+  // Binaryen v130 runs this source step only when the right operand is a
+  // nonnegative constant and the left operand has no sign bit according to
+  // `Bits::getMaxBits`. Preserve that asymmetry: a nonconstant nonnegative RHS
+  // is not enough, and an arbitrary nonnegative constant LHS does not bypass the
+  // shared left unsigned-max fact.
+  let opcode_fact = OiI32SignedToUnsignedOpcodeFact::from_instr(instr)
+  match opcode_fact.replacement() {
+    Some(_) => ()
+    None => return None
+  }
+  let rhs_fact = OiI32NonNegativeIntegerFact::from_const(func, dead, rhs_id)
+  if !rhs_fact.proves_non_negative() {
+    return None
+  }
+  let lhs_fact = OiI32NonNegativeIntegerFact::from_unsigned_max(
+    func, dead, scratch, lhs_id,
+  )
+  if !lhs_fact.proves_non_negative() {
+    return None
+  }
+  Some({ opcode_fact, lhs_fact, rhs_fact })
+}
+
+///|
+fn OiI64SignedConstUnsignedCanonicalizationFact::from_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiI64SignedConstUnsignedCanonicalizationFact? {
+  let opcode_fact = OiI64SignedToUnsignedOpcodeFact::from_instr(instr)
+  match opcode_fact.replacement() {
+    Some(_) => ()
+    None => return None
+  }
+  let rhs_fact = OiI64NonNegativeIntegerFact::from_const(func, dead, rhs_id)
+  if !rhs_fact.proves_non_negative() {
+    return None
+  }
+  let lhs_fact = OiI64NonNegativeIntegerFact::from_unsigned_max(
+    func, dead, scratch, lhs_id,
+  )
+  if !lhs_fact.proves_non_negative() {
+    return None
+  }
+  Some({ opcode_fact, lhs_fact, rhs_fact })
 }
 
 ///|
@@ -10255,44 +10365,48 @@ fn OiSignedConstUnsignedCanonicalizationFact::from_binary(
   lhs_id : Int,
   rhs_id : Int,
 ) -> OiSignedConstUnsignedCanonicalizationFact? {
-  // Binaryen v130 runs this source step only when the right operand is a
-  // nonnegative constant and the left operand has no sign bit according to
-  // `Bits::getMaxBits`. Preserve that asymmetry: a nonconstant nonnegative RHS
-  // is not enough, and an arbitrary nonnegative constant LHS does not bypass the
-  // shared left unsigned-max fact.
-  let opcode_fact = OiSignedToUnsignedOpcodeFact::from_instr(instr)
-  let width_bits = opcode_fact.width_bits
-  match opcode_fact.replacement() {
-    Some(_) => ()
-    None => return None
+  match
+    OiI32SignedConstUnsignedCanonicalizationFact::from_binary(
+      func, dead, scratch, instr, lhs_id, rhs_id,
+    ) {
+    Some(fact) => Some(I32SignedConstUnsignedCanonicalization(fact))
+    None =>
+      match
+        OiI64SignedConstUnsignedCanonicalizationFact::from_binary(
+          func, dead, scratch, instr, lhs_id, rhs_id,
+        ) {
+        Some(fact) => Some(I64SignedConstUnsignedCanonicalization(fact))
+        None => None
+      }
   }
-  if width_bits != 32 && width_bits != 64 {
-    return None
-  }
-  let rhs_fact = if width_bits == 32 {
-    OiNonNegativeIntegerFact::from_i32_const(func, dead, rhs_id)
-  } else {
-    OiNonNegativeIntegerFact::from_i64_const(func, dead, rhs_id)
-  }
-  if !rhs_fact.proves_non_negative(width_bits) {
-    return None
-  }
-  let lhs_fact = OiNonNegativeIntegerFact::from_unsigned_max(
-    func, dead, scratch, lhs_id, width_bits,
-  )
-  if !lhs_fact.proves_non_negative(width_bits) {
-    return None
-  }
-  Some({ opcode_fact, lhs_fact, rhs_fact })
+}
+
+///|
+fn OiI32SignedConstUnsignedCanonicalizationFact::replacement(
+  self : OiI32SignedConstUnsignedCanonicalizationFact,
+) -> @lib.Instruction? {
+  ignore(self.lhs_fact)
+  ignore(self.rhs_fact)
+  self.opcode_fact.replacement()
+}
+
+///|
+fn OiI64SignedConstUnsignedCanonicalizationFact::replacement(
+  self : OiI64SignedConstUnsignedCanonicalizationFact,
+) -> @lib.Instruction? {
+  ignore(self.lhs_fact)
+  ignore(self.rhs_fact)
+  self.opcode_fact.replacement()
 }
 
 ///|
 fn OiSignedConstUnsignedCanonicalizationFact::replacement(
   self : OiSignedConstUnsignedCanonicalizationFact,
 ) -> @lib.Instruction? {
-  ignore(self.lhs_fact)
-  ignore(self.rhs_fact)
-  self.opcode_fact.replacement()
+  match self {
+    I32SignedConstUnsignedCanonicalization(fact) => fact.replacement()
+    I64SignedConstUnsignedCanonicalization(fact) => fact.replacement()
+  }
 }
 
 ///|
