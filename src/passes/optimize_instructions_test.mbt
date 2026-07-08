@@ -32043,6 +32043,82 @@ test "optimize-instructions replaces known-null call_ref targets with unreachabl
 }
 
 ///|
+test "optimize-instructions replaces pure fallthrough-null call_ref targets with unreachable preserving args" {
+  // OI-H call_ref null-trap fact slice: Binaryen version_130 `trapOnNull`
+  // uses `getFallthrough(curr->target)` before it replaces the call with
+  // `getDroppedChildrenAndAppend(..., unreachable)`, so a pure block target
+  // whose tail is `ref.null` traps like a direct null target. Keep this as a
+  // fallthrough-null target fact with pure-target evidence; target-side effects
+  // and control/EH localization remain separate reopening criteria.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let arg_type_idx = @lib.TypeIdx::new(1U)
+  let caller_type_idx = @lib.TypeIdx::new(2U)
+  let target_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(target_type_idx)),
+  )
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let arg_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pure_null_target = fn() {
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(target_ref),
+      @lib.Expr::new([
+        @lib.Instruction::ref_null(@lib.HeapType::new(target_type_idx)),
+      ]),
+    )
+  }
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, arg_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([arg_type_idx, caller_type_idx, caller_type_idx]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            pure_null_target(),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            pure_null_target(),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_true(caller.contains("unreachable"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_false(caller.contains("ref.null"), msg=caller)
+  assert_true(tail.contains("call (Func 0)"), msg=tail)
+  assert_true(tail.contains("unreachable"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+  assert_false(tail.contains("ref.null"), msg=tail)
+}
+
+///|
 test "optimize-instructions lowers select ref.func call_ref targets to direct if calls" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
