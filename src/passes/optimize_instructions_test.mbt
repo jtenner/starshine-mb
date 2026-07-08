@@ -6519,8 +6519,8 @@ test "optimize-instructions rewrites unsigned maxBits signed div rem shift spell
   // unsigned spelling when `makeUnsignedBinaryOp` succeeds, the right constant
   // is nonnegative, and `Bits::getMaxBits(left) <= signBit - 1`. Starshine's
   // local unsigned-max fact should own the equivalent local-HOT proof for
-  // bounded `and`, `shr_u`, and zero-extend producers instead of requiring both
-  // operands to be direct constants.
+  // bounded `and`, `shr_u`, zero-extend producers, and nested bounded bitwise
+  // producers instead of requiring both operands to be direct constants.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -6542,6 +6542,30 @@ test "optimize-instructions rewrites unsigned maxBits signed div rem shift spell
         #|    i64.const 255
         #|    i64.and
         #|    i64.const 1
+        #|    i64.shr_s)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.const 1023
+        #|    i32.and
+        #|    i32.const -2
+        #|    i32.and
+        #|    i32.const 3
+        #|    i32.div_s)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.const 1023
+        #|    i32.and
+        #|    i32.const 1
+        #|    i32.or
+        #|    i32.const 3
+        #|    i32.rem_s)
+        #|  (func (param $x i64) (result i64)
+        #|    local.get $x
+        #|    i64.const 1023
+        #|    i64.and
+        #|    i64.const 1
+        #|    i64.xor
+        #|    i64.const 1
         #|    i64.shr_s))
         #|,
       ),
@@ -6562,6 +6586,15 @@ test "optimize-instructions rewrites unsigned maxBits signed div rem shift spell
   let shr_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(shr_pretty.contains("i64.shr_u"), msg=shr_pretty)
   assert_false(shr_pretty.contains("i64.shr_s"), msg=shr_pretty)
+  let neg_mask_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(neg_mask_pretty.contains("i32.div_u"), msg=neg_mask_pretty)
+  assert_false(neg_mask_pretty.contains("i32.div_s"), msg=neg_mask_pretty)
+  let or_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(or_pretty.contains("i32.rem_u"), msg=or_pretty)
+  assert_false(or_pretty.contains("i32.rem_s"), msg=or_pretty)
+  let xor_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(xor_pretty.contains("i64.shr_u"), msg=xor_pretty)
+  assert_false(xor_pretty.contains("i64.shr_s"), msg=xor_pretty)
 }
 
 ///|
