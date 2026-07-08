@@ -378,10 +378,72 @@ fn OiRefFact::proves_type_non_nullable(self : OiRefFact) -> Bool {
 }
 
 ///|
+priv enum OiRefIsNullResultKind {
+  RefIsNullUnknownResult
+  RefIsNullKnownNullOperand
+  RefIsNullKnownNonNullOperand
+}
+
+///|
+priv struct OiRefIsNullResultFact {
+  kind : OiRefIsNullResultKind
+}
+
+///|
+fn OiRefIsNullResultFact::from_ref_fact(
+  operand_fact : OiRefFact,
+) -> OiRefIsNullResultFact {
+  let kind = if operand_fact.proves_known_null() {
+    RefIsNullKnownNullOperand
+  } else if operand_fact.proves_known_non_null() {
+    RefIsNullKnownNonNullOperand
+  } else {
+    RefIsNullUnknownResult
+  }
+  { kind, }
+}
+
+///|
+fn OiRefIsNullResultFact::known_result(
+  self : OiRefIsNullResultFact,
+) -> @lib.I32? {
+  match self.kind {
+    RefIsNullKnownNullOperand => Some(@lib.I32(1))
+    RefIsNullKnownNonNullOperand => Some(@lib.I32(0))
+    RefIsNullUnknownResult => None
+  }
+}
+
+///|
+priv struct OiRefIsNullOperandErasureFact {
+  operand_effects_are_pure : Bool
+}
+
+///|
+fn OiRefIsNullOperandErasureFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+) -> OiRefIsNullOperandErasureFact {
+  {
+    operand_effects_are_pure: optimize_instructions_node_effects_are_pure(
+      ctx, func, operand_id,
+    ),
+  }
+}
+
+///|
+fn OiRefIsNullOperandErasureFact::proves_operand_erasable(
+  self : OiRefIsNullOperandErasureFact,
+) -> Bool {
+  self.operand_effects_are_pure
+}
+
+///|
 priv struct OiRefIsNullFact {
   operand_id : Int
-  operand_fact : OiRefFact
-  operand_effects_are_pure : Bool
+  result_fact : OiRefIsNullResultFact
+  erasure_fact : OiRefIsNullOperandErasureFact
 }
 
 ///|
@@ -396,31 +458,17 @@ fn OiRefIsNullFact::from_node(
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   // Binaryen v130 `visitRefIsNull` makes the direct decision from reference
   // nullability/source facts, then preserves operand effects with a drop when
-  // the operand cannot be erased. Keep that as a named fact so the visitor does
+  // the operand cannot be erased. Keep those as named facts so the visitor does
   // not own a one-off ref-null / non-null / purity cascade.
   Some({
     operand_id,
-    operand_fact: OiRefFact::from_node(func, operand_id),
-    operand_effects_are_pure: optimize_instructions_node_effects_are_pure(
+    result_fact: OiRefIsNullResultFact::from_ref_fact(
+      OiRefFact::from_node(func, operand_id),
+    ),
+    erasure_fact: OiRefIsNullOperandErasureFact::from_operand(
       ctx, func, operand_id,
     ),
   })
-}
-
-///|
-fn OiRefIsNullFact::known_result(self : OiRefIsNullFact) -> @lib.I32? {
-  if self.operand_fact.proves_known_null() {
-    Some(@lib.I32(1))
-  } else if self.operand_fact.proves_known_non_null() {
-    Some(@lib.I32(0))
-  } else {
-    None
-  }
-}
-
-///|
-fn OiRefIsNullFact::can_erase_operand(self : OiRefIsNullFact) -> Bool {
-  self.operand_effects_are_pure
 }
 
 ///|
@@ -492,10 +540,10 @@ fn OiRefIsNullRewritePlanFact::from_fact(
   func : @ir.HotFunc,
   fact : OiRefIsNullFact,
 ) -> OiRefIsNullRewritePlanFact? {
-  match fact.known_result() {
+  match fact.result_fact.known_result() {
     Some(value) =>
       Some({
-        kind: if fact.can_erase_operand() {
+        kind: if fact.erasure_fact.proves_operand_erasable() {
           RefIsNullRewriteToConst
         } else {
           RefIsNullDropOperandThenConst
