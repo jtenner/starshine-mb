@@ -5580,11 +5580,63 @@ priv enum OiRefGetDescNullableChildMoveKind {
 }
 
 ///|
+priv enum OiRefGetDescDescriptorOperandMoveKind {
+  RefGetDescDescriptorOperandLocalLeaf
+  RefGetDescDescriptorOperandBranchFreeControl
+  RefGetDescDescriptorOperandBlocked
+}
+
+///|
+priv struct OiRefGetDescDescriptorOperandMoveFact {
+  kind : OiRefGetDescDescriptorOperandMoveKind
+}
+
+///|
+fn OiRefGetDescDescriptorOperandMoveFact::from_child(
+  func : @ir.HotFunc,
+  child_id : Int,
+) -> OiRefGetDescDescriptorOperandMoveFact {
+  // Descriptor operands are stricter than standalone ref.get_desc rewrites: only
+  // direct local leaves and represented branch-free control wrappers can move
+  // their null check into the descriptor operand slot. Keep that mode-specific
+  // decision as a source-backed fact rather than parallel `can_*` fields on the
+  // broader nullable-child shape record.
+  let child = @ir.hot_node_get(func, child_id)
+  let kind = match child.op {
+    @ir.HotOp::LocalGet => RefGetDescDescriptorOperandLocalLeaf
+    @ir.HotOp::Block | @ir.HotOp::Select =>
+      if !OiDescriptorBranchControlFact::from_node(func, child_id, child_id).proves_has_escaping_branch_control() {
+        RefGetDescDescriptorOperandBranchFreeControl
+      } else {
+        RefGetDescDescriptorOperandBlocked
+      }
+    @ir.HotOp::If =>
+      if OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check() {
+        RefGetDescDescriptorOperandBranchFreeControl
+      } else {
+        RefGetDescDescriptorOperandBlocked
+      }
+    _ => RefGetDescDescriptorOperandBlocked
+  }
+  { kind, }
+}
+
+///|
+fn OiRefGetDescDescriptorOperandMoveFact::proves_descriptor_operand_move_allowed(
+  self : OiRefGetDescDescriptorOperandMoveFact,
+) -> Bool {
+  match self.kind {
+    RefGetDescDescriptorOperandLocalLeaf
+    | RefGetDescDescriptorOperandBranchFreeControl => true
+    RefGetDescDescriptorOperandBlocked => false
+  }
+}
+
+///|
 priv struct OiRefGetDescNullableChildMoveFact {
   child_id : Int
   child_kind : OiRefGetDescNullableChildMoveKind
-  standalone_can_move : Bool
-  descriptor_operand_can_move : Bool
+  descriptor_operand_move : OiRefGetDescDescriptorOperandMoveFact
 }
 
 ///|
@@ -5638,24 +5690,17 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
       }
     _ => return None
   }
-  let descriptor_operand_can_move = match child.op {
-    @ir.HotOp::LocalGet => true
-    @ir.HotOp::Block | @ir.HotOp::Select =>
-      !OiDescriptorBranchControlFact::from_node(func, child_id, child_id).proves_has_escaping_branch_control()
-    @ir.HotOp::If =>
-      OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check()
-    _ => false
-  }
   Some({
     child_id,
     child_kind,
-    standalone_can_move: true,
-    descriptor_operand_can_move,
+    descriptor_operand_move: OiRefGetDescDescriptorOperandMoveFact::from_child(
+      func, child_id,
+    ),
   })
 }
 
 ///|
-fn OiRefGetDescNullableChildMoveFact::can_move_for(
+fn OiRefGetDescNullableChildMoveFact::proves_move_allowed_for(
   self : OiRefGetDescNullableChildMoveFact,
   kind : OiRefGetDescNullCheckMoveKind,
 ) -> Bool {
@@ -5673,8 +5718,9 @@ fn OiRefGetDescNullableChildMoveFact::can_move_for(
   }
   match kind {
     RefGetDescTrapsNeverHappenNullCheckMove => true
-    RefGetDescStandaloneNullCheckMove => self.standalone_can_move
-    RefGetDescDescriptorOperandNullCheckMove => self.descriptor_operand_can_move
+    RefGetDescStandaloneNullCheckMove => true
+    RefGetDescDescriptorOperandNullCheckMove =>
+      self.descriptor_operand_move.proves_descriptor_operand_move_allowed()
   }
 }
 
@@ -5704,7 +5750,7 @@ fn OiRefGetDescNullCheckMoveFact::from_get_desc(
     _ =>
       match
         OiRefGetDescNullableChildMoveFact::from_child(func, nullable_child) {
-        Some(child_fact) => child_fact.can_move_for(kind)
+        Some(child_fact) => child_fact.proves_move_allowed_for(kind)
         None => false
       }
   }
