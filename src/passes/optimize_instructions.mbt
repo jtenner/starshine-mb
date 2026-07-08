@@ -191,7 +191,7 @@ fn OiLocalAssignmentFact::from_node(
   // later integer rewrites query, rather than each rewrite owning a separate
   // tree scanner. Keep Starshine's represented local integer assignment shape
   // explicit and shared by sign-extension and unsigned-max summaries.
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiLocalAssignmentFact::empty()
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -3812,7 +3812,7 @@ fn optimize_instructions_mark_loop_input_nodes(
     return
   }
   for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
-    if !optimize_instructions_node_is_live(func, dead, node_id) {
+    if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
       continue
     }
     let node = func.nodes[node_id]
@@ -3844,7 +3844,7 @@ fn optimize_instructions_mark_if_condition_nodes(
     return
   }
   for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
-    if !optimize_instructions_node_is_live(func, dead, node_id) {
+    if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
       continue
     }
     let node = func.nodes[node_id]
@@ -3917,7 +3917,7 @@ fn OiSignExtValueFact::from_node_with_local_facts(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> OiSignExtValueFact {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiSignExtValueFact::from_bits(0)
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -4006,7 +4006,7 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Unit {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -4197,7 +4197,7 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> Int? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -4292,7 +4292,7 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> Int64? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -4427,7 +4427,7 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Unit {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -4521,18 +4521,41 @@ fn optimize_instructions_collect_unsigned_max_facts(
 }
 
 ///|
-fn optimize_instructions_node_is_live(
+priv struct OiLiveNodeFact {
+  live : Bool
+}
+
+///|
+fn OiLiveNodeFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiLiveNodeFact {
+  // Starshine keeps a pass-local dead bitset while mutating HOT. Route every
+  // OI liveness guard through a fact so rewrite families share one boundary
+  // for dead scratch ids, old HOT node slots, and freshly built live nodes.
+  let live = if node_id < 0 {
+    false
+  } else if node_id < dead.length() {
+    !dead[node_id]
+  } else {
+    @ir.hot_node_is_live(func, node_id)
+  }
+  { live, }
+}
+
+///|
+fn OiLiveNodeFact::proves_live(self : OiLiveNodeFact) -> Bool {
+  self.live
+}
+
+///|
+fn OiLiveNodeFact::proves_node_live(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if node_id < 0 {
-    return false
-  }
-  if node_id < dead.length() {
-    return !dead[node_id]
-  }
-  @ir.hot_node_is_live(func, node_id)
+  OiLiveNodeFact::from_node(func, dead, node_id).proves_live()
 }
 
 ///|
@@ -4639,14 +4662,37 @@ fn optimize_instructions_replace_with_exact_compare(
 }
 
 ///|
-fn optimize_instructions_node_is_i32_value(
+priv struct OiI32ValueFact {
+  value_type : @lib.ValType?
+}
+
+///|
+fn OiI32ValueFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiI32ValueFact {
+  // Binaryen condition cleanup only erases compare-to-zero shells when the
+  // exposed operand is an i32 condition value. Keep that result-type proof as
+  // data instead of a freestanding helper predicate.
+  let value_type = match
+    @ir.hot_type_get(func, @ir.hot_node_get(func, node_id).ty) {
+    @ir.HotTypeInfo::Value(val_type) => Some(val_type)
+    _ => None
+  }
+  { value_type, }
+}
+
+///|
+fn OiI32ValueFact::proves_i32_value(self : OiI32ValueFact) -> Bool {
+  self.value_type == Some(@lib.ValType::i32())
+}
+
+///|
+fn OiI32ValueFact::proves_node_i32_value(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  match @ir.hot_type_get(func, @ir.hot_node_get(func, node_id).ty) {
-    @ir.HotTypeInfo::Value(val_type) => val_type == @lib.ValType::i32()
-    _ => false
-  }
+  OiI32ValueFact::from_node(func, node_id).proves_i32_value()
 }
 
 ///|
@@ -4679,7 +4725,7 @@ fn OiCallRefFallthroughTargetFact::from_node(
   node_id : Int,
   depth? : Int = 0,
 ) -> OiCallRefFallthroughTargetFact {
-  if depth > 8 || !optimize_instructions_node_is_live(func, dead, node_id) {
+  if depth > 8 || !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiCallRefFallthroughTargetFact::unknown()
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -4757,7 +4803,7 @@ fn OiCallRefTargetFact::from_target(
   dead : @bitset.BitSet,
   callee_ref_id : Int,
 ) -> OiCallRefTargetFact {
-  if !optimize_instructions_node_is_live(func, dead, callee_ref_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
     return OiCallRefTargetFact::unknown()
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
@@ -4774,7 +4820,7 @@ fn OiCallRefTargetFact::from_target(
       }
     @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
-      if optimize_instructions_node_is_live(func, dead, table_index_id) {
+      if OiLiveNodeFact::proves_node_live(func, dead, table_index_id) {
         {
           direct_func: -1,
           table_idx: callee_ref.imm0,
@@ -4825,7 +4871,7 @@ fn OiCallRefTargetFact::from_fallthrough_block(
     return OiCallRefTargetFact::unknown()
   }
   let target_id = @ir.hot_region_get(func, body_ref, root_count - 1)
-  if !optimize_instructions_node_is_live(func, dead, target_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
     return OiCallRefTargetFact::unknown()
   }
   let target = OiCallRefFallthroughTargetFact::from_node(func, dead, target_id)
@@ -4860,7 +4906,7 @@ fn OiCallRefSelectArmFact::from_target_arm(
   dead : @bitset.BitSet,
   arm_id : Int,
 ) -> OiCallRefSelectArmFact {
-  if !optimize_instructions_node_is_live(func, dead, arm_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, arm_id) {
     return OiCallRefSelectArmFact::unknown()
   }
   let arm = @ir.hot_node_get(func, arm_id)
@@ -4891,7 +4937,7 @@ fn OiCallRefTargetFact::from_select(
   let true_ref_id = @ir.hot_child_get(func, callee_ref_id, 0)
   let false_ref_id = @ir.hot_child_get(func, callee_ref_id, 1)
   let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
-  if !optimize_instructions_node_is_live(func, dead, condition_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
     return OiCallRefTargetFact::unknown()
   }
   let true_fact = OiCallRefSelectArmFact::from_target_arm(
@@ -5352,7 +5398,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
     return false
   }
   let callee_ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
-  if !optimize_instructions_node_is_live(func, dead, callee_ref_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, callee_ref_id) {
     return false
   }
   let target_fact = OiCallRefTargetFact::from_target(func, dead, callee_ref_id)
@@ -5397,7 +5443,7 @@ fn optimize_instructions_try_sink_same_global_set_if(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -5419,8 +5465,8 @@ fn optimize_instructions_try_sink_same_global_set_if(
   }
   let then_set_id = @ir.hot_region_get(func, then_region, 0)
   let else_set_id = @ir.hot_region_get(func, else_region, 0)
-  if !optimize_instructions_node_is_live(func, dead, then_set_id) ||
-    !optimize_instructions_node_is_live(func, dead, else_set_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, then_set_id) ||
+    !OiLiveNodeFact::proves_node_live(func, dead, else_set_id) {
     return false
   }
   let then_set = @ir.hot_node_get(func, then_set_id)
@@ -5515,7 +5561,7 @@ fn optimize_instructions_i32_const(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> @lib.I32? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = if node_id < func.nodes.length() {
@@ -5539,7 +5585,7 @@ fn optimize_instructions_i64_const(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> @lib.I64? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = if node_id < func.nodes.length() {
@@ -5563,7 +5609,7 @@ fn optimize_instructions_f32_const(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> @lib.F32? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = if node_id < func.nodes.length() {
@@ -5587,7 +5633,7 @@ fn optimize_instructions_f64_const(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> @lib.F64? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = if node_id < func.nodes.length() {
@@ -5633,7 +5679,7 @@ fn optimize_instructions_shift_rhs_i32_amount(
     Some(@lib.I32(raw)) => return Some(raw & mask_bits)
     None => ()
   }
-  if !optimize_instructions_node_is_live(func, dead, rhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
     return None
   }
   let rhs = @ir.hot_node_get(func, rhs_id)
@@ -5676,7 +5722,7 @@ fn optimize_instructions_shift_rhs_i64_amount(
     Some(@lib.I64(raw)) => return Some((raw & mask_bits.to_int64()).to_int())
     None => ()
   }
-  if !optimize_instructions_node_is_live(func, dead, rhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
     return None
   }
   let rhs = @ir.hot_node_get(func, rhs_id)
@@ -5858,18 +5904,49 @@ fn optimize_instructions_i64_power_of_two_shift(raw : Int64) -> Int64? {
 }
 
 ///|
-fn optimize_instructions_i32_mask_is_low_ones(raw : Int) -> Bool {
-  raw >= 0 && (raw & (raw + 1)) == 0
+priv struct OiI32LowOnesMaskFact {
+  low_ones : Bool
 }
 
 ///|
-fn optimize_instructions_i64_mask_is_low_ones(raw : Int64) -> Bool {
-  raw >= 0L && (raw & (raw + 1L)) == 0L
+fn OiI32LowOnesMaskFact::from_raw(raw : Int) -> OiI32LowOnesMaskFact {
+  { low_ones: raw >= 0 && (raw & (raw + 1)) == 0 }
 }
 
 ///|
-fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
+fn OiI32LowOnesMaskFact::proves_low_ones(self : OiI32LowOnesMaskFact) -> Bool {
+  self.low_ones
+}
+
+///|
+priv struct OiI64LowOnesMaskFact {
+  low_ones : Bool
+}
+
+///|
+fn OiI64LowOnesMaskFact::from_raw(raw : Int64) -> OiI64LowOnesMaskFact {
+  { low_ones: raw >= 0L && (raw & (raw + 1L)) == 0L }
+}
+
+///|
+fn OiI64LowOnesMaskFact::proves_low_ones(self : OiI64LowOnesMaskFact) -> Bool {
+  self.low_ones
+}
+
+///|
+priv struct OiCommutativeInstructionFact {
+  commutative : Bool
+}
+
+///|
+fn OiCommutativeInstructionFact::from_instr(
+  instr : @lib.Instruction,
+) -> OiCommutativeInstructionFact {
+  // Binaryen's commutative canonicalization is driven by the operator fact,
+  // then gated separately by operand facts/effects. Keep the represented OI-G
+  // integer equality/arithmetic subset here rather than at each canonicalizer
+  // call site.
+  let commutative = match instr {
     @lib.Instruction::I32Add
     | @lib.Instruction::I64Add
     | @lib.Instruction::I32Mul
@@ -5886,6 +5963,21 @@ fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool 
     | @lib.Instruction::I64Ne => true
     _ => false
   }
+  { commutative, }
+}
+
+///|
+fn OiCommutativeInstructionFact::proves_commutative(
+  self : OiCommutativeInstructionFact,
+) -> Bool {
+  self.commutative
+}
+
+///|
+fn OiCommutativeInstructionFact::proves_instr_commutative(
+  instr : @lib.Instruction,
+) -> Bool {
+  OiCommutativeInstructionFact::from_instr(instr).proves_commutative()
 }
 
 ///|
@@ -5899,7 +5991,7 @@ fn OiLocalGetLeafFact::from_node(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiLocalGetLeafFact {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return { local_id: None }
   }
   let node = if node_id < func.nodes.length() {
@@ -5929,7 +6021,7 @@ fn OiConstlikeLeafFact::from_node(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiConstlikeLeafFact {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
       const_leaf: false,
@@ -5982,7 +6074,7 @@ fn OiSharedCrossSafeLeafFact::from_node(
   // Keep Starshine's represented leaf set explicit so local-get crossing,
   // relational canonicalization, and identical-select cleanup share facts
   // instead of each owning an opcode whitelist.
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
       local_get_leaf: false,
@@ -6057,7 +6149,7 @@ fn OiLocalGetCrossingFact::from_node(
   // fact-driven traversal: live/revisit boundaries, loop-input blockers,
   // accepted control roots, shared-use leaf safety, same-local writes, and child
   // crossing all become named evidence fields rather than a standalone scanner.
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
       repeated_visit: false,
@@ -6203,8 +6295,8 @@ fn optimize_instructions_should_swap_commutative_node_kinds(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
-    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+    !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
     return false
   }
   let lhs = if lhs_id < func.nodes.length() {
@@ -6363,7 +6455,7 @@ fn OiTriviallyPureOperandFact::proves_live_node_pure(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  optimize_instructions_node_is_live(func, dead, node_id) &&
+  OiLiveNodeFact::proves_node_live(func, dead, node_id) &&
   OiTriviallyPureOperandFact::proves_node_pure(func, node_id)
 }
 
@@ -6436,7 +6528,7 @@ fn OiSideEffectFreeExpressionFact::from_node(
   // `ref.null`, byte-constant SIMD leaves, `ref.i31` over side-effect-free
   // payloads, direct SIMD splats over side-effect-free payloads, and branchless
   // scalar shells whose children are all side-effect-free.
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiSideEffectFreeExpressionFact::empty()
   }
   let node = if node_id < func.nodes.length() {
@@ -6594,7 +6686,7 @@ fn optimize_instructions_negate_boolean_expr(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   match @ir.hot_node_exact_instr(func, node_id) {
@@ -6617,7 +6709,7 @@ fn optimize_instructions_negate_boolean_expr_recursive(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -6703,7 +6795,7 @@ fn OiBooleanConstantTreeFact::from_node(
       else_arm_boolean: true,
     }
   }
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
       exact_i32_false: false,
@@ -6832,7 +6924,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
   // direct `eqz`, exact boolean constants, and recursively unshared one-result
   // `if` arms. This records the sharing gate as data instead of letting callers
   // embed the old tree scanner.
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
       direct_eqz_leaf: false,
@@ -7017,8 +7109,8 @@ fn OiBranchShapeFact::from_pair(
   // direct `br` roots with byte-identical target label and value operands. Make
   // those branch-control facts explicit so future `br_if`/fallthrough work can
   // extend the fact instead of adding ad hoc branch scanners.
-  let lhs_live = optimize_instructions_node_is_live(func, dead, lhs_id)
-  let rhs_live = optimize_instructions_node_is_live(func, dead, rhs_id)
+  let lhs_live = OiLiveNodeFact::proves_node_live(func, dead, lhs_id)
+  let rhs_live = OiLiveNodeFact::proves_node_live(func, dead, rhs_id)
   if !lhs_live || !rhs_live {
     return {
       lhs_live,
@@ -7301,7 +7393,7 @@ fn OiControlExitFact::from_node(
   // cleanup keeps a narrower HOT subset: direct nonbranch terminals, direct
   // branch terminals, all-target `br_table`s, and two-arm `if` summaries. Keep
   // those exit proofs as a single fact instead of several recursive helpers.
-  let live = optimize_instructions_node_is_live(func, dead, node_id)
+  let live = OiLiveNodeFact::proves_node_live(func, dead, node_id)
   if !live {
     return OiControlExitFact::empty(false)
   }
@@ -7510,7 +7602,7 @@ fn OiControlExitRegionFact::from_region(
   )
   for idx = 0; idx < root_count; idx = idx + 1 {
     let root = @ir.hot_region_get(func, region_ref, idx)
-    if !optimize_instructions_node_is_live(func, dead, root) {
+    if !OiLiveNodeFact::proves_node_live(func, dead, root) {
       continue
     }
     let root_fact = OiControlExitFact::from_node(func, dead, root, label_id)
@@ -8219,7 +8311,7 @@ fn optimize_instructions_try_optimize_if_condition(
       let rhs_id = @ir.hot_child_get(func, cond_id, 1)
       match optimize_instructions_i32_const(func, dead, rhs_id) {
         Some(@lib.I32(raw)) if raw == 0 &&
-          optimize_instructions_node_is_i32_value(func, lhs_id) => {
+          OiI32ValueFact::proves_node_i32_value(func, lhs_id) => {
           @ir.hot_child_set(func, node_id, 0, lhs_id)
           pass_mark_mutated(ctx, func)
           true
@@ -8243,7 +8335,7 @@ fn optimize_instructions_try_optimize_if_condition(
         _ => None
       }
       match operand_id {
-        Some(operand_id) if optimize_instructions_node_is_i32_value(
+        Some(operand_id) if OiI32ValueFact::proves_node_i32_value(
             func, operand_id,
           ) =>
           if @ir.hot_node_is_live(func, else_region) {
@@ -8268,7 +8360,7 @@ fn optimize_instructions_try_optimize_if_condition(
         return false
       }
       let operand_id = @ir.hot_child_get(func, cond_id, 0)
-      if !optimize_instructions_node_is_i32_value(func, operand_id) {
+      if !OiI32ValueFact::proves_node_i32_value(func, operand_id) {
         return false
       }
       flip_if(operand_id)
@@ -10197,7 +10289,7 @@ fn OiStoredValueFact::low_bit_mask_unmasked_value(
   if self.access_fact.store_value_is_i64 {
     return None
   }
-  if !optimize_instructions_node_is_live(func, dead, self.value_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, self.value_id) {
     return None
   }
   let value = @ir.hot_node_get(func, self.value_id)
@@ -10237,7 +10329,7 @@ fn OiStoredValueFact::reinterpret_rewrite(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
 ) -> (@lib.Instruction, Int)? {
-  if !optimize_instructions_node_is_live(func, dead, self.value_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, self.value_id) {
     return None
   }
   let value = @ir.hot_node_get(func, self.value_id)
@@ -10283,7 +10375,7 @@ fn OiStoredValueFact::wrap_i64_widen_rewrite(
     @lib.Instruction::I32Store(ma) => @lib.Instruction::i64_store32(ma)
     _ => return None
   }
-  if !optimize_instructions_node_is_live(func, dead, self.value_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, self.value_id) {
     return None
   }
   match @ir.hot_node_exact_instr(func, self.value_id) {
@@ -10451,7 +10543,7 @@ fn OiLoadResultFact::from_unary_consumer(
     return None
   }
   let load_id = @ir.hot_child_get(func, node_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, load_id) ||
+  if !OiLiveNodeFact::proves_node_live(func, dead, load_id) ||
     pass_node_use_count(ctx, func, load_id) != 1 {
     return None
   }
@@ -11238,7 +11330,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
 ) -> Bool {
   let body : Array[Int] = []
   for operand in operands_to_drop {
-    if !optimize_instructions_node_is_live(func, dead, operand) ||
+    if !OiLiveNodeFact::proves_node_live(func, dead, operand) ||
       !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, operand) {
       return false
     }
@@ -12140,7 +12232,7 @@ fn OiTupleExtractEligibilityFact::from_extract(
     _ => return None
   }
   let tuple_id = @ir.hot_child_get(func, node_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, tuple_id) ||
+  if !OiLiveNodeFact::proves_node_live(func, dead, tuple_id) ||
     pass_node_use_count(ctx, func, tuple_id) != 1 {
     return None
   }
@@ -12487,10 +12579,33 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
 }
 
 ///|
-/// Binaryen version_130 keeps fresh array lengths above this O4z-observed
-/// limit to preserve allocation trap behavior.
-fn optimize_instructions_array_new_len_is_known_non_trapping(len : Int) -> Bool {
-  len >= 0 && len <= 44739241
+priv struct OiArrayNonTrappingLengthFact {
+  known_non_trapping : Bool
+}
+
+///|
+fn OiArrayNonTrappingLengthFact::from_len(
+  len : Int,
+) -> OiArrayNonTrappingLengthFact {
+  // Binaryen version_130 keeps fresh array lengths above this O4z-observed
+  // limit to preserve allocation trap behavior. Keep the threshold as an
+  // explicit allocation fact so array_len/get/set folds all share the same
+  // trap-preservation evidence.
+  { known_non_trapping: len >= 0 && len <= 44739241 }
+}
+
+///|
+fn OiArrayNonTrappingLengthFact::proves_known_non_trapping(
+  self : OiArrayNonTrappingLengthFact,
+) -> Bool {
+  self.known_non_trapping
+}
+
+///|
+fn OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
+  len : Int,
+) -> Bool {
+  OiArrayNonTrappingLengthFact::from_len(len).proves_known_non_trapping()
 }
 
 ///|
@@ -12969,13 +13084,22 @@ priv struct OiArrayDefaultValueFact {
 }
 
 ///|
-fn optimize_instructions_array_value_is_default_for_storage(
+priv struct OiArrayStorageDefaultValueFact {
+  is_default : Bool
+}
+
+///|
+fn OiArrayStorageDefaultValueFact::from_value(
   func : @ir.HotFunc,
   storage : @lib.StorageType,
   value_id : Int,
-) -> Bool {
+) -> OiArrayStorageDefaultValueFact {
+  // Binaryen's array default rewrites prove the fallthrough initializer equals
+  // the field storage default before erasing or replacing allocation operands.
+  // Keep the exact represented zero/null set as a reusable fact; broader SIMD
+  // and nullable array constructor cases remain documented parser/HOT blockers.
   let value = @ir.hot_node_get(func, value_id)
-  match storage.unpack() {
+  let is_default = match storage.unpack() {
     @lib.ValType::NumTypeValType(@lib.NumType::I32NumType) =>
       match value.op {
         @ir.HotOp::Const =>
@@ -13020,6 +13144,23 @@ fn optimize_instructions_array_value_is_default_for_storage(
       }
     _ => false
   }
+  { is_default, }
+}
+
+///|
+fn OiArrayStorageDefaultValueFact::proves_default(
+  self : OiArrayStorageDefaultValueFact,
+) -> Bool {
+  self.is_default
+}
+
+///|
+fn OiArrayStorageDefaultValueFact::proves_value_default_for_storage(
+  func : @ir.HotFunc,
+  storage : @lib.StorageType,
+  value_id : Int,
+) -> Bool {
+  OiArrayStorageDefaultValueFact::from_value(func, storage, value_id).proves_default()
 }
 
 ///|
@@ -13372,7 +13513,7 @@ fn OiArrayDefaultValueFact::from_array_value(
     effects.node_masks,
     value_id,
   )
-  if !optimize_instructions_array_value_is_default_for_storage(
+  if !OiArrayStorageDefaultValueFact::proves_value_default_for_storage(
       func,
       field.get_storage_type(),
       fallthrough_fact.fallthrough_id,
@@ -13764,7 +13905,7 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
     _ => return false
   }
   let array_id = @ir.hot_child_get(func, node_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, array_id) ||
+  if !OiLiveNodeFact::proves_node_live(func, dead, array_id) ||
     pass_node_use_count(ctx, func, array_id) != 1 {
     return false
   }
@@ -13796,7 +13937,7 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
           dead,
           @ir.hot_child_get(func, array_id, 0),
         ) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
             len,
           ) => len
         _ => return false
@@ -13810,7 +13951,7 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
       let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
       let len_id = @ir.hot_child_get(func, array_id, 1)
       let len = match optimize_instructions_i32_const(func, dead, len_id) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
             len,
           ) => len
         _ => return false
@@ -13867,7 +14008,7 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
   }
   let array_id = @ir.hot_child_get(func, node_id, 0)
   let index_id = @ir.hot_child_get(func, node_id, 1)
-  if !optimize_instructions_node_is_live(func, dead, array_id) ||
+  if !OiLiveNodeFact::proves_node_live(func, dead, array_id) ||
     pass_node_use_count(ctx, func, array_id) != 1 {
     return false
   }
@@ -13897,7 +14038,7 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
           dead,
           @ir.hot_child_get(func, array_id, 0),
         ) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
             len,
           ) => len
         _ => return false
@@ -13914,7 +14055,7 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
           dead,
           @ir.hot_child_get(func, array_id, 1),
         ) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
             len,
           ) => len
         _ => return false
@@ -14028,7 +14169,7 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
   let array_id = @ir.hot_child_get(func, node_id, 0)
   let index_id = @ir.hot_child_get(func, node_id, 1)
   let value_id = @ir.hot_child_get(func, node_id, 2)
-  if !optimize_instructions_node_is_live(func, dead, array_id) ||
+  if !OiLiveNodeFact::proves_node_live(func, dead, array_id) ||
     pass_node_use_count(ctx, func, array_id) != 1 {
     return false
   }
@@ -14058,7 +14199,7 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
       let len_id = @ir.hot_child_get(func, array_id, 0)
       effect_operands.push(len_id)
       match optimize_instructions_i32_const(func, dead, len_id) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
             len,
           ) => len
         _ => return false
@@ -14073,7 +14214,7 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
       effect_operands.push(repeated_value_id)
       effect_operands.push(len_id)
       match optimize_instructions_i32_const(func, dead, len_id) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
             len,
           ) => len
         _ => return false
@@ -14114,7 +14255,7 @@ fn optimize_instructions_try_fold_struct_get_struct_new(
     _ => return false
   }
   let struct_id = @ir.hot_child_get(func, node_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, struct_id) ||
+  if !OiLiveNodeFact::proves_node_live(func, dead, struct_id) ||
     pass_node_use_count(ctx, func, struct_id) != 1 {
     return false
   }
@@ -15610,7 +15751,7 @@ fn optimize_instructions_try_fold_const_select(
   match @ir.hot_node_exact_instr(func, condition) {
     Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(func, condition) == 1 => {
       let inner_condition = @ir.hot_child_get(func, condition, 0)
-      if !optimize_instructions_node_is_live(func, dead, inner_condition) {
+      if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
         return false
       }
       match
@@ -15644,7 +15785,7 @@ fn optimize_instructions_try_fold_const_select(
     }
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, condition) == 1 => {
       let inner_condition = @ir.hot_child_get(func, condition, 0)
-      if !optimize_instructions_node_is_live(func, dead, inner_condition) {
+      if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
         return false
       }
       match
@@ -15659,8 +15800,8 @@ fn optimize_instructions_try_fold_const_select(
                 Some(inverted_instr) => {
                   let lhs_id = @ir.hot_child_get(func, inner_condition, 0)
                   let rhs_id = @ir.hot_child_get(func, inner_condition, 1)
-                  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
-                    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+                  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                    !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
                     return false
                   }
                   optimize_instructions_replace_with_exact_compare(
@@ -15736,9 +15877,7 @@ fn optimize_instructions_try_fold_const_select(
           }
           match inner_condition {
             Some(inner_condition) => {
-              if !optimize_instructions_node_is_live(
-                  func, dead, inner_condition,
-                ) {
+              if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
                 return false
               }
               let invert_condition = match compare_instr {
@@ -15831,9 +15970,7 @@ fn optimize_instructions_try_fold_const_select(
           }
           match inner_condition {
             Some(inner_condition) => {
-              if !optimize_instructions_node_is_live(
-                  func, dead, inner_condition,
-                ) {
+              if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
                 return false
               }
               let invert_condition = match compare_instr {
@@ -15931,7 +16068,7 @@ fn optimize_instructions_try_fold_const_select(
               optimize_instructions_i32_const(func, dead, if_false),
             ) {
             (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-              if !optimize_instructions_node_is_live(func, dead, condition) {
+              if !OiLiveNodeFact::proves_node_live(func, dead, condition) {
                 return false
               }
               optimize_instructions_replace_with_node_id(
@@ -15940,8 +16077,8 @@ fn optimize_instructions_try_fold_const_select(
               return true
             }
             (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-              if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
-                !optimize_instructions_node_is_live(func, dead, rhs_id) {
+              if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
                 return false
               }
               let inverted_instr = match compare_instr {
@@ -15968,7 +16105,7 @@ fn optimize_instructions_try_fold_const_select(
               optimize_instructions_i32_const(func, dead, if_false),
             ) {
             (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-              if !optimize_instructions_node_is_live(func, dead, condition) {
+              if !OiLiveNodeFact::proves_node_live(func, dead, condition) {
                 return false
               }
               optimize_instructions_replace_with_node_id(
@@ -15979,8 +16116,8 @@ fn optimize_instructions_try_fold_const_select(
             (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
               let lhs_id = @ir.hot_child_get(func, condition, 0)
               let rhs_id = @ir.hot_child_get(func, condition, 1)
-              if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
-                !optimize_instructions_node_is_live(func, dead, rhs_id) {
+              if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
                 return false
               }
               optimize_instructions_replace_with_exact_compare(
@@ -16095,8 +16232,8 @@ fn optimize_instructions_try_apply_demorgan_and_eqz(
     @lib.Instruction::I32And => ()
     _ => return false
   }
-  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
-    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+    !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
     return false
   }
   match
@@ -16113,8 +16250,8 @@ fn optimize_instructions_try_apply_demorgan_and_eqz(
   }
   let lhs_operand_id = @ir.hot_child_get(func, lhs_id, 0)
   let rhs_operand_id = @ir.hot_child_get(func, rhs_id, 0)
-  if !optimize_instructions_node_is_live(func, dead, lhs_operand_id) ||
-    !optimize_instructions_node_is_live(func, dead, rhs_operand_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_operand_id) ||
+    !OiLiveNodeFact::proves_node_live(func, dead, rhs_operand_id) {
     return false
   }
   let or_id = @ir.hot_build_binary(
@@ -16172,14 +16309,14 @@ fn optimize_instructions_try_fold_eqz(
   instr : @lib.Instruction,
   operand_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, operand_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return false
   }
   let operand = func.nodes[operand_id]
   match (instr, operand.op, @ir.hot_node_exact_instr(func, operand_id)) {
     (@lib.Instruction::I32Eqz, @ir.HotOp::Unary, Some(@lib.Instruction::I32Eqz)) => {
       let inner_operand_id = @ir.hot_child_get(func, operand_id, 0)
-      if !optimize_instructions_node_is_live(func, dead, inner_operand_id) {
+      if !OiLiveNodeFact::proves_node_live(func, dead, inner_operand_id) {
         return false
       }
       match optimize_instructions_i32_const(func, dead, inner_operand_id) {
@@ -16203,7 +16340,7 @@ fn optimize_instructions_try_fold_eqz(
     }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Unary, Some(@lib.Instruction::I64Eqz)) => {
       let inner_operand_id = @ir.hot_child_get(func, operand_id, 0)
-      if !optimize_instructions_node_is_live(func, dead, inner_operand_id) {
+      if !OiLiveNodeFact::proves_node_live(func, dead, inner_operand_id) {
         return false
       }
       match optimize_instructions_i64_const(func, dead, inner_operand_id) {
@@ -17119,7 +17256,7 @@ fn optimize_instructions_i32_zero_sub_negated_operand(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -17148,7 +17285,7 @@ fn optimize_instructions_i64_zero_sub_negated_operand(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -17229,7 +17366,7 @@ fn optimize_instructions_try_remove_redundant_unsigned_mask(
             None => return false
           }
       }
-      if !optimize_instructions_i32_mask_is_low_ones(mask) {
+      if !OiI32LowOnesMaskFact::from_raw(mask).proves_low_ones() {
         return false
       }
       match
@@ -17253,7 +17390,7 @@ fn optimize_instructions_try_remove_redundant_unsigned_mask(
             None => return false
           }
       }
-      if !optimize_instructions_i64_mask_is_low_ones(mask) {
+      if !OiI64LowOnesMaskFact::from_raw(mask).proves_low_ones() {
         return false
       }
       match
@@ -17663,7 +17800,7 @@ fn optimize_instructions_try_rewrite_sign_ext_idiom(
       }
     _ => return false
   }
-  if !optimize_instructions_node_is_live(func, dead, lhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) {
     return false
   }
   let lhs = @ir.hot_node_get(func, lhs_id)
@@ -17765,7 +17902,7 @@ fn optimize_instructions_try_rewrite_shift(
     None => ()
   }
 
-  if !optimize_instructions_node_is_live(func, dead, rhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
     return false
   }
   let rhs = if rhs_id < func.nodes.length() {
@@ -17831,7 +17968,7 @@ fn optimize_instructions_try_combine_nested_const_shift(
     Some(bits) => bits
     None => return false
   }
-  if !optimize_instructions_node_is_live(func, dead, lhs_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) {
     return false
   }
   let inner = @ir.hot_node_get(func, lhs_id)
@@ -17991,7 +18128,7 @@ fn optimize_instructions_is_remainder_instr(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return false
   }
   let exact_id = match @ir.hot_node_get(func, node_id).op {
@@ -22292,7 +22429,7 @@ fn optimize_instructions_i32_sign_extension_range(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> (Int, Int, Int)? {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -22314,7 +22451,7 @@ fn optimize_instructions_i64_sign_extension_node(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -22734,7 +22871,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
         (const_value == 0 || const_value == 1) &&
         @ir.hot_child_count(func, eqz_id) == 1 {
         let operand_id = @ir.hot_child_get(func, eqz_id, 0)
-        if !optimize_instructions_node_is_live(func, dead, operand_id) {
+        if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
           return false
         }
         let keep_eqz = match (instr, const_value) {
@@ -22873,7 +23010,7 @@ fn optimize_instructions_visit_region(
     if root_id < 0 {
       continue
     }
-    if optimize_instructions_node_is_live(func, dead, root_id) {
+    if OiLiveNodeFact::proves_node_live(func, dead, root_id) {
       changed = optimize_instructions_visit_node(
           ctx, func, dead, root_id, seen, scratch,
         ) ||
@@ -22910,7 +23047,7 @@ fn optimize_instructions_visit_node(
   seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return false
   }
   if seen[node_id] {
@@ -22925,7 +23062,7 @@ fn optimize_instructions_visit_node(
   let mut changed = false
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let child_id = func.children[node.child_base + slot]
-    if !optimize_instructions_node_is_live(func, dead, child_id) {
+    if !OiLiveNodeFact::proves_node_live(func, dead, child_id) {
       continue
     }
     changed = optimize_instructions_visit_node(
@@ -23043,7 +23180,9 @@ fn optimize_instructions_visit_node(
         let canonicalized = match current.op {
           @ir.HotOp::Binary => {
             let current_instr = func.instr_payloads[current.imm0].instr
-            if !optimize_instructions_is_commutative_instr(current_instr) {
+            if !OiCommutativeInstructionFact::proves_instr_commutative(
+                current_instr,
+              ) {
               false
             } else {
               let current_lhs = func.children[current.child_base]
@@ -23230,7 +23369,7 @@ fn optimize_instructions_visit_node(
           if zero_folded || masked_unsigned_folded || range_folded {
             changed
           } else {
-            let canonicalized = if optimize_instructions_is_commutative_instr(
+            let canonicalized = if OiCommutativeInstructionFact::proves_instr_commutative(
                 current_instr,
               ) {
               optimize_instructions_try_canonicalize_commutative(
