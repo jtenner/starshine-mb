@@ -5833,6 +5833,7 @@ priv struct OiCallRefKnownNullTargetFact {
   target_id : Int
   fallthrough_null_id : Int
   target_effects_are_elidable : Bool
+  target_effect_drop_id : Int
 }
 
 ///|
@@ -5845,10 +5846,12 @@ fn OiCallRefKnownNullTargetFact::from_target(
   // before replacing the parent with `getDroppedChildrenAndAppend(...,
   // unreachable)`. Keep that as target-slot evidence rather than folding every
   // wrapper into the call_ref directization classifier. The safe Starshine
-  // subset here is a direct known-null leaf, or a single-root block whose only
-  // fallthrough root is that known-null leaf. Broader effectful/control/EH
-  // fallthrough targets need ChildLocalizer-style ordered-effect support before
-  // this fact may preserve their target-side effects.
+  // subset here is a direct known-null leaf, a single-root block whose only
+  // fallthrough root is that known-null leaf, or a branch-free multi-root block
+  // whose fallthrough root is known-null and whose target effects can be
+  // preserved by dropping the whole target block after the call_ref operands.
+  // Broader control/EH fallthrough targets still need ChildLocalizer-style
+  // ordered-effect support before this fact may preserve target-side effects.
   if target_id < 0 || !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
     return None
   }
@@ -5862,16 +5865,18 @@ fn OiCallRefKnownNullTargetFact::from_target(
       target_id,
       fallthrough_null_id: target_id,
       target_effects_are_elidable: true,
+      target_effect_drop_id: -1,
     })
   }
   let target = @ir.hot_node_get(func, target_id)
   match target.op {
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, target_id)
-      if @ir.hot_region_root_count(func, body_ref) != 1 {
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count < 1 {
         return None
       }
-      let tail_id = @ir.hot_region_get(func, body_ref, 0)
+      let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
       if !OiLiveNodeFact::proves_node_live(func, dead, tail_id) {
         return None
       }
@@ -5880,14 +5885,46 @@ fn OiCallRefKnownNullTargetFact::from_target(
         tail_id,
         traps_on_null=true,
       )
-      if tail_trap_fact.can_replace_parent_with_unreachable() {
+      if !tail_trap_fact.can_replace_parent_with_unreachable() {
+        return None
+      }
+      if root_count == 1 {
+        return Some({
+          target_id,
+          fallthrough_null_id: tail_id,
+          target_effects_are_elidable: true,
+          target_effect_drop_id: -1,
+        })
+      }
+      let branch_fact = OiDescriptorBranchControlFact::from_node(
+        func, target_id, target_id,
+      )
+      if branch_fact.proves_has_branch_control() {
+        return None
+      }
+      let target_results = @ir.hot_type_results(
+        func,
+        @ir.hot_node_type(func, target_id),
+      )
+      if target_results.length() != 1 {
+        return None
+      }
+      if OiDescriptorInternalControlEffectFreeFact::from_node(
+          func, dead, target_id, target_id,
+        ).proves_effect_free_allowing_internal_control() {
         Some({
           target_id,
           fallthrough_null_id: tail_id,
           target_effects_are_elidable: true,
+          target_effect_drop_id: -1,
         })
       } else {
-        None
+        Some({
+          target_id,
+          fallthrough_null_id: tail_id,
+          target_effects_are_elidable: false,
+          target_effect_drop_id: target_id,
+        })
       }
     }
     _ => None
@@ -5899,7 +5936,8 @@ fn OiCallRefKnownNullTargetFact::proves_elidable_known_null_fallthrough(
   self : OiCallRefKnownNullTargetFact,
 ) -> Bool {
   ignore(self.target_id)
-  self.fallthrough_null_id >= 0 && self.target_effects_are_elidable
+  self.fallthrough_null_id >= 0 &&
+  (self.target_effects_are_elidable || self.target_effect_drop_id >= 0)
 }
 
 ///|
@@ -5964,13 +6002,40 @@ fn OiCallRefNullTrapPlanFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  ignore(self.target_fact)
-  optimize_instructions_try_replace_with_ordered_effects_then_unreachable(
-    ctx,
+  let body : Array[Int] = []
+  if !optimize_instructions_append_ordered_effects(
+      ctx,
+      func,
+      self.arg_ids,
+      body,
+    ) {
+    return false
+  }
+  if self.target_fact.target_effect_drop_id >= 0 {
+    body.push(@ir.hot_build_drop(func, self.target_fact.target_effect_drop_id))
+  }
+  if body.length() == 0 {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    return true
+  }
+  body.push(@ir.hot_build_unreachable(func))
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [] => @lib.BlockType::void_()
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => return false
+  }
+  let replacement = @ir.hot_build_block(func, block_type, body)
+  let replacement_node = @ir.hot_node_get(func, replacement)
+  @ir.hot_replace_node(func, node_id, replacement_node)
+  @ir.hot_label_owner_set(
     func,
+    @ir.hot_control_node_label(func, node_id),
     node_id,
-    self.arg_ids,
   )
+  @ir.hot_delete_node(func, replacement)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
