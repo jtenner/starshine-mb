@@ -24234,6 +24234,168 @@ fn run_hot_pipeline_optimize_instructions_collect_stats_body(
 }
 
 ///|
+// Raw OI coarse skip fact. These are intentionally no-op raw dispatcher
+// boundaries, not Binaryen rewrites: they summarize the lowered-body shape that
+// currently blocks safe OI replay through HOT/lib, so the top-level raw skip
+// gate consumes one data fact instead of owning ad hoc stats predicates. Reopen
+// any family when a reduced mismatch shows Binaryen changes the body under that
+// shape or when the missing ordered-effect/final-repair substrate lands.
+priv struct RawOiCoarseNoopSkipFact {
+  reason : String
+  local_count : Int
+  instr_count : Int
+  block_count : Int
+  loop_count : Int
+  if_count : Int
+  branch_count : Int
+  return_count : Int
+  call_count : Int
+  load_count : Int
+  local_write_count : Int
+  bypassed_by_const_offset_load_call : Bool
+}
+
+///|
+fn RawOiCoarseNoopSkipFact::from_stats(
+  reason : String,
+  local_count : Int,
+  stats : OptimizeInstructionsLoweredStats,
+  bypassed_by_const_offset_load_call : Bool,
+) -> RawOiCoarseNoopSkipFact {
+  {
+    reason,
+    local_count,
+    instr_count: stats.instrs,
+    block_count: stats.blocks,
+    loop_count: stats.loops,
+    if_count: stats.ifs,
+    branch_count: stats.branches,
+    return_count: stats.returns,
+    call_count: stats.calls,
+    load_count: stats.loads,
+    local_write_count: stats.local_writes,
+    bypassed_by_const_offset_load_call,
+  }
+}
+
+///|
+fn RawOiCoarseNoopSkipFact::from_large_local(
+  local_count : Int,
+  stats : OptimizeInstructionsLoweredStats,
+) -> RawOiCoarseNoopSkipFact? {
+  if local_count > 1024 {
+    Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "large-local-optimize-instructions", local_count, stats, false,
+      ),
+    )
+  } else {
+    None
+  }
+}
+
+///|
+fn RawOiCoarseNoopSkipFact::from_large_lowered(
+  local_count : Int,
+  stats : OptimizeInstructionsLoweredStats,
+) -> RawOiCoarseNoopSkipFact? {
+  if local_count > 64 && stats.instrs > 500 {
+    Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "large-lowered-optimize-instructions-noop", local_count, stats, false,
+      ),
+    )
+  } else {
+    None
+  }
+}
+
+///|
+fn RawOiCoarseNoopSkipFact::from_structured_or_call_boundary(
+  local_count : Int,
+  stats : OptimizeInstructionsLoweredStats,
+  const_offset_load_then_call : Bool,
+) -> RawOiCoarseNoopSkipFact? {
+  if local_count <= 64 &&
+    stats.blocks >= 3 &&
+    stats.ifs >= 7 &&
+    stats.branches >= 3 &&
+    stats.returns >= 2 &&
+    stats.calls >= 16 &&
+    stats.local_writes >= 20 {
+    return Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "structured-call-branch-optimize-instructions-noop", local_count, stats,
+        false,
+      ),
+    )
+  }
+  if local_count <= 64 &&
+    stats.blocks >= 2 &&
+    stats.ifs >= 5 &&
+    stats.branches >= 2 &&
+    stats.returns >= 2 &&
+    stats.calls >= 12 &&
+    stats.local_writes >= 20 {
+    return Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "block-return-call-branch-optimize-instructions-noop", local_count, stats,
+        false,
+      ),
+    )
+  }
+  if local_count <= 16 &&
+    stats.loops >= 1 &&
+    stats.ifs >= 1 &&
+    stats.branches >= 1 &&
+    stats.calls >= 1 &&
+    stats.local_writes >= 4 {
+    return Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "loop-branch-local-write-optimize-instructions-noop", local_count, stats,
+        false,
+      ),
+    )
+  }
+  if stats.loads > 0 && stats.calls > 0 && !const_offset_load_then_call {
+    return Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "load-call-optimize-instructions-noop", local_count, stats, const_offset_load_then_call,
+      ),
+    )
+  }
+  if stats.calls > 0 && stats.local_writes > 0 {
+    return Some(
+      RawOiCoarseNoopSkipFact::from_stats(
+        "call-local-write-optimize-instructions-noop", local_count, stats, false,
+      ),
+    )
+  }
+  None
+}
+
+///|
+fn RawOiCoarseNoopSkipFact::proves_accepted_raw_boundary(
+  self : RawOiCoarseNoopSkipFact,
+) -> Bool {
+  self.reason.length() > 0 &&
+  self.local_count >= 0 &&
+  self.instr_count >= 0 &&
+  self.block_count >= 0 &&
+  self.loop_count >= 0 &&
+  self.if_count >= 0 &&
+  self.branch_count >= 0 &&
+  self.return_count >= 0 &&
+  self.call_count >= 0 &&
+  self.load_count >= 0 &&
+  self.local_write_count >= 0 &&
+  (
+    self.reason != "load-call-optimize-instructions-noop" ||
+    !self.bypassed_by_const_offset_load_call
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_size_cleanup_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -32801,13 +32963,15 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
-  if locals.length() > 1024 {
-    return Some({
-      reason: "large-local-optimize-instructions",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
+  match RawOiCoarseNoopSkipFact::from_large_local(locals.length(), stats) {
+    Some(fact) if fact.proves_accepted_raw_boundary() =>
+      return Some({
+        reason: fact.reason,
+        func: skipped_func,
+        unchanged_original: skipped_unchanged,
+        trace_skip_raw: true,
+      })
+    _ => ()
   }
   if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
     return Some({
@@ -32846,13 +33010,15 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if locals.length() > 64 && stats.instrs > 500 {
-    return Some({
-      reason: "large-lowered-optimize-instructions-noop",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
+  match RawOiCoarseNoopSkipFact::from_large_lowered(locals.length(), stats) {
+    Some(fact) if fact.proves_accepted_raw_boundary() =>
+      return Some({
+        reason: fact.reason,
+        func: skipped_func,
+        unchanged_original: skipped_unchanged,
+        trace_skip_raw: true,
+      })
+    _ => ()
   }
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
     mod_, func_idx, module_ctx, locals,
@@ -32892,67 +33058,25 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if locals.length() <= 64 &&
-    stats.blocks >= 3 &&
-    stats.ifs >= 7 &&
-    stats.branches >= 3 &&
-    stats.returns >= 2 &&
-    stats.calls >= 16 &&
-    stats.local_writes >= 20 {
-    return Some({
-      reason: "structured-call-branch-optimize-instructions-noop",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
-  }
-  if locals.length() <= 64 &&
-    stats.blocks >= 2 &&
-    stats.ifs >= 5 &&
-    stats.branches >= 2 &&
-    stats.returns >= 2 &&
-    stats.calls >= 12 &&
-    stats.local_writes >= 20 {
-    return Some({
-      reason: "block-return-call-branch-optimize-instructions-noop",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
-  }
-  if locals.length() <= 16 &&
-    stats.loops >= 1 &&
-    stats.ifs >= 1 &&
-    stats.branches >= 1 &&
-    stats.calls >= 1 &&
-    stats.local_writes >= 4 {
-    return Some({
-      reason: "loop-branch-local-write-optimize-instructions-noop",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
-  }
   let const_offset_load_then_call = match
     RawOiConstOffsetLoadThenCallFact::from_instrs(body) {
     Some(fact) => fact.proves_binaryen_offset_fold_bypass()
     None => false
   }
-  if stats.loads > 0 && stats.calls > 0 && !const_offset_load_then_call {
-    return Some({
-      reason: "load-call-optimize-instructions-noop",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
-  }
-  if stats.calls > 0 && stats.local_writes > 0 {
-    return Some({
-      reason: "call-local-write-optimize-instructions-noop",
-      func: skipped_func,
-      unchanged_original: skipped_unchanged,
-      trace_skip_raw: true,
-    })
+  match
+    RawOiCoarseNoopSkipFact::from_structured_or_call_boundary(
+      locals.length(),
+      stats,
+      const_offset_load_then_call,
+    ) {
+    Some(fact) if fact.proves_accepted_raw_boundary() =>
+      return Some({
+        reason: fact.reason,
+        func: skipped_func,
+        unchanged_original: skipped_unchanged,
+        trace_skip_raw: true,
+      })
+    _ => ()
   }
   if stats.ifs > 0 &&
     (
