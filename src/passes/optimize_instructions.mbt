@@ -7786,20 +7786,19 @@ fn optimize_instructions_rewrite_exact_with_children(
 }
 
 ///|
-priv struct OiCallRefFallthroughTargetFact {
-  direct_func : Int
-  ref_func_heap : @lib.HeapType?
-}
-
-///|
 priv struct OiCallRefFallthroughDirectFuncFact {
   direct_func : Int
   ref_func_heap : @lib.HeapType?
 }
 
 ///|
+priv struct OiCallRefFallthroughTargetFact {
+  direct_fact : OiCallRefFallthroughDirectFuncFact?
+}
+
+///|
 fn OiCallRefFallthroughTargetFact::unknown() -> OiCallRefFallthroughTargetFact {
-  { direct_func: -1, ref_func_heap: None }
+  { direct_fact: None }
 }
 
 ///|
@@ -7809,12 +7808,10 @@ fn OiCallRefFallthroughDirectFuncFact::from_fallthrough(
   // Binaryen v130 `visitCallRef` only consumes a `Properties::getFallthrough`
   // target when that fallthrough is a concrete `ref.func`. Keep the direct
   // fallthrough proof separate from the broader recursive target-descent record
-  // so loop/if/br_on wrappers and the call_ref target classifier do not ask
-  // sentinel-style `has direct function` questions of the traversal fact.
-  if fact.direct_func < 0 {
-    return None
-  }
-  Some({ direct_func: fact.direct_func, ref_func_heap: fact.ref_func_heap })
+  // so loop/if/br_on wrappers and the call_ref target classifier consume an
+  // explicit nested direct-ref.func fact rather than sentinel-style payload
+  // fields on the traversal fact.
+  fact.direct_fact
 }
 
 ///|
@@ -7874,7 +7871,7 @@ fn OiCallRefFallthroughTargetFact::from_node(
         Some(ref_type) => Some(ref_type.get_heap_type())
         None => None
       }
-      { direct_func: node.imm0, ref_func_heap }
+      { direct_fact: Some({ direct_func: node.imm0, ref_func_heap }) }
     }
     @ir.HotOp::LocalTee if node.child_count == 1 =>
       OiCallRefFallthroughTargetFact::from_node(
@@ -8150,7 +8147,10 @@ fn OiCallRefFallthroughTypeFact::from_target(
     Some(ref_type) => Some(ref_type.get_heap_type())
     None => None
   }
-  let fallthrough_heap = fallthrough.ref_func_heap
+  let fallthrough_heap = match fallthrough.direct_fact {
+    Some(direct_fact) => direct_fact.ref_func_heap
+    None => None
+  }
   let heaps_match = match (target_heap, fallthrough_heap) {
     (Some(target), Some(fallthrough)) => target == fallthrough
     _ => false
