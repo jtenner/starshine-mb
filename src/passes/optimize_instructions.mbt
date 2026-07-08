@@ -3911,15 +3911,58 @@ fn OiDescriptorExactMissDropBeforeUnreachableFact::proves_call_drop_before_unrea
 }
 
 ///|
+priv enum OiDescriptorExactMissPreservationKind {
+  DescriptorExactMissPreserveBothErase
+  DescriptorExactMissPreserveDescriptorEraseOperandDrop
+  DescriptorExactMissPreserveOperandEraseDescriptorDrop
+  DescriptorExactMissPreserveBothDrop
+  DescriptorExactMissPreserveUnsupported
+}
+
+///|
+priv struct OiDescriptorExactMissPreservationFact {
+  kind : OiDescriptorExactMissPreservationKind
+}
+
+///|
+fn OiDescriptorExactMissPreservationFact::from_operands(
+  descriptor_erases_without_effects : Bool,
+  ref_operand_erases_without_effects : Bool,
+  operand_drop_fact : OiDescriptorExactMissDropBeforeUnreachableFact,
+  descriptor_drop_fact : OiDescriptorExactMissDropBeforeUnreachableFact,
+) -> OiDescriptorExactMissPreservationFact {
+  // Binaryen v130 preserves descriptor exact-miss source order by either erasing
+  // side-effect-free operands or dropping represented straight-line/call operands
+  // immediately before the replacement `unreachable`. Keep that preservation
+  // result as one ordered fact before eligibility chooses a rewrite shape.
+  let ref_operand_drops_before_unreachable = operand_drop_fact.proves_block_drop_before_unreachable() ||
+    operand_drop_fact.proves_call_drop_before_unreachable()
+  let descriptor_drops_before_unreachable = descriptor_drop_fact.proves_block_drop_before_unreachable() ||
+    descriptor_drop_fact.proves_call_drop_before_unreachable()
+  let kind = if descriptor_erases_without_effects &&
+    ref_operand_erases_without_effects {
+    DescriptorExactMissPreserveBothErase
+  } else if descriptor_erases_without_effects &&
+    ref_operand_drops_before_unreachable {
+    DescriptorExactMissPreserveDescriptorEraseOperandDrop
+  } else if ref_operand_erases_without_effects &&
+    descriptor_drops_before_unreachable {
+    DescriptorExactMissPreserveOperandEraseDescriptorDrop
+  } else if ref_operand_drops_before_unreachable &&
+    descriptor_drops_before_unreachable {
+    DescriptorExactMissPreserveBothDrop
+  } else {
+    DescriptorExactMissPreserveUnsupported
+  }
+  { kind, }
+}
+
+///|
 priv struct OiDescriptorExactMissFact {
   cast_fact : OiDescriptorCastFact
   descriptor_exactly_describes_target : Bool
   ref_operand_misses_target : Bool
-  descriptor_erases_without_effects : Bool
-  ref_operand_erases_without_effects : Bool
-  ref_operand_can_drop_before_unreachable : Bool
-  descriptor_can_drop_before_unreachable : Bool
-  descriptor_call_can_drop_before_unreachable : Bool
+  preservation_fact : OiDescriptorExactMissPreservationFact
 }
 
 ///|
@@ -3956,17 +3999,17 @@ fn OiDescriptorExactMissFact::from_node(
       cast_fact.descriptor_id,
     ).exactly_describes(cast_fact.target),
     ref_operand_misses_target: ref_operand_fact.proves_exact_target_miss(),
-    descriptor_erases_without_effects: OiDescriptorOperandEraseFact::from_operand(
-      ctx,
-      func,
-      dead,
-      cast_fact.descriptor_id,
-    ).proves_erases_without_effects(),
-    ref_operand_erases_without_effects: ref_operand_fact.proves_operand_erases_without_effects(),
-    ref_operand_can_drop_before_unreachable: operand_drop_fact.proves_block_drop_before_unreachable() ||
-    operand_drop_fact.proves_call_drop_before_unreachable(),
-    descriptor_can_drop_before_unreachable: descriptor_drop_fact.proves_block_drop_before_unreachable(),
-    descriptor_call_can_drop_before_unreachable: descriptor_drop_fact.proves_call_drop_before_unreachable(),
+    preservation_fact: OiDescriptorExactMissPreservationFact::from_operands(
+      OiDescriptorOperandEraseFact::from_operand(
+        ctx,
+        func,
+        dead,
+        cast_fact.descriptor_id,
+      ).proves_erases_without_effects(),
+      ref_operand_fact.proves_operand_erases_without_effects(),
+      operand_drop_fact,
+      descriptor_drop_fact,
+    ),
   })
 }
 
@@ -4014,29 +4057,17 @@ fn OiDescriptorExactMissEligibilityFact::from_miss(
   if !miss_fact.ref_operand_misses_target {
     return { kind: DescriptorExactMissOperandNotMissTarget }
   }
-  if miss_fact.descriptor_erases_without_effects &&
-    miss_fact.ref_operand_erases_without_effects {
-    return { kind: DescriptorExactMissBothErase }
+  match miss_fact.preservation_fact.kind {
+    DescriptorExactMissPreserveBothErase =>
+      { kind: DescriptorExactMissBothErase }
+    DescriptorExactMissPreserveDescriptorEraseOperandDrop =>
+      { kind: DescriptorExactMissDescriptorEraseOperandDrop }
+    DescriptorExactMissPreserveOperandEraseDescriptorDrop =>
+      { kind: DescriptorExactMissOperandEraseDescriptorDrop }
+    DescriptorExactMissPreserveBothDrop => { kind: DescriptorExactMissBothDrop }
+    DescriptorExactMissPreserveUnsupported =>
+      { kind: DescriptorExactMissCannotPreserveEffects }
   }
-  if miss_fact.descriptor_erases_without_effects &&
-    miss_fact.ref_operand_can_drop_before_unreachable {
-    return { kind: DescriptorExactMissDescriptorEraseOperandDrop }
-  }
-  if miss_fact.ref_operand_erases_without_effects &&
-    (
-      miss_fact.descriptor_can_drop_before_unreachable ||
-      miss_fact.descriptor_call_can_drop_before_unreachable
-    ) {
-    return { kind: DescriptorExactMissOperandEraseDescriptorDrop }
-  }
-  if miss_fact.ref_operand_can_drop_before_unreachable &&
-    (
-      miss_fact.descriptor_can_drop_before_unreachable ||
-      miss_fact.descriptor_call_can_drop_before_unreachable
-    ) {
-    return { kind: DescriptorExactMissBothDrop }
-  }
-  { kind: DescriptorExactMissCannotPreserveEffects }
 }
 
 ///|
