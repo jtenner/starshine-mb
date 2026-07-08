@@ -8290,50 +8290,185 @@ fn optimize_instructions_shift_rhs_i64_amount(
 }
 
 ///|
-fn optimize_instructions_i32_non_negative_const(
+priv struct OiNonNegativeIntegerFact {
+  width_bits : Int
+  proven : Bool
+}
+
+///|
+fn OiNonNegativeIntegerFact::from_i32_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
-  match optimize_instructions_i32_const(func, dead, node_id) {
+) -> OiNonNegativeIntegerFact {
+  let proven = match optimize_instructions_i32_const(func, dead, node_id) {
     Some(@lib.I32(raw)) => raw >= 0
     None => false
   }
+  { width_bits: 32, proven }
 }
 
 ///|
-fn optimize_instructions_i64_non_negative_const(
+fn OiNonNegativeIntegerFact::from_i64_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> Bool {
-  match optimize_instructions_i64_const(func, dead, node_id) {
+) -> OiNonNegativeIntegerFact {
+  let proven = match optimize_instructions_i64_const(func, dead, node_id) {
     Some(@lib.I64(raw)) => raw >= 0L
     None => false
+  }
+  { width_bits: 64, proven }
+}
+
+///|
+fn OiNonNegativeIntegerFact::from_unsigned_max(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+  width_bits : Int,
+) -> OiNonNegativeIntegerFact {
+  // Binaryen v130 uses `Bits::getMaxBits(left, this) <= signBit - 1` before
+  // rewriting signed compare/div/rem/shr operations to unsigned spellings. The
+  // Starshine equivalent is the shared unsigned-max fact: if the fact proves the
+  // value cannot reach the sign bit, signed and unsigned operations observe the
+  // same nonnegative domain. This owns both direct nonnegative constants and
+  // LocalScanner-shaped local/mask/load/shift summaries.
+  let proven = match width_bits {
+    32 =>
+      match
+        OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
+        Some(value) => value <= 2147483647
+        None => false
+      }
+    64 =>
+      match
+        OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
+        Some(value) => value <= 9223372036854775807L
+        None => false
+      }
+    _ => false
+  }
+  { width_bits, proven }
+}
+
+///|
+fn OiNonNegativeIntegerFact::proves_non_negative(
+  self : OiNonNegativeIntegerFact,
+  width_bits : Int,
+) -> Bool {
+  self.width_bits == width_bits && self.proven
+}
+
+///|
+priv struct OiSignedToUnsignedOpcodeFact {
+  width_bits : Int
+  unsigned_instr : @lib.Instruction?
+}
+
+///|
+fn OiSignedToUnsignedOpcodeFact::from_instr(
+  instr : @lib.Instruction,
+) -> OiSignedToUnsignedOpcodeFact {
+  // Mirrors Binaryen v130 `makeUnsignedBinaryOp`: only signed integer
+  // comparisons, div/rem, and arithmetic right shift have an unsigned spelling
+  // that can replace the original when operand facts prove the nonnegative
+  // domain. Keep this table as a fact instead of a naked opcode whitelist.
+  match instr {
+    @lib.Instruction::I32LtS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_lt_u()) }
+    @lib.Instruction::I32GtS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_gt_u()) }
+    @lib.Instruction::I32LeS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_le_u()) }
+    @lib.Instruction::I32GeS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_ge_u()) }
+    @lib.Instruction::I32DivS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_div_u()) }
+    @lib.Instruction::I32RemS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_rem_u()) }
+    @lib.Instruction::I32ShrS =>
+      { width_bits: 32, unsigned_instr: Some(@lib.Instruction::i32_shr_u()) }
+    @lib.Instruction::I64LtS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_lt_u()) }
+    @lib.Instruction::I64GtS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_gt_u()) }
+    @lib.Instruction::I64LeS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_le_u()) }
+    @lib.Instruction::I64GeS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_ge_u()) }
+    @lib.Instruction::I64DivS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_div_u()) }
+    @lib.Instruction::I64RemS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_rem_u()) }
+    @lib.Instruction::I64ShrS =>
+      { width_bits: 64, unsigned_instr: Some(@lib.Instruction::i64_shr_u()) }
+    _ => { width_bits: 0, unsigned_instr: None }
   }
 }
 
 ///|
-fn optimize_instructions_signed_const_unsigned_variant(
-  instr : @lib.Instruction,
+fn OiSignedToUnsignedOpcodeFact::replacement(
+  self : OiSignedToUnsignedOpcodeFact,
 ) -> @lib.Instruction? {
-  match instr {
-    @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_lt_u())
-    @lib.Instruction::I32GtS => Some(@lib.Instruction::i32_gt_u())
-    @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_le_u())
-    @lib.Instruction::I32GeS => Some(@lib.Instruction::i32_ge_u())
-    @lib.Instruction::I32DivS => Some(@lib.Instruction::i32_div_u())
-    @lib.Instruction::I32RemS => Some(@lib.Instruction::i32_rem_u())
-    @lib.Instruction::I32ShrS => Some(@lib.Instruction::i32_shr_u())
-    @lib.Instruction::I64LtS => Some(@lib.Instruction::i64_lt_u())
-    @lib.Instruction::I64GtS => Some(@lib.Instruction::i64_gt_u())
-    @lib.Instruction::I64LeS => Some(@lib.Instruction::i64_le_u())
-    @lib.Instruction::I64GeS => Some(@lib.Instruction::i64_ge_u())
-    @lib.Instruction::I64DivS => Some(@lib.Instruction::i64_div_u())
-    @lib.Instruction::I64RemS => Some(@lib.Instruction::i64_rem_u())
-    @lib.Instruction::I64ShrS => Some(@lib.Instruction::i64_shr_u())
-    _ => None
+  self.unsigned_instr
+}
+
+///|
+priv struct OiSignedConstUnsignedCanonicalizationFact {
+  opcode_fact : OiSignedToUnsignedOpcodeFact
+  lhs_fact : OiNonNegativeIntegerFact
+  rhs_fact : OiNonNegativeIntegerFact
+}
+
+///|
+fn OiSignedConstUnsignedCanonicalizationFact::from_binary(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiSignedConstUnsignedCanonicalizationFact? {
+  // Binaryen v130 runs this source step only when the right operand is a
+  // nonnegative constant and the left operand has no sign bit according to
+  // `Bits::getMaxBits`. Preserve that asymmetry: a nonconstant nonnegative RHS
+  // is not enough, and an arbitrary nonnegative constant LHS does not bypass the
+  // shared left unsigned-max fact.
+  let opcode_fact = OiSignedToUnsignedOpcodeFact::from_instr(instr)
+  let width_bits = opcode_fact.width_bits
+  match opcode_fact.replacement() {
+    Some(_) => ()
+    None => return None
   }
+  if width_bits != 32 && width_bits != 64 {
+    return None
+  }
+  let rhs_fact = if width_bits == 32 {
+    OiNonNegativeIntegerFact::from_i32_const(func, dead, rhs_id)
+  } else {
+    OiNonNegativeIntegerFact::from_i64_const(func, dead, rhs_id)
+  }
+  if !rhs_fact.proves_non_negative(width_bits) {
+    return None
+  }
+  let lhs_fact = OiNonNegativeIntegerFact::from_unsigned_max(
+    func, dead, scratch, lhs_id, width_bits,
+  )
+  if !lhs_fact.proves_non_negative(width_bits) {
+    return None
+  }
+  Some({ opcode_fact, lhs_fact, rhs_fact })
+}
+
+///|
+fn OiSignedConstUnsignedCanonicalizationFact::replacement(
+  self : OiSignedConstUnsignedCanonicalizationFact,
+) -> @lib.Instruction? {
+  ignore(self.lhs_fact)
+  ignore(self.rhs_fact)
+  self.opcode_fact.replacement()
 }
 
 ///|
@@ -8341,43 +8476,22 @@ fn optimize_instructions_try_canonicalize_signed_const_unsigned(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  let unsigned_instr = match
-    optimize_instructions_signed_const_unsigned_variant(instr) {
-    Some(unsigned_instr) => unsigned_instr
+  let fact = match
+    OiSignedConstUnsignedCanonicalizationFact::from_binary(
+      func, dead, scratch, instr, lhs_id, rhs_id,
+    ) {
+    Some(fact) => fact
     None => return false
   }
-  let operands_are_non_negative = match instr {
-    @lib.Instruction::I32LtS
-    | @lib.Instruction::I32GtS
-    | @lib.Instruction::I32LeS
-    | @lib.Instruction::I32GeS
-    | @lib.Instruction::I32DivS
-    | @lib.Instruction::I32RemS =>
-      optimize_instructions_i32_non_negative_const(func, dead, lhs_id) &&
-      optimize_instructions_i32_non_negative_const(func, dead, rhs_id)
-    @lib.Instruction::I32ShrS =>
-      optimize_instructions_i32_non_negative_const(func, dead, lhs_id) &&
-      optimize_instructions_i32_non_negative_const(func, dead, rhs_id)
-    @lib.Instruction::I64LtS
-    | @lib.Instruction::I64GtS
-    | @lib.Instruction::I64LeS
-    | @lib.Instruction::I64GeS
-    | @lib.Instruction::I64DivS
-    | @lib.Instruction::I64RemS =>
-      optimize_instructions_i64_non_negative_const(func, dead, lhs_id) &&
-      optimize_instructions_i64_non_negative_const(func, dead, rhs_id)
-    @lib.Instruction::I64ShrS =>
-      optimize_instructions_i64_non_negative_const(func, dead, lhs_id) &&
-      optimize_instructions_i64_non_negative_const(func, dead, rhs_id)
-    _ => false
-  }
-  if !operands_are_non_negative {
-    return false
+  let unsigned_instr = match fact.replacement() {
+    Some(instr) => instr
+    None => return false
   }
   @ir.hot_node_exact_instr_set(func, node_id, unsigned_instr)
   pass_mark_mutated(ctx, func)
@@ -25691,7 +25805,7 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_canonicalize_signed_const_unsigned(
-            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+            ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_fold_exact_const_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
@@ -25836,7 +25950,7 @@ fn optimize_instructions_visit_node(
           true
         } else {
           if optimize_instructions_try_canonicalize_signed_const_unsigned(
-              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+              ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
             ) {
             changed = true
             let current = func.nodes[node_id]
