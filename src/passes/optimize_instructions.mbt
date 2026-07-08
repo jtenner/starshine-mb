@@ -17304,21 +17304,6 @@ fn optimize_instructions_ref_is_known_non_null(
 }
 
 ///|
-fn optimize_instructions_ref_is_null_operand(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::RefNull => true
-    _ =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefNull(_)) => true
-        _ => false
-      }
-  }
-}
-
-///|
 fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
@@ -17389,49 +17374,6 @@ fn optimize_instructions_ref_i31_cannot_match_target(
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
       abs == @lib.AbsHeapType::struct_() || abs == @lib.AbsHeapType::array()
     @lib.HeapType::HeapType(_) | @lib.HeapType::DefTypeHeapType(_) => true
-  }
-}
-
-///|
-fn optimize_instructions_ref_is_known_non_null_i31(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          ref_type.is_non_nullable() &&
-          ref_type.get_heap_type() ==
-          @lib.HeapType::abs(@lib.AbsHeapType::i31())
-        _ => false
-      }
-    @ir.HotOp::Heap =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefI31) => true
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_cannot_be_i31(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          optimize_instructions_ref_i31_cannot_match_target(
-            ref_type.get_heap_type(),
-          )
-        _ => false
-      }
-    _ => false
   }
 }
 
@@ -17583,43 +17525,6 @@ fn optimize_instructions_concrete_source_has_no_target_overlap(
     }
   }
   true
-}
-
-///|
-fn optimize_instructions_ref_local_heap_type(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> @lib.RefType? {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match @ir.hot_local_type(func, node.imm0) {
-        Some(@lib.ValType::RefTypeValType(ref_type)) => Some(ref_type)
-        _ => None
-      }
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_ref_local_heaps_are_impossible_equal(
-  func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
-) -> Bool {
-  match
-    (
-      optimize_instructions_ref_local_heap_type(func, lhs_id),
-      optimize_instructions_ref_local_heap_type(func, rhs_id),
-    ) {
-    (Some(lhs), Some(rhs)) =>
-      (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
-      optimize_instructions_abs_struct_array_disjoint(
-        lhs.get_heap_type(),
-        rhs.get_heap_type(),
-      )
-    _ => false
-  }
 }
 
 ///|
@@ -20803,44 +20708,143 @@ fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
 }
 
 ///|
-fn optimize_instructions_ref_eq_same_local_operand(
+priv struct OiRefEqOperandFact {
+  same_local : Int?
+  same_non_null_local : Int?
+  same_non_null_trap_id : Int
+  i31_local : Int?
+  i31_const : @lib.I32?
+  known_non_null_i31 : Bool
+  cannot_be_i31 : Bool
+  known_null : Bool
+  known_non_null : Bool
+  local_ref_type : @lib.RefType?
+}
+
+///|
+fn OiRefEqOperandFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiRefEqOperandFact {
+  // Binaryen v130 `visitRefEq` and nearby null/equality rewrites make their
+  // decisions from operand shape, local nullability, i31 facts, and disjoint
+  // reference heap facts. Keep those facts in one source-backed operand summary
+  // instead of spreading same-local, ref.i31, null, and local-heap scanners
+  // through the visitor.
+  let node = @ir.hot_node_get(func, node_id)
+  let local_ref_type = match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) => Some(ref_type)
+        _ => None
+      }
+    _ => None
+  }
+  let same_local = match node.op {
+    @ir.HotOp::LocalGet => Some(node.imm0)
+    @ir.HotOp::RefCast =>
+      OiRefEqOperandFact::same_local_through_nullable_ref_cast(
+        ctx, func, node_id,
+      )
+    _ => None
+  }
+  let (same_non_null_local, same_non_null_trap_id) = OiRefEqOperandFact::same_local_through_non_null(
+    func, node_id,
+  )
+  let i31_local = OiRefEqOperandFact::i31_local(func, node_id)
+  let i31_const = OiRefEqOperandFact::i31_const(func, dead, node_id)
+  let known_non_null_i31 = match node.op {
+    @ir.HotOp::LocalGet =>
+      match local_ref_type {
+        Some(ref_type) =>
+          ref_type.is_non_nullable() &&
+          ref_type.get_heap_type() ==
+          @lib.HeapType::abs(@lib.AbsHeapType::i31())
+        None => false
+      }
+    _ =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) => true
+        _ => false
+      }
+  }
+  let cannot_be_i31 = match local_ref_type {
+    Some(ref_type) =>
+      optimize_instructions_ref_i31_cannot_match_target(
+        ref_type.get_heap_type(),
+      )
+    None => false
+  }
+  let known_null = match node.op {
+    @ir.HotOp::RefNull => true
+    _ =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefNull(_)) => true
+        _ => false
+      }
+  }
+  let known_non_null = match node.op {
+    @ir.HotOp::LocalGet =>
+      match local_ref_type {
+        Some(ref_type) => ref_type.is_non_nullable()
+        None => false
+      }
+    @ir.HotOp::RefFunc => true
+    _ =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) => true
+        _ => false
+      }
+  }
+  {
+    same_local,
+    same_non_null_local,
+    same_non_null_trap_id,
+    i31_local,
+    i31_const,
+    known_non_null_i31,
+    cannot_be_i31,
+    known_null,
+    known_non_null,
+    local_ref_type,
+  }
+}
+
+///|
+fn OiRefEqOperandFact::same_local_through_nullable_ref_cast(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Int? {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::LocalGet => Some(@ir.hot_node_get(func, node_id).imm0)
-    @ir.HotOp::RefCast => {
-      if @ir.hot_child_count(func, node_id) != 1 {
-        return None
-      }
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefCast(true, _, target)) => {
-          let child_id = @ir.hot_child_get(func, node_id, 0)
-          match @ir.hot_node_get(func, child_id).op {
-            @ir.HotOp::LocalGet => {
-              let local_idx = @ir.hot_node_get(func, child_id).imm0
-              match @ir.hot_local_type(func, local_idx) {
-                Some(@lib.ValType::RefTypeValType(ref_type)) =>
-                  if ctx.ignore_implicit_traps || ctx.traps_never_happen {
-                    Some(local_idx)
-                  } else if ref_type.get_heap_type() == target ||
-                    (
-                      ref_type.get_heap_type() ==
-                      @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
-                      optimize_instructions_ref_i31_matches_target(target)
-                    ) ||
-                    optimize_instructions_abs_struct_array_matches_target(
-                      ref_type.get_heap_type(),
-                      target,
-                    ) {
-                    Some(local_idx)
-                  } else {
-                    None
-                  }
-                _ => None
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(true, _, target)) => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::LocalGet => {
+          let local_idx = @ir.hot_node_get(func, child_id).imm0
+          match @ir.hot_local_type(func, local_idx) {
+            Some(@lib.ValType::RefTypeValType(ref_type)) =>
+              if ctx.ignore_implicit_traps || ctx.traps_never_happen {
+                Some(local_idx)
+              } else if ref_type.get_heap_type() == target ||
+                (
+                  ref_type.get_heap_type() ==
+                  @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+                  optimize_instructions_ref_i31_matches_target(target)
+                ) ||
+                optimize_instructions_abs_struct_array_matches_target(
+                  ref_type.get_heap_type(),
+                  target,
+                ) {
+                Some(local_idx)
+              } else {
+                None
               }
-            }
             _ => None
           }
         }
@@ -20852,34 +20856,17 @@ fn optimize_instructions_ref_eq_same_local_operand(
 }
 
 ///|
-fn optimize_instructions_ref_eq_operands_are_same_local(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
-) -> Bool {
-  match
-    (
-      optimize_instructions_ref_eq_same_local_operand(ctx, func, lhs_id),
-      optimize_instructions_ref_eq_same_local_operand(ctx, func, rhs_id),
-    ) {
-    (Some(lhs), Some(rhs)) => lhs == rhs
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_eq_same_local_as_non_null_operand(
+fn OiRefEqOperandFact::same_local_through_non_null(
   func : @ir.HotFunc,
   node_id : Int,
-) -> (Int, Int)? {
+) -> (Int?, Int) {
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::LocalGet => Some((@ir.hot_node_get(func, node_id).imm0, -1))
+    @ir.HotOp::LocalGet => (Some(@ir.hot_node_get(func, node_id).imm0), -1)
     _ =>
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(@lib.Instruction::RefAsNonNull) => {
           if @ir.hot_child_count(func, node_id) != 1 {
-            return None
+            return (None, -1)
           }
           let child_id = @ir.hot_child_get(func, node_id, 0)
           match @ir.hot_node_get(func, child_id).op {
@@ -20888,41 +20875,134 @@ fn optimize_instructions_ref_eq_same_local_as_non_null_operand(
               match @ir.hot_local_type(func, local_idx) {
                 Some(@lib.ValType::RefTypeValType(ref_type)) =>
                   if ref_type.is_non_nullable() {
-                    Some((local_idx, -1))
+                    (Some(local_idx), -1)
                   } else {
-                    Some((local_idx, node_id))
+                    (Some(local_idx), node_id)
                   }
-                _ => None
+                _ => (None, -1)
               }
             }
-            _ => None
+            _ => (None, -1)
           }
         }
-        _ => None
+        _ => (None, -1)
       }
   }
 }
 
 ///|
-fn optimize_instructions_ref_eq_same_local_as_non_null_trap(
+fn OiRefEqOperandFact::i31_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::LocalGet => Some(@ir.hot_node_get(func, child_id).imm0)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn OiRefEqOperandFact::i31_const(
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> @lib.I32? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) =>
+      optimize_instructions_i32_const(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+    _ => None
+  }
+}
+
+///|
+priv struct OiRefEqRelationFact {
+  lhs : OiRefEqOperandFact
+  rhs : OiRefEqOperandFact
+}
+
+///|
+fn OiRefEqRelationFact::from_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
+) -> OiRefEqRelationFact {
+  {
+    lhs: OiRefEqOperandFact::from_node(ctx, func, dead, lhs_id),
+    rhs: OiRefEqOperandFact::from_node(ctx, func, dead, rhs_id),
+  }
+}
+
+///|
+fn OiRefEqRelationFact::proves_equal(self : OiRefEqRelationFact) -> Bool {
+  match (self.lhs.same_local, self.rhs.same_local) {
+    (Some(lhs), Some(rhs)) if lhs == rhs => return true
+    _ => ()
+  }
+  match (self.lhs.i31_local, self.rhs.i31_local) {
+    (Some(lhs), Some(rhs)) => lhs == rhs
+    _ => false
+  }
+}
+
+///|
+fn OiRefEqRelationFact::same_local_non_null_trap(
+  self : OiRefEqRelationFact,
 ) -> Int? {
-  match
-    (
-      optimize_instructions_ref_eq_same_local_as_non_null_operand(func, lhs_id),
-      optimize_instructions_ref_eq_same_local_as_non_null_operand(func, rhs_id),
-    ) {
-    (Some((lhs, lhs_trap)), Some((rhs, rhs_trap))) if lhs == rhs =>
-      if lhs_trap >= 0 {
-        Some(lhs_trap)
-      } else if rhs_trap >= 0 {
-        Some(rhs_trap)
+  match (self.lhs.same_non_null_local, self.rhs.same_non_null_local) {
+    (Some(lhs), Some(rhs)) if lhs == rhs =>
+      if self.lhs.same_non_null_trap_id >= 0 {
+        Some(self.lhs.same_non_null_trap_id)
+      } else if self.rhs.same_non_null_trap_id >= 0 {
+        Some(self.rhs.same_non_null_trap_id)
       } else {
         None
       }
     _ => None
+  }
+}
+
+///|
+fn OiRefEqRelationFact::i31_const_result(
+  self : OiRefEqRelationFact,
+) -> @lib.I32? {
+  match (self.lhs.i31_const, self.rhs.i31_const) {
+    (Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      Some(if lhs == rhs { @lib.I32(1) } else { @lib.I32(0) })
+    _ => None
+  }
+}
+
+///|
+fn OiRefEqRelationFact::proves_impossible_equal(
+  self : OiRefEqRelationFact,
+) -> Bool {
+  if (self.lhs.known_non_null_i31 && self.rhs.cannot_be_i31) ||
+    (self.rhs.known_non_null_i31 && self.lhs.cannot_be_i31) {
+    return true
+  }
+  match (self.lhs.local_ref_type, self.rhs.local_ref_type) {
+    (Some(lhs), Some(rhs)) =>
+      (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
+      optimize_instructions_abs_struct_array_disjoint(
+        lhs.get_heap_type(),
+        rhs.get_heap_type(),
+      )
+    _ => false
   }
 }
 
@@ -21270,62 +21350,6 @@ fn optimize_instructions_replace_ref_eq_impossible_with_const_i32(
 }
 
 ///|
-fn optimize_instructions_ref_i31_local_operand(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return None
-  }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefI31) => {
-      let child_id = @ir.hot_child_get(func, node_id, 0)
-      match @ir.hot_node_get(func, child_id).op {
-        @ir.HotOp::LocalGet => Some(@ir.hot_node_get(func, child_id).imm0)
-        _ => None
-      }
-    }
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_ref_eq_operands_are_same_i31_local(
-  func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
-) -> Bool {
-  match
-    (
-      optimize_instructions_ref_i31_local_operand(func, lhs_id),
-      optimize_instructions_ref_i31_local_operand(func, rhs_id),
-    ) {
-    (Some(lhs), Some(rhs)) => lhs == rhs
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_ref_i31_const_operand(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> @lib.I32? {
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return None
-  }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefI31) =>
-      optimize_instructions_i32_const(
-        func,
-        dead,
-        @ir.hot_child_get(func, node_id, 0),
-      )
-    _ => None
-  }
-}
-
-///|
 fn optimize_instructions_try_rewrite_ref_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -21341,12 +21365,10 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
   let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  if optimize_instructions_ref_eq_operands_are_same_local(
-      ctx, func, lhs_id, rhs_id,
-    ) ||
-    optimize_instructions_ref_eq_operands_are_same_i31_local(
-      func, lhs_id, rhs_id,
-    ) {
+  let relation_fact = OiRefEqRelationFact::from_operands(
+    ctx, func, dead, lhs_id, rhs_id,
+  )
+  if relation_fact.proves_equal() {
     optimize_instructions_replace_with_const_i32(
       ctx,
       func,
@@ -21355,10 +21377,7 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     )
     return true
   }
-  match
-    optimize_instructions_ref_eq_same_local_as_non_null_trap(
-      func, lhs_id, rhs_id,
-    ) {
+  match relation_fact.same_local_non_null_trap() {
     Some(trap_id) => {
       optimize_instructions_replace_with_drop_then_const_i32(
         ctx,
@@ -21371,44 +21390,20 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     }
     _ => ()
   }
-  match
-    (
-      optimize_instructions_ref_i31_const_operand(func, dead, lhs_id),
-      optimize_instructions_ref_i31_const_operand(func, dead, rhs_id),
-    ) {
-    (Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        if lhs == rhs {
-          @lib.I32(1)
-        } else {
-          @lib.I32(0)
-        },
-      )
+  match relation_fact.i31_const_result() {
+    Some(result) => {
+      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       return true
     }
     _ => ()
   }
-  if (
-      optimize_instructions_ref_is_known_non_null_i31(func, lhs_id) &&
-      optimize_instructions_ref_cannot_be_i31(func, rhs_id)
-    ) ||
-    (
-      optimize_instructions_ref_is_known_non_null_i31(func, rhs_id) &&
-      optimize_instructions_ref_cannot_be_i31(func, lhs_id)
-    ) ||
-    optimize_instructions_ref_local_heaps_are_impossible_equal(
-      func, lhs_id, rhs_id,
-    ) {
+  if relation_fact.proves_impossible_equal() {
     optimize_instructions_replace_ref_eq_impossible_with_const_i32(
       ctx, func, node_id, lhs_id, rhs_id,
     )
     return true
   }
-  if optimize_instructions_ref_is_null_operand(func, lhs_id) &&
-    optimize_instructions_ref_is_null_operand(func, rhs_id) {
+  if relation_fact.lhs.known_null && relation_fact.rhs.known_null {
     optimize_instructions_replace_with_const_i32(
       ctx,
       func,
@@ -21417,8 +21412,8 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     )
     return true
   }
-  if optimize_instructions_ref_is_null_operand(func, lhs_id) {
-    if optimize_instructions_ref_is_known_non_null(func, rhs_id) {
+  if relation_fact.lhs.known_null {
+    if relation_fact.rhs.known_non_null {
       if optimize_instructions_node_effects_are_pure(ctx, func, rhs_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
@@ -21440,8 +21435,8 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     }
     return true
   }
-  if optimize_instructions_ref_is_null_operand(func, rhs_id) {
-    if optimize_instructions_ref_is_known_non_null(func, lhs_id) {
+  if relation_fact.rhs.known_null {
+    if relation_fact.lhs.known_non_null {
       if optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(
           ctx,
