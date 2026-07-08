@@ -5562,6 +5562,81 @@ priv struct OiExtendWrapI64MaxBitsFact {
 }
 
 ///|
+priv enum OiZeroBitsReplacementKind {
+  ZeroBitsI32
+  ZeroBitsI64
+}
+
+///|
+priv struct OiZeroBitsReplacementFact {
+  kind : OiZeroBitsReplacementKind
+}
+
+///|
+fn OiZeroBitsReplacementFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+) -> OiZeroBitsReplacementFact? {
+  // Binaryen v130 `replaceZeroBitsWithZero` replaces non-constant integer
+  // expressions when `Bits::getMaxBits(curr) == 0`, delegating effect
+  // preservation to `getDroppedChildrenAndAppend`. This first Starshine fact
+  // covers the pure expression subset represented by `OiSideEffectFreeExpressionFact`;
+  // effect-preserving dropped-child materialization remains a documented boundary.
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const => return None
+    _ => ()
+  }
+  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, node_id) {
+    return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [value_type] if value_type == @lib.ValType::i32() =>
+      match
+        OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
+        Some(0) => Some({ kind: ZeroBitsI32 })
+        _ => None
+      }
+    [value_type] if value_type == @lib.ValType::i64() =>
+      match
+        OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
+        Some(0L) => Some({ kind: ZeroBitsI64 })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiZeroBitsReplacementFact::apply(
+  self : OiZeroBitsReplacementFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  match self.kind {
+    ZeroBitsI32 =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
+      )
+    ZeroBitsI64 =>
+      optimize_instructions_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(0L),
+      )
+  }
+}
+
+///|
 fn OiExtendWrapI64MaxBitsFact::from_extend_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -20085,6 +20160,23 @@ fn optimize_instructions_wrap_i64_const_to_i32(value : Int64) -> @lib.I32 {
 }
 
 ///|
+fn optimize_instructions_try_replace_zero_bits_with_zero(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+) -> Bool {
+  match OiZeroBitsReplacementFact::from_node(func, dead, scratch, node_id) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_convert(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -26007,6 +26099,9 @@ fn optimize_instructions_visit_node(
           node_id,
           func.instr_payloads[node.imm0].instr,
           func.children[node.child_base],
+        ) ||
+        optimize_instructions_try_replace_zero_bits_with_zero(
+          ctx, func, dead, scratch, node_id,
         )
       }
     @ir.HotOp::Binary =>
@@ -26060,6 +26155,9 @@ fn optimize_instructions_visit_node(
           ) ||
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
+          optimize_instructions_try_replace_zero_bits_with_zero(
+            ctx, func, dead, scratch, node_id,
           )
         let current = func.nodes[node_id]
         let canonicalized = match current.op {
@@ -26127,6 +26225,9 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
+          optimize_instructions_try_replace_zero_bits_with_zero(
+            ctx, func, dead, scratch, node_id,
+          ) ||
           true
         } else {
           changed
@@ -26150,6 +26251,9 @@ fn optimize_instructions_visit_node(
           node_id,
           func.instr_payloads[node.imm0].instr,
           func.children[node.child_base],
+        ) ||
+        optimize_instructions_try_replace_zero_bits_with_zero(
+          ctx, func, dead, scratch, node_id,
         )
       }
     @ir.HotOp::Compare =>

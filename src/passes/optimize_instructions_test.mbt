@@ -6224,6 +6224,40 @@ test "optimize-instructions folds recursive unsigned maxBits compares" {
 }
 
 ///|
+test "optimize-instructions replaces zero maxBits expressions with zero" {
+  // Red-first OI-D fact slice: Binaryen v130 calls `replaceZeroBitsWithZero`
+  // after unary/binary OI and replaces non-constant integer expressions whose
+  // `Bits::getMaxBits` is zero with a typed zero. The Starshine fact starts with
+  // the pure recursive maxBits subset: bounded `and` followed by a right shift
+  // that removes every remaining possible bit.
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.and i32.const 1 i32.shr_u))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  match @ir.hot_node_get(i32_func, i32_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected zero-bit i32 expression to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_func, @ir.hot_node_get(i32_func, i32_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 1 i64.and i64.const 1 i64.shr_u))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  match @ir.hot_node_get(i64_func, i64_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected zero-bit i64 expression to become const zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_root).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned load maxBits compares" {
   let source =
     #|(module
