@@ -9054,6 +9054,63 @@ test "optimize-instructions folds ref.test from precise fallthrough block facts"
 }
 
 ///|
+test "optimize-instructions tightens ref.test nullability from fallthrough GLB facts" {
+  // Binaryen version_130 `visitRefTest` first intersects the test cast type
+  // with `getFallthroughType(curr->ref)` before evaluating the cast. A non-null
+  // `eqref` operand tested against nullable `structref` is still an unknown
+  // runtime predicate, but its cast type can be narrowed to non-null `structref`.
+  // This locks the narrowing as a reusable fact rather than leaving the visitor
+  // as a ref.test-specific immediate scanner.
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let non_null_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, eq_heap),
+  )
+  let nullable_struct_ref_type = @lib.RefType::new(true, struct_heap)
+  let non_null_struct_ref_type = @lib.RefType::new(false, struct_heap)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([non_null_eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(nullable_struct_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = match optimized.code_sec {
+    Some(@lib.CodeSec([func])) => func
+    _ => fail("expected optimized ref.test function")
+  }
+  assert_false(
+    body.any(fn(instr) {
+      instr == @lib.Instruction::ref_test_type(nullable_struct_ref_type)
+    }),
+    msg="expected nullable ref.test immediate to tighten, got \{body}",
+  )
+  assert_true(
+    body.any(fn(instr) {
+      instr == @lib.Instruction::ref_test_type(non_null_struct_ref_type)
+    }),
+    msg="expected non-null ref.test immediate after GLB tightening, got \{body}",
+  )
+}
+
+///|
 test "optimize-instructions folds ref.test from local.tee fallthrough facts" {
   // OI-J fallthrough-type fact slice: Binaryen version_130
   // `Properties::getImmediateFallthrough` looks through `local.tee` for cast

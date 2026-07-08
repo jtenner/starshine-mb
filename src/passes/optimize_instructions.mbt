@@ -1763,6 +1763,46 @@ fn OiRefTestFact::known_null_result(self : OiRefTestFact) -> @lib.I32 {
 }
 
 ///|
+priv struct OiRefTestTighteningFact {
+  narrowed_ref_type : @lib.RefType
+}
+
+///|
+fn OiRefTestTighteningFact::from_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  test_fact : OiRefTestFact,
+) -> OiRefTestTighteningFact? {
+  // Binaryen v130 `visitRefTest` first intersects the test cast type with
+  // `getFallthroughType(ref)` using `Type::getGreatestLowerBound`, then
+  // evaluates the cast check. Keep the represented ordinary-test GLB/nullability
+  // rule as a fact over the test target and operand fallthrough type instead of
+  // an opcode-local immediate scanner. Descriptor tests are held as a boundary
+  // until their descriptor semantics are represented by a dedicated fact.
+  if test_fact.descriptor_style {
+    return None
+  }
+  let current_ref_type = @lib.RefType::new(
+    test_fact.nullable,
+    test_fact.target,
+    exact=test_fact.exact,
+  )
+  let fallthrough_ref_type = match
+    OiRefFallthroughFact::from_node(ctx, func, test_fact.operand_id).ref_type {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  match
+    optimize_instructions_ref_fallthrough_lower_bound(
+      ctx, current_ref_type, fallthrough_ref_type,
+    ) {
+    Some(narrowed_ref_type) if narrowed_ref_type != current_ref_type =>
+      Some({ narrowed_ref_type, })
+    _ => None
+  }
+}
+
+///|
 priv struct OiRefTestOperandFact {
   ref_fact : OiRefFact
   producer_fact : OiRefProducerFact
@@ -2224,6 +2264,7 @@ fn OiRefTestResultFact::from_test(
 
 ///|
 priv enum OiRefTestRewritePlanKind {
+  RefTestTightenTarget
   RefTestRewriteToNonNullCheck
   RefTestRewriteToNullCheck
   RefTestRewriteToConst
@@ -2235,6 +2276,7 @@ priv struct OiRefTestRewritePlanFact {
   kind : OiRefTestRewritePlanKind
   test_fact : OiRefTestFact
   const_result : @lib.I32?
+  narrowed_ref_type : @lib.RefType?
 }
 
 ///|
@@ -2248,19 +2290,38 @@ fn OiRefTestRewritePlanFact::from_test(
   // effects when the operand cannot be erased. Keep the replacement decision as
   // a plan fact rather than a visitor-local cascade over evaluation outcomes and
   // purity predicates.
-  let result_fact = OiRefTestResultFact::from_test(ctx, func, test_fact)
+  let (active_test_fact, pending_tightening) = match
+    OiRefTestTighteningFact::from_test(ctx, func, test_fact) {
+    Some(tightening_fact) => {
+      let narrowed_ref_type = tightening_fact.narrowed_ref_type
+      (
+        {
+          nullable: narrowed_ref_type.is_nullable(),
+          exact: narrowed_ref_type.is_exact(),
+          target: narrowed_ref_type.get_heap_type(),
+          operand_id: test_fact.operand_id,
+          descriptor_style: test_fact.descriptor_style,
+        },
+        Some(narrowed_ref_type),
+      )
+    }
+    None => (test_fact, None)
+  }
+  let result_fact = OiRefTestResultFact::from_test(ctx, func, active_test_fact)
   if result_fact.rewrite_to_ref_is_non_null {
     return Some({
       kind: RefTestRewriteToNonNullCheck,
-      test_fact,
+      test_fact: active_test_fact,
       const_result: None,
+      narrowed_ref_type: None,
     })
   }
   if result_fact.rewrite_to_ref_is_null {
     return Some({
       kind: RefTestRewriteToNullCheck,
-      test_fact,
+      test_fact: active_test_fact,
       const_result: None,
+      narrowed_ref_type: None,
     })
   }
   match result_fact.known_const_result {
@@ -2283,11 +2344,22 @@ fn OiRefTestRewritePlanFact::from_test(
         } else {
           RefTestDropOperandThenConst
         },
-        test_fact,
+        test_fact: active_test_fact,
         const_result: Some(value),
+        narrowed_ref_type: None,
       })
     }
-    None => None
+    None =>
+      match pending_tightening {
+        Some(narrowed_ref_type) =>
+          Some({
+            kind: RefTestTightenTarget,
+            test_fact: active_test_fact,
+            const_result: None,
+            narrowed_ref_type: Some(narrowed_ref_type),
+          })
+        None => None
+      }
   }
 }
 
@@ -2333,6 +2405,29 @@ fn OiRefTestRewritePlanFact::apply(
 ) -> Bool {
   let operand_id = self.test_fact.operand_id
   match self.kind {
+    RefTestTightenTarget => {
+      let narrowed_ref_type = match self.narrowed_ref_type {
+        Some(ref_type) => ref_type
+        None => return false
+      }
+      let payload_id = @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(
+          @lib.Instruction::ref_test_type(narrowed_ref_type),
+        ),
+      )
+      let narrowed = @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, node_id).op,
+        @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+        imm1=payload_id,
+        children=[operand_id],
+      )
+      @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+      @ir.hot_delete_node(func, narrowed)
+      pass_mark_mutated(ctx, func)
+      true
+    }
     RefTestRewriteToNonNullCheck => {
       self.replace_with_ref_is_non_null_test(ctx, func, node_id)
       true
