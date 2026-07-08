@@ -20696,6 +20696,342 @@ fn OiEqzConditionSelectFact::apply(
 }
 
 ///|
+priv enum OiZeroCompareConditionSelectRewriteKind {
+  ZeroCompareConditionSelectNoRewriteBoundary
+  ZeroCompareConditionSelectI32Eqz
+  ZeroCompareConditionSelectI32NeZero
+  ZeroCompareConditionSelectI64Eqz
+  ZeroCompareConditionSelectI64NeZero
+  ZeroCompareConditionSelectSwapArms
+  ZeroCompareConditionSelectKeepArms
+}
+
+///|
+priv struct OiZeroCompareConditionSelectFact {
+  inner_condition_id : Int
+  if_true_id : Int
+  if_false_id : Int
+  kind : OiZeroCompareConditionSelectRewriteKind
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::no_rewrite_boundary(
+  inner_condition_id : Int,
+  if_true_id : Int,
+  if_false_id : Int,
+) -> OiZeroCompareConditionSelectFact {
+  {
+    inner_condition_id,
+    if_true_id,
+    if_false_id,
+    kind: ZeroCompareConditionSelectNoRewriteBoundary,
+  }
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::simple(
+  inner_condition_id : Int,
+  if_true_id : Int,
+  if_false_id : Int,
+  kind : OiZeroCompareConditionSelectRewriteKind,
+) -> OiZeroCompareConditionSelectFact {
+  { inner_condition_id, if_true_id, if_false_id, kind }
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::from_select_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  condition_id : Int,
+  if_true : Int,
+  if_false : Int,
+) -> OiZeroCompareConditionSelectFact? {
+  // Binaryen v130 `optimizeBoolean` strips direct integer equality/inequality
+  // zero comparisons in select conditions before the generic boolean-arm
+  // fallback. This fact records the zero-compare shell, live inner operand,
+  // exact boolean-arm composition, and value-select arm-order payload so the
+  // visitor does not own the condition opcode/result scanner for this family.
+  match @ir.hot_node_exact_instr(func, condition_id) {
+    Some(@lib.Instruction::I32Eq) | Some(@lib.Instruction::I32Ne) if @ir.hot_child_count(
+        func, condition_id,
+      ) ==
+      2 => {
+      let lhs_id = @ir.hot_child_get(func, condition_id, 0)
+      let rhs_id = @ir.hot_child_get(func, condition_id, 1)
+      let inner_condition = match
+        optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) if raw == 0 => Some(lhs_id)
+        _ =>
+          match optimize_instructions_i32_const(func, dead, lhs_id) {
+            Some(@lib.I32(raw)) if raw == 0 => Some(rhs_id)
+            _ => None
+          }
+      }
+      match inner_condition {
+        Some(inner_condition) => {
+          if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
+            return Some(
+              OiZeroCompareConditionSelectFact::no_rewrite_boundary(
+                inner_condition, if_true, if_false,
+              ),
+            )
+          }
+          let invert_condition = match
+            @ir.hot_node_exact_instr(func, condition_id) {
+            Some(@lib.Instruction::I32Eq) => true
+            _ => false
+          }
+          match
+            (
+              optimize_instructions_i32_const(func, dead, if_true),
+              optimize_instructions_i32_const(func, dead, if_false),
+            ) {
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) if invert_condition =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI32Eqz,
+                ),
+              )
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) if invert_condition =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI32NeZero,
+                ),
+              )
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI32NeZero,
+                ),
+              )
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI32Eqz,
+                ),
+              )
+            _ =>
+              match
+                @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+                [_] =>
+                  Some(
+                    OiZeroCompareConditionSelectFact::simple(
+                      inner_condition,
+                      if_true,
+                      if_false,
+                      if invert_condition {
+                        ZeroCompareConditionSelectSwapArms
+                      } else {
+                        ZeroCompareConditionSelectKeepArms
+                      },
+                    ),
+                  )
+                _ => None
+              }
+          }
+        }
+        _ => None
+      }
+    }
+    Some(@lib.Instruction::I64Eq) | Some(@lib.Instruction::I64Ne) if @ir.hot_child_count(
+        func, condition_id,
+      ) ==
+      2 => {
+      let lhs_id = @ir.hot_child_get(func, condition_id, 0)
+      let rhs_id = @ir.hot_child_get(func, condition_id, 1)
+      let inner_condition = match
+        optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) if raw == 0L => Some(lhs_id)
+        _ =>
+          match optimize_instructions_i64_const(func, dead, lhs_id) {
+            Some(@lib.I64(raw)) if raw == 0L => Some(rhs_id)
+            _ => None
+          }
+      }
+      match inner_condition {
+        Some(inner_condition) => {
+          if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
+            return Some(
+              OiZeroCompareConditionSelectFact::no_rewrite_boundary(
+                inner_condition, if_true, if_false,
+              ),
+            )
+          }
+          let invert_condition = match
+            @ir.hot_node_exact_instr(func, condition_id) {
+            Some(@lib.Instruction::I64Eq) => true
+            _ => false
+          }
+          match
+            (
+              optimize_instructions_i32_const(func, dead, if_true),
+              optimize_instructions_i32_const(func, dead, if_false),
+            ) {
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) if invert_condition =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI64Eqz,
+                ),
+              )
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) if invert_condition =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI64NeZero,
+                ),
+              )
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI64NeZero,
+                ),
+              )
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
+              Some(
+                OiZeroCompareConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  ZeroCompareConditionSelectI64Eqz,
+                ),
+              )
+            _ =>
+              match
+                @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+                [_] =>
+                  Some(
+                    OiZeroCompareConditionSelectFact::simple(
+                      inner_condition,
+                      if_true,
+                      if_false,
+                      if invert_condition {
+                        ZeroCompareConditionSelectSwapArms
+                      } else {
+                        ZeroCompareConditionSelectKeepArms
+                      },
+                    ),
+                  )
+                _ => None
+              }
+          }
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::apply(
+  self : OiZeroCompareConditionSelectFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    ZeroCompareConditionSelectNoRewriteBoundary => false
+    ZeroCompareConditionSelectI32Eqz => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_eqz(),
+        self.inner_condition_id,
+      )
+      true
+    }
+    ZeroCompareConditionSelectI32NeZero => {
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        self.inner_condition_id,
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+      )
+      true
+    }
+    ZeroCompareConditionSelectI64Eqz => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_eqz(),
+        self.inner_condition_id,
+      )
+      true
+    }
+    ZeroCompareConditionSelectI64NeZero => {
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_ne(),
+        self.inner_condition_id,
+        @ir.hot_build_const_i64(func, @lib.I64(0L)),
+      )
+      true
+    }
+    ZeroCompareConditionSelectSwapArms =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [result_type] => {
+          let replacement = @ir.hot_build_select(
+            func,
+            result_type,
+            self.if_false_id,
+            self.if_true_id,
+            self.inner_condition_id,
+          )
+          optimize_instructions_replace_with_node_id(
+            ctx, func, node_id, replacement,
+          )
+          true
+        }
+        _ => false
+      }
+    ZeroCompareConditionSelectKeepArms =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [result_type] => {
+          let replacement = @ir.hot_build_select(
+            func,
+            result_type,
+            self.if_true_id,
+            self.if_false_id,
+            self.inner_condition_id,
+          )
+          optimize_instructions_replace_with_node_id(
+            ctx, func, node_id, replacement,
+          )
+          true
+        }
+        _ => false
+      }
+  }
+}
+
+///|
 priv enum OiBooleanConstSelectRewriteKind {
   BooleanConstSelectConditionNonzero
   BooleanConstSelectConditionEqz
@@ -20784,197 +21120,11 @@ fn optimize_instructions_try_fold_const_select(
     Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
   }
-  match @ir.hot_node_exact_instr(func, condition) {
-    Some(compare_instr) if @ir.hot_child_count(func, condition) == 2 =>
-      match compare_instr {
-        @lib.Instruction::I32Eq | @lib.Instruction::I32Ne => {
-          let lhs_id = @ir.hot_child_get(func, condition, 0)
-          let rhs_id = @ir.hot_child_get(func, condition, 1)
-          let inner_condition = match
-            optimize_instructions_i32_const(func, dead, rhs_id) {
-            Some(@lib.I32(raw)) if raw == 0 => Some(lhs_id)
-            _ =>
-              match optimize_instructions_i32_const(func, dead, lhs_id) {
-                Some(@lib.I32(raw)) if raw == 0 => Some(rhs_id)
-                _ => None
-              }
-          }
-          match inner_condition {
-            Some(inner_condition) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
-                return false
-              }
-              let invert_condition = match compare_instr {
-                @lib.Instruction::I32Eq => true
-                _ => false
-              }
-              match
-                (
-                  optimize_instructions_i32_const(func, dead, if_true),
-                  optimize_instructions_i32_const(func, dead, if_false),
-                ) {
-                (Some(@lib.I32(1)), Some(@lib.I32(0))) if invert_condition => {
-                  optimize_instructions_replace_with_exact_unary(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i32_eqz(),
-                    inner_condition,
-                  )
-                  return true
-                }
-                (Some(@lib.I32(0)), Some(@lib.I32(1))) if invert_condition => {
-                  optimize_instructions_replace_with_exact_compare(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i32_ne(),
-                    inner_condition,
-                    @ir.hot_build_const_i32(func, @lib.I32(0)),
-                  )
-                  return true
-                }
-                (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-                  optimize_instructions_replace_with_exact_compare(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i32_ne(),
-                    inner_condition,
-                    @ir.hot_build_const_i32(func, @lib.I32(0)),
-                  )
-                  return true
-                }
-                (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-                  optimize_instructions_replace_with_exact_unary(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i32_eqz(),
-                    inner_condition,
-                  )
-                  return true
-                }
-                _ => ()
-              }
-              match
-                @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-                [result_type] => {
-                  let replacement = if invert_condition {
-                    @ir.hot_build_select(
-                      func, result_type, if_false, if_true, inner_condition,
-                    )
-                  } else {
-                    @ir.hot_build_select(
-                      func, result_type, if_true, if_false, inner_condition,
-                    )
-                  }
-                  optimize_instructions_replace_with_node_id(
-                    ctx, func, node_id, replacement,
-                  )
-                  return true
-                }
-                _ => ()
-              }
-            }
-            _ => ()
-          }
-        }
-        @lib.Instruction::I64Eq | @lib.Instruction::I64Ne => {
-          let lhs_id = @ir.hot_child_get(func, condition, 0)
-          let rhs_id = @ir.hot_child_get(func, condition, 1)
-          let inner_condition = match
-            optimize_instructions_i64_const(func, dead, rhs_id) {
-            Some(@lib.I64(raw)) if raw == 0L => Some(lhs_id)
-            _ =>
-              match optimize_instructions_i64_const(func, dead, lhs_id) {
-                Some(@lib.I64(raw)) if raw == 0L => Some(rhs_id)
-                _ => None
-              }
-          }
-          match inner_condition {
-            Some(inner_condition) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
-                return false
-              }
-              let invert_condition = match compare_instr {
-                @lib.Instruction::I64Eq => true
-                _ => false
-              }
-              match
-                (
-                  optimize_instructions_i32_const(func, dead, if_true),
-                  optimize_instructions_i32_const(func, dead, if_false),
-                ) {
-                (Some(@lib.I32(1)), Some(@lib.I32(0))) if invert_condition => {
-                  optimize_instructions_replace_with_exact_unary(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i64_eqz(),
-                    inner_condition,
-                  )
-                  return true
-                }
-                (Some(@lib.I32(0)), Some(@lib.I32(1))) if invert_condition => {
-                  optimize_instructions_replace_with_exact_compare(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i64_ne(),
-                    inner_condition,
-                    @ir.hot_build_const_i64(func, @lib.I64(0L)),
-                  )
-                  return true
-                }
-                (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-                  optimize_instructions_replace_with_exact_compare(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i64_ne(),
-                    inner_condition,
-                    @ir.hot_build_const_i64(func, @lib.I64(0L)),
-                  )
-                  return true
-                }
-                (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-                  optimize_instructions_replace_with_exact_unary(
-                    ctx,
-                    func,
-                    node_id,
-                    @lib.Instruction::i64_eqz(),
-                    inner_condition,
-                  )
-                  return true
-                }
-                _ => ()
-              }
-              match
-                @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-                [result_type] => {
-                  let replacement = if invert_condition {
-                    @ir.hot_build_select(
-                      func, result_type, if_false, if_true, inner_condition,
-                    )
-                  } else {
-                    @ir.hot_build_select(
-                      func, result_type, if_true, if_false, inner_condition,
-                    )
-                  }
-                  optimize_instructions_replace_with_node_id(
-                    ctx, func, node_id, replacement,
-                  )
-                  return true
-                }
-                _ => ()
-              }
-            }
-            _ => ()
-          }
-        }
-        _ => ()
-      }
+  match
+    OiZeroCompareConditionSelectFact::from_select_condition(
+      func, dead, node_id, condition, if_true, if_false,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
   }
   match @ir.hot_node_exact_instr(func, condition) {
