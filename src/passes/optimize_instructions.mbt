@@ -5679,13 +5679,23 @@ fn OiCombinedShiftZeroBitsFact::apply(
 }
 
 ///|
-priv struct OiArithmeticMaxBitsFact {
-  width_bits : Int
+priv struct OiI32ArithmeticMaxBitsFact {
+  value_id : Int
+  lhs_id : Int
+  rhs_id : Int
   max_bits : Int
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::cap(width_bits : Int, max_bits : Int) -> Int {
+priv struct OiI64ArithmeticMaxBitsFact {
+  value_id : Int
+  lhs_id : Int
+  rhs_id : Int
+  max_bits : Int
+}
+
+///|
+fn optimize_instructions_max_bits_cap(width_bits : Int, max_bits : Int) -> Int {
   if max_bits > width_bits {
     width_bits
   } else {
@@ -5710,7 +5720,7 @@ fn OiAddMaxBitsFact::from_bits(
   let operand_bits = if left_bits > right_bits { left_bits } else { right_bits }
   {
     width_bits,
-    max_bits: OiArithmeticMaxBitsFact::cap(width_bits, operand_bits + 1),
+    max_bits: optimize_instructions_max_bits_cap(width_bits, operand_bits + 1),
   }
 }
 
@@ -5730,7 +5740,10 @@ fn OiMulMaxBitsFact::from_bits(
   // lane width.
   {
     width_bits,
-    max_bits: OiArithmeticMaxBitsFact::cap(width_bits, left_bits + right_bits),
+    max_bits: optimize_instructions_max_bits_cap(
+      width_bits,
+      left_bits + right_bits,
+    ),
   }
 }
 
@@ -5796,14 +5809,7 @@ fn OiRemMaxBitsFact::from_bits(
 }
 
 ///|
-priv enum OiArithmeticShiftMaxBitsKind {
-  ArithmeticShlMaxBits
-  ArithmeticShrSMaxBits
-}
-
-///|
 priv struct OiArithmeticShiftMaxBitsFact {
-  kind : OiArithmeticShiftMaxBitsKind
   width_bits : Int
   amount : Int
   max_bits : Int
@@ -5820,10 +5826,9 @@ fn OiArithmeticShiftMaxBitsFact::from_i32_shl(
     Some(fact) => {
       ignore(fact.width_bits)
       Some({
-        kind: ArithmeticShlMaxBits,
         width_bits: 32,
         amount: fact.amount,
-        max_bits: OiArithmeticMaxBitsFact::cap(32, lhs_bits + fact.amount),
+        max_bits: optimize_instructions_max_bits_cap(32, lhs_bits + fact.amount),
       })
     }
     None => None
@@ -5841,12 +5846,7 @@ fn OiArithmeticShiftMaxBitsFact::from_i32_shr_s(
     Some(fact) if lhs_bits < 32 => {
       ignore(fact.width_bits)
       let shifts = if fact.amount < lhs_bits { fact.amount } else { lhs_bits }
-      Some({
-        kind: ArithmeticShrSMaxBits,
-        width_bits: 32,
-        amount: fact.amount,
-        max_bits: lhs_bits - shifts,
-      })
+      Some({ width_bits: 32, amount: fact.amount, max_bits: lhs_bits - shifts })
     }
     _ => None
   }
@@ -5863,10 +5863,9 @@ fn OiArithmeticShiftMaxBitsFact::from_i64_shl(
     Some(fact) => {
       ignore(fact.width_bits)
       Some({
-        kind: ArithmeticShlMaxBits,
         width_bits: 64,
         amount: fact.amount,
-        max_bits: OiArithmeticMaxBitsFact::cap(64, lhs_bits + fact.amount),
+        max_bits: optimize_instructions_max_bits_cap(64, lhs_bits + fact.amount),
       })
     }
     None => None
@@ -5884,71 +5883,47 @@ fn OiArithmeticShiftMaxBitsFact::from_i64_shr_s(
     Some(fact) if lhs_bits < 64 => {
       ignore(fact.width_bits)
       let shifts = if fact.amount < lhs_bits { fact.amount } else { lhs_bits }
-      Some({
-        kind: ArithmeticShrSMaxBits,
-        width_bits: 64,
-        amount: fact.amount,
-        max_bits: lhs_bits - shifts,
-      })
+      Some({ width_bits: 64, amount: fact.amount, max_bits: lhs_bits - shifts })
     }
     _ => None
   }
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::from_add(
-  fact : OiAddMaxBitsFact,
-) -> OiArithmeticMaxBitsFact {
-  { width_bits: fact.width_bits, max_bits: fact.max_bits }
+fn OiI32ArithmeticMaxBitsFact::from_max_bits(
+  value_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+  max_bits : Int,
+) -> OiI32ArithmeticMaxBitsFact {
+  { value_id, lhs_id, rhs_id, max_bits }
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::from_mul(
-  fact : OiMulMaxBitsFact,
-) -> OiArithmeticMaxBitsFact {
-  { width_bits: fact.width_bits, max_bits: fact.max_bits }
+fn OiI64ArithmeticMaxBitsFact::from_max_bits(
+  value_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+  max_bits : Int,
+) -> OiI64ArithmeticMaxBitsFact {
+  { value_id, lhs_id, rhs_id, max_bits }
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::from_div(
-  fact : OiDivMaxBitsFact,
-) -> OiArithmeticMaxBitsFact {
-  { width_bits: fact.width_bits, max_bits: fact.max_bits }
-}
-
-///|
-fn OiArithmeticMaxBitsFact::from_rem(
-  fact : OiRemMaxBitsFact,
-) -> OiArithmeticMaxBitsFact {
-  { width_bits: fact.width_bits, max_bits: fact.max_bits }
-}
-
-///|
-fn OiArithmeticMaxBitsFact::from_shift(
-  fact : OiArithmeticShiftMaxBitsFact,
-) -> OiArithmeticMaxBitsFact {
-  match fact.kind {
-    ArithmeticShlMaxBits | ArithmeticShrSMaxBits => {
-      ignore(fact.amount)
-      { width_bits: fact.width_bits, max_bits: fact.max_bits }
-    }
-  }
-}
-
-///|
-fn OiArithmeticMaxBitsFact::binary_i32(
+fn OiI32ArithmeticMaxBitsFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
+  node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> OiArithmeticMaxBitsFact? {
-  // Binaryen v130 `Bits::getMaxBits` derives arithmetic max-bit counts from
-  // operand max bits for add, multiply, constant left shift, arithmetic right
-  // shift, division, and remainder. Keep those derivations in one source-backed
-  // fact so downstream zero-bit, signed-to-unsigned, and wrap/extend consumers
-  // do not grow their own operator whitelists.
+) -> OiI32ArithmeticMaxBitsFact? {
+  // Binaryen v130 `Bits::getMaxBits` derives i32 arithmetic max-bit counts
+  // from operand max bits for add, multiply, constant left shift, arithmetic
+  // right shift, division, and remainder. Keep the width-specific wrapper fact
+  // explicit so downstream zero-bit, signed-to-unsigned, and wrap/extend
+  // consumers do not grow their own operator whitelists.
   let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
     func, dead, local_facts, lhs_id,
   )
@@ -5960,11 +5935,9 @@ fn OiArithmeticMaxBitsFact::binary_i32(
           func, dead, local_facts, rhs_id,
         ),
       )
-      Some(
-        OiArithmeticMaxBitsFact::from_add(
-          OiAddMaxBitsFact::from_bits(32, lhs_bits, rhs_bits),
-        ).max_bits,
-      )
+      let fact = OiAddMaxBitsFact::from_bits(32, lhs_bits, rhs_bits)
+      ignore(fact.width_bits)
+      Some(fact.max_bits)
     }
     @lib.Instruction::I32Mul => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
@@ -5972,11 +5945,9 @@ fn OiArithmeticMaxBitsFact::binary_i32(
           func, dead, local_facts, rhs_id,
         ),
       )
-      Some(
-        OiArithmeticMaxBitsFact::from_mul(
-          OiMulMaxBitsFact::from_bits(32, lhs_bits, rhs_bits),
-        ).max_bits,
-      )
+      let fact = OiMulMaxBitsFact::from_bits(32, lhs_bits, rhs_bits)
+      ignore(fact.width_bits)
+      Some(fact.max_bits)
     }
     @lib.Instruction::I32DivS | @lib.Instruction::I32DivU => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
@@ -5985,7 +5956,10 @@ fn OiArithmeticMaxBitsFact::binary_i32(
         ),
       )
       match OiDivMaxBitsFact::from_bits(32, lhs_bits, rhs_bits) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_div(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          Some(fact.max_bits)
+        }
         None => None
       }
     }
@@ -5996,14 +5970,21 @@ fn OiArithmeticMaxBitsFact::binary_i32(
         ),
       )
       match OiRemMaxBitsFact::from_bits(32, lhs_bits, rhs_bits) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_rem(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          Some(fact.max_bits)
+        }
         None => None
       }
     }
     @lib.Instruction::I32Shl =>
       match
         OiArithmeticShiftMaxBitsFact::from_i32_shl(func, dead, lhs_bits, rhs_id) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          ignore(fact.amount)
+          Some(fact.max_bits)
+        }
         None => None
       }
     @lib.Instruction::I32ShrS =>
@@ -6011,27 +5992,35 @@ fn OiArithmeticMaxBitsFact::binary_i32(
         OiArithmeticShiftMaxBitsFact::from_i32_shr_s(
           func, dead, lhs_bits, rhs_id,
         ) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          ignore(fact.amount)
+          Some(fact.max_bits)
+        }
         None => None
       }
     _ => None
   }
   match max_bits {
-    Some(bits) => Some({ width_bits: 32, max_bits: bits })
+    Some(bits) =>
+      Some(
+        OiI32ArithmeticMaxBitsFact::from_max_bits(node_id, lhs_id, rhs_id, bits),
+      )
     None => None
   }
 }
 
 ///|
-fn OiArithmeticMaxBitsFact::binary_i64(
+fn OiI64ArithmeticMaxBitsFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
+  node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-) -> OiArithmeticMaxBitsFact? {
-  // Same Binaryen v130 arithmetic `Bits::getMaxBits` family as `binary_i32`,
+) -> OiI64ArithmeticMaxBitsFact? {
+  // Same Binaryen v130 arithmetic `Bits::getMaxBits` family as the i32 fact,
   // specialized for i64 widths and i64-typed shift operands in Starshine HOT.
   let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
     func, dead, local_facts, lhs_id,
@@ -6044,11 +6033,9 @@ fn OiArithmeticMaxBitsFact::binary_i64(
           func, dead, local_facts, rhs_id,
         ),
       )
-      Some(
-        OiArithmeticMaxBitsFact::from_add(
-          OiAddMaxBitsFact::from_bits(64, lhs_bits, rhs_bits),
-        ).max_bits,
-      )
+      let fact = OiAddMaxBitsFact::from_bits(64, lhs_bits, rhs_bits)
+      ignore(fact.width_bits)
+      Some(fact.max_bits)
     }
     @lib.Instruction::I64Mul => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
@@ -6056,11 +6043,9 @@ fn OiArithmeticMaxBitsFact::binary_i64(
           func, dead, local_facts, rhs_id,
         ),
       )
-      Some(
-        OiArithmeticMaxBitsFact::from_mul(
-          OiMulMaxBitsFact::from_bits(64, lhs_bits, rhs_bits),
-        ).max_bits,
-      )
+      let fact = OiMulMaxBitsFact::from_bits(64, lhs_bits, rhs_bits)
+      ignore(fact.width_bits)
+      Some(fact.max_bits)
     }
     @lib.Instruction::I64DivS | @lib.Instruction::I64DivU => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
@@ -6069,7 +6054,10 @@ fn OiArithmeticMaxBitsFact::binary_i64(
         ),
       )
       match OiDivMaxBitsFact::from_bits(64, lhs_bits, rhs_bits) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_div(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          Some(fact.max_bits)
+        }
         None => None
       }
     }
@@ -6080,14 +6068,21 @@ fn OiArithmeticMaxBitsFact::binary_i64(
         ),
       )
       match OiRemMaxBitsFact::from_bits(64, lhs_bits, rhs_bits) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_rem(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          Some(fact.max_bits)
+        }
         None => None
       }
     }
     @lib.Instruction::I64Shl =>
       match
         OiArithmeticShiftMaxBitsFact::from_i64_shl(func, dead, lhs_bits, rhs_id) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          ignore(fact.amount)
+          Some(fact.max_bits)
+        }
         None => None
       }
     @lib.Instruction::I64ShrS =>
@@ -6095,13 +6090,20 @@ fn OiArithmeticMaxBitsFact::binary_i64(
         OiArithmeticShiftMaxBitsFact::from_i64_shr_s(
           func, dead, lhs_bits, rhs_id,
         ) {
-        Some(fact) => Some(OiArithmeticMaxBitsFact::from_shift(fact).max_bits)
+        Some(fact) => {
+          ignore(fact.width_bits)
+          ignore(fact.amount)
+          Some(fact.max_bits)
+        }
         None => None
       }
     _ => None
   }
   match max_bits {
-    Some(bits) => Some({ width_bits: 64, max_bits: bits })
+    Some(bits) =>
+      Some(
+        OiI64ArithmeticMaxBitsFact::from_max_bits(node_id, lhs_id, rhs_id, bits),
+      )
     None => None
   }
 }
@@ -6629,11 +6631,13 @@ fn OiI32BinaryMaxBitsProducerFact::from_binary(
         Some(fact) => fact.max_value
         None =>
           match
-            OiArithmeticMaxBitsFact::binary_i32(
-              func, dead, local_facts, instr, lhs_id, rhs_id,
+            OiI32ArithmeticMaxBitsFact::from_binary(
+              func, dead, local_facts, node_id, instr, lhs_id, rhs_id,
             ) {
             Some(fact) => {
-              ignore(fact.width_bits)
+              ignore(fact.value_id)
+              ignore(fact.lhs_id)
+              ignore(fact.rhs_id)
               OiUnsignedMaxValueFact::i32_max_for_bits(fact.max_bits)
             }
             None => return None
@@ -6667,11 +6671,13 @@ fn OiI64BinaryMaxBitsProducerFact::from_binary(
         Some(fact) => fact.max_value
         None =>
           match
-            OiArithmeticMaxBitsFact::binary_i64(
-              func, dead, local_facts, instr, lhs_id, rhs_id,
+            OiI64ArithmeticMaxBitsFact::from_binary(
+              func, dead, local_facts, node_id, instr, lhs_id, rhs_id,
             ) {
             Some(fact) => {
-              ignore(fact.width_bits)
+              ignore(fact.value_id)
+              ignore(fact.lhs_id)
+              ignore(fact.rhs_id)
               OiUnsignedMaxValueFact::i64_max_for_bits(fact.max_bits)
             }
             None => return None
