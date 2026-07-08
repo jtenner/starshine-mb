@@ -6288,6 +6288,14 @@ priv struct OiCallRefTableTargetFact {
 }
 
 ///|
+priv struct OiCallRefFallthroughDirectTargetFact {
+  target_id : Int
+  fallthrough_func : Int
+  fallthrough_fact : OiCallRefFallthroughTargetFact
+  type_fact : OiCallRefFallthroughTypeFact
+}
+
+///|
 priv struct OiCallRefTargetFact {
   direct_func : Int
   table_idx : Int
@@ -6296,6 +6304,7 @@ priv struct OiCallRefTargetFact {
   select_fact : OiCallRefSelectTargetFact?
   direct_fact : OiCallRefDirectTargetFact?
   table_fact : OiCallRefTableTargetFact?
+  fallthrough_direct_fact : OiCallRefFallthroughDirectTargetFact?
 }
 
 ///|
@@ -6308,6 +6317,7 @@ fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
     select_fact: None,
     direct_fact: None,
     table_fact: None,
+    fallthrough_direct_fact: None,
   }
 }
 
@@ -6323,6 +6333,7 @@ fn OiCallRefTargetFact::from_direct_fact(
     select_fact: None,
     direct_fact: Some(fact),
     table_fact: None,
+    fallthrough_direct_fact: None,
   }
 }
 
@@ -6338,6 +6349,23 @@ fn OiCallRefTargetFact::from_table_fact(
     select_fact: None,
     direct_fact: None,
     table_fact: Some(fact),
+    fallthrough_direct_fact: None,
+  }
+}
+
+///|
+fn OiCallRefTargetFact::from_fallthrough_direct_fact(
+  fact : OiCallRefFallthroughDirectTargetFact,
+) -> OiCallRefTargetFact {
+  {
+    direct_func: -1,
+    table_idx: -1,
+    table_index_id: -1,
+    fallthrough_func: fact.fallthrough_func,
+    select_fact: None,
+    direct_fact: None,
+    table_fact: None,
+    fallthrough_direct_fact: Some(fact),
   }
 }
 
@@ -6411,6 +6439,50 @@ fn OiCallRefTableTargetFact::proves_table_get_target(
 }
 
 ///|
+fn OiCallRefFallthroughDirectTargetFact::from_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  target_id : Int,
+) -> OiCallRefFallthroughDirectTargetFact? {
+  // Binaryen v130 `visitCallRef` asks `Properties::getFallthrough` for a
+  // `ref.func` after immediate direct/table targets fail, then checks that the
+  // original call_ref target heap still matches the fallthrough function heap.
+  // Keep that directizable-fallthrough proof as a source-shaped fact consumed
+  // by the generic target plan, rather than branching on block/wrapper opcodes
+  // in the target classifier.
+  if target_id < 0 || !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
+    return None
+  }
+  let fallthrough_fact = OiCallRefFallthroughTargetFact::from_node(
+    func, dead, target_id,
+  )
+  let type_fact = OiCallRefFallthroughTypeFact::from_target(
+    func, target_id, fallthrough_fact,
+  )
+  if fallthrough_fact.has_direct_func() &&
+    type_fact.proves_target_heap_matches_ref_func_heap() {
+    Some({
+      target_id,
+      fallthrough_func: fallthrough_fact.direct_func,
+      fallthrough_fact,
+      type_fact,
+    })
+  } else {
+    None
+  }
+}
+
+///|
+fn OiCallRefFallthroughDirectTargetFact::proves_fallthrough_ref_func(
+  self : OiCallRefFallthroughDirectTargetFact,
+) -> Bool {
+  self.target_id >= 0 &&
+  self.fallthrough_func >= 0 &&
+  self.fallthrough_fact.has_direct_func() &&
+  self.type_fact.proves_target_heap_matches_ref_func_heap()
+}
+
+///|
 fn OiCallRefTargetFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -6430,68 +6502,16 @@ fn OiCallRefTargetFact::from_target(
       return OiCallRefTargetFact::from_table_fact(fact)
     _ => ()
   }
+  match
+    OiCallRefFallthroughDirectTargetFact::from_target(func, dead, callee_ref_id) {
+    Some(fact) if fact.proves_fallthrough_ref_func() =>
+      return OiCallRefTargetFact::from_fallthrough_direct_fact(fact)
+    _ => ()
+  }
   match callee_ref.op {
-    @ir.HotOp::Block =>
-      OiCallRefTargetFact::from_fallthrough_block(func, dead, callee_ref_id)
     @ir.HotOp::Select if callee_ref.child_count == 3 =>
       OiCallRefTargetFact::from_select(func, dead, callee_ref_id)
-    _ => {
-      let fallthrough = OiCallRefFallthroughTargetFact::from_node(
-        func, dead, callee_ref_id,
-      )
-      let type_fact = OiCallRefFallthroughTypeFact::from_target(
-        func, callee_ref_id, fallthrough,
-      )
-      if fallthrough.has_direct_func() &&
-        type_fact.proves_target_heap_matches_ref_func_heap() {
-        {
-          direct_func: -1,
-          table_idx: -1,
-          table_index_id: -1,
-          fallthrough_func: fallthrough.direct_func,
-          select_fact: None,
-          direct_fact: None,
-          table_fact: None,
-        }
-      } else {
-        OiCallRefTargetFact::unknown()
-      }
-    }
-  }
-}
-
-///|
-fn OiCallRefTargetFact::from_fallthrough_block(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  callee_ref_id : Int,
-) -> OiCallRefTargetFact {
-  let body_ref = @ir.hot_region_body_ref(func, callee_ref_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count < 1 {
-    return OiCallRefTargetFact::unknown()
-  }
-  let target_id = @ir.hot_region_get(func, body_ref, root_count - 1)
-  if !OiLiveNodeFact::proves_node_live(func, dead, target_id) {
-    return OiCallRefTargetFact::unknown()
-  }
-  let target = OiCallRefFallthroughTargetFact::from_node(func, dead, target_id)
-  let type_fact = OiCallRefFallthroughTypeFact::from_target(
-    func, callee_ref_id, target,
-  )
-  if target.has_direct_func() &&
-    type_fact.proves_target_heap_matches_ref_func_heap() {
-    {
-      direct_func: -1,
-      table_idx: -1,
-      table_index_id: -1,
-      fallthrough_func: target.direct_func,
-      select_fact: None,
-      direct_fact: None,
-      table_fact: None,
-    }
-  } else {
-    OiCallRefTargetFact::unknown()
+    _ => OiCallRefTargetFact::unknown()
   }
 }
 
@@ -6781,6 +6801,7 @@ fn OiCallRefTargetFact::from_select(
         select_fact: Some(select_fact),
         direct_fact: None,
         table_fact: None,
+        fallthrough_direct_fact: None,
       }
     None => OiCallRefTargetFact::unknown()
   }
@@ -6806,7 +6827,10 @@ fn OiCallRefTargetFact::has_table_target(self : OiCallRefTargetFact) -> Bool {
 fn OiCallRefTargetFact::has_fallthrough_func(
   self : OiCallRefTargetFact,
 ) -> Bool {
-  self.fallthrough_func >= 0
+  match self.fallthrough_direct_fact {
+    Some(fact) => fact.proves_fallthrough_ref_func()
+    None => self.fallthrough_func >= 0
+  }
 }
 
 ///|
