@@ -3322,23 +3322,62 @@ fn OiRefCastTighteningFact::from_cast(
 }
 
 ///|
-fn OiRefCastChildCastFact::ref_type_is_subtype(
+priv enum OiRefCastChildSubtypeKind {
+  RefCastChildSubtypeMatch
+  RefCastChildSubtypeNullableMismatch
+  RefCastChildSubtypeExactMismatch
+  RefCastChildSubtypeHeapMismatch
+}
+
+///|
+priv struct OiRefCastChildSubtypeFact {
+  kind : OiRefCastChildSubtypeKind
+}
+
+///|
+fn OiRefCastChildSubtypeFact::from_types(
   ctx : HotPassContext,
-  source : @lib.RefType,
-  target : @lib.RefType,
+  parent_ref_type : @lib.RefType,
+  child_ref_type : @lib.RefType,
+) -> OiRefCastChildSubtypeFact {
+  // Binaryen v130 `visitRefCast` removes an ordinary child cast only when the
+  // parent cast result type is a subtype of the child cast result type. Keep the
+  // represented `Type::isSubType(curr->type, child->type)` decision as a named
+  // fact with explicit nullable/exact/heap mismatch outcomes instead of a
+  // helper-style subtype predicate hidden under the child-cast rewrite.
+  if child_ref_type.is_non_nullable() && parent_ref_type.is_nullable() {
+    return { kind: RefCastChildSubtypeNullableMismatch }
+  }
+  let parent_heap = parent_ref_type.get_heap_type()
+  let child_heap = child_ref_type.get_heap_type()
+  if child_ref_type.is_exact() {
+    return {
+      kind: if parent_ref_type.is_exact() && parent_heap == child_heap {
+        RefCastChildSubtypeMatch
+      } else {
+        RefCastChildSubtypeExactMismatch
+      },
+    }
+  }
+  {
+    kind: if OiHeapRelationFact::from_heaps(ctx, parent_heap, child_heap).known_match_target() {
+      RefCastChildSubtypeMatch
+    } else {
+      RefCastChildSubtypeHeapMismatch
+    },
+  }
+}
+
+///|
+fn OiRefCastChildSubtypeFact::proves_parent_subtypes_child(
+  self : OiRefCastChildSubtypeFact,
 ) -> Bool {
-  let nullable_ok = target.is_nullable() || source.is_non_nullable()
-  if !nullable_ok {
-    return false
+  match self.kind {
+    RefCastChildSubtypeMatch => true
+    RefCastChildSubtypeNullableMismatch
+    | RefCastChildSubtypeExactMismatch
+    | RefCastChildSubtypeHeapMismatch => false
   }
-  if target.is_exact() {
-    return source.is_exact() && source.get_heap_type() == target.get_heap_type()
-  }
-  OiHeapRelationFact::from_heaps(
-    ctx,
-    source.get_heap_type(),
-    target.get_heap_type(),
-  ).known_match_target()
 }
 
 ///|
@@ -3375,7 +3414,10 @@ fn OiRefCastChildCastFact::from_cast(
     child_fact.target,
     exact=child_fact.exact,
   )
-  if OiRefCastChildCastFact::ref_type_is_subtype(ctx, parent_type, child_type) {
+  let subtype_fact = OiRefCastChildSubtypeFact::from_types(
+    ctx, parent_type, child_type,
+  )
+  if subtype_fact.proves_parent_subtypes_child() {
     Some({ replacement_operand_id: child_fact.operand_id })
   } else {
     None
