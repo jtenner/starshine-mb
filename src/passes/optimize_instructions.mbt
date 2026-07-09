@@ -4251,9 +4251,15 @@ fn OiRefCastOperandTargetRelationFact::from_target_fact(
 }
 
 ///|
+priv enum OiRefCastOperandErasureKind {
+  RefCastOperandEraseTriviallyPure
+  RefCastOperandErasePureEffects
+  RefCastOperandPreserveEffects
+}
+
+///|
 priv struct OiRefCastOperandErasureFact {
-  trivially_pure : Bool
-  effects_pure : Bool
+  kind : OiRefCastOperandErasureKind
 }
 
 ///|
@@ -4265,21 +4271,30 @@ fn OiRefCastOperandErasureFact::from_operand(
   // Binaryen only drops a trapping ref.cast operand when its effects need not
   // be preserved. Keep that effect-preservation proof separate from the
   // source/target relation so miss rewrites cannot accidentally widen erasure.
-  {
-    trivially_pure: OiTriviallyPureOperandFact::proves_node_pure(
-      func, operand_id,
-    ),
-    effects_pure: optimize_instructions_node_effects_are_pure(
-      ctx, func, operand_id,
-    ),
+  let trivially_pure = OiTriviallyPureOperandFact::proves_node_pure(
+    func, operand_id,
+  )
+  let effects_pure = optimize_instructions_node_effects_are_pure(
+    ctx, func, operand_id,
+  )
+  let kind = if trivially_pure {
+    RefCastOperandEraseTriviallyPure
+  } else if effects_pure {
+    RefCastOperandErasePureEffects
+  } else {
+    RefCastOperandPreserveEffects
   }
+  { kind, }
 }
 
 ///|
 fn OiRefCastOperandErasureFact::proves_erases_without_effects(
   self : OiRefCastOperandErasureFact,
 ) -> Bool {
-  self.trivially_pure || self.effects_pure
+  match self.kind {
+    RefCastOperandEraseTriviallyPure | RefCastOperandErasePureEffects => true
+    RefCastOperandPreserveEffects => false
+  }
 }
 
 ///|
