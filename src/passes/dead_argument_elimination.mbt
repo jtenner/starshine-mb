@@ -6693,6 +6693,25 @@ fn dae_try_rewrite_first_control_child_body(
 }
 
 ///|
+fn dae_apply_first_current_or_control_child_body_rewrite(
+  body : Array[@lib.Instruction],
+  rewrite_current_body : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
+  rewrite_child_body : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
+) -> Array[@lib.Instruction]? {
+  match rewrite_current_body(body) {
+    Some(rewritten) => return Some(rewritten)
+    None => ()
+  }
+  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    dae_try_rewrite_first_control_child_body(instr, rewrite_child_body)
+  }
+  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
+  }
+}
+
+///|
 fn dae_result_rewrite_application_is_consistent(
   application : DaeResultRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
@@ -19477,10 +19496,17 @@ fn dae_try_fold_func237_dropped_result_branch_carrier_body_once(
 }
 
 ///|
-fn dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
-  instr : @lib.Instruction,
+fn dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+  body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-) -> @lib.Instruction? {
+) -> Array[@lib.Instruction]? {
+  let rewrite_current_body = fn(
+    current_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_dropped_result_branch_carrier_body_once(
+      current_body, type_sec,
+    )
+  }
   let rewrite_child_body = fn(
     child_body : Array[@lib.Instruction],
   ) -> Array[@lib.Instruction]? {
@@ -19488,28 +19514,9 @@ fn dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
       child_body, type_sec,
     )
   }
-  dae_try_rewrite_first_control_child_body(instr, rewrite_child_body)
-}
-
-///|
-fn dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-  body : Array[@lib.Instruction],
-  type_sec : @lib.TypeSec?,
-) -> Array[@lib.Instruction]? {
-  match
-    dae_try_fold_func237_dropped_result_branch_carrier_body_once(body, type_sec) {
-    Some(rewritten) => return Some(rewritten)
-    None => ()
-  }
-  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
-    dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
-      instr, type_sec,
-    )
-  }
-  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
-    Some((rewritten, _)) => Some(rewritten)
-    None => None
-  }
+  dae_apply_first_current_or_control_child_body_rewrite(
+    body, rewrite_current_body, rewrite_child_body,
+  )
 }
 
 ///|
@@ -19645,10 +19652,17 @@ fn dae_try_fold_func237_unreachable_after_if_else_branch_body_once(
 }
 
 ///|
-fn dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
-  instr : @lib.Instruction,
+fn dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+  body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-) -> @lib.Instruction? {
+) -> Array[@lib.Instruction]? {
+  let rewrite_current_body = fn(
+    current_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_once(
+      current_body, type_sec,
+    )
+  }
   let rewrite_child_body = fn(
     child_body : Array[@lib.Instruction],
   ) -> Array[@lib.Instruction]? {
@@ -19656,30 +19670,9 @@ fn dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
       child_body, type_sec,
     )
   }
-  dae_try_rewrite_first_control_child_body(instr, rewrite_child_body)
-}
-
-///|
-fn dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-  body : Array[@lib.Instruction],
-  type_sec : @lib.TypeSec?,
-) -> Array[@lib.Instruction]? {
-  match
-    dae_try_fold_func237_unreachable_after_if_else_branch_body_once(
-      body, type_sec,
-    ) {
-    Some(rewritten) => return Some(rewritten)
-    None => ()
-  }
-  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
-    dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
-      instr, type_sec,
-    )
-  }
-  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
-    Some((rewritten, _)) => Some(rewritten)
-    None => None
-  }
+  dae_apply_first_current_or_control_child_body_rewrite(
+    body, rewrite_current_body, rewrite_child_body,
+  )
 }
 
 ///|
@@ -21620,117 +21613,29 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
 }
 
 ///|
-fn dae_try_fold_func237_immediate_local_copy_instr_once(
-  instr : @lib.Instruction,
-  param_count : Int,
-  root_body : Array[@lib.Instruction],
-  root_has_try_table : Bool,
-) -> @lib.Instruction? {
-  match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-          body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten) =>
-          Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
-        None => None
-      }
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-          body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten) =>
-          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
-        None => None
-      }
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-          body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten) =>
-          Some(
-            @lib.Instruction::try_table(
-              block_type,
-              catches,
-              @lib.Expr::new(rewritten),
-            ),
-          )
-        None => None
-      }
-    @lib.If(block_type, then_body, Some(else_body)) =>
-      match
-        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-          then_body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten_then) =>
-          Some(
-            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
-          )
-        None =>
-          match
-            dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-              else_body, param_count, root_body, root_has_try_table,
-            ) {
-            Some(rewritten_else) =>
-              Some(
-                @lib.Instruction::if_(
-                  block_type,
-                  then_body,
-                  Some(rewritten_else),
-                ),
-              )
-            None => None
-          }
-      }
-    @lib.If(block_type, then_body, None) =>
-      match
-        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-          then_body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten_then) =>
-          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
-        None => None
-      }
-    _ => None
-  }
-}
-
-///|
 fn dae_try_fold_func237_immediate_local_copy_body_once_with_root(
   body : Array[@lib.Instruction],
   param_count : Int,
   root_body : Array[@lib.Instruction],
   root_has_try_table : Bool,
 ) -> Array[@lib.Instruction]? {
-  match
+  let rewrite_current_body = fn(
+    current_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
     dae_try_fold_func237_immediate_local_copy_flat_body_once(
-      body, param_count, root_body, root_has_try_table,
-    ) {
-    Some(rewritten) => return Some(rewritten)
-    None => ()
+      current_body, param_count, root_body, root_has_try_table,
+    )
   }
-  let mut idx = 0
-  while idx < body.length() {
-    match
-      dae_try_fold_func237_immediate_local_copy_instr_once(
-        body[idx],
-        param_count,
-        root_body,
-        root_has_try_table,
-      ) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_child_body = fn(
+    child_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+      child_body, param_count, root_body, root_has_try_table,
+    )
   }
-  None
+  dae_apply_first_current_or_control_child_body_rewrite(
+    body, rewrite_current_body, rewrite_child_body,
+  )
 }
 
 ///|
@@ -21887,117 +21792,29 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
 }
 
 ///|
-fn dae_try_fold_func237_used_temp_copy_instr_once(
-  instr : @lib.Instruction,
-  param_count : Int,
-  root_body : Array[@lib.Instruction],
-  root_has_try_table : Bool,
-) -> @lib.Instruction? {
-  match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_used_temp_copy_body_once_with_root(
-          body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten) =>
-          Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
-        None => None
-      }
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_used_temp_copy_body_once_with_root(
-          body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten) =>
-          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
-        None => None
-      }
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_used_temp_copy_body_once_with_root(
-          body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten) =>
-          Some(
-            @lib.Instruction::try_table(
-              block_type,
-              catches,
-              @lib.Expr::new(rewritten),
-            ),
-          )
-        None => None
-      }
-    @lib.If(block_type, then_body, Some(else_body)) =>
-      match
-        dae_try_fold_func237_used_temp_copy_body_once_with_root(
-          then_body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten_then) =>
-          Some(
-            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
-          )
-        None =>
-          match
-            dae_try_fold_func237_used_temp_copy_body_once_with_root(
-              else_body, param_count, root_body, root_has_try_table,
-            ) {
-            Some(rewritten_else) =>
-              Some(
-                @lib.Instruction::if_(
-                  block_type,
-                  then_body,
-                  Some(rewritten_else),
-                ),
-              )
-            None => None
-          }
-      }
-    @lib.If(block_type, then_body, None) =>
-      match
-        dae_try_fold_func237_used_temp_copy_body_once_with_root(
-          then_body, param_count, root_body, root_has_try_table,
-        ) {
-        Some(rewritten_then) =>
-          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
-        None => None
-      }
-    _ => None
-  }
-}
-
-///|
 fn dae_try_fold_func237_used_temp_copy_body_once_with_root(
   body : Array[@lib.Instruction],
   param_count : Int,
   root_body : Array[@lib.Instruction],
   root_has_try_table : Bool,
 ) -> Array[@lib.Instruction]? {
-  match
+  let rewrite_current_body = fn(
+    current_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
     dae_try_fold_func237_used_temp_copy_flat_body_once(
-      body, param_count, root_body, root_has_try_table,
-    ) {
-    Some(rewritten) => return Some(rewritten)
-    None => ()
+      current_body, param_count, root_body, root_has_try_table,
+    )
   }
-  let mut idx = 0
-  while idx < body.length() {
-    match
-      dae_try_fold_func237_used_temp_copy_instr_once(
-        body[idx],
-        param_count,
-        root_body,
-        root_has_try_table,
-      ) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_child_body = fn(
+    child_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_used_temp_copy_body_once_with_root(
+      child_body, param_count, root_body, root_has_try_table,
+    )
   }
-  None
+  dae_apply_first_current_or_control_child_body_rewrite(
+    body, rewrite_current_body, rewrite_child_body,
+  )
 }
 
 ///|
