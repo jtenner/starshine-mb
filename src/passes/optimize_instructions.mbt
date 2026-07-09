@@ -12037,14 +12037,14 @@ fn OiCallRefNullTrapPlanFact::from_child_layout(
   // target classification. Consume the shared child-layout/effective-target
   // fact here so the null-trap path does not re-split call_ref operands or
   // duplicate the target-slot `skipNonNullCast` proof.
-  if child_layout_fact.effective_target_id < 0 {
+  if !child_layout_fact.target_slot_fact.proves_effective_target() {
     return None
   }
   let target_fact = match
     OiCallRefKnownNullTargetFact::from_target(
       func,
       dead,
-      child_layout_fact.effective_target_id,
+      child_layout_fact.target_slot_fact.effective_target_id,
     ) {
     Some(fact) if fact.proves_elidable_known_null_fallthrough() => fact
     _ => return None
@@ -12063,7 +12063,7 @@ fn OiCallRefNullTrapPlanFact::apply(
   if !optimize_instructions_append_ordered_effects(
       ctx,
       func,
-      self.child_layout_fact.args,
+      self.child_layout_fact.argument_list_fact.args(),
       body,
     ) {
     return false
@@ -13928,10 +13928,20 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
 }
 
 ///|
-priv struct OiCallRefChildLayoutFact {
+priv struct OiCallRefTargetSlotFact {
   source_target_id : Int
   effective_target_id : Int
+}
+
+///|
+priv struct OiCallRefArgumentListFact {
   args : Array[Int]
+}
+
+///|
+priv struct OiCallRefChildLayoutFact {
+  target_slot_fact : OiCallRefTargetSlotFact
+  argument_list_fact : OiCallRefArgumentListFact
 }
 
 ///|
@@ -13995,11 +14005,26 @@ fn OiCallRefChildLayoutFact::from_call_ref(
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
     args.push(@ir.hot_child_get(func, node_id, slot))
   }
-  Some({
+  let target_slot_fact : OiCallRefTargetSlotFact = {
     source_target_id: callee_ref_id,
     effective_target_id: effective_callee_ref_id,
-    args,
-  })
+  }
+  let argument_list_fact : OiCallRefArgumentListFact = { args, }
+  Some({ target_slot_fact, argument_list_fact })
+}
+
+///|
+fn OiCallRefTargetSlotFact::proves_effective_target(
+  self : OiCallRefTargetSlotFact,
+) -> Bool {
+  self.source_target_id >= 0 && self.effective_target_id >= 0
+}
+
+///|
+fn OiCallRefArgumentListFact::args(
+  self : OiCallRefArgumentListFact,
+) -> Array[Int] {
+  self.args
 }
 
 ///|
@@ -14015,7 +14040,7 @@ fn OiCallRefInvocationFact::from_child_layout(
   let target_classification_fact = OiCallRefTargetClassificationFact::from_target(
     func,
     dead,
-    child_layout_fact.effective_target_id,
+    child_layout_fact.target_slot_fact.effective_target_id,
   )
   { child_layout_fact, target_classification_fact }
 }
@@ -14036,7 +14061,7 @@ fn OiCallRefDirectizationFact::from_invocation(
     OiCallRefDirectizePlanFact::from_target(
       func,
       invocation_fact.target_fact(),
-      invocation_fact.child_layout_fact.args,
+      invocation_fact.child_layout_fact.argument_list_fact.args(),
     ) {
     Some(fact) => fact
     None => return None
@@ -14051,8 +14076,7 @@ fn OiCallRefDirectizationFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  if self.invocation_fact.child_layout_fact.source_target_id < 0 ||
-    self.invocation_fact.child_layout_fact.effective_target_id < 0 {
+  if !self.invocation_fact.child_layout_fact.target_slot_fact.proves_effective_target() {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -14060,8 +14084,8 @@ fn OiCallRefDirectizationFact::apply(
     self.plan_fact.build_replacement(
       func,
       node,
-      self.invocation_fact.child_layout_fact.effective_target_id,
-      self.invocation_fact.child_layout_fact.args,
+      self.invocation_fact.child_layout_fact.target_slot_fact.effective_target_id,
+      self.invocation_fact.child_layout_fact.argument_list_fact.args(),
     ) {
     Some(replacement) => replacement
     None => return false
