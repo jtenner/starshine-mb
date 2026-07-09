@@ -20133,6 +20133,71 @@ fn OiTupleLaneLocalizeFact::allows_direct(
 }
 
 ///|
+priv enum OiTupleLaneLocalizeChildTraversalKind {
+  TupleLaneLocalizeNoChildTraversal
+  TupleLaneLocalizeChildrenDirect
+  TupleLaneLocalizeChildControlBoundary
+}
+
+///|
+priv struct OiTupleLaneLocalizeChildTraversalFact {
+  kind : OiTupleLaneLocalizeChildTraversalKind
+}
+
+///|
+fn OiTupleLaneLocalizeChildTraversalFact::allows_direct(
+  self : OiTupleLaneLocalizeChildTraversalFact,
+) -> Bool {
+  match self.kind {
+    TupleLaneLocalizeNoChildTraversal | TupleLaneLocalizeChildrenDirect => true
+    TupleLaneLocalizeChildControlBoundary => false
+  }
+}
+
+///|
+fn OiTupleLaneLocalizeChildTraversalFact::from_region(
+  func : @ir.HotFunc,
+  region : @ir.HotRegionRef,
+) -> OiTupleLaneLocalizeChildTraversalFact {
+  // Binaryen v130 `getDroppedChildrenAndAppend(make, get)` recursively inspects
+  // tuple-lane children before deciding whether lane materialization can stay
+  // expression-local. Keep the child walk as its own fact so structured-control
+  // blockers are not encoded as an inline tuple-lane scanner loop.
+  let root_count = @ir.hot_region_root_count(func, region)
+  if root_count == 0 {
+    return { kind: TupleLaneLocalizeNoChildTraversal }
+  }
+  for i = 0; i < root_count; i = i + 1 {
+    if !OiTupleLaneLocalizeFact::from_node(
+        func,
+        @ir.hot_region_get(func, region, i),
+      ).allows_direct() {
+      return { kind: TupleLaneLocalizeChildControlBoundary }
+    }
+  }
+  { kind: TupleLaneLocalizeChildrenDirect }
+}
+
+///|
+fn OiTupleLaneLocalizeChildTraversalFact::from_node_children(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiTupleLaneLocalizeChildTraversalFact {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 0 {
+    return { kind: TupleLaneLocalizeNoChildTraversal }
+  }
+  for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, child_idx)
+    if child_id >= 0 &&
+      !OiTupleLaneLocalizeFact::from_node(func, child_id).allows_direct() {
+      return { kind: TupleLaneLocalizeChildControlBoundary }
+    }
+  }
+  { kind: TupleLaneLocalizeChildrenDirect }
+}
+
+///|
 fn OiTupleLaneLocalizeFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
@@ -20140,21 +20205,16 @@ fn OiTupleLaneLocalizeFact::from_node(
   // Binaryen v130 `visitTupleExtract` delegates discarded-value sequencing to
   // `getDroppedChildrenAndAppend(make, get)`, which can localize expression
   // children but must not synthesize through structured control, branches,
-  // returns, or EH roots. Keep that boundary as an explicit tuple-lane fact
-  // instead of an open-ended tuple scanner whitelist.
+  // returns, or EH roots. Keep root classification and child traversal as
+  // explicit tuple-lane facts instead of an open-ended tuple scanner whitelist.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block => {
       let body = @ir.hot_region_body_ref(func, node_id)
-      for i = 0; i < @ir.hot_region_root_count(func, body); i = i + 1 {
-        if !OiTupleLaneLocalizeFact::from_node(
-            func,
-            @ir.hot_region_get(func, body, i),
-          ).allows_direct() {
-          return TupleLaneControlBoundary
-        }
+      if OiTupleLaneLocalizeChildTraversalFact::from_region(func, body).allows_direct() {
+        return TupleLaneDirectLocalizable
       }
-      return TupleLaneDirectLocalizable
+      return TupleLaneControlBoundary
     }
     @ir.HotOp::Loop
     | @ir.HotOp::If
@@ -20179,12 +20239,8 @@ fn OiTupleLaneLocalizeFact::from_node(
     | @ir.HotOp::CatchAll => return TupleLaneControlBoundary
     _ => ()
   }
-  for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, child_idx)
-    if child_id >= 0 &&
-      !OiTupleLaneLocalizeFact::from_node(func, child_id).allows_direct() {
-      return TupleLaneControlBoundary
-    }
+  if !OiTupleLaneLocalizeChildTraversalFact::from_node_children(func, node_id).allows_direct() {
+    return TupleLaneControlBoundary
   }
   TupleLaneDirectLocalizable
 }
@@ -20204,13 +20260,59 @@ fn OiTupleLaneTrapFact::may_trap(self : OiTupleLaneTrapFact) -> Bool {
 }
 
 ///|
+priv enum OiTupleLaneTrapChildTraversalKind {
+  TupleLaneTrapNoChildTraversal
+  TupleLaneTrapChildrenNoKnownTrap
+  TupleLaneTrapChildMayTrapWithoutEffectMask
+}
+
+///|
+priv struct OiTupleLaneTrapChildTraversalFact {
+  kind : OiTupleLaneTrapChildTraversalKind
+}
+
+///|
+fn OiTupleLaneTrapChildTraversalFact::may_trap(
+  self : OiTupleLaneTrapChildTraversalFact,
+) -> Bool {
+  match self.kind {
+    TupleLaneTrapChildMayTrapWithoutEffectMask => true
+    TupleLaneTrapNoChildTraversal | TupleLaneTrapChildrenNoKnownTrap => false
+  }
+}
+
+///|
+fn OiTupleLaneTrapChildTraversalFact::from_node_children(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiTupleLaneTrapChildTraversalFact {
+  // This child-traversal fact is the trap-preservation sibling of
+  // `OiTupleLaneLocalizeChildTraversalFact`: direct opcode trap facts are checked
+  // first, then recursive children decide whether dropping this lane would hide a
+  // pure trap.
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 0 {
+    return { kind: TupleLaneTrapNoChildTraversal }
+  }
+  for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, child_idx)
+    if child_id >= 0 &&
+      OiTupleLaneTrapFact::from_node(func, child_id).may_trap() {
+      return { kind: TupleLaneTrapChildMayTrapWithoutEffectMask }
+    }
+  }
+  { kind: TupleLaneTrapChildrenNoKnownTrap }
+}
+
+///|
 fn OiTupleLaneTrapFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> OiTupleLaneTrapFact {
   // This is the tuple-local Binaryen `getDroppedChildrenAndAppend` preservation
   // fact for pure instructions that still may trap when dropped as an unselected
-  // lane. It intentionally remains narrower than general EffectAnalyzer facts.
+  // lane. It intentionally remains narrower than general EffectAnalyzer facts;
+  // direct opcode evidence and recursive child evidence are split explicitly.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(
       @lib.Instruction::I32DivS
@@ -20227,13 +20329,8 @@ fn OiTupleLaneTrapFact::from_node(
     ) => return TupleLaneMayTrapWithoutEffectMask
     _ => ()
   }
-  let node = @ir.hot_node_get(func, node_id)
-  for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, child_idx)
-    if child_id >= 0 &&
-      OiTupleLaneTrapFact::from_node(func, child_id).may_trap() {
-      return TupleLaneMayTrapWithoutEffectMask
-    }
+  if OiTupleLaneTrapChildTraversalFact::from_node_children(func, node_id).may_trap() {
+    return TupleLaneMayTrapWithoutEffectMask
   }
   TupleLaneNoKnownTrapWithoutEffectMask
 }
