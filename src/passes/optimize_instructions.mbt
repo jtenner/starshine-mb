@@ -24504,10 +24504,15 @@ fn OiLocalConstSelectScalarTreeFact::proves_nontrapping_reorderable(
 }
 
 ///|
+priv enum OiRefI31ScalarTreeEqualityKind {
+  RefI31ScalarTreeNoMatch
+  RefI31ScalarTreePayloadPureMatch
+  RefI31ScalarTreePayloadNontrappingReorderableMatch
+}
+
+///|
 priv struct OiRefI31ScalarTreeEqualityFact {
-  has_ref_i31_pair : Bool
-  matching_pure_payload_tree : Bool
-  payloads_are_nontrapping_reorderable : Bool
+  kind : OiRefI31ScalarTreeEqualityKind
 }
 
 ///|
@@ -24520,11 +24525,9 @@ fn OiRefI31ScalarTreeEqualityFact::from_nodes(
   // recursively comparing their i32 payloads. Binaryen `visitSelect` then uses
   // `EffectAnalyzer::invalidates` before moving equal arms across an effectful
   // condition; Starshine's represented safe-move subset is local/const/select
-  // scalar payload trees. Keep both payload equality and movability as explicit
-  // fact fields rather than helper-level ref.i31 tree scanners.
-  let mut has_ref_i31_pair = false
-  let mut matching_pure_payload_tree = false
-  let mut payloads_are_nontrapping_reorderable = false
+  // scalar payload trees. Keep payload equality and movability as a selected
+  // source-backed fact kind rather than helper-level ref.i31 tree scanners or
+  // parallel payload booleans.
   let lhs = @ir.hot_node_get(func, lhs_id)
   let rhs = @ir.hot_node_get(func, rhs_id)
   if lhs.ty == rhs.ty && lhs.child_count == 1 && rhs.child_count == 1 {
@@ -24534,41 +24537,41 @@ fn OiRefI31ScalarTreeEqualityFact::from_nodes(
         @ir.hot_node_exact_instr(func, rhs_id),
       ) {
       (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31)) => {
-        has_ref_i31_pair = true
         let lhs_payload = @ir.hot_child_get(func, lhs_id, 0)
         let rhs_payload = @ir.hot_child_get(func, rhs_id, 0)
-        matching_pure_payload_tree = OiScalarTreeEqualityFact::from_nodes(
-          func, lhs_payload, rhs_payload,
-        ).proves_pure_equal()
-        payloads_are_nontrapping_reorderable = OiLocalConstSelectScalarTreeFact::from_node(
-            func, lhs_payload,
-          ).proves_nontrapping_reorderable() &&
-          OiLocalConstSelectScalarTreeFact::from_node(func, rhs_payload).proves_nontrapping_reorderable()
+        if OiScalarTreeEqualityFact::from_nodes(func, lhs_payload, rhs_payload).proves_pure_equal() {
+          if OiLocalConstSelectScalarTreeFact::from_node(func, lhs_payload).proves_nontrapping_reorderable() &&
+            OiLocalConstSelectScalarTreeFact::from_node(func, rhs_payload).proves_nontrapping_reorderable() {
+            return { kind: RefI31ScalarTreePayloadNontrappingReorderableMatch }
+          }
+          return { kind: RefI31ScalarTreePayloadPureMatch }
+        }
       }
       _ => ()
     }
   }
-  {
-    has_ref_i31_pair,
-    matching_pure_payload_tree,
-    payloads_are_nontrapping_reorderable,
-  }
+  { kind: RefI31ScalarTreeNoMatch }
 }
 
 ///|
 fn OiRefI31ScalarTreeEqualityFact::proves_pure_equal(
   self : OiRefI31ScalarTreeEqualityFact,
 ) -> Bool {
-  self.has_ref_i31_pair && self.matching_pure_payload_tree
+  match self.kind {
+    RefI31ScalarTreeNoMatch => false
+    RefI31ScalarTreePayloadPureMatch => true
+    RefI31ScalarTreePayloadNontrappingReorderableMatch => true
+  }
 }
 
 ///|
 fn OiRefI31ScalarTreeEqualityFact::proves_nontrapping_reorderable_equal(
   self : OiRefI31ScalarTreeEqualityFact,
 ) -> Bool {
-  self.has_ref_i31_pair &&
-  self.matching_pure_payload_tree &&
-  self.payloads_are_nontrapping_reorderable
+  match self.kind {
+    RefI31ScalarTreePayloadNontrappingReorderableMatch => true
+    _ => false
+  }
 }
 
 ///|
