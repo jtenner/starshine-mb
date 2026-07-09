@@ -1162,6 +1162,39 @@ test "optimize-instructions preserves atomic-load drop block prefixes after maxB
 }
 
 ///|
+test "optimize-instructions preserves struct-atomic-get drop block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
+  // maxBits compare through a drop-wrapped aggregate struct.atomic.get prefix
+  // under shared-everything, while keeping the ordered aggregate read/trap before
+  // the folded constant. This covers only the direct drop-wrapped get form;
+  // aggregate RMW/cmpxchg and array atomics remain separate.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $S (sub (struct (field (mut i32)))))
+        #|  (func (param $s (ref null $S)) (param $x i32) (result i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (drop (struct.atomic.get $S 0 (local.get $s)))
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct-atomic-get prefix maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("struct.atomic.get"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves atomic-cmpxchg drop block prefixes after maxBits compare folds" {
   // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
   // maxBits compare through a drop-wrapped atomic cmpxchg prefix while keeping

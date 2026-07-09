@@ -9335,6 +9335,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixTableCopy
   MaxBitsBlockPrefixTableInit
   MaxBitsBlockPrefixDropAtomicLoad
+  MaxBitsBlockPrefixDropStructAtomicGet
   MaxBitsBlockPrefixDropAtomicRmw
   MaxBitsBlockPrefixDropAtomicCmpxchg
   MaxBitsBlockPrefixDropAtomicWait
@@ -9365,10 +9366,10 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
   // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
-  // atomic load/RMW/cmpxchg/wait/notify, direct, indirect, and reference calls,
-  // value-returning drop-wrapped calls, table.grow and memory.grow, and global
-  // write roots so branch, control, and generalized localization remain out of
-  // this fact.
+  // atomic load/RMW/cmpxchg/wait/notify, aggregate atomic get, direct,
+  // indirect, and reference calls, value-returning drop-wrapped calls,
+  // table.grow and memory.grow, and global write roots so branch, control, and
+  // generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
   }
@@ -9418,6 +9419,11 @@ fn OiMaxBitsBlockPrefixFact::from_root(
               | @lib.Instruction::I64AtomicLoad16U(_)
               | @lib.Instruction::I64AtomicLoad32U(_)
             ) => Some({ kind: MaxBitsBlockPrefixDropAtomicLoad, root_id })
+            Some(
+              @lib.Instruction::StructAtomicGet(_, _, _)
+              | @lib.Instruction::StructAtomicGetS(_, _, _)
+              | @lib.Instruction::StructAtomicGetU(_, _, _)
+            ) => Some({ kind: MaxBitsBlockPrefixDropStructAtomicGet, root_id })
             _ => None
           }
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 2 =>
@@ -9484,6 +9490,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixTableCopy
     | MaxBitsBlockPrefixTableInit
     | MaxBitsBlockPrefixDropAtomicLoad
+    | MaxBitsBlockPrefixDropStructAtomicGet
     | MaxBitsBlockPrefixDropAtomicRmw
     | MaxBitsBlockPrefixDropAtomicCmpxchg
     | MaxBitsBlockPrefixDropAtomicWait
