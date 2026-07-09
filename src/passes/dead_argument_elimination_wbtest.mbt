@@ -3807,6 +3807,9 @@ test "dae stack slice localization evidence carries transition escape and repair
       assert_eq(evidence.no_escape_branch.end, body.length())
       assert_eq(evidence.no_escape_branch.depth, 0)
       assert_false(evidence.no_escape_branch.has_escaping_branch)
+      assert_eq(evidence.copied_slice.branch.start, 0)
+      assert_eq(evidence.copied_slice.branch.end, body.length())
+      assert_eq(evidence.copied_slice.instrs.length(), body.length())
       assert_eq(evidence.disposition.start, 0)
       assert_eq(evidence.disposition.end, body.length())
       assert_eq(evidence.removal_plan.start, 0)
@@ -3896,6 +3899,11 @@ test "dae stack slice localization evidence carries transition escape and repair
     }
     None => fail("expected select policy localization evidence")
   }
+  assert_true(
+    dae_stack_slice_localization_policy_accepts(
+      mod_, [], body, 0, body.length(), select_policy,
+    ),
+  )
   let parametric_policy = dae_parametric_typeidx_prefix_localization_policy(2)
   match
     dae_stack_slice_localization_evidence_from_policy(
@@ -3913,6 +3921,12 @@ test "dae stack slice localization evidence carries transition escape and repair
     }
     None => fail("expected parametric policy localization evidence")
   }
+  assert_true(
+    dae_stack_slice_localization_policy_accepts(
+      mod_, [], [@lib.Instruction::i32_add(), @lib.Instruction::drop()], 0, 2,
+      parametric_policy,
+    ),
+  )
 }
 
 ///|

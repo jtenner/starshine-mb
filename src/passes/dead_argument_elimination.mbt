@@ -192,6 +192,7 @@ priv struct DaeEscapingBranchEvidence {
 priv struct DaeStackSliceLocalizationEvidence {
   transition : DaeStackSliceTransitionEvidence
   no_escape_branch : DaeEscapingBranchEvidence
+  copied_slice : DaeNoEscapeSliceEvidence
   disposition : DaeOperandDisposition
   removal_plan : DaeOperandRemovalPlan
 }
@@ -7901,18 +7902,14 @@ fn dae_select_condition_slice_is_stack_local(
       func_type_indices,
     )
   }
-  match
-    dae_stack_slice_localization_evidence_from_policy(
-      mod_,
-      func_type_indices,
-      body,
-      start,
-      end,
-      dae_select_condition_localization_policy(),
-    ) {
-    Some(_) => true
-    None => false
-  }
+  dae_stack_slice_localization_policy_accepts(
+    mod_,
+    func_type_indices,
+    body,
+    start,
+    end,
+    dae_select_condition_localization_policy(),
+  )
 }
 
 ///|
@@ -8694,18 +8691,14 @@ fn dae_parametric_typeidx_prefix_consumes_params_stack_safe(
   end : Int,
   param_count : Int,
 ) -> Bool {
-  match
-    dae_stack_slice_localization_evidence_from_policy(
-      mod_,
-      func_type_indices,
-      arm_body,
-      0,
-      end,
-      dae_parametric_typeidx_prefix_localization_policy(param_count),
-    ) {
-    Some(_) => true
-    None => false
-  }
+  dae_stack_slice_localization_policy_accepts(
+    mod_,
+    func_type_indices,
+    arm_body,
+    0,
+    end,
+    dae_parametric_typeidx_prefix_localization_policy(param_count),
+  )
 }
 
 ///|
@@ -18728,6 +18721,9 @@ fn dae_stack_slice_localization_evidence_is_consistent(
   !evidence.no_escape_branch.has_escaping_branch &&
   evidence.transition.simulation.start == evidence.no_escape_branch.start &&
   evidence.transition.simulation.end == evidence.no_escape_branch.end &&
+  dae_no_escape_slice_evidence_is_consistent(evidence.copied_slice) &&
+  evidence.copied_slice.branch.start == evidence.no_escape_branch.start &&
+  evidence.copied_slice.branch.end == evidence.no_escape_branch.end &&
   evidence.disposition.start == evidence.no_escape_branch.start &&
   evidence.disposition.end == evidence.no_escape_branch.end &&
   evidence.removal_plan.start == evidence.no_escape_branch.start &&
@@ -18826,6 +18822,24 @@ fn dae_stack_slice_localization_evidence_from_policy(
 }
 
 ///|
+fn dae_stack_slice_localization_policy_accepts(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  body : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+  policy : DaeStackSliceLocalizationPolicy,
+) -> Bool {
+  match
+    dae_stack_slice_localization_evidence_from_policy(
+      mod_, func_type_indices, body, start, end, policy,
+    ) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 fn dae_stack_slice_localization_evidence_from_request(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -18855,6 +18869,11 @@ fn dae_stack_slice_localization_evidence_from_request(
     Some(evidence) => evidence
     None => return None
   }
+  let copied_slice = match
+    dae_no_escape_slice_evidence_from_branch(request.body, no_escape_branch) {
+    Some(evidence) => evidence
+    None => return None
+  }
   let disposition = match
     dae_operand_disposition_from_range(request.body, request.start, request.end) {
     Some(evidence) => evidence
@@ -18863,6 +18882,7 @@ fn dae_stack_slice_localization_evidence_from_request(
   let evidence = {
     transition,
     no_escape_branch,
+    copied_slice,
     disposition,
     removal_plan: dae_operand_removal_plan(disposition, request.keep_operand),
   }
