@@ -5206,9 +5206,46 @@ fn OiDescriptorCastFact::from_node(
 }
 
 ///|
+priv enum OiDescriptorCastTighteningOperandKind {
+  DescriptorCastTighteningOperandUnknown
+  DescriptorCastTighteningOperandFallthroughNonNull
+}
+
+///|
+priv struct OiDescriptorCastTighteningOperandFact {
+  kind : OiDescriptorCastTighteningOperandKind
+}
+
+///|
+fn OiDescriptorCastTighteningOperandFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+) -> OiDescriptorCastTighteningOperandFact {
+  // Binaryen v130 descriptor-cast nullability tightening is driven by the
+  // reference operand fallthrough type. Keep that source proof as a fact instead
+  // of carrying a direct non-null boolean on the aggregate tightening record.
+  match OiRefFallthroughFact::from_node(ctx, func, operand_id).ref_type {
+    Some(ref_type) if ref_type.is_non_nullable() =>
+      { kind: DescriptorCastTighteningOperandFallthroughNonNull }
+    _ => { kind: DescriptorCastTighteningOperandUnknown }
+  }
+}
+
+///|
+fn OiDescriptorCastTighteningOperandFact::proves_fallthrough_non_null(
+  self : OiDescriptorCastTighteningOperandFact,
+) -> Bool {
+  match self.kind {
+    DescriptorCastTighteningOperandFallthroughNonNull => true
+    DescriptorCastTighteningOperandUnknown => false
+  }
+}
+
+///|
 priv struct OiDescriptorCastTighteningFact {
   cast_fact : OiDescriptorCastFact
-  operand_fallthrough_non_null : Bool
+  operand_fact : OiDescriptorCastTighteningOperandFact
   narrowed_ref_type : @lib.RefType
 }
 
@@ -5227,17 +5264,17 @@ fn OiDescriptorCastTighteningFact::from_cast(
   if !cast_fact.nullable {
     return None
   }
-  let operand_fallthrough_non_null = match
-    OiRefFallthroughFact::from_node(ctx, func, cast_fact.operand_id).ref_type {
-    Some(ref_type) => ref_type.is_non_nullable()
-    None => false
-  }
-  if !operand_fallthrough_non_null {
+  let operand_fact = OiDescriptorCastTighteningOperandFact::from_operand(
+    ctx,
+    func,
+    cast_fact.operand_id,
+  )
+  if !operand_fact.proves_fallthrough_non_null() {
     return None
   }
   Some({
     cast_fact,
-    operand_fallthrough_non_null,
+    operand_fact,
     narrowed_ref_type: @lib.RefType::new(
       false,
       cast_fact.target,
@@ -5255,7 +5292,7 @@ priv struct OiDescriptorCastTighteningRewritePlanFact {
 fn OiDescriptorCastTighteningRewritePlanFact::from_fact(
   tightening_fact : OiDescriptorCastTighteningFact,
 ) -> OiDescriptorCastTighteningRewritePlanFact? {
-  if !tightening_fact.operand_fallthrough_non_null {
+  if !tightening_fact.operand_fact.proves_fallthrough_non_null() {
     return None
   }
   Some({ tightening_fact, })
