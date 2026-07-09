@@ -137,6 +137,7 @@ priv struct DaeLiveLocalCopyCleanupEvidence {
   end : Int
   next_idx : Int
   copy_count : Int
+  requires_local_free_stack : Bool
   replacement : Array[@lib.Instruction]
 }
 
@@ -17818,7 +17819,11 @@ fn dae_live_local_copy_cleanup_evidence_is_consistent(
   evidence.start < evidence.end &&
   evidence.end == evidence.next_idx &&
   evidence.copy_count > 0 &&
-  evidence.replacement.length() > 0
+  evidence.replacement.length() > 0 &&
+  (
+    evidence.requires_local_free_stack ||
+    (evidence.copy_count == 2 && evidence.replacement.length() == 1)
+  )
 }
 
 ///|
@@ -17827,12 +17832,29 @@ fn dae_live_local_copy_cleanup_evidence(
   idx : Int,
   stack_evidence : DaeDroppablePureStackEvidence?,
 ) -> DaeLiveLocalCopyCleanupEvidence? {
+  if idx < 0 {
+    return None
+  }
+  if idx + 2 < instrs.length() {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+      (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
+          lhs, mid,
+        ) &&
+        dae_local_idx_equal(lhs, rhs) =>
+        return Some({
+          start: idx,
+          end: idx + 3,
+          next_idx: idx + 3,
+          copy_count: 2,
+          requires_local_free_stack: false,
+          replacement: [@lib.Instruction::local_set(lhs)],
+        })
+      _ => ()
+    }
+  }
   if !dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
       stack_evidence,
     ) {
-    return None
-  }
-  if idx < 0 {
     return None
   }
   if idx + 4 < instrs.length() {
@@ -17857,6 +17879,7 @@ fn dae_live_local_copy_cleanup_evidence(
           end: idx + 5,
           next_idx: idx + 5,
           copy_count: 3,
+          requires_local_free_stack: true,
           replacement: [
             @lib.Instruction::local_tee(first),
             @lib.Instruction::local_tee(second),
@@ -17876,6 +17899,7 @@ fn dae_live_local_copy_cleanup_evidence(
           end: idx + 3,
           next_idx: idx + 3,
           copy_count: 2,
+          requires_local_free_stack: true,
           replacement: [
             @lib.Instruction::local_tee(lhs),
             @lib.Instruction::local_set(rhs),
@@ -17892,6 +17916,7 @@ fn dae_live_local_copy_cleanup_evidence(
           end: idx + 2,
           next_idx: idx + 2,
           copy_count: 1,
+          requires_local_free_stack: true,
           replacement: [@lib.Instruction::local_tee(lhs)],
         })
       (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(lhs, rhs) =>
@@ -17900,6 +17925,7 @@ fn dae_live_local_copy_cleanup_evidence(
           end: idx + 2,
           next_idx: idx + 2,
           copy_count: 1,
+          requires_local_free_stack: true,
           replacement: [@lib.Instruction::local_set(lhs)],
         })
       _ => ()
@@ -18422,19 +18448,6 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         None => ()
       }
     }
-    if idx + 2 < instrs.length() {
-      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
-        (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
-            lhs, mid,
-          ) &&
-          dae_local_idx_equal(lhs, rhs) => {
-          out.push(@lib.Instruction::local_set(lhs))
-          idx += 3
-          continue
-        }
-        _ => ()
-      }
-    }
     match dae_dropped_local_tee_suffix_cleanup_evidence(instrs, idx) {
       Some(evidence) => {
         dae_push_instrs(out, evidence.replacement)
@@ -18518,25 +18531,26 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         continue
       }
     }
-    let live_copy_stack_evidence = dae_droppable_pure_stack_evidence(
-      out, type_sec,
-    )
-    if allow_live_local_copy_cleanup {
-      // Binaryen keeps local-get-sourced temp copy chains in the current DAE
-      // frontier; only stackify copies rooted in non-local pure values.
-      match
-        dae_live_local_copy_cleanup_evidence(
-          instrs, idx, live_copy_stack_evidence,
-        ) {
-        Some(evidence) if dae_live_local_copy_cleanup_evidence_is_consistent(
-            evidence,
-          ) => {
-          dae_push_instrs(out, evidence.replacement)
-          idx = evidence.next_idx
-          continue
-        }
-        _ => ()
+    let live_copy_stack_evidence = if allow_live_local_copy_cleanup {
+      dae_droppable_pure_stack_evidence(out, type_sec)
+    } else {
+      None
+    }
+    // Binaryen keeps local-get-sourced temp copy chains in the current DAE
+    // frontier; only stackify copies rooted in non-local pure values. Redundant
+    // same-target set/get/set chains remain removable without stack evidence.
+    match
+      dae_live_local_copy_cleanup_evidence(
+        instrs, idx, live_copy_stack_evidence,
+      ) {
+      Some(evidence) if dae_live_local_copy_cleanup_evidence_is_consistent(
+          evidence,
+        ) => {
+        dae_push_instrs(out, evidence.replacement)
+        idx = evidence.next_idx
+        continue
       }
+      _ => ()
     }
     if idx + 1 < instrs.length() && instrs[idx + 1] == @lib.Instruction::drop() {
       let cleanup_evidence = dae_dropped_pure_leaf_cleanup_evidence_from_leaf(

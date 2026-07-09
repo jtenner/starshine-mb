@@ -7176,6 +7176,25 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
     }
     None => fail("expected triple local-copy cleanup evidence")
   }
+  let redundant_same_target_copy = [
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::local_set(first),
+  ]
+  match
+    dae_live_local_copy_cleanup_evidence(redundant_same_target_copy, 0, None) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 3)
+      assert_eq(evidence.copy_count, 2)
+      assert_eq(evidence.next_idx, 3)
+      assert_false(evidence.requires_local_free_stack)
+      assert_eq(evidence.replacement, [@lib.Instruction::local_set(first)])
+      assert_true(dae_live_local_copy_cleanup_evidence_is_consistent(evidence))
+    }
+    None =>
+      fail("expected unconditional same-target local-copy cleanup evidence")
+  }
   let double_copy = [
     @lib.Instruction::local_set(first),
     @lib.Instruction::local_get(first),
@@ -7185,6 +7204,7 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
     dae_live_local_copy_cleanup_evidence(double_copy, 0, Some(pure_evidence)) {
     Some(evidence) => {
       assert_eq(evidence.copy_count, 2)
+      assert_true(evidence.requires_local_free_stack)
       assert_eq(evidence.replacement, [
         @lib.Instruction::local_tee(first),
         @lib.Instruction::local_set(second),
