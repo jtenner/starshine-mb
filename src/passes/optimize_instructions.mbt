@@ -18568,8 +18568,14 @@ priv struct OiConsecutiveInputEqualityProofFact {
 }
 
 ///|
+priv enum OiConsecutiveInputInterferenceKind {
+  ConsecutiveInputEffectsIndependent
+  ConsecutiveInputEffectsOrderedBeforeRight
+}
+
+///|
 priv struct OiConsecutiveInputInterferenceFact {
-  effects_interfere : Bool
+  kind : OiConsecutiveInputInterferenceKind
 }
 
 ///|
@@ -19687,11 +19693,14 @@ fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
   // Keep the Binaryen `EffectAnalyzer::orderedBefore(effects(right))` blocker
   // as its own nested fact so equality proof selection and effect invalidation
   // remain independent source-backed decisions.
-  {
-    effects_interfere: intervening_effect_fact.ordered_before_right_fallthrough(
+  let kind = if intervening_effect_fact.ordered_before_right_fallthrough(
       func, node_masks, right_fallthrough_id,
-    ),
+    ) {
+    ConsecutiveInputEffectsOrderedBeforeRight
+  } else {
+    ConsecutiveInputEffectsIndependent
   }
+  { kind, }
 }
 
 ///|
@@ -19768,10 +19777,10 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   ignore(func)
   ignore(self.left_fallthrough_id)
   ignore(self.right_fallthrough_id)
-  if self.interference_fact.effects_interfere {
-    return false
+  match self.interference_fact.kind {
+    ConsecutiveInputEffectsOrderedBeforeRight => false
+    ConsecutiveInputEffectsIndependent => self.equality_proof.proves_equal()
   }
-  self.equality_proof.proves_equal()
 }
 
 ///|
