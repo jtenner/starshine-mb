@@ -1037,6 +1037,73 @@ test "optimize-instructions preserves atomic-cmpxchg drop block prefixes after m
 }
 
 ///|
+test "optimize-instructions preserves atomic-wait drop block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
+  // maxBits compare through a drop-wrapped atomic wait prefix while keeping the
+  // ordered wait/trap before the folded constant.
+  let memarg = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i64(),
+        ],
+        [@lib.ValType::i32()],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                @lib.Instruction::memory_atomic_wait32(memarg),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(255)),
+                @lib.Instruction::i32_and(),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(256)),
+            @lib.Instruction::i32_eq(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid atomic-wait prefix fixture, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected atomic-wait prefix maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("memory.atomic.wait32"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves atomic-rmw drop block prefixes after maxBits compare folds" {
   // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
   // maxBits compare through a drop-wrapped atomic RMW prefix while keeping the

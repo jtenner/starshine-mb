@@ -9333,6 +9333,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixDropAtomicLoad
   MaxBitsBlockPrefixDropAtomicRmw
   MaxBitsBlockPrefixDropAtomicCmpxchg
+  MaxBitsBlockPrefixDropAtomicWait
   MaxBitsBlockPrefixDropTableGrow
   MaxBitsBlockPrefixDropMemoryGrow
   MaxBitsBlockPrefixDataDrop
@@ -9359,8 +9360,8 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
   // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
-  // atomic load/RMW/cmpxchg, table.grow and memory.grow, direct/indirect call,
-  // and global write roots so branch, control, and generalized localization
+  // atomic load/RMW/cmpxchg/wait, table.grow and memory.grow, direct/indirect
+  // call, and global write roots so branch, control, and generalized localization
   // remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
@@ -9422,6 +9423,10 @@ fn OiMaxBitsBlockPrefixFact::from_root(
           match @ir.hot_node_exact_instr(func, child_id) {
             Some(@lib.Instruction::AtomicCmpxchg(_, _)) =>
               Some({ kind: MaxBitsBlockPrefixDropAtomicCmpxchg, root_id })
+            Some(
+              @lib.Instruction::MemoryAtomicWait32(_)
+              | @lib.Instruction::MemoryAtomicWait64(_)
+            ) => Some({ kind: MaxBitsBlockPrefixDropAtomicWait, root_id })
             _ => None
           }
         @ir.HotOp::TableGrow if @ir.hot_child_count(func, child_id) == 2 =>
@@ -9463,6 +9468,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixDropAtomicLoad
     | MaxBitsBlockPrefixDropAtomicRmw
     | MaxBitsBlockPrefixDropAtomicCmpxchg
+    | MaxBitsBlockPrefixDropAtomicWait
     | MaxBitsBlockPrefixDropTableGrow
     | MaxBitsBlockPrefixDropMemoryGrow
     | MaxBitsBlockPrefixDataDrop
