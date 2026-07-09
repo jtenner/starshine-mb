@@ -14946,13 +14946,33 @@ fn optimize_instructions_shift_rhs_i64_amount(
 }
 
 ///|
+priv enum OiI32NonNegativeIntegerKind {
+  I32NonNegativeConst
+  I32NegativeConst
+  I32MissingConst
+  I32UnsignedMaxBelowSignBit
+  I32UnsignedMaxMayReachSignBit
+  I32UnsignedMaxMissing
+}
+
+///|
 priv struct OiI32NonNegativeIntegerFact {
-  proven : Bool
+  kind : OiI32NonNegativeIntegerKind
+}
+
+///|
+priv enum OiI64NonNegativeIntegerKind {
+  I64NonNegativeConst
+  I64NegativeConst
+  I64MissingConst
+  I64UnsignedMaxBelowSignBit
+  I64UnsignedMaxMayReachSignBit
+  I64UnsignedMaxMissing
 }
 
 ///|
 priv struct OiI64NonNegativeIntegerFact {
-  proven : Bool
+  kind : OiI64NonNegativeIntegerKind
 }
 
 ///|
@@ -14961,11 +14981,16 @@ fn OiI32NonNegativeIntegerFact::from_const(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiI32NonNegativeIntegerFact {
-  let proven = match optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(raw)) => raw >= 0
-    None => false
+  let kind = match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(raw)) =>
+      if raw >= 0 {
+        I32NonNegativeConst
+      } else {
+        I32NegativeConst
+      }
+    None => I32MissingConst
   }
-  { proven, }
+  { kind, }
 }
 
 ///|
@@ -14974,11 +14999,16 @@ fn OiI64NonNegativeIntegerFact::from_const(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiI64NonNegativeIntegerFact {
-  let proven = match optimize_instructions_i64_const(func, dead, node_id) {
-    Some(@lib.I64(raw)) => raw >= 0L
-    None => false
+  let kind = match optimize_instructions_i64_const(func, dead, node_id) {
+    Some(@lib.I64(raw)) =>
+      if raw >= 0L {
+        I64NonNegativeConst
+      } else {
+        I64NegativeConst
+      }
+    None => I64MissingConst
   }
-  { proven, }
+  { kind, }
 }
 
 ///|
@@ -14994,12 +15024,17 @@ fn OiI32NonNegativeIntegerFact::from_unsigned_max(
   // value cannot reach the sign bit, signed and unsigned operations observe the
   // same nonnegative domain. This owns both direct nonnegative constants and
   // LocalScanner-shaped local/mask/load/shift summaries.
-  let proven = match
+  let kind = match
     OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
-    Some(value) => value <= 2147483647
-    None => false
+    Some(value) =>
+      if value <= 2147483647 {
+        I32UnsignedMaxBelowSignBit
+      } else {
+        I32UnsignedMaxMayReachSignBit
+      }
+    None => I32UnsignedMaxMissing
   }
-  { proven, }
+  { kind, }
 }
 
 ///|
@@ -15009,26 +15044,43 @@ fn OiI64NonNegativeIntegerFact::from_unsigned_max(
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> OiI64NonNegativeIntegerFact {
-  let proven = match
+  let kind = match
     OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
-    Some(value) => value <= 9223372036854775807L
-    None => false
+    Some(value) =>
+      if value <= 9223372036854775807L {
+        I64UnsignedMaxBelowSignBit
+      } else {
+        I64UnsignedMaxMayReachSignBit
+      }
+    None => I64UnsignedMaxMissing
   }
-  { proven, }
+  { kind, }
 }
 
 ///|
 fn OiI32NonNegativeIntegerFact::proves_non_negative(
   self : OiI32NonNegativeIntegerFact,
 ) -> Bool {
-  self.proven
+  match self.kind {
+    I32NonNegativeConst | I32UnsignedMaxBelowSignBit => true
+    I32NegativeConst
+    | I32MissingConst
+    | I32UnsignedMaxMayReachSignBit
+    | I32UnsignedMaxMissing => false
+  }
 }
 
 ///|
 fn OiI64NonNegativeIntegerFact::proves_non_negative(
   self : OiI64NonNegativeIntegerFact,
 ) -> Bool {
-  self.proven
+  match self.kind {
+    I64NonNegativeConst | I64UnsignedMaxBelowSignBit => true
+    I64NegativeConst
+    | I64MissingConst
+    | I64UnsignedMaxMayReachSignBit
+    | I64UnsignedMaxMissing => false
+  }
 }
 
 ///|
