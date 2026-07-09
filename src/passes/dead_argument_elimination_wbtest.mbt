@@ -6914,6 +6914,54 @@ test "dae droppable pure control value evidence centralizes control cleanup proo
 }
 
 ///|
+test "dae local-get range evidence centralizes cleanup local proof" {
+  let tmp = @lib.LocalIdx::new(1U)
+  let singleton_local = [@lib.Instruction::local_get(tmp)]
+  match dae_local_get_range_evidence(singleton_local, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 1)
+      assert_true(evidence.has_local_get)
+      assert_false(evidence.local_free)
+      assert_true(evidence.singleton)
+      assert_true(evidence.range_allows_cleanup)
+      assert_true(dae_local_get_range_evidence_is_consistent(evidence))
+    }
+    None => fail("expected singleton local-get range evidence")
+  }
+  let local_suffix = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_get(tmp),
+  ]
+  match dae_local_get_range_evidence(local_suffix, 0) {
+    Some(evidence) => {
+      assert_false(evidence.singleton)
+      assert_true(evidence.has_local_get)
+      assert_false(evidence.local_free)
+      assert_false(evidence.range_allows_cleanup)
+      assert_true(dae_local_get_range_evidence_is_consistent(evidence))
+    }
+    None => fail("expected local suffix evidence")
+  }
+  let local_free_suffix = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+  ]
+  match dae_local_get_range_evidence(local_free_suffix, 0) {
+    Some(evidence) => {
+      assert_false(evidence.has_local_get)
+      assert_true(evidence.local_free)
+      assert_true(evidence.range_allows_cleanup)
+    }
+    None => fail("expected local-free suffix evidence")
+  }
+  match dae_local_get_range_evidence(local_suffix, -1) {
+    Some(_) => fail("negative start must not produce range evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
   let pure_stack = [
     @lib.Instruction::i32_const(@lib.I32(1)),
@@ -6927,6 +6975,8 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
       assert_eq(evidence.end, 3)
       assert_false(evidence.has_local_get)
       assert_true(evidence.local_free)
+      assert_true(evidence.local_range.local_free)
+      assert_true(evidence.local_range.range_allows_cleanup)
       assert_true(
         dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
           Some(evidence),
@@ -6948,6 +6998,8 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
       assert_eq(evidence.end, 3)
       assert_true(evidence.has_local_get)
       assert_false(evidence.local_free)
+      assert_false(evidence.local_range.local_free)
+      assert_false(evidence.local_range.range_allows_cleanup)
       assert_false(
         dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
           Some(evidence),

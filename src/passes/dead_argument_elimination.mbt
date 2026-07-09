@@ -96,11 +96,22 @@ priv struct DaeMultiResultOperandSlotEvidence {
 }
 
 ///|
+priv struct DaeLocalGetRangeEvidence {
+  start : Int
+  end : Int
+  has_local_get : Bool
+  local_free : Bool
+  singleton : Bool
+  range_allows_cleanup : Bool
+}
+
+///|
 priv struct DaeDroppablePureStackEvidence {
   start : Int
   end : Int
   has_local_get : Bool
   local_free : Bool
+  local_range : DaeLocalGetRangeEvidence
 }
 
 ///|
@@ -17538,19 +17549,46 @@ fn dae_find_droppable_pure_stack_expr_start(
 }
 
 ///|
-fn dae_instr_range_contains_local_get(
+fn dae_local_get_range_evidence_is_consistent(
+  evidence : DaeLocalGetRangeEvidence,
+) -> Bool {
+  evidence.start >= 0 &&
+  evidence.start <= evidence.end &&
+  evidence.singleton == (evidence.end - evidence.start == 1) &&
+  evidence.local_free == !evidence.has_local_get &&
+  evidence.range_allows_cleanup == (evidence.singleton || evidence.local_free)
+}
+
+///|
+fn dae_local_get_range_evidence(
   instrs : Array[@lib.Instruction],
   start : Int,
-) -> Bool {
+) -> DaeLocalGetRangeEvidence? {
+  if start < 0 || start > instrs.length() {
+    return None
+  }
   let mut idx = start
+  let mut has_local_get = false
   while idx < instrs.length() {
     match instrs[idx] {
-      @lib.LocalGet(_) => return true
+      @lib.LocalGet(_) => has_local_get = true
       _ => ()
     }
     idx += 1
   }
-  false
+  let evidence = {
+    start,
+    end: instrs.length(),
+    has_local_get,
+    local_free: !has_local_get,
+    singleton: instrs.length() - start == 1,
+    range_allows_cleanup: instrs.length() - start == 1 || !has_local_get,
+  }
+  if dae_local_get_range_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -17566,15 +17604,18 @@ fn dae_droppable_pure_stack_evidence(
   type_sec : @lib.TypeSec?,
 ) -> DaeDroppablePureStackEvidence? {
   match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
-    Some(start) => {
-      let has_local_get = dae_instr_range_contains_local_get(out, start)
-      Some({
-        start,
-        end: out.length(),
-        has_local_get,
-        local_free: !has_local_get,
-      })
-    }
+    Some(start) =>
+      match dae_local_get_range_evidence(out, start) {
+        Some(local_range) =>
+          Some({
+            start: local_range.start,
+            end: local_range.end,
+            has_local_get: local_range.has_local_get,
+            local_free: local_range.local_free,
+            local_range,
+          })
+        None => None
+      }
     None => None
   }
 }
@@ -17583,9 +17624,11 @@ fn dae_droppable_pure_stack_evidence(
 fn dae_droppable_pure_stack_evidence_is_consistent(
   evidence : DaeDroppablePureStackEvidence,
 ) -> Bool {
-  evidence.start >= 0 &&
-  evidence.start <= evidence.end &&
-  evidence.local_free == !evidence.has_local_get
+  dae_local_get_range_evidence_is_consistent(evidence.local_range) &&
+  evidence.start == evidence.local_range.start &&
+  evidence.end == evidence.local_range.end &&
+  evidence.has_local_get == evidence.local_range.has_local_get &&
+  evidence.local_free == evidence.local_range.local_free
 }
 
 ///|
@@ -17729,18 +17772,20 @@ fn dae_dropped_pure_leaf_subject_evidence_from_stack(
   if start < 0 || start >= out.length() {
     return None
   }
-  let range_allows_cleanup = out.length() - start == 1 ||
-    !dae_instr_range_contains_local_get(out, start)
-  Some({
-    start,
-    end: out.length(),
-    prefix_end: start,
-    instr: out[start],
-    range_allows_cleanup,
-    prefix_has_observable_effect: dae_instr_prefix_has_observable_effect(
-      out, start,
-    ),
-  })
+  match dae_local_get_range_evidence(out, start) {
+    Some(local_range) =>
+      Some({
+        start: local_range.start,
+        end: local_range.end,
+        prefix_end: local_range.start,
+        instr: out[start],
+        range_allows_cleanup: local_range.range_allows_cleanup,
+        prefix_has_observable_effect: dae_instr_prefix_has_observable_effect(
+          out, start,
+        ),
+      })
+    None => None
+  }
 }
 
 ///|
