@@ -10972,6 +10972,24 @@ priv struct OiCallRefFallthroughDirectFuncFact {
 }
 
 ///|
+priv enum OiCallRefBlockTailKind {
+  CallRefBlockFinalRoot
+}
+
+///|
+priv struct OiCallRefBlockTailFact {
+  kind : OiCallRefBlockTailKind
+  block_id : Int
+  tail_id : Int
+}
+
+///|
+priv struct OiCallRefBlockFallthroughTargetFact {
+  block_tail_fact : OiCallRefBlockTailFact
+  tail_fact : OiCallRefFallthroughTargetFact
+}
+
+///|
 priv struct OiCallRefFallthroughTargetFact {
   direct_fact : OiCallRefFallthroughDirectFuncFact?
 }
@@ -11158,19 +11176,14 @@ fn OiCallRefFallthroughTargetFact::from_node(
         @ir.hot_child_get(func, node_id, 0),
         depth=depth + 1,
       )
-    @ir.HotOp::Block => {
-      let body_ref = @ir.hot_region_body_ref(func, node_id)
-      let root_count = @ir.hot_region_root_count(func, body_ref)
-      if root_count < 1 {
-        return OiCallRefFallthroughTargetFact::unknown()
+    @ir.HotOp::Block =>
+      match
+        OiCallRefBlockFallthroughTargetFact::from_block_target(
+          func, dead, node_id, depth,
+        ) {
+        Some(fact) if fact.proves_ref_func_block_fallthrough() => fact.tail_fact
+        _ => OiCallRefFallthroughTargetFact::unknown()
       }
-      OiCallRefFallthroughTargetFact::from_node(
-        func,
-        dead,
-        @ir.hot_region_get(func, body_ref, root_count - 1),
-        depth=depth + 1,
-      )
-    }
     @ir.HotOp::Loop =>
       match
         OiCallRefLoopFallthroughTargetFact::from_loop_target(
@@ -11202,6 +11215,67 @@ fn OiCallRefFallthroughTargetFact::from_node(
       }
     _ => OiCallRefFallthroughTargetFact::unknown()
   }
+}
+
+///|
+fn OiCallRefBlockFallthroughTargetFact::from_block_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth : Int,
+) -> OiCallRefBlockFallthroughTargetFact? {
+  // Binaryen v130 `Properties::getImmediateFallthrough` descends from a block
+  // target to the block body's final root before `visitCallRef` asks whether the
+  // selected fallthrough is a `ref.func`. Carry that block-tail proof separately
+  // from the recursive target fact so block descent does not stay as an inline
+  // root-count scanner in the generic call_ref fallthrough traversal.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 1 {
+    return None
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  if !OiLiveNodeFact::proves_node_live(func, dead, tail_id) {
+    return None
+  }
+  let tail_fact = OiCallRefFallthroughTargetFact::from_node(
+    func,
+    dead,
+    tail_id,
+    depth=depth + 1,
+  )
+  let block_tail_fact = {
+    kind: CallRefBlockFinalRoot,
+    block_id: node_id,
+    tail_id,
+  }
+  Some({ block_tail_fact, tail_fact })
+}
+
+///|
+fn OiCallRefBlockTailFact::proves_live_final_root(
+  self : OiCallRefBlockTailFact,
+) -> Bool {
+  match self.kind {
+    CallRefBlockFinalRoot => self.block_id >= 0 && self.tail_id >= 0
+  }
+}
+
+///|
+fn OiCallRefBlockFallthroughTargetFact::proves_ref_func_block_fallthrough(
+  self : OiCallRefBlockFallthroughTargetFact,
+) -> Bool {
+  let direct_tail_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.tail_fact) {
+    Some(fact) => fact
+    None => return false
+  }
+  self.block_tail_fact.proves_live_final_root() &&
+  direct_tail_fact.proves_direct_ref_func_fallthrough()
 }
 
 ///|
