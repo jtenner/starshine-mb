@@ -19122,16 +19122,6 @@ fn OiOrderedOperandControlShapeFact::from_node(
 }
 
 ///|
-fn OiOrderedOperandControlShapeFact::allows_order_preservation(
-  self : OiOrderedOperandControlShapeFact,
-) -> Bool {
-  match self {
-    OrderedOperandExpressionRoot => true
-    OrderedOperandControlBoundary => false
-  }
-}
-
-///|
 priv enum OiOrderedOperandDiscardFact {
   OrderedOperandAppendEffectRoot
   OrderedOperandDropSingleResult
@@ -19154,16 +19144,6 @@ fn OiOrderedOperandDiscardFact::from_results(
 }
 
 ///|
-fn OiOrderedOperandDiscardFact::can_materialize_ordered_effect(
-  self : OiOrderedOperandDiscardFact,
-) -> Bool {
-  match self {
-    OrderedOperandAppendEffectRoot | OrderedOperandDropSingleResult => true
-    OrderedOperandUnsupportedMultiResult => false
-  }
-}
-
-///|
 fn OiOrderedOperandDiscardFact::append(
   self : OiOrderedOperandDiscardFact,
   func : @ir.HotFunc,
@@ -19180,13 +19160,123 @@ fn OiOrderedOperandDiscardFact::append(
 }
 
 ///|
+priv enum OiOrderedOperandPurityKind {
+  OrderedOperandTriviallyPure
+  OrderedOperandEffectPure
+  OrderedOperandEffectful
+}
+
+///|
+priv struct OiOrderedOperandPurityFact {
+  kind : OiOrderedOperandPurityKind
+}
+
+///|
+fn OiOrderedOperandPurityFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiOrderedOperandPurityFact {
+  // Binaryen's ordered-effect localizer drops pure children while preserving
+  // effectful children. Keep the two Starshine purity sources as a single
+  // ordered-operand fact instead of parallel booleans on the consumer record.
+  let effects = pass_require_effects(ctx, func)
+  let kind = if OiTriviallyPureOperandFact::proves_node_pure(func, node_id) {
+    OrderedOperandTriviallyPure
+  } else if OiNodeEffectPurityFact::from_node_masks(effects.node_masks, node_id).proves_pure() {
+    OrderedOperandEffectPure
+  } else {
+    OrderedOperandEffectful
+  }
+  { kind, }
+}
+
+///|
+fn OiOrderedOperandPurityFact::proves_pure(
+  self : OiOrderedOperandPurityFact,
+) -> Bool {
+  match self.kind {
+    OrderedOperandTriviallyPure | OrderedOperandEffectPure => true
+    OrderedOperandEffectful => false
+  }
+}
+
+///|
+priv enum OiOrderedOperandPreservationKind {
+  OrderedOperandPreservesEffectOrder
+  OrderedOperandBlockedByControlBoundary
+  OrderedOperandBlockedByMultiResultDiscard
+}
+
+///|
+priv struct OiOrderedOperandPreservationFact {
+  kind : OiOrderedOperandPreservationKind
+}
+
+///|
+fn OiOrderedOperandPreservationFact::from_facts(
+  control_shape_fact : OiOrderedOperandControlShapeFact,
+  discard_fact : OiOrderedOperandDiscardFact,
+) -> OiOrderedOperandPreservationFact {
+  // Binaryen v130 `getDroppedChildrenAndAppend` needs both an expression-root
+  // operand and a materializable discard shape. Encode the combined outcome as
+  // a preservation fact rather than open-coded `can_*` predicates.
+  let kind = match control_shape_fact {
+    OrderedOperandControlBoundary => OrderedOperandBlockedByControlBoundary
+    OrderedOperandExpressionRoot =>
+      match discard_fact {
+        OrderedOperandAppendEffectRoot | OrderedOperandDropSingleResult =>
+          OrderedOperandPreservesEffectOrder
+        OrderedOperandUnsupportedMultiResult =>
+          OrderedOperandBlockedByMultiResultDiscard
+      }
+  }
+  { kind, }
+}
+
+///|
+fn OiOrderedOperandPreservationFact::proves_order_preserved(
+  self : OiOrderedOperandPreservationFact,
+) -> Bool {
+  match self.kind {
+    OrderedOperandPreservesEffectOrder => true
+    OrderedOperandBlockedByControlBoundary
+    | OrderedOperandBlockedByMultiResultDiscard => false
+  }
+}
+
+///|
+priv struct OiOrderedOperandSelectedValueFact {
+  value_type : @lib.ValType?
+}
+
+///|
+fn OiOrderedOperandSelectedValueFact::from_facts(
+  control_shape_fact : OiOrderedOperandControlShapeFact,
+  results : Array[@lib.ValType],
+) -> OiOrderedOperandSelectedValueFact {
+  // Forward-selected rewrites may only carry a single scalar expression-root
+  // selected child through ordered siblings. Make that selected-value payload
+  // explicit instead of asking the whole operand fact whether it can preserve a
+  // scalar selected value.
+  let value_type = match control_shape_fact {
+    OrderedOperandControlBoundary => None
+    OrderedOperandExpressionRoot =>
+      match results {
+        [val_type] => Some(val_type)
+        _ => None
+      }
+  }
+  { value_type, }
+}
+
+///|
 priv struct OiOrderedOperandFact {
   node_id : Int
-  results : Array[@lib.ValType]
-  control_shape_fact : OiOrderedOperandControlShapeFact
   discard_fact : OiOrderedOperandDiscardFact
-  is_trivially_pure : Bool
-  is_effect_pure : Bool
+  purity_fact : OiOrderedOperandPurityFact
+  preservation_fact : OiOrderedOperandPreservationFact
+  selected_value_fact : OiOrderedOperandSelectedValueFact
 }
 
 ///|
@@ -19195,44 +19285,22 @@ fn OiOrderedOperandFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> OiOrderedOperandFact {
-  let effects = pass_require_effects(ctx, func)
   let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
+  let control_shape_fact = OiOrderedOperandControlShapeFact::from_node(
+    func, node_id,
+  )
+  let discard_fact = OiOrderedOperandDiscardFact::from_results(results)
   {
     node_id,
-    results,
-    control_shape_fact: OiOrderedOperandControlShapeFact::from_node(
-      func, node_id,
+    discard_fact,
+    purity_fact: OiOrderedOperandPurityFact::from_node(ctx, func, node_id),
+    preservation_fact: OiOrderedOperandPreservationFact::from_facts(
+      control_shape_fact, discard_fact,
     ),
-    discard_fact: OiOrderedOperandDiscardFact::from_results(results),
-    is_trivially_pure: OiTriviallyPureOperandFact::proves_node_pure(
-      func, node_id,
+    selected_value_fact: OiOrderedOperandSelectedValueFact::from_facts(
+      control_shape_fact, results,
     ),
-    is_effect_pure: OiNodeEffectPurityFact::from_node_masks(
-      effects.node_masks,
-      node_id,
-    ).proves_pure(),
   }
-}
-
-///|
-fn OiOrderedOperandFact::is_pure(self : OiOrderedOperandFact) -> Bool {
-  self.is_trivially_pure || self.is_effect_pure
-}
-
-///|
-fn OiOrderedOperandFact::can_preserve_order(
-  self : OiOrderedOperandFact,
-) -> Bool {
-  self.control_shape_fact.allows_order_preservation() &&
-  self.discard_fact.can_materialize_ordered_effect()
-}
-
-///|
-fn OiOrderedOperandFact::can_preserve_scalar_selected_value(
-  self : OiOrderedOperandFact,
-) -> Bool {
-  self.control_shape_fact.allows_order_preservation() &&
-  self.results.length() == 1
 }
 
 ///|
@@ -19270,7 +19338,7 @@ fn OiOrderedSelectedSiblingEffectFact::from_operands(
   let mut has_effectful_non_selected = false
   let mut has_later_effectful_non_selected = false
   for i = 0; i < operand_facts.length(); i = i + 1 {
-    if i == selected_index || operand_facts[i].is_pure() {
+    if i == selected_index || operand_facts[i].purity_fact.proves_pure() {
       continue
     }
     has_effectful_non_selected = true
@@ -19303,10 +19371,10 @@ fn optimize_instructions_append_ordered_effects(
 ) -> Bool {
   for operand_id in operand_ids {
     let operand_fact = OiOrderedOperandFact::from_node(ctx, func, operand_id)
-    if !operand_fact.can_preserve_order() {
+    if !operand_fact.preservation_fact.proves_order_preserved() {
       return false
     }
-    if operand_fact.is_pure() {
+    if operand_fact.purity_fact.proves_pure() {
       continue
     }
     if !operand_fact.append_discard(func, body) {
@@ -19439,15 +19507,15 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
   let operand_facts : Array[OiOrderedOperandFact] = []
   for operand_id in operand_ids {
     let operand_fact = OiOrderedOperandFact::from_node(ctx, func, operand_id)
-    if !operand_fact.can_preserve_order() {
+    if !operand_fact.preservation_fact.proves_order_preserved() {
       return false
     }
     operand_facts.push(operand_fact)
   }
   let selected_fact = operand_facts[selected_index]
-  let selected_value_type = match selected_fact.results {
-    [val_type] => val_type
-    _ => return false
+  let selected_value_type = match selected_fact.selected_value_fact.value_type {
+    Some(val_type) => val_type
+    None => return false
   }
   let sibling_effect_fact = OiOrderedSelectedSiblingEffectFact::from_operands(
     operand_facts, selected_index,
@@ -19503,7 +19571,7 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
       }
       continue
     }
-    if operand_fact.is_pure() {
+    if operand_fact.purity_fact.proves_pure() {
       continue
     }
     if !operand_fact.append_discard(func, body) {
@@ -20554,7 +20622,8 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
   }
   if array_kind == 2 {
     let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
-    if !OiOrderedOperandFact::from_node(ctx, func, repeated_value_id).can_preserve_scalar_selected_value() {
+    if OiOrderedOperandFact::from_node(ctx, func, repeated_value_id).selected_value_fact.value_type
+      is None {
       return false
     }
   }
