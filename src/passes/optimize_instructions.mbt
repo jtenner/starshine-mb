@@ -15351,8 +15351,27 @@ fn OiI64LowOnesMaskFact::proves_low_ones(self : OiI64LowOnesMaskFact) -> Bool {
 }
 
 ///|
+priv enum OiCommutativeInstructionKind {
+  NonCommutativeInstruction
+  CommutativeI32Add
+  CommutativeI64Add
+  CommutativeI32Mul
+  CommutativeI64Mul
+  CommutativeI32And
+  CommutativeI64And
+  CommutativeI32Or
+  CommutativeI64Or
+  CommutativeI32Xor
+  CommutativeI64Xor
+  CommutativeI32Eq
+  CommutativeI64Eq
+  CommutativeI32Ne
+  CommutativeI64Ne
+}
+
+///|
 priv struct OiCommutativeInstructionFact {
-  commutative : Bool
+  kind : OiCommutativeInstructionKind
 }
 
 ///|
@@ -15363,31 +15382,47 @@ fn OiCommutativeInstructionFact::from_instr(
   // then gated separately by operand facts/effects. Keep the represented OI-G
   // integer equality/arithmetic subset here rather than at each canonicalizer
   // call site.
-  let commutative = match instr {
-    @lib.Instruction::I32Add
-    | @lib.Instruction::I64Add
-    | @lib.Instruction::I32Mul
-    | @lib.Instruction::I64Mul
-    | @lib.Instruction::I32And
-    | @lib.Instruction::I64And
-    | @lib.Instruction::I32Or
-    | @lib.Instruction::I64Or
-    | @lib.Instruction::I32Xor
-    | @lib.Instruction::I64Xor
-    | @lib.Instruction::I32Eq
-    | @lib.Instruction::I64Eq
-    | @lib.Instruction::I32Ne
-    | @lib.Instruction::I64Ne => true
-    _ => false
+  let kind = match instr {
+    @lib.Instruction::I32Add => CommutativeI32Add
+    @lib.Instruction::I64Add => CommutativeI64Add
+    @lib.Instruction::I32Mul => CommutativeI32Mul
+    @lib.Instruction::I64Mul => CommutativeI64Mul
+    @lib.Instruction::I32And => CommutativeI32And
+    @lib.Instruction::I64And => CommutativeI64And
+    @lib.Instruction::I32Or => CommutativeI32Or
+    @lib.Instruction::I64Or => CommutativeI64Or
+    @lib.Instruction::I32Xor => CommutativeI32Xor
+    @lib.Instruction::I64Xor => CommutativeI64Xor
+    @lib.Instruction::I32Eq => CommutativeI32Eq
+    @lib.Instruction::I64Eq => CommutativeI64Eq
+    @lib.Instruction::I32Ne => CommutativeI32Ne
+    @lib.Instruction::I64Ne => CommutativeI64Ne
+    _ => NonCommutativeInstruction
   }
-  { commutative, }
+  { kind, }
 }
 
 ///|
 fn OiCommutativeInstructionFact::proves_commutative(
   self : OiCommutativeInstructionFact,
 ) -> Bool {
-  self.commutative
+  match self.kind {
+    NonCommutativeInstruction => false
+    CommutativeI32Add
+    | CommutativeI64Add
+    | CommutativeI32Mul
+    | CommutativeI64Mul
+    | CommutativeI32And
+    | CommutativeI64And
+    | CommutativeI32Or
+    | CommutativeI64Or
+    | CommutativeI32Xor
+    | CommutativeI64Xor
+    | CommutativeI32Eq
+    | CommutativeI64Eq
+    | CommutativeI32Ne
+    | CommutativeI64Ne => true
+  }
 }
 
 ///|
