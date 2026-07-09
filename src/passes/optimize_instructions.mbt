@@ -13398,27 +13398,26 @@ fn optimize_instructions_negate_boolean_expr_recursive(
 }
 
 ///|
-priv struct OiBooleanConstantTreeFact {
-  live : Bool
+priv struct OiBooleanConstantLeafFact {
   exact_i32_false : Bool
   exact_i32_true : Bool
-  if_shell : Bool
-  has_else : Bool
-  single_result_arms : Bool
-  then_arm_boolean : Bool
-  else_arm_boolean : Bool
 }
 
 ///|
-fn OiBooleanConstantTreeFact::from_node(
+fn OiBooleanConstantLeafFact::empty() -> OiBooleanConstantLeafFact {
+  { exact_i32_false: false, exact_i32_true: false }
+}
+
+///|
+fn OiBooleanConstantLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> OiBooleanConstantTreeFact {
-  // Binaryen's OI `optimizeBoolean` recursively treats i32-valued `if` arms as
-  // boolean contexts, and Starshine's represented nested-boolean cleanup only
-  // needs exact `0` / `1` leaves plus single-result `if` trees. Keep that shape
-  // as an explicit fact instead of a helper-local recursive scanner.
+) -> OiBooleanConstantLeafFact {
+  // Binaryen's OI `optimizeBoolean` recursive boolean context accepts exact
+  // i32 `0` / `1` leaves. Keep the literal proof separate from recursive `if`
+  // payloads so the represented tree fact is source-shaped instead of a flat
+  // scanner result.
   let exact_i32_false = match
     optimize_instructions_i32_const(func, dead, node_id) {
     Some(@lib.I32(0)) => true
@@ -13429,28 +13428,79 @@ fn OiBooleanConstantTreeFact::from_node(
     Some(@lib.I32(1)) => true
     _ => false
   }
-  if exact_i32_false || exact_i32_true {
+  { exact_i32_false, exact_i32_true }
+}
+
+///|
+fn OiBooleanConstantLeafFact::proves_boolean_leaf(
+  self : OiBooleanConstantLeafFact,
+) -> Bool {
+  self.exact_i32_false || self.exact_i32_true
+}
+
+///|
+priv struct OiBooleanConstantIfPayloadFact {
+  if_shell : Bool
+  has_else : Bool
+  single_result_arms : Bool
+  then_arm_boolean : Bool
+  else_arm_boolean : Bool
+}
+
+///|
+fn OiBooleanConstantIfPayloadFact::empty() -> OiBooleanConstantIfPayloadFact {
+  {
+    if_shell: false,
+    has_else: false,
+    single_result_arms: false,
+    then_arm_boolean: false,
+    else_arm_boolean: false,
+  }
+}
+
+///|
+fn OiBooleanConstantIfPayloadFact::proves_boolean_if_tree(
+  self : OiBooleanConstantIfPayloadFact,
+) -> Bool {
+  self.if_shell &&
+  self.has_else &&
+  self.single_result_arms &&
+  self.then_arm_boolean &&
+  self.else_arm_boolean
+}
+
+///|
+priv struct OiBooleanConstantTreeFact {
+  live : Bool
+  leaf_fact : OiBooleanConstantLeafFact
+  if_payload : OiBooleanConstantIfPayloadFact
+}
+
+///|
+fn OiBooleanConstantTreeFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBooleanConstantTreeFact {
+  // Binaryen's OI `optimizeBoolean` recursively treats i32-valued `if` arms as
+  // boolean contexts, and Starshine's represented nested-boolean cleanup only
+  // needs exact `0` / `1` leaves plus single-result `if` trees. Keep the leaf
+  // and `if` branch facts explicit instead of reintroducing a helper-local
+  // recursive scanner.
+  let leaf_fact = OiBooleanConstantLeafFact::from_node(func, dead, node_id)
+  if leaf_fact.proves_boolean_leaf() {
     return {
       live: true,
-      exact_i32_false,
-      exact_i32_true,
-      if_shell: false,
-      has_else: false,
-      single_result_arms: true,
-      then_arm_boolean: true,
-      else_arm_boolean: true,
+      leaf_fact,
+      if_payload: OiBooleanConstantIfPayloadFact::empty(),
     }
   }
+  let empty_leaf = OiBooleanConstantLeafFact::empty()
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
-      exact_i32_false: false,
-      exact_i32_true: false,
-      if_shell: false,
-      has_else: false,
-      single_result_arms: false,
-      then_arm_boolean: false,
-      else_arm_boolean: false,
+      leaf_fact: empty_leaf,
+      if_payload: OiBooleanConstantIfPayloadFact::empty(),
     }
   }
   match @ir.hot_node_get(func, node_id).op {
@@ -13458,13 +13508,8 @@ fn OiBooleanConstantTreeFact::from_node(
     _ =>
       return {
         live: true,
-        exact_i32_false: false,
-        exact_i32_true: false,
-        if_shell: false,
-        has_else: false,
-        single_result_arms: false,
-        then_arm_boolean: false,
-        else_arm_boolean: false,
+        leaf_fact: empty_leaf,
+        if_payload: OiBooleanConstantIfPayloadFact::empty(),
       }
   }
   let then_region = @ir.hot_region_then_ref(func, node_id)
@@ -13473,13 +13518,14 @@ fn OiBooleanConstantTreeFact::from_node(
     None =>
       return {
         live: true,
-        exact_i32_false: false,
-        exact_i32_true: false,
-        if_shell: true,
-        has_else: false,
-        single_result_arms: false,
-        then_arm_boolean: false,
-        else_arm_boolean: false,
+        leaf_fact: empty_leaf,
+        if_payload: {
+          if_shell: true,
+          has_else: false,
+          single_result_arms: false,
+          then_arm_boolean: false,
+          else_arm_boolean: false,
+        },
       }
   }
   let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -13487,13 +13533,14 @@ fn OiBooleanConstantTreeFact::from_node(
   if !single_result_arms {
     return {
       live: true,
-      exact_i32_false: false,
-      exact_i32_true: false,
-      if_shell: true,
-      has_else: true,
-      single_result_arms,
-      then_arm_boolean: false,
-      else_arm_boolean: false,
+      leaf_fact: empty_leaf,
+      if_payload: {
+        if_shell: true,
+        has_else: true,
+        single_result_arms,
+        then_arm_boolean: false,
+        else_arm_boolean: false,
+      },
     }
   }
   let then_fact = OiBooleanConstantTreeFact::from_node(
@@ -13508,13 +13555,14 @@ fn OiBooleanConstantTreeFact::from_node(
   )
   {
     live: true,
-    exact_i32_false: false,
-    exact_i32_true: false,
-    if_shell: true,
-    has_else: true,
-    single_result_arms,
-    then_arm_boolean: then_fact.proves_boolean_tree(),
-    else_arm_boolean: else_fact.proves_boolean_tree(),
+    leaf_fact: empty_leaf,
+    if_payload: {
+      if_shell: true,
+      has_else: true,
+      single_result_arms,
+      then_arm_boolean: then_fact.proves_boolean_tree(),
+      else_arm_boolean: else_fact.proves_boolean_tree(),
+    },
   }
 }
 
@@ -13524,15 +13572,8 @@ fn OiBooleanConstantTreeFact::proves_boolean_tree(
 ) -> Bool {
   self.live &&
   (
-    self.exact_i32_false ||
-    self.exact_i32_true ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.single_result_arms &&
-      self.then_arm_boolean &&
-      self.else_arm_boolean
-    )
+    self.leaf_fact.proves_boolean_leaf() ||
+    self.if_payload.proves_boolean_if_tree()
   )
 }
 
@@ -13546,44 +13587,26 @@ fn OiBooleanConstantTreeFact::proves_node_boolean_tree(
 }
 
 ///|
-priv struct OiBooleanTreeUnsharedFact {
-  live : Bool
+priv struct OiBooleanTreeLeafFact {
   direct_eqz_leaf : Bool
   exact_i32_false : Bool
   exact_i32_true : Bool
-  use_count_allows_if : Bool
-  if_shell : Bool
-  has_else : Bool
-  single_result_arms : Bool
-  then_arm_allowed : Bool
-  else_arm_allowed : Bool
 }
 
 ///|
-fn OiBooleanTreeUnsharedFact::from_node(
+fn OiBooleanTreeLeafFact::empty() -> OiBooleanTreeLeafFact {
+  { direct_eqz_leaf: false, exact_i32_false: false, exact_i32_true: false }
+}
+
+///|
+fn OiBooleanTreeLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  use_def : @ir.HotUseDef,
   node_id : Int,
-) -> OiBooleanTreeUnsharedFact {
-  // Source-backed subset for Binaryen's nested boolean-condition rewrites:
-  // direct `eqz`, exact boolean constants, and recursively unshared one-result
-  // `if` arms. This records the sharing gate as data instead of letting callers
-  // embed the old tree scanner.
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return {
-      live: false,
-      direct_eqz_leaf: false,
-      exact_i32_false: false,
-      exact_i32_true: false,
-      use_count_allows_if: false,
-      if_shell: false,
-      has_else: false,
-      single_result_arms: false,
-      then_arm_allowed: false,
-      else_arm_allowed: false,
-    }
-  }
+) -> OiBooleanTreeLeafFact {
+  // Source-backed leaf facts for Binaryen's nested boolean-condition rewrites:
+  // direct `eqz` plus exact boolean constants. The unshared recursive `if`
+  // proof is recorded separately below.
   let direct_eqz_leaf = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       true
@@ -13599,33 +13622,93 @@ fn OiBooleanTreeUnsharedFact::from_node(
     Some(@lib.I32(1)) => true
     _ => false
   }
-  if direct_eqz_leaf || exact_i32_false || exact_i32_true {
+  { direct_eqz_leaf, exact_i32_false, exact_i32_true }
+}
+
+///|
+fn OiBooleanTreeLeafFact::proves_allowed_leaf(
+  self : OiBooleanTreeLeafFact,
+) -> Bool {
+  self.direct_eqz_leaf || self.exact_i32_false || self.exact_i32_true
+}
+
+///|
+priv struct OiBooleanTreeIfPayloadFact {
+  use_count_allows_if : Bool
+  if_shell : Bool
+  has_else : Bool
+  single_result_arms : Bool
+  then_arm_allowed : Bool
+  else_arm_allowed : Bool
+}
+
+///|
+fn OiBooleanTreeIfPayloadFact::empty() -> OiBooleanTreeIfPayloadFact {
+  {
+    use_count_allows_if: false,
+    if_shell: false,
+    has_else: false,
+    single_result_arms: false,
+    then_arm_allowed: false,
+    else_arm_allowed: false,
+  }
+}
+
+///|
+fn OiBooleanTreeIfPayloadFact::proves_allowed_if_tree(
+  self : OiBooleanTreeIfPayloadFact,
+) -> Bool {
+  self.use_count_allows_if &&
+  self.if_shell &&
+  self.has_else &&
+  self.single_result_arms &&
+  self.then_arm_allowed &&
+  self.else_arm_allowed
+}
+
+///|
+priv struct OiBooleanTreeUnsharedFact {
+  live : Bool
+  leaf_fact : OiBooleanTreeLeafFact
+  if_payload : OiBooleanTreeIfPayloadFact
+}
+
+///|
+fn OiBooleanTreeUnsharedFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  use_def : @ir.HotUseDef,
+  node_id : Int,
+) -> OiBooleanTreeUnsharedFact {
+  // Source-backed subset for Binaryen's nested boolean-condition rewrites:
+  // direct `eqz`, exact boolean constants, and recursively unshared one-result
+  // `if` arms. This records leaves, the sharing gate, and branch payloads as
+  // data instead of letting callers embed the old tree scanner.
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
-      live: true,
-      direct_eqz_leaf,
-      exact_i32_false,
-      exact_i32_true,
-      use_count_allows_if: true,
-      if_shell: false,
-      has_else: false,
-      single_result_arms: true,
-      then_arm_allowed: true,
-      else_arm_allowed: true,
+      live: false,
+      leaf_fact: OiBooleanTreeLeafFact::empty(),
+      if_payload: OiBooleanTreeIfPayloadFact::empty(),
     }
   }
+  let leaf_fact = OiBooleanTreeLeafFact::from_node(func, dead, node_id)
+  if leaf_fact.proves_allowed_leaf() {
+    return {
+      live: true,
+      leaf_fact,
+      if_payload: OiBooleanTreeIfPayloadFact::empty(),
+    }
+  }
+  let empty_leaf = OiBooleanTreeLeafFact::empty()
   let use_count_allows_if = @ir.node_use_count(use_def, node_id) <= 1
   if !use_count_allows_if {
     return {
       live: true,
-      direct_eqz_leaf: false,
-      exact_i32_false: false,
-      exact_i32_true: false,
-      use_count_allows_if,
-      if_shell: false,
-      has_else: false,
-      single_result_arms: false,
-      then_arm_allowed: false,
-      else_arm_allowed: false,
+      leaf_fact: empty_leaf,
+      if_payload: {
+        ..OiBooleanTreeIfPayloadFact::empty(),
+        use_count_allows_if,
+      },
     }
   }
   match @ir.hot_node_get(func, node_id).op {
@@ -13633,15 +13716,11 @@ fn OiBooleanTreeUnsharedFact::from_node(
     _ =>
       return {
         live: true,
-        direct_eqz_leaf: false,
-        exact_i32_false: false,
-        exact_i32_true: false,
-        use_count_allows_if,
-        if_shell: false,
-        has_else: false,
-        single_result_arms: false,
-        then_arm_allowed: false,
-        else_arm_allowed: false,
+        leaf_fact: empty_leaf,
+        if_payload: {
+          ..OiBooleanTreeIfPayloadFact::empty(),
+          use_count_allows_if,
+        },
       }
   }
   let then_region = @ir.hot_region_then_ref(func, node_id)
@@ -13650,15 +13729,15 @@ fn OiBooleanTreeUnsharedFact::from_node(
     None =>
       return {
         live: true,
-        direct_eqz_leaf: false,
-        exact_i32_false: false,
-        exact_i32_true: false,
-        use_count_allows_if,
-        if_shell: true,
-        has_else: false,
-        single_result_arms: false,
-        then_arm_allowed: false,
-        else_arm_allowed: false,
+        leaf_fact: empty_leaf,
+        if_payload: {
+          use_count_allows_if,
+          if_shell: true,
+          has_else: false,
+          single_result_arms: false,
+          then_arm_allowed: false,
+          else_arm_allowed: false,
+        },
       }
   }
   let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -13666,15 +13745,15 @@ fn OiBooleanTreeUnsharedFact::from_node(
   if !single_result_arms {
     return {
       live: true,
-      direct_eqz_leaf: false,
-      exact_i32_false: false,
-      exact_i32_true: false,
-      use_count_allows_if,
-      if_shell: true,
-      has_else: true,
-      single_result_arms,
-      then_arm_allowed: false,
-      else_arm_allowed: false,
+      leaf_fact: empty_leaf,
+      if_payload: {
+        use_count_allows_if,
+        if_shell: true,
+        has_else: true,
+        single_result_arms,
+        then_arm_allowed: false,
+        else_arm_allowed: false,
+      },
     }
   }
   let then_fact = OiBooleanTreeUnsharedFact::from_node(
@@ -13691,15 +13770,15 @@ fn OiBooleanTreeUnsharedFact::from_node(
   )
   {
     live: true,
-    direct_eqz_leaf: false,
-    exact_i32_false: false,
-    exact_i32_true: false,
-    use_count_allows_if,
-    if_shell: true,
-    has_else: true,
-    single_result_arms,
-    then_arm_allowed: then_fact.proves_allowed_tree(),
-    else_arm_allowed: else_fact.proves_allowed_tree(),
+    leaf_fact: empty_leaf,
+    if_payload: {
+      use_count_allows_if,
+      if_shell: true,
+      has_else: true,
+      single_result_arms,
+      then_arm_allowed: then_fact.proves_allowed_tree(),
+      else_arm_allowed: else_fact.proves_allowed_tree(),
+    },
   }
 }
 
@@ -13709,17 +13788,8 @@ fn OiBooleanTreeUnsharedFact::proves_allowed_tree(
 ) -> Bool {
   self.live &&
   (
-    self.direct_eqz_leaf ||
-    self.exact_i32_false ||
-    self.exact_i32_true ||
-    (
-      self.use_count_allows_if &&
-      self.if_shell &&
-      self.has_else &&
-      self.single_result_arms &&
-      self.then_arm_allowed &&
-      self.else_arm_allowed
-    )
+    self.leaf_fact.proves_allowed_leaf() ||
+    self.if_payload.proves_allowed_if_tree()
   )
 }
 
