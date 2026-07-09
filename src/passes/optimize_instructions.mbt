@@ -9461,10 +9461,14 @@ fn OiCallRefIfFallthroughTargetFact::proves_one_sided_ref_func_fallthrough(
 }
 
 ///|
+priv struct OiCallRefFallthroughHeapMatchFact {
+  target_heap : @lib.HeapType
+  fallthrough_heap : @lib.HeapType
+}
+
+///|
 priv struct OiCallRefFallthroughTypeFact {
-  target_heap : @lib.HeapType?
-  fallthrough_heap : @lib.HeapType?
-  heaps_match : Bool
+  heap_match_fact : OiCallRefFallthroughHeapMatchFact?
 }
 
 ///|
@@ -9487,20 +9491,29 @@ fn OiCallRefFallthroughTypeFact::from_target(
     Some(direct_fact) => direct_fact.ref_func_heap
     None => None
   }
-  let heaps_match = match (target_heap, fallthrough_heap) {
-    (Some(target), Some(fallthrough)) => target == fallthrough
-    _ => false
+  let heap_match_fact = match (target_heap, fallthrough_heap) {
+    (Some(target), Some(fallthrough)) if target == fallthrough =>
+      Some({ target_heap: target, fallthrough_heap: fallthrough })
+    _ => None
   }
-  { target_heap, fallthrough_heap, heaps_match }
+  { heap_match_fact, }
+}
+
+///|
+fn OiCallRefFallthroughHeapMatchFact::proves_target_heap_matches_ref_func_heap(
+  self : OiCallRefFallthroughHeapMatchFact,
+) -> Bool {
+  self.target_heap == self.fallthrough_heap
 }
 
 ///|
 fn OiCallRefFallthroughTypeFact::proves_target_heap_matches_ref_func_heap(
   self : OiCallRefFallthroughTypeFact,
 ) -> Bool {
-  ignore(self.target_heap)
-  ignore(self.fallthrough_heap)
-  self.heaps_match
+  match self.heap_match_fact {
+    Some(fact) => fact.proves_target_heap_matches_ref_func_heap()
+    None => false
+  }
 }
 
 ///|
