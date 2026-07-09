@@ -179,6 +179,7 @@ export type PassFuzzCompareSummary = {
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
   propertyFailureCount: number;
+  reduceMismatches: boolean;
   idempotenceCheckedCount: number;
   idempotenceMatchCount: number;
   compositionCheckedCount: number;
@@ -280,6 +281,8 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--duplicate-import-elimination",
   "--strip-debug",
   "--simplify-globals-optimizing",
+  "--dead-argument-elimination",
+  "--dae",
   "--dae-optimizing",
   "--inlining",
   "--inlining-optimizing",
@@ -292,6 +295,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
 
 const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-code-elimination", "--dce"],
+  ["--dead-argument-elimination", "--dae"],
   ["--global-struct-inference", "--gsi"],
   ["--global-struct-inference-desc-cast", "--gsi-desc-cast"],
   ["--redundant-set-elimination", "--rse"],
@@ -3051,6 +3055,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
     propertyFailureCount: 0,
+    reduceMismatches: options.reduceMismatches,
     idempotenceCheckedCount: 0,
     idempotenceMatchCount: 0,
     compositionCheckedCount: 0,
