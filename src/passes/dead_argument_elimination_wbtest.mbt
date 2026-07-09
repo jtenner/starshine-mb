@@ -8550,6 +8550,51 @@ test "dae local usage evidence centralizes local counts and try-table scan" {
 }
 
 ///|
+test "dae local copy target evidence centralizes protected target checks" {
+  let temp = @lib.LocalIdx::new(108U)
+  let target = @lib.LocalIdx::new(33U)
+  let param_local = @lib.LocalIdx::new(2U)
+  match dae_local_copy_target_evidence(temp, target, 4) {
+    Some(evidence) => {
+      assert_eq(evidence.temp_local, temp)
+      assert_eq(evidence.target_local, target)
+      assert_eq(evidence.protected_local_slots, 4)
+      assert_true(
+        dae_local_copy_target_evidence_instr_independent(
+          evidence,
+          @lib.Instruction::i32_const(@lib.I32(7)),
+        ),
+      )
+      assert_false(
+        dae_local_copy_target_evidence_instr_independent(
+          evidence,
+          @lib.Instruction::local_get(temp),
+        ),
+      )
+      assert_false(
+        dae_local_copy_target_evidence_instr_independent(
+          evidence,
+          @lib.Instruction::local_set(target),
+        ),
+      )
+    }
+    None => fail("expected local-copy target evidence")
+  }
+  match dae_local_copy_target_evidence(temp, temp, 4) {
+    Some(_) => fail("local-copy target evidence must reject self copies")
+    None => ()
+  }
+  match dae_local_copy_target_evidence(param_local, target, 4) {
+    Some(_) => fail("local-copy target evidence must reject parameter temps")
+    None => ()
+  }
+  match dae_local_copy_target_evidence(temp, param_local, 4) {
+    Some(_) => fail("local-copy target evidence must reject parameter targets")
+    None => ()
+  }
+}
+
+///|
 test "dae func237 local copy candidate evidence centralizes local usage and try-table roots" {
   let temp = @lib.LocalIdx::new(108U)
   let param_local = @lib.LocalIdx::new(2U)

@@ -477,6 +477,13 @@ priv struct DaeLocalUsageEvidence {
 }
 
 ///|
+priv struct DaeLocalCopyTargetEvidence {
+  temp_local : @lib.LocalIdx
+  target_local : @lib.LocalIdx
+  protected_local_slots : Int
+}
+
+///|
 priv struct DaePassResult {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -21553,6 +21560,46 @@ priv struct DaeFunc237LocalCopyGapEvidence {
 }
 
 ///|
+fn dae_local_copy_target_evidence_is_consistent(
+  evidence : DaeLocalCopyTargetEvidence,
+  temp_local : @lib.LocalIdx,
+  target_local : @lib.LocalIdx,
+  protected_local_slots : Int,
+) -> Bool {
+  evidence.protected_local_slots == protected_local_slots &&
+  dae_local_idx_equal(evidence.temp_local, temp_local) &&
+  dae_local_idx_equal(evidence.target_local, target_local) &&
+  !dae_local_idx_equal(evidence.temp_local, evidence.target_local) &&
+  dae_local_idx_slot(evidence.temp_local) >= protected_local_slots &&
+  dae_local_idx_slot(evidence.target_local) >= protected_local_slots
+}
+
+///|
+fn dae_local_copy_target_evidence(
+  temp_local : @lib.LocalIdx,
+  target_local : @lib.LocalIdx,
+  protected_local_slots : Int,
+) -> DaeLocalCopyTargetEvidence? {
+  let evidence = { temp_local, target_local, protected_local_slots }
+  if dae_local_copy_target_evidence_is_consistent(
+      evidence, temp_local, target_local, protected_local_slots,
+    ) {
+    Some(evidence)
+  } else {
+    None
+  }
+}
+
+///|
+fn dae_local_copy_target_evidence_instr_independent(
+  evidence : DaeLocalCopyTargetEvidence,
+  instr : @lib.Instruction,
+) -> Bool {
+  !dae_instr_references_local(instr, evidence.temp_local) &&
+  !dae_instr_references_local(instr, evidence.target_local)
+}
+
+///|
 fn dae_func237_local_copy_candidate_evidence_is_consistent(
   evidence : DaeFunc237LocalCopyCandidateEvidence,
   temp_local : @lib.LocalIdx,
@@ -21866,8 +21913,7 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
         (@lib.LocalGet(read_local), @lib.LocalSet(target_local)) if dae_local_idx_equal(
             read_local, temp_local,
           ) &&
-          !dae_local_idx_equal(temp_local, target_local) &&
-          dae_local_idx_slot(target_local) >= param_count &&
+          dae_local_copy_target_evidence(temp_local, target_local, param_count).is_some() &&
           dae_func237_copy_gap_safe(
             body,
             set_idx + 1,
@@ -22028,8 +22074,7 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
         (@lib.LocalGet(read_local), @lib.LocalSet(target_local)) if dae_local_idx_equal(
             read_local, temp_local,
           ) &&
-          !dae_local_idx_equal(temp_local, target_local) &&
-          dae_local_idx_slot(target_local) >= param_count &&
+          dae_local_copy_target_evidence(temp_local, target_local, param_count).is_some() &&
           total_temp_reads ==
           dae_count_local_gets_instrs_range(
             body,
@@ -22333,12 +22378,22 @@ fn dae_try_fold_func237_store_carrier_copy_body_once(
         @lib.LocalGet(second_get),
         @lib.LocalSet(target_local),
       ) if dae_local_idx_equal(temp_local, first_get) &&
-        dae_local_idx_equal(temp_local, second_get) &&
-        !dae_local_idx_equal(temp_local, target_local) &&
-        dae_local_idx_slot(temp_local) >= param_count &&
-        dae_local_idx_slot(target_local) >= param_count &&
-        !dae_instr_references_local(body[idx + 6], temp_local) &&
-        !dae_instr_references_local(body[idx + 6], target_local) => {
+        dae_local_idx_equal(temp_local, second_get) => {
+        let target_evidence = match
+          dae_local_copy_target_evidence(temp_local, target_local, param_count) {
+          Some(evidence) => evidence
+          None => {
+            idx += 1
+            continue
+          }
+        }
+        if !dae_local_copy_target_evidence_instr_independent(
+            target_evidence,
+            body[idx + 6],
+          ) {
+          idx += 1
+          continue
+        }
         let out : Array[@lib.Instruction] = []
         let mut prefix_idx = 0
         while prefix_idx < idx {
@@ -22347,10 +22402,10 @@ fn dae_try_fold_func237_store_carrier_copy_body_once(
         }
         out.push(body[idx])
         out.push(body[idx + 1])
-        out.push(@lib.Instruction::local_tee(target_local))
+        out.push(@lib.Instruction::local_tee(target_evidence.target_local))
         out.push(body[idx + 3])
         out.push(body[idx + 4])
-        out.push(@lib.Instruction::local_get(target_local))
+        out.push(@lib.Instruction::local_get(target_evidence.target_local))
         out.push(body[idx + 6])
         out.push(body[idx + 7])
         let mut suffix_idx = idx + 10
