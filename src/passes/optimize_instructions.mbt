@@ -34024,10 +34024,33 @@ priv struct OiRefEqI31SourceFact {
 }
 
 ///|
+priv enum OiRefEqI31NonNullKind {
+  RefEqI31UnknownNonNull
+  RefEqI31KnownNonNullLocal
+  RefEqI31KnownNonNullLiteral
+}
+
+///|
+priv struct OiRefEqI31NonNullFact {
+  kind : OiRefEqI31NonNullKind
+}
+
+///|
+priv enum OiRefEqI31DisjointTargetKind {
+  RefEqI31TargetMayMatch
+  RefEqI31TargetCannotMatch
+}
+
+///|
+priv struct OiRefEqI31DisjointTargetFact {
+  kind : OiRefEqI31DisjointTargetKind
+}
+
+///|
 priv struct OiRefEqI31Fact {
   source_fact : OiRefEqI31SourceFact
-  known_non_null : Bool
-  cannot_match : Bool
+  non_null_fact : OiRefEqI31NonNullFact
+  disjoint_target_fact : OiRefEqI31DisjointTargetFact
 }
 
 ///|
@@ -34324,30 +34347,82 @@ fn OiRefEqI31Fact::from_node(
   // operands are disjoint from locals whose static heap cannot be i31. Keep
   // those i31 proofs together instead of parallel operand-summary booleans.
   let source_fact = OiRefEqI31SourceFact::from_node(func, dead, node_id)
-  let known_non_null = match @ir.hot_node_get(func, node_id).op {
+  let non_null_fact = OiRefEqI31NonNullFact::from_node(
+    func, node_id, local_ref_type, literal_fact,
+  )
+  let disjoint_target_fact = OiRefEqI31DisjointTargetFact::from_ref_type(
+    local_ref_type,
+  )
+  { source_fact, non_null_fact, disjoint_target_fact }
+}
+
+///|
+fn OiRefEqI31NonNullFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_ref_type : @lib.RefType?,
+  literal_fact : OiRefLiteralFact,
+) -> OiRefEqI31NonNullFact {
+  let kind = match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::LocalGet =>
       match local_ref_type {
-        Some(ref_type) =>
-          ref_type.is_non_nullable() &&
+        Some(ref_type) if ref_type.is_non_nullable() &&
           ref_type.get_heap_type() ==
-          @lib.HeapType::abs(@lib.AbsHeapType::i31())
-        None => false
+          @lib.HeapType::abs(@lib.AbsHeapType::i31()) =>
+          RefEqI31KnownNonNullLocal
+        _ => RefEqI31UnknownNonNull
       }
     _ =>
       match literal_fact.kind {
-        I31RefLiteral => true
-        NoRefLiteral | FuncRefLiteral => false
+        I31RefLiteral => RefEqI31KnownNonNullLiteral
+        NoRefLiteral | FuncRefLiteral => RefEqI31UnknownNonNull
       }
   }
-  let cannot_match = match local_ref_type {
-    Some(ref_type) =>
-      OiRefLiteralTargetFact::from_literal(
+  { kind, }
+}
+
+///|
+fn OiRefEqI31NonNullFact::proves_known_non_null(
+  self : OiRefEqI31NonNullFact,
+) -> Bool {
+  match self.kind {
+    RefEqI31KnownNonNullLocal | RefEqI31KnownNonNullLiteral => true
+    RefEqI31UnknownNonNull => false
+  }
+}
+
+///|
+fn OiRefEqI31DisjointTargetFact::from_ref_type(
+  local_ref_type : @lib.RefType?,
+) -> OiRefEqI31DisjointTargetFact {
+  let kind = match local_ref_type {
+    Some(ref_type) if OiRefLiteralTargetFact::from_literal(
         OiRefLiteralFact::i31(),
         ref_type.get_heap_type(),
-      ).proves_i31_miss_target()
-    None => false
+      ).proves_i31_miss_target() => RefEqI31TargetCannotMatch
+    _ => RefEqI31TargetMayMatch
   }
-  { source_fact, known_non_null, cannot_match }
+  { kind, }
+}
+
+///|
+fn OiRefEqI31DisjointTargetFact::proves_cannot_match(
+  self : OiRefEqI31DisjointTargetFact,
+) -> Bool {
+  match self.kind {
+    RefEqI31TargetCannotMatch => true
+    RefEqI31TargetMayMatch => false
+  }
+}
+
+///|
+fn OiRefEqI31Fact::proves_known_non_null(self : OiRefEqI31Fact) -> Bool {
+  self.non_null_fact.proves_known_non_null()
+}
+
+///|
+fn OiRefEqI31Fact::proves_cannot_match_target(self : OiRefEqI31Fact) -> Bool {
+  self.disjoint_target_fact.proves_cannot_match()
 }
 
 ///|
@@ -34734,9 +34809,13 @@ fn OiRefEqImpossibleFact::from_relation(
   // abstract struct/array disjoint heaps. Keep the miss reason explicit before
   // the effect-preserving false replacement is selected.
   if (
-      relation.lhs.i31_fact.known_non_null && relation.rhs.i31_fact.cannot_match
+      relation.lhs.i31_fact.proves_known_non_null() &&
+      relation.rhs.i31_fact.proves_cannot_match_target()
     ) ||
-    (relation.rhs.i31_fact.known_non_null && relation.lhs.i31_fact.cannot_match) {
+    (
+      relation.rhs.i31_fact.proves_known_non_null() &&
+      relation.lhs.i31_fact.proves_cannot_match_target()
+    ) {
     return Some({ kind: RefEqI31AgainstDisjointHeap })
   }
   match
