@@ -19245,9 +19245,15 @@ fn OiOrderedOperandFact::append_discard(
 }
 
 ///|
+priv enum OiOrderedSelectedSiblingEffectKind {
+  OrderedSelectedDirectForward
+  OrderedSelectedInlineWithEffects
+  OrderedSelectedLocalizeThenEffects
+}
+
+///|
 priv struct OiOrderedSelectedSiblingEffectFact {
-  has_effectful_non_selected : Bool
-  has_later_effectful_non_selected : Bool
+  kind : OiOrderedSelectedSiblingEffectKind
 }
 
 ///|
@@ -19259,8 +19265,8 @@ fn OiOrderedSelectedSiblingEffectFact::from_operands(
   // evidence as tuple extraction: pure siblings can disappear, earlier
   // effectful siblings are emitted before the selected value, and later
   // effectful siblings force selected-value localization. Keep that sibling
-  // summary reusable instead of recomputing booleans in each selected-operand
-  // rewrite helper.
+  // order as an explicit effect-kind fact so the body builder does not carry
+  // parallel helper predicates or a selected-local sentinel.
   let mut has_effectful_non_selected = false
   let mut has_later_effectful_non_selected = false
   for i = 0; i < operand_facts.length(); i = i + 1 {
@@ -19272,21 +19278,20 @@ fn OiOrderedSelectedSiblingEffectFact::from_operands(
       has_later_effectful_non_selected = true
     }
   }
-  { has_effectful_non_selected, has_later_effectful_non_selected }
+  let kind = if !has_effectful_non_selected {
+    OrderedSelectedDirectForward
+  } else if has_later_effectful_non_selected {
+    OrderedSelectedLocalizeThenEffects
+  } else {
+    OrderedSelectedInlineWithEffects
+  }
+  { kind, }
 }
 
 ///|
-fn OiOrderedSelectedSiblingEffectFact::allows_direct_forward(
-  self : OiOrderedSelectedSiblingEffectFact,
-) -> Bool {
-  !self.has_effectful_non_selected
-}
-
-///|
-fn OiOrderedSelectedSiblingEffectFact::needs_selected_local(
-  self : OiOrderedSelectedSiblingEffectFact,
-) -> Bool {
-  self.has_later_effectful_non_selected
+priv struct OiOrderedSelectedLocalFact {
+  selected_local : Int
+  selected_result_id : Int
 }
 
 ///|
@@ -19447,45 +19452,54 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
   let sibling_effect_fact = OiOrderedSelectedSiblingEffectFact::from_operands(
     operand_facts, selected_index,
   )
-  if sibling_effect_fact.allows_direct_forward() {
-    optimize_instructions_replace_with_node_id(
-      ctx,
-      func,
-      node_id,
-      selected_fact.node_id,
-    )
-    return true
+  let selected_local_fact = match sibling_effect_fact.kind {
+    OrderedSelectedDirectForward => {
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        selected_fact.node_id,
+      )
+      return true
+    }
+    OrderedSelectedLocalizeThenEffects => {
+      let local_type = match
+        optimize_instructions_defaultable_scratch_type(selected_value_type) {
+        Some(local_type) => local_type
+        None => return false
+      }
+      let selected_local = @ir.hot_append_body_local(func, local_type)
+      let selected_get = @ir.hot_build_local_get(func, selected_local)
+      let selected_result_id = match
+        optimize_instructions_restore_localized_result(
+          func, selected_get, local_type, result_type,
+        ) {
+        Some(result_id) => result_id
+        None => return false
+      }
+      Some({ selected_local, selected_result_id })
+    }
+    OrderedSelectedInlineWithEffects => {
+      if selected_value_type != result_type {
+        return false
+      }
+      None
+    }
   }
   let body : Array[Int] = []
-  let mut selected_local = -1
-  let mut selected_result_id = selected_fact.node_id
-  if sibling_effect_fact.needs_selected_local() {
-    let local_type = match
-      optimize_instructions_defaultable_scratch_type(selected_value_type) {
-      Some(local_type) => local_type
-      None => return false
-    }
-    selected_local = @ir.hot_append_body_local(func, local_type)
-    let selected_get = @ir.hot_build_local_get(func, selected_local)
-    selected_result_id = match
-      optimize_instructions_restore_localized_result(
-        func, selected_get, local_type, result_type,
-      ) {
-      Some(result_id) => result_id
-      None => return false
-    }
-  } else if selected_value_type != result_type {
-    return false
-  }
   for i = 0; i < operand_facts.length(); i = i + 1 {
     let operand_fact = operand_facts[i]
     if i == selected_index {
-      if sibling_effect_fact.needs_selected_local() {
-        body.push(
-          @ir.hot_build_local_set(func, selected_local, selected_fact.node_id),
-        )
-      } else {
-        body.push(selected_fact.node_id)
+      match selected_local_fact {
+        Some(fact) =>
+          body.push(
+            @ir.hot_build_local_set(
+              func,
+              fact.selected_local,
+              selected_fact.node_id,
+            ),
+          )
+        None => body.push(selected_fact.node_id)
       }
       continue
     }
@@ -19496,8 +19510,9 @@ fn optimize_instructions_try_forward_selected_operand_preserving_effects(
       return false
     }
   }
-  if sibling_effect_fact.needs_selected_local() {
-    body.push(selected_result_id)
+  match selected_local_fact {
+    Some(fact) => body.push(fact.selected_result_id)
+    None => ()
   }
   let replacement = @ir.hot_build_block(
     func,
