@@ -13677,11 +13677,16 @@ fn OiLocalGetLeafFact::from_node(
 }
 
 ///|
+priv enum OiConstlikeLeafKind {
+  ConstlikeLeafNoProof
+  ConstlikeConstLeaf
+  ConstlikeRefNullLeaf
+  ConstlikeRefFuncLeaf
+}
+
+///|
 priv struct OiConstlikeLeafFact {
-  live : Bool
-  const_leaf : Bool
-  ref_null_leaf : Bool
-  ref_func_leaf : Bool
+  kind : OiConstlikeLeafKind
 }
 
 ///|
@@ -13691,45 +13696,44 @@ fn OiConstlikeLeafFact::from_node(
   node_id : Int,
 ) -> OiConstlikeLeafFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return {
-      live: false,
-      const_leaf: false,
-      ref_null_leaf: false,
-      ref_func_leaf: false,
-    }
+    return { kind: ConstlikeLeafNoProof }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  let const_leaf = match node.op {
-    @ir.HotOp::Const => true
-    _ => false
+  let kind = match node.op {
+    @ir.HotOp::Const => ConstlikeConstLeaf
+    @ir.HotOp::RefNull => ConstlikeRefNullLeaf
+    @ir.HotOp::RefFunc => ConstlikeRefFuncLeaf
+    _ => ConstlikeLeafNoProof
   }
-  let ref_null_leaf = match node.op {
-    @ir.HotOp::RefNull => true
-    _ => false
-  }
-  let ref_func_leaf = match node.op {
-    @ir.HotOp::RefFunc => true
-    _ => false
-  }
-  { live: true, const_leaf, ref_null_leaf, ref_func_leaf }
+  { kind, }
 }
 
 ///|
 fn OiConstlikeLeafFact::proves_constlike(self : OiConstlikeLeafFact) -> Bool {
-  self.live && (self.const_leaf || self.ref_null_leaf || self.ref_func_leaf)
+  match self.kind {
+    ConstlikeLeafNoProof => false
+    ConstlikeConstLeaf => true
+    ConstlikeRefNullLeaf => true
+    ConstlikeRefFuncLeaf => true
+  }
+}
+
+///|
+priv enum OiSharedCrossSafeLeafKind {
+  SharedCrossSafeLeafNoProof
+  SharedCrossSafeLocalGetLeaf
+  SharedCrossSafeConstLeaf
+  SharedCrossSafeRefNullLeaf
+  SharedCrossSafeRefFuncLeaf
 }
 
 ///|
 priv struct OiSharedCrossSafeLeafFact {
-  live : Bool
-  local_get_leaf : Bool
-  const_leaf : Bool
-  ref_null_leaf : Bool
-  ref_func_leaf : Bool
+  kind : OiSharedCrossSafeLeafKind
 }
 
 ///|
@@ -13744,49 +13748,34 @@ fn OiSharedCrossSafeLeafFact::from_node(
   // relational canonicalization, and identical-select cleanup share facts
   // instead of each owning an opcode whitelist.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return {
-      live: false,
-      local_get_leaf: false,
-      const_leaf: false,
-      ref_null_leaf: false,
-      ref_func_leaf: false,
-    }
+    return { kind: SharedCrossSafeLeafNoProof }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  let local_get_leaf = match node.op {
-    @ir.HotOp::LocalGet => true
-    _ => false
+  let kind = match node.op {
+    @ir.HotOp::LocalGet => SharedCrossSafeLocalGetLeaf
+    @ir.HotOp::Const => SharedCrossSafeConstLeaf
+    @ir.HotOp::RefNull => SharedCrossSafeRefNullLeaf
+    @ir.HotOp::RefFunc => SharedCrossSafeRefFuncLeaf
+    _ => SharedCrossSafeLeafNoProof
   }
-  let const_leaf = match node.op {
-    @ir.HotOp::Const => true
-    _ => false
-  }
-  let ref_null_leaf = match node.op {
-    @ir.HotOp::RefNull => true
-    _ => false
-  }
-  let ref_func_leaf = match node.op {
-    @ir.HotOp::RefFunc => true
-    _ => false
-  }
-  { live: true, local_get_leaf, const_leaf, ref_null_leaf, ref_func_leaf }
+  { kind, }
 }
 
 ///|
 fn OiSharedCrossSafeLeafFact::proves_safe(
   self : OiSharedCrossSafeLeafFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.local_get_leaf ||
-    self.const_leaf ||
-    self.ref_null_leaf ||
-    self.ref_func_leaf
-  )
+  match self.kind {
+    SharedCrossSafeLeafNoProof => false
+    SharedCrossSafeLocalGetLeaf => true
+    SharedCrossSafeConstLeaf => true
+    SharedCrossSafeRefNullLeaf => true
+    SharedCrossSafeRefFuncLeaf => true
+  }
 }
 
 ///|
