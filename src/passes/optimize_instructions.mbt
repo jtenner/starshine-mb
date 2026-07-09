@@ -9328,6 +9328,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixTableSet
   MaxBitsBlockPrefixTableFill
   MaxBitsBlockPrefixTableCopy
+  MaxBitsBlockPrefixTableInit
   MaxBitsBlockPrefixDataDrop
   MaxBitsBlockPrefixElemDrop
   MaxBitsBlockPrefixMemoryInit
@@ -9351,9 +9352,9 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // even when earlier straight-line roots have effects; the later replacement
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
-  // memory/table store, passive-data drop, direct/indirect call, and global
-  // write roots so branch, control, and generalized localization remain out of
-  // this fact.
+  // memory/table store, passive-data/table-init/drop, direct/indirect call, and
+  // global write roots so branch, control, and generalized localization remain
+  // out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
   }
@@ -9373,6 +9374,8 @@ fn OiMaxBitsBlockPrefixFact::from_root(
       Some({ kind: MaxBitsBlockPrefixTableFill, root_id })
     @ir.HotOp::TableCopy if @ir.hot_child_count(func, root_id) == 3 =>
       Some({ kind: MaxBitsBlockPrefixTableCopy, root_id })
+    @ir.HotOp::TableInit if @ir.hot_child_count(func, root_id) == 3 =>
+      Some({ kind: MaxBitsBlockPrefixTableInit, root_id })
     @ir.HotOp::DataDrop => Some({ kind: MaxBitsBlockPrefixDataDrop, root_id })
     @ir.HotOp::ElemDrop => Some({ kind: MaxBitsBlockPrefixElemDrop, root_id })
     @ir.HotOp::MemoryInit if @ir.hot_child_count(func, root_id) == 3 =>
@@ -9400,6 +9403,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixTableSet
     | MaxBitsBlockPrefixTableFill
     | MaxBitsBlockPrefixTableCopy
+    | MaxBitsBlockPrefixTableInit
     | MaxBitsBlockPrefixDataDrop
     | MaxBitsBlockPrefixElemDrop
     | MaxBitsBlockPrefixMemoryInit
