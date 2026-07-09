@@ -3901,7 +3901,12 @@ test "dae stack slice localization evidence carries transition escape and repair
   }
   assert_true(
     dae_stack_slice_localization_policy_accepts(
-      mod_, [], body, 0, body.length(), select_policy,
+      mod_,
+      [],
+      body,
+      0,
+      body.length(),
+      select_policy,
     ),
   )
   let parametric_policy = dae_parametric_typeidx_prefix_localization_policy(2)
@@ -3923,7 +3928,11 @@ test "dae stack slice localization evidence carries transition escape and repair
   }
   assert_true(
     dae_stack_slice_localization_policy_accepts(
-      mod_, [], [@lib.Instruction::i32_add(), @lib.Instruction::drop()], 0, 2,
+      mod_,
+      [],
+      [@lib.Instruction::i32_add(), @lib.Instruction::drop()],
+      0,
+      2,
       parametric_policy,
     ),
   )
