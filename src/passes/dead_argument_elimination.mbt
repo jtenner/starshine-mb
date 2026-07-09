@@ -78,6 +78,16 @@ priv struct DaeDroppedOperandPairSkipEvidence {
 }
 
 ///|
+priv struct DaeMultiResultOperandSlotEvidence {
+  start : Int
+  end : Int
+  operand_start : Int
+  next : Int
+  skipped_pairs : Int
+  consumed_single_producer : Bool
+}
+
+///|
 priv struct DaeDroppedPureLeafCleanupEvidence {
   range_allows_cleanup : Bool
   preserve_integer_const_debris : Bool
@@ -7945,6 +7955,91 @@ fn dae_dropped_operand_pair_skip_evidence(
 }
 
 ///|
+fn dae_multi_result_operand_slot_evidence_is_consistent(
+  evidence : DaeMultiResultOperandSlotEvidence,
+  body : Array[@lib.Instruction],
+) -> Bool {
+  evidence.start >= 0 &&
+  evidence.end >= evidence.start &&
+  evidence.end <= body.length() &&
+  evidence.operand_start >= evidence.start &&
+  evidence.operand_start < evidence.end &&
+  evidence.next >= evidence.operand_start &&
+  evidence.next <= evidence.end &&
+  evidence.skipped_pairs >= 0 &&
+  evidence.operand_start == evidence.start + evidence.skipped_pairs * 2 &&
+  (
+    !evidence.consumed_single_producer ||
+    evidence.next == evidence.operand_start + 1
+  ) &&
+  (evidence.consumed_single_producer || evidence.next == evidence.operand_start)
+}
+
+///|
+fn dae_multi_result_operand_slot_prefix_evidence(
+  body : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+) -> DaeMultiResultOperandSlotEvidence? {
+  let skipped = match dae_dropped_operand_pair_skip_evidence(body, start, end) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  if skipped.next >= end {
+    return None
+  }
+  let evidence = {
+    start,
+    end,
+    operand_start: skipped.next,
+    next: skipped.next,
+    skipped_pairs: skipped.skipped_pairs,
+    consumed_single_producer: false,
+  }
+  if dae_multi_result_operand_slot_evidence_is_consistent(evidence, body) {
+    Some(evidence)
+  } else {
+    None
+  }
+}
+
+///|
+fn dae_multi_result_operand_slot_single_producer_evidence(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  body : Array[@lib.Instruction],
+  prefix : DaeMultiResultOperandSlotEvidence,
+) -> DaeMultiResultOperandSlotEvidence? {
+  if !dae_multi_result_operand_slot_evidence_is_consistent(prefix, body) ||
+    prefix.consumed_single_producer {
+    return None
+  }
+  match
+    dae_stack_single_value_producer_evidence(
+      body[prefix.operand_start],
+      mod_,
+      func_type_indices,
+    ) {
+    Some(_) => {
+      let evidence = {
+        start: prefix.start,
+        end: prefix.end,
+        operand_start: prefix.operand_start,
+        next: prefix.operand_start + 1,
+        skipped_pairs: prefix.skipped_pairs,
+        consumed_single_producer: true,
+      }
+      if dae_multi_result_operand_slot_evidence_is_consistent(evidence, body) {
+        Some(evidence)
+      } else {
+        None
+      }
+    }
+    None => None
+  }
+}
+
+///|
 fn dae_multi_result_suffix_bounds_evidence(
   body : Array[@lib.Instruction],
   result_count : Int,
@@ -8010,38 +8105,35 @@ fn dae_try_refine_multi_result_single_if_operand_body(
     let mut saw_if_operand = false
     let mut suffix_ok = true
     while suffix_ok && result_idx < results.length() {
-      match
-        dae_dropped_operand_pair_skip_evidence(
+      let slot_prefix = match
+        dae_multi_result_operand_slot_prefix_evidence(
           body,
           instr_idx,
           bounds.operand_end,
         ) {
-        Some(evidence) => instr_idx = evidence.next
+        Some(evidence) => evidence
         None => {
           suffix_ok = false
           break
         }
       }
-      if instr_idx >= bounds.operand_end {
-        suffix_ok = false
-        break
-      }
       let mut consumed = false
-      if instr_idx + 1 < bounds.operand_end {
-        match body[instr_idx + 1] {
+      let operand_start = slot_prefix.operand_start
+      if operand_start + 1 < bounds.operand_end {
+        match body[operand_start + 1] {
           @lib.If(block_type, _, Some(_)) =>
             match
               dae_control_single_result_block_type_evidence(block_type, mod_) {
               Some(_) =>
                 match
                   dae_stack_single_value_producer_evidence(
-                    body[instr_idx],
+                    body[operand_start],
                     mod_,
                     func_type_indices,
                   ) {
                   Some(_) => {
-                    candidate_instrs[result_idx] = instr_idx + 1
-                    instr_idx += 2
+                    candidate_instrs[result_idx] = operand_start + 1
+                    instr_idx = operand_start + 2
                     saw_if_operand = true
                     consumed = true
                   }
@@ -8054,14 +8146,12 @@ fn dae_try_refine_multi_result_single_if_operand_body(
       }
       if !consumed {
         match
-          dae_stack_single_value_producer_evidence(
-            body[instr_idx],
-            mod_,
-            func_type_indices,
+          dae_multi_result_operand_slot_single_producer_evidence(
+            mod_, func_type_indices, body, slot_prefix,
           ) {
-          Some(_) => {
-            candidate_instrs[result_idx] = instr_idx
-            instr_idx += 1
+          Some(evidence) => {
+            candidate_instrs[result_idx] = evidence.operand_start
+            instr_idx = evidence.next
             consumed = true
           }
           None => ()
@@ -8144,26 +8234,23 @@ fn dae_try_refine_multi_result_select_operand_body(
     let mut saw_select_operand = false
     let mut suffix_ok = true
     while suffix_ok && result_idx < results.length() {
-      match
-        dae_dropped_operand_pair_skip_evidence(
+      let slot_prefix = match
+        dae_multi_result_operand_slot_prefix_evidence(
           body,
           instr_idx,
           bounds.operand_end,
         ) {
-        Some(evidence) => instr_idx = evidence.next
+        Some(evidence) => evidence
         None => {
           suffix_ok = false
           break
         }
       }
-      if instr_idx >= bounds.operand_end {
-        suffix_ok = false
-        break
-      }
       let mut consumed = false
+      let operand_start = slot_prefix.operand_start
       let remaining_results = results.length() - result_idx - 1
       let max_select_idx = bounds.operand_end - remaining_results - 1
-      let mut select_idx = instr_idx + 3
+      let mut select_idx = operand_start + 3
       while !consumed && select_idx <= max_select_idx {
         match
           dae_find_select_value_slices(
@@ -8171,7 +8258,7 @@ fn dae_try_refine_multi_result_select_operand_body(
             func_type_indices,
             body,
             select_idx,
-            required_left_start=instr_idx,
+            required_left_start=operand_start,
           ) {
           Some(slices) =>
             if dae_select_value_slices_are_consistent(slices, select_idx) {
@@ -8206,13 +8293,11 @@ fn dae_try_refine_multi_result_select_operand_body(
       }
       if !consumed {
         match
-          dae_stack_single_value_producer_evidence(
-            body[instr_idx],
-            mod_,
-            func_type_indices,
+          dae_multi_result_operand_slot_single_producer_evidence(
+            mod_, func_type_indices, body, slot_prefix,
           ) {
-          Some(_) => {
-            instr_idx += 1
+          Some(evidence) => {
+            instr_idx = evidence.next
             consumed = true
           }
           None => ()

@@ -2426,6 +2426,51 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
 }
 
 ///|
+test "dae multi-result operand slot evidence centralizes suffix scan fallback" {
+  let mod_ = @lib.Module::new()
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i64_const(@lib.I64(10L)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+  ]
+  let prefix = match
+    dae_multi_result_operand_slot_prefix_evidence(body, 0, body.length()) {
+    Some(evidence) => evidence
+    None => fail("expected skipped dropped-pair slot prefix evidence")
+  }
+  assert_eq(prefix.start, 0)
+  assert_eq(prefix.end, body.length())
+  assert_eq(prefix.operand_start, 2)
+  assert_eq(prefix.next, 2)
+  assert_eq(prefix.skipped_pairs, 1)
+  assert_false(prefix.consumed_single_producer)
+  match
+    dae_multi_result_operand_slot_single_producer_evidence(
+      mod_,
+      [],
+      body,
+      prefix,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.operand_start, 2)
+      assert_eq(evidence.next, 3)
+      assert_eq(evidence.skipped_pairs, 1)
+      assert_true(evidence.consumed_single_producer)
+    }
+    None => fail("expected single-producer fallback slot evidence")
+  }
+  match dae_multi_result_operand_slot_prefix_evidence(body, 0, 2) {
+    Some(_) => fail("slot prefix evidence must reject exhausted suffixes")
+    None => ()
+  }
+  match dae_multi_result_operand_slot_prefix_evidence(body, -1, body.length()) {
+    Some(_) => fail("slot prefix evidence must reject out-of-range starts")
+    None => ()
+  }
+}
+
+///|
 test "dae indexed instruction rewrite evidence centralizes shared body edits" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
