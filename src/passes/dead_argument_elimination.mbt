@@ -159,6 +159,15 @@ priv struct DaeStackSliceTransitionEvidence {
 }
 
 ///|
+priv struct DaeStackSliceLocalizationPolicy {
+  initial_stack_values : Int
+  expected_final_stack_values : Int
+  depth : Int
+  instr_allowed : (@lib.Instruction) -> Bool
+  keep_operand : Bool
+}
+
+///|
 priv struct DaeStackSliceLocalizationRequest {
   body : Array[@lib.Instruction]
   start : Int
@@ -7628,12 +7637,14 @@ fn dae_select_condition_slice_is_stack_local(
       func_type_indices,
     )
   }
-  let request = dae_stack_slice_localization_request(
-    body, start, end, 0, 1, 0, dae_select_condition_stack_slice_instr_allowed, true,
-  )
   match
-    dae_stack_slice_localization_evidence_from_request(
-      mod_, func_type_indices, request,
+    dae_stack_slice_localization_evidence_from_policy(
+      mod_,
+      func_type_indices,
+      body,
+      start,
+      end,
+      dae_select_condition_localization_policy(),
     ) {
     Some(_) => true
     None => false
@@ -8419,13 +8430,14 @@ fn dae_parametric_typeidx_prefix_consumes_params_stack_safe(
   end : Int,
   param_count : Int,
 ) -> Bool {
-  let request = dae_stack_slice_localization_request(
-    arm_body, 0, end, param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed,
-    true,
-  )
   match
-    dae_stack_slice_localization_evidence_from_request(
-      mod_, func_type_indices, request,
+    dae_stack_slice_localization_evidence_from_policy(
+      mod_,
+      func_type_indices,
+      arm_body,
+      0,
+      end,
+      dae_parametric_typeidx_prefix_localization_policy(param_count),
     ) {
     Some(_) => true
     None => false
@@ -18459,6 +18471,39 @@ fn dae_stack_slice_localization_evidence_is_consistent(
 }
 
 ///|
+fn dae_stack_slice_localization_policy(
+  initial_stack_values : Int,
+  expected_final_stack_values : Int,
+  depth : Int,
+  instr_allowed : (@lib.Instruction) -> Bool,
+  keep_operand : Bool,
+) -> DaeStackSliceLocalizationPolicy {
+  {
+    initial_stack_values,
+    expected_final_stack_values,
+    depth,
+    instr_allowed,
+    keep_operand,
+  }
+}
+
+///|
+fn dae_select_condition_localization_policy() -> DaeStackSliceLocalizationPolicy {
+  dae_stack_slice_localization_policy(
+    0, 1, 0, dae_select_condition_stack_slice_instr_allowed, true,
+  )
+}
+
+///|
+fn dae_parametric_typeidx_prefix_localization_policy(
+  param_count : Int,
+) -> DaeStackSliceLocalizationPolicy {
+  dae_stack_slice_localization_policy(
+    param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed, true,
+  )
+}
+
+///|
 fn dae_stack_slice_localization_request(
   body : Array[@lib.Instruction],
   start : Int,
@@ -18479,6 +18524,41 @@ fn dae_stack_slice_localization_request(
     instr_allowed,
     keep_operand,
   }
+}
+
+///|
+fn dae_stack_slice_localization_request_from_policy(
+  body : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+  policy : DaeStackSliceLocalizationPolicy,
+) -> DaeStackSliceLocalizationRequest {
+  dae_stack_slice_localization_request(
+    body,
+    start,
+    end,
+    policy.initial_stack_values,
+    policy.expected_final_stack_values,
+    policy.depth,
+    policy.instr_allowed,
+    policy.keep_operand,
+  )
+}
+
+///|
+fn dae_stack_slice_localization_evidence_from_policy(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  body : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+  policy : DaeStackSliceLocalizationPolicy,
+) -> DaeStackSliceLocalizationEvidence? {
+  dae_stack_slice_localization_evidence_from_request(
+    mod_,
+    func_type_indices,
+    dae_stack_slice_localization_request_from_policy(body, start, end, policy),
+  )
 }
 
 ///|
