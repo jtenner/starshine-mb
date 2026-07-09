@@ -15164,28 +15164,17 @@ fn OiBranchTableTargetFact::proves_all_targets_label(
 }
 
 ///|
-priv struct OiControlExitFact {
-  live : Bool
-  direct_nonbranch_terminal : Bool
-  direct_branch_terminal : Bool
-  direct_br_to_label : Bool
-  branch_table_targets_label : Bool
-  if_shell : Bool
-  has_else : Bool
-  then_never_falls_through : Bool
-  else_never_falls_through : Bool
-  then_never_falls_through_to_label : Bool
-  else_never_falls_through_to_label : Bool
-  then_exits_to_label : Bool
-  else_exits_to_label : Bool
-  then_exits_only_via_branches : Bool
-  else_exits_only_via_branches : Bool
-  then_branches_to_label : Bool
-  else_branches_to_label : Bool
-  block_shell : Bool
-  block_exits_via_nonbranch_terminal : Bool
-  then_exits_via_nonbranch_terminal : Bool
-  else_exits_via_nonbranch_terminal : Bool
+priv enum OiControlDirectExitKind {
+  ControlDirectMayFallThrough
+  ControlDirectNonbranchTerminal
+  ControlDirectBranchTerminal
+  ControlDirectBrToLabel
+  ControlDirectBranchTableTargetsLabel
+}
+
+///|
+priv struct OiControlDirectExitFact {
+  kind : OiControlDirectExitKind
 }
 
 ///|
@@ -15200,29 +15189,193 @@ priv struct OiControlExitRegionFact {
 }
 
 ///|
+priv struct OiControlIfExitFact {
+  then_fact : OiControlExitRegionFact
+  else_fact : OiControlExitRegionFact
+}
+
+///|
+priv struct OiControlBlockExitFact {
+  body_fact : OiControlExitRegionFact
+}
+
+///|
+priv struct OiControlExitFact {
+  live : Bool
+  direct_fact : OiControlDirectExitFact
+  if_fact : OiControlIfExitFact?
+  block_fact : OiControlBlockExitFact?
+}
+
+///|
+fn OiControlDirectExitFact::fallthrough() -> OiControlDirectExitFact {
+  { kind: ControlDirectMayFallThrough }
+}
+
+///|
+fn OiControlDirectExitFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_id : Int,
+) -> OiControlDirectExitFact {
+  // Binaryen's OI control cleanup treats terminal roots, local-label branches,
+  // and all-target branch tables as separate source facts. Keep that direct
+  // node classification in one payload instead of parallel booleans on the
+  // recursive control-exit fact.
+  let node = @ir.hot_node_get(func, node_id)
+  let kind = match node.op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => ControlDirectNonbranchTerminal
+    @ir.HotOp::Br if node.imm0 == label_id => ControlDirectBrToLabel
+    @ir.HotOp::Br => ControlDirectBranchTerminal
+    @ir.HotOp::BrTable if OiBranchTableTargetFact::from_table(
+        func,
+        node.imm0,
+        label_id,
+      ).proves_all_targets_label() => ControlDirectBranchTableTargetsLabel
+    @ir.HotOp::BrTable => ControlDirectBranchTerminal
+    _ => ControlDirectMayFallThrough
+  }
+  { kind, }
+}
+
+///|
+fn OiControlDirectExitFact::proves_direct_terminal(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  match self.kind {
+    ControlDirectNonbranchTerminal
+    | ControlDirectBranchTerminal
+    | ControlDirectBrToLabel
+    | ControlDirectBranchTableTargetsLabel => true
+    ControlDirectMayFallThrough => false
+  }
+}
+
+///|
+fn OiControlDirectExitFact::proves_never_falls_through(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  self.proves_direct_terminal()
+}
+
+///|
+fn OiControlDirectExitFact::proves_never_falls_through_to_label(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  match self.kind {
+    ControlDirectNonbranchTerminal
+    | ControlDirectBrToLabel
+    | ControlDirectBranchTableTargetsLabel => true
+    ControlDirectMayFallThrough | ControlDirectBranchTerminal => false
+  }
+}
+
+///|
+fn OiControlDirectExitFact::proves_exits_to_label(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  self.proves_never_falls_through_to_label()
+}
+
+///|
+fn OiControlDirectExitFact::proves_exits_only_via_branches(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  match self.kind {
+    ControlDirectBranchTerminal
+    | ControlDirectBrToLabel
+    | ControlDirectBranchTableTargetsLabel => true
+    ControlDirectMayFallThrough | ControlDirectNonbranchTerminal => false
+  }
+}
+
+///|
+fn OiControlDirectExitFact::proves_branches_to_label(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  match self.kind {
+    ControlDirectBrToLabel => true
+    _ => false
+  }
+}
+
+///|
+fn OiControlDirectExitFact::proves_exits_via_nonbranch_terminal(
+  self : OiControlDirectExitFact,
+) -> Bool {
+  match self.kind {
+    ControlDirectNonbranchTerminal => true
+    _ => false
+  }
+}
+
+///|
+fn OiControlIfExitFact::proves_never_falls_through(
+  self : OiControlIfExitFact,
+) -> Bool {
+  self.then_fact.proves_never_falls_through() &&
+  self.else_fact.proves_never_falls_through()
+}
+
+///|
+fn OiControlIfExitFact::proves_never_falls_through_to_label(
+  self : OiControlIfExitFact,
+) -> Bool {
+  self.then_fact.proves_never_falls_through_to_label() &&
+  self.else_fact.proves_never_falls_through_to_label()
+}
+
+///|
+fn OiControlIfExitFact::proves_exits_to_label(
+  self : OiControlIfExitFact,
+) -> Bool {
+  self.then_fact.proves_exits_to_label() &&
+  self.else_fact.proves_exits_to_label()
+}
+
+///|
+fn OiControlIfExitFact::proves_exits_only_via_branches(
+  self : OiControlIfExitFact,
+) -> Bool {
+  self.then_fact.proves_exits_only_via_branches() &&
+  self.else_fact.proves_exits_only_via_branches()
+}
+
+///|
+fn OiControlIfExitFact::proves_branches_to_label(
+  self : OiControlIfExitFact,
+) -> Bool {
+  self.then_fact.proves_branches_to_label() &&
+  self.else_fact.proves_branches_to_label()
+}
+
+///|
+fn OiControlIfExitFact::proves_exits_via_nonbranch_terminal(
+  self : OiControlIfExitFact,
+) -> Bool {
+  self.then_fact.proves_exits_via_nonbranch_terminal() &&
+  self.else_fact.proves_exits_via_nonbranch_terminal()
+}
+
+///|
+fn OiControlBlockExitFact::proves_exits_via_nonbranch_terminal(
+  self : OiControlBlockExitFact,
+) -> Bool {
+  self.body_fact.proves_exits_via_nonbranch_terminal()
+}
+
+///|
 fn OiControlExitFact::empty(live : Bool) -> OiControlExitFact {
   {
     live,
-    direct_nonbranch_terminal: false,
-    direct_branch_terminal: false,
-    direct_br_to_label: false,
-    branch_table_targets_label: false,
-    if_shell: false,
-    has_else: false,
-    then_never_falls_through: false,
-    else_never_falls_through: false,
-    then_never_falls_through_to_label: false,
-    else_never_falls_through_to_label: false,
-    then_exits_to_label: false,
-    else_exits_to_label: false,
-    then_exits_only_via_branches: false,
-    else_exits_only_via_branches: false,
-    then_branches_to_label: false,
-    else_branches_to_label: false,
-    block_shell: false,
-    block_exits_via_nonbranch_terminal: false,
-    then_exits_via_nonbranch_terminal: false,
-    else_exits_via_nonbranch_terminal: false,
+    direct_fact: OiControlDirectExitFact::fallthrough(),
+    if_fact: None,
+    block_fact: None,
   }
 }
 
@@ -15236,41 +15389,19 @@ fn OiControlExitFact::from_node(
   // Binaryen's OI relies on control/fallthrough facts when deleting dead
   // suffixes and preserving branch-carried values. Starshine's represented
   // cleanup keeps a narrower HOT subset: direct nonbranch terminals, direct
-  // branch terminals, all-target `br_table`s, and two-arm `if` summaries. Keep
-  // those exit proofs as a single fact instead of several recursive helpers.
+  // branch terminals, all-target `br_table`s, two-arm `if` summaries, and block
+  // bodies that exit through nonbranch terminals. Keep those source-order facts
+  // nested instead of as one parallel-boolean recursive scanner result.
   let live = OiLiveNodeFact::proves_node_live(func, dead, node_id)
   if !live {
     return OiControlExitFact::empty(false)
   }
   let node = @ir.hot_node_get(func, node_id)
-  let direct_nonbranch_terminal = match node.op {
-    @ir.HotOp::Unreachable
-    | @ir.HotOp::Return
-    | @ir.HotOp::Throw
-    | @ir.HotOp::Rethrow
-    | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate => true
-    _ => false
-  }
-  let direct_branch_terminal = match node.op {
-    @ir.HotOp::Br | @ir.HotOp::BrTable => true
-    _ => false
-  }
-  let direct_br_to_label = match node.op {
-    @ir.HotOp::Br => node.imm0 == label_id
-    _ => false
-  }
-  let branch_table_targets_label = match node.op {
-    @ir.HotOp::BrTable =>
-      OiBranchTableTargetFact::from_table(func, node.imm0, label_id).proves_all_targets_label()
-    _ => false
-  }
   match node.op {
     @ir.HotOp::If => {
-      let base = OiControlExitFact::empty(true)
       let else_region = match @ir.hot_region_else_ref(func, node_id) {
         Some(region) => region
-        None => return { ..base, if_shell: true }
+        None => return OiControlExitFact::empty(true)
       }
       let then_fact = OiControlExitRegionFact::from_region(
         func,
@@ -15282,21 +15413,10 @@ fn OiControlExitFact::from_node(
         func, dead, else_region, label_id,
       )
       return {
-        ..base,
-        if_shell: true,
-        has_else: true,
-        then_never_falls_through: then_fact.proves_never_falls_through(),
-        else_never_falls_through: else_fact.proves_never_falls_through(),
-        then_never_falls_through_to_label: then_fact.proves_never_falls_through_to_label(),
-        else_never_falls_through_to_label: else_fact.proves_never_falls_through_to_label(),
-        then_exits_to_label: then_fact.proves_exits_to_label(),
-        else_exits_to_label: else_fact.proves_exits_to_label(),
-        then_exits_only_via_branches: then_fact.proves_exits_only_via_branches(),
-        else_exits_only_via_branches: else_fact.proves_exits_only_via_branches(),
-        then_branches_to_label: then_fact.proves_branches_to_label(),
-        else_branches_to_label: else_fact.proves_branches_to_label(),
-        then_exits_via_nonbranch_terminal: then_fact.proves_exits_via_nonbranch_terminal(),
-        else_exits_via_nonbranch_terminal: else_fact.proves_exits_via_nonbranch_terminal(),
+        live: true,
+        direct_fact: OiControlDirectExitFact::fallthrough(),
+        if_fact: Some({ then_fact, else_fact }),
+        block_fact: None,
       }
     }
     @ir.HotOp::Block => {
@@ -15307,125 +15427,123 @@ fn OiControlExitFact::from_node(
         label_id,
       )
       return {
-        ..OiControlExitFact::empty(true),
-        block_shell: true,
-        block_exits_via_nonbranch_terminal: body_fact.proves_exits_via_nonbranch_terminal(),
+        live: true,
+        direct_fact: OiControlDirectExitFact::fallthrough(),
+        if_fact: None,
+        block_fact: Some({ body_fact, }),
       }
     }
     _ => ()
   }
   {
-    ..OiControlExitFact::empty(true),
-    direct_nonbranch_terminal,
-    direct_branch_terminal,
-    direct_br_to_label,
-    branch_table_targets_label,
+    live: true,
+    direct_fact: OiControlDirectExitFact::from_node(func, node_id, label_id),
+    if_fact: None,
+    block_fact: None,
   }
 }
 
 ///|
 fn OiControlExitFact::proves_direct_terminal(self : OiControlExitFact) -> Bool {
-  self.live && (self.direct_nonbranch_terminal || self.direct_branch_terminal)
+  self.live && self.direct_fact.proves_direct_terminal()
 }
 
 ///|
 fn OiControlExitFact::proves_never_falls_through(
   self : OiControlExitFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.direct_nonbranch_terminal ||
-    self.direct_branch_terminal ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.then_never_falls_through &&
-      self.else_never_falls_through
-    )
-  )
+  if !self.live {
+    return false
+  }
+  if self.direct_fact.proves_never_falls_through() {
+    return true
+  }
+  match self.if_fact {
+    Some(fact) => fact.proves_never_falls_through()
+    None => false
+  }
 }
 
 ///|
 fn OiControlExitFact::proves_never_falls_through_to_label(
   self : OiControlExitFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.direct_nonbranch_terminal ||
-    self.direct_br_to_label ||
-    self.branch_table_targets_label ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.then_never_falls_through_to_label &&
-      self.else_never_falls_through_to_label
-    )
-  )
+  if !self.live {
+    return false
+  }
+  if self.direct_fact.proves_never_falls_through_to_label() {
+    return true
+  }
+  match self.if_fact {
+    Some(fact) => fact.proves_never_falls_through_to_label()
+    None => false
+  }
 }
 
 ///|
 fn OiControlExitFact::proves_exits_to_label(self : OiControlExitFact) -> Bool {
-  self.live &&
-  (
-    self.direct_nonbranch_terminal ||
-    self.direct_br_to_label ||
-    self.branch_table_targets_label ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.then_exits_to_label &&
-      self.else_exits_to_label
-    )
-  )
+  if !self.live {
+    return false
+  }
+  if self.direct_fact.proves_exits_to_label() {
+    return true
+  }
+  match self.if_fact {
+    Some(fact) => fact.proves_exits_to_label()
+    None => false
+  }
 }
 
 ///|
 fn OiControlExitFact::proves_exits_only_via_branches(
   self : OiControlExitFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.direct_branch_terminal ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.then_exits_only_via_branches &&
-      self.else_exits_only_via_branches
-    )
-  )
+  if !self.live {
+    return false
+  }
+  if self.direct_fact.proves_exits_only_via_branches() {
+    return true
+  }
+  match self.if_fact {
+    Some(fact) => fact.proves_exits_only_via_branches()
+    None => false
+  }
 }
 
 ///|
 fn OiControlExitFact::proves_branches_to_label(
   self : OiControlExitFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.direct_br_to_label ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.then_branches_to_label &&
-      self.else_branches_to_label
-    )
-  )
+  if !self.live {
+    return false
+  }
+  if self.direct_fact.proves_branches_to_label() {
+    return true
+  }
+  match self.if_fact {
+    Some(fact) => fact.proves_branches_to_label()
+    None => false
+  }
 }
 
 ///|
 fn OiControlExitFact::proves_exits_via_nonbranch_terminal(
   self : OiControlExitFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.direct_nonbranch_terminal ||
-    (self.block_shell && self.block_exits_via_nonbranch_terminal) ||
-    (
-      self.if_shell &&
-      self.has_else &&
-      self.then_exits_via_nonbranch_terminal &&
-      self.else_exits_via_nonbranch_terminal
-    )
-  )
+  if !self.live {
+    return false
+  }
+  if self.direct_fact.proves_exits_via_nonbranch_terminal() {
+    return true
+  }
+  match self.block_fact {
+    Some(fact) if fact.proves_exits_via_nonbranch_terminal() => true
+    _ =>
+      match self.if_fact {
+        Some(fact) => fact.proves_exits_via_nonbranch_terminal()
+        None => false
+      }
+  }
 }
 
 ///|
