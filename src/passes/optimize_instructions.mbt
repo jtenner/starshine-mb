@@ -16711,17 +16711,28 @@ fn OiStoredValueFact::from_node(
 }
 
 ///|
-fn OiStoredValueFact::build_truncated_const_value(
-  self : OiStoredValueFact,
+priv struct OiStoredValueTruncatedConstFact {
+  stored_fact : OiStoredValueFact
+  new_value_id : Int
+}
+
+///|
+fn OiStoredValueTruncatedConstFact::from_stored_value(
+  stored_fact : OiStoredValueFact,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-) -> Int? {
-  let bits = match self.access_fact.store_value_bits {
+) -> OiStoredValueTruncatedConstFact? {
+  // Binaryen v130 `optimizeStoredValue` truncates constants before narrow
+  // stores by deriving exactly the low bits preserved by the store access.
+  // Keep the constructed replacement constant as a named fact before the plan
+  // layer rewrites the store value child.
+  let bits = match stored_fact.access_fact.store_value_bits {
     Some(bits) => bits
     None => return None
   }
-  if self.access_fact.store_value_is_i64 {
-    let raw = match optimize_instructions_i64_const(func, dead, self.value_id) {
+  let new_value_id = if stored_fact.access_fact.store_value_is_i64 {
+    let raw = match
+      optimize_instructions_i64_const(func, dead, stored_fact.value_id) {
       Some(@lib.I64(raw)) => raw
       _ => return None
     }
@@ -16730,9 +16741,10 @@ fn OiStoredValueFact::build_truncated_const_value(
     if truncated == raw {
       return None
     }
-    Some(@ir.hot_build_const_i64(func, @lib.I64(truncated)))
+    @ir.hot_build_const_i64(func, @lib.I64(truncated))
   } else {
-    let raw = match optimize_instructions_i32_const(func, dead, self.value_id) {
+    let raw = match
+      optimize_instructions_i32_const(func, dead, stored_fact.value_id) {
       Some(@lib.I32(raw)) => raw
       _ => return None
     }
@@ -16741,17 +16753,24 @@ fn OiStoredValueFact::build_truncated_const_value(
     if truncated == raw {
       return None
     }
-    Some(@ir.hot_build_const_i32(func, @lib.I32(truncated)))
+    @ir.hot_build_const_i32(func, @lib.I32(truncated))
   }
+  Some({ stored_fact, new_value_id })
 }
 
 ///|
-fn OiStoredValueFact::low_bit_mask_unmasked_value(
-  self : OiStoredValueFact,
+priv struct OiStoredValueLowBitMaskFact {
+  stored_fact : OiStoredValueFact
+  unmasked_value_id : Int
+}
+
+///|
+fn OiStoredValueLowBitMaskFact::from_stored_value(
+  stored_fact : OiStoredValueFact,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-) -> Int? {
-  let bits = match self.access_fact.store_value_bits {
+) -> OiStoredValueLowBitMaskFact? {
+  let bits = match stored_fact.access_fact.store_value_bits {
     Some(bits) => bits
     None => return None
   }
@@ -16759,13 +16778,13 @@ fn OiStoredValueFact::low_bit_mask_unmasked_value(
   // masks before i32 narrow stores. It preserves superset masks and all i64
   // masks before i64 narrow stores, even though those masks are semantically
   // redundant for the store.
-  if self.access_fact.store_value_is_i64 {
+  if stored_fact.access_fact.store_value_is_i64 {
     return None
   }
-  if !OiLiveNodeFact::proves_node_live(func, dead, self.value_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, stored_fact.value_id) {
     return None
   }
-  let value = @ir.hot_node_get(func, self.value_id)
+  let value = @ir.hot_node_get(func, stored_fact.value_id)
   match value.op {
     @ir.HotOp::Binary => ()
     _ => return None
@@ -16773,13 +16792,13 @@ fn OiStoredValueFact::low_bit_mask_unmasked_value(
   if value.child_count != 2 {
     return None
   }
-  if @ir.hot_node_exact_instr(func, self.value_id) !=
+  if @ir.hot_node_exact_instr(func, stored_fact.value_id) !=
     Some(@lib.Instruction::i32_and()) {
     return None
   }
-  let lhs_id = @ir.hot_child_get(func, self.value_id, 0)
-  let rhs_id = @ir.hot_child_get(func, self.value_id, 1)
-  let (mask, unmasked_id) = match
+  let lhs_id = @ir.hot_child_get(func, stored_fact.value_id, 0)
+  let rhs_id = @ir.hot_child_get(func, stored_fact.value_id, 1)
+  let (mask, unmasked_value_id) = match
     optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(raw)) => (raw, lhs_id)
     _ =>
@@ -16789,28 +16808,36 @@ fn OiStoredValueFact::low_bit_mask_unmasked_value(
       }
   }
   let required_mask = (1 << bits) - 1
-  if mask == required_mask {
-    Some(unmasked_id)
-  } else {
-    None
+  if mask != required_mask {
+    return None
   }
+  Some({ stored_fact, unmasked_value_id })
 }
 
 ///|
-fn OiStoredValueFact::reinterpret_rewrite(
-  self : OiStoredValueFact,
+priv struct OiStoredValueReinterpretFact {
+  stored_fact : OiStoredValueFact
+  new_instr : @lib.Instruction
+  new_value_id : Int
+}
+
+///|
+fn OiStoredValueReinterpretFact::from_stored_value(
+  stored_fact : OiStoredValueFact,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-) -> (@lib.Instruction, Int)? {
-  if !OiLiveNodeFact::proves_node_live(func, dead, self.value_id) {
+) -> OiStoredValueReinterpretFact? {
+  // Binaryen v130 `optimizeStoredValue` rewrites representation stores by
+  // changing the store opcode and forwarding the direct reinterpret child.
+  if !OiLiveNodeFact::proves_node_live(func, dead, stored_fact.value_id) {
     return None
   }
-  let value = @ir.hot_node_get(func, self.value_id)
+  let value = @ir.hot_node_get(func, stored_fact.value_id)
   if value.child_count != 1 {
     return None
   }
   let new_instr = match
-    (self.instr, @ir.hot_node_exact_instr(func, self.value_id)) {
+    (stored_fact.instr, @ir.hot_node_exact_instr(func, stored_fact.value_id)) {
     (
       @lib.Instruction::F32Store(memarg),
       Some(@lib.Instruction::F32ReinterpretI32),
@@ -16829,42 +16856,57 @@ fn OiStoredValueFact::reinterpret_rewrite(
     ) => @lib.Instruction::f64_store(memarg)
     _ => return None
   }
-  Some((new_instr, @ir.hot_child_get(func, self.value_id, 0)))
+  Some({
+    stored_fact,
+    new_instr,
+    new_value_id: @ir.hot_child_get(func, stored_fact.value_id, 0),
+  })
 }
 
 ///|
-fn OiStoredValueFact::wrap_i64_widen_rewrite(
-  self : OiStoredValueFact,
+priv struct OiStoredValueWrapI64WidenFact {
+  stored_fact : OiStoredValueFact
+  new_instr : @lib.Instruction
+  new_value_id : Int
+}
+
+///|
+fn OiStoredValueWrapI64WidenFact::from_stored_value(
+  stored_fact : OiStoredValueFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-) -> (@lib.Instruction, Int)? {
+) -> OiStoredValueWrapI64WidenFact? {
   // Storing the low N bits of (i32.wrap_i64 x) is equivalent to storing the low
   // N bits of x directly via the matching i64 narrow store, so a direct one-use
   // wrap value child can be dropped by widening the store.
-  let new_instr = match self.instr {
+  let new_instr = match stored_fact.instr {
     @lib.Instruction::I32Store8(ma) => @lib.Instruction::i64_store8(ma)
     @lib.Instruction::I32Store16(ma) => @lib.Instruction::i64_store16(ma)
     @lib.Instruction::I32Store(ma) => @lib.Instruction::i64_store32(ma)
     _ => return None
   }
-  if !OiLiveNodeFact::proves_node_live(func, dead, self.value_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, stored_fact.value_id) {
     return None
   }
-  match @ir.hot_node_exact_instr(func, self.value_id) {
+  match @ir.hot_node_exact_instr(func, stored_fact.value_id) {
     Some(@lib.Instruction::I32WrapI64) => ()
     _ => return None
   }
-  let value = @ir.hot_node_get(func, self.value_id)
+  let value = @ir.hot_node_get(func, stored_fact.value_id)
   if value.child_count != 1 {
     return None
   }
   // Only drop the wrap when this store is its sole use, so the wrap node can be
   // cleaned up instead of leaving a dangling i32 producer.
-  if pass_node_use_count(ctx, func, self.value_id) != 1 {
+  if pass_node_use_count(ctx, func, stored_fact.value_id) != 1 {
     return None
   }
-  Some((new_instr, @ir.hot_child_get(func, self.value_id, 0)))
+  Some({
+    stored_fact,
+    new_instr,
+    new_value_id: @ir.hot_child_get(func, stored_fact.value_id, 0),
+  })
 }
 
 ///|
@@ -16897,15 +16939,16 @@ fn OiStoredValueRewritePlanFact::from_truncated_const(
     Some(fact) => fact
     None => return None
   }
-  let new_value_id = match stored_fact.build_truncated_const_value(func, dead) {
-    Some(value_id) => value_id
+  let truncate_fact = match
+    OiStoredValueTruncatedConstFact::from_stored_value(stored_fact, func, dead) {
+    Some(fact) => fact
     None => return None
   }
   Some({
     kind: StoredValueTruncateConst,
-    stored_fact,
-    new_instr: stored_fact.instr,
-    new_value_id,
+    stored_fact: truncate_fact.stored_fact,
+    new_instr: truncate_fact.stored_fact.instr,
+    new_value_id: truncate_fact.new_value_id,
   })
 }
 
@@ -16919,15 +16962,16 @@ fn OiStoredValueRewritePlanFact::from_low_bit_mask(
     Some(fact) => fact
     None => return None
   }
-  let new_value_id = match stored_fact.low_bit_mask_unmasked_value(func, dead) {
-    Some(value_id) => value_id
+  let mask_fact = match
+    OiStoredValueLowBitMaskFact::from_stored_value(stored_fact, func, dead) {
+    Some(fact) => fact
     None => return None
   }
   Some({
     kind: StoredValueDropLowBitMask,
-    stored_fact,
-    new_instr: stored_fact.instr,
-    new_value_id,
+    stored_fact: mask_fact.stored_fact,
+    new_instr: mask_fact.stored_fact.instr,
+    new_value_id: mask_fact.unmasked_value_id,
   })
 }
 
@@ -16941,16 +16985,16 @@ fn OiStoredValueRewritePlanFact::from_reinterpret(
     Some(fact) => fact
     None => return None
   }
-  let (new_instr, new_value_id) = match
-    stored_fact.reinterpret_rewrite(func, dead) {
-    Some(rewrite) => rewrite
+  let reinterpret_fact = match
+    OiStoredValueReinterpretFact::from_stored_value(stored_fact, func, dead) {
+    Some(fact) => fact
     None => return None
   }
   Some({
     kind: StoredValueRewriteReinterpret,
-    stored_fact,
-    new_instr,
-    new_value_id,
+    stored_fact: reinterpret_fact.stored_fact,
+    new_instr: reinterpret_fact.new_instr,
+    new_value_id: reinterpret_fact.new_value_id,
   })
 }
 
@@ -16965,12 +17009,19 @@ fn OiStoredValueRewritePlanFact::from_wrap_i64_widen(
     Some(fact) => fact
     None => return None
   }
-  let (new_instr, new_value_id) = match
-    stored_fact.wrap_i64_widen_rewrite(ctx, func, dead) {
-    Some(rewrite) => rewrite
+  let widen_fact = match
+    OiStoredValueWrapI64WidenFact::from_stored_value(
+      stored_fact, ctx, func, dead,
+    ) {
+    Some(fact) => fact
     None => return None
   }
-  Some({ kind: StoredValueWidenWrapI64, stored_fact, new_instr, new_value_id })
+  Some({
+    kind: StoredValueWidenWrapI64,
+    stored_fact: widen_fact.stored_fact,
+    new_instr: widen_fact.new_instr,
+    new_value_id: widen_fact.new_value_id,
+  })
 }
 
 ///|
