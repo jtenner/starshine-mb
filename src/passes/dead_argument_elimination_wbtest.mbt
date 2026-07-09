@@ -4533,6 +4533,70 @@ test "dae callsite removal plan centralizes keep replay and drop repair" {
 }
 
 ///|
+test "dae control block input evidence centralizes zero-input control checks" {
+  let ref_type = @lib.TypeIdx::new(0U)
+  let zero_multi_type = @lib.TypeIdx::new(1U)
+  let param_type = @lib.TypeIdx::new(2U)
+  let concrete_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(ref_type), exact=true),
+  )
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::new(false, [], @lib.CompType::struct_([]))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), concrete_ref]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [concrete_ref]),
+      ),
+    ),
+  ])
+  match
+    dae_control_block_type_zero_input_evidence(
+      @lib.BlockType::type_idx(zero_multi_type),
+      Some(type_sec),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.input_count, 0)
+      assert_eq(evidence.output_count, 2)
+      assert_eq(evidence.results[1], concrete_ref)
+    }
+    None => fail("expected zero-input typeidx control evidence")
+  }
+  match
+    dae_control_block_type_zero_input_evidence(
+      @lib.BlockType::val_type(concrete_ref),
+      Some(type_sec),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.input_count, 0)
+      assert_eq(evidence.output_count, 1)
+      assert_eq(evidence.results[0], concrete_ref)
+    }
+    None => fail("expected valtype zero-input control evidence")
+  }
+  match
+    dae_control_block_type_zero_input_evidence(
+      @lib.BlockType::type_idx(param_type),
+      Some(type_sec),
+    ) {
+    Some(_) => fail("parametric typeidx control must not be zero-input")
+    None => ()
+  }
+  match
+    dae_control_block_type_zero_input_evidence(
+      @lib.BlockType::type_idx(zero_multi_type),
+      None,
+    ) {
+    Some(_) =>
+      fail("typeidx control without type section must not produce evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae control block GC result evidence centralizes single and trailing slots" {
   let ref_type = @lib.TypeIdx::new(0U)
   let pair_type = @lib.TypeIdx::new(1U)

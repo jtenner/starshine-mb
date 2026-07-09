@@ -1210,6 +1210,20 @@ fn dae_control_single_result_block_type_evidence(
 }
 
 ///|
+fn dae_control_block_type_zero_input_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> DaeControlBlockTypeSignatureEvidence? {
+  match
+    dae_control_block_type_signature_evidence_from_type_sec(
+      block_type, type_sec,
+    ) {
+    Some(evidence) if evidence.input_count == 0 => Some(evidence)
+    _ => None
+  }
+}
+
+///|
 fn dae_val_type_is_non_null_concrete_gc_ref_candidate(
   vt : @lib.ValType,
 ) -> Bool {
@@ -2601,11 +2615,11 @@ fn dae_single_block_result_carrier_evidence(
   match body {
     [@lib.Block(block_type, @lib.Expr(block_body))] => {
       let signature = match
-        dae_control_block_type_signature_evidence(block_type, mod_) {
+        dae_control_block_type_zero_input_evidence(block_type, mod_.type_sec) {
         Some(signature) => signature
         None => return None
       }
-      if signature.input_count != 0 || signature.output_count != result_count {
+      if signature.output_count != result_count {
         return None
       }
       let body_has_effect_or_branch = dae_instrs_have_observable_effect_or_branch(
@@ -6346,16 +6360,10 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
   match instr {
     @lib.Block(block_type, @lib.Expr(block_body))
     | @lib.Loop(block_type, @lib.Expr(block_body)) => {
-      let zero_param_control = match block_type {
-        @lib.VoidBlockType | @lib.ValTypeBlockType(_) => true
-        @lib.TypeIdxBlockType(_) =>
-          match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-            Some((0, _)) => true
-            _ => false
-          }
-      }
-      if !zero_param_control {
-        return None
+      match
+        dae_control_block_type_zero_input_evidence(block_type, mod_.type_sec) {
+        Some(_) => ()
+        None => return None
       }
       match
         dae_direct_gc_result_explicit_return_candidate_body(
@@ -6402,8 +6410,9 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
       }
     }
     @lib.If(block_type, then_body, Some(else_body)) =>
-      match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-        Some((0, _)) =>
+      match
+        dae_control_block_type_zero_input_evidence(block_type, mod_.type_sec) {
+        Some(_) =>
           match
             dae_single_result_control_pair_repair_evidence(
               mod_,
@@ -6421,7 +6430,7 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
               Some((repair.pair.candidate, Some(repair.rewritten)))
             None => None
           }
-        _ => None
+        None => None
       }
     _ => None
   }
