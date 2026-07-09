@@ -3551,9 +3551,9 @@ priv struct OiRefCastSourceTargetIdentityFact {
 
 ///|
 priv struct OiRefCastSourceTargetMatchFact {
-  matches_target : Bool
-  nullable_matches_target : Bool
-  matches_nullable_exact_target_only_as_null : Bool
+  non_null_match_fact : OiRefTargetMatchProofFact?
+  nullable_match_fact : OiRefTargetMatchProofFact?
+  nullable_exact_only_null_fact : OiRefTargetMatchProofFact?
 }
 
 ///|
@@ -3630,14 +3630,23 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           exact_target_heap: ref_type.is_exact() && source == target,
         },
         match_fact: {
-          matches_target: literal_target.proves_match_target() ||
-          local_matches_non_null_target,
-          nullable_matches_target: local_matches_nullable_target,
-          matches_nullable_exact_target_only_as_null: target_nullable &&
-          relation.concrete_source_matches_nullable_exact_target_only_as_null(
-            ref_type.is_nullable(),
-            ref_type.is_exact(),
-            target_nullable,
+          non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
+            RefTargetNonNullMatch,
+            literal_target.proves_match_target() ||
+            local_matches_non_null_target,
+          ),
+          nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
+            RefTargetNullableMatch,
+            local_matches_nullable_target,
+          ),
+          nullable_exact_only_null_fact: OiRefTargetMatchProofFact::when_proven(
+            RefTargetNullableExactOnlyNullMatch,
+            target_nullable &&
+            relation.concrete_source_matches_nullable_exact_target_only_as_null(
+              ref_type.is_nullable(),
+              ref_type.is_exact(),
+              target_nullable,
+            ),
           ),
         },
         miss_fact: {
@@ -3662,9 +3671,15 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           exact_target_heap: false,
         },
         match_fact: {
-          matches_target: literal_target.proves_match_target(),
-          nullable_matches_target: local_matches_nullable_target,
-          matches_nullable_exact_target_only_as_null: false,
+          non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
+            RefTargetNonNullMatch,
+            literal_target.proves_match_target(),
+          ),
+          nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
+            RefTargetNullableMatch,
+            local_matches_nullable_target,
+          ),
+          nullable_exact_only_null_fact: None,
         },
         miss_fact: {
           misses_target: literal_target.proves_i31_miss_target() ||
@@ -3702,21 +3717,30 @@ fn OiRefCastSourceTargetRelationFact::proves_exact_target_heap(
 fn OiRefCastSourceTargetRelationFact::proves_known_match_target(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.match_fact.matches_target
+  match self.match_fact.non_null_match_fact {
+    Some(fact) => fact.proves_kind(RefTargetNonNullMatch)
+    None => false
+  }
 }
 
 ///|
 fn OiRefCastSourceTargetRelationFact::proves_nullable_matches_target(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.match_fact.nullable_matches_target
+  match self.match_fact.nullable_match_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullableMatch)
+    None => false
+  }
 }
 
 ///|
 fn OiRefCastSourceTargetRelationFact::proves_nullable_exact_target_only_as_null(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.match_fact.matches_nullable_exact_target_only_as_null
+  match self.match_fact.nullable_exact_only_null_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullableExactOnlyNullMatch)
+    None => false
+  }
 }
 
 ///|
