@@ -10612,10 +10612,21 @@ fn OiCallRefFallthroughTypeFact::proves_target_heap_matches_ref_func_heap(
 }
 
 ///|
+priv enum OiCallRefTargetSkipNonNullOrderKind {
+  CallRefSkipNonNullAlreadyNonNullChild
+  CallRefSkipNonNullFinalTargetSlot
+}
+
+///|
+priv struct OiCallRefTargetSkipNonNullOrderFact {
+  kind : OiCallRefTargetSkipNonNullOrderKind
+  child_static_ref_type : @lib.RefType?
+}
+
+///|
 priv struct OiCallRefTargetSkippedNonNullCastFact {
   replacement_target_id : Int
-  child_static_ref_type : @lib.RefType?
-  target_is_final_call_ref_child : Bool
+  order_fact : OiCallRefTargetSkipNonNullOrderFact
 }
 
 ///|
@@ -10657,22 +10668,10 @@ fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
           if !OiLiveNodeFact::proves_node_live(func, dead, child_id) {
             return None
           }
-          let child_static_ref_type = optimize_instructions_node_ref_result_type(
-            func, child_id,
+          let order_fact = OiCallRefTargetSkipNonNullOrderFact::from_final_target_child(
+            optimize_instructions_node_ref_result_type(func, child_id),
           )
-          let target_is_final_call_ref_child = true
-          match child_static_ref_type {
-            Some(ref_type) if ref_type.is_non_nullable() ||
-              target_is_final_call_ref_child =>
-              Some({
-                skipped_fact: {
-                  replacement_target_id: child_id,
-                  child_static_ref_type,
-                  target_is_final_call_ref_child,
-                },
-              })
-            _ => None
-          }
+          Some({ skipped_fact: { replacement_target_id: child_id, order_fact } })
         }
         _ => None
       }
@@ -10681,13 +10680,40 @@ fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
 }
 
 ///|
+fn OiCallRefTargetSkipNonNullOrderFact::from_final_target_child(
+  child_static_ref_type : @lib.RefType?,
+) -> OiCallRefTargetSkipNonNullOrderFact {
+  // Binaryen v130 `skipNonNullCast(input, parent)` accepts a nullable
+  // `ref.as_non_null` child when either the child is already non-null or the
+  // wrapper is the source-order-final call_ref target operand. Keep that
+  // order-preservation proof as a selected fact so call_ref target cleanup no
+  // longer carries a direct boolean that merely says "this is the final child".
+  match child_static_ref_type {
+    Some(ref_type) if ref_type.is_non_nullable() =>
+      { kind: CallRefSkipNonNullAlreadyNonNullChild, child_static_ref_type }
+    _ => { kind: CallRefSkipNonNullFinalTargetSlot, child_static_ref_type }
+  }
+}
+
+///|
+fn OiCallRefTargetSkipNonNullOrderFact::proves_order_preserving_skip(
+  self : OiCallRefTargetSkipNonNullOrderFact,
+) -> Bool {
+  match self.kind {
+    CallRefSkipNonNullAlreadyNonNullChild =>
+      match self.child_static_ref_type {
+        Some(ref_type) => ref_type.is_non_nullable()
+        None => false
+      }
+    CallRefSkipNonNullFinalTargetSlot => true
+  }
+}
+
+///|
 fn OiCallRefTargetSkippedNonNullCastFact::proves_order_preserving_skip(
   self : OiCallRefTargetSkippedNonNullCastFact,
 ) -> Bool {
-  match self.child_static_ref_type {
-    Some(ref_type) if ref_type.is_non_nullable() => true
-    _ => self.target_is_final_call_ref_child
-  }
+  self.order_fact.proves_order_preserving_skip()
 }
 
 ///|
