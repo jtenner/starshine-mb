@@ -23681,8 +23681,16 @@ priv struct OiArrayDefaultPreservationFact {
 }
 
 ///|
+priv enum OiArrayDefaultValueKind {
+  ArrayDefaultNoModuleContext
+  ArrayDefaultMissingField
+  ArrayDefaultStorageNonDefault
+  ArrayDefaultStorageDefault
+}
+
+///|
 priv struct OiArrayDefaultValueFact {
-  is_default : Bool
+  kind : OiArrayDefaultValueKind
   preservation_plan : OiChildLocalizationPlanFact
 }
 
@@ -24171,6 +24179,26 @@ fn OiChildLocalizationPlanFact::append_localized_inputs(
 }
 
 ///|
+fn OiArrayDefaultValueFact::from_kind(
+  kind : OiArrayDefaultValueKind,
+  preservation_plan? : OiChildLocalizationPlanFact = OiChildLocalizationPlanFact::empty(),
+) -> OiArrayDefaultValueFact {
+  { kind, preservation_plan }
+}
+
+///|
+fn OiArrayDefaultValueFact::proves_default(
+  self : OiArrayDefaultValueFact,
+) -> Bool {
+  match self.kind {
+    ArrayDefaultStorageDefault => true
+    ArrayDefaultNoModuleContext
+    | ArrayDefaultMissingField
+    | ArrayDefaultStorageNonDefault => false
+  }
+}
+
+///|
 fn OiArrayDefaultValueFact::from_array_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -24188,18 +24216,11 @@ fn OiArrayDefaultValueFact::from_array_value(
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
     None =>
-      return {
-        is_default: false,
-        preservation_plan: OiChildLocalizationPlanFact::empty(),
-      }
+      return OiArrayDefaultValueFact::from_kind(ArrayDefaultNoModuleContext)
   }
   let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
     Some(field) => field
-    None =>
-      return {
-        is_default: false,
-        preservation_plan: OiChildLocalizationPlanFact::empty(),
-      }
+    None => return OiArrayDefaultValueFact::from_kind(ArrayDefaultMissingField)
   }
   let effects = pass_require_effects(ctx, func)
   let fallthrough_fact = OiArrayDefaultFallthroughFact::from_value(
@@ -24212,20 +24233,17 @@ fn OiArrayDefaultValueFact::from_array_value(
       field.get_storage_type(),
       fallthrough_fact.fallthrough_id(),
     ) {
-    return {
-      is_default: false,
-      preservation_plan: OiChildLocalizationPlanFact::empty(),
-    }
+    return OiArrayDefaultValueFact::from_kind(ArrayDefaultStorageNonDefault)
   }
-  {
-    is_default: true,
-    preservation_plan: OiChildLocalizationPlanFact::from_array_default_fallthrough(
+  OiArrayDefaultValueFact::from_kind(
+    ArrayDefaultStorageDefault,
+    preservation_plan=OiChildLocalizationPlanFact::from_array_default_fallthrough(
       func,
       effects.node_masks,
       value_id,
       fallthrough_fact.fallthrough_id(),
     ),
-  }
+  )
 }
 
 ///|
@@ -24258,7 +24276,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
   let default_fact = OiArrayDefaultValueFact::from_array_value(
     ctx, func, type_idx, representative_id,
   )
-  let non_default_localization_plan = if default_fact.is_default {
+  let non_default_localization_plan = if default_fact.proves_default() {
     OiChildLocalizationPlanFact::empty()
   } else {
     OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
@@ -24270,7 +24288,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     type_idx,
     size,
     representative_id,
-    representative_is_default: default_fact.is_default,
+    representative_is_default: default_fact.proves_default(),
     default_preservation_plan: default_fact.preservation_plan,
     non_default_localization_plan,
   })
@@ -24454,7 +24472,7 @@ fn OiArrayNewDefaultInitRewriteFact::from_node(
   let default_fact = OiArrayDefaultValueFact::from_array_value(
     ctx, func, type_idx, init_id,
   )
-  if !default_fact.is_default {
+  if !default_fact.proves_default() {
     return None
   }
   Some({
