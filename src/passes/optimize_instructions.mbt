@@ -30019,17 +30019,27 @@ priv struct OiDescriptorInternalControlEffectFreeRegionFact {
 }
 
 ///|
+priv enum OiDescriptorContainmentKind {
+  DescriptorContainmentAbsent
+  DescriptorContainmentRootTarget
+  DescriptorContainmentChildTarget
+  DescriptorContainmentRegionTarget
+}
+
+///|
 priv struct OiDescriptorContainmentFact {
-  root_matches_target : Bool
-  live : Bool
-  child_contains_target : Bool
-  region_contains_target : Bool
+  kind : OiDescriptorContainmentKind
+}
+
+///|
+priv struct OiDescriptorContainmentRegionTargetFact {
+  region_root_count : Int
 }
 
 ///|
 priv struct OiDescriptorContainmentRegionFact {
   root_count : Int
-  contains_target : Bool
+  target_fact : OiDescriptorContainmentRegionTargetFact?
 }
 
 ///|
@@ -30040,12 +30050,7 @@ priv struct OiDescriptorInternalLabelFact {
 
 ///|
 fn OiDescriptorContainmentFact::empty() -> OiDescriptorContainmentFact {
-  {
-    root_matches_target: false,
-    live: false,
-    child_contains_target: false,
-    region_contains_target: false,
-  }
+  { kind: DescriptorContainmentAbsent }
 }
 
 ///|
@@ -30056,15 +30061,10 @@ fn OiDescriptorContainmentFact::from_node(
 ) -> OiDescriptorContainmentFact {
   // Descriptor and standalone ref.get_desc control gates need to know whether a
   // branch target's label owner is contained inside the expression being
-  // localized. Keep that subtree proof as an explicit fact rather than a helper
-  // recursively scanning child and control regions.
+  // localized. Keep that subtree proof as selected root/child/region facts
+  // rather than a helper recursively scanning child and control regions.
   if root_id == target_id {
-    return {
-      root_matches_target: true,
-      live: root_id >= 0 && @ir.hot_node_is_live(func, root_id),
-      child_contains_target: false,
-      region_contains_target: false,
-    }
+    return { kind: DescriptorContainmentRootTarget }
   }
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
     return OiDescriptorContainmentFact::empty()
@@ -30078,6 +30078,9 @@ fn OiDescriptorContainmentFact::from_node(
         @ir.hot_child_get(func, root_id, slot),
         target_id,
       ).proves_contains_target()
+  }
+  if child_contains_target {
+    return { kind: DescriptorContainmentChildTarget }
   }
   let region_contains_target = match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
@@ -30103,11 +30106,10 @@ fn OiDescriptorContainmentFact::from_node(
     }
     _ => false
   }
-  {
-    root_matches_target: false,
-    live: true,
-    child_contains_target,
-    region_contains_target,
+  if region_contains_target {
+    { kind: DescriptorContainmentRegionTarget }
+  } else {
+    OiDescriptorContainmentFact::empty()
   }
 }
 
@@ -30115,8 +30117,12 @@ fn OiDescriptorContainmentFact::from_node(
 fn OiDescriptorContainmentFact::proves_contains_target(
   self : OiDescriptorContainmentFact,
 ) -> Bool {
-  self.root_matches_target ||
-  (self.live && (self.child_contains_target || self.region_contains_target))
+  match self.kind {
+    DescriptorContainmentRootTarget
+    | DescriptorContainmentChildTarget
+    | DescriptorContainmentRegionTarget => true
+    DescriptorContainmentAbsent => false
+  }
 }
 
 ///|
@@ -30135,14 +30141,32 @@ fn OiDescriptorContainmentRegionFact::from_region(
         target_id,
       ).proves_contains_target()
   }
-  { root_count, contains_target }
+  {
+    root_count,
+    target_fact: if contains_target {
+      Some({ region_root_count: root_count })
+    } else {
+      None
+    },
+  }
+}
+
+///|
+fn OiDescriptorContainmentRegionTargetFact::proves_contains_target(
+  self : OiDescriptorContainmentRegionTargetFact,
+) -> Bool {
+  self.region_root_count > 0
 }
 
 ///|
 fn OiDescriptorContainmentRegionFact::proves_contains_target(
   self : OiDescriptorContainmentRegionFact,
 ) -> Bool {
-  self.root_count > 0 && self.contains_target
+  self.root_count > 0 &&
+  (match self.target_fact {
+    Some(fact) => fact.proves_contains_target()
+    None => false
+  })
 }
 
 ///|
