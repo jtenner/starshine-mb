@@ -2730,6 +2730,37 @@ test "dae recursive body rewrite application evidence centralizes repair plannin
     }
     None => fail("expected child body rewrite application evidence")
   }
+
+  match
+    dae_apply_first_recursive_control_child_body_rewrite(
+      outer_body, rewrite_else,
+    ) {
+    Some((rewritten, evidence)) => {
+      assert_false(evidence.applied_to_current_body)
+      assert_eq(evidence.target_count, 1)
+      assert_eq(evidence.rewrite_count, 1)
+      assert_true(evidence.body_changed)
+      match rewritten[1] {
+        @lib.If(_, rewritten_then, Some(rewritten_else)) => {
+          assert_eq(rewritten[0], outer_body[0])
+          assert_eq(rewritten_then, then_body)
+          assert_eq(rewritten_else, [@lib.Instruction::i32_const(@lib.I32(40))])
+        }
+        _ => fail("expected control-child-only recursive body rewrite")
+      }
+    }
+    None => fail("expected control-child-only application evidence")
+  }
+  match
+    dae_apply_first_recursive_control_child_body_rewrite(
+      root_body, rewrite_else,
+    ) {
+    Some(_) =>
+      fail(
+        "control-child-only rewrite should reject bodies without rewritten control children",
+      )
+    None => ()
+  }
 }
 
 ///|
