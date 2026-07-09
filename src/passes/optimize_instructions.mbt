@@ -5748,9 +5748,49 @@ fn OiDescriptorNarrowedResultFact::from_cast(
 }
 
 ///|
+priv enum OiDescriptorResultNarrowingControlKind {
+  DescriptorResultNarrowingDescriptorControlSafe
+  DescriptorResultNarrowingDescriptorControlEscapes
+}
+
+///|
+priv struct OiDescriptorResultNarrowingControlFact {
+  kind : OiDescriptorResultNarrowingControlKind
+}
+
+///|
+fn OiDescriptorResultNarrowingControlFact::from_descriptor(
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> OiDescriptorResultNarrowingControlFact {
+  // Binaryen v130 descriptor-cast result tightening refuses to reorder through
+  // descriptor operands with escaping branch control. Keep that descriptor-side
+  // source proof as its own fact instead of a direct boolean on the aggregate
+  // narrowing fact, so ordinary narrowing and surrounding ref.as_non_null
+  // movement consume the same control payload.
+  if OiDescriptorBranchControlFact::from_node(
+      func, descriptor_id, descriptor_id,
+    ).proves_has_escaping_branch_control() {
+    { kind: DescriptorResultNarrowingDescriptorControlEscapes }
+  } else {
+    { kind: DescriptorResultNarrowingDescriptorControlSafe }
+  }
+}
+
+///|
+fn OiDescriptorResultNarrowingControlFact::proves_descriptor_control_safe(
+  self : OiDescriptorResultNarrowingControlFact,
+) -> Bool {
+  match self.kind {
+    DescriptorResultNarrowingDescriptorControlSafe => true
+    DescriptorResultNarrowingDescriptorControlEscapes => false
+  }
+}
+
+///|
 priv struct OiDescriptorResultNarrowingFact {
   cast_fact : OiDescriptorCastFact
-  descriptor_no_escaping_branch_control : Bool
+  descriptor_control_fact : OiDescriptorResultNarrowingControlFact
   operand_relation : OiDescriptorOperandTargetRelationFact
   descriptor_relation : OiDescriptorDescribedTargetRelationFact
   narrowed_result : OiDescriptorNarrowedResultFact
@@ -5769,11 +5809,10 @@ fn OiDescriptorResultNarrowingFact::from_cast(
   // described heap, and descriptor subtrees with escaping branch control stay
   // fail-closed. Store those decisions in one fact so `visitRefCast` and the
   // surrounding ref.as_non_null movement do not duplicate helper-local scans.
-  let descriptor_no_escaping_branch_control = !OiDescriptorBranchControlFact::from_node(
+  let descriptor_control_fact = OiDescriptorResultNarrowingControlFact::from_descriptor(
     func,
     cast_fact.descriptor_id,
-    cast_fact.descriptor_id,
-  ).proves_has_escaping_branch_control()
+  )
   let operand_relation = OiDescriptorOperandTargetRelationFact::from_operand(
     ctx,
     func,
@@ -5791,7 +5830,7 @@ fn OiDescriptorResultNarrowingFact::from_cast(
   )
   {
     cast_fact,
-    descriptor_no_escaping_branch_control,
+    descriptor_control_fact,
     operand_relation,
     descriptor_relation,
     narrowed_result,
@@ -5830,7 +5869,7 @@ fn OiDescriptorResultNarrowingEligibilityFact::from_narrowing(
   // result type actually gets narrower. Keep those blockers as an ordered
   // result fact before the rewrite-plan layer selects the replacement root.
   ignore(narrowing_fact.descriptor_relation)
-  if !narrowing_fact.descriptor_no_escaping_branch_control {
+  if !narrowing_fact.descriptor_control_fact.proves_descriptor_control_safe() {
     return { kind: DescriptorResultNarrowBlockedByEscapingDescriptorControl }
   }
   if !narrowing_fact.operand_relation.proves_matches_or_subtypes_target() {
@@ -5879,7 +5918,7 @@ fn OiDescriptorRefAsNonNullMoveEligibilityFact::from_narrowing(
   if !narrowing_fact.cast_fact.nullable {
     return { kind: DescriptorRefAsNonNullMoveNonNullableCast }
   }
-  if !narrowing_fact.descriptor_no_escaping_branch_control {
+  if !narrowing_fact.descriptor_control_fact.proves_descriptor_control_safe() {
     return { kind: DescriptorRefAsNonNullMoveEscapingDescriptorControl }
   }
   { kind: DescriptorRefAsNonNullMoveAllowed }
