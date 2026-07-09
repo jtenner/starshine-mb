@@ -6720,6 +6720,50 @@ test "dae dropped pure leaf cleanup evidence centralizes stack and leaf preserva
 }
 
 ///|
+test "dae empty zero-result control cleanup evidence centralizes body drop" {
+  let empty_evidence = dae_empty_zero_result_control_cleanup_evidence(
+    @lib.BlockType::void_(),
+    None,
+    0,
+  )
+  match empty_evidence {
+    Some(evidence) => {
+      assert_eq(evidence.input_count, 0)
+      assert_eq(evidence.output_count, 0)
+      assert_eq(evidence.rewritten_body_length, 0)
+      assert_true(evidence.drops_empty_control)
+      assert_true(dae_empty_zero_result_control_cleanup_allows_drop(evidence))
+    }
+    None => fail("expected empty zero-result cleanup evidence")
+  }
+  let nonempty_evidence = dae_empty_zero_result_control_cleanup_evidence(
+    @lib.BlockType::void_(),
+    None,
+    1,
+  )
+  match nonempty_evidence {
+    Some(evidence) => {
+      assert_eq(evidence.rewritten_body_length, 1)
+      assert_false(evidence.drops_empty_control)
+      assert_false(dae_empty_zero_result_control_cleanup_allows_drop(evidence))
+    }
+    None => fail("expected nonempty zero-result cleanup evidence")
+  }
+  match
+    dae_empty_zero_result_control_cleanup_evidence(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      None,
+      0,
+    ) {
+    Some(_) =>
+      fail(
+        "non-zero-result block must not produce empty-control cleanup evidence",
+      )
+    None => ()
+  }
+}
+
+///|
 test "dae raw cleanup preserves dropped integer constants after live calls" {
   let mod_ = @lib.Module::new().with_code_sec(
     @lib.CodeSec::new([

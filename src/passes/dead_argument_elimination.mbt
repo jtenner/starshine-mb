@@ -96,6 +96,14 @@ priv struct DaeDroppedPureLeafCleanupEvidence {
 }
 
 ///|
+priv struct DaeEmptyZeroResultControlCleanupEvidence {
+  input_count : Int
+  output_count : Int
+  rewritten_body_length : Int
+  drops_empty_control : Bool
+}
+
+///|
 priv struct DaeControlEntryStackEvidence {
   entry_stack_values : Int
   result_stack_values : Int
@@ -17422,6 +17430,81 @@ fn dae_dropped_pure_leaf_cleanup_allows_leaf_drop(
 }
 
 ///|
+fn dae_empty_zero_result_control_cleanup_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  rewritten_body_length : Int,
+) -> DaeEmptyZeroResultControlCleanupEvidence? {
+  if rewritten_body_length < 0 {
+    return None
+  }
+  match
+    dae_control_block_type_zero_input_output_count_evidence(
+      block_type, type_sec, 0,
+    ) {
+    Some(signature) =>
+      Some({
+        input_count: signature.input_count,
+        output_count: signature.output_count,
+        rewritten_body_length,
+        drops_empty_control: rewritten_body_length == 0,
+      })
+    None => None
+  }
+}
+
+///|
+fn dae_empty_zero_result_control_cleanup_allows_drop(
+  evidence : DaeEmptyZeroResultControlCleanupEvidence,
+) -> Bool {
+  evidence.input_count == 0 &&
+  evidence.output_count == 0 &&
+  evidence.rewritten_body_length == 0 &&
+  evidence.drops_empty_control
+}
+
+///|
+fn dae_rebuild_cleaned_single_body_control_or_drop(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+  rewritten_body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let (block_type, control_kind, catches) = match instr {
+    @lib.Block(block_type, _) => (block_type, 0, None)
+    @lib.Loop(block_type, _) => (block_type, 1, None)
+    @lib.TryTable(block_type, catches, _) => (block_type, 2, Some(catches))
+    _ => return None
+  }
+  match
+    dae_empty_zero_result_control_cleanup_evidence(
+      block_type,
+      type_sec,
+      rewritten_body.length(),
+    ) {
+    Some(evidence) if dae_empty_zero_result_control_cleanup_allows_drop(
+        evidence,
+      ) => return Some([])
+    _ => ()
+  }
+  let rebuilt = match control_kind {
+    0 => @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body))
+    1 => @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body))
+    2 =>
+      match catches {
+        Some(catches) =>
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          )
+        None => return None
+      }
+    _ => return None
+  }
+  Some([rebuilt])
+}
+
+///|
 fn dae_local_idx_equal(lhs : @lib.LocalIdx, rhs : @lib.LocalIdx) -> Bool {
   dae_local_idx_slot(lhs) == dae_local_idx_slot(rhs)
 }
@@ -17897,7 +17980,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
     }
     match instrs[idx] {
-      @lib.Block(block_type, @lib.Expr(body)) => {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
         let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
@@ -17906,53 +17991,14 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           preserve_effect_dropped_integer_const_debris~,
           preserve_nop_debris~,
         )
-        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
-          rewritten_body.length() == 0 {
-          ()
-        } else {
-          out.push(
-            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
-          )
-        }
-      }
-      @lib.Loop(block_type, @lib.Expr(body)) => {
-        let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
-          body,
-          type_sec,
-          allow_live_local_copy_cleanup~,
-          preserve_dropped_integer_const_debris~,
-          preserve_effect_dropped_integer_const_debris~,
-          preserve_nop_debris~,
-        )
-        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
-          rewritten_body.length() == 0 {
-          ()
-        } else {
-          out.push(
-            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
-          )
-        }
-      }
-      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
-          body,
-          type_sec,
-          allow_live_local_copy_cleanup~,
-          preserve_dropped_integer_const_debris~,
-          preserve_effect_dropped_integer_const_debris~,
-          preserve_nop_debris~,
-        )
-        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
-          rewritten_body.length() == 0 {
-          ()
-        } else {
-          out.push(
-            @lib.Instruction::try_table(
-              block_type,
-              catches,
-              @lib.Expr::new(rewritten_body),
-            ),
-          )
+        match
+          dae_rebuild_cleaned_single_body_control_or_drop(
+            instrs[idx],
+            type_sec,
+            rewritten_body,
+          ) {
+          Some(rebuilt) => out.append(rebuilt)
+          None => out.push(instrs[idx])
         }
       }
       @lib.If(block_type, then_body, else_body) => {
