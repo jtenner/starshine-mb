@@ -6258,7 +6258,7 @@ fn OiRefGetDescDescriptorOperandMoveFact::from_child(
         RefGetDescDescriptorOperandBlocked
       }
     @ir.HotOp::If =>
-      if OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check() {
+      if OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_nullable_if_control_move_allowed() {
         RefGetDescDescriptorOperandBranchFreeControl
       } else {
         RefGetDescDescriptorOperandBlocked
@@ -6324,7 +6324,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
       }
     @ir.HotOp::If =>
       if OiResultShapeFact::from_node(func, child_id).proves_single_nullable_ref_result() &&
-        OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_can_move_null_check() {
+        OiDescriptorNullableIfControlMoveFact::from_if(func, child_id).proves_nullable_if_control_move_allowed() {
         RefGetDescNullableIfMove
       } else {
         return None
@@ -27259,14 +27259,19 @@ priv enum OiDescriptorNullableIfNoEffectMoveKind {
 }
 
 ///|
-priv struct OiDescriptorNullableIfNoEffectMoveFact {
-  if_root : Bool
-  has_three_children : Bool
+priv struct OiDescriptorNullableIfNoEffectPayloadFact {
   condition_side_effect_free : Bool
   has_else : Bool
   single_root_arms : Bool
   then_side_effect_free : Bool
   else_side_effect_free : Bool
+}
+
+///|
+priv struct OiDescriptorNullableIfNoEffectMoveFact {
+  if_root : Bool
+  has_three_children : Bool
+  payload : OiDescriptorNullableIfNoEffectPayloadFact?
   kind : OiDescriptorNullableIfNoEffectMoveKind
 }
 
@@ -27279,8 +27284,8 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
   // TNH descriptor operand erasure can drop a nullable `if` child when the
   // condition and both single-result arms are side-effect-free. This preserves
   // the old represented shape as a fact rather than a helper-owned recursive
-  // side-effect-free scan. The explicit kind records the represented null-check
-  // movement result instead of carrying a parallel `can_move` boolean.
+  // side-effect-free scan. The explicit payload records the source-ordered
+  // condition/arm proof consumed by the result kind.
   let node = @ir.hot_node_get(func, node_id)
   let if_root = match node.op {
     @ir.HotOp::If => true
@@ -27290,11 +27295,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
     return {
       if_root,
       has_three_children: false,
-      condition_side_effect_free: false,
-      has_else: false,
-      single_root_arms: false,
-      then_side_effect_free: false,
-      else_side_effect_free: false,
+      payload: None,
       kind: DescriptorNullableIfNoEffectMoveBlocked,
     }
   }
@@ -27303,11 +27304,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
     return {
       if_root,
       has_three_children,
-      condition_side_effect_free: false,
-      has_else: false,
-      single_root_arms: false,
-      then_side_effect_free: false,
-      else_side_effect_free: false,
+      payload: None,
       kind: DescriptorNullableIfNoEffectMoveBlocked,
     }
   }
@@ -27323,11 +27320,13 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
       return {
         if_root,
         has_three_children,
-        condition_side_effect_free,
-        has_else: false,
-        single_root_arms: false,
-        then_side_effect_free: false,
-        else_side_effect_free: false,
+        payload: Some({
+          condition_side_effect_free,
+          has_else: false,
+          single_root_arms: false,
+          then_side_effect_free: false,
+          else_side_effect_free: false,
+        }),
         kind: DescriptorNullableIfNoEffectMoveBlocked,
       }
   }
@@ -27345,19 +27344,22 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
       dead,
       @ir.hot_region_get(func, else_region, 0),
     )
-  {
-    if_root,
-    has_three_children,
+  let payload : OiDescriptorNullableIfNoEffectPayloadFact = {
     condition_side_effect_free,
     has_else: true,
     single_root_arms,
     then_side_effect_free,
     else_side_effect_free,
+  }
+  {
+    if_root,
+    has_three_children,
+    payload: Some(payload),
     kind: if has_three_children &&
-      condition_side_effect_free &&
-      single_root_arms &&
-      then_side_effect_free &&
-      else_side_effect_free {
+      payload.condition_side_effect_free &&
+      payload.single_root_arms &&
+      payload.then_side_effect_free &&
+      payload.else_side_effect_free {
       DescriptorNullableIfNoEffectMoveNullCheck
     } else {
       DescriptorNullableIfNoEffectMoveBlocked
@@ -27366,19 +27368,19 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
 }
 
 ///|
-fn OiDescriptorNullableIfNoEffectMoveFact::proves_can_move_null_check(
+fn OiDescriptorNullableIfNoEffectMoveFact::proves_nullable_if_no_effect_move_allowed(
   self : OiDescriptorNullableIfNoEffectMoveFact,
 ) -> Bool {
-  match self.kind {
-    DescriptorNullableIfNoEffectMoveNullCheck =>
+  match (self.kind, self.payload) {
+    (DescriptorNullableIfNoEffectMoveNullCheck, Some(payload)) =>
       self.if_root &&
       self.has_three_children &&
-      self.condition_side_effect_free &&
-      self.has_else &&
-      self.single_root_arms &&
-      self.then_side_effect_free &&
-      self.else_side_effect_free
-    DescriptorNullableIfNoEffectMoveBlocked => false
+      payload.condition_side_effect_free &&
+      payload.has_else &&
+      payload.single_root_arms &&
+      payload.then_side_effect_free &&
+      payload.else_side_effect_free
+    _ => false
   }
 }
 
@@ -27389,14 +27391,19 @@ priv enum OiDescriptorNullableIfControlMoveKind {
 }
 
 ///|
-priv struct OiDescriptorNullableIfControlMoveFact {
-  if_root : Bool
-  has_three_children : Bool
+priv struct OiDescriptorNullableIfControlPayloadFact {
   condition_no_escaping_branch_control : Bool
   has_else : Bool
   single_root_arms : Bool
   then_no_escaping_branch_control : Bool
   else_no_escaping_branch_control : Bool
+}
+
+///|
+priv struct OiDescriptorNullableIfControlMoveFact {
+  if_root : Bool
+  has_three_children : Bool
+  payload : OiDescriptorNullableIfControlPayloadFact?
   kind : OiDescriptorNullableIfControlMoveKind
 }
 
@@ -27408,7 +27415,7 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
   // Standalone ref.get_desc null-check movement may preserve effectful arms, but
   // only while proving that the condition and both arms have no escaping branch
   // control. Store that Binaryen ChildLocalizer-adjacent boundary explicitly as
-  // a result kind instead of a parallel `can_move` boolean.
+  // a payload-backed result kind instead of a parallel `can_move` boolean.
   let node = @ir.hot_node_get(func, node_id)
   let if_root = match node.op {
     @ir.HotOp::If => true
@@ -27418,11 +27425,7 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
     return {
       if_root,
       has_three_children: false,
-      condition_no_escaping_branch_control: false,
-      has_else: false,
-      single_root_arms: false,
-      then_no_escaping_branch_control: false,
-      else_no_escaping_branch_control: false,
+      payload: None,
       kind: DescriptorNullableIfControlMoveBlocked,
     }
   }
@@ -27431,11 +27434,7 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
     return {
       if_root,
       has_three_children,
-      condition_no_escaping_branch_control: false,
-      has_else: false,
-      single_root_arms: false,
-      then_no_escaping_branch_control: false,
-      else_no_escaping_branch_control: false,
+      payload: None,
       kind: DescriptorNullableIfControlMoveBlocked,
     }
   }
@@ -27450,11 +27449,13 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
       return {
         if_root,
         has_three_children,
-        condition_no_escaping_branch_control,
-        has_else: false,
-        single_root_arms: false,
-        then_no_escaping_branch_control: false,
-        else_no_escaping_branch_control: false,
+        payload: Some({
+          condition_no_escaping_branch_control,
+          has_else: false,
+          single_root_arms: false,
+          then_no_escaping_branch_control: false,
+          else_no_escaping_branch_control: false,
+        }),
         kind: DescriptorNullableIfControlMoveBlocked,
       }
   }
@@ -27468,19 +27469,22 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
     !OiDescriptorBranchControlRegionFact::from_region(
       func, node_id, else_region,
     ).proves_has_escaping_branch_control()
-  {
-    if_root,
-    has_three_children,
+  let payload : OiDescriptorNullableIfControlPayloadFact = {
     condition_no_escaping_branch_control,
     has_else: true,
     single_root_arms,
     then_no_escaping_branch_control,
     else_no_escaping_branch_control,
+  }
+  {
+    if_root,
+    has_three_children,
+    payload: Some(payload),
     kind: if has_three_children &&
-      condition_no_escaping_branch_control &&
-      single_root_arms &&
-      then_no_escaping_branch_control &&
-      else_no_escaping_branch_control {
+      payload.condition_no_escaping_branch_control &&
+      payload.single_root_arms &&
+      payload.then_no_escaping_branch_control &&
+      payload.else_no_escaping_branch_control {
       DescriptorNullableIfControlMoveNullCheck
     } else {
       DescriptorNullableIfControlMoveBlocked
@@ -27489,19 +27493,19 @@ fn OiDescriptorNullableIfControlMoveFact::from_if(
 }
 
 ///|
-fn OiDescriptorNullableIfControlMoveFact::proves_can_move_null_check(
+fn OiDescriptorNullableIfControlMoveFact::proves_nullable_if_control_move_allowed(
   self : OiDescriptorNullableIfControlMoveFact,
 ) -> Bool {
-  match self.kind {
-    DescriptorNullableIfControlMoveNullCheck =>
+  match (self.kind, self.payload) {
+    (DescriptorNullableIfControlMoveNullCheck, Some(payload)) =>
       self.if_root &&
       self.has_three_children &&
-      self.condition_no_escaping_branch_control &&
-      self.has_else &&
-      self.single_root_arms &&
-      self.then_no_escaping_branch_control &&
-      self.else_no_escaping_branch_control
-    DescriptorNullableIfControlMoveBlocked => false
+      payload.condition_no_escaping_branch_control &&
+      payload.has_else &&
+      payload.single_root_arms &&
+      payload.then_no_escaping_branch_control &&
+      payload.else_no_escaping_branch_control
+    _ => false
   }
 }
 
@@ -29494,7 +29498,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
     block_no_escaping_branch_control &&
     block_children_effect_free_internal_control {
     DescriptorNullableChildEraseBlockInternalControl
-  } else if if_no_effect_move_fact.proves_can_move_null_check() {
+  } else if if_no_effect_move_fact.proves_nullable_if_no_effect_move_allowed() {
     DescriptorNullableChildEraseIfNullCheckMove
   } else {
     DescriptorNullableChildMustPreserve
@@ -29526,7 +29530,7 @@ fn OiDescriptorNullableChildEraseTnhFact::proves_can_erase(
       self.block_no_escaping_branch_control &&
       self.block_children_effect_free_internal_control
     DescriptorNullableChildEraseIfNullCheckMove =>
-      self.if_no_effect_move_fact.proves_can_move_null_check()
+      self.if_no_effect_move_fact.proves_nullable_if_no_effect_move_allowed()
     DescriptorNullableChildMustPreserve => false
   }
 }
