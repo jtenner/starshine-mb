@@ -3859,6 +3859,122 @@ priv struct OiRefCastSourceTargetDirectNullFact {
 }
 
 ///|
+priv struct OiRefCastLocalTargetMatchFact {
+  non_null_match_fact : OiRefTargetMatchProofFact?
+  nullable_match_fact : OiRefTargetMatchProofFact?
+}
+
+///|
+priv struct OiRefCastLocalTargetMissFact {
+  target_miss_fact : OiRefTargetMissProofFact?
+  non_null_target_miss_fact : OiRefTargetMissProofFact?
+}
+
+///|
+priv struct OiRefCastLocalTargetRelationFact {
+  match_fact : OiRefCastLocalTargetMatchFact
+  miss_fact : OiRefCastLocalTargetMissFact
+}
+
+///|
+fn OiRefCastLocalTargetRelationFact::empty() -> OiRefCastLocalTargetRelationFact {
+  {
+    match_fact: { non_null_match_fact: None, nullable_match_fact: None },
+    miss_fact: { target_miss_fact: None, non_null_target_miss_fact: None },
+  }
+}
+
+///|
+fn OiRefCastLocalTargetRelationFact::from_target_fact(
+  ctx : HotPassContext,
+  target_fact : OiRefCastOperandTargetFact,
+  target : @lib.HeapType,
+) -> OiRefCastLocalTargetRelationFact {
+  // Binaryen v130 `visitRefCast` consults the operand-local static type before
+  // source-type folds, so keep the local.get source/target proofs in a nested
+  // relation fact instead of carrying four parallel scanner booleans through the
+  // broader ref.cast source relation.
+  match target_fact.node_op {
+    @ir.HotOp::LocalGet =>
+      match target_fact.local_ref_type {
+        Some(ref_type) => {
+          let relation = OiHeapRelationFact::from_heaps(
+            ctx,
+            ref_type.get_heap_type(),
+            target,
+          )
+          {
+            match_fact: {
+              non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
+                RefTargetNonNullMatch,
+                ref_type.is_non_nullable() &&
+                relation.known_match_without_full_subtyping(),
+              ),
+              nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
+                RefTargetNullableMatch,
+                ref_type.is_nullable() &&
+                relation.known_match_without_full_subtyping(),
+              ),
+            },
+            miss_fact: {
+              target_miss_fact: OiRefTargetMissProofFact::when_proven(
+                RefTargetMissesTarget,
+                ref_type.is_non_nullable() && relation.known_miss_target(),
+              ),
+              non_null_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+                RefTargetNullOrMissForNonNullTarget,
+                relation.known_miss_target(),
+              ),
+            },
+          }
+        }
+        None => OiRefCastLocalTargetRelationFact::empty()
+      }
+    _ => OiRefCastLocalTargetRelationFact::empty()
+  }
+}
+
+///|
+fn OiRefCastLocalTargetRelationFact::proves_non_null_matches_target(
+  self : OiRefCastLocalTargetRelationFact,
+) -> Bool {
+  match self.match_fact.non_null_match_fact {
+    Some(fact) => fact.proves_kind(RefTargetNonNullMatch)
+    None => false
+  }
+}
+
+///|
+fn OiRefCastLocalTargetRelationFact::proves_nullable_matches_target(
+  self : OiRefCastLocalTargetRelationFact,
+) -> Bool {
+  match self.match_fact.nullable_match_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullableMatch)
+    None => false
+  }
+}
+
+///|
+fn OiRefCastLocalTargetRelationFact::proves_misses_target(
+  self : OiRefCastLocalTargetRelationFact,
+) -> Bool {
+  match self.miss_fact.target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesTarget)
+    None => false
+  }
+}
+
+///|
+fn OiRefCastLocalTargetRelationFact::proves_null_or_miss_for_non_null_target(
+  self : OiRefCastLocalTargetRelationFact,
+) -> Bool {
+  match self.miss_fact.non_null_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullOrMissForNonNullTarget)
+    None => false
+  }
+}
+
+///|
 priv struct OiRefCastSourceTargetIdentityFact {
   nullable_exact_target_type : Bool
   exact_target_heap : Bool
@@ -3907,33 +4023,9 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
     @ir.HotOp::RefNull => true
     _ => false
   }
-  let (
-    local_matches_non_null_target,
-    local_matches_nullable_target,
-    local_misses_target,
-    local_null_or_known_miss_for_non_null_target,
-  ) = match target_fact.node_op {
-    @ir.HotOp::LocalGet =>
-      match target_fact.local_ref_type {
-        Some(ref_type) => {
-          let relation = OiHeapRelationFact::from_heaps(
-            ctx,
-            ref_type.get_heap_type(),
-            target,
-          )
-          (
-            ref_type.is_non_nullable() &&
-            relation.known_match_without_full_subtyping(),
-            ref_type.is_nullable() &&
-            relation.known_match_without_full_subtyping(),
-            ref_type.is_non_nullable() && relation.known_miss_target(),
-            relation.known_miss_target(),
-          )
-        }
-        _ => (false, false, false, false)
-      }
-    _ => (false, false, false, false)
-  }
+  let local_relation = OiRefCastLocalTargetRelationFact::from_target_fact(
+    ctx, target_fact, target,
+  )
   match target_fact.source_type {
     Some(ref_type) => {
       let source = ref_type.get_heap_type()
@@ -3957,11 +4049,11 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNonNullMatch,
             literal_target.proves_match_target() ||
-            local_matches_non_null_target,
+            local_relation.proves_non_null_matches_target(),
           ),
           nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableMatch,
-            local_matches_nullable_target,
+            local_relation.proves_nullable_matches_target(),
           ),
           nullable_exact_only_null_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableExactOnlyNullMatch,
@@ -3971,11 +4063,12 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
         miss_fact: {
           target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetMissesTarget,
-            literal_target.proves_i31_miss_target() || local_misses_target,
+            literal_target.proves_i31_miss_target() ||
+            local_relation.proves_misses_target(),
           ),
           non_null_target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetNullOrMissForNonNullTarget,
-            local_null_or_known_miss_for_non_null_target,
+            local_relation.proves_null_or_miss_for_non_null_target(),
           ),
           exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetMissesExactTarget,
@@ -4005,18 +4098,19 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           ),
           nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableMatch,
-            local_matches_nullable_target,
+            local_relation.proves_nullable_matches_target(),
           ),
           nullable_exact_only_null_fact: None,
         },
         miss_fact: {
           target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetMissesTarget,
-            literal_target.proves_i31_miss_target() || local_misses_target,
+            literal_target.proves_i31_miss_target() ||
+            local_relation.proves_misses_target(),
           ),
           non_null_target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetNullOrMissForNonNullTarget,
-            local_null_or_known_miss_for_non_null_target,
+            local_relation.proves_null_or_miss_for_non_null_target(),
           ),
           exact_target_miss_fact: None,
           strict_subtype_exact_target_miss_fact: None,
