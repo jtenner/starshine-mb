@@ -4986,16 +4986,96 @@ fn OiDescriptorExactSuccessRewritePlanFact::apply(
 }
 
 ///|
+priv struct OiDescriptorDescribedTargetRelationFact {
+  exact_described_heap : @lib.HeapType?
+  described_heap_subtypes_target : Bool
+  exactly_describes_target : Bool
+}
+
+///|
+fn OiDescriptorDescribedTargetRelationFact::from_type_fact(
+  ctx : HotPassContext,
+  descriptor_type_fact : OiDescriptorTypeFact,
+  target : @lib.HeapType,
+) -> OiDescriptorDescribedTargetRelationFact {
+  // Binaryen v130 descriptor-cast result narrowing first asks what heap the
+  // descriptor exactly describes, then whether that described heap can safely
+  // tighten the cast target. Keep that relation as a payload fact instead of
+  // parallel described-heap / subtype / exact-target fields on the rewrite fact.
+  let exact_described_heap = descriptor_type_fact.exact_described_heap
+  let described_heap_subtypes_target = match exact_described_heap {
+    Some(described_heap) =>
+      OiHeapRelationFact::from_heaps(ctx, described_heap, target).proves_known_subtype()
+    None => false
+  }
+  {
+    exact_described_heap,
+    described_heap_subtypes_target,
+    exactly_describes_target: descriptor_type_fact.exactly_describes(target),
+  }
+}
+
+///|
+fn OiDescriptorDescribedTargetRelationFact::select_narrowed_target(
+  self : OiDescriptorDescribedTargetRelationFact,
+  target : @lib.HeapType,
+) -> @lib.HeapType {
+  match self.exact_described_heap {
+    Some(described_heap) if self.described_heap_subtypes_target =>
+      described_heap
+    _ => target
+  }
+}
+
+///|
+fn OiDescriptorDescribedTargetRelationFact::proves_descriptor_exact_result(
+  self : OiDescriptorDescribedTargetRelationFact,
+  target : @lib.HeapType,
+  narrowed_target : @lib.HeapType,
+) -> Bool {
+  narrowed_target != target || self.exactly_describes_target
+}
+
+///|
+priv struct OiDescriptorNarrowedResultFact {
+  target : @lib.HeapType
+  nullable : Bool
+  exact : Bool
+}
+
+///|
+fn OiDescriptorNarrowedResultFact::from_cast(
+  cast_fact : OiDescriptorCastFact,
+  force_non_null : Bool,
+  operand_relation : OiDescriptorOperandTargetRelationFact,
+  descriptor_relation : OiDescriptorDescribedTargetRelationFact,
+) -> OiDescriptorNarrowedResultFact {
+  // Store the computed result type as one fact payload. The nullable component
+  // still comes from the operand/force-non-null facts, while exactness and the
+  // target heap come from the descriptor relation above.
+  let target = descriptor_relation.select_narrowed_target(cast_fact.target)
+  let descriptor_exact = descriptor_relation.proves_descriptor_exact_result(
+    cast_fact.target,
+    target,
+  )
+  {
+    target,
+    nullable: if force_non_null {
+      false
+    } else {
+      cast_fact.nullable && operand_relation.proves_nullable_target()
+    },
+    exact: cast_fact.exact || descriptor_exact,
+  }
+}
+
+///|
 priv struct OiDescriptorResultNarrowingFact {
   cast_fact : OiDescriptorCastFact
   descriptor_no_escaping_branch_control : Bool
   operand_relation : OiDescriptorOperandTargetRelationFact
-  descriptor_described_heap : @lib.HeapType?
-  descriptor_described_heap_subtypes_target : Bool
-  descriptor_exactly_describes_target : Bool
-  narrowed_target : @lib.HeapType
-  narrowed_nullable : Bool
-  narrowed_exact : Bool
+  descriptor_relation : OiDescriptorDescribedTargetRelationFact
+  narrowed_result : OiDescriptorNarrowedResultFact
 }
 
 ///|
@@ -5023,42 +5103,20 @@ fn OiDescriptorResultNarrowingFact::from_cast(
     cast_fact.target,
     cast_fact.nullable,
   )
-  let descriptor_type_fact = OiDescriptorTypeFact::from_node(
+  let descriptor_relation = OiDescriptorDescribedTargetRelationFact::from_type_fact(
     ctx,
-    func,
-    cast_fact.descriptor_id,
-  )
-  let descriptor_described_heap = descriptor_type_fact.exact_described_heap
-  let descriptor_described_heap_subtypes_target = match
-    descriptor_described_heap {
-    Some(described_heap) =>
-      OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype()
-    None => false
-  }
-  let narrowed_target = match descriptor_described_heap {
-    Some(described_heap) if descriptor_described_heap_subtypes_target =>
-      described_heap
-    _ => cast_fact.target
-  }
-  let descriptor_exactly_describes_target = descriptor_type_fact.exactly_describes(
+    OiDescriptorTypeFact::from_node(ctx, func, cast_fact.descriptor_id),
     cast_fact.target,
   )
-  let descriptor_exact = narrowed_target != cast_fact.target ||
-    descriptor_exactly_describes_target
+  let narrowed_result = OiDescriptorNarrowedResultFact::from_cast(
+    cast_fact, force_non_null, operand_relation, descriptor_relation,
+  )
   {
     cast_fact,
     descriptor_no_escaping_branch_control,
     operand_relation,
-    descriptor_described_heap,
-    descriptor_described_heap_subtypes_target,
-    descriptor_exactly_describes_target,
-    narrowed_target,
-    narrowed_nullable: if force_non_null {
-      false
-    } else {
-      cast_fact.nullable && operand_relation.proves_nullable_target()
-    },
-    narrowed_exact: cast_fact.exact || descriptor_exact,
+    descriptor_relation,
+    narrowed_result,
   }
 }
 
@@ -5066,9 +5124,9 @@ fn OiDescriptorResultNarrowingFact::from_cast(
 fn OiDescriptorResultNarrowingFact::changes_result_type(
   self : OiDescriptorResultNarrowingFact,
 ) -> Bool {
-  self.narrowed_nullable != self.cast_fact.nullable ||
-  self.narrowed_exact != self.cast_fact.exact ||
-  self.narrowed_target != self.cast_fact.target
+  self.narrowed_result.nullable != self.cast_fact.nullable ||
+  self.narrowed_result.exact != self.cast_fact.exact ||
+  self.narrowed_result.target != self.cast_fact.target
 }
 
 ///|
@@ -5093,9 +5151,7 @@ fn OiDescriptorResultNarrowingEligibilityFact::from_narrowing(
   // already matches or subtypes the target heap, and the computed descriptor
   // result type actually gets narrower. Keep those blockers as an ordered
   // result fact before the rewrite-plan layer selects the replacement root.
-  ignore(narrowing_fact.descriptor_described_heap)
-  ignore(narrowing_fact.descriptor_described_heap_subtypes_target)
-  ignore(narrowing_fact.descriptor_exactly_describes_target)
+  ignore(narrowing_fact.descriptor_relation)
   if !narrowing_fact.descriptor_no_escaping_branch_control {
     return { kind: DescriptorResultNarrowBlockedByEscapingDescriptorControl }
   }
@@ -5212,10 +5268,11 @@ fn OiDescriptorResultNarrowingRewritePlanFact::apply(
       ()
   }
   let cast_fact = self.narrowing_fact.cast_fact
+  let narrowed_result = self.narrowing_fact.narrowed_result
   let narrowed_ref_type = @lib.RefType::new(
-    self.narrowing_fact.narrowed_nullable,
-    self.narrowing_fact.narrowed_target,
-    exact=self.narrowing_fact.narrowed_exact,
+    narrowed_result.nullable,
+    narrowed_result.target,
+    exact=narrowed_result.exact,
   )
   let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
     narrowed_ref_type,
