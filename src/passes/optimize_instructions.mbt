@@ -17755,6 +17755,53 @@ fn optimize_instructions_replace_with_value_block(
 }
 
 ///|
+priv enum OiStructAtomicIdentityLiteralKind {
+  ZeroStructAtomicIdentityLiteral
+  AllOnesStructAtomicIdentityLiteral
+}
+
+///|
+fn OiStructAtomicIdentityLiteralKind::expected_i32(self : Self) -> Int {
+  match self {
+    ZeroStructAtomicIdentityLiteral => 0
+    AllOnesStructAtomicIdentityLiteral => -1
+  }
+}
+
+///|
+fn OiStructAtomicIdentityLiteralKind::expected_i64(self : Self) -> Int64 {
+  match self {
+    ZeroStructAtomicIdentityLiteral => 0L
+    AllOnesStructAtomicIdentityLiteral => -1L
+  }
+}
+
+///|
+priv struct OiStructAtomicIdentityOperatorFact {
+  literal_kind : OiStructAtomicIdentityLiteralKind
+}
+
+///|
+fn OiStructAtomicIdentityOperatorFact::from_op(
+  op : @lib.AggregateAtomicRmwOp,
+) -> OiStructAtomicIdentityOperatorFact? {
+  // Binaryen v130 `visitStructRMW` recognizes two identity literal families:
+  // add/sub/or/xor use zero, while and uses all-ones. Keep the op-to-literal
+  // relation as a named fact instead of threading width-specific expected
+  // integer arguments through the value recognizers.
+  match op {
+    @lib.AggregateAtomicRmwAdd
+    | @lib.AggregateAtomicRmwSub
+    | @lib.AggregateAtomicRmwOr
+    | @lib.AggregateAtomicRmwXor =>
+      Some({ literal_kind: ZeroStructAtomicIdentityLiteral })
+    @lib.AggregateAtomicRmwAnd =>
+      Some({ literal_kind: AllOnesStructAtomicIdentityLiteral })
+    _ => None
+  }
+}
+
+///|
 priv struct OiStructAtomicI32IdentityValueFact {
   value_id : Int
 }
@@ -17764,14 +17811,14 @@ fn OiStructAtomicI32IdentityValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   value_id : Int,
-  expected : Int,
+  literal_kind : OiStructAtomicIdentityLiteralKind,
 ) -> OiStructAtomicI32IdentityValueFact? {
   // Binaryen v130 `visitStructRMW` recognizes aggregate-atomic identity
-  // constants by concrete field width: i32 add/sub/or/xor use zero and i32 and
-  // uses all-ones. Keep that literal proof as a width-specific fact instead of
-  // an `*_const_is` helper predicate.
+  // constants by concrete field width. The shared literal-kind fact supplies
+  // the i32 payload expected for the represented operator family.
   match optimize_instructions_i32_const(func, dead, value_id) {
-    Some(@lib.I32(raw)) if raw == expected => Some({ value_id, })
+    Some(@lib.I32(raw)) if raw == literal_kind.expected_i32() =>
+      Some({ value_id, })
     _ => None
   }
 }
@@ -17786,14 +17833,13 @@ fn OiStructAtomicI64IdentityValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   value_id : Int,
-  expected : Int64,
+  literal_kind : OiStructAtomicIdentityLiteralKind,
 ) -> OiStructAtomicI64IdentityValueFact? {
-  // Binaryen v130 `visitStructRMW` recognizes aggregate-atomic identity
-  // constants by concrete field width: i64 add/sub/or/xor use zero and i64 and
-  // uses all-ones. Keep that literal proof as a width-specific fact instead of
-  // an `*_const_is` helper predicate.
+  // Same Binaryen v130 aggregate-atomic identity literal proof for the i64
+  // lane, with the width projection localized to the literal-kind fact.
   match optimize_instructions_i64_const(func, dead, value_id) {
-    Some(@lib.I64(raw)) if raw == expected => Some({ value_id, })
+    Some(@lib.I64(raw)) if raw == literal_kind.expected_i64() =>
+      Some({ value_id, })
     _ => None
   }
 }
@@ -17858,17 +17904,15 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
 ) -> OiStructAtomicIdentityOperandFact? {
   // Binaryen v130 folds RMW add/sub/or/xor with zero and and with all-ones to a
   // read-only struct.atomic.get when the value is a single constant fallthrough.
-  // The HOT fact uses the existing literal facts for the represented i32/i64
-  // field surface.
-  let identity_value_id = match op {
-    @lib.AggregateAtomicRmwAdd
-    | @lib.AggregateAtomicRmwSub
-    | @lib.AggregateAtomicRmwOr
-    | @lib.AggregateAtomicRmwXor =>
-      if field_fact.value_type == @lib.ValType::i32() {
+  // Route the represented HOT surface through explicit op-literal and
+  // width-literal facts rather than ad hoc expected-value parameters.
+  let operator_fact = OiStructAtomicIdentityOperatorFact::from_op(op)
+  match operator_fact {
+    Some({ literal_kind }) => {
+      let identity_value_id = if field_fact.value_type == @lib.ValType::i32() {
         match
           OiStructAtomicI32IdentityValueFact::from_value(
-            func, dead, value_id, 0,
+            func, dead, value_id, literal_kind,
           ) {
           Some(fact) => Some(fact.value_id)
           None => None
@@ -17876,34 +17920,17 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
       } else {
         match
           OiStructAtomicI64IdentityValueFact::from_value(
-            func, dead, value_id, 0L,
+            func, dead, value_id, literal_kind,
           ) {
           Some(fact) => Some(fact.value_id)
           None => None
         }
       }
-    @lib.AggregateAtomicRmwAnd =>
-      if field_fact.value_type == @lib.ValType::i32() {
-        match
-          OiStructAtomicI32IdentityValueFact::from_value(
-            func, dead, value_id, -1,
-          ) {
-          Some(fact) => Some(fact.value_id)
-          None => None
-        }
-      } else {
-        match
-          OiStructAtomicI64IdentityValueFact::from_value(
-            func, dead, value_id, -1L,
-          ) {
-          Some(fact) => Some(fact.value_id)
-          None => None
-        }
+      match identity_value_id {
+        Some(id) => Some({ value_id: id })
+        None => None
       }
-    _ => None
-  }
-  match identity_value_id {
-    Some(id) => Some({ value_id: id })
+    }
     None => None
   }
 }
