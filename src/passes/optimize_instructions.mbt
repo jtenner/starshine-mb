@@ -11820,8 +11820,13 @@ priv struct OiCallRefSelectTargetFact {
 }
 
 ///|
-priv struct OiCallRefDirectFunctionFact {
+priv struct OiCallRefDirectFunctionIndexFact {
   direct_func : Int
+}
+
+///|
+priv struct OiCallRefDirectFunctionFact {
+  index_fact : OiCallRefDirectFunctionIndexFact
   ref_func_heap : @lib.HeapType?
 }
 
@@ -11996,7 +12001,7 @@ fn OiCallRefDirectTargetFact::from_target(
   match target.op {
     @ir.HotOp::RefFunc => {
       let direct_func_fact : OiCallRefDirectFunctionFact = {
-        direct_func: target.imm0,
+        index_fact: { direct_func: target.imm0 },
         ref_func_heap: match
           optimize_instructions_node_ref_result_type(func, target_id) {
           Some(ref_type) => Some(ref_type.get_heap_type())
@@ -12010,11 +12015,36 @@ fn OiCallRefDirectTargetFact::from_target(
 }
 
 ///|
+fn OiCallRefDirectFunctionIndexFact::proves_function_index(
+  self : OiCallRefDirectFunctionIndexFact,
+) -> Bool {
+  self.direct_func >= 0
+}
+
+///|
+fn OiCallRefDirectFunctionIndexFact::function_index(
+  self : OiCallRefDirectFunctionIndexFact,
+) -> Int {
+  self.direct_func
+}
+
+///|
 fn OiCallRefDirectFunctionFact::proves_direct_ref_func(
   self : OiCallRefDirectFunctionFact,
 ) -> Bool {
+  // Binaryen v130 `visitCallRef` direct-target lowering needs a concrete
+  // immediate `ref.func` index. Keep that nonnegative index proof separate from
+  // the optional heap payload used by sibling fallthrough/select compatibility
+  // facts so the direct target fact does not expose raw sentinel fields.
   ignore(self.ref_func_heap)
-  self.direct_func >= 0
+  self.index_fact.proves_function_index()
+}
+
+///|
+fn OiCallRefDirectFunctionFact::function_index(
+  self : OiCallRefDirectFunctionFact,
+) -> Int {
+  self.index_fact.function_index()
 }
 
 ///|
@@ -12621,7 +12651,7 @@ fn OiCallRefDirectFuncPlanFact::from_target_fact(
   // target record.
   match target_fact.direct_target() {
     Some(fact) if fact.proves_direct_ref_func() =>
-      Some({ direct_func: fact.direct_func_fact.direct_func })
+      Some({ direct_func: fact.direct_func_fact.function_index() })
     _ => None
   }
 }
