@@ -26,15 +26,18 @@ If the goal is missing or too vague to determine completion, ask one focused cla
    - Restate the goal in operational terms.
    - Infer concrete completion criteria from the user request and repo rules.
    - If completion cannot be evaluated, ask a clarifying question.
-2. **Plan one bounded slice.**
-   - Pick the highest-leverage slice that can reasonably fit in the current thread.
-   - Prefer a slice that leaves the repo better even if the full goal is not finished.
+2. **Plan three bounded slices / commits for this iteration.**
+   - Aim to complete exactly three bounded, atomic commits before evaluating handoff, unless the goal is completed earlier, the user explicitly changes the budget, or a blocker makes further commits unsafe.
+   - Each commit should be a meaningful unit that leaves the repo better even if the full goal is not finished.
+   - Prefer slices that can reasonably fit in the current thread and can be validated independently.
    - Follow all relevant project workflows, including TDD and validation rules when coding.
-3. **Do the slice.**
-   - Inspect files and docs needed for this slice.
+   - If fewer than three commits are produced, state the concrete completion/blocker reason in both the user report and any continuation prompt.
+3. **Do the slices.**
+   - Inspect files and docs needed for each slice.
    - Make changes only when appropriate.
-   - Run or document targeted validation as far as available.
-4. **Evaluate completion.**
+   - Commit each completed slice before starting the next bounded slice when the repo policy requires committed handoff state.
+   - Run or document targeted validation as far as available for each commit-sized unit.
+4. **Evaluate completion after the third commit or an early stop condition.**
    - Compare the current state against the goal and completion criteria.
    - If the goal is complete, do not create another thread. Summarize the completed work, validation, and remaining caveats if any.
    - If the goal is not complete, continue to step 5.
@@ -63,8 +66,10 @@ Current status:
 - <what is now true>
 - <what remains incomplete>
 
-Slice just completed:
-- <files changed / decisions made / tests or validation run>
+Slices just completed:
+- Commit 1: <files changed / decisions made / tests or validation run>
+- Commit 2: <files changed / decisions made / tests or validation run, or early-stop reason>
+- Commit 3: <files changed / decisions made / tests or validation run, or early-stop reason>
 
 Relevant context and rules:
 - <repo/worktree constraints>
@@ -88,7 +93,8 @@ After completing that slice, evaluate the completion criteria. If the goal is st
 
 ## Guardrails
 
-- Do not recurse without doing a meaningful slice of work unless blocked.
+- Do not recurse without doing meaningful work unless blocked.
+- Default to three bounded commits per recursive iteration; produce fewer only when the goal completes early, the user changes the budget, or a concrete blocker/validation failure makes further commits unsafe.
 - Do not create a continuation thread if the goal is already complete.
 - Do not hide uncertainty. Mark inferred completion criteria and unresolved risks clearly.
 - Do not ask the user to restate context that is already available unless it is required to determine the goal or completion criteria.
