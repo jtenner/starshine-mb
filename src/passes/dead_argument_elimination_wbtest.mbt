@@ -82,6 +82,78 @@ test "dae target callsite evidence centralizes direct and return-call matching" 
 }
 
 ///|
+test "dae adjacent param forward evidence centralizes operand ranges" {
+  let get0 = @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+  let get1 = @lib.Instruction::local_get(@lib.LocalIdx::new(1U))
+  let call4 = @lib.Instruction::call(@lib.FuncIdx::new(4U))
+  let valid = [@lib.Instruction::i32_const(@lib.I32(9)), get0, get1, call4]
+  match dae_adjacent_param_forward_evidence(valid, 3, 2) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 1)
+      assert_eq(evidence.end, 3)
+      assert_eq(evidence.param_count, 2)
+    }
+    None => fail("expected adjacent forwarding evidence")
+  }
+  match dae_adjacent_param_forward_evidence([get0, get0, call4], 2, 2) {
+    Some(_) => fail("wrong forwarded local must be rejected")
+    None => ()
+  }
+  match dae_adjacent_param_forward_evidence([get1, get0, call4], 2, 2) {
+    Some(_) => fail("reordered forwarded locals must be rejected")
+    None => ()
+  }
+  match dae_adjacent_param_forward_evidence([get0, call4], 1, 2) {
+    Some(_) => fail("insufficient forwarded prefix must be rejected")
+    None => ()
+  }
+  match dae_adjacent_param_forward_evidence([call4], 0, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 0)
+    }
+    None => fail("empty adjacent forwarding evidence should stay available")
+  }
+  let ignored = Array::make(valid.length(), false)
+  dae_mark_self_forwarded_param_gets(valid, 4, 2, ignored)
+  assert_eq(ignored, [false, true, true, false])
+  assert_true(dae_self_call_has_adjacent_param_forward(valid, 3, 2))
+  assert_true(
+    dae_dead_suffix_has_dropped_self_call_full_param_forward(
+      [
+        @lib.Instruction::unreachable_(),
+        get0,
+        get1,
+        call4,
+        @lib.Instruction::drop(),
+      ],
+      4,
+      2,
+    ),
+  )
+  assert_false(
+    dae_dead_suffix_has_dropped_self_call_full_param_forward(
+      [
+        get0,
+        @lib.Instruction::unreachable_(),
+        get1,
+        call4,
+        @lib.Instruction::drop(),
+      ],
+      4,
+      2,
+    ),
+  )
+  assert_false(
+    dae_dead_suffix_has_dropped_self_call_full_param_forward(
+      [@lib.Instruction::unreachable_(), call4, @lib.Instruction::drop()],
+      4,
+      0,
+    ),
+  )
+}
+
+///|
 test "dae call boundary candidate centralizes owned callee counts" {
   let current : DaeCurrentCallFacts = {
     direct_calls: [2, 0, 1, 4],

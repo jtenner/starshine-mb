@@ -700,6 +700,13 @@ priv struct DaeTargetCallsiteEvidence {
 }
 
 ///|
+priv struct DaeAdjacentParamForwardEvidence {
+  start : Int
+  end : Int
+  param_count : Int
+}
+
+///|
 priv struct DaeModuleBoundarySnapshot {
   imported : Int
   defined : Int
@@ -1814,6 +1821,30 @@ fn dae_collect_current_call_facts(
 }
 
 ///|
+fn dae_adjacent_param_forward_evidence(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  param_count : Int,
+) -> DaeAdjacentParamForwardEvidence? {
+  if call_idx < 0 || call_idx > instrs.length() || param_count < 0 {
+    return None
+  }
+  let start = call_idx - param_count
+  if start < 0 {
+    return None
+  }
+  let mut p = 0
+  while p < param_count {
+    match instrs[start + p] {
+      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == p => ()
+      _ => return None
+    }
+    p += 1
+  }
+  Some({ start, end: call_idx, param_count })
+}
+
+///|
 fn dae_mark_self_forwarded_param_gets(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -1831,28 +1862,17 @@ fn dae_mark_self_forwarded_param_gets(
         callee_abs,
         DaeTargetDirectCallOnly,
       ) {
-      Some(_) => {
-        let start = idx - param_count
-        if start >= 0 {
-          let mut ok = true
-          let mut p = 0
-          while p < param_count {
-            match instrs[start + p] {
-              @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == p =>
-                ()
-              _ => ok = false
-            }
-            p += 1
-          }
-          if ok {
-            p = 0
-            while p < param_count {
-              ignored[start + p] = true
-              p += 1
+      Some(_) =>
+        match dae_adjacent_param_forward_evidence(instrs, idx, param_count) {
+          Some(evidence) => {
+            let mut operand_idx = evidence.start
+            while operand_idx < evidence.start + evidence.param_count {
+              ignored[operand_idx] = true
+              operand_idx += 1
             }
           }
+          None => ()
         }
-      }
       None => ()
     }
     idx += 1
@@ -11876,19 +11896,7 @@ fn dae_self_call_has_adjacent_param_forward(
   call_idx : Int,
   param_count : Int,
 ) -> Bool {
-  let start = call_idx - param_count
-  if start < 0 {
-    return false
-  }
-  let mut p = 0
-  while p < param_count {
-    match instrs[start + p] {
-      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == p => ()
-      _ => return false
-    }
-    p += 1
-  }
-  true
+  dae_adjacent_param_forward_evidence(instrs, call_idx, param_count) is Some(_)
 }
 
 ///|
@@ -14442,24 +14450,15 @@ fn dae_dead_suffix_has_dropped_self_call_full_param_forward(
       while suffix_idx + 1 < instrs.length() {
         match (instrs[suffix_idx], instrs[suffix_idx + 1]) {
           (@lib.Call(func_idx), @lib.Drop) if dae_func_idx_slot(func_idx) ==
-            callee_abs => {
-            let start = suffix_idx - param_count
-            if start >= idx + 1 {
-              let mut ok = true
-              let mut p = 0
-              while p < param_count {
-                match instrs[start + p] {
-                  @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == p =>
-                    ()
-                  _ => ok = false
-                }
-                p += 1
-              }
-              if ok {
-                return true
-              }
+            callee_abs =>
+            match
+              dae_adjacent_param_forward_evidence(
+                instrs, suffix_idx, param_count,
+              ) {
+              Some(evidence) if evidence.start >= idx + 1 &&
+                evidence.end == suffix_idx => return true
+              _ => ()
             }
-          }
           _ => ()
         }
         suffix_idx += 1
