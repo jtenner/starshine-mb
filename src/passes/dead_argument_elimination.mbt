@@ -88,6 +88,14 @@ priv struct DaeMultiResultOperandSlotEvidence {
 }
 
 ///|
+priv struct DaeDroppablePureStackEvidence {
+  start : Int
+  end : Int
+  has_local_get : Bool
+  local_free : Bool
+}
+
+///|
 priv struct DaeDroppedPureLeafCleanupEvidence {
   range_allows_cleanup : Bool
   preserve_integer_const_debris : Bool
@@ -17260,12 +17268,41 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 }
 
 ///|
-fn dae_out_ends_with_droppable_pure_stack_without_local_get(
+fn dae_droppable_pure_stack_evidence(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-) -> Bool {
+) -> DaeDroppablePureStackEvidence? {
   match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
-    Some(start) => !dae_instr_range_contains_local_get(out, start)
+    Some(start) => {
+      let has_local_get = dae_instr_range_contains_local_get(out, start)
+      Some({
+        start,
+        end: out.length(),
+        has_local_get,
+        local_free: !has_local_get,
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn dae_droppable_pure_stack_evidence_is_consistent(
+  evidence : DaeDroppablePureStackEvidence,
+) -> Bool {
+  evidence.start >= 0 &&
+  evidence.start <= evidence.end &&
+  evidence.local_free == !evidence.has_local_get
+}
+
+///|
+fn dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+  evidence : DaeDroppablePureStackEvidence?,
+) -> Bool {
+  match evidence {
+    Some(evidence) =>
+      dae_droppable_pure_stack_evidence_is_consistent(evidence) &&
+      evidence.local_free
     None => false
   }
 }
@@ -17883,6 +17920,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         continue
       }
     }
+    let live_copy_stack_evidence = dae_droppable_pure_stack_evidence(
+      out, type_sec,
+    )
     if allow_live_local_copy_cleanup && idx + 4 < instrs.length() {
       match
         (
@@ -17902,8 +17942,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           dae_local_idx_equal(second, second_read) &&
           // Binaryen keeps local-get-sourced temp copy chains in the current
           // DAE frontier; only stackify copies rooted in non-local pure values.
-          dae_out_ends_with_droppable_pure_stack_without_local_get(
-            out, type_sec,
+          dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+            live_copy_stack_evidence,
           ) => {
           out.push(@lib.Instruction::local_tee(first))
           out.push(@lib.Instruction::local_tee(second))
@@ -17919,8 +17959,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
             lhs, mid,
           ) &&
-          dae_out_ends_with_droppable_pure_stack_without_local_get(
-            out, type_sec,
+          dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+            live_copy_stack_evidence,
           ) => {
           out.push(@lib.Instruction::local_tee(lhs))
           out.push(@lib.Instruction::local_set(rhs))
@@ -17935,8 +17975,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalSet(lhs), @lib.LocalGet(rhs)) if dae_local_idx_equal(
             lhs, rhs,
           ) &&
-          dae_out_ends_with_droppable_pure_stack_without_local_get(
-            out, type_sec,
+          dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+            live_copy_stack_evidence,
           ) => {
           out.push(@lib.Instruction::local_tee(lhs))
           idx += 2
@@ -17945,8 +17985,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
             lhs, rhs,
           ) &&
-          dae_out_ends_with_droppable_pure_stack_without_local_get(
-            out, type_sec,
+          dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+            live_copy_stack_evidence,
           ) => {
           out.push(@lib.Instruction::local_set(lhs))
           idx += 2

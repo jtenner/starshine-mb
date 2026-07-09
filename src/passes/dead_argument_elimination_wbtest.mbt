@@ -6732,6 +6732,51 @@ test "dae raw cleanup folds live integer self binary operations" {
 }
 
 ///|
+test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
+  let pure_stack = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+  ]
+  match dae_droppable_pure_stack_evidence(pure_stack, None) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 3)
+      assert_false(evidence.has_local_get)
+      assert_true(evidence.local_free)
+      assert_true(
+        dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+          Some(evidence),
+        ),
+      )
+    }
+    None => fail("expected trailing pure stack evidence")
+  }
+  let local_stack = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+  ]
+  match dae_droppable_pure_stack_evidence(local_stack, None) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 3)
+      assert_true(evidence.has_local_get)
+      assert_false(evidence.local_free)
+      assert_false(
+        dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(
+          Some(evidence),
+        ),
+      )
+    }
+    None => fail("expected local-carried pure stack evidence")
+  }
+  assert_false(
+    dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(None),
+  )
+}
+
+///|
 test "dae dropped pure leaf cleanup evidence centralizes stack and leaf preservation" {
   let tmp = @lib.LocalIdx::new(1U)
   let stack_after_same_set = [
