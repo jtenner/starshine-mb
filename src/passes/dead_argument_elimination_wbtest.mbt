@@ -4097,6 +4097,86 @@ test "dae stack slice localization evidence carries transition escape and repair
 }
 
 ///|
+test "dae select condition localization evidence unifies singleton and stack slices" {
+  let mod_ = @lib.Module::new()
+  let singleton = [@lib.Instruction::i32_const(@lib.I32(7))]
+  match dae_select_condition_localization_evidence(mod_, singleton, 0, 1, []) {
+    Some(evidence) => {
+      assert_true(
+        dae_select_condition_localization_evidence_is_consistent(evidence),
+      )
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 1)
+      assert_eq(evidence.instr_count, 1)
+      assert_true(evidence.singleton_trivially_droppable)
+      match evidence.singleton_producer {
+        Some(producer) => {
+          assert_eq(producer.inputs, 0)
+          assert_eq(producer.outputs, 1)
+        }
+        None => fail("expected singleton producer evidence")
+      }
+      match evidence.stack_slice {
+        Some(_) =>
+          fail(
+            "singleton condition should not carry multi-instruction evidence",
+          )
+        None => ()
+      }
+    }
+    None => fail("expected singleton select-condition localization evidence")
+  }
+  let multi = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+  ]
+  match dae_select_condition_localization_evidence(mod_, multi, 0, 3, []) {
+    Some(evidence) => {
+      assert_true(
+        dae_select_condition_localization_evidence_is_consistent(evidence),
+      )
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 3)
+      assert_eq(evidence.instr_count, 3)
+      assert_false(evidence.singleton_trivially_droppable)
+      match evidence.singleton_producer {
+        Some(_) =>
+          fail(
+            "multi-instruction condition should not carry singleton evidence",
+          )
+        None => ()
+      }
+      match evidence.stack_slice {
+        Some(slice) => {
+          assert_eq(slice.transition.simulation.final_stack_values, 1)
+          assert_eq(slice.copied_slice.instrs.length(), 3)
+          assert_true(slice.removal_plan.keep_operand)
+        }
+        None => fail("expected multi-instruction stack-slice evidence")
+      }
+    }
+    None =>
+      fail("expected multi-instruction select-condition localization evidence")
+  }
+  match
+    dae_select_condition_localization_evidence(
+      mod_,
+      [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+      0,
+      1,
+      [],
+    ) {
+    Some(_) => fail("branching singleton condition should be rejected")
+    None => ()
+  }
+  match dae_select_condition_localization_evidence(mod_, multi, 2, 2, []) {
+    Some(_) => fail("empty condition range should be rejected")
+    None => ()
+  }
+}
+
+///|
 test "dae stack slice simulation centralizes condition and typeidx scans" {
   let mod_ = @lib.Module::new()
   let body = [
@@ -4149,7 +4229,9 @@ test "dae stack slice simulation centralizes condition and typeidx scans" {
     Some(_) => fail("mismatched final stack count should be rejected")
     None => ()
   }
-  assert_true(dae_select_condition_slice_is_stack_local(mod_, body, 0, 3, []))
+  assert_true(
+    dae_select_condition_localization_evidence(mod_, body, 0, 3, []).is_some(),
+  )
 
   match
     dae_stack_slice_simulation_evidence(

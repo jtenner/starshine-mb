@@ -316,6 +316,16 @@ priv struct DaeStackSliceLocalizationEvidence {
 }
 
 ///|
+priv struct DaeSelectConditionLocalizationEvidence {
+  start : Int
+  end : Int
+  instr_count : Int
+  singleton_trivially_droppable : Bool
+  singleton_producer : DaeStackEffectEvidence?
+  stack_slice : DaeStackSliceLocalizationEvidence?
+}
+
+///|
 priv struct DaeNoEscapeSliceEvidence {
   branch : DaeEscapingBranchEvidence
   instrs : Array[@lib.Instruction]
@@ -2679,9 +2689,10 @@ fn dae_find_select_value_slices(
   }
   let mut condition_start = select_idx - 1
   while condition_start >= 2 {
-    if !dae_select_condition_slice_is_stack_local(
+    if dae_select_condition_localization_evidence(
         mod_, body, condition_start, select_idx, func_type_indices,
-      ) {
+      )
+      is None {
       condition_start -= 1
       continue
     }
@@ -6145,9 +6156,10 @@ fn dae_gc_select_actual_value_evidence(
     @lib.Select(_) => ()
     _ => return None
   }
-  if !dae_select_condition_slice_is_stack_local(
+  if dae_select_condition_localization_evidence(
       mod_, body, condition_start, select_idx, func_type_indices,
-    ) {
+    )
+    is None {
     return None
   }
   let candidate = match (body[left_idx], body[right_idx]) {
@@ -8001,9 +8013,10 @@ fn dae_gc_select_value_slice_evidence(
     @lib.Select(_) => ()
     _ => return None
   }
-  if !dae_select_condition_slice_is_stack_local(
+  if dae_select_condition_localization_evidence(
       mod_, body, condition_start, select_idx, func_type_indices,
-    ) {
+    )
+    is None {
     return None
   }
   let (left_candidate, left_rewrite) = match
@@ -8299,25 +8312,6 @@ fn dae_instr_has_branch(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn dae_select_condition_is_stack_local(
-  mod_ : @lib.Module,
-  instr : @lib.Instruction,
-  func_type_indices : Array[@lib.TypeIdx],
-) -> Bool {
-  if dae_instr_is_trivially_droppable(instr) {
-    return true
-  }
-  if dae_instr_has_branch(instr) {
-    return false
-  }
-  match
-    dae_stack_single_value_producer_evidence(instr, mod_, func_type_indices) {
-    Some(_) => true
-    None => false
-  }
-}
-
-///|
 fn dae_select_condition_stack_slice_instr_allowed(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -8338,31 +8332,108 @@ fn dae_select_condition_stack_slice_instr_allowed(
 }
 
 ///|
-fn dae_select_condition_slice_is_stack_local(
+fn dae_select_condition_localization_evidence_is_consistent(
+  evidence : DaeSelectConditionLocalizationEvidence,
+) -> Bool {
+  if evidence.start < 0 ||
+    evidence.end <= evidence.start ||
+    evidence.instr_count != evidence.end - evidence.start {
+    return false
+  }
+  if evidence.instr_count == 1 {
+    match evidence.stack_slice {
+      Some(_) => return false
+      None => ()
+    }
+    if evidence.singleton_trivially_droppable {
+      return true
+    }
+    match evidence.singleton_producer {
+      Some(producer) => dae_stack_effect_evidence_is_consistent(producer)
+      None => false
+    }
+  } else {
+    if evidence.singleton_trivially_droppable {
+      return false
+    }
+    match evidence.singleton_producer {
+      Some(_) => return false
+      None => ()
+    }
+    match evidence.stack_slice {
+      Some(slice) =>
+        dae_stack_slice_localization_evidence_is_consistent(slice) &&
+        slice.transition.simulation.start == evidence.start &&
+        slice.transition.simulation.end == evidence.end
+      None => false
+    }
+  }
+}
+
+///|
+fn dae_select_condition_localization_evidence(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
   start : Int,
   end : Int,
   func_type_indices : Array[@lib.TypeIdx],
-) -> Bool {
-  if start >= end || end > body.length() {
-    return false
+) -> DaeSelectConditionLocalizationEvidence? {
+  if start < 0 || start >= end || end > body.length() {
+    return None
   }
-  if start + 1 == end {
-    return dae_select_condition_is_stack_local(
-      mod_,
-      body[start],
-      func_type_indices,
+  let instr_count = end - start
+  if instr_count == 1 {
+    let instr = body[start]
+    let singleton_trivially_droppable = dae_instr_is_trivially_droppable(instr)
+    if !singleton_trivially_droppable && dae_instr_has_branch(instr) {
+      return None
+    }
+    let singleton_producer = dae_stack_single_value_producer_evidence(
+      instr, mod_, func_type_indices,
     )
+    if !singleton_trivially_droppable && singleton_producer is None {
+      return None
+    }
+    let evidence = {
+      start,
+      end,
+      instr_count,
+      singleton_trivially_droppable,
+      singleton_producer,
+      stack_slice: None,
+    }
+    if dae_select_condition_localization_evidence_is_consistent(evidence) {
+      Some(evidence)
+    } else {
+      None
+    }
+  } else {
+    let stack_slice = match
+      dae_stack_slice_localization_evidence_from_policy(
+        mod_,
+        func_type_indices,
+        body,
+        start,
+        end,
+        dae_select_condition_localization_policy(),
+      ) {
+      Some(evidence) => evidence
+      None => return None
+    }
+    let evidence = {
+      start,
+      end,
+      instr_count,
+      singleton_trivially_droppable: false,
+      singleton_producer: None,
+      stack_slice: Some(stack_slice),
+    }
+    if dae_select_condition_localization_evidence_is_consistent(evidence) {
+      Some(evidence)
+    } else {
+      None
+    }
   }
-  dae_stack_slice_localization_policy_accepts(
-    mod_,
-    func_type_indices,
-    body,
-    start,
-    end,
-    dae_select_condition_localization_policy(),
-  )
 }
 
 ///|
