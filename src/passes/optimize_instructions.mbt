@@ -9869,10 +9869,16 @@ priv struct OiCallRefDirectTargetFact {
 }
 
 ///|
-priv struct OiCallRefTableTargetFact {
-  target_id : Int
+priv struct OiCallRefTableIndexFact {
   table_idx : Int
   table_index_id : Int
+  index_live_fact : OiLiveNodeFact
+}
+
+///|
+priv struct OiCallRefTableTargetFact {
+  target_id : Int
+  table_index_fact : OiCallRefTableIndexFact
 }
 
 ///|
@@ -10007,8 +10013,13 @@ fn OiCallRefTableTargetFact::from_target(
   match target.op {
     @ir.HotOp::TableGet if target.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, target_id, 0)
-      if OiLiveNodeFact::proves_node_live(func, dead, table_index_id) {
-        Some({ target_id, table_idx: target.imm0, table_index_id })
+      let table_index_fact : OiCallRefTableIndexFact = {
+        table_idx: target.imm0,
+        table_index_id,
+        index_live_fact: OiLiveNodeFact::from_node(func, dead, table_index_id),
+      }
+      if table_index_fact.proves_live_table_index() {
+        Some({ target_id, table_index_fact })
       } else {
         None
       }
@@ -10018,10 +10029,20 @@ fn OiCallRefTableTargetFact::from_target(
 }
 
 ///|
+fn OiCallRefTableIndexFact::proves_live_table_index(
+  self : OiCallRefTableIndexFact,
+) -> Bool {
+  ignore(self.table_idx)
+  ignore(self.table_index_id)
+  self.index_live_fact.proves_live()
+}
+
+///|
 fn OiCallRefTableTargetFact::proves_table_get_target(
   self : OiCallRefTableTargetFact,
 ) -> Bool {
-  self.target_id >= 0 && self.table_idx >= 0 && self.table_index_id >= 0
+  ignore(self.target_id)
+  self.table_index_fact.proves_live_table_index()
 }
 
 ///|
@@ -10529,7 +10550,10 @@ fn OiCallRefTableTargetPlanFact::from_target_fact(
   // of asking sentinel-style questions of `OiCallRefTargetFact`.
   match target_fact.table_fact {
     Some(fact) if fact.proves_table_get_target() =>
-      Some({ table_idx: fact.table_idx, table_index_id: fact.table_index_id })
+      Some({
+        table_idx: fact.table_index_fact.table_idx,
+        table_index_id: fact.table_index_fact.table_index_id,
+      })
     _ => None
   }
 }
