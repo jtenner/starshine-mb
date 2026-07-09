@@ -5582,6 +5582,36 @@ fn OiDescriptorNullCastRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiDescriptorExactSuccessTargetKind {
+  DescriptorExactSuccessTargetExactNonNull
+  DescriptorExactSuccessTargetNullable
+  DescriptorExactSuccessTargetInexact
+}
+
+///|
+priv struct OiDescriptorExactSuccessTargetFact {
+  kind : OiDescriptorExactSuccessTargetKind
+}
+
+///|
+fn OiDescriptorExactSuccessTargetFact::from_cast(
+  cast_fact : OiDescriptorCastFact,
+) -> OiDescriptorExactSuccessTargetFact {
+  // Binaryen v130's descriptor equality cast skip under traps-never-happen
+  // first requires the cast target itself to be exact and non-null before the
+  // reference operand and descriptor facts can prove the same target. Keep that
+  // target precondition as a source-shaped payload instead of parallel nullable
+  // and exactness blockers in the exact-success eligibility fact.
+  if cast_fact.nullable {
+    return { kind: DescriptorExactSuccessTargetNullable }
+  }
+  if !cast_fact.exact {
+    return { kind: DescriptorExactSuccessTargetInexact }
+  }
+  { kind: DescriptorExactSuccessTargetExactNonNull }
+}
+
+///|
 priv enum OiDescriptorExactSuccessOperandKind {
   DescriptorExactSuccessOperandExactNonNullTarget
   DescriptorExactSuccessOperandUnsupported
@@ -5669,6 +5699,7 @@ fn OiDescriptorExactSuccessDescriptorRelationFact::proves_exactly_describes_targ
 ///|
 priv struct OiDescriptorExactSuccessFact {
   cast_fact : OiDescriptorCastFact
+  target_fact : OiDescriptorExactSuccessTargetFact
   operand_fact : OiDescriptorExactSuccessOperandFact
   descriptor_relation : OiDescriptorExactSuccessDescriptorRelationFact
 }
@@ -5685,6 +5716,7 @@ fn OiDescriptorExactSuccessFact::from_node(
   }
   Some({
     cast_fact,
+    target_fact: OiDescriptorExactSuccessTargetFact::from_cast(cast_fact),
     operand_fact: OiDescriptorExactSuccessOperandFact::from_operand(
       ctx,
       func,
@@ -5729,11 +5761,12 @@ fn OiDescriptorExactSuccessEligibilityFact::from_success(
   if !ctx.traps_never_happen {
     return { kind: DescriptorExactSuccessTrapsActive }
   }
-  if success_fact.cast_fact.nullable {
-    return { kind: DescriptorExactSuccessNullableTarget }
-  }
-  if !success_fact.cast_fact.exact {
-    return { kind: DescriptorExactSuccessInexactTarget }
+  match success_fact.target_fact.kind {
+    DescriptorExactSuccessTargetNullable =>
+      return { kind: DescriptorExactSuccessNullableTarget }
+    DescriptorExactSuccessTargetInexact =>
+      return { kind: DescriptorExactSuccessInexactTarget }
+    DescriptorExactSuccessTargetExactNonNull => ()
   }
   if !success_fact.operand_fact.proves_exact_non_null_target() {
     return { kind: DescriptorExactSuccessOperandNotExactNonNullTarget }
