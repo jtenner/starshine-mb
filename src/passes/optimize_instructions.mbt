@@ -9504,11 +9504,15 @@ fn OiCallRefFallthroughTypeFact::proves_target_heap_matches_ref_func_heap(
 }
 
 ///|
-priv struct OiCallRefTargetSkipNonNullFact {
+priv struct OiCallRefTargetSkippedNonNullCastFact {
   replacement_target_id : Int
-  skipped_non_null_cast : Bool
   child_static_ref_type : @lib.RefType?
   target_is_final_call_ref_child : Bool
+}
+
+///|
+priv struct OiCallRefTargetSkipNonNullFact {
+  skipped_fact : OiCallRefTargetSkippedNonNullCastFact
 }
 
 ///|
@@ -9553,10 +9557,11 @@ fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
             Some(ref_type) if ref_type.is_non_nullable() ||
               target_is_final_call_ref_child =>
               Some({
-                replacement_target_id: child_id,
-                skipped_non_null_cast: true,
-                child_static_ref_type,
-                target_is_final_call_ref_child,
+                skipped_fact: {
+                  replacement_target_id: child_id,
+                  child_static_ref_type,
+                  target_is_final_call_ref_child,
+                },
               })
             _ => None
           }
@@ -9568,8 +9573,8 @@ fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
 }
 
 ///|
-fn OiCallRefTargetSkipNonNullFact::proves_skip_preserves_order(
-  self : OiCallRefTargetSkipNonNullFact,
+fn OiCallRefTargetSkippedNonNullCastFact::proves_order_preserving_skip(
+  self : OiCallRefTargetSkippedNonNullCastFact,
 ) -> Bool {
   match self.child_static_ref_type {
     Some(ref_type) if ref_type.is_non_nullable() => true
@@ -9580,11 +9585,11 @@ fn OiCallRefTargetSkipNonNullFact::proves_skip_preserves_order(
 ///|
 fn OiCallRefTargetSkipNonNullFact::effective_target_id(
   self : OiCallRefTargetSkipNonNullFact,
-) -> Int {
-  if self.skipped_non_null_cast && self.proves_skip_preserves_order() {
-    self.replacement_target_id
+) -> Int? {
+  if self.skipped_fact.proves_order_preserving_skip() {
+    Some(self.skipped_fact.replacement_target_id)
   } else {
-    -1
+    None
   }
 }
 
@@ -11389,11 +11394,12 @@ fn OiCallRefChildLayoutFact::from_call_ref(
   }
   let effective_callee_ref_id = match
     OiCallRefTargetSkipNonNullFact::from_call_ref_target(func, dead, node_id) {
-    Some(fact) => fact.effective_target_id()
+    Some(fact) =>
+      match fact.effective_target_id() {
+        Some(target_id) => target_id
+        None => return None
+      }
     None => callee_ref_id
-  }
-  if effective_callee_ref_id < 0 {
-    return None
   }
   let args : Array[Int] = []
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
