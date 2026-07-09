@@ -1597,6 +1597,23 @@ test "dae control result slices centralize flat and return arm bounds" {
     }
     None => fail("expected shared single-block result carrier evidence")
   }
+  match
+    dae_flat_multi_result_suffix_evidence(
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i64_const(@lib.I64(2L)),
+      ],
+      2,
+      false,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 2)
+      assert_eq(evidence.result_count, 2)
+      assert_false(evidence.has_terminal_return)
+    }
+    None => fail("expected shared flat result suffix evidence")
+  }
   match dae_find_multi_result_control_slice(mod_, block_arm, 2) {
     Some(slice) => {
       assert_eq(slice.slice.start, 0)
@@ -1614,6 +1631,15 @@ test "dae control result slices centralize flat and return arm bounds" {
     @lib.Instruction::i64_const(@lib.I64(2L)),
     @lib.Instruction::return_(),
   ]
+  match dae_flat_multi_result_suffix_evidence(return_arm, 2, true) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 2)
+      assert_eq(evidence.result_count, 2)
+      assert_true(evidence.has_terminal_return)
+    }
+    None => fail("expected shared terminal-return result suffix evidence")
+  }
   match
     dae_find_multi_result_control_slice(
       mod_,

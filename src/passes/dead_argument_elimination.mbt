@@ -70,6 +70,14 @@ priv struct DaeMultiResultSuffixBoundsEvidence {
 }
 
 ///|
+priv struct DaeFlatMultiResultSuffixEvidence {
+  start : Int
+  end : Int
+  result_count : Int
+  has_terminal_return : Bool
+}
+
+///|
 priv struct DaeDroppedOperandPairSkipEvidence {
   start : Int
   end : Int
@@ -2739,22 +2747,28 @@ fn dae_multi_result_control_carrier_chain_slice(
   let mut carrier_kind = 0
   let mut keep_unwrapping = true
   while keep_unwrapping {
-    let flat_start = if match_terminal_return {
-      dae_flat_multi_return_result_start(candidate_body, result_count)
-    } else {
-      dae_flat_multi_result_start(candidate_body, result_count)
-    }
-    if flat_start >= 0 {
-      let result_body = if append_terminal_return {
-        let flattened_body = candidate_body.copy()
-        flattened_body.push(@lib.Instruction::return_())
-        flattened_body
-      } else {
-        candidate_body
+    match
+      dae_flat_multi_result_suffix_evidence(
+        candidate_body, result_count, match_terminal_return,
+      ) {
+      Some(flat_suffix) => {
+        let result_body = if append_terminal_return {
+          let flattened_body = candidate_body.copy()
+          flattened_body.push(@lib.Instruction::return_())
+          flattened_body
+        } else {
+          candidate_body
+        }
+        return dae_make_multi_result_control_slice(
+          result_body,
+          flat_suffix.start,
+          flat_suffix.result_count,
+          carrier_kind,
+          flattened,
+          terminal_return,
+        )
       }
-      return dae_make_multi_result_control_slice(
-        result_body, flat_start, result_count, carrier_kind, flattened, terminal_return,
-      )
+      None => ()
     }
     keep_unwrapping = false
     match
@@ -8328,37 +8342,56 @@ fn dae_try_update_signature_only(
 }
 
 ///|
-fn dae_flat_multi_result_start(
+fn dae_flat_multi_result_suffix_evidence_is_consistent(
+  evidence : DaeFlatMultiResultSuffixEvidence,
   body : Array[@lib.Instruction],
-  result_count : Int,
-) -> Int {
-  if result_count <= 0 || body.length() < result_count {
-    return -1
-  }
-  let candidate_start = body.length() - result_count
-  match dae_trivially_dropped_prefix_evidence(body, candidate_start) {
-    Some(_) => candidate_start
-    None => -1
-  }
+) -> Bool {
+  evidence.result_count > 0 &&
+  evidence.start >= 0 &&
+  evidence.end == evidence.start + evidence.result_count &&
+  evidence.end <= body.length() &&
+  (
+    !evidence.has_terminal_return ||
+    (
+      evidence.end + 1 == body.length() &&
+      body[body.length() - 1] is @lib.Return
+    )
+  ) &&
+  (evidence.has_terminal_return || evidence.end == body.length())
 }
 
 ///|
-fn dae_flat_multi_return_result_start(
+fn dae_flat_multi_result_suffix_evidence(
   body : Array[@lib.Instruction],
   result_count : Int,
-) -> Int {
-  if result_count <= 0 || body.length() < result_count + 1 {
-    return -1
+  match_terminal_return : Bool,
+) -> DaeFlatMultiResultSuffixEvidence? {
+  let terminal_extra = if match_terminal_return { 1 } else { 0 }
+  if result_count <= 0 || body.length() < result_count + terminal_extra {
+    return None
   }
-  match body[body.length() - 1] {
-    @lib.Return => {
-      let candidate_start = body.length() - 1 - result_count
-      match dae_trivially_dropped_prefix_evidence(body, candidate_start) {
-        Some(_) => candidate_start
-        None => -1
+  if match_terminal_return {
+    match body[body.length() - 1] {
+      @lib.Return => ()
+      _ => return None
+    }
+  }
+  let candidate_start = body.length() - terminal_extra - result_count
+  match dae_trivially_dropped_prefix_evidence(body, candidate_start) {
+    Some(_) => {
+      let evidence = {
+        start: candidate_start,
+        end: candidate_start + result_count,
+        result_count,
+        has_terminal_return: match_terminal_return,
+      }
+      if dae_flat_multi_result_suffix_evidence_is_consistent(evidence, body) {
+        Some(evidence)
+      } else {
+        None
       }
     }
-    _ => -1
+    None => None
   }
 }
 
