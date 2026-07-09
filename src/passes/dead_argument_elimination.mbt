@@ -280,6 +280,13 @@ priv struct DaeSingleResultControlPairApplicationEvidence {
 }
 
 ///|
+priv struct DaeSingleResultControlPairRepairEvidence {
+  pair : DaeSingleResultControlPairGcEvidence
+  application : DaeSingleResultControlPairApplicationEvidence
+  rewritten : @lib.Instruction
+}
+
+///|
 priv struct DaeSingleResultControlGcCandidateEvidence {
   body : Array[@lib.Instruction]
   candidate : @lib.ValType
@@ -6141,6 +6148,61 @@ fn dae_apply_single_result_control_pair_gc_evidence(
 }
 
 ///|
+fn dae_single_result_control_pair_repair_evidence_is_consistent(
+  repair : DaeSingleResultControlPairRepairEvidence,
+  result_is_void : Bool,
+) -> Bool {
+  dae_single_result_control_pair_application_is_consistent(
+    repair.application,
+    repair.pair,
+    result_is_void,
+  )
+}
+
+///|
+fn dae_single_result_control_pair_repair_evidence(
+  mod_ : @lib.Module,
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+  old_type : @lib.ValType,
+  result_is_void : Bool,
+  arm_candidate : (Array[@lib.Instruction]) -> (
+    @lib.ValType,
+    Array[@lib.Instruction]?,
+  )?,
+) -> DaeSingleResultControlPairRepairEvidence? {
+  let (then_candidate, then_rewrite) = match arm_candidate(then_body) {
+    Some(result) => result
+    None => return None
+  }
+  let (else_candidate, else_rewrite) = match arm_candidate(else_body) {
+    Some(result) => result
+    None => return None
+  }
+  let pair = match
+    dae_single_result_control_pair_gc_evidence(
+      mod_, then_body, then_candidate, then_rewrite, else_body, else_candidate, else_rewrite,
+      old_type,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  let (rewritten, application) = match
+    dae_apply_single_result_control_pair_gc_evidence(pair, result_is_void) {
+    Some(result) => result
+    None => return None
+  }
+  let repair = { pair, application, rewritten }
+  if dae_single_result_control_pair_repair_evidence_is_consistent(
+      repair, result_is_void,
+    ) {
+    Some(repair)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_direct_gc_result_explicit_return_candidate_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -6210,33 +6272,20 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
       match dae_instr_stack_effect_from_block_type(block_type, mod_) {
         Some((0, _)) =>
           match
-            dae_direct_gc_result_explicit_return_candidate_body(
-              mod_, func_type_indices, func_locals, then_body, old_type,
-            ) {
-            Some((then_candidate, then_rewrite)) =>
-              match
+            dae_single_result_control_pair_repair_evidence(
+              mod_,
+              then_body,
+              else_body,
+              old_type,
+              true,
+              fn(body) {
                 dae_direct_gc_result_explicit_return_candidate_body(
-                  mod_, func_type_indices, func_locals, else_body, old_type,
-                ) {
-                Some((else_candidate, else_rewrite)) =>
-                  match
-                    dae_single_result_control_pair_gc_evidence(
-                      mod_, then_body, then_candidate, then_rewrite, else_body, else_candidate,
-                      else_rewrite, old_type,
-                    ) {
-                    Some(evidence) =>
-                      match
-                        dae_apply_single_result_control_pair_gc_evidence(
-                          evidence, true,
-                        ) {
-                        Some((rewritten, _)) =>
-                          Some((evidence.candidate, Some(rewritten)))
-                        None => None
-                      }
-                    None => None
-                  }
-                None => None
-              }
+                  mod_, func_type_indices, func_locals, body, old_type,
+                )
+              },
+            ) {
+            Some(repair) =>
+              Some((repair.pair.candidate, Some(repair.rewritten)))
             None => None
           }
         _ => None
@@ -6406,33 +6455,20 @@ fn dae_direct_gc_result_candidate_instr(
       match dae_control_single_result_block_type_evidence(block_type, mod_) {
         Some(_) =>
           match
-            dae_direct_gc_result_candidate_body(
-              mod_, func_type_indices, func_locals, then_body, old_type,
-            ) {
-            Some((then_candidate, then_rewrite)) =>
-              match
+            dae_single_result_control_pair_repair_evidence(
+              mod_,
+              then_body,
+              else_body,
+              old_type,
+              false,
+              fn(body) {
                 dae_direct_gc_result_candidate_body(
-                  mod_, func_type_indices, func_locals, else_body, old_type,
-                ) {
-                Some((else_candidate, else_rewrite)) =>
-                  match
-                    dae_single_result_control_pair_gc_evidence(
-                      mod_, then_body, then_candidate, then_rewrite, else_body, else_candidate,
-                      else_rewrite, old_type,
-                    ) {
-                    Some(evidence) =>
-                      match
-                        dae_apply_single_result_control_pair_gc_evidence(
-                          evidence, false,
-                        ) {
-                        Some((rewritten, _)) =>
-                          Some((evidence.candidate, Some(rewritten)))
-                        None => None
-                      }
-                    None => None
-                  }
-                None => None
-              }
+                  mod_, func_type_indices, func_locals, body, old_type,
+                )
+              },
+            ) {
+            Some(repair) =>
+              Some((repair.pair.candidate, Some(repair.rewritten)))
             None => None
           }
         _ => None

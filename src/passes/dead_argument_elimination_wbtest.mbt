@@ -1823,6 +1823,115 @@ test "dae single-result control pair application centralizes if rewrites" {
 }
 
 ///|
+test "dae single-result control pair repair evidence gathers arm candidates" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let left_type = @lib.TypeIdx::new(1U)
+  let right_type = @lib.TypeIdx::new(2U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let expected_common_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(base_type)),
+  )
+  let expected_left_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(left_type), exact=true),
+  )
+  let expected_right_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(right_type), exact=true),
+  )
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+    ]),
+  )
+  let then_body = [@lib.Instruction::struct_new_default(left_type)]
+  let else_body = [@lib.Instruction::struct_new_default(right_type)]
+  let then_rewrite = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(expected_left_ref),
+      @lib.Expr::new(then_body),
+    ),
+  ]
+  let else_rewrite = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(expected_right_ref),
+      @lib.Expr::new(else_body),
+    ),
+  ]
+  match
+    dae_single_result_control_pair_repair_evidence(
+      mod_,
+      then_body,
+      else_body,
+      base_ref,
+      false,
+      fn(body) {
+        if body == then_body {
+          Some((expected_left_ref, Some(then_rewrite)))
+        } else if body == else_body {
+          Some((expected_right_ref, Some(else_rewrite)))
+        } else {
+          None
+        }
+      },
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.pair.candidate, expected_common_ref)
+      assert_false(evidence.application.result_is_void)
+      assert_eq(evidence.application.then_body_length, then_rewrite.length())
+      assert_eq(evidence.application.else_body_length, else_rewrite.length())
+      assert_eq(
+        evidence.rewritten,
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(expected_common_ref),
+          then_rewrite,
+          Some(else_rewrite),
+        ),
+      )
+    }
+    None => fail("expected request-backed if-arm repair evidence")
+  }
+  match
+    dae_single_result_control_pair_repair_evidence(
+      mod_,
+      then_body,
+      else_body,
+      base_ref,
+      true,
+      fn(body) {
+        if body == then_body {
+          Some((expected_left_ref, None))
+        } else if body == else_body {
+          Some((expected_right_ref, None))
+        } else {
+          None
+        }
+      },
+    ) {
+    Some(evidence) => {
+      assert_true(evidence.application.result_is_void)
+      assert_eq(
+        evidence.rewritten,
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          then_body,
+          Some(else_body),
+        ),
+      )
+    }
+    None => fail("expected void-result if-arm repair evidence")
+  }
+}
+
+///|
 test "dae control result pair GC evidence centralizes terminal arm LUB rewrites" {
   let base_type = @lib.TypeIdx::new(0U)
   let left_type = @lib.TypeIdx::new(1U)
