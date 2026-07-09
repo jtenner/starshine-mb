@@ -29983,17 +29983,39 @@ priv struct OiDescriptorSkipOrderRegionFact {
 }
 
 ///|
+priv enum OiDescriptorInternalControlEffectFreeKind {
+  DescriptorInternalControlDirectSideEffectFree
+  DescriptorInternalControlSupportedShape
+  DescriptorInternalControlUnsupported
+}
+
+///|
+priv enum OiDescriptorInternalControlPayloadEffectKind {
+  DescriptorInternalControlPayloadEffectFree
+  DescriptorInternalControlPayloadEffectful
+}
+
+///|
+priv struct OiDescriptorInternalControlBlockRegionFact {
+  kind : OiDescriptorInternalControlPayloadEffectKind
+}
+
+///|
+priv struct OiDescriptorInternalControlChildEffectFact {
+  kind : OiDescriptorInternalControlPayloadEffectKind
+}
+
+///|
 priv struct OiDescriptorInternalControlEffectFreeFact {
-  direct_side_effect_free : Bool
-  supported_internal_control_shape : Bool
-  block_region_effect_free : Bool
-  child_effect_free : Bool
+  kind : OiDescriptorInternalControlEffectFreeKind
+  block_region_fact : OiDescriptorInternalControlBlockRegionFact?
+  child_effect_fact : OiDescriptorInternalControlChildEffectFact?
 }
 
 ///|
 priv struct OiDescriptorInternalControlEffectFreeRegionFact {
   root_count : Int
-  effect_free : Bool
+  effect_fact : OiDescriptorInternalControlBlockRegionFact
 }
 
 ///|
@@ -30590,6 +30612,52 @@ fn OiDescriptorSkipOrderRegionFact::proves_has_order_sensitive_effect(
 }
 
 ///|
+fn OiDescriptorInternalControlBlockRegionFact::from_bool(
+  effect_free : Bool,
+) -> OiDescriptorInternalControlBlockRegionFact {
+  {
+    kind: if effect_free {
+      DescriptorInternalControlPayloadEffectFree
+    } else {
+      DescriptorInternalControlPayloadEffectful
+    },
+  }
+}
+
+///|
+fn OiDescriptorInternalControlBlockRegionFact::proves_effect_free(
+  self : OiDescriptorInternalControlBlockRegionFact,
+) -> Bool {
+  match self.kind {
+    DescriptorInternalControlPayloadEffectFree => true
+    DescriptorInternalControlPayloadEffectful => false
+  }
+}
+
+///|
+fn OiDescriptorInternalControlChildEffectFact::from_bool(
+  effect_free : Bool,
+) -> OiDescriptorInternalControlChildEffectFact {
+  {
+    kind: if effect_free {
+      DescriptorInternalControlPayloadEffectFree
+    } else {
+      DescriptorInternalControlPayloadEffectful
+    },
+  }
+}
+
+///|
+fn OiDescriptorInternalControlChildEffectFact::proves_effect_free(
+  self : OiDescriptorInternalControlChildEffectFact,
+) -> Bool {
+  match self.kind {
+    DescriptorInternalControlPayloadEffectFree => true
+    DescriptorInternalControlPayloadEffectful => false
+  }
+}
+
+///|
 fn OiDescriptorInternalControlEffectFreeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -30599,17 +30667,16 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
   // TNH descriptor-null-check removal can ignore internal branch/control edges
   // when all reachable payload work is otherwise effect-free. Preserve that
   // represented Binaryen `trapOnNull` subset as data: direct side-effect-free
-  // proof, an allowed internal-control shell, block-region summaries, and
-  // recursively effect-free children.
+  // proof, an allowed internal-control shell, block-region effect facts, and
+  // recursively effect-free child facts.
   let direct_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
     func, dead, node_id,
   )
   if direct_side_effect_free {
     return {
-      direct_side_effect_free,
-      supported_internal_control_shape: false,
-      block_region_effect_free: false,
-      child_effect_free: false,
+      kind: DescriptorInternalControlDirectSideEffectFree,
+      block_region_fact: None,
+      child_effect_fact: None,
     }
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -30657,10 +30724,13 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
   }
   if !supported_internal_control_shape || !block_region_effect_free {
     return {
-      direct_side_effect_free,
-      supported_internal_control_shape,
-      block_region_effect_free,
-      child_effect_free: false,
+      kind: DescriptorInternalControlUnsupported,
+      block_region_fact: Some(
+        OiDescriptorInternalControlBlockRegionFact::from_bool(
+          block_region_effect_free,
+        ),
+      ),
+      child_effect_fact: None,
     }
   }
   let mut child_effect_free = true
@@ -30674,10 +30744,15 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
       ).proves_effect_free_allowing_internal_control()
   }
   {
-    direct_side_effect_free,
-    supported_internal_control_shape,
-    block_region_effect_free,
-    child_effect_free,
+    kind: DescriptorInternalControlSupportedShape,
+    block_region_fact: Some(
+      OiDescriptorInternalControlBlockRegionFact::from_bool(
+        block_region_effect_free,
+      ),
+    ),
+    child_effect_fact: Some(
+      OiDescriptorInternalControlChildEffectFact::from_bool(child_effect_free),
+    ),
   }
 }
 
@@ -30685,12 +30760,16 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
 fn OiDescriptorInternalControlEffectFreeFact::proves_effect_free_allowing_internal_control(
   self : OiDescriptorInternalControlEffectFreeFact,
 ) -> Bool {
-  self.direct_side_effect_free ||
-  (
-    self.supported_internal_control_shape &&
-    self.block_region_effect_free &&
-    self.child_effect_free
-  )
+  match self.kind {
+    DescriptorInternalControlDirectSideEffectFree => true
+    DescriptorInternalControlSupportedShape =>
+      match (self.block_region_fact, self.child_effect_fact) {
+        (Some(block_fact), Some(child_fact)) =>
+          block_fact.proves_effect_free() && child_fact.proves_effect_free()
+        _ => false
+      }
+    DescriptorInternalControlUnsupported => false
+  }
 }
 
 ///|
@@ -30711,7 +30790,12 @@ fn OiDescriptorInternalControlEffectFreeRegionFact::from_region(
         @ir.hot_region_get(func, region_ref, slot),
       ).proves_effect_free_allowing_internal_control()
   }
-  { root_count, effect_free }
+  {
+    root_count,
+    effect_fact: OiDescriptorInternalControlBlockRegionFact::from_bool(
+      effect_free,
+    ),
+  }
 }
 
 ///|
@@ -30719,7 +30803,7 @@ fn OiDescriptorInternalControlEffectFreeRegionFact::proves_effect_free(
   self : OiDescriptorInternalControlEffectFreeRegionFact,
 ) -> Bool {
   ignore(self.root_count)
-  self.effect_free
+  self.effect_fact.proves_effect_free()
 }
 
 ///|
