@@ -19467,42 +19467,58 @@ fn OiTupleLaneFact::from_node(
 }
 
 ///|
-priv struct OiTupleExtractEligibilityFact {
+priv enum OiTupleExtractStructuralKind {
+  TupleExtractUnsupportedRoot
+  TupleExtractDeadOrSharedTuple
+  TupleExtractMissingTupleMake
+  TupleExtractUnsupportedIndex
+  TupleExtractTupleMake
+}
+
+///|
+priv struct OiTupleExtractTupleMakePayloadFact {
   tuple_id : Int
   index : Int
 }
 
 ///|
-fn OiTupleExtractEligibilityFact::from_extract(
+priv struct OiTupleExtractStructuralFact {
+  kind : OiTupleExtractStructuralKind
+  tuple_make_payload : OiTupleExtractTupleMakePayloadFact?
+}
+
+///|
+fn OiTupleExtractStructuralFact::from_extract(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
-) -> OiTupleExtractEligibilityFact? {
+) -> OiTupleExtractStructuralFact {
   // Binaryen v130 `visitTupleExtract` only rewrites a `tuple.extract` fed by a
-  // single-use `tuple.make` with a concrete lane index. Keep those structural
-  // gates in an explicit eligibility fact so the tuple rewrite fact owns only
-  // source-backed lane/discard/materialization decisions.
+  // single-use `tuple.make` with a concrete lane index. Keep each structural
+  // blocker and the successful tuple.make payload in an explicit fact so the
+  // tuple rewrite fact owns only source-backed lane/discard/materialization
+  // decisions.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::TupleExtract if node.child_count == 1 => ()
-    _ => return None
+    _ => return { kind: TupleExtractUnsupportedRoot, tuple_make_payload: None }
   }
   let tuple_id = @ir.hot_child_get(func, node_id, 0)
   if !OiLiveNodeFact::proves_node_live(func, dead, tuple_id) ||
     pass_node_use_count(ctx, func, tuple_id) != 1 {
-    return None
+    return { kind: TupleExtractDeadOrSharedTuple, tuple_make_payload: None }
   }
   let tuple = @ir.hot_node_get(func, tuple_id)
   match tuple.op {
     @ir.HotOp::TupleMake => ()
-    _ => return None
+    _ => return { kind: TupleExtractMissingTupleMake, tuple_make_payload: None }
   }
   let index = node.imm0
   if index < 0 {
-    return None
+    return { kind: TupleExtractUnsupportedIndex, tuple_make_payload: None }
   }
-  Some({ tuple_id, index })
+  { kind: TupleExtractTupleMake, tuple_make_payload: Some({ tuple_id, index }) }
 }
 
 ///|
@@ -19569,14 +19585,23 @@ fn OiTupleExtractFact::from_extract(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiTupleExtractFact? {
-  let eligibility = match
-    OiTupleExtractEligibilityFact::from_extract(ctx, func, dead, node_id) {
+  let structural_fact = OiTupleExtractStructuralFact::from_extract(
+    ctx, func, dead, node_id,
+  )
+  match structural_fact.kind {
+    TupleExtractUnsupportedRoot => return None
+    TupleExtractDeadOrSharedTuple => return None
+    TupleExtractMissingTupleMake => return None
+    TupleExtractUnsupportedIndex => return None
+    TupleExtractTupleMake => ()
+  }
+  let tuple_make_payload = match structural_fact.tuple_make_payload {
     Some(fact) => fact
     None => return None
   }
-  let tuple_id = eligibility.tuple_id
+  let tuple_id = tuple_make_payload.tuple_id
   let tuple = @ir.hot_node_get(func, tuple_id)
-  let index = eligibility.index
+  let index = tuple_make_payload.index
   let lane_facts : Array[OiTupleLaneFact] = []
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
     let lane_fact = OiTupleLaneFact::from_node(
