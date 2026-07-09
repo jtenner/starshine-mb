@@ -1713,8 +1713,17 @@ fn OiModuleHeapTargetFact::proves_match_target(
 }
 
 ///|
+priv enum OiConcreteSourceTargetOverlapKind {
+  ConcreteSourceTargetOverlapUnknownNoModule
+  ConcreteSourceTargetOverlapUnknownNonConcreteSource
+  ConcreteSourceTargetOverlapKnownSourceTargetMatch
+  ConcreteSourceTargetOverlapKnownSharedSubtype
+  ConcreteSourceTargetOverlapNoTargetOverlap
+}
+
+///|
 priv struct OiConcreteSourceTargetOverlapFact {
-  no_target_overlap : Bool
+  kind : OiConcreteSourceTargetOverlapKind
 }
 
 ///|
@@ -1729,31 +1738,37 @@ fn OiConcreteSourceTargetOverlapFact::from_heaps(
   // caller-owned subtype scanner.
   let ctx = match module_ctx {
     Some(ctx) => ctx
-    None => return { no_target_overlap: false }
+    None => return { kind: ConcreteSourceTargetOverlapUnknownNoModule }
   }
   match source {
     @lib.HeapType::HeapType(_) => ()
-    _ => return { no_target_overlap: false }
+    _ => return { kind: ConcreteSourceTargetOverlapUnknownNonConcreteSource }
   }
   if OiModuleHeapTargetFact::from_heaps(ctx, source, target, 512).proves_match_target() {
-    return { no_target_overlap: false }
+    return { kind: ConcreteSourceTargetOverlapKnownSourceTargetMatch }
   }
   let subtype_count = @ir.hot_module_subtype_count(ctx)
   for i = 0; i < subtype_count; i = i + 1 {
     let heap = @lib.HeapType::new(@lib.TypeIdx::new(i.reinterpret_as_uint()))
     if OiModuleHeapTargetFact::from_heaps(ctx, heap, source, 512).proves_match_target() &&
       OiModuleHeapTargetFact::from_heaps(ctx, heap, target, 512).proves_match_target() {
-      return { no_target_overlap: false }
+      return { kind: ConcreteSourceTargetOverlapKnownSharedSubtype }
     }
   }
-  { no_target_overlap: true }
+  { kind: ConcreteSourceTargetOverlapNoTargetOverlap }
 }
 
 ///|
 fn OiConcreteSourceTargetOverlapFact::proves_no_target_overlap(
   self : OiConcreteSourceTargetOverlapFact,
 ) -> Bool {
-  self.no_target_overlap
+  match self.kind {
+    ConcreteSourceTargetOverlapNoTargetOverlap => true
+    ConcreteSourceTargetOverlapUnknownNoModule
+    | ConcreteSourceTargetOverlapUnknownNonConcreteSource
+    | ConcreteSourceTargetOverlapKnownSourceTargetMatch
+    | ConcreteSourceTargetOverlapKnownSharedSubtype => false
+  }
 }
 
 ///|
