@@ -24159,13 +24159,18 @@ fn OiSimdLeafEqualityFact::proves_v128_local_splat(
 }
 
 ///|
+priv enum OiRefI31PayloadEqualityKind {
+  RefI31PayloadNoMatch
+  RefI31PayloadLocalMatch
+  RefI31PayloadConstMatch
+  RefI31PayloadI32LocalLocalScalarMatch
+  RefI31PayloadI32LocalConstScalarMatch
+  RefI31PayloadI32UnaryLocalScalarMatch
+}
+
+///|
 priv struct OiRefI31PayloadEqualityFact {
-  has_ref_i31_pair : Bool
-  matching_local_payload : Bool
-  matching_const_payload : Bool
-  matching_i32_local_local_scalar : Bool
-  matching_i32_local_const_scalar : Bool
-  matching_i32_unary_local_scalar : Bool
+  kind : OiRefI31PayloadEqualityKind
 }
 
 ///|
@@ -24179,14 +24184,9 @@ fn OiRefI31PayloadEqualityFact::from_nodes(
   // its scalar payload. When the enclosing select condition is effectful,
   // `visitSelect` also asks `EffectAnalyzer::invalidates` whether the value can
   // be moved after the condition. Keep Starshine's represented nontrapping,
-  // reorderable i31-payload subset as a fact so callers do not re-open a
-  // visitor-local ref.i31 scanner.
-  let mut has_ref_i31_pair = false
-  let mut matching_local_payload = false
-  let mut matching_const_payload = false
-  let mut matching_i32_local_local_scalar = false
-  let mut matching_i32_local_const_scalar = false
-  let mut matching_i32_unary_local_scalar = false
+  // reorderable i31-payload subset as a selected fact kind so callers do not
+  // re-open a visitor-local ref.i31 scanner or parallel payload booleans.
+  let mut kind = RefI31PayloadNoMatch
   match
     (
       @ir.hot_node_exact_instr(func, lhs),
@@ -24195,7 +24195,6 @@ fn OiRefI31PayloadEqualityFact::from_nodes(
       @ir.hot_node_get(func, rhs).child_count,
     ) {
     (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31), 1, 1) => {
-      has_ref_i31_pair = true
       let lhs_payload = @ir.hot_child_get(func, lhs, 0)
       let rhs_payload = @ir.hot_child_get(func, rhs, 0)
       match
@@ -24203,53 +24202,68 @@ fn OiRefI31PayloadEqualityFact::from_nodes(
           OiLocalGetLeafFact::from_node(func, dead, lhs_payload).local_id,
           OiLocalGetLeafFact::from_node(func, dead, rhs_payload).local_id,
         ) {
-        (Some(lhs_local), Some(rhs_local)) =>
-          matching_local_payload = lhs_local == rhs_local
+        (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local =>
+          kind = RefI31PayloadLocalMatch
         _ => ()
       }
-      match
-        (
-          optimize_instructions_i32_const(func, dead, lhs_payload),
-          optimize_instructions_i32_const(func, dead, rhs_payload),
-        ) {
-        (Some(lhs_const), Some(rhs_const)) =>
-          matching_const_payload = lhs_const == rhs_const
+      match kind {
+        RefI31PayloadNoMatch =>
+          match
+            (
+              optimize_instructions_i32_const(func, dead, lhs_payload),
+              optimize_instructions_i32_const(func, dead, rhs_payload),
+            ) {
+            (Some(lhs_const), Some(rhs_const)) if lhs_const == rhs_const =>
+              kind = RefI31PayloadConstMatch
+            _ => ()
+          }
         _ => ()
       }
-      matching_i32_local_local_scalar = OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
-        func, dead, lhs_payload, rhs_payload,
-      ).proves_i32_nontrapping_scalar()
-      matching_i32_local_const_scalar = OiOrderedBinaryLocalConstEqualityFact::from_nodes(
-        func, dead, lhs_payload, rhs_payload,
-      ).proves_i32_nontrapping_scalar()
-      matching_i32_unary_local_scalar = OiUnaryLocalEqualityFact::from_nodes(
-        func, dead, lhs_payload, rhs_payload,
-      ).proves_i32_nontrapping_scalar()
+      match kind {
+        RefI31PayloadNoMatch =>
+          if OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
+              func, dead, lhs_payload, rhs_payload,
+            ).proves_i32_nontrapping_scalar() {
+            kind = RefI31PayloadI32LocalLocalScalarMatch
+          }
+        _ => ()
+      }
+      match kind {
+        RefI31PayloadNoMatch =>
+          if OiOrderedBinaryLocalConstEqualityFact::from_nodes(
+              func, dead, lhs_payload, rhs_payload,
+            ).proves_i32_nontrapping_scalar() {
+            kind = RefI31PayloadI32LocalConstScalarMatch
+          }
+        _ => ()
+      }
+      match kind {
+        RefI31PayloadNoMatch =>
+          if OiUnaryLocalEqualityFact::from_nodes(
+              func, dead, lhs_payload, rhs_payload,
+            ).proves_i32_nontrapping_scalar() {
+            kind = RefI31PayloadI32UnaryLocalScalarMatch
+          }
+        _ => ()
+      }
     }
     _ => ()
   }
-  {
-    has_ref_i31_pair,
-    matching_local_payload,
-    matching_const_payload,
-    matching_i32_local_local_scalar,
-    matching_i32_local_const_scalar,
-    matching_i32_unary_local_scalar,
-  }
+  { kind, }
 }
 
 ///|
 fn OiRefI31PayloadEqualityFact::proves_nontrapping_reorderable(
   self : OiRefI31PayloadEqualityFact,
 ) -> Bool {
-  self.has_ref_i31_pair &&
-  (
-    self.matching_local_payload ||
-    self.matching_const_payload ||
-    self.matching_i32_local_local_scalar ||
-    self.matching_i32_local_const_scalar ||
-    self.matching_i32_unary_local_scalar
-  )
+  match self.kind {
+    RefI31PayloadNoMatch => false
+    RefI31PayloadLocalMatch => true
+    RefI31PayloadConstMatch => true
+    RefI31PayloadI32LocalLocalScalarMatch => true
+    RefI31PayloadI32LocalConstScalarMatch => true
+    RefI31PayloadI32UnaryLocalScalarMatch => true
+  }
 }
 
 ///|
