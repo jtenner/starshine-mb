@@ -9138,10 +9138,20 @@ fn OiCallRefFallthroughDirectFuncFact::proves_direct_ref_func_fallthrough(
 }
 
 ///|
-priv struct OiCallRefIfFallthroughTargetFact {
-  then_explicitly_stops : Bool
-  else_explicitly_stops : Bool
+priv enum OiCallRefIfFallthroughArmChoiceKind {
+  CallRefIfThenStopsElseFallsThrough
+  CallRefIfElseStopsThenFallsThrough
+}
+
+///|
+priv struct OiCallRefIfFallthroughArmChoiceFact {
+  kind : OiCallRefIfFallthroughArmChoiceKind
   fallthrough_arm_id : Int
+}
+
+///|
+priv struct OiCallRefIfFallthroughTargetFact {
+  arm_choice_fact : OiCallRefIfFallthroughArmChoiceFact
   arm_fact : OiCallRefFallthroughTargetFact
 }
 
@@ -9372,6 +9382,51 @@ fn OiCallRefLoopFallthroughTargetFact::proves_ref_func_body_fallthrough(
 }
 
 ///|
+fn OiCallRefIfFallthroughArmChoiceFact::from_regions(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  then_ref : @ir.HotRegionRef,
+  else_ref : @ir.HotRegionRef,
+) -> OiCallRefIfFallthroughArmChoiceFact? {
+  // Binaryen v130 `Properties::getImmediateFallthrough` descends through an
+  // `if` only when exactly one arm is unreachable. Carry that as the explicit
+  // chosen-arm fact instead of storing parallel then/else stop booleans on the
+  // broader call_ref target record.
+  let then_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+    func, then_ref,
+  )
+  let else_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
+    func, else_ref,
+  )
+  let (kind, fallthrough_region) = if then_explicitly_stops &&
+    !else_explicitly_stops {
+    (CallRefIfThenStopsElseFallsThrough, else_ref)
+  } else if else_explicitly_stops && !then_explicitly_stops {
+    (CallRefIfElseStopsThenFallsThrough, then_ref)
+  } else {
+    return None
+  }
+  let fallthrough_arm_id = match
+    optimize_instructions_region_tail_id(func, fallthrough_region) {
+    Some(tail_id) if OiLiveNodeFact::proves_node_live(func, dead, tail_id) =>
+      tail_id
+    _ => return None
+  }
+  Some({ kind, fallthrough_arm_id })
+}
+
+///|
+fn OiCallRefIfFallthroughArmChoiceFact::proves_one_sided_fallthrough_arm(
+  self : OiCallRefIfFallthroughArmChoiceFact,
+) -> Bool {
+  let supported_one_sided_choice = match self.kind {
+    CallRefIfThenStopsElseFallsThrough | CallRefIfElseStopsThenFallsThrough =>
+      true
+  }
+  supported_one_sided_choice && self.fallthrough_arm_id >= 0
+}
+
+///|
 fn OiCallRefIfFallthroughTargetFact::from_if_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -9392,37 +9447,20 @@ fn OiCallRefIfFallthroughTargetFact::from_if_target(
     None => return None
   }
   let then_ref = @ir.hot_region_then_ref(func, node_id)
-  let then_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-    func, then_ref,
-  )
-  let else_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-    func, else_ref,
-  )
-  let fallthrough_region = if then_explicitly_stops && !else_explicitly_stops {
-    else_ref
-  } else if else_explicitly_stops && !then_explicitly_stops {
-    then_ref
-  } else {
-    return None
-  }
-  let fallthrough_arm_id = match
-    optimize_instructions_region_tail_id(func, fallthrough_region) {
-    Some(tail_id) if OiLiveNodeFact::proves_node_live(func, dead, tail_id) =>
-      tail_id
+  let arm_choice_fact = match
+    OiCallRefIfFallthroughArmChoiceFact::from_regions(
+      func, dead, then_ref, else_ref,
+    ) {
+    Some(fact) if fact.proves_one_sided_fallthrough_arm() => fact
     _ => return None
   }
   let arm_fact = OiCallRefFallthroughTargetFact::from_node(
     func,
     dead,
-    fallthrough_arm_id,
+    arm_choice_fact.fallthrough_arm_id,
     depth=depth + 1,
   )
-  Some({
-    then_explicitly_stops,
-    else_explicitly_stops,
-    fallthrough_arm_id,
-    arm_fact,
-  })
+  Some({ arm_choice_fact, arm_fact })
 }
 
 ///|
@@ -9434,9 +9472,8 @@ fn OiCallRefIfFallthroughTargetFact::proves_one_sided_ref_func_fallthrough(
     Some(fact) => fact
     None => return false
   }
-  self.fallthrough_arm_id >= 0 &&
-  direct_arm_fact.proves_direct_ref_func_fallthrough() &&
-  self.then_explicitly_stops != self.else_explicitly_stops
+  self.arm_choice_fact.proves_one_sided_fallthrough_arm() &&
+  direct_arm_fact.proves_direct_ref_func_fallthrough()
 }
 
 ///|
