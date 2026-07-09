@@ -866,8 +866,19 @@ fn OiRefLiteralTargetFact::proves_i31_miss_target(
 }
 
 ///|
+priv enum OiNullTrapScopeKind {
+  NullTrapOperandTrapsOnNull
+  NullTrapOperandDoesNotTrapOnNull
+}
+
+///|
+priv struct OiNullTrapScopeFact {
+  kind : OiNullTrapScopeKind
+}
+
+///|
 priv struct OiNullTrapFact {
-  traps_on_null : Bool
+  scope_fact : OiNullTrapScopeFact
   operand_nullability_fact : OiRefNullabilityFact
 }
 
@@ -884,13 +895,43 @@ priv struct OiNullTrapRewriteFact {
 }
 
 ///|
+fn OiNullTrapScopeFact::from_traps_on_null(
+  caller_scope_traps : Bool,
+) -> OiNullTrapScopeFact {
+  {
+    kind: if caller_scope_traps {
+      NullTrapOperandTrapsOnNull
+    } else {
+      NullTrapOperandDoesNotTrapOnNull
+    },
+  }
+}
+
+///|
+fn OiNullTrapScopeFact::proves_traps_on_null(
+  self : OiNullTrapScopeFact,
+) -> Bool {
+  match self.kind {
+    NullTrapOperandTrapsOnNull => true
+    NullTrapOperandDoesNotTrapOnNull => false
+  }
+}
+
+///|
 fn OiNullTrapFact::for_operand(
   func : @ir.HotFunc,
   operand_id : Int,
-  traps_on_null~ : Bool,
+  caller_scope_traps~ : Bool,
 ) -> OiNullTrapFact {
+  // Binaryen v130's `trapOnNull` callers decide whether a null operand traps in
+  // the parent context before asking nullability-specific rewrite questions.
+  // Keep that caller scope as a selected fact so the rewrite fact is not backed
+  // by a raw trapping boolean.
   let ref_fact = OiRefFact::from_node(func, operand_id)
-  { traps_on_null, operand_nullability_fact: ref_fact.nullability_fact }
+  {
+    scope_fact: OiNullTrapScopeFact::from_traps_on_null(caller_scope_traps),
+    operand_nullability_fact: ref_fact.nullability_fact,
+  }
 }
 
 ///|
@@ -903,7 +944,7 @@ fn OiNullTrapRewriteFact::from_trap_fact(
   // can skip the explicit check. Keep that ordered decision as one fact instead
   // of exposing two helper-style `can_*` predicates over the same nullability
   // proof.
-  let kind = if trap_fact.traps_on_null &&
+  let kind = if trap_fact.scope_fact.proves_traps_on_null() &&
     trap_fact.operand_nullability_fact.proves_known_null() {
     NullTrapReplaceParentWithUnreachable
   } else if trap_fact.operand_nullability_fact.proves_known_non_null() {
@@ -12221,7 +12262,7 @@ fn OiCallRefKnownNullTargetFact::from_target(
   let null_trap_fact = OiNullTrapFact::for_operand(
     func,
     target_id,
-    traps_on_null=true,
+    caller_scope_traps=true,
   )
   match OiNullTrapRewriteFact::from_trap_fact(null_trap_fact).kind {
     NullTrapReplaceParentWithUnreachable =>
@@ -12310,7 +12351,7 @@ fn OiCallRefKnownNullBlockFallthroughFact::from_block_target(
   let tail_trap_fact = OiNullTrapFact::for_operand(
     func,
     tail_id,
-    traps_on_null=true,
+    caller_scope_traps=true,
   )
   match OiNullTrapRewriteFact::from_trap_fact(tail_trap_fact).kind {
     NullTrapReplaceParentWithUnreachable => ()
@@ -33164,7 +33205,7 @@ fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
   let null_trap_fact = OiNullTrapFact::for_operand(
     func,
     get_desc_fact.child_id,
-    traps_on_null=true,
+    caller_scope_traps=true,
   )
   match OiNullTrapRewriteFact::from_trap_fact(null_trap_fact).kind {
     NullTrapReplaceParentWithUnreachable => {
@@ -33891,7 +33932,7 @@ fn optimize_instructions_try_fold_ref_as_non_null(
   let null_trap_fact = OiNullTrapFact::for_operand(
     func,
     operand_id,
-    traps_on_null=true,
+    caller_scope_traps=true,
   )
   match OiNullTrapRewriteFact::from_trap_fact(null_trap_fact).kind {
     NullTrapReplaceParentWithUnreachable => {
