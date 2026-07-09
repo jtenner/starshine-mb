@@ -30043,9 +30043,25 @@ priv struct OiDescriptorContainmentRegionFact {
 }
 
 ///|
+priv enum OiDescriptorLabelValidityKind {
+  DescriptorLabelValid
+  DescriptorLabelInvalid
+}
+
+///|
+priv struct OiDescriptorLabelValidityFact {
+  kind : OiDescriptorLabelValidityKind
+}
+
+///|
+priv struct OiDescriptorInternalLabelContainmentFact {
+  owner_fact : OiDescriptorContainmentFact
+}
+
+///|
 priv struct OiDescriptorInternalLabelFact {
-  label_is_valid : Bool
-  owner_contains_label_owner : Bool
+  validity_fact : OiDescriptorLabelValidityFact
+  containment_fact : OiDescriptorInternalLabelContainmentFact?
 }
 
 ///|
@@ -30170,21 +30186,73 @@ fn OiDescriptorContainmentRegionFact::proves_contains_target(
 }
 
 ///|
+fn OiDescriptorLabelValidityFact::from_label_id(
+  func : @ir.HotFunc,
+  label_id : Int,
+) -> OiDescriptorLabelValidityFact {
+  if label_id < 0 || label_id >= func.labels.length() {
+    { kind: DescriptorLabelInvalid }
+  } else {
+    { kind: DescriptorLabelValid }
+  }
+}
+
+///|
+fn OiDescriptorLabelValidityFact::proves_valid_label(
+  self : OiDescriptorLabelValidityFact,
+) -> Bool {
+  match self.kind {
+    DescriptorLabelValid => true
+    DescriptorLabelInvalid => false
+  }
+}
+
+///|
+fn OiDescriptorInternalLabelContainmentFact::from_label_owner(
+  func : @ir.HotFunc,
+  root_id : Int,
+  label_id : Int,
+) -> OiDescriptorInternalLabelContainmentFact {
+  {
+    owner_fact: OiDescriptorContainmentFact::from_node(
+      func,
+      root_id,
+      @ir.hot_label_owner(func, label_id),
+    ),
+  }
+}
+
+///|
+fn OiDescriptorInternalLabelContainmentFact::proves_owner_contained(
+  self : OiDescriptorInternalLabelContainmentFact,
+) -> Bool {
+  self.owner_fact.proves_contains_target()
+}
+
+///|
 fn OiDescriptorInternalLabelFact::from_label(
   func : @ir.HotFunc,
   root_id : Int,
   label_id : Int,
 ) -> OiDescriptorInternalLabelFact {
-  if label_id < 0 || label_id >= func.labels.length() {
-    return { label_is_valid: false, owner_contains_label_owner: false }
-  }
+  // Descriptor branch/control cleanup first proves that a branch label exists,
+  // then separately proves that the label owner remains inside the descriptor or
+  // ref.get_desc expression being localized. Keep those as nested source facts
+  // instead of parallel validity/containment booleans.
+  let validity_fact = OiDescriptorLabelValidityFact::from_label_id(
+    func, label_id,
+  )
   {
-    label_is_valid: true,
-    owner_contains_label_owner: OiDescriptorContainmentFact::from_node(
-      func,
-      root_id,
-      @ir.hot_label_owner(func, label_id),
-    ).proves_contains_target(),
+    validity_fact,
+    containment_fact: if validity_fact.proves_valid_label() {
+      Some(
+        OiDescriptorInternalLabelContainmentFact::from_label_owner(
+          func, root_id, label_id,
+        ),
+      )
+    } else {
+      None
+    },
   }
 }
 
@@ -30192,7 +30260,11 @@ fn OiDescriptorInternalLabelFact::from_label(
 fn OiDescriptorInternalLabelFact::proves_internal(
   self : OiDescriptorInternalLabelFact,
 ) -> Bool {
-  self.label_is_valid && self.owner_contains_label_owner
+  self.validity_fact.proves_valid_label() &&
+  (match self.containment_fact {
+    Some(fact) => fact.proves_owner_contained()
+    None => false
+  })
 }
 
 ///|
