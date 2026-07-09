@@ -24058,9 +24058,15 @@ fn OiUnaryLocalEqualityFact::proves_v128_splat(
 }
 
 ///|
+priv enum OiSimdLeafEqualityKind {
+  SimdLeafNoMatch
+  SimdLeafV128ConstMatch
+  SimdLeafV128LocalSplatMatch
+}
+
+///|
 priv struct OiSimdLeafEqualityFact {
-  matching_v128_const_leaf : Bool
-  matching_v128_local_splat : Bool
+  kind : OiSimdLeafEqualityKind
 }
 
 ///|
@@ -24072,9 +24078,11 @@ fn OiSimdLeafEqualityFact::from_nodes(
 ) -> OiSimdLeafEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` treats equal SIMD constants as
   // equal leaves and equal splats as equal unary nodes. Keep Starshine's
-  // represented select-arm SIMD subset as a fact so the pure-arm fold no
-  // longer relies on standalone helper-level SIMD scanners.
-  let matching_v128_const_leaf = match
+  // represented select-arm SIMD subset as a selected fact kind so the pure-arm
+  // fold no longer relies on standalone helper-level SIMD scanners or parallel
+  // boolean markers.
+  let mut kind = SimdLeafNoMatch
+  match
     (@ir.hot_node_exact_instr(func, lhs), @ir.hot_node_exact_instr(func, rhs)) {
     (
       Some(
@@ -24117,14 +24125,36 @@ fn OiSimdLeafEqualityFact::from_nodes(
           _
         ) as rhs_instr
       ),
-    ) => lhs_instr == rhs_instr
+    ) if lhs_instr == rhs_instr => kind = SimdLeafV128ConstMatch
+    _ => ()
+  }
+  match kind {
+    SimdLeafNoMatch =>
+      if OiUnaryLocalEqualityFact::from_nodes(func, dead, lhs, rhs).proves_v128_splat() {
+        kind = SimdLeafV128LocalSplatMatch
+      }
+    _ => ()
+  }
+  { kind, }
+}
+
+///|
+fn OiSimdLeafEqualityFact::proves_v128_const_leaf(
+  self : OiSimdLeafEqualityFact,
+) -> Bool {
+  match self.kind {
+    SimdLeafV128ConstMatch => true
     _ => false
   }
-  {
-    matching_v128_const_leaf,
-    matching_v128_local_splat: OiUnaryLocalEqualityFact::from_nodes(
-      func, dead, lhs, rhs,
-    ).proves_v128_splat(),
+}
+
+///|
+fn OiSimdLeafEqualityFact::proves_v128_local_splat(
+  self : OiSimdLeafEqualityFact,
+) -> Bool {
+  match self.kind {
+    SimdLeafV128LocalSplatMatch => true
+    _ => false
   }
 }
 
@@ -24548,8 +24578,8 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     matching_reference_leaf: reference_leaf,
     matching_ref_i31_scalar_tree: ref_i31_scalar_tree,
     matching_ref_i31_nontrapping_local_scalar_tree: ref_i31_nontrapping_local_scalar_tree,
-    matching_v128_const_leaf: simd_leaf.matching_v128_const_leaf,
-    matching_v128_local_splat: simd_leaf.matching_v128_local_splat,
+    matching_v128_const_leaf: simd_leaf.proves_v128_const_leaf(),
+    matching_v128_local_splat: simd_leaf.proves_v128_local_splat(),
     matching_nontrapping_reorderable_scalar_tree: nontrapping_reorderable_scalar_tree,
   }
 }
