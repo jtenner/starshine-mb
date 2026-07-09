@@ -24376,17 +24376,23 @@ fn OiNontrappingReorderableExpressionEqualityFact::proves_equal(
 }
 
 ///|
+priv enum OiIdenticalPureExpressionKind {
+  IdenticalPureNoMatch
+  IdenticalPureEffectUnsafe
+  IdenticalPureScalarTreeMatch
+  IdenticalPureStableStateReadMatch
+  IdenticalPureStableStateScalarTreeMatch
+  IdenticalPureReferenceLeafMatch
+  IdenticalPureRefI31ScalarTreeMatch
+  IdenticalPureRefI31NontrappingLocalScalarTreeMatch
+  IdenticalPureV128ConstLeafMatch
+  IdenticalPureV128LocalSplatMatch
+  IdenticalPureNontrappingReorderableScalarTreeMatch
+}
+
+///|
 priv struct OiIdenticalPureExpressionFact {
-  operands_are_effect_safe : Bool
-  matching_pure_scalar_tree : Bool
-  matching_stable_state_read : Bool
-  matching_stable_state_scalar_tree : Bool
-  matching_reference_leaf : Bool
-  matching_ref_i31_scalar_tree : Bool
-  matching_ref_i31_nontrapping_local_scalar_tree : Bool
-  matching_v128_const_leaf : Bool
-  matching_v128_local_splat : Bool
-  matching_nontrapping_reorderable_scalar_tree : Bool
+  kind : OiIdenticalPureExpressionKind
 }
 
 ///|
@@ -24617,49 +24623,72 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     OiSideEffectFreeExpressionFact::proves_node_free(func, dead, if_false)
   }
   if !effect_safe {
-    return {
-      operands_are_effect_safe: false,
-      matching_pure_scalar_tree: false,
-      matching_stable_state_read: false,
-      matching_stable_state_scalar_tree: false,
-      matching_reference_leaf: false,
-      matching_ref_i31_scalar_tree: false,
-      matching_ref_i31_nontrapping_local_scalar_tree: false,
-      matching_v128_const_leaf: false,
-      matching_v128_local_splat: false,
-      matching_nontrapping_reorderable_scalar_tree: false,
-    }
+    return { kind: IdenticalPureEffectUnsafe }
   }
-  {
-    operands_are_effect_safe: true,
-    matching_pure_scalar_tree: scalar_tree,
-    matching_stable_state_read: state_read,
-    matching_stable_state_scalar_tree: state_scalar_tree,
-    matching_reference_leaf: reference_leaf,
-    matching_ref_i31_scalar_tree: ref_i31_scalar_tree,
-    matching_ref_i31_nontrapping_local_scalar_tree: ref_i31_nontrapping_local_scalar_tree,
-    matching_v128_const_leaf: simd_leaf.proves_v128_const_leaf(),
-    matching_v128_local_splat: simd_leaf.proves_v128_local_splat(),
-    matching_nontrapping_reorderable_scalar_tree: nontrapping_reorderable_scalar_tree,
+  if ref_i31_nontrapping_local_scalar_tree {
+    return { kind: IdenticalPureRefI31NontrappingLocalScalarTreeMatch }
   }
+  if simd_leaf.proves_v128_const_leaf() {
+    return { kind: IdenticalPureV128ConstLeafMatch }
+  }
+  if simd_leaf.proves_v128_local_splat() {
+    return { kind: IdenticalPureV128LocalSplatMatch }
+  }
+  if nontrapping_reorderable_scalar_tree {
+    return { kind: IdenticalPureNontrappingReorderableScalarTreeMatch }
+  }
+  if scalar_tree {
+    return { kind: IdenticalPureScalarTreeMatch }
+  }
+  if state_read {
+    return { kind: IdenticalPureStableStateReadMatch }
+  }
+  if state_scalar_tree {
+    return { kind: IdenticalPureStableStateScalarTreeMatch }
+  }
+  if reference_leaf {
+    return { kind: IdenticalPureReferenceLeafMatch }
+  }
+  if ref_i31_scalar_tree {
+    return { kind: IdenticalPureRefI31ScalarTreeMatch }
+  }
+  { kind: IdenticalPureNoMatch }
 }
 
 ///|
 fn OiIdenticalPureExpressionFact::proves_equal(
   self : OiIdenticalPureExpressionFact,
 ) -> Bool {
-  self.operands_are_effect_safe &&
-  (
-    self.matching_pure_scalar_tree ||
-    self.matching_stable_state_read ||
-    self.matching_stable_state_scalar_tree ||
-    self.matching_reference_leaf ||
-    self.matching_ref_i31_scalar_tree ||
-    self.matching_ref_i31_nontrapping_local_scalar_tree ||
-    self.matching_v128_const_leaf ||
-    self.matching_v128_local_splat ||
-    self.matching_nontrapping_reorderable_scalar_tree
-  )
+  match self.kind {
+    IdenticalPureNoMatch => false
+    IdenticalPureEffectUnsafe => false
+    IdenticalPureScalarTreeMatch => true
+    IdenticalPureStableStateReadMatch => true
+    IdenticalPureStableStateScalarTreeMatch => true
+    IdenticalPureReferenceLeafMatch => true
+    IdenticalPureRefI31ScalarTreeMatch => true
+    IdenticalPureRefI31NontrappingLocalScalarTreeMatch => true
+    IdenticalPureV128ConstLeafMatch => true
+    IdenticalPureV128LocalSplatMatch => true
+    IdenticalPureNontrappingReorderableScalarTreeMatch => true
+  }
+}
+
+///|
+fn OiIdenticalPureExpressionFact::proves_equal_after_condition_preserved(
+  self : OiIdenticalPureExpressionFact,
+) -> Bool {
+  // If the select condition itself has effects, Binaryen v130 keeps that
+  // condition by evaluating it before the selected equal arm. Only represented
+  // arms that are known movable/reorderable across the condition may use that
+  // block-shaped rewrite; other pure equal arms still require a pure condition.
+  match self.kind {
+    IdenticalPureRefI31NontrappingLocalScalarTreeMatch => true
+    IdenticalPureV128ConstLeafMatch => true
+    IdenticalPureV128LocalSplatMatch => true
+    IdenticalPureNontrappingReorderableScalarTreeMatch => true
+    _ => false
+  }
 }
 
 ///|
@@ -25843,10 +25872,7 @@ fn optimize_instructions_try_fold_const_select(
         optimize_instructions_select_identical_immutable_global_arms(
           ctx, func, if_true, if_false,
         ) ||
-        identical_arm_fact.matching_ref_i31_nontrapping_local_scalar_tree ||
-        identical_arm_fact.matching_v128_const_leaf ||
-        identical_arm_fact.matching_v128_local_splat ||
-        identical_arm_fact.matching_nontrapping_reorderable_scalar_tree
+        identical_arm_fact.proves_equal_after_condition_preserved()
       ) &&
       @ir.hot_node_result_arity(func, if_true) == 1 &&
       @ir.hot_node_result_arity(func, condition) == 1 {
