@@ -136,6 +136,12 @@ priv struct DaeControlBlockTypeGcResultEvidence {
 }
 
 ///|
+priv enum DaeControlBlockTypeGcResultSlot {
+  DaeSingleControlGcResultSlot
+  DaeLastControlGcResultSlot
+}
+
+///|
 priv struct DaeStackOperandWindowEvidence {
   start : Int
   end : Int
@@ -1249,31 +1255,69 @@ fn dae_val_type_is_non_null_concrete_gc_ref_candidate(
 }
 
 ///|
+fn dae_control_block_type_non_null_concrete_gc_result_from_signature_evidence(
+  signature : DaeControlBlockTypeSignatureEvidence,
+  result_index : Int,
+) -> DaeControlBlockTypeGcResultEvidence? {
+  if result_index < 0 || result_index >= signature.output_count {
+    return None
+  }
+  let candidate = signature.results[result_index]
+  if dae_val_type_is_non_null_concrete_gc_ref_candidate(candidate) {
+    Some({ signature, result_index, candidate })
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_control_block_type_non_null_concrete_gc_result_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
   result_index : Int,
 ) -> DaeControlBlockTypeGcResultEvidence? {
-  if result_index < 0 {
-    return None
-  }
   match
     dae_control_block_type_signature_evidence_from_type_sec(
       block_type, type_sec,
     ) {
-    Some(signature) => {
-      if result_index >= signature.output_count {
-        return None
-      }
-      let candidate = signature.results[result_index]
-      if dae_val_type_is_non_null_concrete_gc_ref_candidate(candidate) {
-        Some({ signature, result_index, candidate })
-      } else {
-        None
-      }
-    }
+    Some(signature) =>
+      dae_control_block_type_non_null_concrete_gc_result_from_signature_evidence(
+        signature, result_index,
+      )
     None => None
   }
+}
+
+///|
+fn dae_control_block_type_non_null_concrete_gc_result_slot_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  slot : DaeControlBlockTypeGcResultSlot,
+) -> DaeControlBlockTypeGcResultEvidence? {
+  let signature = match
+    dae_control_block_type_signature_evidence_from_type_sec(
+      block_type, type_sec,
+    ) {
+    Some(signature) => signature
+    None => return None
+  }
+  let result_index = match slot {
+    DaeSingleControlGcResultSlot =>
+      if signature.output_count == 1 {
+        0
+      } else {
+        return None
+      }
+    DaeLastControlGcResultSlot =>
+      if signature.output_count > 0 {
+        signature.output_count - 1
+      } else {
+        return None
+      }
+  }
+  dae_control_block_type_non_null_concrete_gc_result_evidence(
+    block_type, type_sec, result_index,
+  )
 }
 
 ///|
@@ -1281,14 +1325,11 @@ fn dae_control_block_type_single_non_null_concrete_gc_result_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
 ) -> DaeControlBlockTypeGcResultEvidence? {
-  match
-    dae_control_block_type_non_null_concrete_gc_result_evidence(
-      block_type, type_sec, 0,
-    ) {
-    Some(evidence) if evidence.signature.output_count == 1 &&
-      evidence.result_index == 0 => Some(evidence)
-    _ => None
-  }
+  dae_control_block_type_non_null_concrete_gc_result_slot_evidence(
+    block_type,
+    type_sec,
+    DaeSingleControlGcResultSlot,
+  )
 }
 
 ///|
@@ -1296,18 +1337,11 @@ fn dae_control_block_type_last_non_null_concrete_gc_result_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
 ) -> DaeControlBlockTypeGcResultEvidence? {
-  match
-    dae_control_block_type_signature_evidence_from_type_sec(
-      block_type, type_sec,
-    ) {
-    Some(signature) if signature.output_count > 0 =>
-      dae_control_block_type_non_null_concrete_gc_result_evidence(
-        block_type,
-        type_sec,
-        signature.output_count - 1,
-      )
-    _ => None
-  }
+  dae_control_block_type_non_null_concrete_gc_result_slot_evidence(
+    block_type,
+    type_sec,
+    DaeLastControlGcResultSlot,
+  )
 }
 
 ///|

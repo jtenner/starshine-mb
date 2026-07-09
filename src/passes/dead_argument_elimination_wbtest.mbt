@@ -4676,6 +4676,19 @@ test "dae control block GC result evidence centralizes single and trailing slots
     None => ()
   }
   match
+    dae_control_block_type_non_null_concrete_gc_result_slot_evidence(
+      @lib.BlockType::val_type(concrete_ref),
+      Some(type_sec),
+      DaeSingleControlGcResultSlot,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.result_index, 0)
+      assert_eq(evidence.signature.output_count, 1)
+      assert_eq(evidence.candidate, concrete_ref)
+    }
+    None => fail("expected single-slot concrete GC result evidence")
+  }
+  match
     dae_control_block_type_single_non_null_concrete_gc_result_evidence(
       @lib.BlockType::val_type(concrete_ref),
       Some(type_sec),
@@ -4694,6 +4707,18 @@ test "dae control block GC result evidence centralizes single and trailing slots
     ) {
     Some(_) => fail("multi-result typeidx is not single-result evidence")
     None => ()
+  }
+  match
+    dae_control_block_type_non_null_concrete_gc_result_slot_evidence(
+      @lib.BlockType::type_idx(pair_type),
+      Some(type_sec),
+      DaeLastControlGcResultSlot,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.result_index, 1)
+      assert_eq(evidence.candidate, concrete_ref)
+    }
+    None => fail("expected trailing slot GC result evidence")
   }
   match
     dae_control_block_type_last_non_null_concrete_gc_result_evidence(
