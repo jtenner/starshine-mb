@@ -6764,7 +6764,8 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
     @lib.Instruction::i32_const(@lib.I32(2)),
     @lib.Instruction::i32_add(),
   ]
-  match dae_droppable_pure_stack_evidence(pure_stack, None) {
+  let pure_evidence = match
+    dae_droppable_pure_stack_evidence(pure_stack, None) {
     Some(evidence) => {
       assert_eq(evidence.start, 0)
       assert_eq(evidence.end, 3)
@@ -6775,6 +6776,7 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
           Some(evidence),
         ),
       )
+      evidence
     }
     None => fail("expected trailing pure stack evidence")
   }
@@ -6783,7 +6785,8 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
     @lib.Instruction::i32_const(@lib.I32(2)),
     @lib.Instruction::i32_add(),
   ]
-  match dae_droppable_pure_stack_evidence(local_stack, None) {
+  let local_evidence = match
+    dae_droppable_pure_stack_evidence(local_stack, None) {
     Some(evidence) => {
       assert_eq(evidence.start, 0)
       assert_eq(evidence.end, 3)
@@ -6794,12 +6797,71 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
           Some(evidence),
         ),
       )
+      evidence
     }
     None => fail("expected local-carried pure stack evidence")
   }
   assert_false(
     dae_droppable_pure_stack_evidence_allows_live_local_copy_cleanup(None),
   )
+  let first = @lib.LocalIdx::new(1U)
+  let second = @lib.LocalIdx::new(2U)
+  let third = @lib.LocalIdx::new(3U)
+  let triple_copy = [
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::local_set(third),
+  ]
+  match
+    dae_live_local_copy_cleanup_evidence(triple_copy, 0, Some(pure_evidence)) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 5)
+      assert_eq(evidence.copy_count, 3)
+      assert_eq(evidence.next_idx, 5)
+      assert_eq(evidence.replacement, [
+        @lib.Instruction::local_tee(first),
+        @lib.Instruction::local_tee(second),
+        @lib.Instruction::local_set(third),
+      ])
+    }
+    None => fail("expected triple local-copy cleanup evidence")
+  }
+  let double_copy = [
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::local_set(second),
+  ]
+  match
+    dae_live_local_copy_cleanup_evidence(double_copy, 0, Some(pure_evidence)) {
+    Some(evidence) => {
+      assert_eq(evidence.copy_count, 2)
+      assert_eq(evidence.replacement, [
+        @lib.Instruction::local_tee(first),
+        @lib.Instruction::local_set(second),
+      ])
+    }
+    None => fail("expected double local-copy cleanup evidence")
+  }
+  let single_copy = [
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(first),
+  ]
+  match
+    dae_live_local_copy_cleanup_evidence(single_copy, 0, Some(pure_evidence)) {
+    Some(evidence) => {
+      assert_eq(evidence.copy_count, 1)
+      assert_eq(evidence.replacement, [@lib.Instruction::local_tee(first)])
+    }
+    None => fail("expected single local-copy cleanup evidence")
+  }
+  match
+    dae_live_local_copy_cleanup_evidence(single_copy, 0, Some(local_evidence)) {
+    Some(_) => fail("local-carried stacks must not allow live-copy cleanup")
+    None => ()
+  }
 }
 
 ///|
