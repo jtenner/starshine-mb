@@ -314,6 +314,14 @@ priv struct DaeRecursiveBodyRewriteApplicationEvidence {
 }
 
 ///|
+priv struct DaeBodyRewriteFixpointEvidence {
+  max_iters : Int
+  iteration_count : Int
+  reached_limit : Bool
+  body_changed : Bool
+}
+
+///|
 priv struct DaeSingleResultControlPairRepairEvidence {
   pair : DaeSingleResultControlPairGcEvidence
   application : DaeSingleResultControlPairApplicationEvidence
@@ -6782,6 +6790,59 @@ fn dae_apply_first_current_or_control_child_body_rewrite(
     ) {
     Some((rewritten, _)) => Some(rewritten)
     None => None
+  }
+}
+
+///|
+fn dae_body_rewrite_fixpoint_evidence_is_consistent(
+  evidence : DaeBodyRewriteFixpointEvidence,
+  body : Array[@lib.Instruction],
+  rewritten : Array[@lib.Instruction],
+) -> Bool {
+  evidence.max_iters > 0 &&
+  evidence.iteration_count > 0 &&
+  evidence.iteration_count <= evidence.max_iters &&
+  evidence.reached_limit == (evidence.iteration_count == evidence.max_iters) &&
+  evidence.body_changed == (rewritten != body)
+}
+
+///|
+fn dae_apply_body_rewrite_until_stable(
+  body : Array[@lib.Instruction],
+  rewrite_once : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
+  max_iters : Int,
+) -> (Array[@lib.Instruction], DaeBodyRewriteFixpointEvidence)? {
+  if max_iters <= 0 {
+    return None
+  }
+  let mut current = body
+  let mut iteration_count = 0
+  while iteration_count < max_iters {
+    match rewrite_once(current) {
+      Some(next) => {
+        if next == current {
+          break
+        }
+        current = next
+        iteration_count += 1
+        continue
+      }
+      None => break
+    }
+  }
+  if iteration_count == 0 {
+    return None
+  }
+  let evidence = {
+    max_iters,
+    iteration_count,
+    reached_limit: iteration_count == max_iters,
+    body_changed: current != body,
+  }
+  if dae_body_rewrite_fixpoint_evidence_is_consistent(evidence, body, current) {
+    Some((current, evidence))
+  } else {
+    None
   }
 }
 
@@ -20393,27 +20454,16 @@ fn dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
   type_sec : @lib.TypeSec?,
   max_iters : Int,
 ) -> Array[@lib.Instruction]? {
-  let mut current = body
-  let mut changed = false
-  let mut iter = 0
-  while iter < max_iters {
-    match
-      dae_try_wrap_func237_inner_iteration_loop_body_recursive_once(
-        current, type_sec,
-      ) {
-      Some(rewritten) => {
-        current = rewritten
-        changed = true
-        iter += 1
-        continue
-      }
-      None => break
-    }
+  let rewrite_once = fn(
+    current : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_wrap_func237_inner_iteration_loop_body_recursive_once(
+      current, type_sec,
+    )
   }
-  if changed {
-    Some(current)
-  } else {
-    None
+  match dae_apply_body_rewrite_until_stable(body, rewrite_once, max_iters) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
   }
 }
 
@@ -26127,20 +26177,18 @@ fn dae_try_split_selected_zero_tee_set_once(
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let mut rewritten = body
-  let mut changed = false
-  let mut iter = 0
-  while iter < 8 {
-    match dae_try_split_zero_tee_set_body_once(rewritten) {
-      Some(next) => {
-        rewritten = next
-        changed = true
-      }
-      None => break
-    }
-    iter += 1
+  let rewrite_once = fn(
+    current : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_split_zero_tee_set_body_once(current)
   }
-  if !changed || rewritten == body {
+  let rewritten = match
+    dae_apply_body_rewrite_until_stable(body, rewrite_once, 8) {
+    Some((next, _)) => next
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten == body {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()

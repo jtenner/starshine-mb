@@ -2733,6 +2733,53 @@ test "dae recursive body rewrite application evidence centralizes repair plannin
 }
 
 ///|
+test "dae body rewrite fixpoint evidence centralizes bounded convergence" {
+  let start_body = [@lib.Instruction::i32_const(@lib.I32(0))]
+  let rewrite_until_three = fn(
+    body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    if body.length() != 1 {
+      return None
+    }
+    match body[0] {
+      @lib.I32Const(@lib.I32(value)) if value < 3 =>
+        Some([@lib.Instruction::i32_const(@lib.I32(value + 1))])
+      _ => None
+    }
+  }
+  match
+    dae_apply_body_rewrite_until_stable(start_body, rewrite_until_three, 8) {
+    Some((rewritten, evidence)) => {
+      assert_eq(rewritten, [@lib.Instruction::i32_const(@lib.I32(3))])
+      assert_eq(evidence.max_iters, 8)
+      assert_eq(evidence.iteration_count, 3)
+      assert_false(evidence.reached_limit)
+      assert_true(evidence.body_changed)
+    }
+    None => fail("expected bounded fixpoint evidence")
+  }
+  match
+    dae_apply_body_rewrite_until_stable(start_body, rewrite_until_three, 2) {
+    Some((rewritten, evidence)) => {
+      assert_eq(rewritten, [@lib.Instruction::i32_const(@lib.I32(2))])
+      assert_eq(evidence.iteration_count, 2)
+      assert_true(evidence.reached_limit)
+      assert_true(evidence.body_changed)
+    }
+    None => fail("expected bounded limit evidence")
+  }
+  match
+    dae_apply_body_rewrite_until_stable(
+      [@lib.Instruction::i32_const(@lib.I32(3))],
+      rewrite_until_three,
+      8,
+    ) {
+    Some(_) => fail("unchanged fixpoint should not report a rewrite")
+    None => ()
+  }
+}
+
+///|
 test "dae result rewrite application evidence centralizes masked slot repairs" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
