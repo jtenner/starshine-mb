@@ -22751,51 +22751,37 @@ priv enum OiZeroCompareConditionSelectRewriteKind {
 }
 
 ///|
-priv struct OiZeroCompareConditionSelectFact {
+priv enum OiZeroCompareConditionCompareKind {
+  ZeroCompareConditionI32EqZero
+  ZeroCompareConditionI32NeZero
+  ZeroCompareConditionI64EqZero
+  ZeroCompareConditionI64NeZero
+}
+
+///|
+priv struct OiZeroCompareConditionCompareFact {
   inner_condition_id : Int
+  kind : OiZeroCompareConditionCompareKind
+}
+
+///|
+priv struct OiZeroCompareConditionSelectFact {
+  compare_fact : OiZeroCompareConditionCompareFact
   if_true_id : Int
   if_false_id : Int
   kind : OiZeroCompareConditionSelectRewriteKind
 }
 
 ///|
-fn OiZeroCompareConditionSelectFact::no_rewrite_boundary(
-  inner_condition_id : Int,
-  if_true_id : Int,
-  if_false_id : Int,
-) -> OiZeroCompareConditionSelectFact {
-  {
-    inner_condition_id,
-    if_true_id,
-    if_false_id,
-    kind: ZeroCompareConditionSelectNoRewriteBoundary,
-  }
-}
-
-///|
-fn OiZeroCompareConditionSelectFact::simple(
-  inner_condition_id : Int,
-  if_true_id : Int,
-  if_false_id : Int,
-  kind : OiZeroCompareConditionSelectRewriteKind,
-) -> OiZeroCompareConditionSelectFact {
-  { inner_condition_id, if_true_id, if_false_id, kind }
-}
-
-///|
-fn OiZeroCompareConditionSelectFact::from_select_condition(
+fn OiZeroCompareConditionCompareFact::from_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
   condition_id : Int,
-  if_true : Int,
-  if_false : Int,
-) -> OiZeroCompareConditionSelectFact? {
-  // Binaryen v130 `optimizeBoolean` strips direct integer equality/inequality
-  // zero comparisons in select conditions before the generic boolean-arm
-  // fallback. This fact records the zero-compare shell, live inner operand,
-  // exact boolean-arm composition, and value-select arm-order payload so the
-  // visitor does not own the condition opcode/result scanner for this family.
+) -> OiZeroCompareConditionCompareFact? {
+  // Binaryen v130 `optimizeBoolean` recognizes direct i32/i64 equality or
+  // inequality comparisons against literal zero as the select-condition shell.
+  // Keep the matched width/opcode and surviving inner operand in a compare fact
+  // instead of recomputing a local `invert_condition` boolean in each arm case.
   match @ir.hot_node_exact_instr(func, condition_id) {
     Some(@lib.Instruction::I32Eq) | Some(@lib.Instruction::I32Ne) if @ir.hot_child_count(
         func, condition_id,
@@ -22813,79 +22799,13 @@ fn OiZeroCompareConditionSelectFact::from_select_condition(
           }
       }
       match inner_condition {
-        Some(inner_condition) => {
-          if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
-            return Some(
-              OiZeroCompareConditionSelectFact::no_rewrite_boundary(
-                inner_condition, if_true, if_false,
-              ),
-            )
+        Some(inner_condition_id) => {
+          let kind = match @ir.hot_node_exact_instr(func, condition_id) {
+            Some(@lib.Instruction::I32Eq) => ZeroCompareConditionI32EqZero
+            Some(@lib.Instruction::I32Ne) => ZeroCompareConditionI32NeZero
+            _ => return None
           }
-          let invert_condition = match
-            @ir.hot_node_exact_instr(func, condition_id) {
-            Some(@lib.Instruction::I32Eq) => true
-            _ => false
-          }
-          match
-            (
-              optimize_instructions_i32_const(func, dead, if_true),
-              optimize_instructions_i32_const(func, dead, if_false),
-            ) {
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) if invert_condition =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI32Eqz,
-                ),
-              )
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) if invert_condition =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI32NeZero,
-                ),
-              )
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI32NeZero,
-                ),
-              )
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI32Eqz,
-                ),
-              )
-            _ =>
-              match
-                @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-                [_] =>
-                  Some(
-                    OiZeroCompareConditionSelectFact::simple(
-                      inner_condition,
-                      if_true,
-                      if_false,
-                      if invert_condition {
-                        ZeroCompareConditionSelectSwapArms
-                      } else {
-                        ZeroCompareConditionSelectKeepArms
-                      },
-                    ),
-                  )
-                _ => None
-              }
-          }
+          Some({ inner_condition_id, kind })
         }
         _ => None
       }
@@ -22906,84 +22826,147 @@ fn OiZeroCompareConditionSelectFact::from_select_condition(
           }
       }
       match inner_condition {
-        Some(inner_condition) => {
-          if !OiLiveNodeFact::proves_node_live(func, dead, inner_condition) {
-            return Some(
-              OiZeroCompareConditionSelectFact::no_rewrite_boundary(
-                inner_condition, if_true, if_false,
-              ),
-            )
+        Some(inner_condition_id) => {
+          let kind = match @ir.hot_node_exact_instr(func, condition_id) {
+            Some(@lib.Instruction::I64Eq) => ZeroCompareConditionI64EqZero
+            Some(@lib.Instruction::I64Ne) => ZeroCompareConditionI64NeZero
+            _ => return None
           }
-          let invert_condition = match
-            @ir.hot_node_exact_instr(func, condition_id) {
-            Some(@lib.Instruction::I64Eq) => true
-            _ => false
-          }
-          match
-            (
-              optimize_instructions_i32_const(func, dead, if_true),
-              optimize_instructions_i32_const(func, dead, if_false),
-            ) {
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) if invert_condition =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI64Eqz,
-                ),
-              )
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) if invert_condition =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI64NeZero,
-                ),
-              )
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI64NeZero,
-                ),
-              )
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
-              Some(
-                OiZeroCompareConditionSelectFact::simple(
-                  inner_condition,
-                  if_true,
-                  if_false,
-                  ZeroCompareConditionSelectI64Eqz,
-                ),
-              )
-            _ =>
-              match
-                @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-                [_] =>
-                  Some(
-                    OiZeroCompareConditionSelectFact::simple(
-                      inner_condition,
-                      if_true,
-                      if_false,
-                      if invert_condition {
-                        ZeroCompareConditionSelectSwapArms
-                      } else {
-                        ZeroCompareConditionSelectKeepArms
-                      },
-                    ),
-                  )
-                _ => None
-              }
-          }
+          Some({ inner_condition_id, kind })
         }
         _ => None
       }
     }
     _ => None
+  }
+}
+
+///|
+fn OiZeroCompareConditionCompareFact::boolean_true_false_rewrite_kind(
+  self : OiZeroCompareConditionCompareFact,
+) -> OiZeroCompareConditionSelectRewriteKind {
+  match self.kind {
+    ZeroCompareConditionI32EqZero => ZeroCompareConditionSelectI32Eqz
+    ZeroCompareConditionI32NeZero => ZeroCompareConditionSelectI32NeZero
+    ZeroCompareConditionI64EqZero => ZeroCompareConditionSelectI64Eqz
+    ZeroCompareConditionI64NeZero => ZeroCompareConditionSelectI64NeZero
+  }
+}
+
+///|
+fn OiZeroCompareConditionCompareFact::boolean_false_true_rewrite_kind(
+  self : OiZeroCompareConditionCompareFact,
+) -> OiZeroCompareConditionSelectRewriteKind {
+  match self.kind {
+    ZeroCompareConditionI32EqZero => ZeroCompareConditionSelectI32NeZero
+    ZeroCompareConditionI32NeZero => ZeroCompareConditionSelectI32Eqz
+    ZeroCompareConditionI64EqZero => ZeroCompareConditionSelectI64NeZero
+    ZeroCompareConditionI64NeZero => ZeroCompareConditionSelectI64Eqz
+  }
+}
+
+///|
+fn OiZeroCompareConditionCompareFact::value_select_rewrite_kind(
+  self : OiZeroCompareConditionCompareFact,
+) -> OiZeroCompareConditionSelectRewriteKind {
+  match self.kind {
+    ZeroCompareConditionI32EqZero | ZeroCompareConditionI64EqZero =>
+      ZeroCompareConditionSelectSwapArms
+    ZeroCompareConditionI32NeZero | ZeroCompareConditionI64NeZero =>
+      ZeroCompareConditionSelectKeepArms
+  }
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::no_rewrite_boundary(
+  compare_fact : OiZeroCompareConditionCompareFact,
+  if_true_id : Int,
+  if_false_id : Int,
+) -> OiZeroCompareConditionSelectFact {
+  {
+    compare_fact,
+    if_true_id,
+    if_false_id,
+    kind: ZeroCompareConditionSelectNoRewriteBoundary,
+  }
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::simple(
+  compare_fact : OiZeroCompareConditionCompareFact,
+  if_true_id : Int,
+  if_false_id : Int,
+  kind : OiZeroCompareConditionSelectRewriteKind,
+) -> OiZeroCompareConditionSelectFact {
+  { compare_fact, if_true_id, if_false_id, kind }
+}
+
+///|
+fn OiZeroCompareConditionSelectFact::from_select_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  condition_id : Int,
+  if_true : Int,
+  if_false : Int,
+) -> OiZeroCompareConditionSelectFact? {
+  // Binaryen v130 `optimizeBoolean` strips direct integer equality/inequality
+  // zero comparisons in select conditions before the generic boolean-arm
+  // fallback. This fact records the zero-compare shell, live inner operand,
+  // exact boolean-arm composition, and value-select arm-order payload so the
+  // visitor does not own the condition opcode/result scanner for this family.
+  let compare_fact = match
+    OiZeroCompareConditionCompareFact::from_condition(func, dead, condition_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  if !OiLiveNodeFact::proves_node_live(
+      func,
+      dead,
+      compare_fact.inner_condition_id,
+    ) {
+    return Some(
+      OiZeroCompareConditionSelectFact::no_rewrite_boundary(
+        compare_fact, if_true, if_false,
+      ),
+    )
+  }
+  match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
+      Some(
+        OiZeroCompareConditionSelectFact::simple(
+          compare_fact,
+          if_true,
+          if_false,
+          compare_fact.boolean_true_false_rewrite_kind(),
+        ),
+      )
+    (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
+      Some(
+        OiZeroCompareConditionSelectFact::simple(
+          compare_fact,
+          if_true,
+          if_false,
+          compare_fact.boolean_false_true_rewrite_kind(),
+        ),
+      )
+    _ =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [_] =>
+          Some(
+            OiZeroCompareConditionSelectFact::simple(
+              compare_fact,
+              if_true,
+              if_false,
+              compare_fact.value_select_rewrite_kind(),
+            ),
+          )
+        _ => None
+      }
   }
 }
 
@@ -22994,6 +22977,7 @@ fn OiZeroCompareConditionSelectFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
+  let inner_condition_id = self.compare_fact.inner_condition_id
   match self.kind {
     ZeroCompareConditionSelectNoRewriteBoundary => false
     ZeroCompareConditionSelectI32Eqz => {
@@ -23002,7 +22986,7 @@ fn OiZeroCompareConditionSelectFact::apply(
         func,
         node_id,
         @lib.Instruction::i32_eqz(),
-        self.inner_condition_id,
+        inner_condition_id,
       )
       true
     }
@@ -23012,7 +22996,7 @@ fn OiZeroCompareConditionSelectFact::apply(
         func,
         node_id,
         @lib.Instruction::i32_ne(),
-        self.inner_condition_id,
+        inner_condition_id,
         @ir.hot_build_const_i32(func, @lib.I32(0)),
       )
       true
@@ -23023,7 +23007,7 @@ fn OiZeroCompareConditionSelectFact::apply(
         func,
         node_id,
         @lib.Instruction::i64_eqz(),
-        self.inner_condition_id,
+        inner_condition_id,
       )
       true
     }
@@ -23033,7 +23017,7 @@ fn OiZeroCompareConditionSelectFact::apply(
         func,
         node_id,
         @lib.Instruction::i64_ne(),
-        self.inner_condition_id,
+        inner_condition_id,
         @ir.hot_build_const_i64(func, @lib.I64(0L)),
       )
       true
@@ -23046,7 +23030,7 @@ fn OiZeroCompareConditionSelectFact::apply(
             result_type,
             self.if_false_id,
             self.if_true_id,
-            self.inner_condition_id,
+            inner_condition_id,
           )
           optimize_instructions_replace_with_node_id(
             ctx, func, node_id, replacement,
@@ -23063,7 +23047,7 @@ fn OiZeroCompareConditionSelectFact::apply(
             result_type,
             self.if_true_id,
             self.if_false_id,
-            self.inner_condition_id,
+            inner_condition_id,
           )
           optimize_instructions_replace_with_node_id(
             ctx, func, node_id, replacement,
