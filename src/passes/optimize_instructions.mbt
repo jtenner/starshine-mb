@@ -23054,8 +23054,15 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
 }
 
 ///|
+priv enum OiArrayNonTrappingLengthKind {
+  ArrayLengthKnownNonTrapping
+  ArrayLengthNegativeTrapBoundary
+  ArrayLengthAboveTrapBudgetBoundary
+}
+
+///|
 priv struct OiArrayNonTrappingLengthFact {
-  known_non_trapping : Bool
+  kind : OiArrayNonTrappingLengthKind
 }
 
 ///|
@@ -23065,15 +23072,27 @@ fn OiArrayNonTrappingLengthFact::from_len(
   // Binaryen version_130 keeps fresh array lengths above this O4z-observed
   // limit to preserve allocation trap behavior. Keep the threshold as an
   // explicit allocation fact so array_len/get/set folds all share the same
-  // trap-preservation evidence.
-  { known_non_trapping: len >= 0 && len <= 44739241 }
+  // trap-preservation evidence, while negative and above-budget lengths are
+  // named trap-preserving boundaries rather than a direct boolean.
+  let kind = if len < 0 {
+    ArrayLengthNegativeTrapBoundary
+  } else if len <= 44739241 {
+    ArrayLengthKnownNonTrapping
+  } else {
+    ArrayLengthAboveTrapBudgetBoundary
+  }
+  { kind, }
 }
 
 ///|
 fn OiArrayNonTrappingLengthFact::proves_known_non_trapping(
   self : OiArrayNonTrappingLengthFact,
 ) -> Bool {
-  self.known_non_trapping
+  match self.kind {
+    ArrayLengthKnownNonTrapping => true
+    ArrayLengthNegativeTrapBoundary | ArrayLengthAboveTrapBudgetBoundary =>
+      false
+  }
 }
 
 ///|
