@@ -11870,10 +11870,20 @@ priv struct OiCallRefDirectTargetFact {
 }
 
 ///|
-priv struct OiCallRefTableIndexFact {
+priv struct OiCallRefTableImmediateFact {
   table_idx : Int
+}
+
+///|
+priv struct OiCallRefTableIndexOperandFact {
   table_index_id : Int
   index_live_fact : OiLiveNodeFact
+}
+
+///|
+priv struct OiCallRefTableIndexFact {
+  table_fact : OiCallRefTableImmediateFact
+  index_operand_fact : OiCallRefTableIndexOperandFact
 }
 
 ///|
@@ -12105,9 +12115,11 @@ fn OiCallRefTableTargetFact::from_target(
     @ir.HotOp::TableGet if target.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, target_id, 0)
       let table_index_fact : OiCallRefTableIndexFact = {
-        table_idx: target.imm0,
-        table_index_id,
-        index_live_fact: OiLiveNodeFact::from_node(func, dead, table_index_id),
+        table_fact: { table_idx: target.imm0 },
+        index_operand_fact: {
+          table_index_id,
+          index_live_fact: OiLiveNodeFact::from_node(func, dead, table_index_id),
+        },
       }
       if table_index_fact.proves_live_table_index() {
         Some({ target_id, table_index_fact })
@@ -12120,12 +12132,45 @@ fn OiCallRefTableTargetFact::from_target(
 }
 
 ///|
+fn OiCallRefTableImmediateFact::table_index(
+  self : OiCallRefTableImmediateFact,
+) -> Int {
+  self.table_idx
+}
+
+///|
+fn OiCallRefTableIndexOperandFact::proves_live_table_index_operand(
+  self : OiCallRefTableIndexOperandFact,
+) -> Bool {
+  ignore(self.table_index_id)
+  self.index_live_fact.proves_live()
+}
+
+///|
+fn OiCallRefTableIndexOperandFact::index_operand_id(
+  self : OiCallRefTableIndexOperandFact,
+) -> Int {
+  self.table_index_id
+}
+
+///|
 fn OiCallRefTableIndexFact::proves_live_table_index(
   self : OiCallRefTableIndexFact,
 ) -> Bool {
-  ignore(self.table_idx)
-  ignore(self.table_index_id)
-  self.index_live_fact.proves_live()
+  ignore(self.table_fact)
+  self.index_operand_fact.proves_live_table_index_operand()
+}
+
+///|
+fn OiCallRefTableIndexFact::table_index(self : OiCallRefTableIndexFact) -> Int {
+  self.table_fact.table_index()
+}
+
+///|
+fn OiCallRefTableIndexFact::index_operand_id(
+  self : OiCallRefTableIndexFact,
+) -> Int {
+  self.index_operand_fact.index_operand_id()
 }
 
 ///|
@@ -12779,8 +12824,8 @@ fn OiCallRefTableTargetPlanFact::from_target_fact(
   match target_fact.table_target() {
     Some(fact) if fact.proves_table_get_target() =>
       Some({
-        table_idx: fact.table_index_fact.table_idx,
-        table_index_id: fact.table_index_fact.table_index_id,
+        table_idx: fact.table_index_fact.table_index(),
+        table_index_id: fact.table_index_fact.index_operand_id(),
       })
     _ => None
   }
