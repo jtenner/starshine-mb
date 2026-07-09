@@ -9329,6 +9329,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixTableFill
   MaxBitsBlockPrefixTableCopy
   MaxBitsBlockPrefixTableInit
+  MaxBitsBlockPrefixDropTableGrow
   MaxBitsBlockPrefixDataDrop
   MaxBitsBlockPrefixElemDrop
   MaxBitsBlockPrefixMemoryInit
@@ -9352,9 +9353,9 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // even when earlier straight-line roots have effects; the later replacement
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
-  // memory/table store, passive-data/table-init/drop, direct/indirect call, and
-  // global write roots so branch, control, and generalized localization remain
-  // out of this fact.
+  // memory/table store, passive-data/table-init/drop, drop-wrapped table.grow,
+  // direct/indirect call, and global write roots so branch, control, and
+  // generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
   }
@@ -9376,6 +9377,14 @@ fn OiMaxBitsBlockPrefixFact::from_root(
       Some({ kind: MaxBitsBlockPrefixTableCopy, root_id })
     @ir.HotOp::TableInit if @ir.hot_child_count(func, root_id) == 3 =>
       Some({ kind: MaxBitsBlockPrefixTableInit, root_id })
+    @ir.HotOp::Drop if @ir.hot_child_count(func, root_id) == 1 => {
+      let child_id = @ir.hot_child_get(func, root_id, 0)
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::TableGrow if @ir.hot_child_count(func, child_id) == 2 =>
+          Some({ kind: MaxBitsBlockPrefixDropTableGrow, root_id })
+        _ => None
+      }
+    }
     @ir.HotOp::DataDrop => Some({ kind: MaxBitsBlockPrefixDataDrop, root_id })
     @ir.HotOp::ElemDrop => Some({ kind: MaxBitsBlockPrefixElemDrop, root_id })
     @ir.HotOp::MemoryInit if @ir.hot_child_count(func, root_id) == 3 =>
@@ -9404,6 +9413,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixTableFill
     | MaxBitsBlockPrefixTableCopy
     | MaxBitsBlockPrefixTableInit
+    | MaxBitsBlockPrefixDropTableGrow
     | MaxBitsBlockPrefixDataDrop
     | MaxBitsBlockPrefixElemDrop
     | MaxBitsBlockPrefixMemoryInit
