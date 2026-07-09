@@ -129,6 +129,13 @@ priv struct DaeControlBlockTypeSignatureEvidence {
 }
 
 ///|
+priv struct DaeControlBlockTypeGcResultEvidence {
+  signature : DaeControlBlockTypeSignatureEvidence
+  result_index : Int
+  candidate : @lib.ValType
+}
+
+///|
 priv struct DaeStackOperandWindowEvidence {
   start : Int
   end : Int
@@ -1200,6 +1207,79 @@ fn dae_control_single_result_block_type_evidence(
   mod_ : @lib.Module,
 ) -> DaeControlBlockTypeSignatureEvidence? {
   dae_control_block_type_stack_shape_evidence(block_type, mod_.type_sec, 0, 1)
+}
+
+///|
+fn dae_val_type_is_non_null_concrete_gc_ref_candidate(
+  vt : @lib.ValType,
+) -> Bool {
+  match vt {
+    @lib.RefTypeValType(@lib.HeapTypeRefType(false, _, @lib.HeapType(_))) =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn dae_control_block_type_non_null_concrete_gc_result_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  result_index : Int,
+) -> DaeControlBlockTypeGcResultEvidence? {
+  if result_index < 0 {
+    return None
+  }
+  match
+    dae_control_block_type_signature_evidence_from_type_sec(
+      block_type, type_sec,
+    ) {
+    Some(signature) => {
+      if result_index >= signature.output_count {
+        return None
+      }
+      let candidate = signature.results[result_index]
+      if dae_val_type_is_non_null_concrete_gc_ref_candidate(candidate) {
+        Some({ signature, result_index, candidate })
+      } else {
+        None
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn dae_control_block_type_single_non_null_concrete_gc_result_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> DaeControlBlockTypeGcResultEvidence? {
+  match
+    dae_control_block_type_non_null_concrete_gc_result_evidence(
+      block_type, type_sec, 0,
+    ) {
+    Some(evidence) if evidence.signature.output_count == 1 &&
+      evidence.result_index == 0 => Some(evidence)
+    _ => None
+  }
+}
+
+///|
+fn dae_control_block_type_last_non_null_concrete_gc_result_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> DaeControlBlockTypeGcResultEvidence? {
+  match
+    dae_control_block_type_signature_evidence_from_type_sec(
+      block_type, type_sec,
+    ) {
+    Some(signature) if signature.output_count > 0 =>
+      dae_control_block_type_non_null_concrete_gc_result_evidence(
+        block_type,
+        type_sec,
+        signature.output_count - 1,
+      )
+    _ => None
+  }
 }
 
 ///|
@@ -5600,34 +5680,10 @@ fn dae_block_type_single_non_null_concrete_gc_result_candidate(
   block_type : @lib.BlockType,
   mod_ : @lib.Module,
 ) -> @lib.ValType? {
-  match block_type {
-    @lib.ValTypeBlockType(vt) =>
-      match vt {
-        @lib.RefTypeValType(@lib.HeapTypeRefType(false, _, @lib.HeapType(_))) =>
-          Some(vt)
-        _ => None
-      }
-    @lib.TypeIdxBlockType(type_idx) =>
-      match mod_.type_sec {
-        Some(type_sec) =>
-          match dae_type_sec_func_type(type_sec, type_idx) {
-            Some(@lib.FuncType(params, results)) =>
-              match (params, results) {
-                (_, [vt]) =>
-                  match vt {
-                    @lib.RefTypeValType(
-                      @lib.HeapTypeRefType(false, _, @lib.HeapType(_))
-                    ) => Some(vt)
-                    _ => None
-                  }
-                _ => None
-              }
-            None => None
-          }
-        None => None
-      }
-    _ => None
-  }
+  dae_control_block_type_single_non_null_concrete_gc_result_evidence(
+    block_type,
+    mod_.type_sec,
+  ).map(fn(evidence) { evidence.candidate })
 }
 
 ///|
@@ -5635,35 +5691,10 @@ fn dae_block_type_last_non_null_concrete_gc_result_candidate(
   block_type : @lib.BlockType,
   mod_ : @lib.Module,
 ) -> @lib.ValType? {
-  match block_type {
-    @lib.ValTypeBlockType(vt) =>
-      match vt {
-        @lib.RefTypeValType(@lib.HeapTypeRefType(false, _, @lib.HeapType(_))) =>
-          Some(vt)
-        _ => None
-      }
-    @lib.TypeIdxBlockType(type_idx) =>
-      match mod_.type_sec {
-        Some(type_sec) =>
-          match dae_type_sec_func_type(type_sec, type_idx) {
-            Some(@lib.FuncType(_, results)) => {
-              if results.length() == 0 {
-                return None
-              }
-              let vt = results[results.length() - 1]
-              match vt {
-                @lib.RefTypeValType(
-                  @lib.HeapTypeRefType(false, _, @lib.HeapType(_))
-                ) => Some(vt)
-                _ => None
-              }
-            }
-            None => None
-          }
-        None => None
-      }
-    _ => None
-  }
+  dae_control_block_type_last_non_null_concrete_gc_result_evidence(
+    block_type,
+    mod_.type_sec,
+  ).map(fn(evidence) { evidence.candidate })
 }
 
 ///|

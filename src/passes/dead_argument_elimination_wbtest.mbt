@@ -4533,6 +4533,104 @@ test "dae callsite removal plan centralizes keep replay and drop repair" {
 }
 
 ///|
+test "dae control block GC result evidence centralizes single and trailing slots" {
+  let ref_type = @lib.TypeIdx::new(0U)
+  let pair_type = @lib.TypeIdx::new(1U)
+  let nullable_type = @lib.TypeIdx::new(2U)
+  let concrete_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(ref_type), exact=true),
+  )
+  let nullable_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(ref_type)),
+  )
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::new(false, [], @lib.CompType::struct_([]))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [
+          @lib.ValType::i64(),
+          concrete_ref,
+        ]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([], [nullable_ref])),
+    ),
+  ])
+  match
+    dae_control_block_type_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::type_idx(pair_type),
+      Some(type_sec),
+      1,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.result_index, 1)
+      assert_eq(evidence.signature.input_count, 1)
+      assert_eq(evidence.signature.output_count, 2)
+      assert_eq(evidence.candidate, concrete_ref)
+    }
+    None => fail("expected trailing concrete GC result evidence")
+  }
+  match
+    dae_control_block_type_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::type_idx(pair_type),
+      Some(type_sec),
+      0,
+    ) {
+    Some(_) => fail("non-GC leading result must not produce GC evidence")
+    None => ()
+  }
+  match
+    dae_control_block_type_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::type_idx(pair_type),
+      Some(type_sec),
+      2,
+    ) {
+    Some(_) => fail("out-of-range result slot must not produce evidence")
+    None => ()
+  }
+  match
+    dae_control_block_type_single_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::val_type(concrete_ref),
+      Some(type_sec),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.result_index, 0)
+      assert_eq(evidence.signature.output_count, 1)
+      assert_eq(evidence.candidate, concrete_ref)
+    }
+    None => fail("expected single valtype concrete GC result evidence")
+  }
+  match
+    dae_control_block_type_single_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::type_idx(pair_type),
+      Some(type_sec),
+    ) {
+    Some(_) => fail("multi-result typeidx is not single-result evidence")
+    None => ()
+  }
+  match
+    dae_control_block_type_last_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::type_idx(pair_type),
+      Some(type_sec),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.result_index, 1)
+      assert_eq(evidence.candidate, concrete_ref)
+    }
+    None => fail("expected trailing GC result evidence")
+  }
+  match
+    dae_control_block_type_last_non_null_concrete_gc_result_evidence(
+      @lib.BlockType::type_idx(nullable_type),
+      Some(type_sec),
+    ) {
+    Some(_) => fail("nullable GC result must not produce non-null evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae GC select value evidence computes reusable LUB and refined candidates" {
   let base_type = @lib.TypeIdx::new(0U)
   let mid_type = @lib.TypeIdx::new(1U)
