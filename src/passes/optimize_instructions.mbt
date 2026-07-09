@@ -1926,10 +1926,20 @@ priv enum OiHeapSubtypeTargetPayloadKind {
 }
 
 ///|
+priv struct OiHeapSubtypeTargetNullabilityFact {
+  nullable : Bool
+}
+
+///|
+priv struct OiHeapSubtypeTargetExactnessFact {
+  exact : Bool
+}
+
+///|
 priv struct OiHeapSubtypeTargetPayloadFact {
   kind : OiHeapSubtypeTargetPayloadKind
-  nullable : Bool
-  exact : Bool
+  nullability_fact : OiHeapSubtypeTargetNullabilityFact
+  exactness_fact : OiHeapSubtypeTargetExactnessFact
 }
 
 ///|
@@ -1946,19 +1956,23 @@ fn OiHeapSubtypeTargetPayloadFact::from_heap_relation(
   if relation.proves_same_heap() {
     {
       kind: SameHeapSubtypeTargetPayload,
-      nullable: source_nullable,
-      exact: source_exact,
+      nullability_fact: { nullable: source_nullable },
+      exactness_fact: { exact: source_exact },
     }
   } else if relation.proves_both_concrete_heaps() &&
     !relation.proves_same_heap() &&
     relation.proves_known_subtype() {
     {
       kind: StrictConcreteSubtypeTargetPayload,
-      nullable: source_nullable,
-      exact: false,
+      nullability_fact: { nullable: source_nullable },
+      exactness_fact: { exact: false },
     }
   } else {
-    { kind: UnknownHeapSubtypeTargetPayload, nullable: false, exact: false }
+    {
+      kind: UnknownHeapSubtypeTargetPayload,
+      nullability_fact: { nullable: false },
+      exactness_fact: { exact: false },
+    }
   }
 }
 
@@ -1970,6 +1984,20 @@ fn OiHeapSubtypeTargetPayloadFact::proves_known_payload(
     SameHeapSubtypeTargetPayload | StrictConcreteSubtypeTargetPayload => true
     UnknownHeapSubtypeTargetPayload => false
   }
+}
+
+///|
+fn OiHeapSubtypeTargetPayloadFact::proven_nullable(
+  self : OiHeapSubtypeTargetPayloadFact,
+) -> Bool {
+  self.nullability_fact.nullable
+}
+
+///|
+fn OiHeapSubtypeTargetPayloadFact::proven_exact(
+  self : OiHeapSubtypeTargetPayloadFact,
+) -> Bool {
+  self.exactness_fact.exact
 }
 
 ///|
@@ -2253,8 +2281,8 @@ fn OiRefProducerSubtypeRelationFact::from_heap_relation(
     {
       kind: MatchesOrStrictSubtypesRefProducerTargetHeap,
       payload: Some({
-        nullable: payload_fact.nullable,
-        exact: payload_fact.exact,
+        nullable: payload_fact.proven_nullable(),
+        exact: payload_fact.proven_exact(),
       }),
     }
   } else {
