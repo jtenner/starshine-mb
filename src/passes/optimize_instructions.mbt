@@ -6333,6 +6333,43 @@ priv enum OiDescriptorNullCastRewritePlanKind {
 }
 
 ///|
+priv enum OiDescriptorNullCastRewriteScopeKind {
+  DescriptorNullCastDescriptorTrapScope
+  DescriptorNullCastFullKnownNullScope
+}
+
+///|
+priv struct OiDescriptorNullCastRewriteScopeFact {
+  kind : OiDescriptorNullCastRewriteScopeKind
+}
+
+///|
+fn OiDescriptorNullCastRewriteScopeFact::descriptor_trap_scope() -> OiDescriptorNullCastRewriteScopeFact {
+  // The descriptor-operand visitor only wants the no-effect trap proof: if the
+  // descriptor operand itself traps, the whole descriptor cast can become
+  // unreachable, but nullable typed-null materialization belongs to the full
+  // known-null cast visitor below.
+  { kind: DescriptorNullCastDescriptorTrapScope }
+}
+
+///|
+fn OiDescriptorNullCastRewriteScopeFact::full_known_null_scope() -> OiDescriptorNullCastRewriteScopeFact {
+  // The ordinary descriptor known-null cast visitor may produce either typed
+  // nulls or unreachable replacements after descriptor effects are preserved.
+  { kind: DescriptorNullCastFullKnownNullScope }
+}
+
+///|
+fn OiDescriptorNullCastRewriteScopeFact::proves_descriptor_trap_scope(
+  self : OiDescriptorNullCastRewriteScopeFact,
+) -> Bool {
+  match self.kind {
+    DescriptorNullCastDescriptorTrapScope => true
+    DescriptorNullCastFullKnownNullScope => false
+  }
+}
+
+///|
 priv struct OiDescriptorNullCastRewritePlanFact {
   kind : OiDescriptorNullCastRewritePlanKind
   null_fact : OiDescriptorNullCastFact
@@ -6341,13 +6378,14 @@ priv struct OiDescriptorNullCastRewritePlanFact {
 ///|
 fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
   null_fact : OiDescriptorNullCastFact,
-  descriptor_traps_only : Bool,
+  scope_fact : OiDescriptorNullCastRewriteScopeFact,
 ) -> OiDescriptorNullCastRewritePlanFact? {
   // Binaryen v130 `optimizeKnownCastResult` has a descriptor-cast special case
   // for known-null reference operands: materialize the typed null for nullable
   // casts, trap for non-nullable casts, and preserve the descriptor operand only
-  // when its evaluation cannot be erased. Keep the source-order decision in a
-  // plan fact so the visitor no longer owns a null/ref/descriptor erase cascade.
+  // when its evaluation cannot be erased. Keep both the caller scope and the
+  // source-order decision in facts so the visitor no longer owns a null/ref/
+  // descriptor erase cascade.
   let cast_fact = null_fact.cast_fact
   if !null_fact.operand_fact.proves_known_null() {
     return None
@@ -6356,7 +6394,7 @@ fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
   if descriptor_fact.proves_traps_without_effects() {
     return Some({ kind: DescriptorNullCastUnreachable, null_fact })
   }
-  if descriptor_traps_only {
+  if scope_fact.proves_descriptor_trap_scope() {
     return None
   }
   let kind = if cast_fact.nullable {
@@ -29751,7 +29789,11 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
     Some(fact) => fact
     None => return false
   }
-  match OiDescriptorNullCastRewritePlanFact::from_null_cast(null_fact, true) {
+  match
+    OiDescriptorNullCastRewritePlanFact::from_null_cast(
+      null_fact,
+      OiDescriptorNullCastRewriteScopeFact::descriptor_trap_scope(),
+    ) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
     None => false
   }
@@ -32239,7 +32281,11 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
     Some(fact) => fact
     None => return false
   }
-  match OiDescriptorNullCastRewritePlanFact::from_null_cast(null_fact, false) {
+  match
+    OiDescriptorNullCastRewritePlanFact::from_null_cast(
+      null_fact,
+      OiDescriptorNullCastRewriteScopeFact::full_known_null_scope(),
+    ) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
     None => false
   }
