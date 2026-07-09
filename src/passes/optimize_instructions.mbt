@@ -9206,9 +9206,14 @@ fn optimize_instructions_rewrite_exact_with_children(
 }
 
 ///|
-priv struct OiCallRefFallthroughDirectFuncFact {
+priv struct OiCallRefFallthroughFunctionFact {
   direct_func : Int
   ref_func_heap : @lib.HeapType?
+}
+
+///|
+priv struct OiCallRefFallthroughDirectFuncFact {
+  function_fact : OiCallRefFallthroughFunctionFact
 }
 
 ///|
@@ -9235,11 +9240,18 @@ fn OiCallRefFallthroughDirectFuncFact::from_fallthrough(
 }
 
 ///|
-fn OiCallRefFallthroughDirectFuncFact::proves_direct_ref_func_fallthrough(
-  self : OiCallRefFallthroughDirectFuncFact,
+fn OiCallRefFallthroughFunctionFact::proves_ref_func_payload(
+  self : OiCallRefFallthroughFunctionFact,
 ) -> Bool {
   ignore(self.ref_func_heap)
   self.direct_func >= 0
+}
+
+///|
+fn OiCallRefFallthroughDirectFuncFact::proves_direct_ref_func_fallthrough(
+  self : OiCallRefFallthroughDirectFuncFact,
+) -> Bool {
+  self.function_fact.proves_ref_func_payload()
 }
 
 ///|
@@ -9301,7 +9313,11 @@ fn OiCallRefFallthroughTargetFact::from_node(
         Some(ref_type) => Some(ref_type.get_heap_type())
         None => None
       }
-      { direct_fact: Some({ direct_func: node.imm0, ref_func_heap }) }
+      {
+        direct_fact: Some({
+          function_fact: { direct_func: node.imm0, ref_func_heap },
+        }),
+      }
     }
     @ir.HotOp::LocalTee if node.child_count == 1 =>
       OiCallRefFallthroughTargetFact::from_node(
@@ -9609,7 +9625,7 @@ fn OiCallRefFallthroughTypeFact::from_target(
     None => None
   }
   let fallthrough_heap = match fallthrough.direct_fact {
-    Some(direct_fact) => direct_fact.ref_func_heap
+    Some(direct_fact) => direct_fact.function_fact.ref_func_heap
     None => None
   }
   let heap_match_fact = match (target_heap, fallthrough_heap) {
@@ -10023,7 +10039,7 @@ priv struct OiCallRefTableTargetFact {
 ///|
 priv struct OiCallRefFallthroughDirectTargetFact {
   target_id : Int
-  fallthrough_func : Int
+  function_fact : OiCallRefFallthroughFunctionFact
   fallthrough_fact : OiCallRefFallthroughTargetFact
   type_fact : OiCallRefFallthroughTypeFact
 }
@@ -10224,7 +10240,7 @@ fn OiCallRefFallthroughDirectTargetFact::from_target(
     type_fact.proves_target_heap_matches_ref_func_heap() {
     Some({
       target_id,
-      fallthrough_func: direct_fallthrough_fact.direct_func,
+      function_fact: direct_fallthrough_fact.function_fact,
       fallthrough_fact,
       type_fact,
     })
@@ -10243,7 +10259,7 @@ fn OiCallRefFallthroughDirectTargetFact::proves_fallthrough_ref_func(
     None => return false
   }
   self.target_id >= 0 &&
-  self.fallthrough_func >= 0 &&
+  self.function_fact.proves_ref_func_payload() &&
   direct_fallthrough_fact.proves_direct_ref_func_fallthrough() &&
   self.type_fact.proves_target_heap_matches_ref_func_heap()
 }
@@ -10739,7 +10755,7 @@ fn OiCallRefFallthroughFuncPlanFact::from_target_fact(
   // plan fact so fallthrough calls do not depend on generic sentinel fields.
   match target_fact.fallthrough_direct_fact {
     Some(fact) if fact.proves_fallthrough_ref_func() =>
-      Some({ direct_func: fact.fallthrough_func })
+      Some({ direct_func: fact.function_fact.direct_func })
     _ => None
   }
 }
