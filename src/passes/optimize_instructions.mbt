@@ -21545,20 +21545,46 @@ priv struct OiArrayNewFixedRepeatedValueFact {
 }
 
 ///|
-priv struct OiArrayDefaultFallthroughFact {
+priv enum OiArrayDefaultFallthroughKind {
+  ArrayDefaultFallthroughDepthExhausted
+  ArrayDefaultFallthroughLocalTeeChild
+  ArrayDefaultFallthroughBlockStoppedByPrefixControl
+  ArrayDefaultFallthroughBlockTailChild
+  ArrayDefaultFallthroughLoopBodyTail
+  ArrayDefaultFallthroughLoopWithoutTail
+  ArrayDefaultFallthroughOneSidedIfTail
+  ArrayDefaultFallthroughIfWithoutElse
+  ArrayDefaultFallthroughIfWithoutProvenRegion
+  ArrayDefaultFallthroughUnsupported
+}
+
+///|
+priv struct OiArrayDefaultFallthroughTraversalFact {
   fallthrough_id : Int
+  kind : OiArrayDefaultFallthroughKind
+}
+
+///|
+priv struct OiArrayDefaultFallthroughFact {
+  traversal_fact : OiArrayDefaultFallthroughTraversalFact
+}
+
+///|
+priv enum OiArrayDefaultPreservationKind {
+  ArrayDefaultReachedFallthrough
+  ArrayDefaultDepthExhausted
+  ArrayDefaultLocalTeeWrapper
+  ArrayDefaultBlockPrefixEffectful
+  ArrayDefaultNestedBlockPreserves
+  ArrayDefaultLoopEffectful
+  ArrayDefaultIfControlShape
+  ArrayDefaultSubtreeEffectful
+  ArrayDefaultNoPreservationNeeded
 }
 
 ///|
 priv struct OiArrayDefaultPreservationFact {
-  reached_fallthrough : Bool
-  depth_exhausted : Bool
-  local_tee_wrapper : Bool
-  block_prefix_effectful : Bool
-  nested_block_preserves : Bool
-  loop_effectful : Bool
-  if_control_shape : Bool
-  subtree_effectful : Bool
+  kind : OiArrayDefaultPreservationKind
 }
 
 ///|
@@ -21648,36 +21674,63 @@ fn OiArrayStorageDefaultValueFact::proves_value_default_for_storage(
 }
 
 ///|
-fn optimize_instructions_array_default_fallthrough_id(
+fn OiArrayDefaultFallthroughTraversalFact::from_kind(
+  fallthrough_id : Int,
+  kind : OiArrayDefaultFallthroughKind,
+) -> OiArrayDefaultFallthroughTraversalFact {
+  { fallthrough_id, kind }
+}
+
+///|
+fn OiArrayDefaultFallthroughTraversalFact::from_value(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   value_id : Int,
   depth? : Int = 0,
-) -> Int {
+) -> OiArrayDefaultFallthroughTraversalFact {
+  // Binaryen v130 `visitArrayNew` and `visitArrayNewFixed` use
+  // `Properties::getFallthrough` to decide whether an initializer reaches a
+  // storage-default value. Keep the represented HOT traversal as a fact with a
+  // source-shaped stop/descend kind instead of a local opcode scanner.
   if depth > 8 {
-    return value_id
+    return OiArrayDefaultFallthroughTraversalFact::from_kind(
+      value_id,
+      ArrayDefaultFallthroughDepthExhausted,
+    )
   }
   let value = @ir.hot_node_get(func, value_id)
   match value.op {
-    @ir.HotOp::LocalTee if value.child_count == 1 =>
-      optimize_instructions_array_default_fallthrough_id(
+    @ir.HotOp::LocalTee if value.child_count == 1 => {
+      let child_fact = OiArrayDefaultFallthroughTraversalFact::from_value(
         func,
         node_masks,
         @ir.hot_child_get(func, value_id, 0),
         depth=depth + 1,
       )
+      OiArrayDefaultFallthroughTraversalFact::from_kind(
+        child_fact.fallthrough_id,
+        ArrayDefaultFallthroughLocalTeeChild,
+      )
+    }
     @ir.HotOp::Block if value.child_count > 0 => {
       for slot = 0; slot < value.child_count - 1; slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, value_id, slot)
         if (node_masks[child_id] & @ir.EFFECT_MASK_CONTROL) != 0U {
-          return value_id
+          return OiArrayDefaultFallthroughTraversalFact::from_kind(
+            value_id,
+            ArrayDefaultFallthroughBlockStoppedByPrefixControl,
+          )
         }
       }
-      optimize_instructions_array_default_fallthrough_id(
+      let child_fact = OiArrayDefaultFallthroughTraversalFact::from_value(
         func,
         node_masks,
         @ir.hot_child_get(func, value_id, value.child_count - 1),
         depth=depth + 1,
+      )
+      OiArrayDefaultFallthroughTraversalFact::from_kind(
+        child_fact.fallthrough_id,
+        ArrayDefaultFallthroughBlockTailChild,
       )
     }
     @ir.HotOp::Loop =>
@@ -21686,14 +21739,23 @@ fn optimize_instructions_array_default_fallthrough_id(
           func,
           @ir.hot_region_body_ref(func, value_id),
         ) {
-        Some(tail_id) =>
-          optimize_instructions_array_default_fallthrough_id(
+        Some(tail_id) => {
+          let child_fact = OiArrayDefaultFallthroughTraversalFact::from_value(
             func,
             node_masks,
             tail_id,
             depth=depth + 1,
           )
-        None => value_id
+          OiArrayDefaultFallthroughTraversalFact::from_kind(
+            child_fact.fallthrough_id,
+            ArrayDefaultFallthroughLoopBodyTail,
+          )
+        }
+        None =>
+          OiArrayDefaultFallthroughTraversalFact::from_kind(
+            value_id,
+            ArrayDefaultFallthroughLoopWithoutTail,
+          )
       }
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, value_id) {
@@ -21705,36 +21767,68 @@ fn optimize_instructions_array_default_fallthrough_id(
           match one_sided_fact.proven_fallthrough_region() {
             Some(region_ref) =>
               match optimize_instructions_region_tail_id(func, region_ref) {
-                Some(tail_id) =>
-                  optimize_instructions_array_default_fallthrough_id(
+                Some(tail_id) => {
+                  let child_fact = OiArrayDefaultFallthroughTraversalFact::from_value(
                     func,
                     node_masks,
                     tail_id,
                     depth=depth + 1,
                   )
-                None => value_id
+                  OiArrayDefaultFallthroughTraversalFact::from_kind(
+                    child_fact.fallthrough_id,
+                    ArrayDefaultFallthroughOneSidedIfTail,
+                  )
+                }
+                None =>
+                  OiArrayDefaultFallthroughTraversalFact::from_kind(
+                    value_id,
+                    ArrayDefaultFallthroughIfWithoutProvenRegion,
+                  )
               }
-            None => value_id
+            None =>
+              OiArrayDefaultFallthroughTraversalFact::from_kind(
+                value_id,
+                ArrayDefaultFallthroughIfWithoutProvenRegion,
+              )
           }
         }
-        None => value_id
+        None =>
+          OiArrayDefaultFallthroughTraversalFact::from_kind(
+            value_id,
+            ArrayDefaultFallthroughIfWithoutElse,
+          )
       }
-    _ => value_id
+    _ =>
+      OiArrayDefaultFallthroughTraversalFact::from_kind(
+        value_id,
+        ArrayDefaultFallthroughUnsupported,
+      )
   }
 }
 
 ///|
-fn OiArrayDefaultPreservationFact::empty() -> OiArrayDefaultPreservationFact {
-  {
-    reached_fallthrough: false,
-    depth_exhausted: false,
-    local_tee_wrapper: false,
-    block_prefix_effectful: false,
-    nested_block_preserves: false,
-    loop_effectful: false,
-    if_control_shape: false,
-    subtree_effectful: false,
+fn OiArrayDefaultFallthroughTraversalFact::proves_recorded_traversal_kind(
+  self : OiArrayDefaultFallthroughTraversalFact,
+) -> Bool {
+  match self.kind {
+    ArrayDefaultFallthroughDepthExhausted
+    | ArrayDefaultFallthroughLocalTeeChild
+    | ArrayDefaultFallthroughBlockStoppedByPrefixControl
+    | ArrayDefaultFallthroughBlockTailChild
+    | ArrayDefaultFallthroughLoopBodyTail
+    | ArrayDefaultFallthroughLoopWithoutTail
+    | ArrayDefaultFallthroughOneSidedIfTail
+    | ArrayDefaultFallthroughIfWithoutElse
+    | ArrayDefaultFallthroughIfWithoutProvenRegion
+    | ArrayDefaultFallthroughUnsupported => true
   }
+}
+
+///|
+fn OiArrayDefaultPreservationFact::from_kind(
+  kind : OiArrayDefaultPreservationKind,
+) -> OiArrayDefaultPreservationFact {
+  { kind, }
 }
 
 ///|
@@ -21752,21 +21846,20 @@ fn OiArrayDefaultPreservationFact::from_value(
   // depth guard erase, local.tee and `if` wrappers preserve, blocks preserve if
   // any prefix child has effects or if the fallthrough child recursively needs
   // preservation, and loops/other subtrees preserve only when HOT effects are
-  // not pure.
+  // not pure. The result is one source-shaped kind instead of parallel
+  // preservation booleans.
   if value_id == fallthrough_id {
-    let fact = OiArrayDefaultPreservationFact::empty()
-    return { ..fact, reached_fallthrough: true }
+    return OiArrayDefaultPreservationFact::from_kind(
+      ArrayDefaultReachedFallthrough,
+    )
   }
   if depth > 8 {
-    let fact = OiArrayDefaultPreservationFact::empty()
-    return { ..fact, depth_exhausted: true }
+    return OiArrayDefaultPreservationFact::from_kind(ArrayDefaultDepthExhausted)
   }
   let value = @ir.hot_node_get(func, value_id)
   match value.op {
-    @ir.HotOp::LocalTee if value.child_count == 1 => {
-      let fact = OiArrayDefaultPreservationFact::empty()
-      { ..fact, local_tee_wrapper: true }
-    }
+    @ir.HotOp::LocalTee if value.child_count == 1 =>
+      OiArrayDefaultPreservationFact::from_kind(ArrayDefaultLocalTeeWrapper)
     @ir.HotOp::Block if value.child_count > 0 => {
       let mut block_prefix_effectful = false
       for slot = 0; slot < value.child_count - 1; slot = slot + 1 {
@@ -21776,8 +21869,9 @@ fn OiArrayDefaultPreservationFact::from_value(
         }
       }
       if block_prefix_effectful {
-        let fact = OiArrayDefaultPreservationFact::empty()
-        { ..fact, block_prefix_effectful: true }
+        OiArrayDefaultPreservationFact::from_kind(
+          ArrayDefaultBlockPrefixEffectful,
+        )
       } else {
         let nested = OiArrayDefaultPreservationFact::from_value(
           func,
@@ -21786,32 +21880,35 @@ fn OiArrayDefaultPreservationFact::from_value(
           fallthrough_id,
           depth=depth + 1,
         )
-        let fact = OiArrayDefaultPreservationFact::empty()
-        { ..fact, nested_block_preserves: nested.proves_preserve_needed() }
+        if nested.proves_preserve_needed() {
+          OiArrayDefaultPreservationFact::from_kind(
+            ArrayDefaultNestedBlockPreserves,
+          )
+        } else {
+          OiArrayDefaultPreservationFact::from_kind(
+            ArrayDefaultNoPreservationNeeded,
+          )
+        }
       }
     }
-    @ir.HotOp::Loop => {
-      let fact = OiArrayDefaultPreservationFact::empty()
-      {
-        ..fact,
-        loop_effectful: !OiNodeEffectPurityFact::from_node_masks(
-          node_masks, value_id,
-        ).proves_pure(),
+    @ir.HotOp::Loop =>
+      if !OiNodeEffectPurityFact::from_node_masks(node_masks, value_id).proves_pure() {
+        OiArrayDefaultPreservationFact::from_kind(ArrayDefaultLoopEffectful)
+      } else {
+        OiArrayDefaultPreservationFact::from_kind(
+          ArrayDefaultNoPreservationNeeded,
+        )
       }
-    }
-    @ir.HotOp::If => {
-      let fact = OiArrayDefaultPreservationFact::empty()
-      { ..fact, if_control_shape: true }
-    }
-    _ => {
-      let fact = OiArrayDefaultPreservationFact::empty()
-      {
-        ..fact,
-        subtree_effectful: !OiNodeEffectPurityFact::from_node_masks(
-          node_masks, value_id,
-        ).proves_pure(),
+    @ir.HotOp::If =>
+      OiArrayDefaultPreservationFact::from_kind(ArrayDefaultIfControlShape)
+    _ =>
+      if !OiNodeEffectPurityFact::from_node_masks(node_masks, value_id).proves_pure() {
+        OiArrayDefaultPreservationFact::from_kind(ArrayDefaultSubtreeEffectful)
+      } else {
+        OiArrayDefaultPreservationFact::from_kind(
+          ArrayDefaultNoPreservationNeeded,
+        )
       }
-    }
   }
 }
 
@@ -21819,14 +21916,17 @@ fn OiArrayDefaultPreservationFact::from_value(
 fn OiArrayDefaultPreservationFact::proves_preserve_needed(
   self : OiArrayDefaultPreservationFact,
 ) -> Bool {
-  ignore(self.reached_fallthrough)
-  ignore(self.depth_exhausted)
-  self.local_tee_wrapper ||
-  self.block_prefix_effectful ||
-  self.nested_block_preserves ||
-  self.loop_effectful ||
-  self.if_control_shape ||
-  self.subtree_effectful
+  match self.kind {
+    ArrayDefaultLocalTeeWrapper
+    | ArrayDefaultBlockPrefixEffectful
+    | ArrayDefaultNestedBlockPreserves
+    | ArrayDefaultLoopEffectful
+    | ArrayDefaultIfControlShape
+    | ArrayDefaultSubtreeEffectful => true
+    ArrayDefaultReachedFallthrough
+    | ArrayDefaultDepthExhausted
+    | ArrayDefaultNoPreservationNeeded => false
+  }
 }
 
 ///|
@@ -21835,10 +21935,19 @@ fn OiArrayDefaultFallthroughFact::from_value(
   node_masks : Array[UInt],
   value_id : Int,
 ) -> OiArrayDefaultFallthroughFact {
-  let fallthrough_id = optimize_instructions_array_default_fallthrough_id(
-    func, node_masks, value_id,
-  )
-  { fallthrough_id, }
+  {
+    traversal_fact: OiArrayDefaultFallthroughTraversalFact::from_value(
+      func, node_masks, value_id,
+    ),
+  }
+}
+
+///|
+fn OiArrayDefaultFallthroughFact::fallthrough_id(
+  self : OiArrayDefaultFallthroughFact,
+) -> Int {
+  ignore(self.traversal_fact.proves_recorded_traversal_kind())
+  self.traversal_fact.fallthrough_id
 }
 
 ///|
@@ -21990,7 +22099,7 @@ fn OiArrayDefaultValueFact::from_array_value(
   if !OiArrayStorageDefaultValueFact::proves_value_default_for_storage(
       func,
       field.get_storage_type(),
-      fallthrough_fact.fallthrough_id,
+      fallthrough_fact.fallthrough_id(),
     ) {
     return {
       is_default: false,
@@ -22003,7 +22112,7 @@ fn OiArrayDefaultValueFact::from_array_value(
       func,
       effects.node_masks,
       value_id,
-      fallthrough_fact.fallthrough_id,
+      fallthrough_fact.fallthrough_id(),
     ),
   }
 }
