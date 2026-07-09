@@ -9330,6 +9330,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixTableFill
   MaxBitsBlockPrefixTableCopy
   MaxBitsBlockPrefixTableInit
+  MaxBitsBlockPrefixDropAtomicLoad
   MaxBitsBlockPrefixDropTableGrow
   MaxBitsBlockPrefixDropMemoryGrow
   MaxBitsBlockPrefixDataDrop
@@ -9356,7 +9357,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
   // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
-  // table.grow and memory.grow, direct/indirect call, and global write roots so branch,
+  // atomic load, table.grow and memory.grow, direct/indirect call, and global write roots so branch,
   // control, and generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
@@ -9395,6 +9396,19 @@ fn OiMaxBitsBlockPrefixFact::from_root(
     @ir.HotOp::Drop if @ir.hot_child_count(func, root_id) == 1 => {
       let child_id = @ir.hot_child_get(func, root_id, 0)
       match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 1 =>
+          match @ir.hot_node_exact_instr(func, child_id) {
+            Some(
+              @lib.Instruction::I32AtomicLoad(_)
+              | @lib.Instruction::I64AtomicLoad(_)
+              | @lib.Instruction::I32AtomicLoad8U(_)
+              | @lib.Instruction::I32AtomicLoad16U(_)
+              | @lib.Instruction::I64AtomicLoad8U(_)
+              | @lib.Instruction::I64AtomicLoad16U(_)
+              | @lib.Instruction::I64AtomicLoad32U(_)
+            ) => Some({ kind: MaxBitsBlockPrefixDropAtomicLoad, root_id })
+            _ => None
+          }
         @ir.HotOp::TableGrow if @ir.hot_child_count(func, child_id) == 2 =>
           Some({ kind: MaxBitsBlockPrefixDropTableGrow, root_id })
         @ir.HotOp::MemoryGrow if @ir.hot_child_count(func, child_id) == 1 =>
@@ -9431,6 +9445,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixTableFill
     | MaxBitsBlockPrefixTableCopy
     | MaxBitsBlockPrefixTableInit
+    | MaxBitsBlockPrefixDropAtomicLoad
     | MaxBitsBlockPrefixDropTableGrow
     | MaxBitsBlockPrefixDropMemoryGrow
     | MaxBitsBlockPrefixDataDrop
