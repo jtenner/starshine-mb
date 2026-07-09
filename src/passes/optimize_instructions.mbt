@@ -5253,10 +5253,45 @@ fn OiDescriptorExactSuccessOperandFact::proves_exact_non_null_target(
 }
 
 ///|
+priv struct OiDescriptorExactSuccessDescriptorRelationFact {
+  descriptor_type_fact : OiDescriptorTypeFact
+  exactly_describes_target : Bool
+}
+
+///|
+fn OiDescriptorExactSuccessDescriptorRelationFact::from_descriptor(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+  target : @lib.HeapType,
+) -> OiDescriptorExactSuccessDescriptorRelationFact {
+  // Binaryen v130 descriptor equality exact-success skipping under TNH needs a
+  // descriptor operand that exactly describes the cast target, just like the
+  // normal-mode exact-miss cleanup. Keep this descriptor source relation nested
+  // under the exact-success fact so eligibility consumes source-backed operand
+  // and descriptor proofs rather than parallel booleans.
+  let descriptor_type_fact = OiDescriptorTypeFact::from_node(
+    ctx, func, descriptor_id,
+  )
+  {
+    descriptor_type_fact,
+    exactly_describes_target: descriptor_type_fact.exactly_describes(target),
+  }
+}
+
+///|
+fn OiDescriptorExactSuccessDescriptorRelationFact::proves_exactly_describes_target(
+  self : OiDescriptorExactSuccessDescriptorRelationFact,
+) -> Bool {
+  ignore(self.descriptor_type_fact)
+  self.exactly_describes_target
+}
+
+///|
 priv struct OiDescriptorExactSuccessFact {
   cast_fact : OiDescriptorCastFact
   operand_fact : OiDescriptorExactSuccessOperandFact
-  descriptor_exactly_describes_target : Bool
+  descriptor_relation : OiDescriptorExactSuccessDescriptorRelationFact
 }
 
 ///|
@@ -5278,11 +5313,12 @@ fn OiDescriptorExactSuccessFact::from_node(
       cast_fact.target,
       cast_fact.nullable,
     ),
-    descriptor_exactly_describes_target: OiDescriptorTypeFact::from_node(
+    descriptor_relation: OiDescriptorExactSuccessDescriptorRelationFact::from_descriptor(
       ctx,
       func,
       cast_fact.descriptor_id,
-    ).exactly_describes(cast_fact.target),
+      cast_fact.target,
+    ),
   })
 }
 
@@ -5323,7 +5359,7 @@ fn OiDescriptorExactSuccessEligibilityFact::from_success(
   if !success_fact.operand_fact.proves_exact_non_null_target() {
     return { kind: DescriptorExactSuccessOperandNotExactNonNullTarget }
   }
-  if !success_fact.descriptor_exactly_describes_target {
+  if !success_fact.descriptor_relation.proves_exactly_describes_target() {
     return { kind: DescriptorExactSuccessDescriptorNotExactTarget }
   }
   { kind: DescriptorExactSuccessAllowed }
