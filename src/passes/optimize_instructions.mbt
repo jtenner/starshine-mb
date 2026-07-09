@@ -2827,12 +2827,28 @@ fn OiDescriptorOperandFact::proves_may_drop_exactness_for_tnh_escaping_ref_get_d
 }
 
 ///|
+priv enum OiRefGetDescTrapKind {
+  RefGetDescTrapNone
+  RefGetDescTrapChildUnreachable
+  RefGetDescTrapExplicitKnownNullChild
+}
+
+///|
+priv struct OiRefGetDescExplicitKnownNullChildFact {
+  child_id : Int
+}
+
+///|
+fn OiRefGetDescExplicitKnownNullChildFact::proves_valid_payload(
+  self : OiRefGetDescExplicitKnownNullChildFact,
+) -> Bool {
+  self.child_id >= 0
+}
+
+///|
 priv struct OiRefGetDescTrapFact {
-  ref_get_desc : Bool
-  child_unreachable : Bool
-  explicit_nullable_child : Bool
-  nullable_child_known_null : Bool
-  traps_without_effects : Bool
+  kind : OiRefGetDescTrapKind
+  explicit_known_null_child_fact : OiRefGetDescExplicitKnownNullChildFact?
 }
 
 ///|
@@ -2842,40 +2858,31 @@ fn OiRefGetDescTrapFact::from_node(
 ) -> OiRefGetDescTrapFact {
   // Binaryen v130 treats `ref.get_desc(unreachable)` and
   // `ref.get_desc(ref.as_non_null(ref.null ...))` as descriptor operands that
-  // can trap before any side effect. Record the trap proof separately from the
-  // descriptor operand fact so callers do not ask `OiRefGetDescFact` for an
-  // ad hoc helper-level decision.
+  // can trap before any side effect. Record the selected trap proof separately
+  // from the descriptor operand fact so callers do not ask `OiRefGetDescFact`
+  // for an ad hoc helper-level decision.
   let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
     Some(fact) => fact
     None =>
-      return {
-        ref_get_desc: false,
-        child_unreachable: false,
-        explicit_nullable_child: false,
-        nullable_child_known_null: false,
-        traps_without_effects: false,
-      }
+      return { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None }
   }
-  let child_unreachable = get_desc_fact.child_is_unreachable(func)
-  let (explicit_nullable_child, nullable_child_known_null) = match
-    get_desc_fact.explicit_nullable_child() {
+  if get_desc_fact.child_is_unreachable(func) {
+    return {
+      kind: RefGetDescTrapChildUnreachable,
+      explicit_known_null_child_fact: None,
+    }
+  }
+  match get_desc_fact.explicit_nullable_child() {
     Some(nullable_child) =>
-      (
-        true,
-        match @ir.hot_node_get(func, nullable_child).op {
-          @ir.HotOp::RefNull => true
-          _ => false
-        },
-      )
-    None => (false, false)
-  }
-  {
-    ref_get_desc: true,
-    child_unreachable,
-    explicit_nullable_child,
-    nullable_child_known_null,
-    traps_without_effects: child_unreachable ||
-    (explicit_nullable_child && nullable_child_known_null),
+      match @ir.hot_node_get(func, nullable_child).op {
+        @ir.HotOp::RefNull =>
+          {
+            kind: RefGetDescTrapExplicitKnownNullChild,
+            explicit_known_null_child_fact: Some({ child_id: nullable_child }),
+          }
+        _ => { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None }
+      }
+    None => { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None }
   }
 }
 
@@ -2883,12 +2890,12 @@ fn OiRefGetDescTrapFact::from_node(
 fn OiRefGetDescTrapFact::proves_traps_without_effects(
   self : OiRefGetDescTrapFact,
 ) -> Bool {
-  self.ref_get_desc &&
-  self.traps_without_effects &&
-  (
-    self.child_unreachable ||
-    (self.explicit_nullable_child && self.nullable_child_known_null)
-  )
+  match (self.kind, self.explicit_known_null_child_fact) {
+    (RefGetDescTrapChildUnreachable, _) => true
+    (RefGetDescTrapExplicitKnownNullChild, Some(fact)) =>
+      fact.proves_valid_payload()
+    _ => false
+  }
 }
 
 ///|
