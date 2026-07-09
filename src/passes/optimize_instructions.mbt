@@ -27963,6 +27963,14 @@ priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectI64ReinterpretF64
   MatchingSelectF32ReinterpretI32
   MatchingSelectF64ReinterpretI64
+  MatchingSelectF32ConvertI32S
+  MatchingSelectF32ConvertI32U
+  MatchingSelectF32ConvertI64S
+  MatchingSelectF32ConvertI64U
+  MatchingSelectF64ConvertI32S
+  MatchingSelectF64ConvertI32U
+  MatchingSelectF64ConvertI64S
+  MatchingSelectF64ConvertI64U
 }
 
 ///|
@@ -28240,6 +28248,62 @@ fn OiMatchingUnarySelectArmFact::from_node(
         @lib.ValType::f64(),
         @lib.ValType::i64(),
       )
+    Some(@lib.Instruction::F32ConvertI32S) =>
+      (
+        MatchingSelectF32ConvertI32S,
+        @lib.Instruction::f32_convert_i32s(),
+        @lib.ValType::f32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::F32ConvertI32U) =>
+      (
+        MatchingSelectF32ConvertI32U,
+        @lib.Instruction::f32_convert_i32u(),
+        @lib.ValType::f32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::F32ConvertI64S) =>
+      (
+        MatchingSelectF32ConvertI64S,
+        @lib.Instruction::f32_convert_i64s(),
+        @lib.ValType::f32(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::F32ConvertI64U) =>
+      (
+        MatchingSelectF32ConvertI64U,
+        @lib.Instruction::f32_convert_i64u(),
+        @lib.ValType::f32(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::F64ConvertI32S) =>
+      (
+        MatchingSelectF64ConvertI32S,
+        @lib.Instruction::f64_convert_i32s(),
+        @lib.ValType::f64(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::F64ConvertI32U) =>
+      (
+        MatchingSelectF64ConvertI32U,
+        @lib.Instruction::f64_convert_i32u(),
+        @lib.ValType::f64(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::F64ConvertI64S) =>
+      (
+        MatchingSelectF64ConvertI64S,
+        @lib.Instruction::f64_convert_i64s(),
+        @lib.ValType::f64(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::F64ConvertI64U) =>
+      (
+        MatchingSelectF64ConvertI64U,
+        @lib.Instruction::f64_convert_i64u(),
+        @lib.ValType::f64(),
+        @lib.ValType::i64(),
+      )
     _ => return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -28313,6 +28377,14 @@ fn OiMatchingUnarySelectArmPairFact::from_arms(
     (MatchingSelectI64ReinterpretF64, MatchingSelectI64ReinterpretF64) => ()
     (MatchingSelectF32ReinterpretI32, MatchingSelectF32ReinterpretI32) => ()
     (MatchingSelectF64ReinterpretI64, MatchingSelectF64ReinterpretI64) => ()
+    (MatchingSelectF32ConvertI32S, MatchingSelectF32ConvertI32S) => ()
+    (MatchingSelectF32ConvertI32U, MatchingSelectF32ConvertI32U) => ()
+    (MatchingSelectF32ConvertI64S, MatchingSelectF32ConvertI64S) => ()
+    (MatchingSelectF32ConvertI64U, MatchingSelectF32ConvertI64U) => ()
+    (MatchingSelectF64ConvertI32S, MatchingSelectF64ConvertI32S) => ()
+    (MatchingSelectF64ConvertI32U, MatchingSelectF64ConvertI32U) => ()
+    (MatchingSelectF64ConvertI64S, MatchingSelectF64ConvertI64S) => ()
+    (MatchingSelectF64ConvertI64U, MatchingSelectF64ConvertI64U) => ()
     _ => return None
   }
   if true_fact.child_type != false_fact.child_type ||

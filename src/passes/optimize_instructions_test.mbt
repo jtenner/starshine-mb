@@ -3174,6 +3174,72 @@ test "optimize-instructions hoists matching float width and reinterpret select a
 }
 
 ///|
+test "optimize-instructions hoists matching integer to float select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
+  // loop hoists all nontrapping scalar integer-to-float conversion shells.
+  // Oracle: `.tmp/oi-probes/select-matching-conversion-hoist.wat`.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_child_type : @lib.ValType,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other =>
+        fail("expected matching integer-to-float shells to hoist, got \{other}")
+    }
+    @debug.assert_eq(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, inner)),
+      [expected_child_type],
+    )
+  }
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result f32) local.get 0 f32.convert_i32_s local.get 1 f32.convert_i32_s local.get 2 select))",
+    @lib.Instruction::f32_convert_i32s(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result f32) local.get 0 f32.convert_i32_u local.get 1 f32.convert_i32_u local.get 2 select))",
+    @lib.Instruction::f32_convert_i32u(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result f32) local.get 0 f32.convert_i64_s local.get 1 f32.convert_i64_s local.get 2 select))",
+    @lib.Instruction::f32_convert_i64s(),
+    @lib.ValType::i64(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result f32) local.get 0 f32.convert_i64_u local.get 1 f32.convert_i64_u local.get 2 select))",
+    @lib.Instruction::f32_convert_i64u(),
+    @lib.ValType::i64(),
+  )
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result f64) local.get 0 f64.convert_i32_s local.get 1 f64.convert_i32_s local.get 2 select))",
+    @lib.Instruction::f64_convert_i32s(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result f64) local.get 0 f64.convert_i32_u local.get 1 f64.convert_i32_u local.get 2 select))",
+    @lib.Instruction::f64_convert_i32u(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result f64) local.get 0 f64.convert_i64_s local.get 1 f64.convert_i64_s local.get 2 select))",
+    @lib.Instruction::f64_convert_i64s(),
+    @lib.ValType::i64(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result f64) local.get 0 f64.convert_i64_u local.get 1 f64.convert_i64_u local.get 2 select))",
+    @lib.Instruction::f64_convert_i64u(),
+    @lib.ValType::i64(),
+  )
+}
+
+///|
 test "optimize-instructions hoists repeated matching unary select arm chains" {
   // Red-first OI-F ternary parity slice: Binaryen version_130 repeats the
   // shallow-equal one-child loop until the select sits below the full matching
