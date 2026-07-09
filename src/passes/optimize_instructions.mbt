@@ -9325,6 +9325,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixCall
   MaxBitsBlockPrefixCallIndirect
   MaxBitsBlockPrefixGlobalSet
+  MaxBitsBlockPrefixTableSet
 }
 
 ///|
@@ -9343,7 +9344,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // even when earlier straight-line roots have effects; the later replacement
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
-  // memory store, direct/indirect call, and global write roots so branch,
+  // memory/table store, direct/indirect call, and global write roots so branch,
   // control, and generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
@@ -9358,6 +9359,8 @@ fn OiMaxBitsBlockPrefixFact::from_root(
       Some({ kind: MaxBitsBlockPrefixCallIndirect, root_id })
     @ir.HotOp::GlobalSet if @ir.hot_child_count(func, root_id) == 1 =>
       Some({ kind: MaxBitsBlockPrefixGlobalSet, root_id })
+    @ir.HotOp::TableSet if @ir.hot_child_count(func, root_id) == 2 =>
+      Some({ kind: MaxBitsBlockPrefixTableSet, root_id })
     _ => None
   }
 }
@@ -9373,7 +9376,8 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixStore
     | MaxBitsBlockPrefixCall
     | MaxBitsBlockPrefixCallIndirect
-    | MaxBitsBlockPrefixGlobalSet => true
+    | MaxBitsBlockPrefixGlobalSet
+    | MaxBitsBlockPrefixTableSet => true
   }
 }
 
