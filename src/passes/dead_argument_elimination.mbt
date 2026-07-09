@@ -504,7 +504,23 @@ priv struct DaeSingleResultControlGcCandidateEvidence {
 }
 
 ///|
-priv struct DaeGcActualShapeEvidence {
+priv enum DaeGcActualShapeKind {
+  DaeDirectGcActualShape
+  DaeBlockGcActualShape
+  DaeLoopGcActualShape
+  DaeIfGcActualShape
+  DaeSelectGcActualShape(DaeSelectValueSlices)
+}
+
+///|
+priv struct DaeGcActualShapeDiscoveryEvidence {
+  start : Int
+  end : Int
+  kind : DaeGcActualShapeKind
+}
+
+///|
+priv struct DaeGcActualTypeEvidence {
   candidate : @lib.ValType
   refined_candidate : @lib.ValType?
   select : DaeGcSelectValueSlicesEvidence?
@@ -4163,10 +4179,17 @@ fn dae_rewrite_refined_gc_actual_slice(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Bool {
+  let shape = match
+    dae_gc_actual_value_slice_shape_evidence(
+      instrs, slice, mod_, func_type_indices,
+    ) {
+    Some(evidence) => evidence
+    None => return true
+  }
   match
-    dae_gc_actual_value_slice_evidence(
+    dae_gc_actual_type_evidence(
       instrs,
-      slice,
+      shape,
       mod_,
       refined_type,
       func_type_indices,
@@ -6285,65 +6308,120 @@ fn dae_gc_select_actual_value_slices_evidence(
 }
 
 ///|
-fn dae_gc_actual_shape_evidence(
+fn dae_gc_actual_shape_discovery_evidence(
   instrs : Array[@lib.Instruction],
   shape : DaeCallShape,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> DaeGcActualShapeDiscoveryEvidence? {
+  if shape.start < 0 || shape.start >= shape.end || shape.end > instrs.length() {
+    return None
+  }
+  let kind = match instrs[shape.end - 1] {
+    @lib.Block(_, _) => DaeBlockGcActualShape
+    @lib.Loop(_, _) => DaeLoopGcActualShape
+    @lib.If(_, _, _) => DaeIfGcActualShape
+    @lib.Select(_) => {
+      if shape.start + 4 > shape.end {
+        return None
+      }
+      let slices = match
+        dae_find_select_value_slices(
+          mod_,
+          func_type_indices,
+          instrs,
+          shape.end - 1,
+          required_left_start=shape.start,
+        ) {
+        Some(slices) => slices
+        None => return None
+      }
+      DaeSelectGcActualShape(slices)
+    }
+    _ if shape.start + 1 == shape.end => DaeDirectGcActualShape
+    _ => return None
+  }
+  Some({ start: shape.start, end: shape.end, kind })
+}
+
+///|
+fn dae_gc_actual_type_evidence(
+  instrs : Array[@lib.Instruction],
+  shape : DaeGcActualShapeDiscoveryEvidence,
   mod_ : @lib.Module,
   old_type : @lib.ValType,
   func_type_indices : Array[@lib.TypeIdx],
   require_refined? : Bool = false,
   rewrite_type? : @lib.ValType? = None,
-) -> DaeGcActualShapeEvidence? {
+) -> DaeGcActualTypeEvidence? {
   if shape.start < 0 || shape.start >= shape.end || shape.end > instrs.length() {
     return None
   }
-  let candidate = match instrs[shape.end - 1] {
-    @lib.Block(block_type, _)
-    | @lib.Loop(block_type, _)
-    | @lib.If(block_type, _, _) =>
-      dae_block_type_last_non_null_concrete_gc_result_candidate(
-        block_type, mod_,
-      )
-    @lib.Select(_) =>
-      if shape.start + 4 <= shape.end {
-        let slices = match
-          dae_find_select_value_slices(
-            mod_,
-            func_type_indices,
-            instrs,
-            shape.end - 1,
-            required_left_start=shape.start,
-          ) {
-          Some(slices) => slices
-          None => return None
-        }
-        match
-          dae_gc_select_actual_value_slices_evidence(
-            mod_,
-            func_type_indices,
-            instrs,
-            slices,
-            old_type,
-            require_refined~,
-            rewrite_type~,
-          ) {
-          Some(evidence) =>
-            return Some({
-              candidate: evidence.gc.candidate,
-              refined_candidate: evidence.gc.refined_candidate,
-              select: Some(evidence),
-              terminal_rewrite: rewrite_type.map(fn(refined) {
-                @lib.Instruction::select(types=Some([refined]))
-              }),
-            })
-          None => None
-        }
-      } else {
-        None
+  let terminal_idx = shape.end - 1
+  let candidate = match shape.kind {
+    DaeDirectGcActualShape => {
+      if shape.start + 1 != shape.end {
+        return None
       }
-    instr if shape.start + 1 == shape.end =>
-      dae_direct_gc_actual_candidate_type(instr, mod_, func_type_indices)
-    _ => None
+      match instrs[terminal_idx] {
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.Select(_) => return None
+        instr =>
+          dae_direct_gc_actual_candidate_type(instr, mod_, func_type_indices)
+      }
+    }
+    DaeBlockGcActualShape =>
+      match instrs[terminal_idx] {
+        @lib.Block(block_type, _) =>
+          dae_block_type_last_non_null_concrete_gc_result_candidate(
+            block_type, mod_,
+          )
+        _ => return None
+      }
+    DaeLoopGcActualShape =>
+      match instrs[terminal_idx] {
+        @lib.Loop(block_type, _) =>
+          dae_block_type_last_non_null_concrete_gc_result_candidate(
+            block_type, mod_,
+          )
+        _ => return None
+      }
+    DaeIfGcActualShape =>
+      match instrs[terminal_idx] {
+        @lib.If(block_type, _, _) =>
+          dae_block_type_last_non_null_concrete_gc_result_candidate(
+            block_type, mod_,
+          )
+        _ => return None
+      }
+    DaeSelectGcActualShape(slices) => {
+      if slices.left.start != shape.start || slices.select_idx != terminal_idx {
+        return None
+      }
+      match
+        dae_gc_select_actual_value_slices_evidence(
+          mod_,
+          func_type_indices,
+          instrs,
+          slices,
+          old_type,
+          require_refined~,
+          rewrite_type~,
+        ) {
+        Some(evidence) =>
+          return Some({
+            candidate: evidence.gc.candidate,
+            refined_candidate: evidence.gc.refined_candidate,
+            select: Some(evidence),
+            terminal_rewrite: rewrite_type.map(fn(refined) {
+              @lib.Instruction::select(types=Some([refined]))
+            }),
+          })
+        None => return None
+      }
+    }
   }
   match candidate {
     Some(candidate_type) => {
@@ -6366,23 +6444,17 @@ fn dae_gc_actual_shape_evidence(
 }
 
 ///|
-fn dae_gc_actual_value_slice_evidence(
+fn dae_gc_actual_value_slice_shape_evidence(
   instrs : Array[@lib.Instruction],
   slice : DaeValueSlice,
   mod_ : @lib.Module,
-  old_type : @lib.ValType,
   func_type_indices : Array[@lib.TypeIdx],
-  require_refined? : Bool = false,
-  rewrite_type? : @lib.ValType? = None,
-) -> DaeGcActualShapeEvidence? {
-  dae_gc_actual_shape_evidence(
+) -> DaeGcActualShapeDiscoveryEvidence? {
+  dae_gc_actual_shape_discovery_evidence(
     instrs,
     dae_call_shape_from_value_slice(slice),
     mod_,
-    old_type,
     func_type_indices,
-    require_refined~,
-    rewrite_type~,
   )
 }
 
@@ -6394,9 +6466,16 @@ fn dae_direct_gc_actual_candidate_type_for_value_slice(
   old_type : @lib.ValType,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> @lib.ValType? {
+  let shape = match
+    dae_gc_actual_value_slice_shape_evidence(
+      instrs, slice, mod_, func_type_indices,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
   match
-    dae_gc_actual_value_slice_evidence(
-      instrs, slice, mod_, old_type, func_type_indices,
+    dae_gc_actual_type_evidence(
+      instrs, shape, mod_, old_type, func_type_indices,
     ) {
     Some(evidence) => {
       let _ = evidence.refined_candidate

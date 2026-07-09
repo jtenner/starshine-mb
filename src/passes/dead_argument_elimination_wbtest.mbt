@@ -3377,21 +3377,25 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
       @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
     ),
   ]
-  match
-    dae_gc_actual_shape_evidence(
+  let control_shape = match
+    dae_gc_actual_shape_discovery_evidence(
       control_body,
       { start: 0, end: 2, pure: true },
       mod_,
-      base_ref,
       [],
     ) {
+    Some(evidence) => evidence
+    None => fail("expected control actual shape discovery")
+  }
+  match
+    dae_gc_actual_type_evidence(control_body, control_shape, mod_, base_ref, []) {
     Some(evidence) => {
       assert_eq(evidence.candidate, expected_leaf_ref)
       assert_eq(evidence.refined_candidate, Some(expected_leaf_ref))
       assert_true(evidence.select is None)
       assert_eq(evidence.terminal_rewrite, None)
     }
-    None => fail("expected control actual shape evidence")
+    None => fail("expected control actual type evidence")
   }
   let select_body = [
     @lib.Instruction::ref_null_type(
@@ -3403,10 +3407,20 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
     @lib.Instruction::i32_add(),
     @lib.Instruction::select(types=Some([base_ref])),
   ]
-  match
-    dae_gc_actual_shape_evidence(
+  let select_shape = match
+    dae_gc_actual_shape_discovery_evidence(
       select_body,
       { start: 0, end: 6, pure: true },
+      mod_,
+      [],
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected select actual shape discovery")
+  }
+  match
+    dae_gc_actual_type_evidence(
+      select_body,
+      select_shape,
       mod_,
       expected_nullable_leaf_ref,
       [],
@@ -3438,7 +3452,183 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
         Some(@lib.Instruction::select(types=Some([expected_nullable_leaf_ref]))),
       )
     }
-    None => fail("expected select actual shape rewrite evidence")
+    None => fail("expected select actual type rewrite evidence")
+  }
+}
+
+///|
+test "dae GC actual shape discovery separates target refinement" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let unrelated_type = @lib.TypeIdx::new(2U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let nullable_leaf_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=true),
+  )
+  let unrelated_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(unrelated_type)),
+  )
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+    ]),
+  )
+  let direct_body = [@lib.Instruction::struct_new_default(leaf_type)]
+  let direct_shape = match
+    dae_gc_actual_shape_discovery_evidence(
+      direct_body,
+      { start: 0, end: 1, pure: true },
+      mod_,
+      [],
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected direct actual shape discovery")
+  }
+  match direct_shape.kind {
+    DaeDirectGcActualShape => ()
+    _ => fail("expected direct actual shape kind")
+  }
+  let direct_type = match
+    dae_gc_actual_type_evidence(
+      direct_body,
+      direct_shape,
+      mod_,
+      base_ref,
+      [],
+      require_refined=true,
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected direct target-specific GC evidence")
+  }
+  assert_eq(direct_type.refined_candidate, Some(direct_type.candidate))
+  assert_true(direct_type.select is None)
+  assert_eq(direct_type.terminal_rewrite, None)
+
+  let control_body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(direct_type.candidate),
+      @lib.Expr::new(direct_body),
+    ),
+  ]
+  let control_shape = match
+    dae_gc_actual_shape_discovery_evidence(
+      control_body,
+      { start: 0, end: 2, pure: true },
+      mod_,
+      [],
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected control actual shape discovery")
+  }
+  match control_shape.kind {
+    DaeBlockGcActualShape => ()
+    _ => fail("expected block actual shape kind")
+  }
+  match
+    dae_gc_actual_type_evidence(
+      control_body,
+      control_shape,
+      mod_,
+      base_ref,
+      [],
+      require_refined=true,
+    ) {
+    Some(evidence) => assert_eq(evidence.candidate, direct_type.candidate)
+    None => fail("expected current-body control candidate evidence")
+  }
+
+  let select_body = [
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+    ),
+    @lib.Instruction::struct_new_default(leaf_type),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::select(types=Some([base_ref])),
+  ]
+  let select_shape = match
+    dae_gc_actual_shape_discovery_evidence(
+      select_body,
+      { start: 0, end: 4, pure: true },
+      mod_,
+      [],
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected select actual shape discovery")
+  }
+  match select_shape.kind {
+    DaeSelectGcActualShape(slices) => {
+      assert_eq(slices.left.start, 0)
+      assert_eq(slices.right.start, 1)
+      assert_eq(slices.select_idx, 3)
+    }
+    _ => fail("expected select actual shape kind")
+  }
+  let candidate_only = match
+    dae_gc_actual_type_evidence(
+      select_body,
+      select_shape,
+      mod_,
+      nullable_leaf_ref,
+      [],
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected candidate-only select evidence")
+  }
+  assert_eq(candidate_only.candidate, nullable_leaf_ref)
+  assert_eq(candidate_only.refined_candidate, None)
+  assert_eq(candidate_only.terminal_rewrite, None)
+  let rewrite = match
+    dae_gc_actual_type_evidence(
+      select_body,
+      select_shape,
+      mod_,
+      nullable_leaf_ref,
+      [],
+      rewrite_type=Some(nullable_leaf_ref),
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected nullable select rewrite evidence")
+  }
+  assert_true(rewrite.select is Some(_))
+  assert_eq(
+    rewrite.terminal_rewrite,
+    Some(@lib.Instruction::select(types=Some([nullable_leaf_ref]))),
+  )
+  match
+    dae_gc_actual_type_evidence(
+      select_body,
+      select_shape,
+      mod_,
+      unrelated_ref,
+      [],
+      require_refined=true,
+    ) {
+    Some(_) => fail("wrong target type must reject retained select shape")
+    None => ()
+  }
+  let stale_body = select_body.copy()
+  stale_body[3] = @lib.Instruction::drop()
+  match
+    dae_gc_actual_type_evidence(
+      stale_body,
+      select_shape,
+      mod_,
+      nullable_leaf_ref,
+      [],
+    ) {
+    Some(_) => fail("stale select shape must reject a changed terminal body")
+    None => ()
   }
 }
 
