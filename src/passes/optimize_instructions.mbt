@@ -13665,11 +13665,75 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
 }
 
 ///|
+priv struct OiDirectZeroSentinelFact {
+  node_id : Int
+}
+
+///|
+fn OiDirectZeroSentinelFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDirectZeroSentinelFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      if @ir.hot_const_get(func, node.imm0) ==
+        @ir.HotConstPayload::i32_const(@lib.I32(0)) {
+        Some({ node_id, })
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiDirectZeroSentinelFact::proves_direct_zero_sentinel(
+  self : OiDirectZeroSentinelFact,
+) -> Bool {
+  ignore(self.node_id)
+  true
+}
+
+///|
+priv struct OiDropZeroSentinelFact {
+  child_id : Int
+}
+
+///|
+fn OiDropZeroSentinelFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDropZeroSentinelFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, node_id) == 1 {
+        let child_id = @ir.hot_child_get(func, node_id, 0)
+        if OiZeroSentinelFact::from_node(func, child_id).proves_zero_sentinel() {
+          Some({ child_id, })
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiDropZeroSentinelFact::proves_drop_zero_sentinel(
+  self : OiDropZeroSentinelFact,
+) -> Bool {
+  ignore(self.child_id)
+  true
+}
+
+///|
 priv struct OiZeroSentinelFact {
-  exact_i32_zero : Bool
-  drop_shell : Bool
-  single_drop_child : Bool
-  child_zero_sentinel : Bool
+  direct_fact : OiDirectZeroSentinelFact?
+  drop_fact : OiDropZeroSentinelFact?
 }
 
 ///|
@@ -13679,39 +13743,35 @@ fn OiZeroSentinelFact::from_node(
 ) -> OiZeroSentinelFact {
   // Starshine's dead-suffix cleanup uses explicit zero sentinels to avoid
   // deleting value carriers that still satisfy a surrounding drop or result
-  // shape. Record the direct `i32.const 0` / nested `drop` proof as a fact so
-  // the cleanup does not own a recursive opcode scanner.
-  let node = @ir.hot_node_get(func, node_id)
-  let exact_i32_zero = match node.op {
-    @ir.HotOp::Const =>
-      @ir.hot_const_get(func, node.imm0) ==
-      @ir.HotConstPayload::i32_const(@lib.I32(0))
-    _ => false
+  // shape. Record the direct `i32.const 0` proof and nested single-child `drop`
+  // proof as sibling facts so the cleanup does not own a recursive opcode
+  // scanner or parallel shell booleans.
+  {
+    direct_fact: OiDirectZeroSentinelFact::from_node(func, node_id),
+    drop_fact: OiDropZeroSentinelFact::from_node(func, node_id),
   }
-  let drop_shell = match node.op {
-    @ir.HotOp::Drop => true
-    _ => false
-  }
-  let single_drop_child = drop_shell && @ir.hot_child_count(func, node_id) == 1
-  let child_zero_sentinel = if single_drop_child {
-    OiZeroSentinelFact::from_node(func, @ir.hot_child_get(func, node_id, 0)).proves_zero_sentinel()
-  } else {
-    false
-  }
-  { exact_i32_zero, drop_shell, single_drop_child, child_zero_sentinel }
 }
 
 ///|
 fn OiZeroSentinelFact::proves_zero_sentinel(self : OiZeroSentinelFact) -> Bool {
-  self.exact_i32_zero ||
-  (self.drop_shell && self.single_drop_child && self.child_zero_sentinel)
+  match self.direct_fact {
+    Some(fact) => fact.proves_direct_zero_sentinel()
+    None =>
+      match self.drop_fact {
+        Some(fact) => fact.proves_drop_zero_sentinel()
+        None => false
+      }
+  }
 }
 
 ///|
 fn OiZeroSentinelFact::proves_drop_zero_sentinel(
   self : OiZeroSentinelFact,
 ) -> Bool {
-  self.drop_shell && self.single_drop_child && self.child_zero_sentinel
+  match self.drop_fact {
+    Some(fact) => fact.proves_drop_zero_sentinel()
+    None => false
+  }
 }
 
 ///|
