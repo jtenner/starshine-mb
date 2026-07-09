@@ -2518,6 +2518,72 @@ test "dae parametric typeidx arm evidence reuses control result GC carrier" {
 }
 
 ///|
+test "dae single-body control rewrite evidence centralizes reconstruction" {
+  let original_body = [@lib.Instruction::nop()]
+  let rewritten_body = [@lib.Instruction::drop()]
+  let block = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new(original_body),
+  )
+  let loop_instr = @lib.Instruction::loop_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new(original_body),
+  )
+  let replacement_type = @lib.BlockType::val_type(@lib.ValType::i32())
+  let block_shape = match dae_single_body_control_shape_evidence(block) {
+    Some(evidence) => evidence
+    None => fail("expected block control shape evidence")
+  }
+  assert_eq(block_shape.control_kind, 0)
+  assert_eq(block_shape.block_type, @lib.BlockType::void_())
+  assert_eq(block_shape.body, original_body)
+  let unchanged = dae_single_body_control_rewrite_evidence(
+    block_shape,
+    replacement_type,
+    None,
+  )
+  assert_false(unchanged.body_changed)
+  assert_eq(unchanged.rewritten_body, original_body)
+  assert_eq(
+    dae_apply_single_body_control_rewrite_evidence(unchanged),
+    Some(
+      @lib.Instruction::block(replacement_type, @lib.Expr::new(original_body)),
+    ),
+  )
+  let loop_shape = match dae_single_body_control_shape_evidence(loop_instr) {
+    Some(evidence) => evidence
+    None => fail("expected loop control shape evidence")
+  }
+  assert_eq(loop_shape.control_kind, 1)
+  let rewritten = dae_single_body_control_rewrite_evidence(
+    loop_shape,
+    @lib.BlockType::void_(),
+    Some(rewritten_body),
+  )
+  assert_true(rewritten.body_changed)
+  assert_eq(
+    dae_apply_single_body_control_rewrite_evidence(rewritten),
+    Some(
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new(rewritten_body),
+      ),
+    ),
+  )
+  match
+    dae_single_body_control_shape_evidence(
+      @lib.Instruction::if_(@lib.BlockType::void_(), [], Some([])),
+    ) {
+    Some(_) => fail("paired-arm if must not use single-body control evidence")
+    None => ()
+  }
+  match dae_single_body_control_shape_evidence(@lib.Instruction::drop()) {
+    Some(_) => fail("non-control instruction must not produce shape evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae single-result control GC evidence centralizes block and loop rewrites" {
   let base_type = @lib.TypeIdx::new(0U)
   let leaf_type = @lib.TypeIdx::new(1U)
@@ -2547,18 +2613,20 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
       mod_,
       [],
       None,
-      @lib.BlockType::val_type(base_ref),
-      body,
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(base_ref),
+        @lib.Expr::new(body),
+      ),
       base_ref,
     ) {
     Some(evidence) => evidence
     None => fail("expected single-result control GC candidate evidence")
   }
   assert_eq(evidence.candidate, expected_leaf_ref)
-  assert_true(evidence.body_changed)
-  assert_eq(evidence.body, body)
+  assert_true(evidence.rewrite.body_changed)
+  assert_eq(evidence.rewrite.shape.body, body)
   assert_eq(
-    evidence.rewritten_body[0],
+    evidence.rewrite.rewritten_body[0],
     @lib.Instruction::struct_new_default(leaf_type),
   )
   let expected_rewritten_block = @lib.Instruction::block(
@@ -2569,21 +2637,28 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
     @lib.BlockType::val_type(expected_leaf_ref),
     @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
   )
-  match dae_apply_single_result_control_gc_candidate_evidence(evidence, 0) {
+  match dae_apply_single_body_control_rewrite_evidence(evidence.rewrite) {
     Some(rewritten_block) =>
       assert_eq(rewritten_block, expected_rewritten_block)
     None => fail("expected block rewrite from control GC candidate evidence")
   }
-  match dae_apply_single_result_control_gc_candidate_evidence(evidence, 1) {
+  let loop_evidence = match
+    dae_single_result_control_gc_candidate_evidence(
+      mod_,
+      [],
+      None,
+      @lib.Instruction::loop_(
+        @lib.BlockType::val_type(base_ref),
+        @lib.Expr::new(body),
+      ),
+      base_ref,
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected loop control GC candidate evidence")
+  }
+  match dae_apply_single_body_control_rewrite_evidence(loop_evidence.rewrite) {
     Some(rewritten_loop) => assert_eq(rewritten_loop, expected_rewritten_loop)
     None => fail("expected loop rewrite from control GC candidate evidence")
-  }
-  match dae_apply_single_result_control_gc_candidate_evidence(evidence, 2) {
-    Some(_) =>
-      fail(
-        "single-result control candidate evidence should reject if-kind application",
-      )
-    None => ()
   }
   match
     dae_single_result_control_gc_candidate_instr_evidence(

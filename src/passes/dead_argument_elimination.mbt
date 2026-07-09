@@ -483,11 +483,24 @@ priv struct DaeSingleResultControlPairRepairEvidence {
 }
 
 ///|
-priv struct DaeSingleResultControlGcCandidateEvidence {
+priv struct DaeSingleBodyControlShapeEvidence {
+  control_kind : Int
+  block_type : @lib.BlockType
   body : Array[@lib.Instruction]
-  candidate : @lib.ValType
+}
+
+///|
+priv struct DaeSingleBodyControlRewriteEvidence {
+  shape : DaeSingleBodyControlShapeEvidence
+  replacement_block_type : @lib.BlockType
   rewritten_body : Array[@lib.Instruction]
   body_changed : Bool
+}
+
+///|
+priv struct DaeSingleResultControlGcCandidateEvidence {
+  candidate : @lib.ValType
+  rewrite : DaeSingleBodyControlRewriteEvidence
 }
 
 ///|
@@ -6720,6 +6733,57 @@ fn dae_single_result_control_pair_repair_evidence(
 }
 
 ///|
+fn dae_single_body_control_shape_evidence(
+  instr : @lib.Instruction,
+) -> DaeSingleBodyControlShapeEvidence? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      Some({ control_kind: 0, block_type, body })
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      Some({ control_kind: 1, block_type, body })
+    _ => None
+  }
+}
+
+///|
+fn dae_single_body_control_rewrite_evidence(
+  shape : DaeSingleBodyControlShapeEvidence,
+  replacement_block_type : @lib.BlockType,
+  rewritten_body_opt : Array[@lib.Instruction]?,
+) -> DaeSingleBodyControlRewriteEvidence {
+  let (rewritten_body, body_changed) = match rewritten_body_opt {
+    Some(rewritten_body) => (rewritten_body, true)
+    None => (shape.body, false)
+  }
+  { shape, replacement_block_type, rewritten_body, body_changed }
+}
+
+///|
+fn dae_apply_single_body_control_rewrite_evidence(
+  evidence : DaeSingleBodyControlRewriteEvidence,
+) -> @lib.Instruction? {
+  let body = if evidence.body_changed {
+    evidence.rewritten_body
+  } else {
+    evidence.shape.body
+  }
+  let expr = @lib.Expr::new(body)
+  match evidence.shape.control_kind {
+    0 => Some(@lib.Instruction::block(evidence.replacement_block_type, expr))
+    1 => Some(@lib.Instruction::loop_(evidence.replacement_block_type, expr))
+    _ => None
+  }
+}
+
+///|
+fn dae_single_body_control_rewrite_changes_instruction(
+  evidence : DaeSingleBodyControlRewriteEvidence,
+) -> Bool {
+  evidence.body_changed ||
+  evidence.shape.block_type != evidence.replacement_block_type
+}
+
+///|
 fn dae_direct_gc_result_explicit_return_candidate_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -6728,51 +6792,39 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   match instr {
-    @lib.Block(block_type, @lib.Expr(block_body))
-    | @lib.Loop(block_type, @lib.Expr(block_body)) => {
+    @lib.Block(_, _) | @lib.Loop(_, _) => {
+      let shape = match dae_single_body_control_shape_evidence(instr) {
+        Some(shape) => shape
+        None => return None
+      }
       match
-        dae_control_block_type_zero_input_evidence(block_type, mod_.type_sec) {
+        dae_control_block_type_zero_input_evidence(
+          shape.block_type,
+          mod_.type_sec,
+        ) {
         Some(_) => ()
         None => return None
       }
       match
         dae_direct_gc_result_explicit_return_candidate_body(
-          mod_, func_type_indices, func_locals, block_body, old_type,
+          mod_,
+          func_type_indices,
+          func_locals,
+          shape.body,
+          old_type,
         ) {
-        Some((candidate_type, Some(rewritten_body))) => {
-          let rewritten = match instr {
-            @lib.Block(_, _) =>
-              @lib.Instruction::block(
-                @lib.BlockType::void_(),
-                @lib.Expr::new(rewritten_body),
-              )
-            _ =>
-              @lib.Instruction::loop_(
-                @lib.BlockType::void_(),
-                @lib.Expr::new(rewritten_body),
-              )
-          }
-          Some((candidate_type, Some(rewritten)))
-        }
-        Some((candidate_type, None)) => {
-          let rewritten = match instr {
-            @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(block_body))
-            | @lib.Block(@lib.TypeIdxBlockType(_), @lib.Expr(block_body)) =>
-              Some(
-                @lib.Instruction::block(
-                  @lib.BlockType::void_(),
-                  @lib.Expr::new(block_body),
-                ),
-              )
-            @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(block_body))
-            | @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(block_body)) =>
-              Some(
-                @lib.Instruction::loop_(
-                  @lib.BlockType::void_(),
-                  @lib.Expr::new(block_body),
-                ),
-              )
-            _ => None
+        Some((candidate_type, rewritten_body_opt)) => {
+          let rewrite = dae_single_body_control_rewrite_evidence(
+            shape,
+            @lib.BlockType::void_(),
+            rewritten_body_opt,
+          )
+          let rewritten = if dae_single_body_control_rewrite_changes_instruction(
+              rewrite,
+            ) {
+            dae_apply_single_body_control_rewrite_evidence(rewrite)
+          } else {
+            None
           }
           Some((candidate_type, rewritten))
         }
@@ -6866,45 +6918,34 @@ fn dae_single_result_control_gc_candidate_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   func_locals : @lib.FunctionLocals?,
-  block_type : @lib.BlockType,
-  body : Array[@lib.Instruction],
+  instr : @lib.Instruction,
   old_type : @lib.ValType,
 ) -> DaeSingleResultControlGcCandidateEvidence? {
-  match dae_control_single_result_block_type_evidence(block_type, mod_) {
+  let shape = match dae_single_body_control_shape_evidence(instr) {
+    Some(shape) => shape
+    None => return None
+  }
+  match dae_control_single_result_block_type_evidence(shape.block_type, mod_) {
     Some(_) => ()
     None => return None
   }
   match
     dae_direct_gc_result_candidate_body(
-      mod_, func_type_indices, func_locals, body, old_type,
+      mod_,
+      func_type_indices,
+      func_locals,
+      shape.body,
+      old_type,
     ) {
     Some((candidate, rewritten_body_opt)) => {
-      let (rewritten_body, body_changed) = match rewritten_body_opt {
-        Some(rewritten_body) => (rewritten_body, true)
-        None => (body, false)
-      }
-      Some({ body, candidate, rewritten_body, body_changed })
+      let rewrite = dae_single_body_control_rewrite_evidence(
+        shape,
+        @lib.BlockType::val_type(candidate),
+        rewritten_body_opt,
+      )
+      Some({ candidate, rewrite })
     }
     None => None
-  }
-}
-
-///|
-fn dae_apply_single_result_control_gc_candidate_evidence(
-  evidence : DaeSingleResultControlGcCandidateEvidence,
-  control_kind : Int,
-) -> @lib.Instruction? {
-  let block_type = @lib.BlockType::val_type(evidence.candidate)
-  let body = if evidence.body_changed {
-    evidence.rewritten_body
-  } else {
-    evidence.body
-  }
-  let expr = @lib.Expr::new(body)
-  match control_kind {
-    0 => Some(@lib.Instruction::block(block_type, expr))
-    1 => Some(@lib.Instruction::loop_(block_type, expr))
-    _ => None
   }
 }
 
@@ -6916,22 +6957,14 @@ fn dae_single_result_control_gc_candidate_instr_evidence(
   instr : @lib.Instruction,
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
-  let (block_type, body, control_kind) = match instr {
-    @lib.Block(block_type, @lib.Expr(body)) => (block_type, body, 0)
-    @lib.Loop(block_type, @lib.Expr(body)) => (block_type, body, 1)
-    _ => return None
-  }
   let evidence = match
     dae_single_result_control_gc_candidate_evidence(
-      mod_, func_type_indices, func_locals, block_type, body, old_type,
+      mod_, func_type_indices, func_locals, instr, old_type,
     ) {
     Some(evidence) => evidence
     None => return None
   }
-  match
-    dae_apply_single_result_control_gc_candidate_evidence(
-      evidence, control_kind,
-    ) {
+  match dae_apply_single_body_control_rewrite_evidence(evidence.rewrite) {
     Some(rewritten) => Some((evidence.candidate, Some(rewritten)))
     None => None
   }
