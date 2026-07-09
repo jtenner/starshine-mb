@@ -2637,6 +2637,38 @@ test "optimize-instructions folds i32 truthy self-selects through consecutive-in
 }
 
 ///|
+test "optimize-instructions preserves i32 falsy self-select evaluation before zero" {
+  // Red-first OI-F parity slice: Binaryen version_130's sibling consecutive
+  // rule rewrites `select(0, x, x)` to `drop(x); 0`, preserving the earlier arm
+  // evaluation while removing the repeated pure condition evaluation. The
+  // oracle is `.tmp/oi-probes/select-consecutive-inputs.wat`.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 0 local.get 0 local.get 0 select))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected falsy self-select to become a block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  let preserved = @ir.hot_region_get(func, body, 0)
+  match @ir.hot_node_get(func, preserved).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected preserved selected-value drop, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, preserved, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected preserved local.get evaluation, got \{other}")
+  }
+  let zero = @ir.hot_region_get(func, body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, zero).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to

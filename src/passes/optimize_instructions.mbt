@@ -27391,12 +27391,14 @@ fn OiConsecutiveInputFoldabilityFact::proves_foldable(
 ///|
 priv enum OiConsecutiveSelfSelectKind {
   ConsecutiveSelfSelectI32Truthy
+  ConsecutiveSelfSelectI32Falsy
 }
 
 ///|
 priv struct OiConsecutiveSelfSelectFact {
   kind : OiConsecutiveSelfSelectKind
   selected_id : Int
+  zero_id : Int
   equality_fact : OiConsecutiveInputEqualityFact
   foldability_fact : OiConsecutiveInputFoldabilityFact
 }
@@ -27411,20 +27413,27 @@ fn OiConsecutiveSelfSelectFact::from_select(
   if_false : Int,
   condition_id : Int,
 ) -> OiConsecutiveSelfSelectFact? {
-  // Binaryen v130 `optimizeSelect`'s first SCCP compatibility rule rewrites
-  // `i32(x) ? i32(x) : 0` to the earlier `x` when the true arm and condition
-  // are consecutive equal foldable inputs. Keep the literal/type shell,
-  // equality proof, and right-input erasure proof together as one OI-F fact.
+  // Binaryen v130 `optimizeSelect`'s paired SCCP compatibility rules rewrite
+  // `i32(x) ? i32(x) : 0` to the earlier `x`, and `i32(x) ? 0 : i32(x)` to
+  // `drop(x); 0`, when the selected arm and condition are consecutive equal
+  // foldable inputs. Keep the literal/type shell, equality proof, and
+  // right-input erasure proof together as one OI-F fact.
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [result_type] if result_type == @lib.ValType::i32() => ()
     _ => return None
   }
-  match optimize_instructions_i32_const(func, dead, if_false) {
-    Some(@lib.I32(0)) => ()
+  let (kind, selected_id, zero_id) = match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (_, Some(@lib.I32(0))) =>
+      (ConsecutiveSelfSelectI32Truthy, if_true, if_false)
+    (Some(@lib.I32(0)), _) => (ConsecutiveSelfSelectI32Falsy, if_false, if_true)
     _ => return None
   }
   let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
-    ctx, func, if_true, condition_id,
+    ctx, func, selected_id, condition_id,
   )
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
     func, dead, condition_id,
@@ -27432,12 +27441,7 @@ fn OiConsecutiveSelfSelectFact::from_select(
   if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
     return None
   }
-  Some({
-    kind: ConsecutiveSelfSelectI32Truthy,
-    selected_id: if_true,
-    equality_fact,
-    foldability_fact,
-  })
+  Some({ kind, selected_id, zero_id, equality_fact, foldability_fact })
 }
 
 ///|
@@ -27459,6 +27463,16 @@ fn OiConsecutiveSelfSelectFact::apply(
         node_id,
         self.selected_id,
       )
+    ConsecutiveSelfSelectI32Falsy => {
+      let replacement = @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [@ir.hot_build_drop(func, self.selected_id), self.zero_id],
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, replacement,
+      )
+    }
   }
   true
 }
