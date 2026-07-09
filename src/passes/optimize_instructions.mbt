@@ -1930,15 +1930,26 @@ fn OiRefProducerFact::from_node(
 }
 
 ///|
-priv struct OiRefProducerSubtypeRelationFact {
-  matches_heap : Bool
+priv enum OiRefProducerSubtypeRelationKind {
+  UnknownRefProducerSubtypeRelation
+  MatchesOrStrictSubtypesRefProducerTargetHeap
+}
+
+///|
+priv struct OiRefProducerSubtypeRelationPayloadFact {
   nullable : Bool
   exact : Bool
 }
 
 ///|
+priv struct OiRefProducerSubtypeRelationFact {
+  kind : OiRefProducerSubtypeRelationKind
+  payload : OiRefProducerSubtypeRelationPayloadFact?
+}
+
+///|
 fn OiRefProducerSubtypeRelationFact::unknown() -> OiRefProducerSubtypeRelationFact {
-  { matches_heap: false, nullable: false, exact: false }
+  { kind: UnknownRefProducerSubtypeRelation, payload: None }
 }
 
 ///|
@@ -1949,12 +1960,16 @@ fn OiRefProducerSubtypeRelationFact::from_heap_relation(
 ) -> OiRefProducerSubtypeRelationFact {
   // Binaryen v130 descriptor tests and descriptor equality casts share the
   // `matches || strict-subtype` producer-target outcome from
-  // `GCTypeUtils::evaluateCastCheck`. Keep that outcome as one fact with the
-  // tightened nullable/exact payload instead of three parallel booleans on the
-  // broader producer relation.
+  // `GCTypeUtils::evaluateCastCheck`. Keep that outcome as one kind with a
+  // tightened nullable/exact payload fact instead of parallel proof booleans on
+  // the broader producer relation.
   match
     relation.matches_or_strict_subtypes_heap(source_nullable, source_exact) {
-    Some((nullable, exact)) => { matches_heap: true, nullable, exact }
+    Some((nullable, exact)) =>
+      {
+        kind: MatchesOrStrictSubtypesRefProducerTargetHeap,
+        payload: Some({ nullable, exact }),
+      }
     None => OiRefProducerSubtypeRelationFact::unknown()
   }
 }
@@ -1963,21 +1978,30 @@ fn OiRefProducerSubtypeRelationFact::from_heap_relation(
 fn OiRefProducerSubtypeRelationFact::proves_matches_heap(
   self : OiRefProducerSubtypeRelationFact,
 ) -> Bool {
-  self.matches_heap
+  match (self.kind, self.payload) {
+    (MatchesOrStrictSubtypesRefProducerTargetHeap, Some(_)) => true
+    _ => false
+  }
 }
 
 ///|
 fn OiRefProducerSubtypeRelationFact::proves_nullable(
   self : OiRefProducerSubtypeRelationFact,
 ) -> Bool {
-  self.nullable
+  match self.payload {
+    Some(payload) => payload.nullable
+    None => false
+  }
 }
 
 ///|
 fn OiRefProducerSubtypeRelationFact::proves_exact(
   self : OiRefProducerSubtypeRelationFact,
 ) -> Bool {
-  self.exact
+  match self.payload {
+    Some(payload) => payload.exact
+    None => false
+  }
 }
 
 ///|
