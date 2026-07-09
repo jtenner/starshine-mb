@@ -9325,15 +9325,34 @@ priv struct OiMaxBitsFallthroughFact {
 ///|
 fn OiMaxBitsFallthroughFact::from_single_value_block(
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiMaxBitsFallthroughFact? {
-  // Starshine's represented single-value block mirrors the local Binaryen
+  // Starshine's represented block fallthrough mirrors the local Binaryen
   // `Properties::getFallthrough` maxBits path used by the local scanner. Record
-  // the fallthrough child as a fact before the unsigned-max query recurses.
+  // the fallthrough child as a fact before the unsigned-max query recurses. For
+  // region-backed blocks, only pure prefixes are admitted so folded constants do
+  // not erase effects or branch/control behavior.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block if node.child_count == 1 =>
       Some({ value_id: func.children[node.child_base] })
+    @ir.HotOp::Block => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count == 0 {
+        return None
+      }
+      for slot = 0; slot < root_count - 1; slot = slot + 1 {
+        let root_id = @ir.hot_region_get(func, body_ref, slot)
+        if !OiSideEffectFreeExpressionFact::proves_node_free(
+            func, dead, root_id,
+          ) {
+          return None
+        }
+      }
+      Some({ value_id: @ir.hot_region_get(func, body_ref, root_count - 1) })
+    }
     _ => None
   }
 }
@@ -10648,7 +10667,8 @@ fn OiI32MaxBitsProducerFact::from_node(
       }
     }
     @ir.HotOp::Block =>
-      match OiMaxBitsFallthroughFact::from_single_value_block(func, node_id) {
+      match
+        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i32_max_for_node(
             func,
@@ -10754,7 +10774,8 @@ fn OiI64MaxBitsProducerFact::from_node(
       }
     }
     @ir.HotOp::Block =>
-      match OiMaxBitsFallthroughFact::from_single_value_block(func, node_id) {
+      match
+        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i64_max_for_node(
             func,
@@ -16122,7 +16143,9 @@ priv enum OiSideEffectFreeExpressionKind {
   SideEffectFreeRefI31Payload
   SideEffectFreeSimdSplatPayload
   SideEffectFreeBranchlessScalarShell
+  SideEffectFreeDropPayload
   SideEffectFreeSingleValueBlock
+  SideEffectFreeBlockRegion
 }
 
 ///|
@@ -16154,8 +16177,9 @@ fn OiSideEffectFreeExpressionFact::from_node(
   // previous Starshine-supported set exactly: direct pure leaves, exact
   // `ref.null`, byte-constant SIMD leaves, `ref.i31` over side-effect-free
   // payloads, direct SIMD splats over side-effect-free payloads, branchless
-  // scalar shells whose children are all side-effect-free, and the single-value
-  // block fallthrough shape Binaryen's maxBits path can erase after folding.
+  // scalar shells whose children are all side-effect-free, pure dropped payloads,
+  // the single-value block fallthrough shape Binaryen's maxBits path can erase
+  // after folding, and pure block regions with no effectful roots.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiSideEffectFreeExpressionFact::empty()
   }
@@ -16216,6 +16240,18 @@ fn OiSideEffectFreeExpressionFact::from_node(
     }
   }
   match node.op {
+    @ir.HotOp::Drop if node.child_count == 1 => {
+      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+        func,
+        dead,
+        func.children[node.child_base],
+      )
+      {
+        kind: SideEffectFreeDropPayload,
+        trivial_leaf,
+        children_effect_free: child_fact.proves_free(),
+      }
+    }
     @ir.HotOp::Block if node.child_count == 1 => {
       let child_fact = OiSideEffectFreeExpressionFact::from_node(
         func,
@@ -16226,6 +16262,25 @@ fn OiSideEffectFreeExpressionFact::from_node(
         kind: SideEffectFreeSingleValueBlock,
         trivial_leaf,
         children_effect_free: child_fact.proves_free(),
+      }
+    }
+    @ir.HotOp::Block => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      let mut roots_effect_free = root_count > 0
+      for slot = 0; slot < root_count; slot = slot + 1 {
+        let root_id = @ir.hot_region_get(func, body_ref, slot)
+        let root_fact = OiSideEffectFreeExpressionFact::from_node(
+          func, dead, root_id,
+        )
+        if !root_fact.proves_free() {
+          roots_effect_free = false
+        }
+      }
+      {
+        kind: SideEffectFreeBlockRegion,
+        trivial_leaf,
+        children_effect_free: roots_effect_free,
       }
     }
     @ir.HotOp::Unary
@@ -16271,7 +16326,9 @@ fn OiSideEffectFreeExpressionFact::proves_free(
     SideEffectFreeRefI31Payload => self.children_effect_free
     SideEffectFreeSimdSplatPayload => self.children_effect_free
     SideEffectFreeBranchlessScalarShell => self.children_effect_free
+    SideEffectFreeDropPayload => self.children_effect_free
     SideEffectFreeSingleValueBlock => self.children_effect_free
+    SideEffectFreeBlockRegion => self.children_effect_free
   }
 }
 
