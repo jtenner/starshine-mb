@@ -3045,12 +3045,43 @@ fn OiDescriptorOperandSkipLocalizationFact::proves_should_localize_when_skipped(
 }
 
 ///|
+priv enum OiRefTestStyleKind {
+  RefTestOrdinaryStyle
+  RefTestDescriptorStyle
+}
+
+///|
+priv struct OiRefTestStyleFact {
+  kind : OiRefTestStyleKind
+}
+
+///|
+fn OiRefTestStyleFact::ordinary() -> OiRefTestStyleFact {
+  { kind: RefTestOrdinaryStyle }
+}
+
+///|
+fn OiRefTestStyleFact::descriptor() -> OiRefTestStyleFact {
+  { kind: RefTestDescriptorStyle }
+}
+
+///|
+fn OiRefTestStyleFact::proves_descriptor_style(
+  self : OiRefTestStyleFact,
+) -> Bool {
+  match self.kind {
+    RefTestOrdinaryStyle => false
+    RefTestDescriptorStyle => true
+  }
+}
+
+///|
 priv struct OiRefTestFact {
   nullable : Bool
   exact : Bool
   target : @lib.HeapType
   operand_id : Int
-  descriptor_style : Bool
+  style_fact : OiRefTestStyleFact
 }
 
 ///|
@@ -3061,12 +3092,12 @@ fn OiRefTestFact::from_node(
   if @ir.hot_child_count(func, node_id) != 1 {
     return None
   }
-  let (nullable, exact, target, descriptor_style) = match
+  let (nullable, exact, target, style_fact) = match
     @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefTest(nullable, exact, target)) =>
-      (nullable, exact, target, false)
+      (nullable, exact, target, OiRefTestStyleFact::ordinary())
     Some(@lib.Instruction::RefTestDesc(nullable, target)) =>
-      (nullable, false, target, true)
+      (nullable, false, target, OiRefTestStyleFact::descriptor())
     _ => return None
   }
   Some({
@@ -3074,13 +3105,13 @@ fn OiRefTestFact::from_node(
     exact,
     target,
     operand_id: @ir.hot_child_get(func, node_id, 0),
-    descriptor_style,
+    style_fact,
   })
 }
 
 ///|
 fn OiRefTestFact::known_null_result(self : OiRefTestFact) -> @lib.I32 {
-  ignore(self.descriptor_style)
+  ignore(self.style_fact)
   if self.nullable {
     @lib.I32(1)
   } else {
@@ -3142,9 +3173,8 @@ fn OiDescriptorRefTestTighteningFact::from_test(
   // tests, but Starshine cannot yet construct a validated descriptor-test GLB
   // fixture for same-shape or bottom-target cases. Preserve the boundary as a
   // named fact so descriptor tightening can be reopened here with valid fixtures
-  // instead of living as an implicit `descriptor_style` escape in the ordinary
-  // ref-test path.
-  if test_fact.descriptor_style {
+  // instead of living as an implicit style escape in the ordinary ref-test path.
+  if test_fact.style_fact.proves_descriptor_style() {
     Some({ boundary_only: true })
   } else {
     None
@@ -3164,7 +3194,7 @@ fn OiRefTestTighteningFact::from_test(
   func : @ir.HotFunc,
   test_fact : OiRefTestFact,
 ) -> OiRefTestTighteningFact? {
-  if test_fact.descriptor_style {
+  if test_fact.style_fact.proves_descriptor_style() {
     match OiDescriptorRefTestTighteningFact::from_test(test_fact) {
       Some(fact) => ignore(fact.proves_boundary_only())
       None => ()
@@ -3712,7 +3742,7 @@ fn OiRefTestEvaluationFact::from_test(
       },
     }
   }
-  if test_fact.descriptor_style {
+  if test_fact.style_fact.proves_descriptor_style() {
     return {
       kind: OiDescriptorRefTestEvaluationFact::from_operand(
         ctx, operand_fact, target, nullable,
@@ -3925,7 +3955,7 @@ fn OiRefTestRewritePlanFact::from_test(
           exact: narrowed_ref_type.is_exact(),
           target: narrowed_ref_type.get_heap_type(),
           operand_id: test_fact.operand_id,
-          descriptor_style: test_fact.descriptor_style,
+          style_fact: test_fact.style_fact,
         },
         Some(narrowed_ref_type),
       )
