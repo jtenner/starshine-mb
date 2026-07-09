@@ -472,6 +472,39 @@ test "optimize-instructions preserves call block prefixes after maxBits compare 
 }
 
 ///|
+test "optimize-instructions preserves drop-call block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 also folds the
+  // impossible maxBits compare through a drop-wrapped value-returning direct
+  // call prefix, while preserving the call, its traps/effects, and the dropped
+  // result before the folded constant. This is narrower than arbitrary call_ref,
+  // indirect-call return values, or branch/control localization.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $side (result i32) (i32.const 7))
+        #|  (func (param $x i32) (result i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (drop (call $side))
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected drop-call prefix maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves call_indirect block prefixes after maxBits compare folds" {
   // Red-first OI-E behavior-parity slice: Binaryen v130 folds an impossible
   // maxBits compare through a straight-line call_indirect block prefix, while
