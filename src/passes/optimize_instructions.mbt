@@ -11798,6 +11798,24 @@ priv struct OiCallRefKnownNullTargetFact {
 }
 
 ///|
+priv enum OiCallRefKnownNullBlockTailKind {
+  CallRefKnownNullBlockFinalRoot
+}
+
+///|
+priv struct OiCallRefKnownNullBlockTailFact {
+  kind : OiCallRefKnownNullBlockTailKind
+  block_id : Int
+  tail_id : Int
+  root_count : Int
+}
+
+///|
+priv struct OiCallRefKnownNullBlockFallthroughFact {
+  block_tail_fact : OiCallRefKnownNullBlockTailFact
+}
+
+///|
 fn OiCallRefKnownNullTargetEffectFact::elidable() -> OiCallRefKnownNullTargetEffectFact {
   { kind: CallRefKnownNullTargetEffectsElidable, preserve_fact: None }
 }
@@ -11880,28 +11898,18 @@ fn OiCallRefKnownNullTargetFact::from_target(
   let target = @ir.hot_node_get(func, target_id)
   match target.op {
     @ir.HotOp::Block => {
-      let body_ref = @ir.hot_region_body_ref(func, target_id)
-      let root_count = @ir.hot_region_root_count(func, body_ref)
-      if root_count < 1 {
-        return None
-      }
-      let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
-      if !OiLiveNodeFact::proves_node_live(func, dead, tail_id) {
-        return None
-      }
-      let tail_trap_fact = OiNullTrapFact::for_operand(
-        func,
-        tail_id,
-        traps_on_null=true,
-      )
-      match OiNullTrapRewriteFact::from_trap_fact(tail_trap_fact).kind {
-        NullTrapReplaceParentWithUnreachable => ()
+      let block_fallthrough_fact = match
+        OiCallRefKnownNullBlockFallthroughFact::from_block_target(
+          func, dead, target_id,
+        ) {
+        Some(fact) if fact.proves_known_null_fallthrough() => fact
         _ => return None
       }
-      if root_count == 1 {
+      let fallthrough_null_id = block_fallthrough_fact.fallthrough_null_id()
+      if block_fallthrough_fact.block_tail_fact.root_count == 1 {
         return Some({
           target_id,
-          fallthrough_null_id: tail_id,
+          fallthrough_null_id,
           target_effect_fact: OiCallRefKnownNullTargetEffectFact::elidable(),
         })
       }
@@ -11923,19 +11931,85 @@ fn OiCallRefKnownNullTargetFact::from_target(
         ).proves_effect_free_allowing_internal_control() {
         Some({
           target_id,
-          fallthrough_null_id: tail_id,
+          fallthrough_null_id,
           target_effect_fact: OiCallRefKnownNullTargetEffectFact::elidable(),
         })
       } else {
         match OiCallRefKnownNullTargetEffectFact::preserve_by_drop(target_id) {
           Some(target_effect_fact) =>
-            Some({ target_id, fallthrough_null_id: tail_id, target_effect_fact })
+            Some({ target_id, fallthrough_null_id, target_effect_fact })
           None => None
         }
       }
     }
     _ => None
   }
+}
+
+///|
+fn OiCallRefKnownNullBlockFallthroughFact::from_block_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  target_id : Int,
+) -> OiCallRefKnownNullBlockFallthroughFact? {
+  // Binaryen v130 `trapOnNull(curr, curr->target)` can see a known-null
+  // fallthrough through a block target when the block body's final root traps as
+  // null. Keep that block-tail/null proof separate from the later target-effect
+  // preservation decision so known-null call_ref planning does not carry an
+  // inline block root scanner.
+  match @ir.hot_node_get(func, target_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, target_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 1 {
+    return None
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  if !OiLiveNodeFact::proves_node_live(func, dead, tail_id) {
+    return None
+  }
+  let tail_trap_fact = OiNullTrapFact::for_operand(
+    func,
+    tail_id,
+    traps_on_null=true,
+  )
+  match OiNullTrapRewriteFact::from_trap_fact(tail_trap_fact).kind {
+    NullTrapReplaceParentWithUnreachable => ()
+    _ => return None
+  }
+  let block_tail_fact = {
+    kind: CallRefKnownNullBlockFinalRoot,
+    block_id: target_id,
+    tail_id,
+    root_count,
+  }
+  Some({ block_tail_fact, })
+}
+
+///|
+fn OiCallRefKnownNullBlockTailFact::proves_live_final_root(
+  self : OiCallRefKnownNullBlockTailFact,
+) -> Bool {
+  match self.kind {
+    CallRefKnownNullBlockFinalRoot =>
+      self.block_id >= 0 && self.tail_id >= 0 && self.root_count >= 1
+  }
+}
+
+///|
+fn OiCallRefKnownNullBlockFallthroughFact::proves_known_null_fallthrough(
+  self : OiCallRefKnownNullBlockFallthroughFact,
+) -> Bool {
+  self.block_tail_fact.proves_live_final_root()
+}
+
+///|
+fn OiCallRefKnownNullBlockFallthroughFact::fallthrough_null_id(
+  self : OiCallRefKnownNullBlockFallthroughFact,
+) -> Int {
+  self.block_tail_fact.tail_id
 }
 
 ///|
