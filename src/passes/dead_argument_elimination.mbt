@@ -1091,9 +1091,9 @@ fn dae_type_sec_func_type(
 }
 
 ///|
-fn dae_control_block_type_signature_evidence(
+fn dae_control_block_type_signature_evidence_from_type_sec(
   block_type : @lib.BlockType,
-  mod_ : @lib.Module,
+  type_sec : @lib.TypeSec?,
 ) -> DaeControlBlockTypeSignatureEvidence? {
   match block_type {
     @lib.VoidBlockType =>
@@ -1113,7 +1113,7 @@ fn dae_control_block_type_signature_evidence(
         type_idx: None,
       })
     @lib.TypeIdxBlockType(type_idx) =>
-      match mod_.type_sec {
+      match type_sec {
         Some(type_sec) =>
           match dae_type_sec_func_type(type_sec, type_idx) {
             Some(@lib.FuncType(params, results)) =>
@@ -1132,15 +1132,74 @@ fn dae_control_block_type_signature_evidence(
 }
 
 ///|
+fn dae_control_block_type_signature_evidence(
+  block_type : @lib.BlockType,
+  mod_ : @lib.Module,
+) -> DaeControlBlockTypeSignatureEvidence? {
+  dae_control_block_type_signature_evidence_from_type_sec(
+    block_type,
+    mod_.type_sec,
+  )
+}
+
+///|
+fn dae_control_block_type_stack_shape_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  input_count : Int,
+  output_count : Int,
+) -> DaeControlBlockTypeSignatureEvidence? {
+  match
+    dae_control_block_type_signature_evidence_from_type_sec(
+      block_type, type_sec,
+    ) {
+    Some(evidence) if evidence.input_count == input_count &&
+      evidence.output_count == output_count => Some(evidence)
+    _ => None
+  }
+}
+
+///|
+fn dae_control_block_type_stack_shape_accepts(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  input_count : Int,
+  output_count : Int,
+) -> Bool {
+  match
+    dae_control_block_type_stack_shape_evidence(
+      block_type, type_sec, input_count, output_count,
+    ) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn dae_control_block_type_exact_signature_accepts(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> Bool {
+  match
+    dae_control_block_type_stack_shape_evidence(
+      block_type,
+      type_sec,
+      params.length(),
+      results.length(),
+    ) {
+    Some(evidence) => evidence.params == params && evidence.results == results
+    None => false
+  }
+}
+
+///|
 fn dae_control_single_result_block_type_evidence(
   block_type : @lib.BlockType,
   mod_ : @lib.Module,
 ) -> DaeControlBlockTypeSignatureEvidence? {
-  match dae_control_block_type_signature_evidence(block_type, mod_) {
-    Some(evidence) if evidence.input_count == 0 && evidence.output_count == 1 =>
-      Some(evidence)
-    _ => None
-  }
+  dae_control_block_type_stack_shape_evidence(block_type, mod_.type_sec, 0, 1)
 }
 
 ///|
@@ -16853,20 +16912,7 @@ fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
 ) -> Bool {
-  match block_type {
-    @lib.ValTypeBlockType(_) => true
-    @lib.TypeIdxBlockType(type_idx) =>
-      match type_sec {
-        Some(type_sec) =>
-          match dae_type_sec_func_type(type_sec, type_idx) {
-            Some(@lib.FuncType(params, results)) =>
-              params.length() == 0 && results.length() == 1
-            None => false
-          }
-        None => false
-      }
-    _ => false
-  }
+  dae_control_block_type_stack_shape_accepts(block_type, type_sec, 0, 1)
 }
 
 ///|
@@ -16874,20 +16920,7 @@ fn dae_block_type_is_zero_param_zero_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
 ) -> Bool {
-  match block_type {
-    @lib.VoidBlockType => true
-    @lib.TypeIdxBlockType(type_idx) =>
-      match type_sec {
-        Some(type_sec) =>
-          match dae_type_sec_func_type(type_sec, type_idx) {
-            Some(@lib.FuncType(params, results)) =>
-              params.length() == 0 && results.length() == 0
-            None => false
-          }
-        None => false
-      }
-    _ => false
-  }
+  dae_control_block_type_stack_shape_accepts(block_type, type_sec, 0, 0)
 }
 
 ///|
@@ -20938,21 +20971,12 @@ fn dae_block_type_is_single_i32_param_zero_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
 ) -> Bool {
-  match block_type {
-    @lib.TypeIdxBlockType(type_idx) =>
-      match type_sec {
-        Some(type_sec) =>
-          match dae_type_sec_func_type(type_sec, type_idx) {
-            Some(@lib.FuncType(params, results)) =>
-              params.length() == 1 &&
-              params[0] == @lib.ValType::i32() &&
-              results.length() == 0
-            None => false
-          }
-        None => false
-      }
-    _ => false
-  }
+  dae_control_block_type_exact_signature_accepts(
+    block_type,
+    type_sec,
+    [@lib.ValType::i32()],
+    [],
+  )
 }
 
 ///|

@@ -4213,6 +4213,35 @@ test "dae control entry stack evidence centralizes nested block inputs" {
   assert_eq(typeidx_signature.output_count, 1)
   assert_eq(typeidx_signature.params.length(), 2)
   assert_eq(typeidx_signature.results.length(), 1)
+  match
+    dae_control_block_type_stack_shape_evidence(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      mod_.type_sec,
+      2,
+      1,
+    ) {
+    Some(shape) => {
+      assert_eq(shape.input_count, 2)
+      assert_eq(shape.output_count, 1)
+    }
+    None => fail("expected shared typeidx stack-shape evidence")
+  }
+  assert_true(
+    dae_control_block_type_exact_signature_accepts(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      mod_.type_sec,
+      [@lib.ValType::i32(), @lib.ValType::i64()],
+      [@lib.ValType::f32()],
+    ),
+  )
+  assert_false(
+    dae_control_block_type_exact_signature_accepts(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      mod_.type_sec,
+      [@lib.ValType::i64(), @lib.ValType::i32()],
+      [@lib.ValType::f32()],
+    ),
+  )
   match typeidx_signature.type_idx {
     Some(type_idx) => assert_eq(type_idx, @lib.TypeIdx::new(0U))
     None => fail("expected typeidx signature to retain control typeidx")
