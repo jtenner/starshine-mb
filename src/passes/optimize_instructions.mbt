@@ -9321,6 +9321,7 @@ fn OiI64LogicalShiftMaxBitsFact::from_shr_u(
 priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixPure
   MaxBitsBlockPrefixLocalSet
+  MaxBitsBlockPrefixStore
 }
 
 ///|
@@ -9337,15 +9338,18 @@ fn OiMaxBitsBlockPrefixFact::from_root(
 ) -> OiMaxBitsBlockPrefixFact? {
   // Binaryen v130 `Bits::getMaxBits` can use the value fallthrough of a block
   // even when earlier straight-line roots have effects; the later replacement
-  // preserves those effects by dropping the whole block. Keep the first
-  // effectful prefix outcome intentionally narrow to local.set roots so branch,
-  // control, and generalized localization remain out of this fact.
+  // preserves those effects by dropping the whole block. Keep the source-backed
+  // effectful prefix outcomes intentionally narrow to straight-line assignment
+  // and memory store roots so branch, control, and generalized localization
+  // remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
   }
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 =>
       Some({ kind: MaxBitsBlockPrefixLocalSet, root_id })
+    @ir.HotOp::Store if @ir.hot_child_count(func, root_id) == 2 =>
+      Some({ kind: MaxBitsBlockPrefixStore, root_id })
     _ => None
   }
 }
@@ -9356,7 +9360,9 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
 ) -> Bool {
   ignore(self.root_id)
   match self.kind {
-    MaxBitsBlockPrefixPure | MaxBitsBlockPrefixLocalSet => true
+    MaxBitsBlockPrefixPure
+    | MaxBitsBlockPrefixLocalSet
+    | MaxBitsBlockPrefixStore => true
   }
 }
 
