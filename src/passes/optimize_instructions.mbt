@@ -15359,14 +15359,26 @@ priv struct OiControlDirectExitFact {
 }
 
 ///|
+priv enum OiControlExitRegionKind {
+  ControlExitRegionEmpty
+  ControlExitRegionTailSummary
+  ControlExitRegionNonbranchTerminalPrefix
+  ControlExitRegionNeverFallthroughPrefix
+}
+
+///|
+priv struct OiControlExitRegionTailFact {
+  never_falls_through : Bool
+  never_falls_through_to_label : Bool
+  exits_to_label : Bool
+  exits_only_via_branches : Bool
+  branches_to_label : Bool
+}
+
+///|
 priv struct OiControlExitRegionFact {
-  empty : Bool
-  tail_never_falls_through : Bool
-  tail_never_falls_through_to_label : Bool
-  tail_exits_to_label : Bool
-  tail_exits_only_via_branches : Bool
-  tail_branches_to_label : Bool
-  exits_via_nonbranch_terminal : Bool
+  kind : OiControlExitRegionKind
+  tail_fact : OiControlExitRegionTailFact
 }
 
 ///|
@@ -15728,21 +15740,51 @@ fn OiControlExitFact::proves_exits_via_nonbranch_terminal(
 }
 
 ///|
+fn OiControlExitRegionTailFact::from_tail(
+  tail_fact : OiControlExitFact,
+) -> OiControlExitRegionTailFact {
+  {
+    never_falls_through: tail_fact.proves_never_falls_through(),
+    never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
+    exits_to_label: tail_fact.proves_exits_to_label(),
+    exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
+    branches_to_label: tail_fact.proves_branches_to_label(),
+  }
+}
+
+///|
+fn OiControlExitRegionTailFact::empty() -> OiControlExitRegionTailFact {
+  {
+    never_falls_through: false,
+    never_falls_through_to_label: false,
+    exits_to_label: false,
+    exits_only_via_branches: false,
+    branches_to_label: false,
+  }
+}
+
+///|
 fn OiControlExitRegionFact::from_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
   label_id : Int,
 ) -> OiControlExitRegionFact {
+  // Region summaries have two separate source-shaped decisions: the tail exit
+  // facts exposed to parents, and whether a live prefix root already exits via
+  // a nonbranch terminal or another no-fallthrough path. Keep that prefix kind
+  // explicit instead of parallel empty/nonbranch/never-fallthrough booleans.
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count == 0 {
     return OiControlExitRegionFact::empty()
   }
-  let tail_fact = OiControlExitFact::from_node(
-    func,
-    dead,
-    @ir.hot_region_get(func, region_ref, root_count - 1),
-    label_id,
+  let tail_fact = OiControlExitRegionTailFact::from_tail(
+    OiControlExitFact::from_node(
+      func,
+      dead,
+      @ir.hot_region_get(func, region_ref, root_count - 1),
+      label_id,
+    ),
   )
   for idx = 0; idx < root_count; idx = idx + 1 {
     let root = @ir.hot_region_get(func, region_ref, idx)
@@ -15751,49 +15793,32 @@ fn OiControlExitRegionFact::from_region(
     }
     let root_fact = OiControlExitFact::from_node(func, dead, root, label_id)
     if root_fact.proves_exits_via_nonbranch_terminal() {
-      return {
-        empty: false,
-        tail_never_falls_through: tail_fact.proves_never_falls_through(),
-        tail_never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
-        tail_exits_to_label: tail_fact.proves_exits_to_label(),
-        tail_exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
-        tail_branches_to_label: tail_fact.proves_branches_to_label(),
-        exits_via_nonbranch_terminal: true,
-      }
+      return { kind: ControlExitRegionNonbranchTerminalPrefix, tail_fact }
     }
     if root_fact.proves_never_falls_through() {
-      return {
-        empty: false,
-        tail_never_falls_through: tail_fact.proves_never_falls_through(),
-        tail_never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
-        tail_exits_to_label: tail_fact.proves_exits_to_label(),
-        tail_exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
-        tail_branches_to_label: tail_fact.proves_branches_to_label(),
-        exits_via_nonbranch_terminal: false,
-      }
+      return { kind: ControlExitRegionNeverFallthroughPrefix, tail_fact }
     }
   }
-  {
-    empty: false,
-    tail_never_falls_through: tail_fact.proves_never_falls_through(),
-    tail_never_falls_through_to_label: tail_fact.proves_never_falls_through_to_label(),
-    tail_exits_to_label: tail_fact.proves_exits_to_label(),
-    tail_exits_only_via_branches: tail_fact.proves_exits_only_via_branches(),
-    tail_branches_to_label: tail_fact.proves_branches_to_label(),
-    exits_via_nonbranch_terminal: false,
-  }
+  { kind: ControlExitRegionTailSummary, tail_fact }
 }
 
 ///|
 fn OiControlExitRegionFact::empty() -> OiControlExitRegionFact {
   {
-    empty: true,
-    tail_never_falls_through: false,
-    tail_never_falls_through_to_label: false,
-    tail_exits_to_label: false,
-    tail_exits_only_via_branches: false,
-    tail_branches_to_label: false,
-    exits_via_nonbranch_terminal: false,
+    kind: ControlExitRegionEmpty,
+    tail_fact: OiControlExitRegionTailFact::empty(),
+  }
+}
+
+///|
+fn OiControlExitRegionFact::proves_tail_summary_available(
+  self : OiControlExitRegionFact,
+) -> Bool {
+  match self.kind {
+    ControlExitRegionEmpty => false
+    ControlExitRegionTailSummary
+    | ControlExitRegionNonbranchTerminalPrefix
+    | ControlExitRegionNeverFallthroughPrefix => true
   }
 }
 
@@ -15801,42 +15826,48 @@ fn OiControlExitRegionFact::empty() -> OiControlExitRegionFact {
 fn OiControlExitRegionFact::proves_never_falls_through(
   self : OiControlExitRegionFact,
 ) -> Bool {
-  !self.empty && self.tail_never_falls_through
+  self.proves_tail_summary_available() && self.tail_fact.never_falls_through
 }
 
 ///|
 fn OiControlExitRegionFact::proves_never_falls_through_to_label(
   self : OiControlExitRegionFact,
 ) -> Bool {
-  !self.empty && self.tail_never_falls_through_to_label
+  self.proves_tail_summary_available() &&
+  self.tail_fact.never_falls_through_to_label
 }
 
 ///|
 fn OiControlExitRegionFact::proves_exits_to_label(
   self : OiControlExitRegionFact,
 ) -> Bool {
-  !self.empty && self.tail_exits_to_label
+  self.proves_tail_summary_available() && self.tail_fact.exits_to_label
 }
 
 ///|
 fn OiControlExitRegionFact::proves_exits_only_via_branches(
   self : OiControlExitRegionFact,
 ) -> Bool {
-  !self.empty && self.tail_exits_only_via_branches
+  self.proves_tail_summary_available() && self.tail_fact.exits_only_via_branches
 }
 
 ///|
 fn OiControlExitRegionFact::proves_branches_to_label(
   self : OiControlExitRegionFact,
 ) -> Bool {
-  !self.empty && self.tail_branches_to_label
+  self.proves_tail_summary_available() && self.tail_fact.branches_to_label
 }
 
 ///|
 fn OiControlExitRegionFact::proves_exits_via_nonbranch_terminal(
   self : OiControlExitRegionFact,
 ) -> Bool {
-  !self.empty && self.exits_via_nonbranch_terminal
+  match self.kind {
+    ControlExitRegionNonbranchTerminalPrefix => true
+    ControlExitRegionEmpty
+    | ControlExitRegionTailSummary
+    | ControlExitRegionNeverFallthroughPrefix => false
+  }
 }
 
 ///|
