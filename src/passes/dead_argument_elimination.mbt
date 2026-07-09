@@ -488,6 +488,14 @@ priv struct DaeMixedMultiResultReturnArmGcEvidence {
 }
 
 ///|
+priv struct DaeEffectFreeFallthroughEvidence {
+  body : Array[@lib.Instruction]
+  body_length : Int
+  has_observable_effect_or_branch : Bool
+  effect_free_fallthrough : Bool
+}
+
+///|
 priv struct DaeMixedMultiResultReturnArmRewriteEvidence {
   body : Array[@lib.Instruction]
   body_changed : Bool
@@ -7882,6 +7890,35 @@ fn dae_body_prefix_has_function_return(
 }
 
 ///|
+fn dae_effect_free_fallthrough_evidence_is_consistent(
+  evidence : DaeEffectFreeFallthroughEvidence,
+) -> Bool {
+  evidence.body_length == evidence.body.length() &&
+  evidence.effect_free_fallthrough == !evidence.has_observable_effect_or_branch &&
+  evidence.effect_free_fallthrough
+}
+
+///|
+fn dae_effect_free_fallthrough_evidence(
+  arm_body : Array[@lib.Instruction],
+) -> DaeEffectFreeFallthroughEvidence? {
+  let has_observable_effect_or_branch = dae_instrs_have_observable_effect_or_branch(
+    arm_body,
+  )
+  let evidence = {
+    body: arm_body,
+    body_length: arm_body.length(),
+    has_observable_effect_or_branch,
+    effect_free_fallthrough: !has_observable_effect_or_branch,
+  }
+  if dae_effect_free_fallthrough_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_mixed_single_result_return_arm_gc_evidence_is_consistent(
   evidence : DaeMixedSingleResultReturnArmGcEvidence,
 ) -> Bool {
@@ -7925,23 +7962,24 @@ fn dae_mixed_single_result_return_arm_gc_evidence(
       }
     }
     None =>
-      if dae_instrs_have_observable_effect_or_branch(arm_body) {
-        None
-      } else {
-        let evidence = {
-          candidate: current_candidate,
-          rewritten_body: None,
-          body_changed: false,
-          has_return: false,
-          effect_free_fallthrough: true,
+      match dae_effect_free_fallthrough_evidence(arm_body) {
+        Some(fallthrough) => {
+          let evidence = {
+            candidate: current_candidate,
+            rewritten_body: None,
+            body_changed: false,
+            has_return: false,
+            effect_free_fallthrough: fallthrough.effect_free_fallthrough,
+          }
+          if dae_mixed_single_result_return_arm_gc_evidence_is_consistent(
+              evidence,
+            ) {
+            Some(evidence)
+          } else {
+            None
+          }
         }
-        if dae_mixed_single_result_return_arm_gc_evidence_is_consistent(
-            evidence,
-          ) {
-          Some(evidence)
-        } else {
-          None
-        }
+        None => None
       }
   }
 }
@@ -9281,16 +9319,16 @@ fn dae_mixed_multi_result_return_arm_gc_evidence(
       })
     }
     None =>
-      if dae_instrs_have_observable_effect_or_branch(arm_body) {
-        None
-      } else {
-        Some({
-          body: arm_body,
-          result_start: -1,
-          flattened: false,
-          has_return: false,
-          effect_free_fallthrough: true,
-        })
+      match dae_effect_free_fallthrough_evidence(arm_body) {
+        Some(fallthrough) =>
+          Some({
+            body: fallthrough.body,
+            result_start: -1,
+            flattened: false,
+            has_return: false,
+            effect_free_fallthrough: fallthrough.effect_free_fallthrough,
+          })
+        None => None
       }
   }
 }
