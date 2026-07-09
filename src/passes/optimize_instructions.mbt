@@ -2739,10 +2739,29 @@ priv struct OiDescriptorOperandFact {
 }
 
 ///|
+priv enum OiDescriptorExactnessDropKind {
+  DescriptorExactnessPreserved
+  DescriptorExactnessDropEscapingRefGetDesc
+}
+
+///|
+priv struct OiDescriptorExactnessDropEscapingRefGetDescFact {
+  get_desc_fact : OiRefGetDescFact
+  branch_control_fact : OiDescriptorBranchControlFact
+}
+
+///|
+fn OiDescriptorExactnessDropEscapingRefGetDescFact::proves_may_drop_exactness(
+  self : OiDescriptorExactnessDropEscapingRefGetDescFact,
+) -> Bool {
+  self.get_desc_fact.child_id >= 0 &&
+  self.branch_control_fact.proves_has_escaping_branch_control()
+}
+
+///|
 priv struct OiDescriptorExactnessDropFact {
-  ref_get_desc_operand : Bool
-  escaping_branch_control : Bool
-  may_drop_exactness : Bool
+  kind : OiDescriptorExactnessDropKind
+  escaping_ref_get_desc_fact : OiDescriptorExactnessDropEscapingRefGetDescFact?
 }
 
 ///|
@@ -2752,28 +2771,39 @@ fn OiDescriptorExactnessDropFact::from_operand(
 ) -> OiDescriptorExactnessDropFact {
   // Binaryen's descriptor-cast TNH skip may drop exactness when the descriptor
   // operand is a ref.get_desc whose preserved children can escape through
-  // branch control. Keep that guard as a fact over the descriptor operand and
-  // the shared branch-control summary instead of a helper-level predicate.
-  let ref_get_desc_operand = match OiRefGetDescFact::from_node(func, node_id) {
-    Some(_) => true
-    None => false
+  // branch control. Keep that guard as a nested fact over the descriptor operand
+  // and the shared branch-control summary instead of helper-level predicates or
+  // parallel booleans.
+  let escaping_ref_get_desc_fact = match
+    OiRefGetDescFact::from_node(func, node_id) {
+    Some(get_desc_fact) => {
+      let branch_control_fact = OiDescriptorBranchControlFact::from_node(
+        func, node_id, node_id,
+      )
+      if branch_control_fact.proves_has_escaping_branch_control() {
+        Some({ get_desc_fact, branch_control_fact })
+      } else {
+        None
+      }
+    }
+    None => None
   }
-  let escaping_branch_control = ref_get_desc_operand &&
-    OiDescriptorBranchControlFact::from_node(func, node_id, node_id).proves_has_escaping_branch_control()
-  {
-    ref_get_desc_operand,
-    escaping_branch_control,
-    may_drop_exactness: ref_get_desc_operand && escaping_branch_control,
+  let kind = match escaping_ref_get_desc_fact {
+    Some(_) => DescriptorExactnessDropEscapingRefGetDesc
+    None => DescriptorExactnessPreserved
   }
+  { kind, escaping_ref_get_desc_fact }
 }
 
 ///|
 fn OiDescriptorExactnessDropFact::proves_may_drop_exactness(
   self : OiDescriptorExactnessDropFact,
 ) -> Bool {
-  self.ref_get_desc_operand &&
-  self.escaping_branch_control &&
-  self.may_drop_exactness
+  match (self.kind, self.escaping_ref_get_desc_fact) {
+    (DescriptorExactnessDropEscapingRefGetDesc, Some(fact)) =>
+      fact.proves_may_drop_exactness()
+    _ => false
+  }
 }
 
 ///|
