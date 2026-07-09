@@ -316,6 +316,37 @@ test "optimize-instructions removes redundant local-carried unsigned mask facts"
 }
 
 ///|
+test "optimize-instructions erases pure block operands after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 `Bits::getMaxBits`
+  // sees through a single-value block and, because the block body is pure,
+  // replaces an impossible compare with a bare constant instead of preserving
+  // the block as `drop(block); const`. This bounds pure block erasure to the
+  // same single-value fallthrough shape already used by Starshine maxBits facts.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (result i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pure block maxBits compare fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("block"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant block-produced unsigned mask facts" {
   // OI-E finite closeout `.tmp/oi-e-v01-closeout-signoff-10000` exposed the
   // `oi-local-facts:block-produced-mask` bucket as the only sampled

@@ -16084,6 +16084,7 @@ priv enum OiSideEffectFreeExpressionKind {
   SideEffectFreeRefI31Payload
   SideEffectFreeSimdSplatPayload
   SideEffectFreeBranchlessScalarShell
+  SideEffectFreeSingleValueBlock
 }
 
 ///|
@@ -16114,8 +16115,9 @@ fn OiSideEffectFreeExpressionFact::from_node(
   // expression with a constant while preserving effects. The fact preserves the
   // previous Starshine-supported set exactly: direct pure leaves, exact
   // `ref.null`, byte-constant SIMD leaves, `ref.i31` over side-effect-free
-  // payloads, direct SIMD splats over side-effect-free payloads, and branchless
-  // scalar shells whose children are all side-effect-free.
+  // payloads, direct SIMD splats over side-effect-free payloads, branchless
+  // scalar shells whose children are all side-effect-free, and the single-value
+  // block fallthrough shape Binaryen's maxBits path can erase after folding.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiSideEffectFreeExpressionFact::empty()
   }
@@ -16176,6 +16178,18 @@ fn OiSideEffectFreeExpressionFact::from_node(
     }
   }
   match node.op {
+    @ir.HotOp::Block if node.child_count == 1 => {
+      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+        func,
+        dead,
+        func.children[node.child_base],
+      )
+      {
+        kind: SideEffectFreeSingleValueBlock,
+        trivial_leaf,
+        children_effect_free: child_fact.proves_free(),
+      }
+    }
     @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
@@ -16219,6 +16233,7 @@ fn OiSideEffectFreeExpressionFact::proves_free(
     SideEffectFreeRefI31Payload => self.children_effect_free
     SideEffectFreeSimdSplatPayload => self.children_effect_free
     SideEffectFreeBranchlessScalarShell => self.children_effect_free
+    SideEffectFreeSingleValueBlock => self.children_effect_free
   }
 }
 
