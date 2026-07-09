@@ -8550,6 +8550,91 @@ test "dae local usage evidence centralizes local counts and try-table scan" {
 }
 
 ///|
+test "dae func237 local copy candidate evidence centralizes local usage and try-table roots" {
+  let temp = @lib.LocalIdx::new(108U)
+  let param_local = @lib.LocalIdx::new(2U)
+  let immediate_body = [
+    @lib.Instruction::local_set(temp),
+    @lib.Instruction::try_table(@lib.BlockType::void_(), [], @lib.Expr::new([])),
+    @lib.Instruction::local_get(temp),
+  ]
+  match
+    dae_func237_local_copy_candidate_evidence(
+      immediate_body,
+      temp,
+      4,
+      DaeFunc237ImmediateLocalCopyGap,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.temp_local, temp)
+      assert_eq(evidence.usage.target_local, temp)
+      assert_eq(evidence.usage.get_count, 1)
+      assert_eq(evidence.usage.write_count, 1)
+      assert_true(evidence.root_has_try_table)
+      match evidence.mode {
+        DaeFunc237ImmediateLocalCopyGap => ()
+        _ => fail("expected immediate local-copy candidate mode")
+      }
+    }
+    None => fail("expected immediate candidate evidence")
+  }
+  let used_temp_body = [
+    @lib.Instruction::local_set(temp),
+    @lib.Instruction::local_get(temp),
+    @lib.Instruction::try_table(@lib.BlockType::void_(), [], @lib.Expr::new([])),
+    @lib.Instruction::local_get(temp),
+  ]
+  match
+    dae_func237_local_copy_candidate_evidence(
+      used_temp_body,
+      temp,
+      4,
+      DaeFunc237UsedTempLocalCopyGap,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.usage.get_count, 2)
+      assert_eq(evidence.usage.write_count, 1)
+      assert_true(evidence.root_has_try_table)
+      match evidence.mode {
+        DaeFunc237UsedTempLocalCopyGap => ()
+        _ => fail("expected used-temp local-copy candidate mode")
+      }
+    }
+    None => fail("expected used-temp candidate evidence")
+  }
+  match
+    dae_func237_local_copy_candidate_evidence(
+      immediate_body,
+      param_local,
+      4,
+      DaeFunc237ImmediateLocalCopyGap,
+    ) {
+    Some(_) => fail("parameter locals must not become local-copy candidates")
+    None => ()
+  }
+  match
+    dae_func237_local_copy_candidate_evidence(
+      used_temp_body,
+      temp,
+      4,
+      DaeFunc237ImmediateLocalCopyGap,
+    ) {
+    Some(_) => fail("immediate candidates require exactly one temp read")
+    None => ()
+  }
+  match
+    dae_func237_local_copy_candidate_evidence(
+      immediate_body,
+      temp,
+      4,
+      DaeFunc237UsedTempLocalCopyGap,
+    ) {
+    Some(_) => fail("used-temp candidates require at least two temp reads")
+    None => ()
+  }
+}
+
+///|
 test "dae func237 local copy gap evidence shares immediate and used-temp policy" {
   let temp = @lib.LocalIdx::new(108U)
   let target = @lib.LocalIdx::new(33U)

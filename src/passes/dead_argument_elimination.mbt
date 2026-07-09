@@ -21522,28 +21522,24 @@ fn dae_local_usage_evidence_has_single_get_write(
 }
 
 ///|
-fn dae_instr_contains_try_table(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.TryTable(_, _, _) => true
-    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-      dae_instrs_contain_try_table(body)
-    @lib.If(_, then_body, Some(else_body)) =>
-      dae_instrs_contain_try_table(then_body) ||
-      dae_instrs_contain_try_table(else_body)
-    @lib.If(_, then_body, None) => dae_instrs_contain_try_table(then_body)
-    _ => false
-  }
-}
-
-///|
-fn dae_instrs_contain_try_table(instrs : Array[@lib.Instruction]) -> Bool {
-  instrs.any(fn(instr) { dae_instr_contains_try_table(instr) })
+fn dae_local_usage_evidence_root_has_try_table(
+  usage : DaeLocalUsageEvidence,
+) -> Bool {
+  usage.has_try_table
 }
 
 ///|
 priv enum DaeFunc237LocalCopyGapMode {
   DaeFunc237ImmediateLocalCopyGap
   DaeFunc237UsedTempLocalCopyGap
+}
+
+///|
+priv struct DaeFunc237LocalCopyCandidateEvidence {
+  mode : DaeFunc237LocalCopyGapMode
+  temp_local : @lib.LocalIdx
+  usage : DaeLocalUsageEvidence
+  root_has_try_table : Bool
 }
 
 ///|
@@ -21554,6 +21550,55 @@ priv struct DaeFunc237LocalCopyGapEvidence {
   temp_local : @lib.LocalIdx
   target_local : @lib.LocalIdx
   root_has_try_table : Bool
+}
+
+///|
+fn dae_func237_local_copy_candidate_evidence_is_consistent(
+  evidence : DaeFunc237LocalCopyCandidateEvidence,
+  temp_local : @lib.LocalIdx,
+  mode : DaeFunc237LocalCopyGapMode,
+) -> Bool {
+  let mode_ok = match (evidence.mode, mode) {
+    (DaeFunc237ImmediateLocalCopyGap, DaeFunc237ImmediateLocalCopyGap)
+    | (DaeFunc237UsedTempLocalCopyGap, DaeFunc237UsedTempLocalCopyGap) => true
+    _ => false
+  }
+  mode_ok && dae_local_idx_equal(evidence.temp_local, temp_local)
+}
+
+///|
+fn dae_func237_local_copy_candidate_evidence(
+  root_body : Array[@lib.Instruction],
+  temp_local : @lib.LocalIdx,
+  param_count : Int,
+  mode : DaeFunc237LocalCopyGapMode,
+) -> DaeFunc237LocalCopyCandidateEvidence? {
+  if dae_local_idx_slot(temp_local) < param_count {
+    return None
+  }
+  let usage = dae_local_usage_evidence(root_body, temp_local)
+  let usage_ok = match mode {
+    DaeFunc237ImmediateLocalCopyGap =>
+      usage.write_count == 1 && usage.get_count == 1
+    DaeFunc237UsedTempLocalCopyGap =>
+      usage.write_count == 1 && usage.get_count >= 2
+  }
+  if !usage_ok {
+    return None
+  }
+  let evidence = {
+    mode,
+    temp_local,
+    usage,
+    root_has_try_table: dae_local_usage_evidence_root_has_try_table(usage),
+  }
+  if dae_func237_local_copy_candidate_evidence_is_consistent(
+      evidence, temp_local, mode,
+    ) {
+    Some(evidence)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -21791,7 +21836,6 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
   body : Array[@lib.Instruction],
   param_count : Int,
   root_body : Array[@lib.Instruction],
-  root_has_try_table : Bool,
 ) -> Array[@lib.Instruction]? {
   let mut set_idx = 0
   while set_idx + 2 < body.length() {
@@ -21802,12 +21846,18 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
         continue
       }
     }
-    let temp_usage = dae_local_usage_evidence(root_body, temp_local)
-    if dae_local_idx_slot(temp_local) < param_count ||
-      temp_usage.write_count != 1 ||
-      temp_usage.get_count != 1 {
-      set_idx += 1
-      continue
+    let candidate = match
+      dae_func237_local_copy_candidate_evidence(
+        root_body,
+        temp_local,
+        param_count,
+        DaeFunc237ImmediateLocalCopyGap,
+      ) {
+      Some(evidence) => evidence
+      None => {
+        set_idx += 1
+        continue
+      }
     }
     let mut get_idx = set_idx + 1
     let max_get_idx = set_idx + 5
@@ -21824,7 +21874,7 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
             get_idx,
             temp_local,
             target_local,
-            root_has_try_table,
+            candidate.root_has_try_table,
           ) => {
           let out : Array[@lib.Instruction] = []
           let mut prefix_idx = 0
@@ -21849,7 +21899,7 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
           body[get_idx],
           temp_local,
           temp_local,
-          root_has_try_table,
+          candidate.root_has_try_table,
         ) {
         break
       }
@@ -21865,20 +21915,19 @@ fn dae_try_fold_func237_immediate_local_copy_body_once_with_root(
   body : Array[@lib.Instruction],
   param_count : Int,
   root_body : Array[@lib.Instruction],
-  root_has_try_table : Bool,
 ) -> Array[@lib.Instruction]? {
   let rewrite_current_body = fn(
     current_body : Array[@lib.Instruction],
   ) -> Array[@lib.Instruction]? {
     dae_try_fold_func237_immediate_local_copy_flat_body_once(
-      current_body, param_count, root_body, root_has_try_table,
+      current_body, param_count, root_body,
     )
   }
   let rewrite_child_body = fn(
     child_body : Array[@lib.Instruction],
   ) -> Array[@lib.Instruction]? {
     dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-      child_body, param_count, root_body, root_has_try_table,
+      child_body, param_count, root_body,
     )
   }
   dae_apply_first_current_or_control_child_body_rewrite(
@@ -21892,10 +21941,7 @@ fn dae_try_fold_func237_immediate_local_copy_body_once(
   param_count : Int,
 ) -> Array[@lib.Instruction]? {
   dae_try_fold_func237_immediate_local_copy_body_once_with_root(
-    body,
-    param_count,
-    body,
-    dae_instrs_contain_try_table(body),
+    body, param_count, body,
   )
 }
 
@@ -21952,7 +21998,6 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
   body : Array[@lib.Instruction],
   param_count : Int,
   root_body : Array[@lib.Instruction],
-  root_has_try_table : Bool,
 ) -> Array[@lib.Instruction]? {
   let mut set_idx = 0
   while set_idx + 2 < body.length() {
@@ -21963,17 +22008,20 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
         continue
       }
     }
-    let temp_usage = dae_local_usage_evidence(root_body, temp_local)
-    if dae_local_idx_slot(temp_local) < param_count ||
-      temp_usage.write_count != 1 {
-      set_idx += 1
-      continue
+    let candidate = match
+      dae_func237_local_copy_candidate_evidence(
+        root_body,
+        temp_local,
+        param_count,
+        DaeFunc237UsedTempLocalCopyGap,
+      ) {
+      Some(evidence) => evidence
+      None => {
+        set_idx += 1
+        continue
+      }
     }
-    let total_temp_reads = temp_usage.get_count
-    if total_temp_reads < 2 {
-      set_idx += 1
-      continue
-    }
+    let total_temp_reads = candidate.usage.get_count
     let mut get_idx = set_idx + 1
     while get_idx + 1 < body.length() {
       match (body[get_idx], body[get_idx + 1]) {
@@ -21995,7 +22043,7 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
             get_idx,
             temp_local,
             target_local,
-            root_has_try_table,
+            candidate.root_has_try_table,
           ) => {
           let out : Array[@lib.Instruction] = []
           let mut idx = 0
@@ -22039,20 +22087,19 @@ fn dae_try_fold_func237_used_temp_copy_body_once_with_root(
   body : Array[@lib.Instruction],
   param_count : Int,
   root_body : Array[@lib.Instruction],
-  root_has_try_table : Bool,
 ) -> Array[@lib.Instruction]? {
   let rewrite_current_body = fn(
     current_body : Array[@lib.Instruction],
   ) -> Array[@lib.Instruction]? {
     dae_try_fold_func237_used_temp_copy_flat_body_once(
-      current_body, param_count, root_body, root_has_try_table,
+      current_body, param_count, root_body,
     )
   }
   let rewrite_child_body = fn(
     child_body : Array[@lib.Instruction],
   ) -> Array[@lib.Instruction]? {
     dae_try_fold_func237_used_temp_copy_body_once_with_root(
-      child_body, param_count, root_body, root_has_try_table,
+      child_body, param_count, root_body,
     )
   }
   dae_apply_first_current_or_control_child_body_rewrite(
@@ -22066,10 +22113,7 @@ fn dae_try_fold_func237_used_temp_copy_body_once(
   param_count : Int,
 ) -> Array[@lib.Instruction]? {
   dae_try_fold_func237_used_temp_copy_body_once_with_root(
-    body,
-    param_count,
-    body,
-    dae_instrs_contain_try_table(body),
+    body, param_count, body,
   )
 }
 
