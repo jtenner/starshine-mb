@@ -22422,6 +22422,42 @@ fn optimize_instructions_inverted_select_compare(
 }
 
 ///|
+priv enum OiI32BooleanSelectArmKind {
+  I32BooleanSelectTrueFalse
+  I32BooleanSelectFalseTrue
+}
+
+///|
+priv struct OiI32BooleanSelectArmFact {
+  kind : OiI32BooleanSelectArmKind
+}
+
+///|
+fn OiI32BooleanSelectArmFact::from_select_arms(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+) -> OiI32BooleanSelectArmFact? {
+  // Binaryen v130 `optimizeBoolean` gives the exact i32 `1,0` and `0,1`
+  // select-arm shells special treatment across direct eqz, zero-compare,
+  // compare-condition, and final boolean-select fallbacks. Keep that literal
+  // arm proof in one source-backed fact so those condition facts no longer own
+  // parallel inline arm scanners.
+  match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
+      Some({ kind: I32BooleanSelectTrueFalse })
+    (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
+      Some({ kind: I32BooleanSelectFalseTrue })
+    _ => None
+  }
+}
+
+///|
 priv enum OiEqzConditionSelectRewriteKind {
   EqzConditionSelectNoRewriteBoundary
   EqzConditionSelectI64TrueFalse
@@ -22519,29 +22555,31 @@ fn OiEqzConditionSelectFact::from_select_condition(
         )
       }
       match
-        (
-          optimize_instructions_i32_const(func, dead, if_true),
-          optimize_instructions_i32_const(func, dead, if_false),
+        OiI32BooleanSelectArmFact::from_select_arms(
+          func, dead, if_true, if_false,
         ) {
-        (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
-          Some(
-            OiEqzConditionSelectFact::simple(
-              inner_condition,
-              if_true,
-              if_false,
-              EqzConditionSelectI64TrueFalse,
-            ),
-          )
-        (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
-          Some(
-            OiEqzConditionSelectFact::simple(
-              inner_condition,
-              if_true,
-              if_false,
-              EqzConditionSelectI64FalseTrue,
-            ),
-          )
-        _ => None
+        Some(boolean_arm_fact) =>
+          match boolean_arm_fact.kind {
+            I32BooleanSelectTrueFalse =>
+              Some(
+                OiEqzConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  EqzConditionSelectI64TrueFalse,
+                ),
+              )
+            I32BooleanSelectFalseTrue =>
+              Some(
+                OiEqzConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  EqzConditionSelectI64FalseTrue,
+                ),
+              )
+          }
+        None => None
       }
     }
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, condition_id) ==
@@ -22555,77 +22593,83 @@ fn OiEqzConditionSelectFact::from_select_condition(
         )
       }
       match
-        (
-          optimize_instructions_i32_const(func, dead, if_true),
-          optimize_instructions_i32_const(func, dead, if_false),
+        OiI32BooleanSelectArmFact::from_select_arms(
+          func, dead, if_true, if_false,
         ) {
-        (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-          match @ir.hot_node_exact_instr(func, inner_condition) {
-            Some(inner_instr) if @ir.hot_child_count(func, inner_condition) == 2 =>
-              match optimize_instructions_inverted_select_compare(inner_instr) {
-                Some(inverted_instr) => {
-                  let lhs_id = @ir.hot_child_get(func, inner_condition, 0)
-                  let rhs_id = @ir.hot_child_get(func, inner_condition, 1)
-                  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
-                    !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-                    return Some(
-                      OiEqzConditionSelectFact::no_rewrite_boundary(
-                        inner_condition, if_true, if_false,
-                      ),
-                    )
+        Some(boolean_arm_fact) =>
+          match boolean_arm_fact.kind {
+            I32BooleanSelectTrueFalse => {
+              match @ir.hot_node_exact_instr(func, inner_condition) {
+                Some(inner_instr) if @ir.hot_child_count(func, inner_condition) ==
+                  2 =>
+                  match
+                    optimize_instructions_inverted_select_compare(inner_instr) {
+                    Some(inverted_instr) => {
+                      let lhs_id = @ir.hot_child_get(func, inner_condition, 0)
+                      let rhs_id = @ir.hot_child_get(func, inner_condition, 1)
+                      if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                        !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
+                        return Some(
+                          OiEqzConditionSelectFact::no_rewrite_boundary(
+                            inner_condition, if_true, if_false,
+                          ),
+                        )
+                      }
+                      return Some(
+                        OiEqzConditionSelectFact::compare(
+                          inner_condition,
+                          if_true,
+                          if_false,
+                          lhs_id,
+                          rhs_id,
+                          inverted_instr,
+                          EqzConditionSelectI32TrueFalseCompare,
+                        ),
+                      )
+                    }
+                    _ => ()
                   }
-                  return Some(
-                    OiEqzConditionSelectFact::compare(
-                      inner_condition,
-                      if_true,
-                      if_false,
-                      lhs_id,
-                      rhs_id,
-                      inverted_instr,
-                      EqzConditionSelectI32TrueFalseCompare,
-                    ),
-                  )
-                }
                 _ => ()
               }
-            _ => ()
-          }
-          Some(
-            OiEqzConditionSelectFact::simple(
-              inner_condition,
-              if_true,
-              if_false,
-              EqzConditionSelectI32TrueFalseEqz,
-            ),
-          )
-        }
-        (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-          match @ir.hot_node_exact_instr(func, inner_condition) {
-            Some(inner_instr) if @ir.hot_child_count(func, inner_condition) == 2 =>
-              match optimize_instructions_inverted_select_compare(inner_instr) {
-                Some(_) =>
-                  return Some(
-                    OiEqzConditionSelectFact::simple(
-                      inner_condition,
-                      if_true,
-                      if_false,
-                      EqzConditionSelectI32FalseTrueCompare,
-                    ),
-                  )
+              Some(
+                OiEqzConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  EqzConditionSelectI32TrueFalseEqz,
+                ),
+              )
+            }
+            I32BooleanSelectFalseTrue => {
+              match @ir.hot_node_exact_instr(func, inner_condition) {
+                Some(inner_instr) if @ir.hot_child_count(func, inner_condition) ==
+                  2 =>
+                  match
+                    optimize_instructions_inverted_select_compare(inner_instr) {
+                    Some(_) =>
+                      return Some(
+                        OiEqzConditionSelectFact::simple(
+                          inner_condition,
+                          if_true,
+                          if_false,
+                          EqzConditionSelectI32FalseTrueCompare,
+                        ),
+                      )
+                    _ => ()
+                  }
                 _ => ()
               }
-            _ => ()
+              Some(
+                OiEqzConditionSelectFact::simple(
+                  inner_condition,
+                  if_true,
+                  if_false,
+                  EqzConditionSelectI32FalseTrueNonzero,
+                ),
+              )
+            }
           }
-          Some(
-            OiEqzConditionSelectFact::simple(
-              inner_condition,
-              if_true,
-              if_false,
-              EqzConditionSelectI32FalseTrueNonzero,
-            ),
-          )
-        }
-        _ =>
+        None =>
           match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
             [_] =>
               Some(
@@ -22932,29 +22976,29 @@ fn OiZeroCompareConditionSelectFact::from_select_condition(
     )
   }
   match
-    (
-      optimize_instructions_i32_const(func, dead, if_true),
-      optimize_instructions_i32_const(func, dead, if_false),
-    ) {
-    (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
-      Some(
-        OiZeroCompareConditionSelectFact::simple(
-          compare_fact,
-          if_true,
-          if_false,
-          compare_fact.boolean_true_false_rewrite_kind(),
-        ),
-      )
-    (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
-      Some(
-        OiZeroCompareConditionSelectFact::simple(
-          compare_fact,
-          if_true,
-          if_false,
-          compare_fact.boolean_false_true_rewrite_kind(),
-        ),
-      )
-    _ =>
+    OiI32BooleanSelectArmFact::from_select_arms(func, dead, if_true, if_false) {
+    Some(boolean_arm_fact) =>
+      match boolean_arm_fact.kind {
+        I32BooleanSelectTrueFalse =>
+          Some(
+            OiZeroCompareConditionSelectFact::simple(
+              compare_fact,
+              if_true,
+              if_false,
+              compare_fact.boolean_true_false_rewrite_kind(),
+            ),
+          )
+        I32BooleanSelectFalseTrue =>
+          Some(
+            OiZeroCompareConditionSelectFact::simple(
+              compare_fact,
+              if_true,
+              if_false,
+              compare_fact.boolean_false_true_rewrite_kind(),
+            ),
+          )
+      }
+    None =>
       match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
         [_] =>
           Some(
@@ -23143,38 +23187,42 @@ fn OiIntegerEqualityConditionSelectFact::from_select_condition(
           let lhs_id = @ir.hot_child_get(func, condition_id, 0)
           let rhs_id = @ir.hot_child_get(func, condition_id, 1)
           match
-            (
-              optimize_instructions_i32_const(func, dead, if_true),
-              optimize_instructions_i32_const(func, dead, if_false),
+            OiI32BooleanSelectArmFact::from_select_arms(
+              func, dead, if_true, if_false,
             ) {
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
-                return Some(
-                  OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
-                    condition_id,
-                  ),
-                )
+            Some(boolean_arm_fact) =>
+              match boolean_arm_fact.kind {
+                I32BooleanSelectTrueFalse => {
+                  if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
+                    return Some(
+                      OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
+                        condition_id,
+                      ),
+                    )
+                  }
+                  Some(
+                    OiIntegerEqualityConditionSelectFact::keep_compare(
+                      condition_id,
+                    ),
+                  )
+                }
+                I32BooleanSelectFalseTrue => {
+                  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                    !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
+                    return Some(
+                      OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
+                        condition_id,
+                      ),
+                    )
+                  }
+                  Some(
+                    OiIntegerEqualityConditionSelectFact::invert_compare(
+                      condition_id, lhs_id, rhs_id, inverted_instr,
+                    ),
+                  )
+                }
               }
-              Some(
-                OiIntegerEqualityConditionSelectFact::keep_compare(condition_id),
-              )
-            }
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
-                !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-                return Some(
-                  OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
-                    condition_id,
-                  ),
-                )
-              }
-              Some(
-                OiIntegerEqualityConditionSelectFact::invert_compare(
-                  condition_id, lhs_id, rhs_id, inverted_instr,
-                ),
-              )
-            }
-            _ => None
+            None => None
           }
         }
         _ => None
@@ -23297,38 +23345,42 @@ fn OiDirectCompareConditionSelectFact::from_select_condition(
           let lhs_id = @ir.hot_child_get(func, condition_id, 0)
           let rhs_id = @ir.hot_child_get(func, condition_id, 1)
           match
-            (
-              optimize_instructions_i32_const(func, dead, if_true),
-              optimize_instructions_i32_const(func, dead, if_false),
+            OiI32BooleanSelectArmFact::from_select_arms(
+              func, dead, if_true, if_false,
             ) {
-            (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
-                return Some(
-                  OiDirectCompareConditionSelectFact::no_rewrite_boundary(
-                    condition_id,
-                  ),
-                )
+            Some(boolean_arm_fact) =>
+              match boolean_arm_fact.kind {
+                I32BooleanSelectTrueFalse => {
+                  if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
+                    return Some(
+                      OiDirectCompareConditionSelectFact::no_rewrite_boundary(
+                        condition_id,
+                      ),
+                    )
+                  }
+                  Some(
+                    OiDirectCompareConditionSelectFact::keep_compare(
+                      condition_id,
+                    ),
+                  )
+                }
+                I32BooleanSelectFalseTrue => {
+                  if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
+                    !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
+                    return Some(
+                      OiDirectCompareConditionSelectFact::no_rewrite_boundary(
+                        condition_id,
+                      ),
+                    )
+                  }
+                  Some(
+                    OiDirectCompareConditionSelectFact::invert_compare(
+                      condition_id, lhs_id, rhs_id, inverted_instr,
+                    ),
+                  )
+                }
               }
-              Some(
-                OiDirectCompareConditionSelectFact::keep_compare(condition_id),
-              )
-            }
-            (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
-              if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
-                !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-                return Some(
-                  OiDirectCompareConditionSelectFact::no_rewrite_boundary(
-                    condition_id,
-                  ),
-                )
-              }
-              Some(
-                OiDirectCompareConditionSelectFact::invert_compare(
-                  condition_id, lhs_id, rhs_id, inverted_instr,
-                ),
-              )
-            }
-            _ => None
+            None => None
           }
         }
         _ => None
@@ -23400,15 +23452,15 @@ fn OiBooleanConstSelectFact::from_select_arms(
   // scanner; earlier eqz/compare condition facts keep their more specific
   // output shapes before this fallback is queried.
   match
-    (
-      optimize_instructions_i32_const(func, dead, if_true),
-      optimize_instructions_i32_const(func, dead, if_false),
-    ) {
-    (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
-      Some({ condition_id, kind: BooleanConstSelectConditionNonzero })
-    (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
-      Some({ condition_id, kind: BooleanConstSelectConditionEqz })
-    _ => None
+    OiI32BooleanSelectArmFact::from_select_arms(func, dead, if_true, if_false) {
+    Some(boolean_arm_fact) =>
+      match boolean_arm_fact.kind {
+        I32BooleanSelectTrueFalse =>
+          Some({ condition_id, kind: BooleanConstSelectConditionNonzero })
+        I32BooleanSelectFalseTrue =>
+          Some({ condition_id, kind: BooleanConstSelectConditionEqz })
+      }
+    None => None
   }
 }
 
