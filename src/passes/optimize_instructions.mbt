@@ -18539,9 +18539,16 @@ priv struct OiLeadingOperandSwapFact {
 }
 
 ///|
+priv enum OiNodeEffectPurityKind {
+  NodeEffectPureMask
+  NodeEffectImpureMask
+  NodeEffectMissingMask
+}
+
+///|
 priv struct OiNodeEffectPurityFact {
   effect_mask : UInt
-  mask_is_pure : Bool
+  kind : OiNodeEffectPurityKind
 }
 
 ///|
@@ -18683,7 +18690,12 @@ fn OiNodeEffectPurityFact::from_mask(mask : UInt) -> OiNodeEffectPurityFact {
   // Shared OI view of Binaryen `EffectAnalyzer(...).hasUnremovableSideEffects()`
   // negative queries: callers that only need the existing HOT effect-mask
   // proof should record that as a fact instead of reading raw masks directly.
-  { effect_mask: mask, mask_is_pure: @ir.effects_is_pure(mask) }
+  let kind = if @ir.effects_is_pure(mask) {
+    NodeEffectPureMask
+  } else {
+    NodeEffectImpureMask
+  }
+  { effect_mask: mask, kind }
 }
 
 ///|
@@ -18692,7 +18704,7 @@ fn OiNodeEffectPurityFact::from_node_masks(
   node_id : Int,
 ) -> OiNodeEffectPurityFact {
   if node_id < 0 || node_id >= node_masks.length() {
-    { effect_mask: 0U, mask_is_pure: false }
+    { effect_mask: 0U, kind: NodeEffectMissingMask }
   } else {
     OiNodeEffectPurityFact::from_mask(node_masks[node_id])
   }
@@ -18701,7 +18713,10 @@ fn OiNodeEffectPurityFact::from_node_masks(
 ///|
 fn OiNodeEffectPurityFact::proves_pure(self : OiNodeEffectPurityFact) -> Bool {
   ignore(self.effect_mask)
-  self.mask_is_pure
+  match self.kind {
+    NodeEffectPureMask => true
+    NodeEffectImpureMask | NodeEffectMissingMask => false
+  }
 }
 
 ///|
