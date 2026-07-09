@@ -1694,50 +1694,115 @@ fn OiHeapRelationFact::proves_known_subtype(self : OiHeapRelationFact) -> Bool {
 }
 
 ///|
-fn OiHeapRelationFact::known_strict_concrete_subtype(
-  self : OiHeapRelationFact,
-) -> Bool {
-  self.both_concrete_heaps && !self.same_heap && self.known_subtype
+priv enum OiHeapSubtypeTargetPayloadKind {
+  UnknownHeapSubtypeTargetPayload
+  SameHeapSubtypeTargetPayload
+  StrictConcreteSubtypeTargetPayload
 }
 
 ///|
-fn OiHeapRelationFact::strict_concrete_heap_matches_target(
-  self : OiHeapRelationFact,
-) -> Bool {
-  self.both_concrete_heaps &&
-  !self.same_heap &&
-  self.match_fact.proves_module_heap_match()
+priv struct OiHeapSubtypeTargetPayloadFact {
+  kind : OiHeapSubtypeTargetPayloadKind
+  nullable : Bool
+  exact : Bool
 }
 
 ///|
-fn OiHeapRelationFact::concrete_source_matches_nullable_exact_target_only_as_null(
-  self : OiHeapRelationFact,
+fn OiHeapSubtypeTargetPayloadFact::from_heap_relation(
+  relation : OiHeapRelationFact,
+  source_nullable : Bool,
+  source_exact : Bool,
+) -> OiHeapSubtypeTargetPayloadFact {
+  // Binaryen's descriptor/ref.test producer relation carries one successful
+  // heap-compatibility payload: either the source is the target heap, or a
+  // strict concrete subtype flows to the target. Keep the exactness adjustment
+  // (`strict subtype` cannot prove exact target instances) in this explicit
+  // fact instead of a relation helper returning tuple sentinels.
+  if relation.same_heap {
+    {
+      kind: SameHeapSubtypeTargetPayload,
+      nullable: source_nullable,
+      exact: source_exact,
+    }
+  } else if relation.both_concrete_heaps &&
+    !relation.same_heap &&
+    relation.known_subtype {
+    {
+      kind: StrictConcreteSubtypeTargetPayload,
+      nullable: source_nullable,
+      exact: false,
+    }
+  } else {
+    { kind: UnknownHeapSubtypeTargetPayload, nullable: false, exact: false }
+  }
+}
+
+///|
+fn OiHeapSubtypeTargetPayloadFact::proves_known_payload(
+  self : OiHeapSubtypeTargetPayloadFact,
+) -> Bool {
+  match self.kind {
+    SameHeapSubtypeTargetPayload | StrictConcreteSubtypeTargetPayload => true
+    UnknownHeapSubtypeTargetPayload => false
+  }
+}
+
+///|
+priv struct OiHeapStrictConcreteTargetMatchFact {
+  target_match : Bool
+}
+
+///|
+fn OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
+  relation : OiHeapRelationFact,
+) -> OiHeapStrictConcreteTargetMatchFact {
+  // Source-backed split for Binaryen's exact-target miss proof: a strict
+  // concrete subtype that also module-matches the target cannot be an exact
+  // instance of the target heap.
+  {
+    target_match: relation.both_concrete_heaps &&
+    !relation.same_heap &&
+    relation.match_fact.proves_module_heap_match(),
+  }
+}
+
+///|
+fn OiHeapStrictConcreteTargetMatchFact::proves_target_match(
+  self : OiHeapStrictConcreteTargetMatchFact,
+) -> Bool {
+  self.target_match
+}
+
+///|
+priv struct OiHeapNullableExactOnlyNullTargetFact {
+  target_match : Bool
+}
+
+///|
+fn OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
+  relation : OiHeapRelationFact,
   source_nullable : Bool,
   source_exact : Bool,
   target_nullable : Bool,
-) -> Bool {
-  target_nullable &&
-  source_nullable &&
-  self.both_concrete_heaps &&
-  !self.same_heap &&
-  (source_exact || self.match_fact.proves_module_heap_match())
+) -> OiHeapNullableExactOnlyNullTargetFact {
+  // Binaryen's nullable-exact check can only fold to a null test when the
+  // nullable source is a different concrete heap from a nullable exact target;
+  // an exact source or module target match proves any successful cast must be
+  // the null case.
+  {
+    target_match: target_nullable &&
+    source_nullable &&
+    relation.both_concrete_heaps &&
+    !relation.same_heap &&
+    (source_exact || relation.match_fact.proves_module_heap_match()),
+  }
 }
 
 ///|
-fn OiHeapRelationFact::matches_or_strict_subtypes_heap(
-  self : OiHeapRelationFact,
-  source_nullable : Bool,
-  source_exact : Bool,
-) -> (Bool, Bool)? {
-  if self.same_heap {
-    Some((source_nullable, source_exact))
-  } else if self.known_strict_concrete_subtype() {
-    // A strict subtype operand proves heap compatibility, but it does not
-    // prove the value is an exact instance of the supertype target.
-    Some((source_nullable, false))
-  } else {
-    None
-  }
+fn OiHeapNullableExactOnlyNullTargetFact::proves_target_match(
+  self : OiHeapNullableExactOnlyNullTargetFact,
+) -> Bool {
+  self.target_match
 }
 
 ///|
@@ -1963,14 +2028,19 @@ fn OiRefProducerSubtypeRelationFact::from_heap_relation(
   // `GCTypeUtils::evaluateCastCheck`. Keep that outcome as one kind with a
   // tightened nullable/exact payload fact instead of parallel proof booleans on
   // the broader producer relation.
-  match
-    relation.matches_or_strict_subtypes_heap(source_nullable, source_exact) {
-    Some((nullable, exact)) =>
-      {
-        kind: MatchesOrStrictSubtypesRefProducerTargetHeap,
-        payload: Some({ nullable, exact }),
-      }
-    None => OiRefProducerSubtypeRelationFact::unknown()
+  let payload_fact = OiHeapSubtypeTargetPayloadFact::from_heap_relation(
+    relation, source_nullable, source_exact,
+  )
+  if payload_fact.proves_known_payload() {
+    {
+      kind: MatchesOrStrictSubtypesRefProducerTargetHeap,
+      payload: Some({
+        nullable: payload_fact.nullable,
+        exact: payload_fact.exact,
+      }),
+    }
+  } else {
+    OiRefProducerSubtypeRelationFact::unknown()
   }
 }
 
@@ -2140,6 +2210,15 @@ fn OiRefProducerTargetRelationFact::from_producer(
         ref_type.is_nullable(),
         ref_type.is_exact(),
       )
+      let nullable_exact_only_null_fact = OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
+        relation,
+        ref_type.is_nullable(),
+        ref_type.is_exact(),
+        target_nullable,
+      )
+      let strict_concrete_target_match_fact = OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
+        relation,
+      )
       let final_heap = match ctx.module_ctx {
         Some(module_ctx) =>
           source == target &&
@@ -2175,12 +2254,7 @@ fn OiRefProducerTargetRelationFact::from_producer(
           ),
           nullable_exact_only_null_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableExactOnlyNullMatch,
-            target_nullable &&
-            relation.concrete_source_matches_nullable_exact_target_only_as_null(
-              ref_type.is_nullable(),
-              ref_type.is_exact(),
-              target_nullable,
-            ),
+            nullable_exact_only_null_fact.proves_target_match(),
           ),
         },
         miss_fact: {
@@ -2198,7 +2272,7 @@ fn OiRefProducerTargetRelationFact::from_producer(
           strict_subtype_exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetMissesExactTargetByStrictSubtype,
             (ref_type.is_non_nullable() || !target_nullable) &&
-            relation.strict_concrete_heap_matches_target(),
+            strict_concrete_target_match_fact.proves_target_match(),
           ),
         },
         subtype_relation,
@@ -2849,6 +2923,15 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
     Some(ref_type) => {
       let source = ref_type.get_heap_type()
       let relation = OiHeapRelationFact::from_heaps(ctx, source, target)
+      let nullable_exact_only_null_fact = OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
+        relation,
+        ref_type.is_nullable(),
+        ref_type.is_exact(),
+        target_nullable,
+      )
+      let strict_concrete_target_match_fact = OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
+        relation,
+      )
       let final_heap = match ctx.module_ctx {
         Some(module_ctx) =>
           source == target &&
@@ -2886,12 +2969,7 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
           ),
           nullable_exact_only_null_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableExactOnlyNullMatch,
-            target_nullable &&
-            relation.concrete_source_matches_nullable_exact_target_only_as_null(
-              ref_type.is_nullable(),
-              ref_type.is_exact(),
-              target_nullable,
-            ),
+            nullable_exact_only_null_fact.proves_target_match(),
           ),
         },
         miss_fact: {
@@ -2913,7 +2991,7 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
           strict_subtype_exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetMissesExactTargetByStrictSubtype,
             (ref_type.is_non_nullable() || !target_nullable) &&
-            relation.strict_concrete_heap_matches_target(),
+            strict_concrete_target_match_fact.proves_target_match(),
           ),
         },
       }
@@ -3773,6 +3851,15 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
     Some(ref_type) => {
       let source = ref_type.get_heap_type()
       let relation = OiHeapRelationFact::from_heaps(ctx, source, target)
+      let nullable_exact_only_null_fact = OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
+        relation,
+        ref_type.is_nullable(),
+        ref_type.is_exact(),
+        target_nullable,
+      )
+      let strict_concrete_target_match_fact = OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
+        relation,
+      )
       {
         direct_null_fact: { direct_null_operand, },
         identity_fact: {
@@ -3791,12 +3878,7 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           ),
           nullable_exact_only_null_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableExactOnlyNullMatch,
-            target_nullable &&
-            relation.concrete_source_matches_nullable_exact_target_only_as_null(
-              ref_type.is_nullable(),
-              ref_type.is_exact(),
-              target_nullable,
-            ),
+            nullable_exact_only_null_fact.proves_target_match(),
           ),
         },
         miss_fact: {
@@ -3817,7 +3899,7 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           strict_subtype_exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
             RefTargetMissesExactTargetByStrictSubtype,
             (ref_type.is_non_nullable() || !target_nullable) &&
-            relation.strict_concrete_heap_matches_target(),
+            strict_concrete_target_match_fact.proves_target_match(),
           ),
         },
       }
