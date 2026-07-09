@@ -27929,6 +27929,12 @@ fn optimize_instructions_try_hoist_eqz_boolean_select(
 priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectI32Eqz
   MatchingSelectI64Eqz
+  MatchingSelectI32Clz
+  MatchingSelectI32Ctz
+  MatchingSelectI32Popcnt
+  MatchingSelectI64Clz
+  MatchingSelectI64Ctz
+  MatchingSelectI64Popcnt
 }
 
 ///|
@@ -27966,6 +27972,48 @@ fn OiMatchingUnarySelectArmFact::from_node(
         MatchingSelectI64Eqz,
         @lib.Instruction::i64_eqz(),
         @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::I32Clz) =>
+      (
+        MatchingSelectI32Clz,
+        @lib.Instruction::i32_clz(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I32Ctz) =>
+      (
+        MatchingSelectI32Ctz,
+        @lib.Instruction::i32_ctz(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I32Popcnt) =>
+      (
+        MatchingSelectI32Popcnt,
+        @lib.Instruction::i32_popcnt(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I64Clz) =>
+      (
+        MatchingSelectI64Clz,
+        @lib.Instruction::i64_clz(),
+        @lib.ValType::i64(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::I64Ctz) =>
+      (
+        MatchingSelectI64Ctz,
+        @lib.Instruction::i64_ctz(),
+        @lib.ValType::i64(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::I64Popcnt) =>
+      (
+        MatchingSelectI64Popcnt,
+        @lib.Instruction::i64_popcnt(),
+        @lib.ValType::i64(),
         @lib.ValType::i64(),
       )
     _ => return None
@@ -28019,6 +28067,12 @@ fn OiMatchingUnarySelectHoistFact::from_select(
   match (true_fact.kind, false_fact.kind) {
     (MatchingSelectI32Eqz, MatchingSelectI32Eqz) => ()
     (MatchingSelectI64Eqz, MatchingSelectI64Eqz) => ()
+    (MatchingSelectI32Clz, MatchingSelectI32Clz) => ()
+    (MatchingSelectI32Ctz, MatchingSelectI32Ctz) => ()
+    (MatchingSelectI32Popcnt, MatchingSelectI32Popcnt) => ()
+    (MatchingSelectI64Clz, MatchingSelectI64Clz) => ()
+    (MatchingSelectI64Ctz, MatchingSelectI64Ctz) => ()
+    (MatchingSelectI64Popcnt, MatchingSelectI64Popcnt) => ()
     _ => return None
   }
   if true_fact.child_type != false_fact.child_type ||
