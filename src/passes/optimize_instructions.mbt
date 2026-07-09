@@ -1373,9 +1373,15 @@ fn OiRefFuncLiteralTargetFact::proves_match_target(
 }
 
 ///|
+priv enum OiAbsStructArrayHeapRelationKind {
+  AbsStructArrayHeapNoKnownRelation
+  AbsStructArrayHeapMatchesTarget
+  AbsStructArrayHeapDisjointTarget
+}
+
+///|
 priv struct OiAbsStructArrayHeapRelationFact {
-  match_target : Bool
-  disjoint_target : Bool
+  kind : OiAbsStructArrayHeapRelationKind
 }
 
 ///|
@@ -1385,46 +1391,58 @@ fn OiAbsStructArrayHeapRelationFact::from_heaps(
 ) -> OiAbsStructArrayHeapRelationFact {
   // Binaryen's abstract struct/array lattice facts are separate from full
   // module subtype walks: struct/array values flow to eq/any, and struct and
-  // array are disjoint from one another.
-  match (source, target) {
+  // array are disjoint from one another. Keep the selected lattice outcome in
+  // one fact instead of parallel match/disjoint booleans.
+  let kind = match (source, target) {
     (
       @lib.HeapType::AbsHeapTypeHeapType(source_abs),
       @lib.HeapType::AbsHeapTypeHeapType(target_abs),
     ) => {
       let aggregate_source = source_abs == @lib.AbsHeapType::struct_() ||
         source_abs == @lib.AbsHeapType::array()
-      {
-        match_target: aggregate_source &&
+      if aggregate_source &&
         (
           target_abs == @lib.AbsHeapType::eq() ||
           target_abs == @lib.AbsHeapType::any()
-        ),
-        disjoint_target: (
+        ) {
+        AbsStructArrayHeapMatchesTarget
+      } else if (
           source_abs == @lib.AbsHeapType::struct_() &&
           target_abs == @lib.AbsHeapType::array()
         ) ||
         (
           source_abs == @lib.AbsHeapType::array() &&
           target_abs == @lib.AbsHeapType::struct_()
-        ),
+        ) {
+        AbsStructArrayHeapDisjointTarget
+      } else {
+        AbsStructArrayHeapNoKnownRelation
       }
     }
-    _ => { match_target: false, disjoint_target: false }
+    _ => AbsStructArrayHeapNoKnownRelation
   }
+  { kind, }
 }
 
 ///|
 fn OiAbsStructArrayHeapRelationFact::proves_match_target(
   self : OiAbsStructArrayHeapRelationFact,
 ) -> Bool {
-  self.match_target
+  match self.kind {
+    AbsStructArrayHeapMatchesTarget => true
+    AbsStructArrayHeapNoKnownRelation | AbsStructArrayHeapDisjointTarget =>
+      false
+  }
 }
 
 ///|
 fn OiAbsStructArrayHeapRelationFact::proves_disjoint_target(
   self : OiAbsStructArrayHeapRelationFact,
 ) -> Bool {
-  self.disjoint_target
+  match self.kind {
+    AbsStructArrayHeapDisjointTarget => true
+    AbsStructArrayHeapNoKnownRelation | AbsStructArrayHeapMatchesTarget => false
+  }
 }
 
 ///|
