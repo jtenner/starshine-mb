@@ -23890,9 +23890,18 @@ fn OiOrderedBinaryLocalConstEqualityFact::proves_f64_nontrapping_scalar(
 }
 
 ///|
+priv enum OiUnaryLocalEqualityKind {
+  UnaryLocalNoMatch
+  UnaryI32LocalMatch
+  UnaryI64LocalMatch
+  UnaryF32LocalMatch
+  UnaryF64LocalMatch
+  UnaryV128SplatLocalMatch
+}
+
+///|
 priv struct OiUnaryLocalEqualityFact {
-  instr : @lib.Instruction?
-  matching_local_operand : Bool
+  kind : OiUnaryLocalEqualityKind
 }
 
 ///|
@@ -23907,8 +23916,7 @@ fn OiUnaryLocalEqualityFact::from_nodes(
   // `!condition.invalidates(value)` path, this Starshine fact records the
   // represented nontrapping subset whose operand is a direct local and can be
   // re-evaluated after an effectful condition without reading mutable state.
-  let mut instr : @lib.Instruction? = None
-  let mut matching_local_operand = false
+  let mut kind = UnaryLocalNoMatch
   match
     (
       @ir.hot_node_exact_instr(func, lhs),
@@ -23917,124 +23925,136 @@ fn OiUnaryLocalEqualityFact::from_nodes(
       @ir.hot_node_get(func, rhs).child_count,
     ) {
     (Some(lhs_instr), Some(rhs_instr), 1, 1) if lhs_instr == rhs_instr => {
-      instr = Some(lhs_instr)
       let lhs_child = @ir.hot_child_get(func, lhs, 0)
       let rhs_child = @ir.hot_child_get(func, rhs, 0)
-      match
+      let matching_local_operand = match
         (
           OiLocalGetLeafFact::from_node(func, dead, lhs_child).local_id,
           OiLocalGetLeafFact::from_node(func, dead, rhs_child).local_id,
         ) {
-        (Some(lhs_local), Some(rhs_local)) =>
-          matching_local_operand = lhs_local == rhs_local
-        _ => ()
+        (Some(lhs_local), Some(rhs_local)) => lhs_local == rhs_local
+        _ => false
+      }
+      if matching_local_operand {
+        if lhs_instr == @lib.Instruction::i32_eqz() ||
+          lhs_instr == @lib.Instruction::i32_clz() ||
+          lhs_instr == @lib.Instruction::i32_ctz() ||
+          lhs_instr == @lib.Instruction::i32_popcnt() ||
+          lhs_instr == @lib.Instruction::i32_extend8s() ||
+          lhs_instr == @lib.Instruction::i32_extend16s() ||
+          lhs_instr == @lib.Instruction::i32_trunc_sat_f32s() ||
+          lhs_instr == @lib.Instruction::i32_trunc_sat_f32u() ||
+          lhs_instr == @lib.Instruction::i32_trunc_sat_f64s() ||
+          lhs_instr == @lib.Instruction::i32_trunc_sat_f64u() ||
+          lhs_instr == @lib.Instruction::i32_reinterpret_f32() ||
+          lhs_instr == @lib.Instruction::i32_wrap_i64() {
+          kind = UnaryI32LocalMatch
+        } else if lhs_instr == @lib.Instruction::i64_eqz() ||
+          lhs_instr == @lib.Instruction::i64_clz() ||
+          lhs_instr == @lib.Instruction::i64_ctz() ||
+          lhs_instr == @lib.Instruction::i64_popcnt() ||
+          lhs_instr == @lib.Instruction::i64_extend8s() ||
+          lhs_instr == @lib.Instruction::i64_extend16s() ||
+          lhs_instr == @lib.Instruction::i64_extend32s() ||
+          lhs_instr == @lib.Instruction::i64_extend_i32s() ||
+          lhs_instr == @lib.Instruction::i64_extend_i32u() ||
+          lhs_instr == @lib.Instruction::i64_trunc_sat_f32s() ||
+          lhs_instr == @lib.Instruction::i64_trunc_sat_f32u() ||
+          lhs_instr == @lib.Instruction::i64_trunc_sat_f64s() ||
+          lhs_instr == @lib.Instruction::i64_trunc_sat_f64u() ||
+          lhs_instr == @lib.Instruction::i64_reinterpret_f64() {
+          kind = UnaryI64LocalMatch
+        } else if lhs_instr == @lib.Instruction::f32_abs() ||
+          lhs_instr == @lib.Instruction::f32_neg() ||
+          lhs_instr == @lib.Instruction::f32_ceil() ||
+          lhs_instr == @lib.Instruction::f32_floor() ||
+          lhs_instr == @lib.Instruction::f32_trunc() ||
+          lhs_instr == @lib.Instruction::f32_nearest() ||
+          lhs_instr == @lib.Instruction::f32_sqrt() ||
+          lhs_instr == @lib.Instruction::f32_convert_i32s() ||
+          lhs_instr == @lib.Instruction::f32_convert_i32u() ||
+          lhs_instr == @lib.Instruction::f32_convert_i64s() ||
+          lhs_instr == @lib.Instruction::f32_convert_i64u() ||
+          lhs_instr == @lib.Instruction::f32_demote_f64() ||
+          lhs_instr == @lib.Instruction::f32_reinterpret_i32() {
+          kind = UnaryF32LocalMatch
+        } else if lhs_instr == @lib.Instruction::f64_abs() ||
+          lhs_instr == @lib.Instruction::f64_neg() ||
+          lhs_instr == @lib.Instruction::f64_ceil() ||
+          lhs_instr == @lib.Instruction::f64_floor() ||
+          lhs_instr == @lib.Instruction::f64_trunc() ||
+          lhs_instr == @lib.Instruction::f64_nearest() ||
+          lhs_instr == @lib.Instruction::f64_sqrt() ||
+          lhs_instr == @lib.Instruction::f64_convert_i32s() ||
+          lhs_instr == @lib.Instruction::f64_convert_i32u() ||
+          lhs_instr == @lib.Instruction::f64_convert_i64s() ||
+          lhs_instr == @lib.Instruction::f64_convert_i64u() ||
+          lhs_instr == @lib.Instruction::f64_promote_f32() ||
+          lhs_instr == @lib.Instruction::f64_reinterpret_i64() {
+          kind = UnaryF64LocalMatch
+        } else if lhs_instr == @lib.Instruction::i8x16_splat() ||
+          lhs_instr == @lib.Instruction::i16x8_splat() ||
+          lhs_instr == @lib.Instruction::i32x4_splat() ||
+          lhs_instr == @lib.Instruction::i64x2_splat() ||
+          lhs_instr == @lib.Instruction::f32x4_splat() ||
+          lhs_instr == @lib.Instruction::f64x2_splat() {
+          kind = UnaryV128SplatLocalMatch
+        }
       }
     }
     _ => ()
   }
-  { instr, matching_local_operand }
-}
-
-///|
-fn OiUnaryLocalEqualityFact::proves_instr(
-  self : OiUnaryLocalEqualityFact,
-  instr : @lib.Instruction,
-) -> Bool {
-  if !self.matching_local_operand {
-    return false
-  }
-  match self.instr {
-    Some(actual) => actual == instr
-    None => false
-  }
+  { kind, }
 }
 
 ///|
 fn OiUnaryLocalEqualityFact::proves_i32_nontrapping_scalar(
   self : OiUnaryLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::i32_eqz()) ||
-  self.proves_instr(@lib.Instruction::i32_clz()) ||
-  self.proves_instr(@lib.Instruction::i32_ctz()) ||
-  self.proves_instr(@lib.Instruction::i32_popcnt()) ||
-  self.proves_instr(@lib.Instruction::i32_extend8s()) ||
-  self.proves_instr(@lib.Instruction::i32_extend16s()) ||
-  self.proves_instr(@lib.Instruction::i32_trunc_sat_f32s()) ||
-  self.proves_instr(@lib.Instruction::i32_trunc_sat_f32u()) ||
-  self.proves_instr(@lib.Instruction::i32_trunc_sat_f64s()) ||
-  self.proves_instr(@lib.Instruction::i32_trunc_sat_f64u()) ||
-  self.proves_instr(@lib.Instruction::i32_reinterpret_f32()) ||
-  self.proves_instr(@lib.Instruction::i32_wrap_i64())
+  match self.kind {
+    UnaryI32LocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiUnaryLocalEqualityFact::proves_i64_nontrapping_scalar(
   self : OiUnaryLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::i64_eqz()) ||
-  self.proves_instr(@lib.Instruction::i64_clz()) ||
-  self.proves_instr(@lib.Instruction::i64_ctz()) ||
-  self.proves_instr(@lib.Instruction::i64_popcnt()) ||
-  self.proves_instr(@lib.Instruction::i64_extend8s()) ||
-  self.proves_instr(@lib.Instruction::i64_extend16s()) ||
-  self.proves_instr(@lib.Instruction::i64_extend32s()) ||
-  self.proves_instr(@lib.Instruction::i64_extend_i32s()) ||
-  self.proves_instr(@lib.Instruction::i64_extend_i32u()) ||
-  self.proves_instr(@lib.Instruction::i64_trunc_sat_f32s()) ||
-  self.proves_instr(@lib.Instruction::i64_trunc_sat_f32u()) ||
-  self.proves_instr(@lib.Instruction::i64_trunc_sat_f64s()) ||
-  self.proves_instr(@lib.Instruction::i64_trunc_sat_f64u()) ||
-  self.proves_instr(@lib.Instruction::i64_reinterpret_f64())
+  match self.kind {
+    UnaryI64LocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiUnaryLocalEqualityFact::proves_f32_nontrapping_scalar(
   self : OiUnaryLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::f32_abs()) ||
-  self.proves_instr(@lib.Instruction::f32_neg()) ||
-  self.proves_instr(@lib.Instruction::f32_ceil()) ||
-  self.proves_instr(@lib.Instruction::f32_floor()) ||
-  self.proves_instr(@lib.Instruction::f32_trunc()) ||
-  self.proves_instr(@lib.Instruction::f32_nearest()) ||
-  self.proves_instr(@lib.Instruction::f32_sqrt()) ||
-  self.proves_instr(@lib.Instruction::f32_convert_i32s()) ||
-  self.proves_instr(@lib.Instruction::f32_convert_i32u()) ||
-  self.proves_instr(@lib.Instruction::f32_convert_i64s()) ||
-  self.proves_instr(@lib.Instruction::f32_convert_i64u()) ||
-  self.proves_instr(@lib.Instruction::f32_demote_f64()) ||
-  self.proves_instr(@lib.Instruction::f32_reinterpret_i32())
+  match self.kind {
+    UnaryF32LocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiUnaryLocalEqualityFact::proves_f64_nontrapping_scalar(
   self : OiUnaryLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::f64_abs()) ||
-  self.proves_instr(@lib.Instruction::f64_neg()) ||
-  self.proves_instr(@lib.Instruction::f64_ceil()) ||
-  self.proves_instr(@lib.Instruction::f64_floor()) ||
-  self.proves_instr(@lib.Instruction::f64_trunc()) ||
-  self.proves_instr(@lib.Instruction::f64_nearest()) ||
-  self.proves_instr(@lib.Instruction::f64_sqrt()) ||
-  self.proves_instr(@lib.Instruction::f64_convert_i32s()) ||
-  self.proves_instr(@lib.Instruction::f64_convert_i32u()) ||
-  self.proves_instr(@lib.Instruction::f64_convert_i64s()) ||
-  self.proves_instr(@lib.Instruction::f64_convert_i64u()) ||
-  self.proves_instr(@lib.Instruction::f64_promote_f32()) ||
-  self.proves_instr(@lib.Instruction::f64_reinterpret_i64())
+  match self.kind {
+    UnaryF64LocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiUnaryLocalEqualityFact::proves_v128_splat(
   self : OiUnaryLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::i8x16_splat()) ||
-  self.proves_instr(@lib.Instruction::i16x8_splat()) ||
-  self.proves_instr(@lib.Instruction::i32x4_splat()) ||
-  self.proves_instr(@lib.Instruction::i64x2_splat()) ||
-  self.proves_instr(@lib.Instruction::f32x4_splat()) ||
-  self.proves_instr(@lib.Instruction::f64x2_splat())
+  match self.kind {
+    UnaryV128SplatLocalMatch => true
+    _ => false
+  }
 }
 
 ///|
