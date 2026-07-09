@@ -6697,10 +6697,86 @@ fn OiDescriptorExactSuccessRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiDescriptorDescribedSubtypeKind {
+  DescriptorDescribedSubtypeUnknown
+  DescriptorDescribedHeapSubtypesTarget
+}
+
+///|
+priv struct OiDescriptorDescribedSubtypeFact {
+  kind : OiDescriptorDescribedSubtypeKind
+}
+
+///|
+fn OiDescriptorDescribedSubtypeFact::from_exact_described_heap(
+  ctx : HotPassContext,
+  exact_described_heap : @lib.HeapType?,
+  target : @lib.HeapType,
+) -> OiDescriptorDescribedSubtypeFact {
+  // Binaryen v130 descriptor-cast result narrowing may replace the cast target
+  // with the heap exactly described by the descriptor, but only when that heap is
+  // known to subtype the original target. Keep the subtype proof separate from
+  // the exact-described-heap payload instead of a parallel boolean.
+  match exact_described_heap {
+    Some(described_heap) if OiHeapRelationFact::from_heaps(
+        ctx, described_heap, target,
+      ).proves_known_subtype() =>
+      { kind: DescriptorDescribedHeapSubtypesTarget }
+    _ => { kind: DescriptorDescribedSubtypeUnknown }
+  }
+}
+
+///|
+fn OiDescriptorDescribedSubtypeFact::proves_described_heap_subtypes_target(
+  self : OiDescriptorDescribedSubtypeFact,
+) -> Bool {
+  match self.kind {
+    DescriptorDescribedHeapSubtypesTarget => true
+    DescriptorDescribedSubtypeUnknown => false
+  }
+}
+
+///|
+priv enum OiDescriptorDescribedExactTargetKind {
+  DescriptorDescribedExactTargetUnknown
+  DescriptorExactlyDescribesTarget
+}
+
+///|
+priv struct OiDescriptorDescribedExactTargetFact {
+  kind : OiDescriptorDescribedExactTargetKind
+}
+
+///|
+fn OiDescriptorDescribedExactTargetFact::from_type_fact(
+  descriptor_type_fact : OiDescriptorTypeFact,
+  target : @lib.HeapType,
+) -> OiDescriptorDescribedExactTargetFact {
+  // Binaryen v130 also preserves exactness when the descriptor exactly describes
+  // the cast target even if no narrower heap is selected. Carry that exact-target
+  // relation as its own source fact.
+  if descriptor_type_fact.exactly_describes(target) {
+    { kind: DescriptorExactlyDescribesTarget }
+  } else {
+    { kind: DescriptorDescribedExactTargetUnknown }
+  }
+}
+
+///|
+fn OiDescriptorDescribedExactTargetFact::proves_exactly_describes_target(
+  self : OiDescriptorDescribedExactTargetFact,
+) -> Bool {
+  match self.kind {
+    DescriptorExactlyDescribesTarget => true
+    DescriptorDescribedExactTargetUnknown => false
+  }
+}
+
+///|
 priv struct OiDescriptorDescribedTargetRelationFact {
   exact_described_heap : @lib.HeapType?
-  described_heap_subtypes_target : Bool
-  exactly_describes_target : Bool
+  subtype_fact : OiDescriptorDescribedSubtypeFact
+  exact_target_fact : OiDescriptorDescribedExactTargetFact
 }
 
 ///|
@@ -6714,15 +6790,14 @@ fn OiDescriptorDescribedTargetRelationFact::from_type_fact(
   // tighten the cast target. Keep that relation as a payload fact instead of
   // parallel described-heap / subtype / exact-target fields on the rewrite fact.
   let exact_described_heap = descriptor_type_fact.exact_described_heap
-  let described_heap_subtypes_target = match exact_described_heap {
-    Some(described_heap) =>
-      OiHeapRelationFact::from_heaps(ctx, described_heap, target).proves_known_subtype()
-    None => false
-  }
   {
     exact_described_heap,
-    described_heap_subtypes_target,
-    exactly_describes_target: descriptor_type_fact.exactly_describes(target),
+    subtype_fact: OiDescriptorDescribedSubtypeFact::from_exact_described_heap(
+      ctx, exact_described_heap, target,
+    ),
+    exact_target_fact: OiDescriptorDescribedExactTargetFact::from_type_fact(
+      descriptor_type_fact, target,
+    ),
   }
 }
 
@@ -6732,7 +6807,7 @@ fn OiDescriptorDescribedTargetRelationFact::select_narrowed_target(
   target : @lib.HeapType,
 ) -> @lib.HeapType {
   match self.exact_described_heap {
-    Some(described_heap) if self.described_heap_subtypes_target =>
+    Some(described_heap) if self.subtype_fact.proves_described_heap_subtypes_target() =>
       described_heap
     _ => target
   }
@@ -6744,7 +6819,8 @@ fn OiDescriptorDescribedTargetRelationFact::proves_descriptor_exact_result(
   target : @lib.HeapType,
   narrowed_target : @lib.HeapType,
 ) -> Bool {
-  narrowed_target != target || self.exactly_describes_target
+  narrowed_target != target ||
+  self.exact_target_fact.proves_exactly_describes_target()
 }
 
 ///|
