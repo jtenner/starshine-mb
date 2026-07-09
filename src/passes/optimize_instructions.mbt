@@ -15988,9 +15988,32 @@ fn OiInterveningEffectFact::ordered_before_right_fallthrough(
 }
 
 ///|
+priv struct OiRightLocalTeeFallthroughValueFact {
+  value_id : Int
+}
+
+///|
+fn OiRightLocalTeeFallthroughValueFact::from_node(
+  func : @ir.HotFunc,
+  right_id : Int,
+) -> OiRightLocalTeeFallthroughValueFact? {
+  // Binaryen v130 `areConsecutiveInputsEqual` peels the right operand with
+  // `Properties::getImmediateFallthrough(...AllowTeeBrIf)`, exposing the value
+  // child of a direct `local.tee`. Keep that shell/value proof separate from
+  // the later scalar equality proof so the equality fact no longer stores
+  // parallel local.tee and value-match booleans.
+  let right = @ir.hot_node_get(func, right_id)
+  match right.op {
+    @ir.HotOp::LocalTee if right.child_count == 1 =>
+      Some({ value_id: @ir.hot_child_get(func, right_id, 0) })
+    _ => None
+  }
+}
+
+///|
 priv struct OiRightLocalTeeFallthroughEqualityFact {
-  right_is_local_tee : Bool
-  value_matches_left : Bool
+  value_fact : OiRightLocalTeeFallthroughValueFact?
+  equality_fact : OiScalarTreeEqualityFact?
 }
 
 ///|
@@ -15999,26 +16022,27 @@ fn OiRightLocalTeeFallthroughEqualityFact::from_nodes(
   left_fallthrough_id : Int,
   right_id : Int,
 ) -> OiRightLocalTeeFallthroughEqualityFact {
-  // Binaryen v130 `areConsecutiveInputsEqual` peels the right operand with
-  // `Properties::getImmediateFallthrough(...AllowTeeBrIf)`, which exposes a
-  // direct `local.tee`'s value child to `ExpressionAnalyzer::equal`. Keep the
-  // currently represented Starshine subset narrow: direct right `local.tee`
-  // values that match the left fallthrough by pure scalar equality. The tee
-  // write is intentionally not an intervening prefix effect because it happens
-  // after the returned value is produced and is preserved when the original
-  // right operand is later dropped.
-  let right = @ir.hot_node_get(func, right_id)
-  match right.op {
-    @ir.HotOp::LocalTee if right.child_count == 1 => {
-      let value_id = @ir.hot_child_get(func, right_id, 0)
+  // The currently represented Starshine subset is intentionally narrow: direct
+  // right `local.tee` values that match the left fallthrough by pure scalar
+  // equality. The tee write is intentionally not an intervening prefix effect
+  // because it happens after the returned value is produced and is preserved
+  // when the original right operand is later dropped.
+  let value_fact = OiRightLocalTeeFallthroughValueFact::from_node(
+    func, right_id,
+  )
+  match value_fact {
+    Some(fact) =>
       {
-        right_is_local_tee: true,
-        value_matches_left: OiScalarTreeEqualityFact::from_nodes(
-          func, left_fallthrough_id, value_id,
-        ).proves_pure_equal(),
+        value_fact: Some(fact),
+        equality_fact: Some(
+          OiScalarTreeEqualityFact::from_nodes(
+            func,
+            left_fallthrough_id,
+            fact.value_id,
+          ),
+        ),
       }
-    }
-    _ => { right_is_local_tee: false, value_matches_left: false }
+    None => { value_fact: None, equality_fact: None }
   }
 }
 
@@ -16026,7 +16050,10 @@ fn OiRightLocalTeeFallthroughEqualityFact::from_nodes(
 fn OiRightLocalTeeFallthroughEqualityFact::proves_equal(
   self : OiRightLocalTeeFallthroughEqualityFact,
 ) -> Bool {
-  self.right_is_local_tee && self.value_matches_left
+  match (self.value_fact, self.equality_fact) {
+    (Some(_), Some(fact)) => fact.proves_pure_equal()
+    _ => false
+  }
 }
 
 ///|
