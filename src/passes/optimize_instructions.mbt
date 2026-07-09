@@ -11090,9 +11090,14 @@ priv struct OiCallRefBrOnRefChildFact {
 }
 
 ///|
+priv struct OiCallRefBrOnBranchTargetFact {
+  branch_target_id : Int
+}
+
+///|
 priv struct OiCallRefBrOnFallthroughTargetFact {
   kind : OiCallRefBrOnFallthroughTargetKind
-  branch_target_id : Int
+  branch_target_fact : OiCallRefBrOnBranchTargetFact
   ref_child_fact : OiCallRefBrOnRefChildFact
 }
 
@@ -11220,7 +11225,15 @@ fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
     Some(fact) => fact
     None => return None
   }
-  Some({ kind, branch_target_id: node.imm0, ref_child_fact })
+  let branch_target_fact = { branch_target_id: node.imm0 }
+  Some({ kind, branch_target_fact, ref_child_fact })
+}
+
+///|
+fn OiCallRefBrOnBranchTargetFact::proves_valid_branch_target(
+  self : OiCallRefBrOnBranchTargetFact,
+) -> Bool {
+  self.branch_target_id >= 0
 }
 
 ///|
@@ -11279,7 +11292,7 @@ fn OiCallRefBrOnFallthroughTargetFact::proves_ref_func_ref_fallthrough(
     | CallRefBrOnCastFailFallthroughRef => true
   }
   supported_br_on_kind &&
-  self.branch_target_id >= 0 &&
+  self.branch_target_fact.proves_valid_branch_target() &&
   self.ref_child_fact.proves_final_ref_func_fallthrough()
 }
 
