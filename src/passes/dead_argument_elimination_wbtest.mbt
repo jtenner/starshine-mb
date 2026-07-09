@@ -3241,8 +3241,7 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
     Some(evidence) => {
       assert_eq(evidence.candidate, expected_leaf_ref)
       assert_eq(evidence.refined_candidate, Some(expected_leaf_ref))
-      assert_eq(evidence.left_rewrite, None)
-      assert_eq(evidence.right_rewrite, None)
+      assert_true(evidence.select is None)
       assert_eq(evidence.terminal_rewrite, None)
     }
     None => fail("expected control actual shape evidence")
@@ -3253,12 +3252,14 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
     ),
     @lib.Instruction::struct_new_default(leaf_type),
     @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
     @lib.Instruction::select(types=Some([base_ref])),
   ]
   match
     dae_gc_actual_shape_evidence(
       select_body,
-      { start: 0, end: 4, pure: true },
+      { start: 0, end: 6, pure: true },
       mod_,
       expected_nullable_leaf_ref,
       [],
@@ -3267,15 +3268,24 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
     Some(evidence) => {
       assert_eq(evidence.candidate, expected_nullable_leaf_ref)
       assert_eq(evidence.refined_candidate, None)
+      let select = match evidence.select {
+        Some(select) => select
+        None => fail("expected retained select slice evidence")
+      }
+      assert_eq(select.slices.left.start, 0)
+      assert_eq(select.slices.right.start, 1)
+      assert_eq(select.slices.condition.start, 2)
+      assert_eq(select.slices.condition.end, 5)
+      assert_eq(select.slices.select_idx, 5)
       assert_eq(
-        evidence.left_rewrite,
+        select.gc.left_rewrite,
         Some(
           @lib.Instruction::ref_null_type(
             @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=true),
           ),
         ),
       )
-      assert_eq(evidence.right_rewrite, None)
+      assert_eq(select.gc.right_rewrite, None)
       assert_eq(
         evidence.terminal_rewrite,
         Some(@lib.Instruction::select(types=Some([expected_nullable_leaf_ref]))),

@@ -494,8 +494,7 @@ priv struct DaeSingleResultControlGcCandidateEvidence {
 priv struct DaeGcActualShapeEvidence {
   candidate : @lib.ValType
   refined_candidate : @lib.ValType?
-  left_rewrite : @lib.Instruction?
-  right_rewrite : @lib.Instruction?
+  select : DaeGcSelectValueSlicesEvidence?
   terminal_rewrite : @lib.Instruction?
 }
 
@@ -4141,17 +4140,30 @@ fn dae_rewrite_refined_gc_actual_slice(
       rewrite_type=Some(refined_type),
     ) {
     Some(evidence) => {
-      match evidence.left_rewrite {
-        Some(instr) => instrs[slice.start] = instr
-        None => ()
-      }
-      match evidence.right_rewrite {
-        Some(instr) => instrs[slice.start + 1] = instr
-        None => ()
-      }
-      match evidence.terminal_rewrite {
-        Some(instr) => instrs[slice.end - 1] = instr
-        None => ()
+      match evidence.select {
+        Some(select) => {
+          let slices = select.slices
+          let (rewritten, _) = match
+            dae_apply_select_value_rewrites_to_body(
+              instrs,
+              slices.left.start,
+              slices.right.start,
+              slices.select_idx,
+              select.gc.left_rewrite,
+              select.gc.right_rewrite,
+              evidence.terminal_rewrite,
+            ) {
+            Some(application) => application
+            None => return false
+          }
+          instrs.clear()
+          instrs.append(rewritten)
+        }
+        None =>
+          match evidence.terminal_rewrite {
+            Some(instr) => instrs[slice.end - 1] = instr
+            None => ()
+          }
       }
       true
     }
@@ -6286,8 +6298,7 @@ fn dae_gc_actual_shape_evidence(
             return Some({
               candidate: evidence.gc.candidate,
               refined_candidate: evidence.gc.refined_candidate,
-              left_rewrite: evidence.gc.left_rewrite,
-              right_rewrite: evidence.gc.right_rewrite,
+              select: Some(evidence),
               terminal_rewrite: rewrite_type.map(fn(refined) {
                 @lib.Instruction::select(types=Some([refined]))
               }),
@@ -6312,8 +6323,7 @@ fn dae_gc_actual_shape_evidence(
         Some({
           candidate: candidate_type,
           refined_candidate,
-          left_rewrite: None,
-          right_rewrite: None,
+          select: None,
           terminal_rewrite: None,
         })
       }
