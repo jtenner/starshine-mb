@@ -12503,8 +12503,14 @@ priv struct OiCallRefSelectConditionEffectFact {
 }
 
 ///|
+priv struct OiCallRefSelectConditionTypeFact {
+  condition_type : @lib.ValType
+}
+
+///|
 priv struct OiCallRefSelectConditionFact {
   condition_id : Int
+  type_fact : OiCallRefSelectConditionTypeFact
   effect_fact : OiCallRefSelectConditionEffectFact
 }
 
@@ -12542,6 +12548,29 @@ fn OiCallRefSelectConditionEffectFact::preserved_drop_id(
 }
 
 ///|
+fn OiCallRefSelectConditionTypeFact::from_condition(
+  func : @ir.HotFunc,
+  condition_id : Int,
+) -> OiCallRefSelectConditionTypeFact? {
+  // Binaryen v130 `CallUtils::convertToDirectCalls` emits an `if` over the
+  // select condition, so Starshine's represented select-target directization
+  // requires a single i32 condition before deciding whether condition effects
+  // can be erased or must be preserved by an explicit drop.
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
+    [condition_type] if condition_type == @lib.ValType::i32() =>
+      Some({ condition_type, })
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefSelectConditionTypeFact::proves_i32_condition(
+  self : OiCallRefSelectConditionTypeFact,
+) -> Bool {
+  self.condition_type == @lib.ValType::i32()
+}
+
+///|
 fn OiCallRefSelectConditionFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -12550,23 +12579,29 @@ fn OiCallRefSelectConditionFact::from_select_condition(
   if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
     return None
   }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
-    [condition_type] if condition_type == @lib.ValType::i32() => {
-      let effect_fact = if OiSideEffectFreeExpressionFact::proves_node_free(
-          func, dead, condition_id,
-        ) {
-        OiCallRefSelectConditionEffectFact::elidable()
-      } else {
-        match
-          OiCallRefSelectConditionEffectFact::preserve_by_drop(condition_id) {
-          Some(fact) => fact
-          None => return None
-        }
-      }
-      Some({ condition_id, effect_fact })
-    }
-    _ => None
+  let type_fact = match
+    OiCallRefSelectConditionTypeFact::from_condition(func, condition_id) {
+    Some(fact) if fact.proves_i32_condition() => fact
+    _ => return None
   }
+  let effect_fact = if OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, condition_id,
+    ) {
+    OiCallRefSelectConditionEffectFact::elidable()
+  } else {
+    match OiCallRefSelectConditionEffectFact::preserve_by_drop(condition_id) {
+      Some(fact) => fact
+      None => return None
+    }
+  }
+  Some({ condition_id, type_fact, effect_fact })
+}
+
+///|
+fn OiCallRefSelectConditionFact::proves_i32_condition(
+  self : OiCallRefSelectConditionFact,
+) -> Bool {
+  self.condition_id >= 0 && self.type_fact.proves_i32_condition()
 }
 
 ///|
@@ -12623,6 +12658,9 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
     OiCallRefSelectResidueArmFact::from_arm_id(residue_arm_id) {
     Some(fact) => fact
     None => return None
+  }
+  if !condition_fact.proves_i32_condition() {
+    return None
   }
   Some({ direct_arms_fact, condition_fact, residue_arm_fact })
 }
