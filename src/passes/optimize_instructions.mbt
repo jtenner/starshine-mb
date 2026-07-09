@@ -16057,26 +16057,117 @@ fn optimize_instructions_scalar_tree_metadata_equal(
 }
 
 ///|
-priv struct OiScalarTreeEqualityFact {
-  matching_local_get_leaf : Bool
-  matching_global_get_leaf : Bool
-  matching_const_leaf : Bool
-  matching_stable_state_read_leaf : Bool
-  matching_branchless_scalar_shell : Bool
+priv enum OiScalarTreeLeafEqualityKind {
+  ScalarTreeLeafLocalGet
+  ScalarTreeLeafGlobalGet
+  ScalarTreeLeafConst
+  ScalarTreeLeafStableStateRead
+}
+
+///|
+priv struct OiScalarTreeLeafEqualityFact {
+  kind : OiScalarTreeLeafEqualityKind
+  stable_state_fact : OiStableStateReadEqualityFact?
+}
+
+///|
+fn OiScalarTreeLeafEqualityFact::from_nodes(
+  func : @ir.HotFunc,
+  left : @ir.HotNode,
+  right : @ir.HotNode,
+  include_stable_state_read : Bool,
+) -> OiScalarTreeLeafEqualityFact? {
+  match (left.op, right.op) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) if left.imm0 == right.imm0 =>
+      return Some({ kind: ScalarTreeLeafLocalGet, stable_state_fact: None })
+    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) if left.imm0 == right.imm0 =>
+      return Some({ kind: ScalarTreeLeafGlobalGet, stable_state_fact: None })
+    (@ir.HotOp::Const, @ir.HotOp::Const) if @ir.hot_const_get(func, left.imm0) ==
+      @ir.hot_const_get(func, right.imm0) =>
+      return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None })
+    _ => ()
+  }
+  if include_stable_state_read {
+    let stable_state_fact = OiStableStateReadEqualityFact::from_nodes(
+      left, right,
+    )
+    if stable_state_fact.proves_equal() {
+      return Some({
+        kind: ScalarTreeLeafStableStateRead,
+        stable_state_fact: Some(stable_state_fact),
+      })
+    }
+  }
+  None
+}
+
+///|
+fn OiScalarTreeLeafEqualityFact::proves_equal(
+  self : OiScalarTreeLeafEqualityFact,
+) -> Bool {
+  match self.kind {
+    ScalarTreeLeafLocalGet | ScalarTreeLeafGlobalGet | ScalarTreeLeafConst =>
+      true
+    ScalarTreeLeafStableStateRead =>
+      match self.stable_state_fact {
+        Some(fact) => fact.proves_equal()
+        None => false
+      }
+  }
+}
+
+///|
+fn OiScalarTreeLeafEqualityFact::includes_stable_state_read(
+  self : OiScalarTreeLeafEqualityFact,
+) -> Bool {
+  match self.kind {
+    ScalarTreeLeafStableStateRead => self.proves_equal()
+    _ => false
+  }
+}
+
+///|
+priv struct OiScalarTreeChildEqualityFact {
   children_equal : Bool
-  contains_stable_state_read : Bool
+  includes_stable_state_read : Bool
+}
+
+///|
+fn OiScalarTreeChildEqualityFact::proves_children_equal(
+  self : OiScalarTreeChildEqualityFact,
+) -> Bool {
+  self.children_equal
+}
+
+///|
+fn OiScalarTreeChildEqualityFact::proves_includes_stable_state_read(
+  self : OiScalarTreeChildEqualityFact,
+) -> Bool {
+  self.includes_stable_state_read
+}
+
+///|
+priv enum OiScalarTreeEqualityKind {
+  ScalarTreeEqualityUnsupported
+  ScalarTreeEqualityLeaf
+  ScalarTreeEqualityBranchlessShell
+}
+
+///|
+priv struct OiScalarTreeEqualityFact {
+  kind : OiScalarTreeEqualityKind
+  leaf_fact : OiScalarTreeLeafEqualityFact?
+  shell_fact : OiPureScalarEqualTreeShellFact?
+  child_fact : OiScalarTreeChildEqualityFact?
 }
 
 ///|
 fn OiScalarTreeEqualityFact::empty() -> OiScalarTreeEqualityFact {
   {
-    matching_local_get_leaf: false,
-    matching_global_get_leaf: false,
-    matching_const_leaf: false,
-    matching_stable_state_read_leaf: false,
-    matching_branchless_scalar_shell: false,
-    children_equal: false,
-    contains_stable_state_read: false,
+    kind: ScalarTreeEqualityUnsupported,
+    leaf_fact: None,
+    shell_fact: None,
+    child_fact: None,
   }
 }
 
@@ -16089,8 +16180,8 @@ fn OiScalarTreeEqualityFact::from_nodes(
   depth? : Int = 0,
 ) -> OiScalarTreeEqualityFact {
   // Source-backed subset of Binaryen v130 `ExpressionAnalyzer::equal` used by
-  // OI's equality facts. Keep leaf classes, branchless scalar-shell equality,
-  // and deterministic memory/table-size reads as explicit fields so callers can
+  // OI's equality facts. Keep leaf kind, branchless scalar-shell equality, and
+  // deterministic memory/table-size reads as nested facts so callers can
   // distinguish pure equality from effect-sensitive equality that still needs an
   // enclosing `orderedBefore` / invalidation check.
   if depth > 16 {
@@ -16098,51 +16189,18 @@ fn OiScalarTreeEqualityFact::from_nodes(
   }
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
-  match (left.op, right.op) {
-    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) if left.imm0 == right.imm0 =>
+  match
+    OiScalarTreeLeafEqualityFact::from_nodes(
+      func, left, right, include_stable_state_read,
+    ) {
+    Some(leaf_fact) =>
       return {
-        matching_local_get_leaf: true,
-        matching_global_get_leaf: false,
-        matching_const_leaf: false,
-        matching_stable_state_read_leaf: false,
-        matching_branchless_scalar_shell: false,
-        children_equal: false,
-        contains_stable_state_read: false,
+        kind: ScalarTreeEqualityLeaf,
+        leaf_fact: Some(leaf_fact),
+        shell_fact: None,
+        child_fact: None,
       }
-    (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) if left.imm0 == right.imm0 =>
-      return {
-        matching_local_get_leaf: false,
-        matching_global_get_leaf: true,
-        matching_const_leaf: false,
-        matching_stable_state_read_leaf: false,
-        matching_branchless_scalar_shell: false,
-        children_equal: false,
-        contains_stable_state_read: false,
-      }
-    (@ir.HotOp::Const, @ir.HotOp::Const) if @ir.hot_const_get(func, left.imm0) ==
-      @ir.hot_const_get(func, right.imm0) =>
-      return {
-        matching_local_get_leaf: false,
-        matching_global_get_leaf: false,
-        matching_const_leaf: true,
-        matching_stable_state_read_leaf: false,
-        matching_branchless_scalar_shell: false,
-        children_equal: false,
-        contains_stable_state_read: false,
-      }
-    _ => ()
-  }
-  if include_stable_state_read &&
-    OiStableStateReadEqualityFact::from_nodes(left, right).proves_equal() {
-    return {
-      matching_local_get_leaf: false,
-      matching_global_get_leaf: false,
-      matching_const_leaf: false,
-      matching_stable_state_read_leaf: true,
-      matching_branchless_scalar_shell: false,
-      children_equal: false,
-      contains_stable_state_read: true,
-    }
+    None => ()
   }
   if !optimize_instructions_scalar_tree_metadata_equal(
       func, left_id, right_id, left, right,
@@ -16150,7 +16208,7 @@ fn OiScalarTreeEqualityFact::from_nodes(
     return OiScalarTreeEqualityFact::empty()
   }
   let mut children_equal = true
-  let mut contains_stable_state_read = false
+  let mut includes_stable_state_read = false
   for slot = 0; slot < left.child_count; slot = slot + 1 {
     let child_fact = OiScalarTreeEqualityFact::from_nodes(
       func,
@@ -16162,18 +16220,15 @@ fn OiScalarTreeEqualityFact::from_nodes(
     if !child_fact.proves_equal() {
       children_equal = false
     }
-    if child_fact.contains_stable_state_read {
-      contains_stable_state_read = true
+    if child_fact.proves_includes_stable_state_read() {
+      includes_stable_state_read = true
     }
   }
   {
-    matching_local_get_leaf: false,
-    matching_global_get_leaf: false,
-    matching_const_leaf: false,
-    matching_stable_state_read_leaf: false,
-    matching_branchless_scalar_shell: true,
-    children_equal,
-    contains_stable_state_read,
+    kind: ScalarTreeEqualityBranchlessShell,
+    leaf_fact: None,
+    shell_fact: Some(OiPureScalarEqualTreeShellFact::from_op(left.op)),
+    child_fact: Some({ children_equal, includes_stable_state_read }),
   }
 }
 
@@ -16181,25 +16236,58 @@ fn OiScalarTreeEqualityFact::from_nodes(
 fn OiScalarTreeEqualityFact::proves_equal(
   self : OiScalarTreeEqualityFact,
 ) -> Bool {
-  self.matching_local_get_leaf ||
-  self.matching_global_get_leaf ||
-  self.matching_const_leaf ||
-  self.matching_stable_state_read_leaf ||
-  (self.matching_branchless_scalar_shell && self.children_equal)
+  match self.kind {
+    ScalarTreeEqualityLeaf =>
+      match self.leaf_fact {
+        Some(fact) => fact.proves_equal()
+        None => false
+      }
+    ScalarTreeEqualityBranchlessShell => {
+      let shell_equal = match self.shell_fact {
+        Some(fact) => fact.proves_shell()
+        None => false
+      }
+      let children_equal = match self.child_fact {
+        Some(fact) => fact.proves_children_equal()
+        None => false
+      }
+      shell_equal && children_equal
+    }
+    ScalarTreeEqualityUnsupported => false
+  }
+}
+
+///|
+fn OiScalarTreeEqualityFact::proves_includes_stable_state_read(
+  self : OiScalarTreeEqualityFact,
+) -> Bool {
+  match self.kind {
+    ScalarTreeEqualityLeaf =>
+      match self.leaf_fact {
+        Some(fact) => fact.includes_stable_state_read()
+        None => false
+      }
+    ScalarTreeEqualityBranchlessShell =>
+      match self.child_fact {
+        Some(fact) => fact.proves_includes_stable_state_read()
+        None => false
+      }
+    ScalarTreeEqualityUnsupported => false
+  }
 }
 
 ///|
 fn OiScalarTreeEqualityFact::proves_pure_equal(
   self : OiScalarTreeEqualityFact,
 ) -> Bool {
-  self.proves_equal() && !self.contains_stable_state_read
+  self.proves_equal() && !self.proves_includes_stable_state_read()
 }
 
 ///|
 fn OiScalarTreeEqualityFact::proves_stable_state_scalar_equal(
   self : OiScalarTreeEqualityFact,
 ) -> Bool {
-  self.proves_equal() && self.contains_stable_state_read
+  self.proves_equal() && self.proves_includes_stable_state_read()
 }
 
 ///|
