@@ -22206,13 +22206,18 @@ priv enum OiEqzConditionSelectRewriteKind {
 }
 
 ///|
+priv struct OiEqzConditionSelectCompareFact {
+  lhs_id : Int
+  rhs_id : Int
+  replacement_instr : @lib.Instruction
+}
+
+///|
 priv struct OiEqzConditionSelectFact {
   inner_condition_id : Int
   if_true_id : Int
   if_false_id : Int
-  compare_lhs_id : Int
-  compare_rhs_id : Int
-  replacement_instr : @lib.Instruction?
+  compare_fact : OiEqzConditionSelectCompareFact?
   kind : OiEqzConditionSelectRewriteKind
 }
 
@@ -22226,9 +22231,7 @@ fn OiEqzConditionSelectFact::no_rewrite_boundary(
     inner_condition_id,
     if_true_id,
     if_false_id,
-    compare_lhs_id: -1,
-    compare_rhs_id: -1,
-    replacement_instr: None,
+    compare_fact: None,
     kind: EqzConditionSelectNoRewriteBoundary,
   }
 }
@@ -22240,15 +22243,7 @@ fn OiEqzConditionSelectFact::simple(
   if_false_id : Int,
   kind : OiEqzConditionSelectRewriteKind,
 ) -> OiEqzConditionSelectFact {
-  {
-    inner_condition_id,
-    if_true_id,
-    if_false_id,
-    compare_lhs_id: -1,
-    compare_rhs_id: -1,
-    replacement_instr: None,
-    kind,
-  }
+  { inner_condition_id, if_true_id, if_false_id, compare_fact: None, kind }
 }
 
 ///|
@@ -22265,9 +22260,7 @@ fn OiEqzConditionSelectFact::compare(
     inner_condition_id,
     if_true_id,
     if_false_id,
-    compare_lhs_id: lhs_id,
-    compare_rhs_id: rhs_id,
-    replacement_instr: Some(replacement_instr),
+    compare_fact: Some({ lhs_id, rhs_id, replacement_instr }),
     kind,
   }
 }
@@ -22454,15 +22447,15 @@ fn OiEqzConditionSelectFact::apply(
       true
     }
     EqzConditionSelectI32TrueFalseCompare =>
-      match self.replacement_instr {
-        Some(replacement_instr) => {
+      match self.compare_fact {
+        Some(compare_fact) => {
           optimize_instructions_replace_with_exact_compare(
             ctx,
             func,
             node_id,
-            replacement_instr,
-            self.compare_lhs_id,
-            self.compare_rhs_id,
+            compare_fact.replacement_instr,
+            compare_fact.lhs_id,
+            compare_fact.rhs_id,
           )
           true
         }
