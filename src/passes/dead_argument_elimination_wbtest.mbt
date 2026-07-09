@@ -8676,6 +8676,16 @@ test "dae local usage evidence centralizes local counts and try-table scan" {
   assert_eq(range_evidence.get_count, 1)
   assert_eq(range_evidence.write_count, 1)
   assert_true(range_evidence.has_try_table)
+  let extent = dae_local_reference_extent_evidence(body, -1, 100)
+  assert_eq(extent.limit, 100)
+  assert_eq(extent.max_referenced_local_slot, 108)
+  assert_true(extent.references_at_or_above_limit)
+  let below_limit = dae_local_reference_extent_evidence(body, -1, 109)
+  assert_eq(below_limit.max_referenced_local_slot, 108)
+  assert_false(below_limit.references_at_or_above_limit)
+  assert_eq(dae_max_referenced_local_slot_instrs(body, -1), 108)
+  assert_true(dae_instrs_reference_local_at_or_above(body, 108))
+  assert_false(dae_instrs_reference_local_at_or_above(body, 109))
 }
 
 ///|

@@ -503,6 +503,13 @@ priv struct DaeLocalUsageEvidence {
 }
 
 ///|
+priv struct DaeLocalReferenceExtentEvidence {
+  limit : Int
+  max_referenced_local_slot : Int
+  references_at_or_above_limit : Bool
+}
+
+///|
 priv struct DaeLocalCopyTargetEvidence {
   temp_local : @lib.LocalIdx
   target_local : @lib.LocalIdx
@@ -18539,35 +18546,76 @@ fn dae_strip_module_root_return_suffix_once(
 }
 
 ///|
+fn dae_local_reference_extent_note_slot(
+  evidence : DaeLocalReferenceExtentEvidence,
+  slot : Int,
+) -> DaeLocalReferenceExtentEvidence {
+  {
+    limit: evidence.limit,
+    max_referenced_local_slot: if slot > evidence.max_referenced_local_slot {
+      slot
+    } else {
+      evidence.max_referenced_local_slot
+    },
+    references_at_or_above_limit: evidence.references_at_or_above_limit ||
+    slot >= evidence.limit,
+  }
+}
+
+///|
+fn dae_local_reference_extent_instr(
+  instr : @lib.Instruction,
+  evidence : DaeLocalReferenceExtentEvidence,
+) -> DaeLocalReferenceExtentEvidence {
+  match instr {
+    @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+      dae_local_reference_extent_note_slot(evidence, dae_local_idx_slot(idx))
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_local_reference_extent_evidence_from_seed(body, evidence)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_local_reference_extent_evidence_from_seed(
+        else_body,
+        dae_local_reference_extent_evidence_from_seed(then_body, evidence),
+      )
+    @lib.If(_, then_body, None) =>
+      dae_local_reference_extent_evidence_from_seed(then_body, evidence)
+    _ => evidence
+  }
+}
+
+///|
+fn dae_local_reference_extent_evidence_from_seed(
+  instrs : Array[@lib.Instruction],
+  seed : DaeLocalReferenceExtentEvidence,
+) -> DaeLocalReferenceExtentEvidence {
+  let mut evidence = seed
+  for instr in instrs {
+    evidence = dae_local_reference_extent_instr(instr, evidence)
+  }
+  evidence
+}
+
+///|
+fn dae_local_reference_extent_evidence(
+  instrs : Array[@lib.Instruction],
+  initial_max : Int,
+  limit : Int,
+) -> DaeLocalReferenceExtentEvidence {
+  dae_local_reference_extent_evidence_from_seed(instrs, {
+    limit,
+    max_referenced_local_slot: initial_max,
+    references_at_or_above_limit: false,
+  })
+}
+
+///|
 fn dae_instrs_reference_local_at_or_above(
   instrs : Array[@lib.Instruction],
   limit : Int,
 ) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
-        if dae_local_idx_slot(idx) >= limit {
-          return true
-        }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if dae_instrs_reference_local_at_or_above(body, limit) {
-          return true
-        }
-      @lib.If(_, then_body, Some(else_body)) =>
-        if dae_instrs_reference_local_at_or_above(then_body, limit) ||
-          dae_instrs_reference_local_at_or_above(else_body, limit) {
-          return true
-        }
-      @lib.If(_, then_body, None) =>
-        if dae_instrs_reference_local_at_or_above(then_body, limit) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
+  dae_local_reference_extent_evidence(instrs, -1, limit).references_at_or_above_limit
 }
 
 ///|
@@ -22279,44 +22327,11 @@ fn dae_fold_func237_used_temp_copies(
 }
 
 ///|
-fn dae_max_referenced_local_slot_instr(
-  instr : @lib.Instruction,
-  current_max : Int,
-) -> Int {
-  match instr {
-    @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) => {
-      let slot = dae_local_idx_slot(idx)
-      if slot > current_max {
-        slot
-      } else {
-        current_max
-      }
-    }
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      dae_max_referenced_local_slot_instrs(body, current_max)
-    @lib.If(_, then_body, Some(else_body)) =>
-      dae_max_referenced_local_slot_instrs(
-        else_body,
-        dae_max_referenced_local_slot_instrs(then_body, current_max),
-      )
-    @lib.If(_, then_body, None) =>
-      dae_max_referenced_local_slot_instrs(then_body, current_max)
-    _ => current_max
-  }
-}
-
-///|
 fn dae_max_referenced_local_slot_instrs(
   instrs : Array[@lib.Instruction],
   initial_max : Int,
 ) -> Int {
-  let mut max_slot = initial_max
-  for instr in instrs {
-    max_slot = dae_max_referenced_local_slot_instr(instr, max_slot)
-  }
-  max_slot
+  dae_local_reference_extent_evidence(instrs, initial_max, initial_max + 1).max_referenced_local_slot
 }
 
 ///|
@@ -24652,8 +24667,11 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
     @lib.LocalIdx::new(0U),
     @lib.LocalIdx::new(4U),
   )
-  if dae_instrs_reference_local_at_or_above(mapped, 5) {
-    let max_local = dae_max_referenced_local_slot_instrs(mapped, -1)
+  let mapped_reference_extent = dae_local_reference_extent_evidence(
+    mapped, -1, 5,
+  )
+  if mapped_reference_extent.references_at_or_above_limit {
+    let max_local = mapped_reference_extent.max_referenced_local_slot
     let max_idx = @lib.LocalIdx::new(max_local.reinterpret_as_uint())
     let max_usage = dae_local_usage_evidence(mapped, max_idx)
     let max_gets = max_usage.get_count
