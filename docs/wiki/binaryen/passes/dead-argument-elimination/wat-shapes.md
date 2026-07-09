@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-04
 sources:
   - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
@@ -26,7 +26,7 @@ For primary-source provenance, see [`../../../raw/binaryen/2026-04-24-dead-argum
 
 ## Read this page with one mental model
 
-Current Starshine does not implement these shapes yet. They are the future test checklist for the boundary-only local name `dead-argument-elimination`.
+Starshine now has an active partial `dead-argument-elimination` / `dae` module-pass surface. Treat these examples as the transform-family checklist for the ongoing audit, not as proof that every shape is currently green.
 
 Binaryen is not asking only:
 
