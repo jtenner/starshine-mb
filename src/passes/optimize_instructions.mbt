@@ -17044,51 +17044,69 @@ fn OiLoadResultFact::from_unary_consumer(
 }
 
 ///|
-fn OiLoadResultFact::reinterpret_load_instr(
-  self : OiLoadResultFact,
-) -> @lib.Instruction? {
-  // Binaryen v130 `visitUnary` rewrites one-use non-atomic representation loads
-  // through reinterpret consumers by mutating the load type in place.
-  match (self.load_instr, self.consumer_instr) {
-    (@lib.Instruction::I32Load(memarg), @lib.Instruction::F32ReinterpretI32) =>
-      Some(@lib.Instruction::f32_load(memarg))
-    (@lib.Instruction::I64Load(memarg), @lib.Instruction::F64ReinterpretI64) =>
-      Some(@lib.Instruction::f64_load(memarg))
-    (@lib.Instruction::F32Load(memarg), @lib.Instruction::I32ReinterpretF32) =>
-      Some(@lib.Instruction::i32_load(memarg))
-    (@lib.Instruction::F64Load(memarg), @lib.Instruction::I64ReinterpretF64) =>
-      Some(@lib.Instruction::i64_load(memarg))
-    _ => None
-  }
+priv struct OiLoadResultReinterpretFact {
+  load_fact : OiLoadResultFact
+  new_instr : @lib.Instruction
 }
 
 ///|
-fn OiLoadResultFact::i64_extend_i32_load_instr(
-  self : OiLoadResultFact,
-) -> @lib.Instruction? {
+fn OiLoadResultReinterpretFact::from_load_result(
+  load_fact : OiLoadResultFact,
+) -> OiLoadResultReinterpretFact? {
+  // Binaryen v130 `visitUnary` rewrites one-use non-atomic representation loads
+  // through reinterpret consumers by mutating the load type in place. Keep the
+  // consumer/load opcode relation as an explicit fact before the rewrite-plan
+  // layer rebuilds the root.
+  let new_instr = match (load_fact.load_instr, load_fact.consumer_instr) {
+    (@lib.Instruction::I32Load(memarg), @lib.Instruction::F32ReinterpretI32) =>
+      @lib.Instruction::f32_load(memarg)
+    (@lib.Instruction::I64Load(memarg), @lib.Instruction::F64ReinterpretI64) =>
+      @lib.Instruction::f64_load(memarg)
+    (@lib.Instruction::F32Load(memarg), @lib.Instruction::I32ReinterpretF32) =>
+      @lib.Instruction::i32_load(memarg)
+    (@lib.Instruction::F64Load(memarg), @lib.Instruction::I64ReinterpretF64) =>
+      @lib.Instruction::i64_load(memarg)
+    _ => return None
+  }
+  Some({ load_fact, new_instr })
+}
+
+///|
+priv struct OiLoadResultI64ExtendI32Fact {
+  load_fact : OiLoadResultFact
+  new_instr : @lib.Instruction
+}
+
+///|
+fn OiLoadResultI64ExtendI32Fact::from_load_result(
+  load_fact : OiLoadResultFact,
+) -> OiLoadResultI64ExtendI32Fact? {
   // Binaryen v130 rewrites one-use i32 loads under i64.extend_i32 when the
   // signedness/atomic constraints are represented by an equivalent i64 load.
-  match (self.load_instr, self.consumer_instr) {
+  // Keep that signedness/result-width relation as a named fact so it cannot be
+  // confused with the reinterpret-load fact above.
+  let new_instr = match (load_fact.load_instr, load_fact.consumer_instr) {
     (@lib.Instruction::I32Load(memarg), @lib.Instruction::I64ExtendI32U) =>
-      Some(@lib.Instruction::i64_load32u(memarg))
+      @lib.Instruction::i64_load32u(memarg)
     (@lib.Instruction::I32Load(memarg), @lib.Instruction::I64ExtendI32S) =>
-      Some(@lib.Instruction::i64_load32s(memarg))
+      @lib.Instruction::i64_load32s(memarg)
     (
       @lib.Instruction::I32Load8U(memarg),
       @lib.Instruction::I64ExtendI32U
       | @lib.Instruction::I64ExtendI32S,
-    ) => Some(@lib.Instruction::i64_load8u(memarg))
+    ) => @lib.Instruction::i64_load8u(memarg)
     (
       @lib.Instruction::I32Load16U(memarg),
       @lib.Instruction::I64ExtendI32U
       | @lib.Instruction::I64ExtendI32S,
-    ) => Some(@lib.Instruction::i64_load16u(memarg))
+    ) => @lib.Instruction::i64_load16u(memarg)
     (@lib.Instruction::I32Load8S(memarg), @lib.Instruction::I64ExtendI32S) =>
-      Some(@lib.Instruction::i64_load8s(memarg))
+      @lib.Instruction::i64_load8s(memarg)
     (@lib.Instruction::I32Load16S(memarg), @lib.Instruction::I64ExtendI32S) =>
-      Some(@lib.Instruction::i64_load16s(memarg))
-    _ => None
+      @lib.Instruction::i64_load16s(memarg)
+    _ => return None
   }
+  Some({ load_fact, new_instr })
 }
 
 ///|
@@ -17120,11 +17138,16 @@ fn OiLoadResultRewritePlanFact::from_reinterpret(
     Some(fact) => fact
     None => return None
   }
-  let new_instr = match load_fact.reinterpret_load_instr() {
-    Some(instr) => instr
+  let rewrite_fact = match
+    OiLoadResultReinterpretFact::from_load_result(load_fact) {
+    Some(fact) => fact
     None => return None
   }
-  Some({ kind: LoadResultRewriteReinterpret, load_fact, new_instr })
+  Some({
+    kind: LoadResultRewriteReinterpret,
+    load_fact: rewrite_fact.load_fact,
+    new_instr: rewrite_fact.new_instr,
+  })
 }
 
 ///|
@@ -17139,11 +17162,16 @@ fn OiLoadResultRewritePlanFact::from_i64_extend_i32(
     Some(fact) => fact
     None => return None
   }
-  let new_instr = match load_fact.i64_extend_i32_load_instr() {
-    Some(instr) => instr
+  let rewrite_fact = match
+    OiLoadResultI64ExtendI32Fact::from_load_result(load_fact) {
+    Some(fact) => fact
     None => return None
   }
-  Some({ kind: LoadResultRewriteI64ExtendI32, load_fact, new_instr })
+  Some({
+    kind: LoadResultRewriteI64ExtendI32,
+    load_fact: rewrite_fact.load_fact,
+    new_instr: rewrite_fact.new_instr,
+  })
 }
 
 ///|
