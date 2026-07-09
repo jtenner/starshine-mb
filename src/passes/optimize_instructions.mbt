@@ -9584,12 +9584,22 @@ priv enum OiCallRefBrOnFallthroughTargetKind {
 }
 
 ///|
+priv enum OiCallRefBrOnRefChildKind {
+  CallRefBrOnRefFinalChild
+}
+
+///|
+priv struct OiCallRefBrOnRefChildFact {
+  kind : OiCallRefBrOnRefChildKind
+  ref_id : Int
+  ref_fact : OiCallRefFallthroughTargetFact
+}
+
+///|
 priv struct OiCallRefBrOnFallthroughTargetFact {
   kind : OiCallRefBrOnFallthroughTargetKind
   branch_target_id : Int
-  ref_id : Int
-  ref_is_final_child : Bool
-  ref_fact : OiCallRefFallthroughTargetFact
+  ref_child_fact : OiCallRefBrOnRefChildFact
 }
 
 ///|
@@ -9679,7 +9689,8 @@ fn OiCallRefFallthroughTargetFact::from_node(
         OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
           func, dead, node_id, depth,
         ) {
-        Some(fact) if fact.proves_ref_func_ref_fallthrough() => fact.ref_fact
+        Some(fact) if fact.proves_ref_func_ref_fallthrough() =>
+          fact.ref_child_fact.ref_fact
         _ => OiCallRefFallthroughTargetFact::unknown()
       }
     _ => OiCallRefFallthroughTargetFact::unknown()
@@ -9707,6 +9718,27 @@ fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
     @ir.HotOp::BrOnCastFail => CallRefBrOnCastFailFallthroughRef
     _ => return None
   }
+  let ref_child_fact = match
+    OiCallRefBrOnRefChildFact::from_br_on_target(func, dead, node_id, depth) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({ kind, branch_target_id: node.imm0, ref_child_fact })
+}
+
+///|
+fn OiCallRefBrOnRefChildFact::from_br_on_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth : Int,
+) -> OiCallRefBrOnRefChildFact? {
+  // Binaryen v130 `Properties::getImmediateFallthroughPtr` exposes the final
+  // reference child of `br_on_*` as the fallthrough value. Carry that selected
+  // child plus its recursive direct-function proof as a nested payload fact so
+  // branch-target validation and ref-child fallthrough proof do not remain as
+  // parallel booleans on the broader branch fact.
+  let node = @ir.hot_node_get(func, node_id)
   if node.child_count < 1 {
     return None
   }
@@ -9721,13 +9753,22 @@ fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
     ref_id,
     depth=depth + 1,
   )
-  Some({
-    kind,
-    branch_target_id: node.imm0,
-    ref_id,
-    ref_is_final_child: ref_slot == node.child_count - 1,
-    ref_fact,
-  })
+  Some({ kind: CallRefBrOnRefFinalChild, ref_id, ref_fact })
+}
+
+///|
+fn OiCallRefBrOnRefChildFact::proves_final_ref_func_fallthrough(
+  self : OiCallRefBrOnRefChildFact,
+) -> Bool {
+  let direct_ref_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.ref_fact) {
+    Some(fact) => fact
+    None => return false
+  }
+  match self.kind {
+    CallRefBrOnRefFinalChild =>
+      self.ref_id >= 0 && direct_ref_fact.proves_direct_ref_func_fallthrough()
+  }
 }
 
 ///|
@@ -9740,16 +9781,9 @@ fn OiCallRefBrOnFallthroughTargetFact::proves_ref_func_ref_fallthrough(
     | CallRefBrOnCastFallthroughRef
     | CallRefBrOnCastFailFallthroughRef => true
   }
-  let direct_ref_fact = match
-    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.ref_fact) {
-    Some(fact) => fact
-    None => return false
-  }
   supported_br_on_kind &&
   self.branch_target_id >= 0 &&
-  self.ref_id >= 0 &&
-  self.ref_is_final_child &&
-  direct_ref_fact.proves_direct_ref_func_fallthrough()
+  self.ref_child_fact.proves_final_ref_func_fallthrough()
 }
 
 ///|
