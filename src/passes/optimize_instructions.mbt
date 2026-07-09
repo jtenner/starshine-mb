@@ -9850,10 +9850,15 @@ priv struct OiCallRefSelectDirectArmsFact {
 }
 
 ///|
+priv struct OiCallRefSelectResidueArmFact {
+  arm_id : Int
+}
+
+///|
 priv struct OiCallRefSelectTargetFact {
   direct_arms_fact : OiCallRefSelectDirectArmsFact
   condition_fact : OiCallRefSelectConditionFact
-  residue_arm_id : Int
+  residue_arm_fact : OiCallRefSelectResidueArmFact
 }
 
 ///|
@@ -10418,6 +10423,16 @@ fn OiCallRefSelectDirectArmsFact::from_arm_facts(
 }
 
 ///|
+fn OiCallRefSelectResidueArmFact::from_arm_id(
+  arm_id : Int,
+) -> OiCallRefSelectResidueArmFact? {
+  if arm_id < 0 {
+    return None
+  }
+  Some({ arm_id, })
+}
+
+///|
 fn OiCallRefSelectTargetFact::from_direct_arms(
   condition_fact : OiCallRefSelectConditionFact,
   true_fact : OiCallRefSelectArmFact,
@@ -10428,14 +10443,19 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
   // select arms as known direct targets, then either emits a one-call residue
   // for identical functions or an if-over-direct-calls for different functions.
   // Keep that select-specific target state together instead of spreading the
-  // arm ids, same-target proof, and condition effect proof across the generic
-  // call_ref target fact.
+  // arm ids, same-target proof, condition effect proof, and same-target residue
+  // arm through sentinel fields on the generic call_ref target fact.
   let direct_arms_fact = match
     OiCallRefSelectDirectArmsFact::from_arm_facts(true_fact, false_fact) {
     Some(fact) => fact
     None => return None
   }
-  Some({ direct_arms_fact, condition_fact, residue_arm_id })
+  let residue_arm_fact = match
+    OiCallRefSelectResidueArmFact::from_arm_id(residue_arm_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({ direct_arms_fact, condition_fact, residue_arm_fact })
 }
 
 ///|
@@ -10554,13 +10574,12 @@ fn OiCallRefSelectSameTargetFact::from_select_target(
   let true_direct_fact = select_fact.direct_arms_fact.true_fact
   let false_direct_fact = select_fact.direct_arms_fact.false_fact
   if true_direct_fact.direct_func < 0 ||
-    true_direct_fact.direct_func != false_direct_fact.direct_func ||
-    select_fact.residue_arm_id < 0 {
+    true_direct_fact.direct_func != false_direct_fact.direct_func {
     return None
   }
   Some({
     direct_func: true_direct_fact.direct_func,
-    residue_arm_id: select_fact.residue_arm_id,
+    residue_arm_id: select_fact.residue_arm_fact.arm_id,
     condition_fact: select_fact.condition_fact,
   })
 }
