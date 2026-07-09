@@ -38711,6 +38711,123 @@ fn OiBooleanSelectArmsContextFact::apply(
 }
 
 ///|
+priv struct OiBooleanIfArmContextFact {
+  region_ref : @ir.HotRegionRef
+  tail_slot : Int
+  tail_rewrite : OiBooleanContextLeafRewriteFact
+}
+
+///|
+fn OiBooleanIfArmContextFact::from_region(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  region_ref : @ir.HotRegionRef,
+) -> OiBooleanIfArmContextFact? {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return None
+  }
+  let tail_slot = root_count - 1
+  Some({
+    region_ref,
+    tail_slot,
+    tail_rewrite: OiBooleanContextLeafRewriteFact::from_node(
+      func,
+      dead,
+      @ir.hot_region_get(func, region_ref, tail_slot),
+    ),
+  })
+}
+
+///|
+fn OiBooleanIfArmContextFact::apply(
+  self : OiBooleanIfArmContextFact,
+  func : @ir.HotFunc,
+) -> Bool {
+  match self.tail_rewrite.proven_replacement() {
+    Some(replacement_id) => {
+      ignore(
+        @ir.hot_region_set(
+          func,
+          self.region_ref,
+          self.tail_slot,
+          replacement_id,
+        ),
+      )
+      true
+    }
+    None => false
+  }
+}
+
+///|
+priv struct OiBooleanIfArmsContextFact {
+  if_id : Int
+  then_arm : OiBooleanIfArmContextFact
+  else_arm : OiBooleanIfArmContextFact
+}
+
+///|
+fn OiBooleanIfArmsContextFact::from_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  condition_id : Int,
+) -> OiBooleanIfArmsContextFact? {
+  // Binaryen v130 `optimizeBoolean` recursively optimizes both arms only when
+  // the if itself has i32 type. HOT stores each arm expression as a region, so
+  // preserve any arm prefixes and carry the final root rewrite independently.
+  match @ir.hot_node_get(func, condition_id).op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let then_arm = match
+    OiBooleanIfArmContextFact::from_region(
+      func,
+      dead,
+      @ir.hot_region_then_ref(func, condition_id),
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  let else_region = match @ir.hot_region_else_ref(func, condition_id) {
+    Some(region) => region
+    None => return None
+  }
+  let else_arm = match
+    OiBooleanIfArmContextFact::from_region(func, dead, else_region) {
+    Some(fact) => fact
+    None => return None
+  }
+  if then_arm.tail_rewrite.proven_replacement() is None &&
+    else_arm.tail_rewrite.proven_replacement() is None {
+    return None
+  }
+  Some({ if_id: condition_id, then_arm, else_arm })
+}
+
+///|
+fn OiBooleanIfArmsContextFact::apply(
+  self : OiBooleanIfArmsContextFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  if self.if_id < 0 {
+    return false
+  }
+  let then_changed = self.then_arm.apply(func)
+  let else_changed = self.else_arm.apply(func)
+  let changed = then_changed || else_changed
+  if changed {
+    pass_mark_mutated(ctx, func)
+  }
+  changed
+}
+
+///|
 fn optimize_instructions_try_optimize_boolean_condition_context(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -38730,7 +38847,12 @@ fn optimize_instructions_try_optimize_boolean_condition_context(
       match
         OiBooleanSelectArmsContextFact::from_condition(func, dead, condition_id) {
         Some(fact) => fact.apply(ctx, func)
-        None => false
+        None =>
+          match
+            OiBooleanIfArmsContextFact::from_condition(func, dead, condition_id) {
+            Some(fact) => fact.apply(ctx, func)
+            None => false
+          }
       }
   }
 }

@@ -2569,6 +2569,76 @@ test "optimize-instructions recursively simplifies boolean select arms" {
 }
 
 ///|
+test "optimize-instructions recursively simplifies boolean if arms" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // recursively treats both result arms of an i32 if as boolean values when the
+  // inner if is consumed as an outer condition. The focused oracle preserves
+  // both if shells while removing exact `i32.ne(x, 0)` arm tails.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) (if (result i32) (if (result i32) (local.get 2) (then (i32.ne (local.get 0) (i32.const 0))) (else (i32.ne (local.get 1) (i32.const 0)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let outer_if = @ir.hot_root_get(func, 0)
+  let inner_if = @ir.hot_child_get(func, outer_if, 0)
+  match @ir.hot_node_get(func, inner_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected boolean condition to remain an if, got \{other}")
+  }
+  let then_region = @ir.hot_region_then_ref(func, inner_if)
+  let else_region = match @ir.hot_region_else_ref(func, inner_if) {
+    Some(region) => region
+    None => fail("expected boolean if condition to retain an else arm")
+  }
+  let assert_arm = fn(region : @ir.HotRegionRef, local_id : Int) raise {
+    @debug.assert_eq(@ir.hot_region_root_count(func, region), 1)
+    let arm = @ir.hot_region_get(func, region, 0)
+    match @ir.hot_node_get(func, arm).op {
+      @ir.HotOp::LocalGet =>
+        @debug.assert_eq(@ir.hot_node_get(func, arm).imm0, local_id)
+      other => fail("expected boolean if arm to simplify, got \{other}")
+    }
+  }
+  assert_arm(then_region, 0)
+  assert_arm(else_region, 1)
+  let selector = @ir.hot_child_get(func, inner_if, 0)
+  match @ir.hot_node_get(func, selector).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(func, selector).imm0, 2)
+    other => fail("expected inner if condition to remain, got \{other}")
+  }
+
+  let one_sided = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) (if (result i32) (if (result i32) (local.get 2) (then (i32.ne (local.get 0) (i32.const 0))) (else (i32.add (local.get 1) (i32.const 7)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let one_sided_inner = @ir.hot_child_get(
+    one_sided,
+    @ir.hot_root_get(one_sided, 0),
+    0,
+  )
+  let one_sided_then = @ir.hot_region_then_ref(one_sided, one_sided_inner)
+  let one_sided_else = match
+    @ir.hot_region_else_ref(one_sided, one_sided_inner) {
+    Some(region) => region
+    None => fail("expected one-sided boolean if to retain its else arm")
+  }
+  match
+    @ir.hot_node_get(
+      one_sided,
+      @ir.hot_region_get(one_sided, one_sided_then, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    other =>
+      fail("expected one-sided boolean then arm to simplify, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      one_sided,
+      @ir.hot_region_get(one_sided, one_sided_else, 0),
+    ),
+    Some(@lib.Instruction::i32_add()),
+  )
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to
