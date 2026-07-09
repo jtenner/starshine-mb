@@ -3442,17 +3442,37 @@ fn OiRefCastOperandTargetFact::from_operand(
 }
 
 ///|
-priv struct OiRefCastSourceTargetRelationFact {
+priv struct OiRefCastSourceTargetDirectNullFact {
   direct_null_operand : Bool
+}
+
+///|
+priv struct OiRefCastSourceTargetIdentityFact {
   nullable_exact_target_type : Bool
-  has_exact_target_heap : Bool
-  known_match_target : Bool
-  known_match_nullable_target : Bool
-  known_miss_target : Bool
+  exact_target_heap : Bool
+}
+
+///|
+priv struct OiRefCastSourceTargetMatchFact {
+  matches_target : Bool
+  nullable_matches_target : Bool
+  matches_nullable_exact_target_only_as_null : Bool
+}
+
+///|
+priv struct OiRefCastSourceTargetMissFact {
+  misses_target : Bool
   null_or_known_miss_for_non_null_target : Bool
   misses_exact_target : Bool
   misses_exact_target_by_strict_subtype : Bool
-  matches_nullable_exact_target_only_as_null : Bool
+}
+
+///|
+priv struct OiRefCastSourceTargetRelationFact {
+  direct_null_fact : OiRefCastSourceTargetDirectNullFact
+  identity_fact : OiRefCastSourceTargetIdentityFact
+  match_fact : OiRefCastSourceTargetMatchFact
+  miss_fact : OiRefCastSourceTargetMissFact
 }
 
 ///|
@@ -3507,45 +3527,127 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
       let source = ref_type.get_heap_type()
       let relation = OiHeapRelationFact::from_heaps(ctx, source, target)
       {
-        direct_null_operand,
-        nullable_exact_target_type: ref_type.is_nullable() && source == target,
-        has_exact_target_heap: ref_type.is_exact() && source == target,
-        known_match_target: literal_target.proves_match_target() ||
-        local_matches_non_null_target,
-        known_match_nullable_target: local_matches_nullable_target,
-        known_miss_target: literal_target.proves_i31_miss_target() ||
-        local_misses_target,
-        null_or_known_miss_for_non_null_target: local_null_or_known_miss_for_non_null_target,
-        misses_exact_target: ref_type.is_exact() &&
-        source != target &&
-        (ref_type.is_non_nullable() || !target_nullable),
-        misses_exact_target_by_strict_subtype: (
-          ref_type.is_non_nullable() || !target_nullable
-        ) &&
-        relation.strict_concrete_heap_matches_target(),
-        matches_nullable_exact_target_only_as_null: target_nullable &&
-        relation.concrete_source_matches_nullable_exact_target_only_as_null(
-          ref_type.is_nullable(),
-          ref_type.is_exact(),
-          target_nullable,
-        ),
+        direct_null_fact: { direct_null_operand, },
+        identity_fact: {
+          nullable_exact_target_type: ref_type.is_nullable() && source == target,
+          exact_target_heap: ref_type.is_exact() && source == target,
+        },
+        match_fact: {
+          matches_target: literal_target.proves_match_target() ||
+          local_matches_non_null_target,
+          nullable_matches_target: local_matches_nullable_target,
+          matches_nullable_exact_target_only_as_null: target_nullable &&
+          relation.concrete_source_matches_nullable_exact_target_only_as_null(
+            ref_type.is_nullable(),
+            ref_type.is_exact(),
+            target_nullable,
+          ),
+        },
+        miss_fact: {
+          misses_target: literal_target.proves_i31_miss_target() ||
+          local_misses_target,
+          null_or_known_miss_for_non_null_target: local_null_or_known_miss_for_non_null_target,
+          misses_exact_target: ref_type.is_exact() &&
+          source != target &&
+          (ref_type.is_non_nullable() || !target_nullable),
+          misses_exact_target_by_strict_subtype: (
+            ref_type.is_non_nullable() || !target_nullable
+          ) &&
+          relation.strict_concrete_heap_matches_target(),
+        },
       }
     }
     None =>
       {
-        direct_null_operand,
-        nullable_exact_target_type: false,
-        has_exact_target_heap: false,
-        known_match_target: literal_target.proves_match_target(),
-        known_match_nullable_target: local_matches_nullable_target,
-        known_miss_target: literal_target.proves_i31_miss_target() ||
-        local_misses_target,
-        null_or_known_miss_for_non_null_target: local_null_or_known_miss_for_non_null_target,
-        misses_exact_target: false,
-        misses_exact_target_by_strict_subtype: false,
-        matches_nullable_exact_target_only_as_null: false,
+        direct_null_fact: { direct_null_operand, },
+        identity_fact: {
+          nullable_exact_target_type: false,
+          exact_target_heap: false,
+        },
+        match_fact: {
+          matches_target: literal_target.proves_match_target(),
+          nullable_matches_target: local_matches_nullable_target,
+          matches_nullable_exact_target_only_as_null: false,
+        },
+        miss_fact: {
+          misses_target: literal_target.proves_i31_miss_target() ||
+          local_misses_target,
+          null_or_known_miss_for_non_null_target: local_null_or_known_miss_for_non_null_target,
+          misses_exact_target: false,
+          misses_exact_target_by_strict_subtype: false,
+        },
       }
   }
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_direct_null_operand(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.direct_null_fact.direct_null_operand
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_nullable_exact_target_type(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.identity_fact.nullable_exact_target_type
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_exact_target_heap(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.identity_fact.exact_target_heap
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_known_match_target(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.match_fact.matches_target
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_nullable_matches_target(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.match_fact.nullable_matches_target
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_nullable_exact_target_only_as_null(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.match_fact.matches_nullable_exact_target_only_as_null
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_known_miss_target(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.miss_fact.misses_target
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_null_or_miss_for_non_null_target(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.miss_fact.null_or_known_miss_for_non_null_target
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_misses_exact_target(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.miss_fact.misses_exact_target
+}
+
+///|
+fn OiRefCastSourceTargetRelationFact::proves_misses_exact_target_by_strict_subtype(
+  self : OiRefCastSourceTargetRelationFact,
+) -> Bool {
+  self.miss_fact.misses_exact_target_by_strict_subtype
 }
 
 ///|
@@ -3646,7 +3748,8 @@ fn OiRefCastOperandFact::proves_exact_target_miss(
   self : OiRefCastOperandFact,
 ) -> Bool {
   let relation = self.target_relation_fact.source_relation
-  relation.misses_exact_target || relation.misses_exact_target_by_strict_subtype
+  relation.proves_misses_exact_target() ||
+  relation.proves_misses_exact_target_by_strict_subtype()
 }
 
 ///|
@@ -3679,7 +3782,7 @@ fn OiRefCastOperandRewriteFact::from_operand_fact(
   // result fact instead of exposing several helper-shaped `can_*` predicates on
   // `OiRefCastOperandFact`.
   let relation = operand_fact.target_relation_fact.source_relation
-  if relation.direct_null_operand {
+  if relation.proves_direct_null_operand() {
     return Some({
       kind: if nullable {
         RefCastOperandDirectNullForward
@@ -3689,23 +3792,23 @@ fn OiRefCastOperandRewriteFact::from_operand_fact(
     })
   }
   if !nullable &&
-    (!exact || relation.has_exact_target_heap) &&
-    relation.nullable_exact_target_type {
+    (!exact || relation.proves_exact_target_heap()) &&
+    relation.proves_nullable_exact_target_type() {
     return Some({ kind: RefCastOperandAsNonNull })
   }
-  if exact && relation.matches_nullable_exact_target_only_as_null {
+  if exact && relation.proves_nullable_exact_target_only_as_null() {
     return Some({ kind: RefCastOperandNullrefCast })
   }
-  if (!exact || relation.has_exact_target_heap) &&
+  if (!exact || relation.proves_exact_target_heap()) &&
     (
-      relation.known_match_target ||
-      (nullable && relation.known_match_nullable_target)
+      relation.proves_known_match_target() ||
+      (nullable && relation.proves_nullable_matches_target())
     ) {
     return Some({ kind: RefCastOperandForward })
   }
-  let traps = relation.known_miss_target ||
+  let traps = relation.proves_known_miss_target() ||
     (exact && operand_fact.proves_exact_target_miss()) ||
-    (!nullable && relation.null_or_known_miss_for_non_null_target)
+    (!nullable && relation.proves_null_or_miss_for_non_null_target())
   if traps {
     return Some({
       kind: if operand_fact.proves_operand_erases_without_effects() {
