@@ -16203,36 +16203,60 @@ fn OiScalarTreeEqualityFact::proves_stable_state_scalar_equal(
 }
 
 ///|
+priv enum OiStableMemoryReadEqualityKind {
+  StableMemoryReadUnsupported
+  StableMemoryReadLoad
+  StableMemoryReadAtomicLoad
+}
+
+///|
+fn OiStableMemoryReadEqualityKind::from_op_and_instr(
+  op : @ir.HotOp,
+  instr : @lib.Instruction,
+) -> OiStableMemoryReadEqualityKind {
+  match op {
+    @ir.HotOp::Load => StableMemoryReadLoad
+    @ir.HotOp::Atomic =>
+      match instr {
+        @lib.Instruction::I32AtomicLoad(_)
+        | @lib.Instruction::I64AtomicLoad(_)
+        | @lib.Instruction::I32AtomicLoad8U(_)
+        | @lib.Instruction::I32AtomicLoad16U(_)
+        | @lib.Instruction::I64AtomicLoad8U(_)
+        | @lib.Instruction::I64AtomicLoad16U(_)
+        | @lib.Instruction::I64AtomicLoad32U(_) => StableMemoryReadAtomicLoad
+        _ => StableMemoryReadUnsupported
+      }
+    _ => StableMemoryReadUnsupported
+  }
+}
+
+///|
+priv struct OiStableMemoryReadInstructionRelationFact {
+  left_instr : @lib.Instruction
+  right_instr : @lib.Instruction
+}
+
+///|
+fn OiStableMemoryReadInstructionRelationFact::proves_same_instruction(
+  self : OiStableMemoryReadInstructionRelationFact,
+) -> Bool {
+  self.left_instr == self.right_instr
+}
+
+///|
 priv struct OiStableMemoryReadEqualityFact {
-  matching_load : Bool
-  matching_atomic_load : Bool
-  same_instruction : Bool
+  kind : OiStableMemoryReadEqualityKind
+  instruction_relation : OiStableMemoryReadInstructionRelationFact?
   address_fact : OiScalarTreeEqualityFact
 }
 
 ///|
 fn OiStableMemoryReadEqualityFact::empty() -> OiStableMemoryReadEqualityFact {
   {
-    matching_load: false,
-    matching_atomic_load: false,
-    same_instruction: false,
+    kind: StableMemoryReadUnsupported,
+    instruction_relation: None,
     address_fact: OiScalarTreeEqualityFact::empty(),
-  }
-}
-
-///|
-fn OiStableMemoryReadEqualityFact::exact_instr_is_atomic_load(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.Instruction::I32AtomicLoad(_)
-    | @lib.Instruction::I64AtomicLoad(_)
-    | @lib.Instruction::I32AtomicLoad8U(_)
-    | @lib.Instruction::I32AtomicLoad16U(_)
-    | @lib.Instruction::I64AtomicLoad8U(_)
-    | @lib.Instruction::I64AtomicLoad16U(_)
-    | @lib.Instruction::I64AtomicLoad32U(_) => true
-    _ => false
   }
 }
 
@@ -16261,30 +16285,34 @@ fn OiStableMemoryReadEqualityFact::from_nodes(
       @ir.hot_node_exact_instr(func, left_id),
       @ir.hot_node_exact_instr(func, right_id),
     ) {
-    (Some(left_instr), Some(right_instr)) if left_instr == right_instr => {
-      let mut matching_load = false
-      let mut matching_atomic_load = false
-      match (left.op, right.op) {
-        (@ir.HotOp::Load, @ir.HotOp::Load) => matching_load = true
-        (@ir.HotOp::Atomic, @ir.HotOp::Atomic) =>
-          matching_atomic_load = OiStableMemoryReadEqualityFact::exact_instr_is_atomic_load(
-            left_instr,
-          )
-        _ => ()
+    (Some(left_instr), Some(right_instr)) => {
+      let left_kind = OiStableMemoryReadEqualityKind::from_op_and_instr(
+        left.op,
+        left_instr,
+      )
+      let right_kind = OiStableMemoryReadEqualityKind::from_op_and_instr(
+        right.op,
+        right_instr,
+      )
+      let kind = match (left_kind, right_kind) {
+        (StableMemoryReadLoad, StableMemoryReadLoad) => StableMemoryReadLoad
+        (StableMemoryReadAtomicLoad, StableMemoryReadAtomicLoad) =>
+          StableMemoryReadAtomicLoad
+        _ => StableMemoryReadUnsupported
       }
-      if !matching_load && !matching_atomic_load {
-        return OiStableMemoryReadEqualityFact::empty()
-      }
-      {
-        matching_load,
-        matching_atomic_load,
-        same_instruction: true,
-        address_fact: OiScalarTreeEqualityFact::from_nodes(
-          func,
-          @ir.hot_child_get(func, left_id, 0),
-          @ir.hot_child_get(func, right_id, 0),
-          include_stable_state_read=true,
-        ),
+      match kind {
+        StableMemoryReadUnsupported => OiStableMemoryReadEqualityFact::empty()
+        StableMemoryReadLoad | StableMemoryReadAtomicLoad =>
+          {
+            kind,
+            instruction_relation: Some({ left_instr, right_instr }),
+            address_fact: OiScalarTreeEqualityFact::from_nodes(
+              func,
+              @ir.hot_child_get(func, left_id, 0),
+              @ir.hot_child_get(func, right_id, 0),
+              include_stable_state_read=true,
+            ),
+          }
       }
     }
     _ => OiStableMemoryReadEqualityFact::empty()
@@ -16295,9 +16323,15 @@ fn OiStableMemoryReadEqualityFact::from_nodes(
 fn OiStableMemoryReadEqualityFact::proves_equal(
   self : OiStableMemoryReadEqualityFact,
 ) -> Bool {
-  self.same_instruction &&
-  (self.matching_load || self.matching_atomic_load) &&
-  self.address_fact.proves_equal()
+  let matching_read_kind = match self.kind {
+    StableMemoryReadLoad | StableMemoryReadAtomicLoad => true
+    StableMemoryReadUnsupported => false
+  }
+  let same_instruction = match self.instruction_relation {
+    Some(fact) => fact.proves_same_instruction()
+    None => false
+  }
+  matching_read_kind && same_instruction && self.address_fact.proves_equal()
 }
 
 ///|
