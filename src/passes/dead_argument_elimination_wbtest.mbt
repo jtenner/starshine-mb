@@ -2761,6 +2761,35 @@ test "dae recursive body rewrite application evidence centralizes repair plannin
       )
     None => ()
   }
+
+  let rewrite_second_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    match instr {
+      @lib.I32Const(@lib.I32(2)) =>
+        Some(@lib.Instruction::i32_const(@lib.I32(22)))
+      _ => None
+    }
+  }
+  match
+    dae_apply_first_recursive_instruction_body_rewrite_to_body(
+      root_body, rewrite_second_instr,
+    ) {
+    Some(rewritten) => {
+      assert_eq(rewritten[0], root_body[0])
+      assert_eq(rewritten[1], @lib.Instruction::i32_const(@lib.I32(22)))
+    }
+    None =>
+      fail("expected instruction rewrite adapter to return rewritten body")
+  }
+  let rewrite_no_instr = fn(_instr : @lib.Instruction) -> @lib.Instruction? {
+    None
+  }
+  match
+    dae_apply_first_recursive_instruction_body_rewrite_to_body(
+      root_body, rewrite_no_instr,
+    ) {
+    Some(_) => fail("instruction rewrite adapter should reject no-match bodies")
+    None => ()
+  }
 }
 
 ///|

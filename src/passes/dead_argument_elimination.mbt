@@ -6753,6 +6753,18 @@ fn dae_apply_first_recursive_instruction_body_rewrite(
 }
 
 ///|
+fn dae_apply_first_recursive_instruction_body_rewrite_to_body(
+  body : Array[@lib.Instruction],
+  rewrite_instr : (@lib.Instruction) -> @lib.Instruction?,
+) -> Array[@lib.Instruction]? {
+  match
+    dae_apply_first_recursive_instruction_body_rewrite(body, rewrite_instr) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
+  }
+}
+
+///|
 fn dae_apply_first_recursive_control_child_body_rewrite(
   body : Array[@lib.Instruction],
   rewrite_child_body : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
@@ -19505,10 +19517,9 @@ fn dae_try_flatten_func237_nested_branch_result_body_once(
   let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
     dae_try_flatten_func237_nested_branch_result_instr_once(instr, type_sec)
   }
-  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
-    Some((rewritten, _)) => Some(rewritten)
-    None => None
-  }
+  dae_apply_first_recursive_instruction_body_rewrite_to_body(
+    body, rewrite_instr,
+  )
 }
 
 ///|
@@ -20151,11 +20162,9 @@ fn dae_try_hoist_func237_leading_retain_call_body_recursive_once(
   let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
     dae_try_hoist_func237_leading_retain_call_instr_once(instr, type_sec)
   }
-  match
-    dae_apply_first_recursive_instruction_body_rewrite(body, rewrite_instr) {
-    Some((rewritten, _)) => Some(rewritten)
-    None => None
-  }
+  dae_apply_first_recursive_instruction_body_rewrite_to_body(
+    body, rewrite_instr,
+  )
 }
 
 ///|
@@ -20658,11 +20667,9 @@ fn dae_try_flatten_func237_terminal_br0_block_body_recursive_once(
   let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
     dae_try_flatten_func237_terminal_br0_block_instr_once(instr, type_sec)
   }
-  match
-    dae_apply_first_recursive_instruction_body_rewrite(body, rewrite_instr) {
-    Some((rewritten, _)) => Some(rewritten)
-    None => None
-  }
+  dae_apply_first_recursive_instruction_body_rewrite_to_body(
+    body, rewrite_instr,
+  )
 }
 
 ///|
@@ -20857,19 +20864,12 @@ fn dae_try_flatten_func237_zero_branch_body_once(
   body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
-  let mut idx = 0
-  while idx < body.length() {
-    match dae_try_flatten_func237_zero_branch_instr_once(body[idx], type_sec) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    dae_try_flatten_func237_zero_branch_instr_once(instr, type_sec)
   }
-  None
+  dae_apply_first_recursive_instruction_body_rewrite_to_body(
+    body, rewrite_instr,
+  )
 }
 
 ///|
