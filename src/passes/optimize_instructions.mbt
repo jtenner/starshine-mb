@@ -5749,17 +5749,21 @@ priv enum OiDescriptorOperandSimplificationKind {
 }
 
 ///|
-priv enum OiDescriptorCallRefDirectizationKind {
-  DescriptorCallRefDirectizeOperand
-  DescriptorCallRefDirectizeDescriptor
-  DescriptorCallRefDirectizeOperandAndDescriptor
+priv enum OiDescriptorCallRefDirectizationChildSlot {
+  DescriptorCallRefOperandChild
+  DescriptorCallRefDescriptorChild
+}
+
+///|
+priv struct OiDescriptorCallRefChildDirectizationFact {
+  slot : OiDescriptorCallRefDirectizationChildSlot
+  call_ref_id : Int
 }
 
 ///|
 priv struct OiDescriptorCallRefDirectizationFact {
-  kind : OiDescriptorCallRefDirectizationKind
-  operand_call_ref_id : Int?
-  descriptor_call_ref_id : Int?
+  first_child_fact : OiDescriptorCallRefChildDirectizationFact
+  second_child_fact : OiDescriptorCallRefChildDirectizationFact?
 }
 
 ///|
@@ -5770,71 +5774,56 @@ fn OiDescriptorCallRefDirectizationFact::from_cast_fact(
   // Binaryen v130 reaches descriptor-cast operands after child visitors have had
   // a chance to run `visitCallRef`; Starshine sometimes needs to request that
   // same child directization while the descriptor-cast plan is active. Keep the
-  // operand-slot classification as an explicit result kind over the two
-  // descriptor-cast children, not as boolean opcode checks or sentinel payloads
-  // embedded in the simplification plan.
-  let operand_call_ref_id = match
+  // descriptor-cast child slots as ordered payload facts, not as a result-kind
+  // enum with parallel optional call_ref ids. Operand directization still runs
+  // before descriptor directization when both children qualify.
+  let operand_child_fact = match
     @ir.hot_node_get(func, cast_fact.operand_id).op {
-    @ir.HotOp::CallRef => Some(cast_fact.operand_id)
+    @ir.HotOp::CallRef =>
+      Some({
+        slot: DescriptorCallRefOperandChild,
+        call_ref_id: cast_fact.operand_id,
+      })
     _ => None
   }
-  let descriptor_call_ref_id = match
+  let descriptor_child_fact = match
     @ir.hot_node_get(func, cast_fact.descriptor_id).op {
-    @ir.HotOp::CallRef => Some(cast_fact.descriptor_id)
+    @ir.HotOp::CallRef =>
+      Some({
+        slot: DescriptorCallRefDescriptorChild,
+        call_ref_id: cast_fact.descriptor_id,
+      })
     _ => None
   }
-  match (operand_call_ref_id, descriptor_call_ref_id) {
-    (Some(_), Some(_)) =>
+  match (operand_child_fact, descriptor_child_fact) {
+    (Some(operand_fact), Some(descriptor_fact)) =>
       Some({
-        kind: DescriptorCallRefDirectizeOperandAndDescriptor,
-        operand_call_ref_id,
-        descriptor_call_ref_id,
+        first_child_fact: operand_fact,
+        second_child_fact: Some(descriptor_fact),
       })
-    (Some(_), None) =>
-      Some({
-        kind: DescriptorCallRefDirectizeOperand,
-        operand_call_ref_id,
-        descriptor_call_ref_id,
-      })
-    (None, Some(_)) =>
-      Some({
-        kind: DescriptorCallRefDirectizeDescriptor,
-        operand_call_ref_id,
-        descriptor_call_ref_id,
-      })
+    (Some(operand_fact), None) =>
+      Some({ first_child_fact: operand_fact, second_child_fact: None })
+    (None, Some(descriptor_fact)) =>
+      Some({ first_child_fact: descriptor_fact, second_child_fact: None })
     (None, None) => None
   }
 }
 
 ///|
-fn OiDescriptorCallRefDirectizationFact::directize_operand_child(
-  self : OiDescriptorCallRefDirectizationFact,
+fn OiDescriptorCallRefChildDirectizationFact::directize(
+  self : OiDescriptorCallRefChildDirectizationFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
 ) -> Bool {
-  match self.operand_call_ref_id {
-    Some(call_ref_id) =>
+  match self.slot {
+    DescriptorCallRefOperandChild | DescriptorCallRefDescriptorChild =>
       optimize_instructions_try_directize_ref_func_call_ref(
-        ctx, func, dead, call_ref_id,
+        ctx,
+        func,
+        dead,
+        self.call_ref_id,
       )
-    None => false
-  }
-}
-
-///|
-fn OiDescriptorCallRefDirectizationFact::directize_descriptor_child(
-  self : OiDescriptorCallRefDirectizationFact,
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-) -> Bool {
-  match self.descriptor_call_ref_id {
-    Some(call_ref_id) =>
-      optimize_instructions_try_directize_ref_func_call_ref(
-        ctx, func, dead, call_ref_id,
-      )
-    None => false
   }
 }
 
@@ -5845,17 +5834,12 @@ fn OiDescriptorCallRefDirectizationFact::directize_children(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
 ) -> Bool {
-  match self.kind {
-    DescriptorCallRefDirectizeOperand =>
-      self.directize_operand_child(ctx, func, dead)
-    DescriptorCallRefDirectizeDescriptor =>
-      self.directize_descriptor_child(ctx, func, dead)
-    DescriptorCallRefDirectizeOperandAndDescriptor => {
-      let operand_changed = self.directize_operand_child(ctx, func, dead)
-      let descriptor_changed = self.directize_descriptor_child(ctx, func, dead)
-      operand_changed || descriptor_changed
-    }
+  let first_changed = self.first_child_fact.directize(ctx, func, dead)
+  let second_changed = match self.second_child_fact {
+    Some(child_fact) => child_fact.directize(ctx, func, dead)
+    None => false
   }
+  first_changed || second_changed
 }
 
 ///|
