@@ -27672,6 +27672,7 @@ fn OiOneBitI32ValueFact::value_id(self : OiOneBitI32ValueFact) -> Int {
 ///|
 priv enum OiBooleanSelectAlgebraKind {
   BooleanSelectAndFalseZero
+  BooleanSelectOrTrueOne
 }
 
 ///|
@@ -27692,15 +27693,21 @@ fn OiBooleanSelectAlgebraFact::from_select(
   if_false : Int,
   condition_id : Int,
 ) -> OiBooleanSelectAlgebraFact? {
-  // Binaryen v130 `optimizeSelect` rewrites `select(y, 0, x)` to `x & y`
-  // only after all three i32 inputs are proven one-bit values. Keep the
-  // selected maxBits proofs with the exact false-zero shell.
+  // Binaryen v130 `optimizeSelect` rewrites `select(y, 0, x)` to `y & x`
+  // and `select(1, y, x)` to `y | x` only after all three i32 inputs are
+  // proven one-bit values. Keep the selected maxBits proofs with the exact
+  // false-zero or true-one shell.
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [result_type] if result_type == @lib.ValType::i32() => ()
     _ => return None
   }
-  match optimize_instructions_i32_const(func, dead, if_false) {
-    Some(@lib.I32(0)) => ()
+  let kind = match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (_, Some(@lib.I32(0))) => BooleanSelectAndFalseZero
+    (Some(@lib.I32(1)), _) => BooleanSelectOrTrueOne
     _ => return None
   }
   let condition_fact = match
@@ -27718,12 +27725,7 @@ fn OiBooleanSelectAlgebraFact::from_select(
     Some(fact) => fact
     None => return None
   }
-  Some({
-    kind: BooleanSelectAndFalseZero,
-    condition_fact,
-    if_true_fact,
-    if_false_fact,
-  })
+  Some({ kind, condition_fact, if_true_fact, if_false_fact })
 }
 
 ///|
@@ -27733,14 +27735,16 @@ fn OiBooleanSelectAlgebraFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  ignore(self.if_false_fact)
-  let instr = match self.kind {
-    BooleanSelectAndFalseZero => @lib.Instruction::i32_and()
+  let (instr, left_id) = match self.kind {
+    BooleanSelectAndFalseZero =>
+      (@lib.Instruction::i32_and(), self.if_true_fact.value_id())
+    BooleanSelectOrTrueOne =>
+      (@lib.Instruction::i32_or(), self.if_false_fact.value_id())
   }
   let replacement = optimize_instructions_build_i32_binary(
     func,
     instr,
-    self.if_true_fact.value_id(),
+    left_id,
     self.condition_fact.value_id(),
   )
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
