@@ -6143,34 +6143,31 @@ fn dae_nullable_gc_candidate_ref_type(
 }
 
 ///|
-fn dae_gc_select_actual_value_evidence(
+fn dae_gc_select_actual_value_slices_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  left_idx : Int,
-  right_idx : Int,
-  condition_start : Int,
-  select_idx : Int,
+  slices : DaeSelectValueSlices,
   old_type : @lib.ValType,
   require_refined? : Bool = false,
   rewrite_type? : @lib.ValType? = None,
-) -> DaeGcSelectValueEvidence? {
-  if left_idx < 0 ||
-    left_idx + 1 != right_idx ||
-    right_idx >= condition_start ||
-    condition_start >= select_idx ||
-    select_idx >= body.length() {
+) -> DaeGcSelectValueSlicesEvidence? {
+  if !dae_select_value_slices_are_consistent(slices, slices.select_idx) ||
+    slices.select_idx >= body.length() ||
+    slices.right.end != slices.condition.start {
     return None
   }
-  match body[select_idx] {
+  match body[slices.select_idx] {
     @lib.Select(_) => ()
     _ => return None
   }
-  if dae_select_condition_localization_evidence(
-      mod_, body, condition_start, select_idx, func_type_indices,
-    )
-    is None {
-    return None
+  let left_idx = match dae_value_slice_single_instruction_index(slices.left) {
+    Some(idx) if idx >= 0 && idx < body.length() => idx
+    _ => return None
+  }
+  let right_idx = match dae_value_slice_single_instruction_index(slices.right) {
+    Some(idx) if idx >= 0 && idx < body.length() => idx
+    _ => return None
   }
   let candidate = match (body[left_idx], body[right_idx]) {
     (@lib.RefNull(_), @lib.RefNull(_)) => return None
@@ -6236,7 +6233,10 @@ fn dae_gc_select_actual_value_evidence(
       Some(@lib.Instruction::ref_null_type(rt))
     _ => None
   }
-  Some({ candidate, refined_candidate, left_rewrite, right_rewrite })
+  Some({
+    slices,
+    gc: { candidate, refined_candidate, left_rewrite, right_rewrite },
+  })
 }
 
 ///|
@@ -6261,25 +6261,33 @@ fn dae_gc_actual_shape_evidence(
       )
     @lib.Select(_) =>
       if shape.start + 4 <= shape.end {
-        match
-          dae_gc_select_actual_value_evidence(
+        let slices = match
+          dae_find_select_value_slices(
             mod_,
             func_type_indices,
             instrs,
-            shape.start,
-            shape.start + 1,
-            shape.start + 2,
             shape.end - 1,
+            required_left_start=shape.start,
+          ) {
+          Some(slices) => slices
+          None => return None
+        }
+        match
+          dae_gc_select_actual_value_slices_evidence(
+            mod_,
+            func_type_indices,
+            instrs,
+            slices,
             old_type,
             require_refined~,
             rewrite_type~,
           ) {
           Some(evidence) =>
             return Some({
-              candidate: evidence.candidate,
-              refined_candidate: evidence.refined_candidate,
-              left_rewrite: evidence.left_rewrite,
-              right_rewrite: evidence.right_rewrite,
+              candidate: evidence.gc.candidate,
+              refined_candidate: evidence.gc.refined_candidate,
+              left_rewrite: evidence.gc.left_rewrite,
+              right_rewrite: evidence.gc.right_rewrite,
               terminal_rewrite: rewrite_type.map(fn(refined) {
                 @lib.Instruction::select(types=Some([refined]))
               }),

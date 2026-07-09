@@ -5319,31 +5319,36 @@ test "dae GC select actual evidence centralizes nullable refinement and rewrites
   let body = [
     @lib.Instruction::ref_null(@lib.HeapType::new(base_type)),
     @lib.Instruction::struct_new_default(leaf_type),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
     @lib.Instruction::select(types=Some([base_ref])),
   ]
+  let slices = match dae_find_select_value_slices(mod_, [], body, 5) {
+    Some(slices) => slices
+    None => fail("expected reusable select value slices")
+  }
   match
-    dae_gc_select_actual_value_evidence(
+    dae_gc_select_actual_value_slices_evidence(
       mod_,
       [],
       body,
-      0,
-      1,
-      2,
-      3,
+      slices,
       base_ref,
       rewrite_type=Some(expected_leaf_ref),
     ) {
     Some(evidence) => {
-      assert_eq(evidence.candidate, expected_leaf_ref)
-      assert_eq(evidence.refined_candidate, Some(expected_leaf_ref))
+      assert_eq(evidence.slices.condition.start, 2)
+      assert_eq(evidence.slices.condition.end, 5)
+      assert_eq(evidence.gc.candidate, expected_leaf_ref)
+      assert_eq(evidence.gc.refined_candidate, Some(expected_leaf_ref))
       assert_eq(
-        evidence.left_rewrite,
+        evidence.gc.left_rewrite,
         Some(@lib.Instruction::ref_null_type(expected_leaf_rt)),
       )
-      assert_eq(evidence.right_rewrite, None)
+      assert_eq(evidence.gc.right_rewrite, None)
     }
-    None => fail("expected reusable GC select actual evidence")
+    None => fail("expected reusable GC select actual slice evidence")
   }
 }
 
