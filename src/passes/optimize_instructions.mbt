@@ -1457,8 +1457,16 @@ fn OiAbsStructArrayHeapRelationFact::proves_disjoint_target(
 }
 
 ///|
+priv enum OiConcreteCompAbsTargetKind {
+  ConcreteCompAbsTargetNoMatch
+  ConcreteCompAbsTargetStructMatchesStructEqAny
+  ConcreteCompAbsTargetArrayMatchesArrayEqAny
+  ConcreteCompAbsTargetFuncMatchesFuncAny
+}
+
+///|
 priv struct OiConcreteCompAbsTargetFact {
-  match_target : Bool
+  kind : OiConcreteCompAbsTargetKind
 }
 
 ///|
@@ -1466,26 +1474,46 @@ fn OiConcreteCompAbsTargetFact::from_comp_abs(
   comp : @lib.CompType,
   target : @lib.AbsHeapType,
 ) -> OiConcreteCompAbsTargetFact {
-  let match_target = match comp {
+  // Binaryen's GC cast-check heap walk maps a concrete composite source to the
+  // abstract heap supertypes it can inhabit. Keep the selected concrete-comp
+  // outcome explicit before module subtype traversal consumes it.
+  let kind = match comp {
     @lib.StructCompType(_) =>
-      target == @lib.AbsHeapType::struct_() ||
-      target == @lib.AbsHeapType::eq() ||
-      target == @lib.AbsHeapType::any()
+      if target == @lib.AbsHeapType::struct_() ||
+        target == @lib.AbsHeapType::eq() ||
+        target == @lib.AbsHeapType::any() {
+        ConcreteCompAbsTargetStructMatchesStructEqAny
+      } else {
+        ConcreteCompAbsTargetNoMatch
+      }
     @lib.ArrayCompType(_) =>
-      target == @lib.AbsHeapType::array() ||
-      target == @lib.AbsHeapType::eq() ||
-      target == @lib.AbsHeapType::any()
+      if target == @lib.AbsHeapType::array() ||
+        target == @lib.AbsHeapType::eq() ||
+        target == @lib.AbsHeapType::any() {
+        ConcreteCompAbsTargetArrayMatchesArrayEqAny
+      } else {
+        ConcreteCompAbsTargetNoMatch
+      }
     @lib.FuncCompType(_, _) =>
-      target == @lib.AbsHeapType::func() || target == @lib.AbsHeapType::any()
+      if target == @lib.AbsHeapType::func() || target == @lib.AbsHeapType::any() {
+        ConcreteCompAbsTargetFuncMatchesFuncAny
+      } else {
+        ConcreteCompAbsTargetNoMatch
+      }
   }
-  { match_target, }
+  { kind, }
 }
 
 ///|
 fn OiConcreteCompAbsTargetFact::proves_match_target(
   self : OiConcreteCompAbsTargetFact,
 ) -> Bool {
-  self.match_target
+  match self.kind {
+    ConcreteCompAbsTargetStructMatchesStructEqAny
+    | ConcreteCompAbsTargetArrayMatchesArrayEqAny
+    | ConcreteCompAbsTargetFuncMatchesFuncAny => true
+    ConcreteCompAbsTargetNoMatch => false
+  }
 }
 
 ///|
