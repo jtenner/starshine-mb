@@ -27478,6 +27478,167 @@ fn OiConsecutiveSelfSelectFact::apply(
 }
 
 ///|
+priv enum OiI64ZeroTestConditionKind {
+  I64ZeroTestEqz
+  I64ZeroTestNeZero
+}
+
+///|
+priv struct OiI64ZeroTestConditionFact {
+  inner_id : Int
+  kind : OiI64ZeroTestConditionKind
+}
+
+///|
+fn OiI64ZeroTestConditionFact::from_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  condition_id : Int,
+) -> OiI64ZeroTestConditionFact? {
+  // Binaryen v130's consecutive i64 self-select rules match either direct
+  // `i64.eqz(y)` or the exact `i64.ne(y, 0)` spelling. Keep that polarity and
+  // surviving inner input separate from the later arm/equality decision.
+  match @ir.hot_node_exact_instr(func, condition_id) {
+    Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(func, condition_id) ==
+      1 =>
+      Some({
+        inner_id: @ir.hot_child_get(func, condition_id, 0),
+        kind: I64ZeroTestEqz,
+      })
+    Some(@lib.Instruction::I64Ne) if @ir.hot_child_count(func, condition_id) ==
+      2 => {
+      let rhs_id = @ir.hot_child_get(func, condition_id, 1)
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(0L)) =>
+          Some({
+            inner_id: @ir.hot_child_get(func, condition_id, 0),
+            kind: I64ZeroTestNeZero,
+          })
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+priv enum OiI64ZeroTestSelfSelectKind {
+  I64ZeroTestSelfSelectForward
+  I64ZeroTestSelfSelectDropToZero
+}
+
+///|
+priv struct OiI64ZeroTestSelfSelectFact {
+  kind : OiI64ZeroTestSelfSelectKind
+  selected_id : Int
+  zero_id : Int
+  condition_fact : OiI64ZeroTestConditionFact
+  equality_fact : OiConsecutiveInputEqualityFact
+  foldability_fact : OiConsecutiveInputFoldabilityFact
+}
+
+///|
+fn OiI64ZeroTestSelfSelectFact::from_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  if_true : Int,
+  if_false : Int,
+  condition_id : Int,
+) -> OiI64ZeroTestSelfSelectFact? {
+  // Binaryen v130 `optimizeSelect` has four paired i64 SCCP compatibility
+  // forms. Depending on eqz/ne polarity and which arm is zero, they either
+  // forward the earlier selected `x` or preserve it with a drop before zero.
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [result_type] if result_type == @lib.ValType::i64() => ()
+    _ => return None
+  }
+  let condition_fact = match
+    OiI64ZeroTestConditionFact::from_condition(func, dead, condition_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let true_is_zero = match
+    optimize_instructions_i64_const(func, dead, if_true) {
+    Some(@lib.I64(0L)) => true
+    _ => false
+  }
+  let false_is_zero = match
+    optimize_instructions_i64_const(func, dead, if_false) {
+    Some(@lib.I64(0L)) => true
+    _ => false
+  }
+  let (kind, selected_id, zero_id) = match condition_fact.kind {
+    I64ZeroTestEqz if true_is_zero =>
+      (I64ZeroTestSelfSelectForward, if_false, if_true)
+    I64ZeroTestNeZero if false_is_zero =>
+      (I64ZeroTestSelfSelectForward, if_true, if_false)
+    I64ZeroTestEqz if false_is_zero =>
+      (I64ZeroTestSelfSelectDropToZero, if_true, if_false)
+    I64ZeroTestNeZero if true_is_zero =>
+      (I64ZeroTestSelfSelectDropToZero, if_false, if_true)
+    _ => return None
+  }
+  let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
+    ctx,
+    func,
+    selected_id,
+    condition_fact.inner_id,
+  )
+  let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
+    func,
+    dead,
+    condition_fact.inner_id,
+  )
+  if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
+    return None
+  }
+  Some({
+    kind,
+    selected_id,
+    zero_id,
+    condition_fact,
+    equality_fact,
+    foldability_fact,
+  })
+}
+
+///|
+fn OiI64ZeroTestSelfSelectFact::apply(
+  self : OiI64ZeroTestSelfSelectFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  ignore(self.condition_fact)
+  if !self.equality_fact.proves_equal(func) ||
+    !self.foldability_fact.proves_foldable() {
+    return false
+  }
+  match self.kind {
+    I64ZeroTestSelfSelectForward =>
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        self.selected_id,
+      )
+    I64ZeroTestSelfSelectDropToZero => {
+      let replacement = @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(@lib.ValType::i64()),
+        [@ir.hot_build_drop(func, self.selected_id), self.zero_id],
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, replacement,
+      )
+    }
+  }
+  true
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -28565,6 +28726,13 @@ fn optimize_instructions_try_fold_const_select(
   let condition = @ir.hot_child_get(func, node_id, 2)
   match
     OiConsecutiveSelfSelectFact::from_select(
+      ctx, func, dead, node_id, if_true, if_false, condition,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
+    _ => ()
+  }
+  match
+    OiI64ZeroTestSelfSelectFact::from_select(
       ctx, func, dead, node_id, if_true, if_false, condition,
     ) {
     Some(fact) => return fact.apply(ctx, func, node_id)

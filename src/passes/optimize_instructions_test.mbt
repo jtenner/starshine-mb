@@ -2669,6 +2669,64 @@ test "optimize-instructions preserves i32 falsy self-select evaluation before ze
 }
 
 ///|
+test "optimize-instructions folds i64 zero-test self-selects through consecutive-input facts" {
+  // Red-first OI-F parity slice: Binaryen version_130 `optimizeSelect` folds
+  // four i64 self-select forms driven by `i64.eqz(x)` or `i64.ne(x, 0)`.
+  // Matching truthy selection forwards `x`; matching falsy selection preserves
+  // the earlier `x` evaluation with a drop before returning i64 zero. Oracle:
+  // `.tmp/oi-probes/select-consecutive-inputs.wat`.
+  let assert_forwarded = fn(wat : String, label : String) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    match @ir.hot_node_get(func, root).op {
+      @ir.HotOp::LocalGet =>
+        @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 0)
+      other => fail("expected \{label} to forward local.get, got \{other}")
+    }
+  }
+  let assert_dropped_zero = fn(wat : String, label : String) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    match @ir.hot_node_get(func, root).op {
+      @ir.HotOp::Block => ()
+      other => fail("expected \{label} to become a block, got \{other}")
+    }
+    let body = @ir.hot_region_body_ref(func, root)
+    @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+    let preserved = @ir.hot_region_get(func, body, 0)
+    match @ir.hot_node_get(func, preserved).op {
+      @ir.HotOp::Drop => ()
+      other => fail("expected \{label} to preserve x with drop, got \{other}")
+    }
+    match @ir.hot_node_get(func, @ir.hot_child_get(func, preserved, 0)).op {
+      @ir.HotOp::LocalGet => ()
+      other => fail("expected \{label} dropped local.get, got \{other}")
+    }
+    let zero = @ir.hot_region_get(func, body, 1)
+    @debug.assert_eq(
+      @ir.hot_const_get(func, @ir.hot_node_get(func, zero).imm0),
+      @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+    )
+  }
+  assert_forwarded(
+    "(module (func (param i64) (result i64) i64.const 0 local.get 0 local.get 0 i64.eqz select))",
+    "eqz false-arm self-select",
+  )
+  assert_forwarded(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 0 local.get 0 i64.const 0 i64.ne select))",
+    "ne true-arm self-select",
+  )
+  assert_dropped_zero(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 0 local.get 0 i64.eqz select))",
+    "eqz true-arm zero-result self-select",
+  )
+  assert_dropped_zero(
+    "(module (func (param i64) (result i64) i64.const 0 local.get 0 local.get 0 i64.const 0 i64.ne select))",
+    "ne false-arm zero-result self-select",
+  )
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to
