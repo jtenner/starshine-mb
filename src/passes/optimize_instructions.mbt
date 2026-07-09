@@ -10446,8 +10446,13 @@ fn OiCallRefTargetClassificationFact::target_fact(
 }
 
 ///|
-priv struct OiCallRefSelectArmDirectFact {
+priv struct OiCallRefSelectArmFunctionFact {
   direct_func : Int
+}
+
+///|
+priv struct OiCallRefSelectArmDirectFact {
+  function_fact : OiCallRefSelectArmFunctionFact
   ref_func_heap : @lib.HeapType?
   elided_non_null_wrapper_depth : Int
   elided_cast_wrapper_depth : Int
@@ -10464,15 +10469,37 @@ fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
 }
 
 ///|
+fn OiCallRefSelectArmFunctionFact::from_ref_func(
+  direct_func : Int,
+) -> OiCallRefSelectArmFunctionFact? {
+  if direct_func < 0 {
+    return None
+  }
+  Some({ direct_func, })
+}
+
+///|
+fn OiCallRefSelectArmFunctionFact::function_index(
+  self : OiCallRefSelectArmFunctionFact,
+) -> Int {
+  self.direct_func
+}
+
+///|
 fn OiCallRefSelectArmFact::direct(
   direct_func : Int,
   ref_func_heap : @lib.HeapType?,
   elided_non_null_wrapper_depth? : Int = 0,
   elided_cast_wrapper_depth? : Int = 0,
 ) -> OiCallRefSelectArmFact {
+  let function_fact = match
+    OiCallRefSelectArmFunctionFact::from_ref_func(direct_func) {
+    Some(fact) => fact
+    None => return OiCallRefSelectArmFact::unknown()
+  }
   {
     direct_fact: Some({
-      direct_func,
+      function_fact,
       ref_func_heap,
       elided_non_null_wrapper_depth,
       elided_cast_wrapper_depth,
@@ -10481,14 +10508,21 @@ fn OiCallRefSelectArmFact::direct(
 }
 
 ///|
+fn OiCallRefSelectArmDirectFact::function_index(
+  self : OiCallRefSelectArmDirectFact,
+) -> Int {
+  self.function_fact.function_index()
+}
+
+///|
 fn OiCallRefSelectArmDirectFact::from_arm_fact(
   fact : OiCallRefSelectArmFact,
 ) -> OiCallRefSelectArmDirectFact? {
   // Binaryen v130 `CallUtils::convertToDirectCalls` select classification needs
   // both target arms to be known direct functions before it chooses either the
-  // same-target residue path or the two-direct-call `if` path. Keep that proof
-  // as a source-shaped fact instead of leaving direct-arm payloads as open
-  // sentinel fields on the arm traversal record.
+  // same-target residue path or the two-direct-call `if` path. Keep the function
+  // index proof nested under the arm-direct fact instead of leaving direct-arm
+  // payloads as open sentinel fields on the arm traversal record.
   fact.direct_fact
 }
 
@@ -10607,7 +10641,7 @@ fn OiCallRefSelectArmFact::from_target_arm(
           match OiCallRefSelectArmDirectFact::from_arm_fact(child_fact) {
             Some(direct_fact) =>
               OiCallRefSelectArmFact::direct(
-                direct_fact.direct_func,
+                direct_fact.function_index(),
                 direct_fact.ref_func_heap,
                 elided_non_null_wrapper_depth=direct_fact.elided_non_null_wrapper_depth +
                   1,
@@ -10623,7 +10657,7 @@ fn OiCallRefSelectArmFact::from_target_arm(
         OiCallRefSelectArmCastFact::from_cast_arm(func, dead, arm_id, depth) {
         Some(cast_fact) if cast_fact.proves_known_success() =>
           OiCallRefSelectArmFact::direct(
-            cast_fact.child_direct_fact.direct_func,
+            cast_fact.child_direct_fact.function_index(),
             cast_fact.matched_ref_func_heap(),
             elided_non_null_wrapper_depth=cast_fact.child_direct_fact.elided_non_null_wrapper_depth,
             elided_cast_wrapper_depth=cast_fact.child_direct_fact.elided_cast_wrapper_depth +
@@ -10895,12 +10929,13 @@ fn OiCallRefSelectSameTargetFact::from_select_target(
   // sentinel-style questions of the broader select-target record.
   let true_direct_fact = select_fact.direct_arms_fact.true_fact
   let false_direct_fact = select_fact.direct_arms_fact.false_fact
-  if true_direct_fact.direct_func < 0 ||
-    true_direct_fact.direct_func != false_direct_fact.direct_func {
+  let true_func = true_direct_fact.function_index()
+  let false_func = false_direct_fact.function_index()
+  if true_func != false_func {
     return None
   }
   Some({
-    direct_func: true_direct_fact.direct_func,
+    direct_func: true_func,
     residue_arm_id: select_fact.residue_arm_fact.arm_id,
     condition_fact: select_fact.condition_fact,
   })
@@ -10916,12 +10951,9 @@ fn OiCallRefSelectDirectCallsFact::from_select_target(
   // leaving those as open sentinel fields.
   let true_direct_fact = select_fact.direct_arms_fact.true_fact
   let false_direct_fact = select_fact.direct_arms_fact.false_fact
-  if true_direct_fact.direct_func < 0 || false_direct_fact.direct_func < 0 {
-    return None
-  }
   Some({
-    true_func: true_direct_fact.direct_func,
-    false_func: false_direct_fact.direct_func,
+    true_func: true_direct_fact.function_index(),
+    false_func: false_direct_fact.function_index(),
     condition_fact: select_fact.condition_fact,
   })
 }
