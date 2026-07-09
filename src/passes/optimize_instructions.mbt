@@ -3150,8 +3150,8 @@ fn OiRefTestOperandFact::proves_known_null(self : OiRefTestOperandFact) -> Bool 
 
 ///|
 priv struct OiRefTestSourceTargetIdentityFact {
-  exact_heap : Bool
-  final_heap : Bool
+  exact_heap_fact : OiRefTargetIdentityProofFact?
+  final_heap_fact : OiRefTargetIdentityProofFact?
 }
 
 ///|
@@ -3214,8 +3214,14 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
       }
       {
         identity_fact: {
-          exact_heap: ref_type.is_exact() && source == target,
-          final_heap,
+          exact_heap_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetExactHeapIdentity,
+            ref_type.is_exact() && source == target,
+          ),
+          final_heap_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetFinalHeapIdentity,
+            final_heap,
+          ),
         },
         match_fact: {
           nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
@@ -3272,7 +3278,7 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
     }
     None =>
       {
-        identity_fact: { exact_heap: false, final_heap: false },
+        identity_fact: { exact_heap_fact: None, final_heap_fact: None },
         match_fact: {
           nullable_match_fact: None,
           non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
@@ -3300,14 +3306,20 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
 fn OiRefTestSourceTargetRelationFact::proves_exact_heap_target(
   self : OiRefTestSourceTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.exact_heap
+  match self.identity_fact.exact_heap_fact {
+    Some(fact) => fact.proves_kind(RefTargetExactHeapIdentity)
+    None => false
+  }
 }
 
 ///|
 fn OiRefTestSourceTargetRelationFact::proves_final_heap_target(
   self : OiRefTestSourceTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.final_heap
+  match self.identity_fact.final_heap_fact {
+    Some(fact) => fact.proves_kind(RefTargetFinalHeapIdentity)
+    None => false
+  }
 }
 
 ///|
