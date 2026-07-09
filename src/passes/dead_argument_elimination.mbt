@@ -280,6 +280,13 @@ priv struct DaeSingleResultControlPairApplicationEvidence {
 }
 
 ///|
+priv struct DaeIndexedInstructionRewriteApplicationEvidence {
+  target_count : Int
+  rewrite_count : Int
+  body_changed : Bool
+}
+
+///|
 priv struct DaeSingleResultControlPairRepairEvidence {
   pair : DaeSingleResultControlPairGcEvidence
   application : DaeSingleResultControlPairApplicationEvidence
@@ -6503,6 +6510,88 @@ fn dae_gc_result_slot_evidence(
 }
 
 ///|
+fn dae_indexed_instruction_rewrite_application_is_consistent(
+  application : DaeIndexedInstructionRewriteApplicationEvidence,
+  body : Array[@lib.Instruction],
+  indices : Array[Int],
+  rewrites : Array[@lib.Instruction?],
+) -> Bool {
+  if application.target_count != indices.length() ||
+    indices.length() != rewrites.length() ||
+    application.body_changed != (application.rewrite_count > 0) {
+    return false
+  }
+  let mut expected_rewrites = 0
+  let mut idx = 0
+  while idx < indices.length() {
+    let target = indices[idx]
+    if target < 0 || target >= body.length() {
+      return false
+    }
+    let mut previous = 0
+    while previous < idx {
+      if indices[previous] == target {
+        return false
+      }
+      previous += 1
+    }
+    match rewrites[idx] {
+      Some(_) => expected_rewrites += 1
+      None => ()
+    }
+    idx += 1
+  }
+  application.rewrite_count == expected_rewrites
+}
+
+///|
+fn dae_apply_indexed_instruction_rewrites_to_body(
+  body : Array[@lib.Instruction],
+  indices : Array[Int],
+  rewrites : Array[@lib.Instruction?],
+) -> (Array[@lib.Instruction], DaeIndexedInstructionRewriteApplicationEvidence)? {
+  if indices.length() != rewrites.length() {
+    return None
+  }
+  let rewritten = body.copy()
+  let mut rewrite_count = 0
+  let mut idx = 0
+  while idx < indices.length() {
+    let target = indices[idx]
+    if target < 0 || target >= body.length() {
+      return None
+    }
+    let mut previous = 0
+    while previous < idx {
+      if indices[previous] == target {
+        return None
+      }
+      previous += 1
+    }
+    match rewrites[idx] {
+      Some(instr) => {
+        rewritten[target] = instr
+        rewrite_count += 1
+      }
+      None => ()
+    }
+    idx += 1
+  }
+  let application = {
+    target_count: indices.length(),
+    rewrite_count,
+    body_changed: rewrite_count > 0,
+  }
+  if dae_indexed_instruction_rewrite_application_is_consistent(
+      application, body, indices, rewrites,
+    ) {
+    Some((if application.body_changed { rewritten } else { body }, application))
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_result_rewrite_application_is_consistent(
   application : DaeResultRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
@@ -6537,30 +6626,36 @@ fn dae_apply_result_rewrites_to_body(
     Some(mask) => if mask.length() != rewrites.length() { return None }
     None => ()
   }
-  let rewritten = body.copy()
-  let mut rewrite_count = 0
+  let indices = []
+  let effective_rewrites : Array[@lib.Instruction?] = []
   let mut result_idx = 0
   while result_idx < rewrites.length() {
+    indices.push(start + result_idx)
     let slot_active = match active {
       Some(mask) => mask[result_idx]
       None => true
     }
-    if slot_active {
-      match rewrites[result_idx] {
-        Some(instr) => {
-          rewritten[start + result_idx] = instr
-          rewrite_count += 1
-        }
-        None => ()
-      }
-    }
+    effective_rewrites.push(
+      if slot_active {
+        rewrites[result_idx]
+      } else {
+        None
+      },
+    )
     result_idx += 1
+  }
+  let (rewritten, shared_application) = match
+    dae_apply_indexed_instruction_rewrites_to_body(
+      body, indices, effective_rewrites,
+    ) {
+    Some(result) => result
+    None => return None
   }
   let application = {
     start,
     result_count: rewrites.length(),
-    rewrite_count,
-    body_changed: rewrite_count > 0,
+    rewrite_count: shared_application.rewrite_count,
+    body_changed: shared_application.body_changed,
   }
   if dae_result_rewrite_application_is_consistent(
       application,
@@ -6626,35 +6721,24 @@ fn dae_apply_select_value_rewrites_to_body(
     @lib.Select(_) => ()
     _ => return None
   }
-  let rewritten = body.copy()
-  let mut rewrite_count = 0
-  match left_rewrite {
-    Some(instr) => {
-      rewritten[left_idx] = instr
-      rewrite_count += 1
-    }
-    None => ()
-  }
-  match right_rewrite {
-    Some(instr) => {
-      rewritten[right_idx] = instr
-      rewrite_count += 1
-    }
-    None => ()
-  }
-  match select_rewrite {
-    Some(instr) => {
-      rewritten[select_idx] = instr
-      rewrite_count += 1
-    }
-    None => ()
+  let rewrites : Array[@lib.Instruction?] = [
+    left_rewrite, right_rewrite, select_rewrite,
+  ]
+  let (rewritten, shared_application) = match
+    dae_apply_indexed_instruction_rewrites_to_body(
+      body,
+      [left_idx, right_idx, select_idx],
+      rewrites,
+    ) {
+    Some(result) => result
+    None => return None
   }
   let application = {
     left_idx,
     right_idx,
     select_idx,
-    rewrite_count,
-    body_changed: rewrite_count > 0,
+    rewrite_count: shared_application.rewrite_count,
+    body_changed: shared_application.body_changed,
   }
   if dae_select_value_rewrite_application_is_consistent(
       application, body, left_idx, right_idx, select_idx, left_rewrite, right_rewrite,

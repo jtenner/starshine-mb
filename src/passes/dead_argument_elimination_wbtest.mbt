@@ -2426,6 +2426,42 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
 }
 
 ///|
+test "dae indexed instruction rewrite evidence centralizes shared body edits" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_const(@lib.I32(3)),
+  ]
+  let rewrites : Array[@lib.Instruction?] = [
+    Some(@lib.Instruction::i32_const(@lib.I32(10))),
+    None,
+    Some(@lib.Instruction::i32_const(@lib.I32(30))),
+  ]
+  match
+    dae_apply_indexed_instruction_rewrites_to_body(body, [0, 1, 2], rewrites) {
+    Some((rewritten, evidence)) => {
+      assert_true(evidence.body_changed)
+      assert_eq(evidence.target_count, 3)
+      assert_eq(evidence.rewrite_count, 2)
+      assert_eq(rewritten[0], @lib.Instruction::i32_const(@lib.I32(10)))
+      assert_eq(rewritten[1], body[1])
+      assert_eq(rewritten[2], @lib.Instruction::i32_const(@lib.I32(30)))
+    }
+    None => fail("expected shared indexed rewrite evidence")
+  }
+  match
+    dae_apply_indexed_instruction_rewrites_to_body(body, [0, 1, 1], rewrites) {
+    Some(_) => fail("indexed rewrite evidence must reject duplicate targets")
+    None => ()
+  }
+  match
+    dae_apply_indexed_instruction_rewrites_to_body(body, [0, 3], [None, None]) {
+    Some(_) => fail("indexed rewrite evidence must reject out-of-range targets")
+    None => ()
+  }
+}
+
+///|
 test "dae result rewrite application evidence centralizes masked slot repairs" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
