@@ -1011,15 +1011,20 @@ fn OiIfOneSidedFallthroughRegionFact::proven_fallthrough_region(
 }
 
 ///|
+priv enum OiFallthroughTailKind {
+  FallthroughTailNoProof
+  FallthroughTailLiveNonBranch
+  FallthroughTailBrOnReferenceChild
+}
+
+///|
 priv struct OiFallthroughTailFact {
-  live : Bool
-  child_count : Int
-  branch_to_fallthrough_child : Bool
+  kind : OiFallthroughTailKind
 }
 
 ///|
 fn OiFallthroughTailFact::empty() -> OiFallthroughTailFact {
-  { live: false, child_count: 0, branch_to_fallthrough_child: false }
+  { kind: FallthroughTailNoProof }
 }
 
 ///|
@@ -1029,27 +1034,36 @@ fn OiFallthroughTailFact::from_node(
 ) -> OiFallthroughTailFact {
   // Binaryen's Properties::getImmediateFallthrough treats br_on_* as letting
   // their reference child fall through. Starshine's represented region path
-  // keeps that proof as a tail fact so descriptor/ref fallthrough typing does
-  // not own an opcode helper.
+  // keeps that selected source outcome as a tail fact so descriptor/ref
+  // fallthrough typing does not own an opcode helper or parallel live/arity/
+  // branch booleans.
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiFallthroughTailFact::empty()
   }
   let child_count = @ir.hot_child_count(func, node_id)
-  let branch_to_fallthrough_child = match @ir.hot_node_get(func, node_id).op {
+  let kind = match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::BrOnNull
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail => child_count > 0
-    _ => false
+    | @ir.HotOp::BrOnCastFail =>
+      if child_count > 0 {
+        FallthroughTailBrOnReferenceChild
+      } else {
+        FallthroughTailNoProof
+      }
+    _ => FallthroughTailLiveNonBranch
   }
-  { live: true, child_count, branch_to_fallthrough_child }
+  { kind, }
 }
 
 ///|
 fn OiFallthroughTailFact::proves_branch_to_fallthrough_child(
   self : OiFallthroughTailFact,
 ) -> Bool {
-  self.live && self.child_count > 0 && self.branch_to_fallthrough_child
+  match self.kind {
+    FallthroughTailBrOnReferenceChild => true
+    FallthroughTailNoProof | FallthroughTailLiveNonBranch => false
+  }
 }
 
 ///|
