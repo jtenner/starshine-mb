@@ -28055,30 +28055,18 @@ fn OiMatchingUnarySelectArmFact::from_node(
 }
 
 ///|
-priv struct OiMatchingUnarySelectHoistFact {
+priv struct OiMatchingUnarySelectArmPairFact {
   shell_fact : OiMatchingUnarySelectArmFact
   if_true_child : Int
   if_false_child : Int
-  condition_id : Int
 }
 
 ///|
-fn OiMatchingUnarySelectHoistFact::from_select(
+fn OiMatchingUnarySelectArmPairFact::from_arms(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> OiMatchingUnarySelectHoistFact? {
-  // This is the direct-select subset of Binaryen v130's repeated shallow-equal
-  // one-child hoist. Equal selected fact kinds model `shallowEqual`; the exact
-  // scalar child type check models both equal child types and the currently
-  // representable `canEmitSelectWithArms` boundary.
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Select if node.child_count == 3 => ()
-    _ => return None
-  }
-  let if_true = @ir.hot_child_get(func, node_id, 0)
-  let if_false = @ir.hot_child_get(func, node_id, 1)
-  let condition_id = @ir.hot_child_get(func, node_id, 2)
+  if_true : Int,
+  if_false : Int,
+) -> OiMatchingUnarySelectArmPairFact? {
   let true_fact = match OiMatchingUnarySelectArmFact::from_node(func, if_true) {
     Some(fact) => fact
     None => return None
@@ -28106,14 +28094,73 @@ fn OiMatchingUnarySelectHoistFact::from_select(
     true_fact.result_type != false_fact.result_type {
     return None
   }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [select_result] if select_result == true_fact.result_type => ()
-    _ => return None
-  }
   Some({
     shell_fact: false_fact,
     if_true_child: true_fact.child_id,
     if_false_child: false_fact.child_id,
+  })
+}
+
+///|
+priv struct OiMatchingUnarySelectHoistFact {
+  shell_facts : Array[OiMatchingUnarySelectArmFact]
+  inner_select_type : @lib.ValType
+  if_true_child : Int
+  if_false_child : Int
+  condition_id : Int
+}
+
+///|
+fn OiMatchingUnarySelectHoistFact::from_select(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingUnarySelectHoistFact? {
+  // This is the direct-select subset of Binaryen v130's repeated shallow-equal
+  // one-child hoist. Equal selected fact kinds model `shallowEqual`; the exact
+  // scalar child type check models both equal child types and the currently
+  // representable `canEmitSelectWithArms` boundary. Collecting the pair facts
+  // mirrors the source loop so an entire supported matching chain is rebuilt
+  // around one final child select instead of stopping after the outer shell.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Select if node.child_count == 3 => ()
+    _ => return None
+  }
+  let mut if_true_child = @ir.hot_child_get(func, node_id, 0)
+  let mut if_false_child = @ir.hot_child_get(func, node_id, 1)
+  let condition_id = @ir.hot_child_get(func, node_id, 2)
+  let mut inner_select_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [select_result] => select_result
+    _ => return None
+  }
+  let shell_facts : Array[OiMatchingUnarySelectArmFact] = []
+  let mut scanning = true
+  while scanning {
+    match
+      OiMatchingUnarySelectArmPairFact::from_arms(
+        func, if_true_child, if_false_child,
+      ) {
+      Some(pair_fact) =>
+        if pair_fact.shell_fact.result_type != inner_select_type {
+          scanning = false
+        } else {
+          inner_select_type = pair_fact.shell_fact.child_type
+          if_true_child = pair_fact.if_true_child
+          if_false_child = pair_fact.if_false_child
+          shell_facts.push(pair_fact.shell_fact)
+        }
+      None => scanning = false
+    }
+  }
+  if shell_facts.length() == 0 {
+    return None
+  }
+  Some({
+    shell_facts,
+    inner_select_type,
+    if_true_child,
+    if_false_child,
     condition_id,
   })
 }
@@ -28125,19 +28172,21 @@ fn OiMatchingUnarySelectHoistFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  let inner_select = @ir.hot_build_select(
+  let mut replacement = @ir.hot_build_select(
     func,
-    self.shell_fact.child_type,
+    self.inner_select_type,
     self.if_true_child,
     self.if_false_child,
     self.condition_id,
   )
-  let replacement = @ir.hot_build_unary(
-    func,
-    self.shell_fact.result_type,
-    inner_select,
-  )
-  @ir.hot_node_exact_instr_set(func, replacement, self.shell_fact.instr)
+  let mut remaining = self.shell_facts.length()
+  while remaining > 0 {
+    remaining = remaining - 1
+    let shell_fact = self.shell_facts[remaining]
+    let outer = @ir.hot_build_unary(func, shell_fact.result_type, replacement)
+    @ir.hot_node_exact_instr_set(func, outer, shell_fact.instr)
+    replacement = outer
+  }
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
   true
 }

@@ -2968,6 +2968,33 @@ test "optimize-instructions hoists matching integer width conversion select arm 
 }
 
 ///|
+test "optimize-instructions hoists repeated matching unary select arm chains" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130 repeats the
+  // shallow-equal one-child loop until the select sits below the full matching
+  // shell chain. Oracle: `.tmp/oi-probes/select-matching-unary-hoist.wat`
+  // `nested`, which emits `i32.eqz(i32.clz(select(...)))`.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) local.get 0 i32.clz i32.eqz local.get 1 i32.clz i32.eqz local.get 2 select))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let inner_clz = @ir.hot_child_get(func, root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, inner_clz),
+    Some(@lib.Instruction::i32_clz()),
+  )
+  let inner_select = @ir.hot_child_get(func, inner_clz, 0)
+  match @ir.hot_node_get(func, inner_select).op {
+    @ir.HotOp::Select => ()
+    other =>
+      fail("expected repeated matching shells above inner select, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to
