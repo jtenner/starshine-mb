@@ -29959,17 +29959,27 @@ priv struct OiDescriptorBranchControlRegionFact {
 }
 
 ///|
+priv enum OiDescriptorSkipOrderEffectKind {
+  DescriptorSkipOrderDirectEffect
+  DescriptorSkipOrderRegionEffect
+  DescriptorSkipOrderChildEffect
+}
+
+///|
+priv struct OiDescriptorSkipOrderEffectFact {
+  kind : OiDescriptorSkipOrderEffectKind
+}
+
+///|
 priv struct OiDescriptorSkipOrderFact {
   live : Bool
-  direct_order_sensitive_effect : Bool
-  region_order_sensitive_effect : Bool
-  child_order_sensitive_effect : Bool
+  effect_fact : OiDescriptorSkipOrderEffectFact?
 }
 
 ///|
 priv struct OiDescriptorSkipOrderRegionFact {
   root_count : Int
-  has_order_sensitive_effect : Bool
+  effect_fact : OiDescriptorSkipOrderEffectFact?
 }
 
 ///|
@@ -30431,11 +30441,17 @@ fn OiDescriptorBranchControlRegionFact::proves_has_escaping_branch_control(
 
 ///|
 fn OiDescriptorSkipOrderFact::empty() -> OiDescriptorSkipOrderFact {
-  {
-    live: false,
-    direct_order_sensitive_effect: false,
-    region_order_sensitive_effect: false,
-    child_order_sensitive_effect: false,
+  { live: false, effect_fact: None }
+}
+
+///|
+fn OiDescriptorSkipOrderEffectFact::proves_order_sensitive_effect(
+  self : OiDescriptorSkipOrderEffectFact,
+) -> Bool {
+  match self.kind {
+    DescriptorSkipOrderDirectEffect
+    | DescriptorSkipOrderRegionEffect
+    | DescriptorSkipOrderChildEffect => true
   }
 }
 
@@ -30447,8 +30463,8 @@ fn OiDescriptorSkipOrderFact::from_node(
   // Binaryen's descriptor-cast TNH skip can erase the descriptor immediately
   // only when doing so does not reorder calls, writes, atomics, EH, or other
   // unremovable effects before the reference operand. Keep Starshine's
-  // represented order-sensitive subtree summary as a fact instead of a recursive
-  // helper-local opcode scan.
+  // represented order-sensitive subtree summary as direct/region/child effect
+  // facts instead of a recursive helper-local opcode scan.
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiDescriptorSkipOrderFact::empty()
   }
@@ -30480,9 +30496,7 @@ fn OiDescriptorSkipOrderFact::from_node(
   if direct_order_sensitive_effect {
     return {
       live: true,
-      direct_order_sensitive_effect,
-      region_order_sensitive_effect: false,
-      child_order_sensitive_effect: false,
+      effect_fact: Some({ kind: DescriptorSkipOrderDirectEffect }),
     }
   }
   let region_order_sensitive_effect = match node.op {
@@ -30505,6 +30519,12 @@ fn OiDescriptorSkipOrderFact::from_node(
     }
     _ => false
   }
+  if region_order_sensitive_effect {
+    return {
+      live: true,
+      effect_fact: Some({ kind: DescriptorSkipOrderRegionEffect }),
+    }
+  }
   let mut child_order_sensitive_effect = false
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     child_order_sensitive_effect = child_order_sensitive_effect ||
@@ -30515,9 +30535,11 @@ fn OiDescriptorSkipOrderFact::from_node(
   }
   {
     live: true,
-    direct_order_sensitive_effect,
-    region_order_sensitive_effect,
-    child_order_sensitive_effect,
+    effect_fact: if child_order_sensitive_effect {
+      Some({ kind: DescriptorSkipOrderChildEffect })
+    } else {
+      None
+    },
   }
 }
 
@@ -30526,11 +30548,10 @@ fn OiDescriptorSkipOrderFact::proves_must_preserve_operand_order(
   self : OiDescriptorSkipOrderFact,
 ) -> Bool {
   self.live &&
-  (
-    self.direct_order_sensitive_effect ||
-    self.region_order_sensitive_effect ||
-    self.child_order_sensitive_effect
-  )
+  (match self.effect_fact {
+    Some(fact) => fact.proves_order_sensitive_effect()
+    None => false
+  })
 }
 
 ///|
@@ -30547,14 +30568,25 @@ fn OiDescriptorSkipOrderRegionFact::from_region(
         @ir.hot_region_get(func, region_ref, slot),
       ).proves_must_preserve_operand_order()
   }
-  { root_count, has_order_sensitive_effect }
+  {
+    root_count,
+    effect_fact: if has_order_sensitive_effect {
+      Some({ kind: DescriptorSkipOrderRegionEffect })
+    } else {
+      None
+    },
+  }
 }
 
 ///|
 fn OiDescriptorSkipOrderRegionFact::proves_has_order_sensitive_effect(
   self : OiDescriptorSkipOrderRegionFact,
 ) -> Bool {
-  self.root_count > 0 && self.has_order_sensitive_effect
+  self.root_count > 0 &&
+  (match self.effect_fact {
+    Some(fact) => fact.proves_order_sensitive_effect()
+    None => false
+  })
 }
 
 ///|
