@@ -6298,7 +6298,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
   let child = @ir.hot_node_get(func, child_id)
   let child_kind = match child.op {
     @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
-      if OiStandaloneRefGetDescLeafFact::from_node(func, child_id).proves_nullable_ref_leaf_can_move_null_check() {
+      if OiStandaloneRefGetDescLeafFact::from_node(func, child_id).proves_nullable_ref_leaf_move_allowed() {
         RefGetDescNullableLeafMove
       } else {
         return None
@@ -28304,24 +28304,54 @@ fn OiResultShapeFact::proves_multivalue_result(
 }
 
 ///|
+priv struct OiStandaloneRefGetDescKnownNullLeafFact {
+  node_id : Int
+}
+
+///|
+fn OiStandaloneRefGetDescKnownNullLeafFact::new(
+  node_id : Int,
+) -> OiStandaloneRefGetDescKnownNullLeafFact {
+  { node_id, }
+}
+
+///|
+priv struct OiStandaloneRefGetDescNullableLeafMoveFact {
+  node_id : Int
+}
+
+///|
+fn OiStandaloneRefGetDescNullableLeafMoveFact::new(
+  node_id : Int,
+) -> OiStandaloneRefGetDescNullableLeafMoveFact {
+  { node_id, }
+}
+
+///|
+priv struct OiStandaloneRefGetDescNontrappingOperandLeafFact {
+  node_id : Int
+}
+
+///|
+fn OiStandaloneRefGetDescNontrappingOperandLeafFact::new(
+  node_id : Int,
+) -> OiStandaloneRefGetDescNontrappingOperandLeafFact {
+  { node_id, }
+}
+
+///|
 priv struct OiStandaloneRefGetDescLeafFact {
-  live : Bool
-  no_children : Bool
-  single_nullable_ref_result : Bool
-  known_null_ref_null_leaf : Bool
-  nullable_ref_leaf : Bool
-  nontrapping_call_operand_leaf : Bool
+  known_null_leaf : OiStandaloneRefGetDescKnownNullLeafFact?
+  nullable_leaf_move : OiStandaloneRefGetDescNullableLeafMoveFact?
+  nontrapping_operand_leaf : OiStandaloneRefGetDescNontrappingOperandLeafFact?
 }
 
 ///|
 fn OiStandaloneRefGetDescLeafFact::empty() -> OiStandaloneRefGetDescLeafFact {
   {
-    live: false,
-    no_children: false,
-    single_nullable_ref_result: false,
-    known_null_ref_null_leaf: false,
-    nullable_ref_leaf: false,
-    nontrapping_call_operand_leaf: false,
+    known_null_leaf: None,
+    nullable_leaf_move: None,
+    nontrapping_operand_leaf: None,
   }
 }
 
@@ -28332,65 +28362,87 @@ fn OiStandaloneRefGetDescLeafFact::from_node(
 ) -> OiStandaloneRefGetDescLeafFact {
   // Binaryen v130's ref.get_desc path delegates to skipNonNullCast and
   // trapOnNull, so Starshine keeps the represented leaf proofs explicit here:
-  // ref.null known-null children, nullable local/global leaves that can carry a
+  // ref.null known-null children, nullable local/global leaves that carry a
   // moved null check, and the nontrapping leaf operands allowed under the
-  // current narrow call-child boundary.
+  // current narrow call-child boundary are separate payload facts rather than
+  // parallel leaf booleans.
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiStandaloneRefGetDescLeafFact::empty()
   }
   let node = @ir.hot_node_get(func, node_id)
   let no_children = @ir.hot_child_count(func, node_id) == 0
   let single_nullable_ref_result = OiResultShapeFact::from_node(func, node_id).proves_single_nullable_ref_result()
-  let known_null_ref_null_leaf = match node.op {
-    @ir.HotOp::RefNull => no_children && single_nullable_ref_result
-    _ => false
+  let known_null_leaf = match node.op {
+    @ir.HotOp::RefNull =>
+      if no_children && single_nullable_ref_result {
+        Some(OiStandaloneRefGetDescKnownNullLeafFact::new(node_id))
+      } else {
+        None
+      }
+    _ => None
   }
-  let nullable_ref_leaf = match node.op {
+  let nullable_leaf_move = match node.op {
     @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet =>
-      no_children && single_nullable_ref_result
-    _ => false
+      if no_children && single_nullable_ref_result {
+        Some(OiStandaloneRefGetDescNullableLeafMoveFact::new(node_id))
+      } else {
+        None
+      }
+    _ => None
   }
-  let nontrapping_call_operand_leaf = match node.op {
+  let nontrapping_operand_leaf = match node.op {
     @ir.HotOp::LocalGet
     | @ir.HotOp::GlobalGet
     | @ir.HotOp::Const
     | @ir.HotOp::RefNull
-    | @ir.HotOp::RefFunc => no_children
-    _ => false
+    | @ir.HotOp::RefFunc =>
+      if no_children {
+        Some(OiStandaloneRefGetDescNontrappingOperandLeafFact::new(node_id))
+      } else {
+        None
+      }
+    _ => None
   }
-  {
-    live: true,
-    no_children,
-    single_nullable_ref_result,
-    known_null_ref_null_leaf,
-    nullable_ref_leaf,
-    nontrapping_call_operand_leaf,
-  }
+  { known_null_leaf, nullable_leaf_move, nontrapping_operand_leaf }
 }
 
 ///|
 fn OiStandaloneRefGetDescLeafFact::proves_known_null_ref_null_leaf(
   self : OiStandaloneRefGetDescLeafFact,
 ) -> Bool {
-  ignore(self.no_children)
-  ignore(self.single_nullable_ref_result)
-  self.live && self.known_null_ref_null_leaf
+  match self.known_null_leaf {
+    Some(fact) => {
+      ignore(fact.node_id)
+      true
+    }
+    None => false
+  }
 }
 
 ///|
-fn OiStandaloneRefGetDescLeafFact::proves_nullable_ref_leaf_can_move_null_check(
+fn OiStandaloneRefGetDescLeafFact::proves_nullable_ref_leaf_move_allowed(
   self : OiStandaloneRefGetDescLeafFact,
 ) -> Bool {
-  ignore(self.no_children)
-  ignore(self.single_nullable_ref_result)
-  self.live && self.nullable_ref_leaf
+  match self.nullable_leaf_move {
+    Some(fact) => {
+      ignore(fact.node_id)
+      true
+    }
+    None => false
+  }
 }
 
 ///|
 fn OiStandaloneRefGetDescLeafFact::proves_nontrapping_call_operand_leaf(
   self : OiStandaloneRefGetDescLeafFact,
 ) -> Bool {
-  self.live && self.nontrapping_call_operand_leaf
+  match self.nontrapping_operand_leaf {
+    Some(fact) => {
+      ignore(fact.node_id)
+      true
+    }
+    None => false
+  }
 }
 
 ///|
@@ -28443,7 +28495,7 @@ fn OiStandaloneRefGetDescLocalTeeFact::from_node(
     single_nullable_ref_result,
     single_child,
     child_known_null_ref_null_leaf: child_fact.proves_known_null_ref_null_leaf(),
-    child_nullable_ref_leaf: child_fact.proves_nullable_ref_leaf_can_move_null_check(),
+    child_nullable_ref_leaf: child_fact.proves_nullable_ref_leaf_move_allowed(),
   }
 }
 
