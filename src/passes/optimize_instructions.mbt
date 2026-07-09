@@ -6254,8 +6254,46 @@ fn OiDescriptorTnhSkipRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiDescriptorNullCastOperandKind {
+  DescriptorNullCastOperandKnownNull
+  DescriptorNullCastOperandNotKnownNull
+}
+
+///|
+priv struct OiDescriptorNullCastOperandFact {
+  kind : OiDescriptorNullCastOperandKind
+}
+
+///|
+fn OiDescriptorNullCastOperandFact::from_cast(
+  func : @ir.HotFunc,
+  cast_fact : OiDescriptorCastFact,
+) -> OiDescriptorNullCastOperandFact {
+  // Binaryen v130 `optimizeKnownCastResult` reaches the descriptor-cast
+  // known-null path only after the reference operand has a known-null proof.
+  // Keep that source proof as a payload fact instead of a direct visitor-local
+  // predicate so later null-cast rewrite facts consume explicit evidence.
+  if OiRefFact::from_node(func, cast_fact.operand_id).proves_known_null() {
+    { kind: DescriptorNullCastOperandKnownNull }
+  } else {
+    { kind: DescriptorNullCastOperandNotKnownNull }
+  }
+}
+
+///|
+fn OiDescriptorNullCastOperandFact::proves_known_null(
+  self : OiDescriptorNullCastOperandFact,
+) -> Bool {
+  match self.kind {
+    DescriptorNullCastOperandKnownNull => true
+    DescriptorNullCastOperandNotKnownNull => false
+  }
+}
+
+///|
 priv struct OiDescriptorNullCastFact {
   cast_fact : OiDescriptorCastFact
+  operand_fact : OiDescriptorNullCastOperandFact
   descriptor_fact : OiDescriptorOperandFact
 }
 
@@ -6270,11 +6308,13 @@ fn OiDescriptorNullCastFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  if !OiRefFact::from_node(func, cast_fact.operand_id).proves_known_null() {
+  let operand_fact = OiDescriptorNullCastOperandFact::from_cast(func, cast_fact)
+  if !operand_fact.proves_known_null() {
     return None
   }
   Some({
     cast_fact,
+    operand_fact,
     descriptor_fact: OiDescriptorOperandFact::from_operand(
       ctx,
       func,
@@ -6309,6 +6349,9 @@ fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
   // when its evaluation cannot be erased. Keep the source-order decision in a
   // plan fact so the visitor no longer owns a null/ref/descriptor erase cascade.
   let cast_fact = null_fact.cast_fact
+  if !null_fact.operand_fact.proves_known_null() {
+    return None
+  }
   let descriptor_fact = null_fact.descriptor_fact
   if descriptor_fact.proves_traps_without_effects() {
     return Some({ kind: DescriptorNullCastUnreachable, null_fact })
