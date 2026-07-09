@@ -23468,9 +23468,17 @@ fn OiDeadShellRewritePlanFact::apply(
 }
 
 ///|
+priv enum OiOrderedBinaryLocalLocalEqualityKind {
+  OrderedBinaryLocalLocalNoMatch
+  OrderedBinaryI32LocalLocalMatch
+  OrderedBinaryI64LocalLocalMatch
+  OrderedBinaryF32LocalLocalMatch
+  OrderedBinaryF64LocalLocalMatch
+}
+
+///|
 priv struct OiOrderedBinaryLocalLocalEqualityFact {
-  instr : @lib.Instruction?
-  matching_ordered_local_operands : Bool
+  kind : OiOrderedBinaryLocalLocalEqualityKind
 }
 
 ///|
@@ -23483,10 +23491,10 @@ fn OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
   // Binaryen v130 `ExpressionAnalyzer::equal` treats equal binary nodes as the
   // same operation with recursively equal ordered operands. For the select-arm
   // `!condition.invalidates(value)` path, this Starshine fact records the
-  // represented nontrapping subset whose operands are direct locals and can be
-  // re-evaluated after an effectful condition without reading mutable state.
-  let mut instr : @lib.Instruction? = None
-  let mut matching_ordered_local_operands = false
+  // represented nontrapping ordered local+local subset whose operands cannot be
+  // invalidated by an effectful condition. The kind names the single scalar
+  // proof class accepted by the current no-widening subset.
+  let mut kind = OrderedBinaryLocalLocalNoMatch
   match
     (
       @ir.hot_node_exact_instr(func, lhs),
@@ -23495,11 +23503,11 @@ fn OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
       @ir.hot_node_get(func, rhs).child_count,
     ) {
     (Some(lhs_instr), Some(rhs_instr), 2, 2) if lhs_instr == rhs_instr => {
-      instr = Some(lhs_instr)
       let lhs_left = @ir.hot_child_get(func, lhs, 0)
       let lhs_right = @ir.hot_child_get(func, lhs, 1)
       let rhs_left = @ir.hot_child_get(func, rhs, 0)
       let rhs_right = @ir.hot_child_get(func, rhs, 1)
+      let mut matching_ordered_local_operands = false
       match
         (
           OiLocalGetLeafFact::from_node(func, dead, lhs_left).local_id,
@@ -23517,116 +23525,125 @@ fn OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
             lhs_right_local == rhs_right_local
         _ => ()
       }
+      if matching_ordered_local_operands {
+        if lhs_instr == @lib.Instruction::i32_add() ||
+          lhs_instr == @lib.Instruction::i32_sub() ||
+          lhs_instr == @lib.Instruction::i32_mul() ||
+          lhs_instr == @lib.Instruction::i32_and() ||
+          lhs_instr == @lib.Instruction::i32_or() ||
+          lhs_instr == @lib.Instruction::i32_xor() ||
+          lhs_instr == @lib.Instruction::i32_shl() ||
+          lhs_instr == @lib.Instruction::i32_shr_s() ||
+          lhs_instr == @lib.Instruction::i32_shr_u() ||
+          lhs_instr == @lib.Instruction::i32_rotl() ||
+          lhs_instr == @lib.Instruction::i32_rotr() ||
+          lhs_instr == @lib.Instruction::i32_eq() ||
+          lhs_instr == @lib.Instruction::i32_ne() ||
+          lhs_instr == @lib.Instruction::i32_lt_s() ||
+          lhs_instr == @lib.Instruction::i32_lt_u() ||
+          lhs_instr == @lib.Instruction::i32_gt_s() ||
+          lhs_instr == @lib.Instruction::i32_gt_u() ||
+          lhs_instr == @lib.Instruction::i32_le_s() ||
+          lhs_instr == @lib.Instruction::i32_le_u() ||
+          lhs_instr == @lib.Instruction::i32_ge_s() ||
+          lhs_instr == @lib.Instruction::i32_ge_u() {
+          kind = OrderedBinaryI32LocalLocalMatch
+        } else if lhs_instr == @lib.Instruction::i64_add() ||
+          lhs_instr == @lib.Instruction::i64_sub() ||
+          lhs_instr == @lib.Instruction::i64_mul() ||
+          lhs_instr == @lib.Instruction::i64_and() ||
+          lhs_instr == @lib.Instruction::i64_or() ||
+          lhs_instr == @lib.Instruction::i64_xor() ||
+          lhs_instr == @lib.Instruction::i64_shl() ||
+          lhs_instr == @lib.Instruction::i64_shr_s() ||
+          lhs_instr == @lib.Instruction::i64_shr_u() ||
+          lhs_instr == @lib.Instruction::i64_rotl() ||
+          lhs_instr == @lib.Instruction::i64_rotr() ||
+          lhs_instr == @lib.Instruction::i64_eq() ||
+          lhs_instr == @lib.Instruction::i64_ne() ||
+          lhs_instr == @lib.Instruction::i64_lt_s() ||
+          lhs_instr == @lib.Instruction::i64_lt_u() ||
+          lhs_instr == @lib.Instruction::i64_gt_s() ||
+          lhs_instr == @lib.Instruction::i64_gt_u() ||
+          lhs_instr == @lib.Instruction::i64_le_s() ||
+          lhs_instr == @lib.Instruction::i64_le_u() ||
+          lhs_instr == @lib.Instruction::i64_ge_s() ||
+          lhs_instr == @lib.Instruction::i64_ge_u() {
+          kind = OrderedBinaryI64LocalLocalMatch
+        } else if lhs_instr == @lib.Instruction::f32_add() ||
+          lhs_instr == @lib.Instruction::f32_sub() ||
+          lhs_instr == @lib.Instruction::f32_mul() ||
+          lhs_instr == @lib.Instruction::f32_div() ||
+          lhs_instr == @lib.Instruction::f32_min() ||
+          lhs_instr == @lib.Instruction::f32_max() ||
+          lhs_instr == @lib.Instruction::f32_copysign() ||
+          lhs_instr == @lib.Instruction::f32_eq() ||
+          lhs_instr == @lib.Instruction::f32_ne() ||
+          lhs_instr == @lib.Instruction::f32_lt() ||
+          lhs_instr == @lib.Instruction::f32_gt() ||
+          lhs_instr == @lib.Instruction::f32_le() ||
+          lhs_instr == @lib.Instruction::f32_ge() {
+          kind = OrderedBinaryF32LocalLocalMatch
+        } else if lhs_instr == @lib.Instruction::f64_add() ||
+          lhs_instr == @lib.Instruction::f64_sub() ||
+          lhs_instr == @lib.Instruction::f64_mul() ||
+          lhs_instr == @lib.Instruction::f64_div() ||
+          lhs_instr == @lib.Instruction::f64_min() ||
+          lhs_instr == @lib.Instruction::f64_max() ||
+          lhs_instr == @lib.Instruction::f64_copysign() ||
+          lhs_instr == @lib.Instruction::f64_eq() ||
+          lhs_instr == @lib.Instruction::f64_ne() ||
+          lhs_instr == @lib.Instruction::f64_lt() ||
+          lhs_instr == @lib.Instruction::f64_gt() ||
+          lhs_instr == @lib.Instruction::f64_le() ||
+          lhs_instr == @lib.Instruction::f64_ge() {
+          kind = OrderedBinaryF64LocalLocalMatch
+        }
+      }
     }
     _ => ()
   }
-  { instr, matching_ordered_local_operands }
-}
-
-///|
-fn OiOrderedBinaryLocalLocalEqualityFact::proves_instr(
-  self : OiOrderedBinaryLocalLocalEqualityFact,
-  instr : @lib.Instruction,
-) -> Bool {
-  if !self.matching_ordered_local_operands {
-    return false
-  }
-  match self.instr {
-    Some(actual) => actual == instr
-    None => false
-  }
+  { kind, }
 }
 
 ///|
 fn OiOrderedBinaryLocalLocalEqualityFact::proves_i32_nontrapping_scalar(
   self : OiOrderedBinaryLocalLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::i32_add()) ||
-  self.proves_instr(@lib.Instruction::i32_sub()) ||
-  self.proves_instr(@lib.Instruction::i32_mul()) ||
-  self.proves_instr(@lib.Instruction::i32_and()) ||
-  self.proves_instr(@lib.Instruction::i32_or()) ||
-  self.proves_instr(@lib.Instruction::i32_xor()) ||
-  self.proves_instr(@lib.Instruction::i32_shl()) ||
-  self.proves_instr(@lib.Instruction::i32_shr_s()) ||
-  self.proves_instr(@lib.Instruction::i32_shr_u()) ||
-  self.proves_instr(@lib.Instruction::i32_rotl()) ||
-  self.proves_instr(@lib.Instruction::i32_rotr()) ||
-  self.proves_instr(@lib.Instruction::i32_eq()) ||
-  self.proves_instr(@lib.Instruction::i32_ne()) ||
-  self.proves_instr(@lib.Instruction::i32_lt_s()) ||
-  self.proves_instr(@lib.Instruction::i32_lt_u()) ||
-  self.proves_instr(@lib.Instruction::i32_gt_s()) ||
-  self.proves_instr(@lib.Instruction::i32_gt_u()) ||
-  self.proves_instr(@lib.Instruction::i32_le_s()) ||
-  self.proves_instr(@lib.Instruction::i32_le_u()) ||
-  self.proves_instr(@lib.Instruction::i32_ge_s()) ||
-  self.proves_instr(@lib.Instruction::i32_ge_u())
+  match self.kind {
+    OrderedBinaryI32LocalLocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiOrderedBinaryLocalLocalEqualityFact::proves_i64_nontrapping_scalar(
   self : OiOrderedBinaryLocalLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::i64_add()) ||
-  self.proves_instr(@lib.Instruction::i64_sub()) ||
-  self.proves_instr(@lib.Instruction::i64_mul()) ||
-  self.proves_instr(@lib.Instruction::i64_and()) ||
-  self.proves_instr(@lib.Instruction::i64_or()) ||
-  self.proves_instr(@lib.Instruction::i64_xor()) ||
-  self.proves_instr(@lib.Instruction::i64_shl()) ||
-  self.proves_instr(@lib.Instruction::i64_shr_s()) ||
-  self.proves_instr(@lib.Instruction::i64_shr_u()) ||
-  self.proves_instr(@lib.Instruction::i64_rotl()) ||
-  self.proves_instr(@lib.Instruction::i64_rotr()) ||
-  self.proves_instr(@lib.Instruction::i64_eq()) ||
-  self.proves_instr(@lib.Instruction::i64_ne()) ||
-  self.proves_instr(@lib.Instruction::i64_lt_s()) ||
-  self.proves_instr(@lib.Instruction::i64_lt_u()) ||
-  self.proves_instr(@lib.Instruction::i64_gt_s()) ||
-  self.proves_instr(@lib.Instruction::i64_gt_u()) ||
-  self.proves_instr(@lib.Instruction::i64_le_s()) ||
-  self.proves_instr(@lib.Instruction::i64_le_u()) ||
-  self.proves_instr(@lib.Instruction::i64_ge_s()) ||
-  self.proves_instr(@lib.Instruction::i64_ge_u())
+  match self.kind {
+    OrderedBinaryI64LocalLocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiOrderedBinaryLocalLocalEqualityFact::proves_f32_nontrapping_scalar(
   self : OiOrderedBinaryLocalLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::f32_add()) ||
-  self.proves_instr(@lib.Instruction::f32_sub()) ||
-  self.proves_instr(@lib.Instruction::f32_mul()) ||
-  self.proves_instr(@lib.Instruction::f32_div()) ||
-  self.proves_instr(@lib.Instruction::f32_min()) ||
-  self.proves_instr(@lib.Instruction::f32_max()) ||
-  self.proves_instr(@lib.Instruction::f32_copysign()) ||
-  self.proves_instr(@lib.Instruction::f32_eq()) ||
-  self.proves_instr(@lib.Instruction::f32_ne()) ||
-  self.proves_instr(@lib.Instruction::f32_lt()) ||
-  self.proves_instr(@lib.Instruction::f32_gt()) ||
-  self.proves_instr(@lib.Instruction::f32_le()) ||
-  self.proves_instr(@lib.Instruction::f32_ge())
+  match self.kind {
+    OrderedBinaryF32LocalLocalMatch => true
+    _ => false
+  }
 }
 
 ///|
 fn OiOrderedBinaryLocalLocalEqualityFact::proves_f64_nontrapping_scalar(
   self : OiOrderedBinaryLocalLocalEqualityFact,
 ) -> Bool {
-  self.proves_instr(@lib.Instruction::f64_add()) ||
-  self.proves_instr(@lib.Instruction::f64_sub()) ||
-  self.proves_instr(@lib.Instruction::f64_mul()) ||
-  self.proves_instr(@lib.Instruction::f64_div()) ||
-  self.proves_instr(@lib.Instruction::f64_min()) ||
-  self.proves_instr(@lib.Instruction::f64_max()) ||
-  self.proves_instr(@lib.Instruction::f64_copysign()) ||
-  self.proves_instr(@lib.Instruction::f64_eq()) ||
-  self.proves_instr(@lib.Instruction::f64_ne()) ||
-  self.proves_instr(@lib.Instruction::f64_lt()) ||
-  self.proves_instr(@lib.Instruction::f64_gt()) ||
-  self.proves_instr(@lib.Instruction::f64_le()) ||
-  self.proves_instr(@lib.Instruction::f64_ge())
+  match self.kind {
+    OrderedBinaryF64LocalLocalMatch => true
+    _ => false
+  }
 }
 
 ///|
