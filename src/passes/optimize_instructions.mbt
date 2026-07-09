@@ -6304,7 +6304,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         return None
       }
     @ir.HotOp::LocalTee =>
-      if OiStandaloneRefGetDescLocalTeeFact::from_node(func, child_id).proves_can_move_null_check() {
+      if OiStandaloneRefGetDescLocalTeeFact::from_node(func, child_id).proves_nullable_ref_leaf_move_allowed() {
         RefGetDescNullableLocalTeeMove
       } else {
         return None
@@ -28446,12 +28446,56 @@ fn OiStandaloneRefGetDescLeafFact::proves_nontrapping_call_operand_leaf(
 }
 
 ///|
+priv struct OiStandaloneRefGetDescLocalTeeChildFact {
+  live : Bool
+  leaf_fact : OiStandaloneRefGetDescLeafFact
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeChildFact::empty() -> OiStandaloneRefGetDescLocalTeeChildFact {
+  { live: false, leaf_fact: OiStandaloneRefGetDescLeafFact::empty() }
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeChildFact::from_tee(
+  func : @ir.HotFunc,
+  tee_id : Int,
+) -> OiStandaloneRefGetDescLocalTeeChildFact {
+  // Binaryen v130 standalone ref.get_desc movement only looks through a
+  // one-child local.tee when that child is itself one of the represented leaf
+  // facts. Keep the one-child proof and child leaf payload together instead of
+  // copying leaf outcomes into parallel local.tee booleans.
+  if @ir.hot_child_count(func, tee_id) != 1 {
+    return OiStandaloneRefGetDescLocalTeeChildFact::empty()
+  }
+  {
+    live: true,
+    leaf_fact: OiStandaloneRefGetDescLeafFact::from_node(
+      func,
+      @ir.hot_child_get(func, tee_id, 0),
+    ),
+  }
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeChildFact::proves_known_null_ref_null_leaf(
+  self : OiStandaloneRefGetDescLocalTeeChildFact,
+) -> Bool {
+  self.live && self.leaf_fact.proves_known_null_ref_null_leaf()
+}
+
+///|
+fn OiStandaloneRefGetDescLocalTeeChildFact::proves_nullable_ref_leaf_move_allowed(
+  self : OiStandaloneRefGetDescLocalTeeChildFact,
+) -> Bool {
+  self.live && self.leaf_fact.proves_nullable_ref_leaf_move_allowed()
+}
+
+///|
 priv struct OiStandaloneRefGetDescLocalTeeFact {
   live : Bool
   single_nullable_ref_result : Bool
-  single_child : Bool
-  child_known_null_ref_null_leaf : Bool
-  child_nullable_ref_leaf : Bool
+  child_fact : OiStandaloneRefGetDescLocalTeeChildFact
 }
 
 ///|
@@ -28459,9 +28503,7 @@ fn OiStandaloneRefGetDescLocalTeeFact::empty() -> OiStandaloneRefGetDescLocalTee
   {
     live: false,
     single_nullable_ref_result: false,
-    single_child: false,
-    child_known_null_ref_null_leaf: false,
-    child_nullable_ref_leaf: false,
+    child_fact: OiStandaloneRefGetDescLocalTeeChildFact::empty(),
   }
 }
 
@@ -28481,21 +28523,10 @@ fn OiStandaloneRefGetDescLocalTeeFact::from_node(
     _ => return OiStandaloneRefGetDescLocalTeeFact::empty()
   }
   let single_nullable_ref_result = OiResultShapeFact::from_node(func, tee_id).proves_single_nullable_ref_result()
-  let single_child = @ir.hot_child_count(func, tee_id) == 1
-  let child_fact = if single_child {
-    OiStandaloneRefGetDescLeafFact::from_node(
-      func,
-      @ir.hot_child_get(func, tee_id, 0),
-    )
-  } else {
-    OiStandaloneRefGetDescLeafFact::empty()
-  }
   {
     live: true,
     single_nullable_ref_result,
-    single_child,
-    child_known_null_ref_null_leaf: child_fact.proves_known_null_ref_null_leaf(),
-    child_nullable_ref_leaf: child_fact.proves_nullable_ref_leaf_move_allowed(),
+    child_fact: OiStandaloneRefGetDescLocalTeeChildFact::from_tee(func, tee_id),
   }
 }
 
@@ -28505,18 +28536,16 @@ fn OiStandaloneRefGetDescLocalTeeFact::proves_known_null_child(
 ) -> Bool {
   self.live &&
   self.single_nullable_ref_result &&
-  self.single_child &&
-  self.child_known_null_ref_null_leaf
+  self.child_fact.proves_known_null_ref_null_leaf()
 }
 
 ///|
-fn OiStandaloneRefGetDescLocalTeeFact::proves_can_move_null_check(
+fn OiStandaloneRefGetDescLocalTeeFact::proves_nullable_ref_leaf_move_allowed(
   self : OiStandaloneRefGetDescLocalTeeFact,
 ) -> Bool {
   self.live &&
   self.single_nullable_ref_result &&
-  self.single_child &&
-  self.child_nullable_ref_leaf
+  self.child_fact.proves_nullable_ref_leaf_move_allowed()
 }
 
 ///|
