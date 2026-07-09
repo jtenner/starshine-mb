@@ -114,6 +114,15 @@ priv struct DaeRedundantAccessCleanupEvidence {
 }
 
 ///|
+priv struct DaeDroppedLocalTeeSuffixCleanupEvidence {
+  cleanup_kind : Int
+  start : Int
+  end : Int
+  next_idx : Int
+  replacement : Array[@lib.Instruction]
+}
+
+///|
 priv struct DaeDroppablePureStackEvidence {
   start : Int
   end : Int
@@ -17666,6 +17675,90 @@ fn dae_apply_redundant_access_cleanup_evidence(
 }
 
 ///|
+fn dae_dropped_local_tee_suffix_cleanup_evidence_is_consistent(
+  evidence : DaeDroppedLocalTeeSuffixCleanupEvidence,
+) -> Bool {
+  evidence.cleanup_kind >= 0 &&
+  evidence.cleanup_kind <= 3 &&
+  evidence.start >= 0 &&
+  evidence.start < evidence.end &&
+  evidence.end == evidence.next_idx &&
+  evidence.replacement.length() == 1
+}
+
+///|
+fn dae_dropped_local_tee_suffix_cleanup_evidence(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> DaeDroppedLocalTeeSuffixCleanupEvidence? {
+  if idx < 0 || idx >= instrs.length() {
+    return None
+  }
+  let evidence = match instrs[idx] {
+    @lib.LocalTee(local_idx) =>
+      if idx + 1 < instrs.length() &&
+        instrs[idx + 1] == @lib.Instruction::drop() {
+        Some({
+          cleanup_kind: 0,
+          start: idx,
+          end: idx + 2,
+          next_idx: idx + 2,
+          replacement: [@lib.Instruction::local_set(local_idx)],
+        })
+      } else if idx + 2 < instrs.length() &&
+        dae_instr_is_nontrapping_pure_unary(instrs[idx + 1]) &&
+        instrs[idx + 2] == @lib.Instruction::drop() {
+        Some({
+          cleanup_kind: 1,
+          start: idx,
+          end: idx + 3,
+          next_idx: idx + 3,
+          replacement: [@lib.Instruction::local_set(local_idx)],
+        })
+      } else if idx + 3 < instrs.length() &&
+        dae_instr_is_nontrapping_pure_tee_suffix_binary(
+          instrs[idx + 1],
+          instrs[idx + 2],
+        ) &&
+        instrs[idx + 3] == @lib.Instruction::drop() {
+        Some({
+          cleanup_kind: 2,
+          start: idx,
+          end: idx + 4,
+          next_idx: idx + 4,
+          replacement: [@lib.Instruction::local_set(local_idx)],
+        })
+      } else if idx + 5 < instrs.length() &&
+        dae_instr_is_nontrapping_pure_tee_suffix_binary(
+          instrs[idx + 1],
+          instrs[idx + 2],
+        ) &&
+        dae_instr_is_nontrapping_pure_tee_suffix_binary(
+          instrs[idx + 3],
+          instrs[idx + 4],
+        ) &&
+        instrs[idx + 5] == @lib.Instruction::drop() {
+        Some({
+          cleanup_kind: 3,
+          start: idx,
+          end: idx + 6,
+          next_idx: idx + 6,
+          replacement: [@lib.Instruction::local_set(local_idx)],
+        })
+      } else {
+        None
+      }
+    _ => None
+  }
+  match evidence {
+    Some(evidence) if dae_dropped_local_tee_suffix_cleanup_evidence_is_consistent(
+        evidence,
+      ) => Some(evidence)
+    _ => None
+  }
+}
+
+///|
 fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit {
   while out.length() > new_length {
     ignore(out.pop())
@@ -18342,53 +18435,13 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         _ => ()
       }
     }
-    if out.length() > 0 && idx + 2 < instrs.length() {
-      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
-        (@lib.LocalTee(local_idx), op, drop) if dae_instr_is_nontrapping_pure_unary(
-            op,
-          ) &&
-          drop == @lib.Instruction::drop() => {
-          out.push(@lib.Instruction::local_set(local_idx))
-          idx += 3
-          continue
-        }
-        _ => ()
+    match dae_dropped_local_tee_suffix_cleanup_evidence(instrs, idx) {
+      Some(evidence) => {
+        dae_push_instrs(out, evidence.replacement)
+        idx = evidence.next_idx
+        continue
       }
-    }
-    if out.length() > 0 && idx + 3 < instrs.length() {
-      match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
-        (@lib.LocalTee(local_idx), rhs, op, drop) if dae_instr_is_nontrapping_pure_tee_suffix_binary(
-            rhs, op,
-          ) &&
-          drop == @lib.Instruction::drop() => {
-          out.push(@lib.Instruction::local_set(local_idx))
-          idx += 4
-          continue
-        }
-        _ => ()
-      }
-    }
-    if out.length() > 0 && idx + 5 < instrs.length() {
-      match
-        (
-          instrs[idx],
-          instrs[idx + 1],
-          instrs[idx + 2],
-          instrs[idx + 3],
-          instrs[idx + 4],
-          instrs[idx + 5],
-        ) {
-        (@lib.LocalTee(local_idx), rhs1, op1, rhs2, op2, drop) if dae_instr_is_nontrapping_pure_tee_suffix_binary(
-            rhs1, op1,
-          ) &&
-          dae_instr_is_nontrapping_pure_tee_suffix_binary(rhs2, op2) &&
-          drop == @lib.Instruction::drop() => {
-          out.push(@lib.Instruction::local_set(local_idx))
-          idx += 6
-          continue
-        }
-        _ => ()
-      }
+      None => ()
     }
     if idx + 1 < instrs.length() {
       match

@@ -6979,6 +6979,80 @@ test "dae redundant access cleanup evidence centralizes adjacent pair rewrites" 
 }
 
 ///|
+test "dae dropped local tee suffix cleanup evidence centralizes pure suffix rewrites" {
+  let slot = @lib.LocalIdx::new(1U)
+  let direct_drop = [
+    @lib.Instruction::local_tee(slot),
+    @lib.Instruction::drop(),
+  ]
+  match dae_dropped_local_tee_suffix_cleanup_evidence(direct_drop, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 0)
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 2)
+      assert_eq(evidence.next_idx, 2)
+      assert_eq(evidence.replacement, [@lib.Instruction::local_set(slot)])
+      assert_true(
+        dae_dropped_local_tee_suffix_cleanup_evidence_is_consistent(evidence),
+      )
+    }
+    None => fail("expected direct local.tee/drop cleanup evidence")
+  }
+  let unary_drop = [
+    @lib.Instruction::local_tee(slot),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::drop(),
+  ]
+  match dae_dropped_local_tee_suffix_cleanup_evidence(unary_drop, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 1)
+      assert_eq(evidence.next_idx, 3)
+      assert_eq(evidence.replacement, [@lib.Instruction::local_set(slot)])
+    }
+    None => fail("expected unary local.tee suffix cleanup evidence")
+  }
+  let binary_drop = [
+    @lib.Instruction::local_tee(slot),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+  ]
+  match dae_dropped_local_tee_suffix_cleanup_evidence(binary_drop, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 2)
+      assert_eq(evidence.end, 4)
+    }
+    None => fail("expected binary local.tee suffix cleanup evidence")
+  }
+  let double_binary_drop = [
+    @lib.Instruction::local_tee(slot),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_mul(),
+    @lib.Instruction::drop(),
+  ]
+  match dae_dropped_local_tee_suffix_cleanup_evidence(double_binary_drop, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 3)
+      assert_eq(evidence.next_idx, 6)
+    }
+    None => fail("expected double-binary local.tee suffix cleanup evidence")
+  }
+  let trapping_drop = [
+    @lib.Instruction::local_tee(slot),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::drop(),
+  ]
+  match dae_dropped_local_tee_suffix_cleanup_evidence(trapping_drop, 0) {
+    Some(_) =>
+      fail("trapping suffix must not produce local.tee cleanup evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae local-get range evidence centralizes cleanup local proof" {
   let tmp = @lib.LocalIdx::new(1U)
   let singleton_local = [@lib.Instruction::local_get(tmp)]
