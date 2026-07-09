@@ -11053,8 +11053,19 @@ priv struct OiCallRefIfFallthroughTargetFact {
 }
 
 ///|
-priv struct OiCallRefLoopFallthroughTargetFact {
+priv enum OiCallRefLoopBodyTailKind {
+  CallRefLoopBodyFinalRoot
+}
+
+///|
+priv struct OiCallRefLoopBodyTailFact {
+  kind : OiCallRefLoopBodyTailKind
   body_id : Int
+}
+
+///|
+priv struct OiCallRefLoopFallthroughTargetFact {
+  body_tail_fact : OiCallRefLoopBodyTailFact
   body_fact : OiCallRefFallthroughTargetFact
 }
 
@@ -11304,7 +11315,17 @@ fn OiCallRefLoopFallthroughTargetFact::from_loop_target(
     body_id,
     depth=depth + 1,
   )
-  Some({ body_id, body_fact })
+  let body_tail_fact = { kind: CallRefLoopBodyFinalRoot, body_id }
+  Some({ body_tail_fact, body_fact })
+}
+
+///|
+fn OiCallRefLoopBodyTailFact::proves_live_final_root(
+  self : OiCallRefLoopBodyTailFact,
+) -> Bool {
+  match self.kind {
+    CallRefLoopBodyFinalRoot => self.body_id >= 0
+  }
 }
 
 ///|
@@ -11316,7 +11337,8 @@ fn OiCallRefLoopFallthroughTargetFact::proves_ref_func_body_fallthrough(
     Some(fact) => fact
     None => return false
   }
-  self.body_id >= 0 && direct_body_fact.proves_direct_ref_func_fallthrough()
+  self.body_tail_fact.proves_live_final_root() &&
+  direct_body_fact.proves_direct_ref_func_fallthrough()
 }
 
 ///|
