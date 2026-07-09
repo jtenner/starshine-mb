@@ -12262,8 +12262,13 @@ fn OiCallRefTargetClassificationFact::target_fact(
 }
 
 ///|
-priv struct OiCallRefSelectArmFunctionFact {
+priv struct OiCallRefSelectArmFunctionIndexFact {
   direct_func : Int
+}
+
+///|
+priv struct OiCallRefSelectArmFunctionFact {
+  index_fact : OiCallRefSelectArmFunctionIndexFact
 }
 
 ///|
@@ -12285,9 +12290,9 @@ fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
 }
 
 ///|
-fn OiCallRefSelectArmFunctionFact::from_ref_func(
+fn OiCallRefSelectArmFunctionIndexFact::from_ref_func(
   direct_func : Int,
-) -> OiCallRefSelectArmFunctionFact? {
+) -> OiCallRefSelectArmFunctionIndexFact? {
   if direct_func < 0 {
     return None
   }
@@ -12295,10 +12300,43 @@ fn OiCallRefSelectArmFunctionFact::from_ref_func(
 }
 
 ///|
+fn OiCallRefSelectArmFunctionIndexFact::proves_function_index(
+  self : OiCallRefSelectArmFunctionIndexFact,
+) -> Bool {
+  self.direct_func >= 0
+}
+
+///|
+fn OiCallRefSelectArmFunctionIndexFact::function_index(
+  self : OiCallRefSelectArmFunctionIndexFact,
+) -> Int {
+  self.direct_func
+}
+
+///|
+fn OiCallRefSelectArmFunctionFact::from_ref_func(
+  direct_func : Int,
+) -> OiCallRefSelectArmFunctionFact? {
+  let index_fact = match
+    OiCallRefSelectArmFunctionIndexFact::from_ref_func(direct_func) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({ index_fact, })
+}
+
+///|
+fn OiCallRefSelectArmFunctionFact::proves_function_index(
+  self : OiCallRefSelectArmFunctionFact,
+) -> Bool {
+  self.index_fact.proves_function_index()
+}
+
+///|
 fn OiCallRefSelectArmFunctionFact::function_index(
   self : OiCallRefSelectArmFunctionFact,
 ) -> Int {
-  self.direct_func
+  self.index_fact.function_index()
 }
 
 ///|
@@ -12339,7 +12377,11 @@ fn OiCallRefSelectArmDirectFact::from_arm_fact(
   // same-target residue path or the two-direct-call `if` path. Keep the function
   // index proof nested under the arm-direct fact instead of leaving direct-arm
   // payloads as open sentinel fields on the arm traversal record.
-  fact.direct_fact
+  match fact.direct_fact {
+    Some(direct_fact) if direct_fact.function_fact.proves_function_index() =>
+      Some(direct_fact)
+    _ => None
+  }
 }
 
 ///|
