@@ -3313,16 +3313,39 @@ test "dae select value slices centralize operand and condition bounds" {
       assert_eq(slices.left.end, 1)
       assert_eq(slices.right.start, 1)
       assert_eq(slices.right.end, 2)
-      assert_eq(slices.condition_start, 2)
+      assert_eq(slices.condition.start, 2)
+      assert_eq(slices.condition.end, 3)
+      assert_eq(slices.condition.instr_count, 1)
       assert_eq(slices.select_idx, 3)
       assert_false(slices.left.has_effect_or_branch)
       assert_false(slices.right.has_effect_or_branch)
+      assert_true(dae_select_value_slices_are_consistent(slices, 3))
     }
     None => fail("expected reusable select value slice bounds")
   }
   match dae_find_select_value_slices(mod_, [], body, 3, required_left_start=1) {
     Some(_) => fail("expected required left-start mismatch to reject slices")
     None => ()
+  }
+  let stacked_condition_body = [
+    @lib.Instruction::struct_new_default(ref_type),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(ref_val),
+      @lib.Expr::new([@lib.Instruction::struct_new_default(ref_type)]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::select(types=Some([ref_val])),
+  ]
+  match dae_find_select_value_slices(mod_, [], stacked_condition_body, 4) {
+    Some(slices) => {
+      assert_eq(slices.condition.start, 2)
+      assert_eq(slices.condition.end, 4)
+      assert_eq(slices.condition.instr_count, 2)
+      assert_true(slices.condition.stack_slice is Some(_))
+      assert_true(dae_select_value_slices_are_consistent(slices, 4))
+    }
+    None => fail("expected stack-slice condition evidence on select slices")
   }
 }
 
@@ -5015,16 +5038,17 @@ test "dae GC select value evidence computes reusable LUB and refined candidates"
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::select(types=Some([base_ref])),
   ]
+  let slices = match dae_find_select_value_slices(mod_, [], body, 3) {
+    Some(slices) => slices
+    None => fail("expected reusable select value slices")
+  }
   match
-    dae_gc_select_value_slice_evidence(
+    dae_gc_select_value_slices_evidence(
       mod_,
       [],
       None,
       body,
-      0,
-      1,
-      2,
-      3,
+      slices,
       base_ref,
       require_refined=true,
     ) {
