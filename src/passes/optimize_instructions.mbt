@@ -9332,6 +9332,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixTableInit
   MaxBitsBlockPrefixDropAtomicLoad
   MaxBitsBlockPrefixDropAtomicRmw
+  MaxBitsBlockPrefixDropAtomicCmpxchg
   MaxBitsBlockPrefixDropTableGrow
   MaxBitsBlockPrefixDropMemoryGrow
   MaxBitsBlockPrefixDataDrop
@@ -9358,8 +9359,9 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
   // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
-  // atomic load/RMW, table.grow and memory.grow, direct/indirect call, and global write roots so branch,
-  // control, and generalized localization remain out of this fact.
+  // atomic load/RMW/cmpxchg, table.grow and memory.grow, direct/indirect call,
+  // and global write roots so branch, control, and generalized localization
+  // remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
   }
@@ -9416,6 +9418,12 @@ fn OiMaxBitsBlockPrefixFact::from_root(
               Some({ kind: MaxBitsBlockPrefixDropAtomicRmw, root_id })
             _ => None
           }
+        @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 3 =>
+          match @ir.hot_node_exact_instr(func, child_id) {
+            Some(@lib.Instruction::AtomicCmpxchg(_, _)) =>
+              Some({ kind: MaxBitsBlockPrefixDropAtomicCmpxchg, root_id })
+            _ => None
+          }
         @ir.HotOp::TableGrow if @ir.hot_child_count(func, child_id) == 2 =>
           Some({ kind: MaxBitsBlockPrefixDropTableGrow, root_id })
         @ir.HotOp::MemoryGrow if @ir.hot_child_count(func, child_id) == 1 =>
@@ -9454,6 +9462,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixTableInit
     | MaxBitsBlockPrefixDropAtomicLoad
     | MaxBitsBlockPrefixDropAtomicRmw
+    | MaxBitsBlockPrefixDropAtomicCmpxchg
     | MaxBitsBlockPrefixDropTableGrow
     | MaxBitsBlockPrefixDropMemoryGrow
     | MaxBitsBlockPrefixDataDrop
