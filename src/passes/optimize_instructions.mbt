@@ -22855,25 +22855,26 @@ priv enum OiIntegerEqualityConditionSelectRewriteKind {
 }
 
 ///|
-priv struct OiIntegerEqualityConditionSelectFact {
-  condition_id : Int
+priv struct OiIntegerEqualityConditionSelectInvertedCompareFact {
   lhs_id : Int
   rhs_id : Int
-  inverted_instr : @lib.Instruction?
+  inverted_instr : @lib.Instruction
+}
+
+///|
+priv struct OiIntegerEqualityConditionSelectFact {
+  condition_id : Int
+  inverted_compare_fact : OiIntegerEqualityConditionSelectInvertedCompareFact?
   kind : OiIntegerEqualityConditionSelectRewriteKind
 }
 
 ///|
 fn OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
   condition_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
 ) -> OiIntegerEqualityConditionSelectFact {
   {
     condition_id,
-    lhs_id,
-    rhs_id,
-    inverted_instr: None,
+    inverted_compare_fact: None,
     kind: IntegerEqualityConditionSelectNoRewriteBoundary,
   }
 }
@@ -22881,14 +22882,10 @@ fn OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
 ///|
 fn OiIntegerEqualityConditionSelectFact::keep_compare(
   condition_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
 ) -> OiIntegerEqualityConditionSelectFact {
   {
     condition_id,
-    lhs_id,
-    rhs_id,
-    inverted_instr: None,
+    inverted_compare_fact: None,
     kind: IntegerEqualityConditionSelectKeepCompare,
   }
 }
@@ -22902,9 +22899,7 @@ fn OiIntegerEqualityConditionSelectFact::invert_compare(
 ) -> OiIntegerEqualityConditionSelectFact {
   {
     condition_id,
-    lhs_id,
-    rhs_id,
-    inverted_instr: Some(inverted_instr),
+    inverted_compare_fact: Some({ lhs_id, rhs_id, inverted_instr }),
     kind: IntegerEqualityConditionSelectInvertCompare,
   }
 }
@@ -22944,14 +22939,12 @@ fn OiIntegerEqualityConditionSelectFact::from_select_condition(
               if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
                 return Some(
                   OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
-                    condition_id, lhs_id, rhs_id,
+                    condition_id,
                   ),
                 )
               }
               Some(
-                OiIntegerEqualityConditionSelectFact::keep_compare(
-                  condition_id, lhs_id, rhs_id,
-                ),
+                OiIntegerEqualityConditionSelectFact::keep_compare(condition_id),
               )
             }
             (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
@@ -22959,7 +22952,7 @@ fn OiIntegerEqualityConditionSelectFact::from_select_condition(
                 !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
                 return Some(
                   OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
-                    condition_id, lhs_id, rhs_id,
+                    condition_id,
                   ),
                 )
               }
@@ -22998,15 +22991,15 @@ fn OiIntegerEqualityConditionSelectFact::apply(
       true
     }
     IntegerEqualityConditionSelectInvertCompare =>
-      match self.inverted_instr {
-        Some(inverted_instr) => {
+      match self.inverted_compare_fact {
+        Some(compare_fact) => {
           optimize_instructions_replace_with_exact_compare(
             ctx,
             func,
             node_id,
-            inverted_instr,
-            self.lhs_id,
-            self.rhs_id,
+            compare_fact.inverted_instr,
+            compare_fact.lhs_id,
+            compare_fact.rhs_id,
           )
           true
         }
@@ -23023,25 +23016,26 @@ priv enum OiDirectCompareConditionSelectRewriteKind {
 }
 
 ///|
-priv struct OiDirectCompareConditionSelectFact {
-  condition_id : Int
+priv struct OiDirectCompareConditionSelectInvertedCompareFact {
   lhs_id : Int
   rhs_id : Int
-  inverted_instr : @lib.Instruction?
+  inverted_instr : @lib.Instruction
+}
+
+///|
+priv struct OiDirectCompareConditionSelectFact {
+  condition_id : Int
+  inverted_compare_fact : OiDirectCompareConditionSelectInvertedCompareFact?
   kind : OiDirectCompareConditionSelectRewriteKind
 }
 
 ///|
 fn OiDirectCompareConditionSelectFact::no_rewrite_boundary(
   condition_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
 ) -> OiDirectCompareConditionSelectFact {
   {
     condition_id,
-    lhs_id,
-    rhs_id,
-    inverted_instr: None,
+    inverted_compare_fact: None,
     kind: DirectCompareConditionSelectNoRewriteBoundary,
   }
 }
@@ -23049,14 +23043,10 @@ fn OiDirectCompareConditionSelectFact::no_rewrite_boundary(
 ///|
 fn OiDirectCompareConditionSelectFact::keep_compare(
   condition_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
 ) -> OiDirectCompareConditionSelectFact {
   {
     condition_id,
-    lhs_id,
-    rhs_id,
-    inverted_instr: None,
+    inverted_compare_fact: None,
     kind: DirectCompareConditionSelectKeepCompare,
   }
 }
@@ -23070,9 +23060,7 @@ fn OiDirectCompareConditionSelectFact::invert_compare(
 ) -> OiDirectCompareConditionSelectFact {
   {
     condition_id,
-    lhs_id,
-    rhs_id,
-    inverted_instr: Some(inverted_instr),
+    inverted_compare_fact: Some({ lhs_id, rhs_id, inverted_instr }),
     kind: DirectCompareConditionSelectInvertCompare,
   }
 }
@@ -23105,14 +23093,12 @@ fn OiDirectCompareConditionSelectFact::from_select_condition(
               if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
                 return Some(
                   OiDirectCompareConditionSelectFact::no_rewrite_boundary(
-                    condition_id, lhs_id, rhs_id,
+                    condition_id,
                   ),
                 )
               }
               Some(
-                OiDirectCompareConditionSelectFact::keep_compare(
-                  condition_id, lhs_id, rhs_id,
-                ),
+                OiDirectCompareConditionSelectFact::keep_compare(condition_id),
               )
             }
             (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
@@ -23120,7 +23106,7 @@ fn OiDirectCompareConditionSelectFact::from_select_condition(
                 !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
                 return Some(
                   OiDirectCompareConditionSelectFact::no_rewrite_boundary(
-                    condition_id, lhs_id, rhs_id,
+                    condition_id,
                   ),
                 )
               }
@@ -23158,15 +23144,15 @@ fn OiDirectCompareConditionSelectFact::apply(
       true
     }
     DirectCompareConditionSelectInvertCompare =>
-      match self.inverted_instr {
-        Some(inverted_instr) => {
+      match self.inverted_compare_fact {
+        Some(compare_fact) => {
           optimize_instructions_replace_with_exact_compare(
             ctx,
             func,
             node_id,
-            inverted_instr,
-            self.lhs_id,
-            self.rhs_id,
+            compare_fact.inverted_instr,
+            compare_fact.lhs_id,
+            compare_fact.rhs_id,
           )
           true
         }
