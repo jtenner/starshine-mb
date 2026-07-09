@@ -9337,6 +9337,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixDropAtomicLoad
   MaxBitsBlockPrefixDropStructAtomicGet
   MaxBitsBlockPrefixDropStructAtomicRmwLowering
+  MaxBitsBlockPrefixDropStructAtomicCmpxchgLowering
   MaxBitsBlockPrefixDropAtomicRmw
   MaxBitsBlockPrefixDropAtomicCmpxchg
   MaxBitsBlockPrefixDropAtomicWait
@@ -9358,6 +9359,11 @@ priv struct OiMaxBitsBlockPrefixFact {
 
 ///|
 priv struct OiDroppedStructAtomicRmwLoweringFact {
+  block_id : Int
+}
+
+///|
+priv struct OiDroppedStructAtomicCmpxchgLoweringFact {
   block_id : Int
 }
 
@@ -9414,6 +9420,58 @@ fn OiDroppedStructAtomicRmwLoweringFact::proves_preserved_prefix(
 }
 
 ///|
+fn OiDroppedStructAtomicCmpxchgLoweringFact::from_drop_child(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> OiDroppedStructAtomicCmpxchgLoweringFact? {
+  // `visitStructRMW` can lower aggregate cmpxchg to a result block before the
+  // block-tail maxBits fold runs. Binaryen v130 still folds the surrounding
+  // impossible compare while preserving the lowered get/conditional-set block.
+  // Keep this prefix fact tied to the emitted localize-read-write-old-value
+  // skeleton instead of admitting arbitrary dropped effectful blocks.
+  let node = @ir.hot_node_get(func, block_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count != 6 {
+    return None
+  }
+  for slot = 0; slot < 4; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, slot)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => ()
+      _ => return None
+    }
+  }
+  let set_id = @ir.hot_region_get(func, body_ref, 4)
+  match @ir.hot_node_get(func, set_id).op {
+    @ir.HotOp::Heap => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, set_id) {
+    Some(@lib.Instruction::StructSet(_, _)) => ()
+    _ => return None
+  }
+  let old_value_id = @ir.hot_region_get(func, body_ref, 5)
+  match @ir.hot_node_get(func, old_value_id).op {
+    @ir.HotOp::LocalGet => ()
+    _ => return None
+  }
+  Some({ block_id, })
+}
+
+///|
+fn OiDroppedStructAtomicCmpxchgLoweringFact::proves_preserved_prefix(
+  self : Self,
+) -> Bool {
+  ignore(self.block_id)
+  true
+}
+
+///|
 fn OiMaxBitsBlockPrefixFact::from_root(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -9424,8 +9482,8 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
   // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
-  // atomic load/RMW/cmpxchg/wait/notify, aggregate atomic get/lowered RMW,
-  // direct, indirect, and reference calls, value-returning drop-wrapped calls,
+  // atomic load/RMW/cmpxchg/wait/notify, aggregate atomic get/lowered RMW and
+  // cmpxchg, direct, indirect, and reference calls, value-returning drop-wrapped calls,
   // table.grow and memory.grow, and global write roots so branch, control, and
   // generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
@@ -9512,7 +9570,18 @@ fn OiMaxBitsBlockPrefixFact::from_root(
                 kind: MaxBitsBlockPrefixDropStructAtomicRmwLowering,
                 root_id,
               })
-            _ => None
+            _ =>
+              match
+                OiDroppedStructAtomicCmpxchgLoweringFact::from_drop_child(
+                  func, child_id,
+                ) {
+                Some(fact) if fact.proves_preserved_prefix() =>
+                  Some({
+                    kind: MaxBitsBlockPrefixDropStructAtomicCmpxchgLowering,
+                    root_id,
+                  })
+                _ => None
+              }
           }
         @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixDropCall, root_id })
         @ir.HotOp::CallIndirect =>
@@ -9562,6 +9631,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixDropAtomicLoad
     | MaxBitsBlockPrefixDropStructAtomicGet
     | MaxBitsBlockPrefixDropStructAtomicRmwLowering
+    | MaxBitsBlockPrefixDropStructAtomicCmpxchgLowering
     | MaxBitsBlockPrefixDropAtomicRmw
     | MaxBitsBlockPrefixDropAtomicCmpxchg
     | MaxBitsBlockPrefixDropAtomicWait
