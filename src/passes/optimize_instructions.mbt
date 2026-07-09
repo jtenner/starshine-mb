@@ -2906,10 +2906,22 @@ priv enum OiDescriptorOperandTrapKind {
 }
 
 ///|
+priv struct OiDescriptorOperandDirectUnreachableTrapFact {
+  node_id : Int
+}
+
+///|
+fn OiDescriptorOperandDirectUnreachableTrapFact::proves_valid_payload(
+  self : OiDescriptorOperandDirectUnreachableTrapFact,
+) -> Bool {
+  self.node_id >= 0
+}
+
+///|
 priv struct OiDescriptorOperandTrapFact {
-  direct_unreachable : Bool
-  ref_get_desc_traps_without_effects : Bool
   kind : OiDescriptorOperandTrapKind
+  direct_unreachable_fact : OiDescriptorOperandDirectUnreachableTrapFact?
+  ref_get_desc_trap_fact : OiRefGetDescTrapFact?
 }
 
 ///|
@@ -2920,33 +2932,37 @@ fn OiDescriptorOperandTrapFact::from_operand(
   // Descriptor casts/tests can become `unreachable` when the descriptor operand
   // itself is already an unconditional trap with no preceding side effects.
   // Lower the represented direct-unreachable and ref.get_desc trap cases through
-  // one ordered result kind instead of a descriptor-operand helper cascade or
-  // parallel trap-result boolean.
-  let direct_unreachable = match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Unreachable => true
-    _ => false
+  // one ordered result kind plus nested source proof facts instead of a
+  // descriptor-operand helper cascade or parallel trap booleans.
+  let direct_unreachable_fact : OiDescriptorOperandDirectUnreachableTrapFact? = match
+    @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Unreachable => Some({ node_id, })
+    _ => None
   }
-  let ref_get_desc_traps_without_effects = OiRefGetDescTrapFact::from_node(
-    func, node_id,
-  ).proves_traps_without_effects()
-  let kind = if direct_unreachable {
-    DescriptorOperandTrapDirectUnreachable
-  } else if ref_get_desc_traps_without_effects {
-    DescriptorOperandTrapRefGetDesc
+  let ref_get_desc_trap_probe = OiRefGetDescTrapFact::from_node(func, node_id)
+  let ref_get_desc_trap_fact = if ref_get_desc_trap_probe.proves_traps_without_effects() {
+    Some(ref_get_desc_trap_probe)
   } else {
-    DescriptorOperandTrapNone
+    None
   }
-  { direct_unreachable, ref_get_desc_traps_without_effects, kind }
+  let kind = match (direct_unreachable_fact, ref_get_desc_trap_fact) {
+    (Some(_), _) => DescriptorOperandTrapDirectUnreachable
+    (None, Some(_)) => DescriptorOperandTrapRefGetDesc
+    _ => DescriptorOperandTrapNone
+  }
+  { kind, direct_unreachable_fact, ref_get_desc_trap_fact }
 }
 
 ///|
 fn OiDescriptorOperandTrapFact::proves_traps_without_effects(
   self : OiDescriptorOperandTrapFact,
 ) -> Bool {
-  match self.kind {
-    DescriptorOperandTrapDirectUnreachable => self.direct_unreachable
-    DescriptorOperandTrapRefGetDesc => self.ref_get_desc_traps_without_effects
-    DescriptorOperandTrapNone => false
+  match (self.kind, self.direct_unreachable_fact, self.ref_get_desc_trap_fact) {
+    (DescriptorOperandTrapDirectUnreachable, Some(fact), _) =>
+      fact.proves_valid_payload()
+    (DescriptorOperandTrapRefGetDesc, None, Some(fact)) =>
+      fact.proves_traps_without_effects()
+    _ => false
   }
 }
 
