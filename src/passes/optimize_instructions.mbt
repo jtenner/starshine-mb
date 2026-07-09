@@ -4552,10 +4552,82 @@ fn OiDescriptorExactMissPreservationFact::from_operands(
 }
 
 ///|
+priv struct OiDescriptorExactMissDescriptorRelationFact {
+  descriptor_type_fact : OiDescriptorTypeFact
+  exactly_describes_target : Bool
+}
+
+///|
+fn OiDescriptorExactMissDescriptorRelationFact::from_descriptor(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+  target : @lib.HeapType,
+) -> OiDescriptorExactMissDescriptorRelationFact {
+  // Binaryen v130 descriptor equality exact-miss cleanup first proves that the
+  // descriptor operand exactly describes the cast target. Keep that descriptor
+  // source relation nested under the exact-miss fact instead of storing a
+  // parallel descriptor-match boolean beside the reference-operand miss proof.
+  let descriptor_type_fact = OiDescriptorTypeFact::from_node(
+    ctx, func, descriptor_id,
+  )
+  {
+    descriptor_type_fact,
+    exactly_describes_target: descriptor_type_fact.exactly_describes(target),
+  }
+}
+
+///|
+fn OiDescriptorExactMissDescriptorRelationFact::proves_exactly_describes_target(
+  self : OiDescriptorExactMissDescriptorRelationFact,
+) -> Bool {
+  ignore(self.descriptor_type_fact)
+  self.exactly_describes_target
+}
+
+///|
+priv struct OiDescriptorExactMissOperandRelationFact {
+  ref_cast_operand_fact : OiRefCastOperandFact
+}
+
+///|
+fn OiDescriptorExactMissOperandRelationFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+  target : @lib.HeapType,
+  target_nullable : Bool,
+) -> OiDescriptorExactMissOperandRelationFact {
+  // The sibling source relation is the ordinary ref.cast operand/target fact:
+  // exact descriptor misses are valid only when the reference operand is already
+  // known to miss the exact target. Keep that proof nested so exact-miss
+  // eligibility consumes descriptor and operand relations symmetrically.
+  {
+    ref_cast_operand_fact: OiRefCastOperandFact::from_operand(
+      ctx, func, operand_id, target, target_nullable,
+    ),
+  }
+}
+
+///|
+fn OiDescriptorExactMissOperandRelationFact::proves_exact_target_miss(
+  self : OiDescriptorExactMissOperandRelationFact,
+) -> Bool {
+  self.ref_cast_operand_fact.proves_exact_target_miss()
+}
+
+///|
+fn OiDescriptorExactMissOperandRelationFact::proves_operand_erases_without_effects(
+  self : OiDescriptorExactMissOperandRelationFact,
+) -> Bool {
+  self.ref_cast_operand_fact.proves_operand_erases_without_effects()
+}
+
+///|
 priv struct OiDescriptorExactMissFact {
   cast_fact : OiDescriptorCastFact
-  descriptor_exactly_describes_target : Bool
-  ref_operand_misses_target : Bool
+  descriptor_relation : OiDescriptorExactMissDescriptorRelationFact
+  operand_relation : OiDescriptorExactMissOperandRelationFact
   preservation_fact : OiDescriptorExactMissPreservationFact
 }
 
@@ -4578,7 +4650,13 @@ fn OiDescriptorExactMissFact::from_node(
     func,
     cast_fact.descriptor_id,
   )
-  let ref_operand_fact = OiRefCastOperandFact::from_operand(
+  let descriptor_relation = OiDescriptorExactMissDescriptorRelationFact::from_descriptor(
+    ctx,
+    func,
+    cast_fact.descriptor_id,
+    cast_fact.target,
+  )
+  let operand_relation = OiDescriptorExactMissOperandRelationFact::from_operand(
     ctx,
     func,
     cast_fact.operand_id,
@@ -4587,12 +4665,8 @@ fn OiDescriptorExactMissFact::from_node(
   )
   Some({
     cast_fact,
-    descriptor_exactly_describes_target: OiDescriptorTypeFact::from_node(
-      ctx,
-      func,
-      cast_fact.descriptor_id,
-    ).exactly_describes(cast_fact.target),
-    ref_operand_misses_target: ref_operand_fact.proves_exact_target_miss(),
+    descriptor_relation,
+    operand_relation,
     preservation_fact: OiDescriptorExactMissPreservationFact::from_operands(
       OiDescriptorOperandEraseFact::from_operand(
         ctx,
@@ -4600,7 +4674,7 @@ fn OiDescriptorExactMissFact::from_node(
         dead,
         cast_fact.descriptor_id,
       ).proves_erases_without_effects(),
-      ref_operand_fact.proves_operand_erases_without_effects(),
+      operand_relation.proves_operand_erases_without_effects(),
       operand_drop_fact,
       descriptor_drop_fact,
     ),
@@ -4645,10 +4719,10 @@ fn OiDescriptorExactMissEligibilityFact::from_miss(
   if ctx.traps_never_happen || ctx.ignore_implicit_traps {
     return { kind: DescriptorExactMissTrapsDisabled }
   }
-  if !miss_fact.descriptor_exactly_describes_target {
+  if !miss_fact.descriptor_relation.proves_exactly_describes_target() {
     return { kind: DescriptorExactMissDescriptorNotExactTarget }
   }
-  if !miss_fact.ref_operand_misses_target {
+  if !miss_fact.operand_relation.proves_exact_target_miss() {
     return { kind: DescriptorExactMissOperandNotMissTarget }
   }
   match miss_fact.preservation_fact.kind {
