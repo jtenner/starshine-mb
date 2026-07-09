@@ -1227,8 +1227,16 @@ fn optimize_instructions_node_ref_result_type(
 }
 
 ///|
+priv enum OiHeapSubtypeKind {
+  HeapSubtypeSameHeap
+  HeapSubtypeNoModuleContext
+  HeapSubtypeKnownModuleSupertype
+  HeapSubtypeNoKnownModuleSupertype
+}
+
+///|
 priv struct OiHeapSubtypeFact {
-  known : Bool
+  kind : OiHeapSubtypeKind
 }
 
 ///|
@@ -1237,18 +1245,25 @@ fn OiHeapSubtypeFact::from_heaps(
   source : @lib.HeapType,
   target : @lib.HeapType,
 ) -> OiHeapSubtypeFact {
+  // Binaryen's GC cast checks treat same-heap success separately from the
+  // module-supertype walk. Keep the missing-module and no-known-supertype
+  // outcomes explicit so strict-subtype payloads do not depend on one raw
+  // `known` boolean.
   if source == target {
-    return { known: true }
+    return { kind: HeapSubtypeSameHeap }
   }
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
-    None => return { known: false }
+    None => return { kind: HeapSubtypeNoModuleContext }
   }
-  {
-    known: OiHeapSubtypeFact::proves_subtype_with_fuel(
+  let kind = if OiHeapSubtypeFact::proves_subtype_with_fuel(
       module_ctx, source, target, 64,
-    ),
+    ) {
+    HeapSubtypeKnownModuleSupertype
+  } else {
+    HeapSubtypeNoKnownModuleSupertype
   }
+  { kind, }
 }
 
 ///|
@@ -1288,7 +1303,10 @@ fn OiHeapSubtypeFact::proves_subtype_with_fuel(
 
 ///|
 fn OiHeapSubtypeFact::proves_known_subtype(self : OiHeapSubtypeFact) -> Bool {
-  self.known
+  match self.kind {
+    HeapSubtypeSameHeap | HeapSubtypeKnownModuleSupertype => true
+    HeapSubtypeNoModuleContext | HeapSubtypeNoKnownModuleSupertype => false
+  }
 }
 
 ///|
