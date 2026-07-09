@@ -2063,10 +2063,53 @@ priv struct OiRefProducerTargetMatchFact {
 }
 
 ///|
+priv enum OiRefTargetMissKind {
+  RefTargetMissesTarget
+  RefTargetMissesExactTarget
+  RefTargetMissesExactTargetByStrictSubtype
+  RefTargetNullOrMissForNonNullTarget
+}
+
+///|
+priv struct OiRefTargetMissProofFact {
+  kind : OiRefTargetMissKind
+}
+
+///|
+fn OiRefTargetMissProofFact::when_proven(
+  kind : OiRefTargetMissKind,
+  proven : Bool,
+) -> OiRefTargetMissProofFact? {
+  if proven {
+    Some({ kind, })
+  } else {
+    None
+  }
+}
+
+///|
+fn OiRefTargetMissProofFact::proves_kind(
+  self : OiRefTargetMissProofFact,
+  kind : OiRefTargetMissKind,
+) -> Bool {
+  match (self.kind, kind) {
+    (RefTargetMissesTarget, RefTargetMissesTarget) => true
+    (RefTargetMissesExactTarget, RefTargetMissesExactTarget) => true
+    (
+      RefTargetMissesExactTargetByStrictSubtype,
+      RefTargetMissesExactTargetByStrictSubtype,
+    ) => true
+    (RefTargetNullOrMissForNonNullTarget, RefTargetNullOrMissForNonNullTarget) =>
+      true
+    _ => false
+  }
+}
+
+///|
 priv struct OiRefProducerTargetMissFact {
-  misses_target : Bool
-  misses_exact_target : Bool
-  misses_exact_target_by_strict_subtype : Bool
+  target_miss_fact : OiRefTargetMissProofFact?
+  exact_target_miss_fact : OiRefTargetMissProofFact?
+  strict_subtype_exact_target_miss_fact : OiRefTargetMissProofFact?
 }
 
 ///|
@@ -2141,15 +2184,22 @@ fn OiRefProducerTargetRelationFact::from_producer(
           ),
         },
         miss_fact: {
-          misses_target: relation.known_miss_target() &&
-          (ref_type.is_non_nullable() || !target_nullable),
-          misses_exact_target: ref_type.is_exact() &&
-          source != target &&
-          (ref_type.is_non_nullable() || !target_nullable),
-          misses_exact_target_by_strict_subtype: (
-            ref_type.is_non_nullable() || !target_nullable
-          ) &&
-          relation.strict_concrete_heap_matches_target(),
+          target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesTarget,
+            relation.known_miss_target() &&
+            (ref_type.is_non_nullable() || !target_nullable),
+          ),
+          exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesExactTarget,
+            ref_type.is_exact() &&
+            source != target &&
+            (ref_type.is_non_nullable() || !target_nullable),
+          ),
+          strict_subtype_exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesExactTargetByStrictSubtype,
+            (ref_type.is_non_nullable() || !target_nullable) &&
+            relation.strict_concrete_heap_matches_target(),
+          ),
         },
         subtype_relation,
       }
@@ -2169,9 +2219,9 @@ fn OiRefProducerTargetRelationFact::from_producer(
           nullable_exact_only_null_fact: None,
         },
         miss_fact: {
-          misses_target: false,
-          misses_exact_target: false,
-          misses_exact_target_by_strict_subtype: false,
+          target_miss_fact: None,
+          exact_target_miss_fact: None,
+          strict_subtype_exact_target_miss_fact: None,
         },
         subtype_relation: OiRefProducerSubtypeRelationFact::unknown(),
       }
@@ -2253,21 +2303,30 @@ fn OiRefProducerTargetRelationFact::proves_nullable_exact_target_only_as_null(
 fn OiRefProducerTargetRelationFact::proves_misses_target(
   self : OiRefProducerTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_target
+  match self.miss_fact.target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefProducerTargetRelationFact::proves_misses_exact_target(
   self : OiRefProducerTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_exact_target
+  match self.miss_fact.exact_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesExactTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefProducerTargetRelationFact::proves_misses_exact_target_by_strict_subtype(
   self : OiRefProducerTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_exact_target_by_strict_subtype
+  match self.miss_fact.strict_subtype_exact_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesExactTargetByStrictSubtype)
+    None => false
+  }
 }
 
 ///|
@@ -2758,10 +2817,10 @@ priv struct OiRefTestSourceTargetMatchFact {
 
 ///|
 priv struct OiRefTestSourceTargetMissFact {
-  misses_target : Bool
-  null_or_known_miss_for_non_null_target : Bool
-  misses_exact_target : Bool
-  misses_exact_target_by_strict_subtype : Bool
+  target_miss_fact : OiRefTargetMissProofFact?
+  non_null_target_miss_fact : OiRefTargetMissProofFact?
+  exact_target_miss_fact : OiRefTargetMissProofFact?
+  strict_subtype_exact_target_miss_fact : OiRefTargetMissProofFact?
 }
 
 ///|
@@ -2836,16 +2895,26 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
           ),
         },
         miss_fact: {
-          misses_target: literal_target.proves_i31_miss_target() ||
-          (ref_type.is_non_nullable() && relation.known_miss_target()),
-          null_or_known_miss_for_non_null_target: relation.known_miss_target(),
-          misses_exact_target: ref_type.is_exact() &&
-          source != target &&
-          (ref_type.is_non_nullable() || !target_nullable),
-          misses_exact_target_by_strict_subtype: (
-            ref_type.is_non_nullable() || !target_nullable
-          ) &&
-          relation.strict_concrete_heap_matches_target(),
+          target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesTarget,
+            literal_target.proves_i31_miss_target() ||
+            (ref_type.is_non_nullable() && relation.known_miss_target()),
+          ),
+          non_null_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetNullOrMissForNonNullTarget,
+            relation.known_miss_target(),
+          ),
+          exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesExactTarget,
+            ref_type.is_exact() &&
+            source != target &&
+            (ref_type.is_non_nullable() || !target_nullable),
+          ),
+          strict_subtype_exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesExactTargetByStrictSubtype,
+            (ref_type.is_non_nullable() || !target_nullable) &&
+            relation.strict_concrete_heap_matches_target(),
+          ),
         },
       }
     }
@@ -2863,10 +2932,13 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
           nullable_exact_only_null_fact: None,
         },
         miss_fact: {
-          misses_target: literal_target.proves_i31_miss_target(),
-          null_or_known_miss_for_non_null_target: false,
-          misses_exact_target: false,
-          misses_exact_target_by_strict_subtype: false,
+          target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesTarget,
+            literal_target.proves_i31_miss_target(),
+          ),
+          non_null_target_miss_fact: None,
+          exact_target_miss_fact: None,
+          strict_subtype_exact_target_miss_fact: None,
         },
       }
   }
@@ -2940,28 +3012,40 @@ fn OiRefTestSourceTargetRelationFact::proves_nullable_exact_target_only_as_null(
 fn OiRefTestSourceTargetRelationFact::proves_misses_target(
   self : OiRefTestSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_target
+  match self.miss_fact.target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefTestSourceTargetRelationFact::proves_null_or_miss_for_non_null_target(
   self : OiRefTestSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.null_or_known_miss_for_non_null_target
+  match self.miss_fact.non_null_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullOrMissForNonNullTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefTestSourceTargetRelationFact::proves_misses_exact_target(
   self : OiRefTestSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_exact_target
+  match self.miss_fact.exact_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesExactTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefTestSourceTargetRelationFact::proves_misses_exact_target_by_strict_subtype(
   self : OiRefTestSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_exact_target_by_strict_subtype
+  match self.miss_fact.strict_subtype_exact_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesExactTargetByStrictSubtype)
+    None => false
+  }
 }
 
 ///|
@@ -3558,10 +3642,10 @@ priv struct OiRefCastSourceTargetMatchFact {
 
 ///|
 priv struct OiRefCastSourceTargetMissFact {
-  misses_target : Bool
-  null_or_known_miss_for_non_null_target : Bool
-  misses_exact_target : Bool
-  misses_exact_target_by_strict_subtype : Bool
+  target_miss_fact : OiRefTargetMissProofFact?
+  non_null_target_miss_fact : OiRefTargetMissProofFact?
+  exact_target_miss_fact : OiRefTargetMissProofFact?
+  strict_subtype_exact_target_miss_fact : OiRefTargetMissProofFact?
 }
 
 ///|
@@ -3650,16 +3734,25 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           ),
         },
         miss_fact: {
-          misses_target: literal_target.proves_i31_miss_target() ||
-          local_misses_target,
-          null_or_known_miss_for_non_null_target: local_null_or_known_miss_for_non_null_target,
-          misses_exact_target: ref_type.is_exact() &&
-          source != target &&
-          (ref_type.is_non_nullable() || !target_nullable),
-          misses_exact_target_by_strict_subtype: (
-            ref_type.is_non_nullable() || !target_nullable
-          ) &&
-          relation.strict_concrete_heap_matches_target(),
+          target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesTarget,
+            literal_target.proves_i31_miss_target() || local_misses_target,
+          ),
+          non_null_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetNullOrMissForNonNullTarget,
+            local_null_or_known_miss_for_non_null_target,
+          ),
+          exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesExactTarget,
+            ref_type.is_exact() &&
+            source != target &&
+            (ref_type.is_non_nullable() || !target_nullable),
+          ),
+          strict_subtype_exact_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesExactTargetByStrictSubtype,
+            (ref_type.is_non_nullable() || !target_nullable) &&
+            relation.strict_concrete_heap_matches_target(),
+          ),
         },
       }
     }
@@ -3682,11 +3775,16 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           nullable_exact_only_null_fact: None,
         },
         miss_fact: {
-          misses_target: literal_target.proves_i31_miss_target() ||
-          local_misses_target,
-          null_or_known_miss_for_non_null_target: local_null_or_known_miss_for_non_null_target,
-          misses_exact_target: false,
-          misses_exact_target_by_strict_subtype: false,
+          target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetMissesTarget,
+            literal_target.proves_i31_miss_target() || local_misses_target,
+          ),
+          non_null_target_miss_fact: OiRefTargetMissProofFact::when_proven(
+            RefTargetNullOrMissForNonNullTarget,
+            local_null_or_known_miss_for_non_null_target,
+          ),
+          exact_target_miss_fact: None,
+          strict_subtype_exact_target_miss_fact: None,
         },
       }
   }
@@ -3747,28 +3845,40 @@ fn OiRefCastSourceTargetRelationFact::proves_nullable_exact_target_only_as_null(
 fn OiRefCastSourceTargetRelationFact::proves_known_miss_target(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_target
+  match self.miss_fact.target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefCastSourceTargetRelationFact::proves_null_or_miss_for_non_null_target(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.null_or_known_miss_for_non_null_target
+  match self.miss_fact.non_null_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullOrMissForNonNullTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefCastSourceTargetRelationFact::proves_misses_exact_target(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_exact_target
+  match self.miss_fact.exact_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesExactTarget)
+    None => false
+  }
 }
 
 ///|
 fn OiRefCastSourceTargetRelationFact::proves_misses_exact_target_by_strict_subtype(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.miss_fact.misses_exact_target_by_strict_subtype
+  match self.miss_fact.strict_subtype_exact_target_miss_fact {
+    Some(fact) => fact.proves_kind(RefTargetMissesExactTargetByStrictSubtype)
+    None => false
+  }
 }
 
 ///|
