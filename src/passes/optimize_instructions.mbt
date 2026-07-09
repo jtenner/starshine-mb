@@ -9322,6 +9322,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixPure
   MaxBitsBlockPrefixLocalSet
   MaxBitsBlockPrefixStore
+  MaxBitsBlockPrefixAtomicStore
   MaxBitsBlockPrefixCall
   MaxBitsBlockPrefixCallIndirect
   MaxBitsBlockPrefixGlobalSet
@@ -9354,8 +9355,8 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // even when earlier straight-line roots have effects; the later replacement
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
-  // memory/table store, passive-data/table-init/drop, drop-wrapped table.grow
-  // and memory.grow, direct/indirect call, and global write roots so branch,
+  // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
+  // table.grow and memory.grow, direct/indirect call, and global write roots so branch,
   // control, and generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
@@ -9365,6 +9366,19 @@ fn OiMaxBitsBlockPrefixFact::from_root(
       Some({ kind: MaxBitsBlockPrefixLocalSet, root_id })
     @ir.HotOp::Store if @ir.hot_child_count(func, root_id) == 2 =>
       Some({ kind: MaxBitsBlockPrefixStore, root_id })
+    @ir.HotOp::Atomic if @ir.hot_child_count(func, root_id) == 2 =>
+      match @ir.hot_node_exact_instr(func, root_id) {
+        Some(
+          @lib.Instruction::I32AtomicStore(_)
+          | @lib.Instruction::I64AtomicStore(_)
+          | @lib.Instruction::I32AtomicStore8(_)
+          | @lib.Instruction::I32AtomicStore16(_)
+          | @lib.Instruction::I64AtomicStore8(_)
+          | @lib.Instruction::I64AtomicStore16(_)
+          | @lib.Instruction::I64AtomicStore32(_)
+        ) => Some({ kind: MaxBitsBlockPrefixAtomicStore, root_id })
+        _ => None
+      }
     @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixCall, root_id })
     @ir.HotOp::CallIndirect =>
       Some({ kind: MaxBitsBlockPrefixCallIndirect, root_id })
@@ -9409,6 +9423,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     MaxBitsBlockPrefixPure
     | MaxBitsBlockPrefixLocalSet
     | MaxBitsBlockPrefixStore
+    | MaxBitsBlockPrefixAtomicStore
     | MaxBitsBlockPrefixCall
     | MaxBitsBlockPrefixCallIndirect
     | MaxBitsBlockPrefixGlobalSet
