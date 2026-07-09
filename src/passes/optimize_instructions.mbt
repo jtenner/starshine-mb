@@ -6943,10 +6943,111 @@ fn OiDescriptorDescribedTargetRelationFact::proves_descriptor_exact_result(
 }
 
 ///|
-priv struct OiDescriptorNarrowedResultFact {
+priv enum OiDescriptorNarrowedTargetKind {
+  DescriptorNarrowedTargetOriginal
+  DescriptorNarrowedTargetDescribedHeap
+}
+
+///|
+priv struct OiDescriptorNarrowedTargetFact {
+  kind : OiDescriptorNarrowedTargetKind
   target : @lib.HeapType
+}
+
+///|
+fn OiDescriptorNarrowedTargetFact::from_cast(
+  cast_fact : OiDescriptorCastFact,
+  descriptor_relation : OiDescriptorDescribedTargetRelationFact,
+) -> OiDescriptorNarrowedTargetFact {
+  // Binaryen v130 descriptor-cast result narrowing selects either the original
+  // cast target or the exact heap described by the descriptor when it is a safe
+  // subtype of the original target. Keep that heap selection separate from
+  // nullability and exactness so the narrowed result is built from source facts.
+  let target = descriptor_relation.select_narrowed_target(cast_fact.target)
+  if target == cast_fact.target {
+    { kind: DescriptorNarrowedTargetOriginal, target }
+  } else {
+    { kind: DescriptorNarrowedTargetDescribedHeap, target }
+  }
+}
+
+///|
+priv enum OiDescriptorNarrowedNullabilityKind {
+  DescriptorNarrowedForcedNonNull
+  DescriptorNarrowedNonNullableCast
+  DescriptorNarrowedNullableOperand
+  DescriptorNarrowedNonNullableOperand
+}
+
+///|
+priv struct OiDescriptorNarrowedNullabilityFact {
+  kind : OiDescriptorNarrowedNullabilityKind
   nullable : Bool
+}
+
+///|
+fn OiDescriptorNarrowedNullabilityFact::from_cast(
+  cast_fact : OiDescriptorCastFact,
+  force_non_null : Bool,
+  operand_relation : OiDescriptorOperandTargetRelationFact,
+) -> OiDescriptorNarrowedNullabilityFact {
+  // Binaryen v130 descriptor-cast result nullability follows either the
+  // surrounding ref.as_non_null movement (force non-null) or the operand/target
+  // relation when the original descriptor cast is nullable. Keep those cases as
+  // selected facts instead of computing a bare conjunction in the result fact.
+  if force_non_null {
+    return { kind: DescriptorNarrowedForcedNonNull, nullable: false }
+  }
+  if !cast_fact.nullable {
+    return { kind: DescriptorNarrowedNonNullableCast, nullable: false }
+  }
+  if operand_relation.proves_nullable_target() {
+    { kind: DescriptorNarrowedNullableOperand, nullable: true }
+  } else {
+    { kind: DescriptorNarrowedNonNullableOperand, nullable: false }
+  }
+}
+
+///|
+priv enum OiDescriptorNarrowedExactnessKind {
+  DescriptorNarrowedExactCast
+  DescriptorNarrowedExactDescriptorResult
+  DescriptorNarrowedInexactResult
+}
+
+///|
+priv struct OiDescriptorNarrowedExactnessFact {
+  kind : OiDescriptorNarrowedExactnessKind
   exact : Bool
+}
+
+///|
+fn OiDescriptorNarrowedExactnessFact::from_cast(
+  cast_fact : OiDescriptorCastFact,
+  target_fact : OiDescriptorNarrowedTargetFact,
+  descriptor_relation : OiDescriptorDescribedTargetRelationFact,
+) -> OiDescriptorNarrowedExactnessFact {
+  // Binaryen v130 preserves exactness either from the cast itself or from a
+  // descriptor relation that proves the narrowed target is exact. Keep the two
+  // source paths distinct before the final result type is assembled.
+  if cast_fact.exact {
+    return { kind: DescriptorNarrowedExactCast, exact: true }
+  }
+  if descriptor_relation.proves_descriptor_exact_result(
+      cast_fact.target,
+      target_fact.target,
+    ) {
+    { kind: DescriptorNarrowedExactDescriptorResult, exact: true }
+  } else {
+    { kind: DescriptorNarrowedInexactResult, exact: false }
+  }
+}
+
+///|
+priv struct OiDescriptorNarrowedResultFact {
+  target_fact : OiDescriptorNarrowedTargetFact
+  nullability_fact : OiDescriptorNarrowedNullabilityFact
+  exactness_fact : OiDescriptorNarrowedExactnessFact
 }
 
 ///|
@@ -6956,22 +7057,51 @@ fn OiDescriptorNarrowedResultFact::from_cast(
   operand_relation : OiDescriptorOperandTargetRelationFact,
   descriptor_relation : OiDescriptorDescribedTargetRelationFact,
 ) -> OiDescriptorNarrowedResultFact {
-  // Store the computed result type as one fact payload. The nullable component
-  // still comes from the operand/force-non-null facts, while exactness and the
-  // target heap come from the descriptor relation above.
-  let target = descriptor_relation.select_narrowed_target(cast_fact.target)
-  let descriptor_exact = descriptor_relation.proves_descriptor_exact_result(
-    cast_fact.target,
-    target,
+  // Store the computed result type as nested fact payloads: target selection
+  // comes from the descriptor relation, nullability from operand/force-non-null
+  // facts, and exactness from either the cast or descriptor exact-result proof.
+  let target_fact = OiDescriptorNarrowedTargetFact::from_cast(
+    cast_fact, descriptor_relation,
   )
-  {
-    target,
-    nullable: if force_non_null {
-      false
-    } else {
-      cast_fact.nullable && operand_relation.proves_nullable_target()
-    },
-    exact: cast_fact.exact || descriptor_exact,
+  let nullability_fact = OiDescriptorNarrowedNullabilityFact::from_cast(
+    cast_fact, force_non_null, operand_relation,
+  )
+  let exactness_fact = OiDescriptorNarrowedExactnessFact::from_cast(
+    cast_fact, target_fact, descriptor_relation,
+  )
+  { target_fact, nullability_fact, exactness_fact }
+}
+
+///|
+fn OiDescriptorNarrowedResultFact::target(
+  self : OiDescriptorNarrowedResultFact,
+) -> @lib.HeapType {
+  match self.target_fact.kind {
+    DescriptorNarrowedTargetOriginal => self.target_fact.target
+    DescriptorNarrowedTargetDescribedHeap => self.target_fact.target
+  }
+}
+
+///|
+fn OiDescriptorNarrowedResultFact::nullable(
+  self : OiDescriptorNarrowedResultFact,
+) -> Bool {
+  match self.nullability_fact.kind {
+    DescriptorNarrowedForcedNonNull => false
+    DescriptorNarrowedNonNullableCast => false
+    DescriptorNarrowedNullableOperand => self.nullability_fact.nullable
+    DescriptorNarrowedNonNullableOperand => false
+  }
+}
+
+///|
+fn OiDescriptorNarrowedResultFact::exact(
+  self : OiDescriptorNarrowedResultFact,
+) -> Bool {
+  match self.exactness_fact.kind {
+    DescriptorNarrowedExactCast => true
+    DescriptorNarrowedExactDescriptorResult => self.exactness_fact.exact
+    DescriptorNarrowedInexactResult => false
   }
 }
 
@@ -7069,9 +7199,9 @@ fn OiDescriptorResultNarrowingFact::from_cast(
 fn OiDescriptorResultNarrowingFact::changes_result_type(
   self : OiDescriptorResultNarrowingFact,
 ) -> Bool {
-  self.narrowed_result.nullable != self.cast_fact.nullable ||
-  self.narrowed_result.exact != self.cast_fact.exact ||
-  self.narrowed_result.target != self.cast_fact.target
+  self.narrowed_result.nullable() != self.cast_fact.nullable ||
+  self.narrowed_result.exact() != self.cast_fact.exact ||
+  self.narrowed_result.target() != self.cast_fact.target
 }
 
 ///|
@@ -7391,9 +7521,9 @@ fn OiDescriptorResultNarrowingRewritePlanFact::apply(
   let cast_fact = self.narrowing_fact.cast_fact
   let narrowed_result = self.narrowing_fact.narrowed_result
   let narrowed_ref_type = @lib.RefType::new(
-    narrowed_result.nullable,
-    narrowed_result.target,
-    exact=narrowed_result.exact,
+    narrowed_result.nullable(),
+    narrowed_result.target(),
+    exact=narrowed_result.exact(),
   )
   let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
     narrowed_ref_type,
