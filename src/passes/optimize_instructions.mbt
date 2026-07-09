@@ -23627,13 +23627,24 @@ priv struct OiChildLocalizationPlanFact {
 }
 
 ///|
+priv enum OiArrayNewFixedRepresentativeDefaultKind {
+  ArrayNewFixedRepresentativeDefaultValue
+  ArrayNewFixedRepresentativeNonDefaultValue
+}
+
+///|
+priv struct OiArrayNewFixedRepresentativeDefaultFact {
+  kind : OiArrayNewFixedRepresentativeDefaultKind
+  default_value_fact : OiArrayDefaultValueFact
+}
+
+///|
 priv struct OiArrayNewFixedRepeatedValueFact {
   node_id : Int
   type_idx : @lib.TypeIdx
   size : Int
   representative_id : Int
-  representative_is_default : Bool
-  default_preservation_plan : OiChildLocalizationPlanFact
+  representative_default_fact : OiArrayNewFixedRepresentativeDefaultFact
   non_default_localization_plan : OiChildLocalizationPlanFact
 }
 
@@ -24199,6 +24210,28 @@ fn OiArrayDefaultValueFact::proves_default(
 }
 
 ///|
+fn OiArrayNewFixedRepresentativeDefaultFact::from_default_value_fact(
+  default_value_fact : OiArrayDefaultValueFact,
+) -> OiArrayNewFixedRepresentativeDefaultFact {
+  let kind = if default_value_fact.proves_default() {
+    ArrayNewFixedRepresentativeDefaultValue
+  } else {
+    ArrayNewFixedRepresentativeNonDefaultValue
+  }
+  { kind, default_value_fact }
+}
+
+///|
+fn OiArrayNewFixedRepresentativeDefaultFact::proves_default(
+  self : OiArrayNewFixedRepresentativeDefaultFact,
+) -> Bool {
+  match self.kind {
+    ArrayNewFixedRepresentativeDefaultValue => true
+    ArrayNewFixedRepresentativeNonDefaultValue => false
+  }
+}
+
+///|
 fn OiArrayDefaultValueFact::from_array_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -24276,7 +24309,10 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
   let default_fact = OiArrayDefaultValueFact::from_array_value(
     ctx, func, type_idx, representative_id,
   )
-  let non_default_localization_plan = if default_fact.proves_default() {
+  let representative_default_fact = OiArrayNewFixedRepresentativeDefaultFact::from_default_value_fact(
+    default_fact,
+  )
+  let non_default_localization_plan = if representative_default_fact.proves_default() {
     OiChildLocalizationPlanFact::empty()
   } else {
     OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
@@ -24288,8 +24324,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
     type_idx,
     size,
     representative_id,
-    representative_is_default: default_fact.proves_default(),
-    default_preservation_plan: default_fact.preservation_plan,
+    representative_default_fact,
     non_default_localization_plan,
   })
 }
@@ -24298,7 +24333,7 @@ fn OiArrayNewFixedRepeatedValueFact::from_node(
 fn OiArrayNewFixedRepeatedValueFact::is_rewritable(
   self : OiArrayNewFixedRepeatedValueFact,
 ) -> Bool {
-  self.representative_is_default || self.size >= 2
+  self.representative_default_fact.proves_default() || self.size >= 2
 }
 
 ///|
@@ -24363,14 +24398,14 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Unit {
-  if !self.representative_is_default &&
+  if !self.representative_default_fact.proves_default() &&
     self.non_default_localization_plan.needs_localization() &&
     self.apply_non_default_localized_rewrite(ctx, func) {
     return
   }
   let original = @ir.hot_node_get(func, self.node_id)
   let len_id = @ir.hot_build_const_i32(func, @lib.I32(self.size))
-  let temp = if self.representative_is_default {
+  let temp = if self.representative_default_fact.proves_default() {
     @ir.hot_build_node(
       func,
       original.op,
@@ -24388,21 +24423,23 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
   @ir.hot_node_exact_instr_set(
     func,
     temp,
-    if self.representative_is_default {
+    if self.representative_default_fact.proves_default() {
       @lib.Instruction::array_new_default(self.type_idx)
     } else {
       @lib.Instruction::array_new(self.type_idx)
     },
   )
-  if self.representative_is_default &&
-    self.default_preservation_plan.needs_dropped_children() {
+  if self.representative_default_fact.proves_default() &&
+    self.representative_default_fact.default_value_fact.preservation_plan.needs_dropped_children() {
     let block_type = match
       @ir.hot_type_results(func, @ir.hot_node_type(func, self.node_id)) {
       [val_type] => @lib.BlockType::val_type(val_type)
       _ => @lib.BlockType::void_()
     }
     let body : Array[Int] = []
-    self.default_preservation_plan.append_dropped_children(func, body)
+    self.representative_default_fact.default_value_fact.preservation_plan.append_dropped_children(
+      func, body,
+    )
     body.push(temp)
     let replacement_id = @ir.hot_build_block(func, block_type, body)
     let replacement = @ir.hot_node_get(func, replacement_id)
