@@ -3115,6 +3115,65 @@ test "optimize-instructions hoists matching float unary select arm shells" {
 }
 
 ///|
+test "optimize-instructions hoists matching float width and reinterpret select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
+  // loop hoists nontrapping float-width and reinterpret conversion shells,
+  // rebuilding the inner select at each shell's input type. Oracle:
+  // `.tmp/oi-probes/select-matching-conversion-hoist.wat`.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_child_type : @lib.ValType,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other =>
+        fail(
+          "expected matching float-width/reinterpret shells to hoist, got \{other}",
+        )
+    }
+    @debug.assert_eq(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, inner)),
+      [expected_child_type],
+    )
+  }
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f32) local.get 0 f32.demote_f64 local.get 1 f32.demote_f64 local.get 2 select))",
+    @lib.Instruction::f32_demote_f64(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f64) local.get 0 f64.promote_f32 local.get 1 f64.promote_f32 local.get 2 select))",
+    @lib.Instruction::f64_promote_f32(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result i32) local.get 0 i32.reinterpret_f32 local.get 1 i32.reinterpret_f32 local.get 2 select))",
+    @lib.Instruction::i32_reinterpret_f32(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result i64) local.get 0 i64.reinterpret_f64 local.get 1 i64.reinterpret_f64 local.get 2 select))",
+    @lib.Instruction::i64_reinterpret_f64(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result f32) local.get 0 f32.reinterpret_i32 local.get 1 f32.reinterpret_i32 local.get 2 select))",
+    @lib.Instruction::f32_reinterpret_i32(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result f64) local.get 0 f64.reinterpret_i64 local.get 1 f64.reinterpret_i64 local.get 2 select))",
+    @lib.Instruction::f64_reinterpret_i64(),
+    @lib.ValType::i64(),
+  )
+}
+
+///|
 test "optimize-instructions hoists repeated matching unary select arm chains" {
   // Red-first OI-F ternary parity slice: Binaryen version_130 repeats the
   // shallow-equal one-child loop until the select sits below the full matching

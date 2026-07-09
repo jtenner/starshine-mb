@@ -27957,6 +27957,12 @@ priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectF64Trunc
   MatchingSelectF64Nearest
   MatchingSelectF64Sqrt
+  MatchingSelectF32DemoteF64
+  MatchingSelectF64PromoteF32
+  MatchingSelectI32ReinterpretF32
+  MatchingSelectI64ReinterpretF64
+  MatchingSelectF32ReinterpretI32
+  MatchingSelectF64ReinterpretI64
 }
 
 ///|
@@ -28192,6 +28198,48 @@ fn OiMatchingUnarySelectArmFact::from_node(
         @lib.ValType::f64(),
         @lib.ValType::f64(),
       )
+    Some(@lib.Instruction::F32DemoteF64) =>
+      (
+        MatchingSelectF32DemoteF64,
+        @lib.Instruction::f32_demote_f64(),
+        @lib.ValType::f32(),
+        @lib.ValType::f64(),
+      )
+    Some(@lib.Instruction::F64PromoteF32) =>
+      (
+        MatchingSelectF64PromoteF32,
+        @lib.Instruction::f64_promote_f32(),
+        @lib.ValType::f64(),
+        @lib.ValType::f32(),
+      )
+    Some(@lib.Instruction::I32ReinterpretF32) =>
+      (
+        MatchingSelectI32ReinterpretF32,
+        @lib.Instruction::i32_reinterpret_f32(),
+        @lib.ValType::i32(),
+        @lib.ValType::f32(),
+      )
+    Some(@lib.Instruction::I64ReinterpretF64) =>
+      (
+        MatchingSelectI64ReinterpretF64,
+        @lib.Instruction::i64_reinterpret_f64(),
+        @lib.ValType::i64(),
+        @lib.ValType::f64(),
+      )
+    Some(@lib.Instruction::F32ReinterpretI32) =>
+      (
+        MatchingSelectF32ReinterpretI32,
+        @lib.Instruction::f32_reinterpret_i32(),
+        @lib.ValType::f32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::F64ReinterpretI64) =>
+      (
+        MatchingSelectF64ReinterpretI64,
+        @lib.Instruction::f64_reinterpret_i64(),
+        @lib.ValType::f64(),
+        @lib.ValType::i64(),
+      )
     _ => return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -28259,6 +28307,12 @@ fn OiMatchingUnarySelectArmPairFact::from_arms(
     (MatchingSelectF64Trunc, MatchingSelectF64Trunc) => ()
     (MatchingSelectF64Nearest, MatchingSelectF64Nearest) => ()
     (MatchingSelectF64Sqrt, MatchingSelectF64Sqrt) => ()
+    (MatchingSelectF32DemoteF64, MatchingSelectF32DemoteF64) => ()
+    (MatchingSelectF64PromoteF32, MatchingSelectF64PromoteF32) => ()
+    (MatchingSelectI32ReinterpretF32, MatchingSelectI32ReinterpretF32) => ()
+    (MatchingSelectI64ReinterpretF64, MatchingSelectI64ReinterpretF64) => ()
+    (MatchingSelectF32ReinterpretI32, MatchingSelectF32ReinterpretI32) => ()
+    (MatchingSelectF64ReinterpretI64, MatchingSelectF64ReinterpretI64) => ()
     _ => return None
   }
   if true_fact.child_type != false_fact.child_type ||
