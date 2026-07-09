@@ -3538,6 +3538,47 @@ fn OiRefTestResultFact::from_test(
 }
 
 ///|
+priv enum OiRefTestConstOperandEffectKind {
+  RefTestConstOperandTriviallyPureAndPureEffects
+  RefTestConstOperandTriviallyPureOnly
+  RefTestConstOperandPureEffects
+  RefTestConstOperandPreserveEffects
+}
+
+///|
+priv struct OiRefTestConstOperandEffectFact {
+  kind : OiRefTestConstOperandEffectKind
+}
+
+///|
+fn OiRefTestConstOperandEffectFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_id : Int,
+) -> OiRefTestConstOperandEffectFact {
+  // Binaryen v130 `visitRefTest` has a false-result shortcut for trivially
+  // pure operands, while both false and true constants can erase operands whose
+  // full effects are pure. Keep that distinction as a source fact before the
+  // constant-result erasure plan chooses erase or drop.
+  let trivially_pure_operand = OiTriviallyPureOperandFact::proves_node_pure(
+    func, operand_id,
+  )
+  let node_effects_pure = optimize_instructions_node_effects_are_pure(
+    ctx, func, operand_id,
+  )
+  let kind = if trivially_pure_operand && node_effects_pure {
+    RefTestConstOperandTriviallyPureAndPureEffects
+  } else if trivially_pure_operand {
+    RefTestConstOperandTriviallyPureOnly
+  } else if node_effects_pure {
+    RefTestConstOperandPureEffects
+  } else {
+    RefTestConstOperandPreserveEffects
+  }
+  { kind, }
+}
+
+///|
 priv enum OiRefTestConstOperandErasureKind {
   RefTestConstEraseFalsePureOperand
   RefTestConstEraseFalsePureEffects
@@ -3550,8 +3591,7 @@ priv struct OiRefTestConstOperandErasureFact {
   kind : OiRefTestConstOperandErasureKind
   const_result : @lib.I32
   operand_id : Int
-  trivially_pure_operand : Bool
-  node_effects_pure : Bool
+  operand_effect_fact : OiRefTestConstOperandEffectFact
 }
 
 ///|
@@ -3566,42 +3606,42 @@ fn OiRefTestConstOperandErasureFact::from_const_result(
   // effects; otherwise it must drop the operand first. Keep the false-result
   // trivially-pure shortcut and the pure-effects cases as explicit result kinds
   // so the rewrite plan does not own a local purity cascade.
-  let trivially_pure_operand = OiTriviallyPureOperandFact::proves_node_pure(
-    func, operand_id,
-  )
-  let node_effects_pure = optimize_instructions_node_effects_are_pure(
+  let operand_effect_fact = OiRefTestConstOperandEffectFact::from_operand(
     ctx, func, operand_id,
   )
-  let kind = if const_result == @lib.I32(0) && trivially_pure_operand {
-    RefTestConstEraseFalsePureOperand
-  } else if const_result == @lib.I32(0) && node_effects_pure {
-    RefTestConstEraseFalsePureEffects
-  } else if const_result != @lib.I32(0) && node_effects_pure {
-    RefTestConstEraseTruePureEffects
-  } else {
-    RefTestConstDropOperand
+  let kind = match (const_result == @lib.I32(0), operand_effect_fact.kind) {
+    (true, RefTestConstOperandTriviallyPureAndPureEffects)
+    | (true, RefTestConstOperandTriviallyPureOnly) =>
+      RefTestConstEraseFalsePureOperand
+    (true, RefTestConstOperandPureEffects) => RefTestConstEraseFalsePureEffects
+    (false, RefTestConstOperandTriviallyPureAndPureEffects)
+    | (false, RefTestConstOperandPureEffects) =>
+      RefTestConstEraseTruePureEffects
+    _ => RefTestConstDropOperand
   }
-  { kind, const_result, operand_id, trivially_pure_operand, node_effects_pure }
+  { kind, const_result, operand_id, operand_effect_fact }
 }
 
 ///|
 fn OiRefTestConstOperandErasureFact::proves_operand_erases_without_drop(
   self : OiRefTestConstOperandErasureFact,
 ) -> Bool {
-  match self.kind {
-    RefTestConstEraseFalsePureOperand =>
-      self.const_result == @lib.I32(0) &&
-      self.trivially_pure_operand &&
-      self.operand_id >= 0
-    RefTestConstEraseFalsePureEffects =>
-      self.const_result == @lib.I32(0) &&
-      self.node_effects_pure &&
-      self.operand_id >= 0
-    RefTestConstEraseTruePureEffects =>
-      self.const_result != @lib.I32(0) &&
-      self.node_effects_pure &&
-      self.operand_id >= 0
-    RefTestConstDropOperand => false
+  match (self.kind, self.operand_effect_fact.kind) {
+    (
+      RefTestConstEraseFalsePureOperand,
+      RefTestConstOperandTriviallyPureAndPureEffects,
+    )
+    | (RefTestConstEraseFalsePureOperand, RefTestConstOperandTriviallyPureOnly) =>
+      self.const_result == @lib.I32(0) && self.operand_id >= 0
+    (RefTestConstEraseFalsePureEffects, RefTestConstOperandPureEffects) =>
+      self.const_result == @lib.I32(0) && self.operand_id >= 0
+    (
+      RefTestConstEraseTruePureEffects,
+      RefTestConstOperandTriviallyPureAndPureEffects,
+    )
+    | (RefTestConstEraseTruePureEffects, RefTestConstOperandPureEffects) =>
+      self.const_result != @lib.I32(0) && self.operand_id >= 0
+    _ => false
   }
 }
 
