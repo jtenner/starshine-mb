@@ -2001,8 +2001,20 @@ fn OiHeapSubtypeTargetPayloadFact::proven_exact(
 }
 
 ///|
+priv enum OiHeapStrictConcreteTargetMatchKind {
+  UnknownStrictConcreteTargetMatch
+  StrictConcreteSubtypeModuleTargetMatch
+}
+
+///|
+priv struct OiHeapStrictConcreteTargetMatchEvidenceFact {
+  relation : OiHeapRelationFact
+}
+
+///|
 priv struct OiHeapStrictConcreteTargetMatchFact {
-  target_match : Bool
+  kind : OiHeapStrictConcreteTargetMatchKind
+  evidence_fact : OiHeapStrictConcreteTargetMatchEvidenceFact?
 }
 
 ///|
@@ -2011,11 +2023,17 @@ fn OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
 ) -> OiHeapStrictConcreteTargetMatchFact {
   // Source-backed split for Binaryen's exact-target miss proof: a strict
   // concrete subtype that also module-matches the target cannot be an exact
-  // instance of the target heap.
-  {
-    target_match: relation.proves_both_concrete_heaps() &&
+  // instance of the target heap. Keep the relation evidence nested here instead
+  // of collapsing those proofs into a direct boolean payload.
+  if relation.proves_both_concrete_heaps() &&
     !relation.proves_same_heap() &&
-    relation.match_fact.proves_module_heap_match(),
+    relation.match_fact.proves_module_heap_match() {
+    {
+      kind: StrictConcreteSubtypeModuleTargetMatch,
+      evidence_fact: Some({ relation, }),
+    }
+  } else {
+    { kind: UnknownStrictConcreteTargetMatch, evidence_fact: None }
   }
 }
 
@@ -2023,7 +2041,13 @@ fn OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
 fn OiHeapStrictConcreteTargetMatchFact::proves_target_match(
   self : OiHeapStrictConcreteTargetMatchFact,
 ) -> Bool {
-  self.target_match
+  match (self.kind, self.evidence_fact) {
+    (StrictConcreteSubtypeModuleTargetMatch, Some(evidence)) =>
+      evidence.relation.proves_both_concrete_heaps() &&
+      !evidence.relation.proves_same_heap() &&
+      evidence.relation.match_fact.proves_module_heap_match()
+    _ => false
+  }
 }
 
 ///|
