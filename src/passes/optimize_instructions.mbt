@@ -2247,9 +2247,19 @@ priv enum OiRefProducerSubtypeRelationKind {
 }
 
 ///|
-priv struct OiRefProducerSubtypeRelationPayloadFact {
+priv struct OiRefProducerSubtypeNullabilityFact {
   nullable : Bool
+}
+
+///|
+priv struct OiRefProducerSubtypeExactnessFact {
   exact : Bool
+}
+
+///|
+priv struct OiRefProducerSubtypeRelationPayloadFact {
+  nullability_fact : OiRefProducerSubtypeNullabilityFact
+  exactness_fact : OiRefProducerSubtypeExactnessFact
 }
 
 ///|
@@ -2281,8 +2291,8 @@ fn OiRefProducerSubtypeRelationFact::from_heap_relation(
     {
       kind: MatchesOrStrictSubtypesRefProducerTargetHeap,
       payload: Some({
-        nullable: payload_fact.proven_nullable(),
-        exact: payload_fact.proven_exact(),
+        nullability_fact: { nullable: payload_fact.proven_nullable() },
+        exactness_fact: { exact: payload_fact.proven_exact() },
       }),
     }
   } else {
@@ -2305,7 +2315,7 @@ fn OiRefProducerSubtypeRelationFact::proves_nullable(
   self : OiRefProducerSubtypeRelationFact,
 ) -> Bool {
   match self.payload {
-    Some(payload) => payload.nullable
+    Some(payload) => payload.nullability_fact.nullable
     None => false
   }
 }
@@ -2315,7 +2325,7 @@ fn OiRefProducerSubtypeRelationFact::proves_exact(
   self : OiRefProducerSubtypeRelationFact,
 ) -> Bool {
   match self.payload {
-    Some(payload) => payload.exact
+    Some(payload) => payload.exactness_fact.exact
     None => false
   }
 }
