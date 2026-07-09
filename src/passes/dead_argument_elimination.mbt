@@ -6630,6 +6630,69 @@ fn dae_apply_first_instruction_rewrite_to_body(
 }
 
 ///|
+fn dae_try_rewrite_first_control_child_body(
+  instr : @lib.Instruction,
+  rewrite_body : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match rewrite_body(body) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match rewrite_body(body) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match rewrite_body(then_body) {
+        Some(rewritten_then) =>
+          Some(
+            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
+          )
+        None =>
+          match rewrite_body(else_body) {
+            Some(rewritten_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  then_body,
+                  Some(rewritten_else),
+                ),
+              )
+            None => None
+          }
+      }
+    @lib.If(block_type, then_body, None) =>
+      match rewrite_body(then_body) {
+        Some(rewritten_then) =>
+          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
+        None => None
+      }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      match rewrite_body(body) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_body),
+            ),
+          )
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn dae_result_rewrite_application_is_consistent(
   application : DaeResultRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
@@ -19418,80 +19481,14 @@ fn dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
 ) -> @lib.Instruction? {
-  match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-          body, type_sec,
-        ) {
-        Some(rewritten_body) =>
-          Some(
-            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
-          )
-        None => None
-      }
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-          body, type_sec,
-        ) {
-        Some(rewritten_body) =>
-          Some(
-            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
-          )
-        None => None
-      }
-    @lib.If(block_type, then_body, Some(else_body)) =>
-      match
-        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-          then_body, type_sec,
-        ) {
-        Some(rewritten_then) =>
-          Some(
-            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
-          )
-        None =>
-          match
-            dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-              else_body, type_sec,
-            ) {
-            Some(rewritten_else) =>
-              Some(
-                @lib.Instruction::if_(
-                  block_type,
-                  then_body,
-                  Some(rewritten_else),
-                ),
-              )
-            None => None
-          }
-      }
-    @lib.If(block_type, then_body, None) =>
-      match
-        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-          then_body, type_sec,
-        ) {
-        Some(rewritten_then) =>
-          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
-        None => None
-      }
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
-          body, type_sec,
-        ) {
-        Some(rewritten_body) =>
-          Some(
-            @lib.Instruction::try_table(
-              block_type,
-              catches,
-              @lib.Expr::new(rewritten_body),
-            ),
-          )
-        None => None
-      }
-    _ => None
+  let rewrite_child_body = fn(
+    child_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+      child_body, type_sec,
+    )
   }
+  dae_try_rewrite_first_control_child_body(instr, rewrite_child_body)
 }
 
 ///|
@@ -19652,80 +19649,14 @@ fn dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
 ) -> @lib.Instruction? {
-  match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-          body, type_sec,
-        ) {
-        Some(rewritten_body) =>
-          Some(
-            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
-          )
-        None => None
-      }
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-          body, type_sec,
-        ) {
-        Some(rewritten_body) =>
-          Some(
-            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
-          )
-        None => None
-      }
-    @lib.If(block_type, then_body, Some(else_body)) =>
-      match
-        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-          then_body, type_sec,
-        ) {
-        Some(rewritten_then) =>
-          Some(
-            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
-          )
-        None =>
-          match
-            dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-              else_body, type_sec,
-            ) {
-            Some(rewritten_else) =>
-              Some(
-                @lib.Instruction::if_(
-                  block_type,
-                  then_body,
-                  Some(rewritten_else),
-                ),
-              )
-            None => None
-          }
-      }
-    @lib.If(block_type, then_body, None) =>
-      match
-        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-          then_body, type_sec,
-        ) {
-        Some(rewritten_then) =>
-          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
-        None => None
-      }
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      match
-        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
-          body, type_sec,
-        ) {
-        Some(rewritten_body) =>
-          Some(
-            @lib.Instruction::try_table(
-              block_type,
-              catches,
-              @lib.Expr::new(rewritten_body),
-            ),
-          )
-        None => None
-      }
-    _ => None
+  let rewrite_child_body = fn(
+    child_body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+      child_body, type_sec,
+    )
   }
+  dae_try_rewrite_first_control_child_body(instr, rewrite_child_body)
 }
 
 ///|
@@ -19740,23 +19671,15 @@ fn dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
     Some(rewritten) => return Some(rewritten)
     None => ()
   }
-  let mut idx = 0
-  while idx < body.length() {
-    match
-      dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
-        body[idx],
-        type_sec,
-      ) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
+      instr, type_sec,
+    )
   }
-  None
+  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
+  }
 }
 
 ///|

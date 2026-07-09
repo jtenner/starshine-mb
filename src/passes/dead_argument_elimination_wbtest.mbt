@@ -2539,6 +2539,60 @@ test "dae first instruction rewrite evidence centralizes body repair scans" {
 }
 
 ///|
+test "dae control child rewrite helper centralizes recursive body repair" {
+  let then_body = [@lib.Instruction::i32_const(@lib.I32(1))]
+  let else_body = [@lib.Instruction::i32_const(@lib.I32(2))]
+  let rewrite_else = fn(
+    body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    if body == else_body {
+      Some([@lib.Instruction::i32_const(@lib.I32(20))])
+    } else {
+      None
+    }
+  }
+  match
+    dae_try_rewrite_first_control_child_body(
+      @lib.Instruction::if_(@lib.BlockType::void_(), then_body, Some(else_body)),
+      rewrite_else,
+    ) {
+    Some(@lib.If(_, rewritten_then, Some(rewritten_else))) => {
+      assert_eq(rewritten_then, then_body)
+      assert_eq(rewritten_else, [@lib.Instruction::i32_const(@lib.I32(20))])
+    }
+    _ => fail("expected if else-child rewrite")
+  }
+  let rewrite_any_single = fn(
+    body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    if body.length() == 1 {
+      Some([@lib.Instruction::i32_const(@lib.I32(99))])
+    } else {
+      None
+    }
+  }
+  match
+    dae_try_rewrite_first_control_child_body(
+      @lib.Instruction::if_(@lib.BlockType::void_(), then_body, Some(else_body)),
+      rewrite_any_single,
+    ) {
+    Some(@lib.If(_, rewritten_then, Some(rewritten_else))) => {
+      assert_eq(rewritten_then, [@lib.Instruction::i32_const(@lib.I32(99))])
+      assert_eq(rewritten_else, else_body)
+    }
+    _ => fail("expected helper to rewrite the first eligible control child")
+  }
+  match
+    dae_try_rewrite_first_control_child_body(
+      @lib.Instruction::i32_const(@lib.I32(3)),
+      rewrite_any_single,
+    ) {
+    Some(_) => fail("non-control instructions should not rewrite children")
+    None => ()
+  }
+}
+
+///|
 test "dae result rewrite application evidence centralizes masked slot repairs" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
