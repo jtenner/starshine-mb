@@ -9328,6 +9328,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixTableSet
   MaxBitsBlockPrefixDataDrop
   MaxBitsBlockPrefixMemoryInit
+  MaxBitsBlockPrefixMemoryCopy
 }
 
 ///|
@@ -9367,6 +9368,8 @@ fn OiMaxBitsBlockPrefixFact::from_root(
     @ir.HotOp::DataDrop => Some({ kind: MaxBitsBlockPrefixDataDrop, root_id })
     @ir.HotOp::MemoryInit if @ir.hot_child_count(func, root_id) == 3 =>
       Some({ kind: MaxBitsBlockPrefixMemoryInit, root_id })
+    @ir.HotOp::MemoryCopy if @ir.hot_child_count(func, root_id) == 3 =>
+      Some({ kind: MaxBitsBlockPrefixMemoryCopy, root_id })
     _ => None
   }
 }
@@ -9385,7 +9388,8 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixGlobalSet
     | MaxBitsBlockPrefixTableSet
     | MaxBitsBlockPrefixDataDrop
-    | MaxBitsBlockPrefixMemoryInit => true
+    | MaxBitsBlockPrefixMemoryInit
+    | MaxBitsBlockPrefixMemoryCopy => true
   }
 }
 
