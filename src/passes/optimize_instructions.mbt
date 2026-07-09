@@ -9568,11 +9568,74 @@ fn OiCallRefTargetSkipNonNullFact::effective_target_id(
 }
 
 ///|
+priv enum OiCallRefKnownNullTargetEffectKind {
+  CallRefKnownNullTargetEffectsElidable
+  CallRefKnownNullTargetEffectsPreserveByDrop
+}
+
+///|
+priv struct OiCallRefKnownNullTargetPreserveEffectsFact {
+  target_effect_drop_id : Int
+}
+
+///|
+priv struct OiCallRefKnownNullTargetEffectFact {
+  kind : OiCallRefKnownNullTargetEffectKind
+  preserve_fact : OiCallRefKnownNullTargetPreserveEffectsFact?
+}
+
+///|
 priv struct OiCallRefKnownNullTargetFact {
   target_id : Int
   fallthrough_null_id : Int
-  target_effects_are_elidable : Bool
-  target_effect_drop_id : Int
+  target_effect_fact : OiCallRefKnownNullTargetEffectFact
+}
+
+///|
+fn OiCallRefKnownNullTargetEffectFact::elidable() -> OiCallRefKnownNullTargetEffectFact {
+  { kind: CallRefKnownNullTargetEffectsElidable, preserve_fact: None }
+}
+
+///|
+fn OiCallRefKnownNullTargetEffectFact::preserve_by_drop(
+  target_effect_drop_id : Int,
+) -> OiCallRefKnownNullTargetEffectFact? {
+  if target_effect_drop_id < 0 {
+    return None
+  }
+  Some({
+    kind: CallRefKnownNullTargetEffectsPreserveByDrop,
+    preserve_fact: Some({ target_effect_drop_id, }),
+  })
+}
+
+///|
+fn OiCallRefKnownNullTargetEffectFact::proves_preservable(
+  self : OiCallRefKnownNullTargetEffectFact,
+) -> Bool {
+  match self.kind {
+    CallRefKnownNullTargetEffectsElidable => true
+    CallRefKnownNullTargetEffectsPreserveByDrop =>
+      match self.preserve_fact {
+        Some(fact) => fact.target_effect_drop_id >= 0
+        None => false
+      }
+  }
+}
+
+///|
+fn OiCallRefKnownNullTargetEffectFact::preserved_drop_id(
+  self : OiCallRefKnownNullTargetEffectFact,
+) -> Int? {
+  match self.kind {
+    CallRefKnownNullTargetEffectsElidable => None
+    CallRefKnownNullTargetEffectsPreserveByDrop =>
+      match self.preserve_fact {
+        Some(fact) if fact.target_effect_drop_id >= 0 =>
+          Some(fact.target_effect_drop_id)
+        _ => None
+      }
+  }
 }
 
 ///|
@@ -9604,8 +9667,7 @@ fn OiCallRefKnownNullTargetFact::from_target(
       return Some({
         target_id,
         fallthrough_null_id: target_id,
-        target_effects_are_elidable: true,
-        target_effect_drop_id: -1,
+        target_effect_fact: OiCallRefKnownNullTargetEffectFact::elidable(),
       })
     _ => ()
   }
@@ -9634,8 +9696,7 @@ fn OiCallRefKnownNullTargetFact::from_target(
         return Some({
           target_id,
           fallthrough_null_id: tail_id,
-          target_effects_are_elidable: true,
-          target_effect_drop_id: -1,
+          target_effect_fact: OiCallRefKnownNullTargetEffectFact::elidable(),
         })
       }
       let branch_fact = OiDescriptorBranchControlFact::from_node(
@@ -9657,16 +9718,14 @@ fn OiCallRefKnownNullTargetFact::from_target(
         Some({
           target_id,
           fallthrough_null_id: tail_id,
-          target_effects_are_elidable: true,
-          target_effect_drop_id: -1,
+          target_effect_fact: OiCallRefKnownNullTargetEffectFact::elidable(),
         })
       } else {
-        Some({
-          target_id,
-          fallthrough_null_id: tail_id,
-          target_effects_are_elidable: false,
-          target_effect_drop_id: target_id,
-        })
+        match OiCallRefKnownNullTargetEffectFact::preserve_by_drop(target_id) {
+          Some(target_effect_fact) =>
+            Some({ target_id, fallthrough_null_id: tail_id, target_effect_fact })
+          None => None
+        }
       }
     }
     _ => None
@@ -9678,8 +9737,7 @@ fn OiCallRefKnownNullTargetFact::proves_elidable_known_null_fallthrough(
   self : OiCallRefKnownNullTargetFact,
 ) -> Bool {
   ignore(self.target_id)
-  self.fallthrough_null_id >= 0 &&
-  (self.target_effects_are_elidable || self.target_effect_drop_id >= 0)
+  self.fallthrough_null_id >= 0 && self.target_effect_fact.proves_preservable()
 }
 
 ///|
@@ -9730,8 +9788,10 @@ fn OiCallRefNullTrapPlanFact::apply(
     ) {
     return false
   }
-  if self.target_fact.target_effect_drop_id >= 0 {
-    body.push(@ir.hot_build_drop(func, self.target_fact.target_effect_drop_id))
+  match self.target_fact.target_effect_fact.preserved_drop_id() {
+    Some(target_effect_drop_id) =>
+      body.push(@ir.hot_build_drop(func, target_effect_drop_id))
+    None => ()
   }
   if body.length() == 0 {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
