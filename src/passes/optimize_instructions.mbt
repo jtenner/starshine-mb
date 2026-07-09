@@ -13163,9 +13163,15 @@ fn OiCallRefSelectDirectCallsFact::from_select_target(
 }
 
 ///|
+priv struct OiCallRefOperandTypeFact {
+  arg_id : Int
+  arg_type : @lib.ValType
+}
+
+///|
 priv struct OiCallRefOperandFact {
   args : Array[Int]
-  arg_types : Array[@lib.ValType]
+  type_facts : Array[OiCallRefOperandTypeFact]
 }
 
 ///|
@@ -13177,14 +13183,14 @@ priv struct OiCallRefLocalizedOperandFact {
 ///|
 priv struct OiCallRefFallthroughOperandInterpositionFact {
   args : Array[Int]
-  arg_types : Array[@lib.ValType]
+  type_facts : Array[OiCallRefOperandTypeFact]
   callee_ref_id : Int
 }
 
 ///|
 priv struct OiCallRefSelectResidueOperandInterpositionFact {
   args : Array[Int]
-  arg_types : Array[@lib.ValType]
+  type_facts : Array[OiCallRefOperandTypeFact]
   residue_fact : OiCallRefSelectTargetResidueFact
 }
 
@@ -13194,7 +13200,7 @@ fn OiCallRefOperandFact::from_args(
   args : Array[Int],
 ) -> OiCallRefOperandFact? {
   let fact_args : Array[Int] = []
-  let arg_types : Array[@lib.ValType] = []
+  let type_facts : Array[OiCallRefOperandTypeFact] = []
   for arg in args {
     let arg_node = @ir.hot_node_get(func, arg)
     let arg_results = @ir.hot_type_results(func, arg_node.ty)
@@ -13202,9 +13208,42 @@ fn OiCallRefOperandFact::from_args(
       return None
     }
     fact_args.push(arg)
-    arg_types.push(arg_results[0])
+    type_facts.push({ arg_id: arg, arg_type: arg_results[0] })
   }
-  Some({ args: fact_args, arg_types })
+  Some({ args: fact_args, type_facts })
+}
+
+///|
+fn OiCallRefOperandTypeFact::proves_typed_operand(
+  self : OiCallRefOperandTypeFact,
+  arg_id : Int,
+) -> Bool {
+  self.arg_id == arg_id
+}
+
+///|
+fn OiCallRefOperandTypeFact::operand_type(
+  self : OiCallRefOperandTypeFact,
+  arg_id : Int,
+) -> @lib.ValType? {
+  if self.proves_typed_operand(arg_id) {
+    Some(self.arg_type)
+  } else {
+    None
+  }
+}
+
+///|
+fn OiCallRefOperandFact::operand_type_at(
+  self : OiCallRefOperandFact,
+  index : Int,
+) -> @lib.ValType? {
+  if index < 0 ||
+    index >= self.args.length() ||
+    index >= self.type_facts.length() {
+    return None
+  }
+  self.type_facts[index].operand_type(self.args[index])
 }
 
 ///|
@@ -13215,7 +13254,11 @@ fn OiCallRefOperandFact::localize_all(
   let prefix : Array[Int] = []
   let local_ids : Array[Int] = []
   for i = 0; i < self.args.length(); i = i + 1 {
-    let local_id = @ir.hot_append_body_local(func, self.arg_types[i])
+    let arg_type = match self.operand_type_at(i) {
+      Some(ty) => ty
+      None => self.type_facts[i].arg_type
+    }
+    let local_id = @ir.hot_append_body_local(func, arg_type)
     prefix.push(@ir.hot_build_local_set(func, local_id, self.args[i]))
     local_ids.push(local_id)
   }
@@ -13248,7 +13291,7 @@ fn OiCallRefFallthroughOperandInterpositionFact::from_operand_fact(
   }
   Some({
     args: operand_fact.args,
-    arg_types: operand_fact.arg_types,
+    type_facts: operand_fact.type_facts,
     callee_ref_id,
   })
 }
@@ -13267,17 +13310,18 @@ fn OiCallRefFallthroughOperandInterpositionFact::build_args(
   for i = 0; i < last_index; i = i + 1 {
     operands.push(self.args[i])
   }
-  let temp_local = @ir.hot_append_body_local(func, self.arg_types[last_index])
+  let last_type = match
+    self.type_facts[last_index].operand_type(self.args[last_index]) {
+    Some(ty) => ty
+    None => return None
+  }
+  let temp_local = @ir.hot_append_body_local(func, last_type)
   operands.push(
-    @ir.hot_build_block(
-      func,
-      @lib.BlockType::val_type(self.arg_types[last_index]),
-      [
-        @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
-        @ir.hot_build_drop(func, self.callee_ref_id),
-        @ir.hot_build_local_get(func, temp_local),
-      ],
-    ),
+    @ir.hot_build_block(func, @lib.BlockType::val_type(last_type), [
+      @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
+      @ir.hot_build_drop(func, self.callee_ref_id),
+      @ir.hot_build_local_get(func, temp_local),
+    ]),
   )
   Some(operands)
 }
@@ -13309,7 +13353,7 @@ fn OiCallRefSelectResidueOperandInterpositionFact::from_operand_fact(
   // the matching last-operand interposition rule.
   Some({
     args: operand_fact.args,
-    arg_types: operand_fact.arg_types,
+    type_facts: operand_fact.type_facts,
     residue_fact,
   })
 }
@@ -13337,17 +13381,18 @@ fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
     Some(evaluation) => evaluation
     None => return None
   }
-  let temp_local = @ir.hot_append_body_local(func, self.arg_types[last_index])
+  let last_type = match
+    self.type_facts[last_index].operand_type(self.args[last_index]) {
+    Some(ty) => ty
+    None => return None
+  }
+  let temp_local = @ir.hot_append_body_local(func, last_type)
   operands.push(
-    @ir.hot_build_block(
-      func,
-      @lib.BlockType::val_type(self.arg_types[last_index]),
-      [
-        @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
-        target_evaluation,
-        @ir.hot_build_local_get(func, temp_local),
-      ],
-    ),
+    @ir.hot_build_block(func, @lib.BlockType::val_type(last_type), [
+      @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
+      target_evaluation,
+      @ir.hot_build_local_get(func, temp_local),
+    ]),
   )
   Some(operands)
 }
