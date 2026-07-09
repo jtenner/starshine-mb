@@ -27971,6 +27971,14 @@ priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectF64ConvertI32U
   MatchingSelectF64ConvertI64S
   MatchingSelectF64ConvertI64U
+  MatchingSelectI32TruncSatF32S
+  MatchingSelectI32TruncSatF32U
+  MatchingSelectI32TruncSatF64S
+  MatchingSelectI32TruncSatF64U
+  MatchingSelectI64TruncSatF32S
+  MatchingSelectI64TruncSatF32U
+  MatchingSelectI64TruncSatF64S
+  MatchingSelectI64TruncSatF64U
 }
 
 ///|
@@ -28304,6 +28312,62 @@ fn OiMatchingUnarySelectArmFact::from_node(
         @lib.ValType::f64(),
         @lib.ValType::i64(),
       )
+    Some(@lib.Instruction::I32TruncSatF32S) =>
+      (
+        MatchingSelectI32TruncSatF32S,
+        @lib.Instruction::i32_trunc_sat_f32s(),
+        @lib.ValType::i32(),
+        @lib.ValType::f32(),
+      )
+    Some(@lib.Instruction::I32TruncSatF32U) =>
+      (
+        MatchingSelectI32TruncSatF32U,
+        @lib.Instruction::i32_trunc_sat_f32u(),
+        @lib.ValType::i32(),
+        @lib.ValType::f32(),
+      )
+    Some(@lib.Instruction::I32TruncSatF64S) =>
+      (
+        MatchingSelectI32TruncSatF64S,
+        @lib.Instruction::i32_trunc_sat_f64s(),
+        @lib.ValType::i32(),
+        @lib.ValType::f64(),
+      )
+    Some(@lib.Instruction::I32TruncSatF64U) =>
+      (
+        MatchingSelectI32TruncSatF64U,
+        @lib.Instruction::i32_trunc_sat_f64u(),
+        @lib.ValType::i32(),
+        @lib.ValType::f64(),
+      )
+    Some(@lib.Instruction::I64TruncSatF32S) =>
+      (
+        MatchingSelectI64TruncSatF32S,
+        @lib.Instruction::i64_trunc_sat_f32s(),
+        @lib.ValType::i64(),
+        @lib.ValType::f32(),
+      )
+    Some(@lib.Instruction::I64TruncSatF32U) =>
+      (
+        MatchingSelectI64TruncSatF32U,
+        @lib.Instruction::i64_trunc_sat_f32u(),
+        @lib.ValType::i64(),
+        @lib.ValType::f32(),
+      )
+    Some(@lib.Instruction::I64TruncSatF64S) =>
+      (
+        MatchingSelectI64TruncSatF64S,
+        @lib.Instruction::i64_trunc_sat_f64s(),
+        @lib.ValType::i64(),
+        @lib.ValType::f64(),
+      )
+    Some(@lib.Instruction::I64TruncSatF64U) =>
+      (
+        MatchingSelectI64TruncSatF64U,
+        @lib.Instruction::i64_trunc_sat_f64u(),
+        @lib.ValType::i64(),
+        @lib.ValType::f64(),
+      )
     _ => return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -28385,6 +28449,14 @@ fn OiMatchingUnarySelectArmPairFact::from_arms(
     (MatchingSelectF64ConvertI32U, MatchingSelectF64ConvertI32U) => ()
     (MatchingSelectF64ConvertI64S, MatchingSelectF64ConvertI64S) => ()
     (MatchingSelectF64ConvertI64U, MatchingSelectF64ConvertI64U) => ()
+    (MatchingSelectI32TruncSatF32S, MatchingSelectI32TruncSatF32S) => ()
+    (MatchingSelectI32TruncSatF32U, MatchingSelectI32TruncSatF32U) => ()
+    (MatchingSelectI32TruncSatF64S, MatchingSelectI32TruncSatF64S) => ()
+    (MatchingSelectI32TruncSatF64U, MatchingSelectI32TruncSatF64U) => ()
+    (MatchingSelectI64TruncSatF32S, MatchingSelectI64TruncSatF32S) => ()
+    (MatchingSelectI64TruncSatF32U, MatchingSelectI64TruncSatF32U) => ()
+    (MatchingSelectI64TruncSatF64S, MatchingSelectI64TruncSatF64S) => ()
+    (MatchingSelectI64TruncSatF64U, MatchingSelectI64TruncSatF64U) => ()
     _ => return None
   }
   if true_fact.child_type != false_fact.child_type ||

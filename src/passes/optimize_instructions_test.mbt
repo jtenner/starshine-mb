@@ -3240,6 +3240,75 @@ test "optimize-instructions hoists matching integer to float select arm shells" 
 }
 
 ///|
+test "optimize-instructions hoists matching saturating float to integer select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
+  // loop hoists nontrapping saturating float-to-integer conversion shells.
+  // Oracle: `.tmp/oi-probes/select-matching-conversion-hoist.wat` with
+  // `--all-features`; trapping truncation operators are intentionally absent.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_child_type : @lib.ValType,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other =>
+        fail(
+          "expected matching saturating conversion shells to hoist, got \{other}",
+        )
+    }
+    @debug.assert_eq(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, inner)),
+      [expected_child_type],
+    )
+  }
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result i32) local.get 0 i32.trunc_sat_f32_s local.get 1 i32.trunc_sat_f32_s local.get 2 select))",
+    @lib.Instruction::i32_trunc_sat_f32s(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result i32) local.get 0 i32.trunc_sat_f32_u local.get 1 i32.trunc_sat_f32_u local.get 2 select))",
+    @lib.Instruction::i32_trunc_sat_f32u(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result i32) local.get 0 i32.trunc_sat_f64_s local.get 1 i32.trunc_sat_f64_s local.get 2 select))",
+    @lib.Instruction::i32_trunc_sat_f64s(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result i32) local.get 0 i32.trunc_sat_f64_u local.get 1 i32.trunc_sat_f64_u local.get 2 select))",
+    @lib.Instruction::i32_trunc_sat_f64u(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result i64) local.get 0 i64.trunc_sat_f32_s local.get 1 i64.trunc_sat_f32_s local.get 2 select))",
+    @lib.Instruction::i64_trunc_sat_f32s(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result i64) local.get 0 i64.trunc_sat_f32_u local.get 1 i64.trunc_sat_f32_u local.get 2 select))",
+    @lib.Instruction::i64_trunc_sat_f32u(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result i64) local.get 0 i64.trunc_sat_f64_s local.get 1 i64.trunc_sat_f64_s local.get 2 select))",
+    @lib.Instruction::i64_trunc_sat_f64s(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result i64) local.get 0 i64.trunc_sat_f64_u local.get 1 i64.trunc_sat_f64_u local.get 2 select))",
+    @lib.Instruction::i64_trunc_sat_f64u(),
+    @lib.ValType::f64(),
+  )
+}
+
+///|
 test "optimize-instructions hoists repeated matching unary select arm chains" {
   // Red-first OI-F ternary parity slice: Binaryen version_130 repeats the
   // shallow-equal one-child loop until the select sits below the full matching
