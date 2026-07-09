@@ -466,6 +466,51 @@ test "optimize-instructions carries local maxBits through loop fallthrough assig
 }
 
 ///|
+test "optimize-instructions carries local maxBits through one-sided if assignments" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 LocalScanner's
+  // assignment fallthrough sees through an if when exactly one arm is
+  // unreachable, using the live arm's tail to seed maxBits for the assigned
+  // local. This is assignment-only; direct one-sided-if compares stay bounded
+  // by oracle evidence.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $else_unreachable (param $x i32) (result i32) (local $tmp i32)
+        #|    (local.set $tmp
+        #|      (if (result i32) (local.get $x)
+        #|        (then (i32.and (local.get $x) (i32.const 255)))
+        #|        (else unreachable)))
+        #|    (i32.eq (local.get $tmp) (i32.const 256)))
+        #|  (func $then_unreachable (param $x i32) (result i32) (local $tmp i32)
+        #|    (local.set $tmp
+        #|      (if (result i32) (local.get $x)
+        #|        (then unreachable)
+        #|        (else (i32.and (local.get $x) (i32.const 255)))))
+        #|    (i32.eq (local.get $tmp) (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected one-sided-if assignment maxBits fold, got \{err}")
+  }
+  let first = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(first.contains("i32.eq"), msg=first)
+  assert_true(first.contains("if"), msg=first)
+  assert_true(first.contains("unreachable"), msg=first)
+  assert_true(first.contains("local.set (Local 1)"), msg=first)
+  assert_true(first.contains("I32(0)"), msg=first)
+  let second = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(second.contains("i32.eq"), msg=second)
+  assert_true(second.contains("if"), msg=second)
+  assert_true(second.contains("unreachable"), msg=second)
+  assert_true(second.contains("local.set (Local 1)"), msg=second)
+  assert_true(second.contains("I32(0)"), msg=second)
+}
+
+///|
 test "optimize-instructions removes redundant block-produced unsigned mask facts" {
   // OI-E finite closeout `.tmp/oi-e-v01-closeout-signoff-10000` exposed the
   // `oi-local-facts:block-produced-mask` bucket as the only sampled

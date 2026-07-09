@@ -9420,6 +9420,7 @@ fn OiMaxBitsFallthroughFact::from_local_tee(
 priv enum OiAssignedMaxBitsFallthroughKind {
   AssignedMaxBitsNoFallthrough
   AssignedMaxBitsLoopTail
+  AssignedMaxBitsIfOneSidedArmTail
 }
 
 ///|
@@ -9435,14 +9436,34 @@ fn OiAssignedMaxBitsFallthroughFact::from_node(
 ) -> OiAssignedMaxBitsFallthroughFact {
   // Binaryen v130 LocalScanner asks `Properties::getFallthrough` about
   // local-set/tee values before feeding `Bits::getMaxBits`. Keep assignment-only
-  // loop fallthrough separate from the direct compare producer path because the
-  // oracle keeps direct loop maxBits compares spelled as compares.
+  // loop and one-sided-if fallthrough separate from the direct compare producer
+  // path because the oracle keeps direct control maxBits compares spelled as
+  // compares.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       match optimize_instructions_region_tail_id(func, body_ref) {
         Some(tail_id) => { kind: AssignedMaxBitsLoopTail, value_id: tail_id }
+        None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+      }
+    }
+    @ir.HotOp::If => {
+      let else_ref = match @ir.hot_region_else_ref(func, node_id) {
+        Some(region) => region
+        None => return { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+      }
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      let one_sided = OiIfOneSidedFallthroughRegionFact::from_regions(
+        func, then_ref, else_ref,
+      )
+      let fallthrough_region = match one_sided.proven_fallthrough_region() {
+        Some(region) => region
+        None => return { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+      }
+      match optimize_instructions_region_tail_id(func, fallthrough_region) {
+        Some(tail_id) =>
+          { kind: AssignedMaxBitsIfOneSidedArmTail, value_id: tail_id }
         None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
       }
     }
@@ -9455,7 +9476,7 @@ fn OiAssignedMaxBitsFallthroughFact::selected_value(
   self : OiAssignedMaxBitsFallthroughFact,
 ) -> Int {
   match self.kind {
-    AssignedMaxBitsLoopTail => self.value_id
+    AssignedMaxBitsLoopTail | AssignedMaxBitsIfOneSidedArmTail => self.value_id
     AssignedMaxBitsNoFallthrough => self.value_id
   }
 }
