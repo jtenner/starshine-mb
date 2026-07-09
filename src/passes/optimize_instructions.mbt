@@ -1292,9 +1292,15 @@ fn OiHeapSubtypeFact::proves_known_subtype(self : OiHeapSubtypeFact) -> Bool {
 }
 
 ///|
+priv enum OiI31HeapTargetKind {
+  I31HeapTargetNoKnownRelation
+  I31HeapTargetMatches
+  I31HeapTargetMisses
+}
+
+///|
 priv struct OiI31HeapTargetFact {
-  match_target : Bool
-  miss_target : Bool
+  kind : OiI31HeapTargetKind
 }
 
 ///|
@@ -1303,30 +1309,40 @@ fn OiI31HeapTargetFact::from_target(
 ) -> OiI31HeapTargetFact {
   // Binaryen's GC cast checks treat i31 as a value under i31/eq/any and
   // disjoint from aggregate or concrete heaps. Keep that abstract-heap relation
-  // in a fact used by ref.test/ref.cast/ref.eq literal and heap facts instead
-  // of helper-level i31 match predicates.
-  match target {
+  // as one selected outcome used by ref.test/ref.cast/ref.eq literal and heap
+  // facts instead of parallel helper-level i31 match/miss predicates.
+  let kind = match target {
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
-      {
-        match_target: abs == @lib.AbsHeapType::i31() ||
+      if abs == @lib.AbsHeapType::i31() ||
         abs == @lib.AbsHeapType::eq() ||
-        abs == @lib.AbsHeapType::any(),
-        miss_target: abs == @lib.AbsHeapType::struct_() ||
-        abs == @lib.AbsHeapType::array(),
+        abs == @lib.AbsHeapType::any() {
+        I31HeapTargetMatches
+      } else if abs == @lib.AbsHeapType::struct_() ||
+        abs == @lib.AbsHeapType::array() {
+        I31HeapTargetMisses
+      } else {
+        I31HeapTargetNoKnownRelation
       }
     @lib.HeapType::HeapType(_) | @lib.HeapType::DefTypeHeapType(_) =>
-      { match_target: false, miss_target: true }
+      I31HeapTargetMisses
   }
+  { kind, }
 }
 
 ///|
 fn OiI31HeapTargetFact::proves_match_target(self : OiI31HeapTargetFact) -> Bool {
-  self.match_target
+  match self.kind {
+    I31HeapTargetMatches => true
+    I31HeapTargetNoKnownRelation | I31HeapTargetMisses => false
+  }
 }
 
 ///|
 fn OiI31HeapTargetFact::proves_miss_target(self : OiI31HeapTargetFact) -> Bool {
-  self.miss_target
+  match self.kind {
+    I31HeapTargetMisses => true
+    I31HeapTargetNoKnownRelation | I31HeapTargetMatches => false
+  }
 }
 
 ///|
