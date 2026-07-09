@@ -2757,6 +2757,72 @@ test "optimize-instructions recursively simplifies boolean or operands" {
 }
 
 ///|
+test "optimize-instructions masks signed remainders in boolean context" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // rewrites signed remainder by +/- powers of two, or signed-min, to an i32.and
+  // mask when only truthiness is observed. The focused oracle
+  // `.tmp/oi-probes/boolean-leaf-binary-rules.wat` proves masks 7 and INT_MAX
+  // while retaining a non-power-of-two divisor.
+  let assert_direct_mask = fn(divisor : Int, expected_mask : Int) raise {
+    let func = optimize_instructions_test_run_hot(
+      "(module (func (param i32) (result i32) (if (result i32) (i32.rem_s (local.get 0) (i32.const \{divisor})) (then (i32.const 11)) (else (i32.const 22)))))",
+    )
+    let condition = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    @debug.assert_eq(
+      @ir.hot_node_exact_instr(func, condition),
+      Some(@lib.Instruction::i32_and()),
+    )
+    let mask = @ir.hot_child_get(func, condition, 1)
+    match @ir.hot_node_get(func, mask).op {
+      @ir.HotOp::Const =>
+        @debug.assert_eq(
+          @ir.hot_const_get(func, @ir.hot_node_get(func, mask).imm0),
+          @ir.HotConstPayload::i32_const(@lib.I32(expected_mask)),
+        )
+      other => fail("expected boolean remainder mask constant, got \{other}")
+    }
+  }
+  assert_direct_mask(8, 7)
+  assert_direct_mask(-8, 7)
+  assert_direct_mask(-2147483648, 2147483647)
+
+  let nonpower = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (if (result i32) (i32.rem_s (local.get 0) (i32.const 6)) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let nonpower_condition = @ir.hot_child_get(
+    nonpower,
+    @ir.hot_root_get(nonpower, 0),
+    0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(nonpower, nonpower_condition),
+    Some(@lib.Instruction::i32_rem_s()),
+  )
+
+  let nested = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) (if (result i32) (select (i32.rem_s (local.get 0) (i32.const -8)) (i32.rem_s (local.get 1) (i32.const -2147483648)) (local.get 2)) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let select = @ir.hot_child_get(nested, @ir.hot_root_get(nested, 0), 0)
+  for slot = 0; slot < 2; slot = slot + 1 {
+    let arm = @ir.hot_child_get(nested, select, slot)
+    @debug.assert_eq(
+      @ir.hot_node_exact_instr(nested, arm),
+      Some(@lib.Instruction::i32_and()),
+    )
+    let mask = @ir.hot_child_get(nested, arm, 1)
+    let expected = if slot == 0 { 7 } else { 2147483647 }
+    @debug.assert_eq(
+      @ir.hot_const_get(nested, @ir.hot_node_get(nested, mask).imm0),
+      @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+    )
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(nested, @ir.hot_child_get(nested, select, 2)).imm0,
+    2,
+  )
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to

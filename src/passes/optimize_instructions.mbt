@@ -38499,13 +38499,52 @@ priv enum OiBooleanContextLeafRewriteKind {
   BooleanContextLeafNoRewrite
   BooleanContextLeafForwardI32NeZero
   BooleanContextLeafForwardI32ZeroMinus
+  BooleanContextLeafMaskI32SignedRemainder
+}
+
+///|
+priv struct OiBooleanForwardReplacementFact {
+  replacement_id : Int
+}
+
+///|
+priv struct OiBooleanSignedRemainderMaskFact {
+  value_id : Int
+  mask_value : Int
+}
+
+///|
+fn OiBooleanSignedRemainderMaskFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  value_id : Int,
+  divisor_id : Int,
+) -> OiBooleanSignedRemainderMaskFact? {
+  // Binaryen v130 accepts signed-min and positive or negative powers of two.
+  // Avoid taking abs(INT_MIN) directly; that case selects signed-max.
+  if !OiI32ValueFact::proves_node_i32_value(func, value_id) {
+    return None
+  }
+  let divisor = match optimize_instructions_i32_const(func, dead, divisor_id) {
+    Some(@lib.I32(raw)) => raw
+    None => return None
+  }
+  if divisor == -2147483648 {
+    return Some({ value_id, mask_value: 2147483647 })
+  }
+  let magnitude = if divisor < 0 { -divisor } else { divisor }
+  match optimize_instructions_i32_power_of_two_shift(magnitude) {
+    Some(_) => Some({ value_id, mask_value: magnitude - 1 })
+    None => None
+  }
 }
 
 ///|
 priv struct OiBooleanContextLeafRewriteFact {
   kind : OiBooleanContextLeafRewriteKind
   node_id : Int
-  replacement_id : Int
+  forward_fact : OiBooleanForwardReplacementFact?
+  remainder_mask_fact : OiBooleanSignedRemainderMaskFact?
 }
 
 ///|
@@ -38515,13 +38554,14 @@ fn OiBooleanContextLeafRewriteFact::from_node(
   node_id : Int,
 ) -> OiBooleanContextLeafRewriteFact {
   // Binaryen v130 `optimizeBoolean` forwards exact `i32.ne(x, 0)` and
-  // `i32.sub(0, x)` shells when their results are consumed only for truthiness.
-  // Keep the selected source rule and surviving i32 child in one fact shared by
-  // direct conditions and the source-recursive block/select/if contexts below.
+  // `i32.sub(0, x)` shells, and rewrites supported signed remainder shells to
+  // i32.and masks. Keep forwarding and instruction-rebuild payloads separate so
+  // direct and recursively selected boolean locations share one bounded plan.
   let no_rewrite = {
     kind: BooleanContextLeafNoRewrite,
     node_id,
-    replacement_id: node_id,
+    forward_fact: None,
+    remainder_mask_fact: None,
   }
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) ||
     @ir.hot_child_count(func, node_id) != 2 {
@@ -38536,7 +38576,8 @@ fn OiBooleanContextLeafRewriteFact::from_node(
           {
             kind: BooleanContextLeafForwardI32NeZero,
             node_id,
-            replacement_id: lhs_id,
+            forward_fact: Some({ replacement_id: lhs_id }),
+            remainder_mask_fact: None,
           }
         _ => no_rewrite
       }
@@ -38546,25 +38587,60 @@ fn OiBooleanContextLeafRewriteFact::from_node(
           {
             kind: BooleanContextLeafForwardI32ZeroMinus,
             node_id,
-            replacement_id: rhs_id,
+            forward_fact: Some({ replacement_id: rhs_id }),
+            remainder_mask_fact: None,
           }
         _ => no_rewrite
+      }
+    Some(@lib.Instruction::I32RemS) =>
+      match
+        OiBooleanSignedRemainderMaskFact::from_operands(
+          func, dead, lhs_id, rhs_id,
+        ) {
+        Some(mask_fact) =>
+          {
+            kind: BooleanContextLeafMaskI32SignedRemainder,
+            node_id,
+            forward_fact: None,
+            remainder_mask_fact: Some(mask_fact),
+          }
+        None => no_rewrite
       }
     _ => no_rewrite
   }
 }
 
 ///|
-fn OiBooleanContextLeafRewriteFact::proven_replacement(
+fn OiBooleanContextLeafRewriteFact::apply_selected_rewrite(
   self : OiBooleanContextLeafRewriteFact,
+  func : @ir.HotFunc,
 ) -> Int? {
   match self.kind {
     BooleanContextLeafForwardI32NeZero
     | BooleanContextLeafForwardI32ZeroMinus =>
-      if self.node_id >= 0 && self.replacement_id >= 0 {
-        Some(self.replacement_id)
-      } else {
-        None
+      match self.forward_fact {
+        Some(fact) if self.node_id >= 0 && fact.replacement_id >= 0 =>
+          Some(fact.replacement_id)
+        _ => None
+      }
+    BooleanContextLeafMaskI32SignedRemainder =>
+      match self.remainder_mask_fact {
+        Some(fact) if self.node_id >= 0 && fact.value_id >= 0 => {
+          @ir.hot_node_exact_instr_set(
+            func,
+            self.node_id,
+            @lib.Instruction::i32_and(),
+          )
+          @ir.hot_child_set(func, self.node_id, 0, fact.value_id)
+          @ir.hot_child_set(
+            func,
+            self.node_id,
+            1,
+            @ir.hot_build_const_i32(func, @lib.I32(fact.mask_value)),
+          )
+          Some(self.node_id)
+        }
+        _ => None
       }
     BooleanContextLeafNoRewrite => None
   }
@@ -38754,7 +38830,9 @@ fn optimize_instructions_rewrite_boolean_context_node(
     return OiBooleanContextRewriteOutcome::unchanged(node_id)
   }
   match
-    OiBooleanContextLeafRewriteFact::from_node(func, dead, node_id).proven_replacement() {
+    OiBooleanContextLeafRewriteFact::from_node(func, dead, node_id).apply_selected_rewrite(
+      func,
+    ) {
     Some(replacement_id) => return { result_id: replacement_id, changed: true }
     None => ()
   }
