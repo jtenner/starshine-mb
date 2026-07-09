@@ -19140,7 +19140,7 @@ fn dae_no_escape_slice_evidence_from_branch(
 }
 
 ///|
-fn dae_no_escaping_branch_copied_range_evidence(
+fn dae_no_escaping_branch_copied_slice_evidence(
   instrs : Array[@lib.Instruction],
   start : Int,
   end : Int,
@@ -19155,17 +19155,22 @@ fn dae_no_escaping_branch_copied_range_evidence(
 }
 
 ///|
+fn dae_no_escaping_branch_copied_range_evidence(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+  depth : Int,
+) -> DaeNoEscapeSliceEvidence? {
+  dae_no_escaping_branch_copied_slice_evidence(instrs, start, end, depth)
+}
+
+///|
 fn dae_no_escaping_branch_copied_prefix_evidence(
   instrs : Array[@lib.Instruction],
   end : Int,
   depth : Int,
 ) -> DaeNoEscapeSliceEvidence? {
-  let branch = match
-    dae_no_escaping_branch_prefix_evidence(instrs, end, depth) {
-    Some(evidence) => evidence
-    None => return None
-  }
-  dae_no_escape_slice_evidence_from_branch(instrs, branch)
+  dae_no_escaping_branch_copied_slice_evidence(instrs, 0, end, depth)
 }
 
 ///|
@@ -19187,11 +19192,12 @@ fn dae_no_escaping_branch_copied_evidence(
   instrs : Array[@lib.Instruction],
   depth : Int,
 ) -> DaeNoEscapeSliceEvidence? {
-  let branch = match dae_no_escaping_branch_evidence(instrs, depth) {
-    Some(evidence) => evidence
-    None => return None
-  }
-  dae_no_escape_slice_evidence_from_branch(instrs, branch)
+  dae_no_escaping_branch_copied_slice_evidence(
+    instrs,
+    0,
+    instrs.length(),
+    depth,
+  )
 }
 
 ///|

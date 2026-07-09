@@ -3618,6 +3618,21 @@ test "dae escaping branch evidence centralizes localization blockers" {
     }
     None => fail("local branch prefix should be accepted by range evidence")
   }
+  match dae_no_escaping_branch_copied_slice_evidence(mixed_instrs, 0, 1, 0) {
+    Some(evidence) => {
+      assert_eq(evidence.branch.start, 0)
+      assert_eq(evidence.branch.end, 1)
+      assert_false(evidence.branch.has_escaping_branch)
+      assert_eq(evidence.instrs.length(), 1)
+      assert_eq(evidence.instrs[0], local_block)
+    }
+    None =>
+      fail("local branch prefix should be copied by shared slice evidence")
+  }
+  match dae_no_escaping_branch_copied_slice_evidence(mixed_instrs, 1, 2, 0) {
+    Some(_) => fail("top-level branch slice should not be copied")
+    None => ()
+  }
   match dae_no_escaping_branch_copied_range_evidence(mixed_instrs, 0, 1, 0) {
     Some(evidence) => {
       assert_eq(evidence.branch.start, 0)
