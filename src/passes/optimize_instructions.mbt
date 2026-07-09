@@ -6330,7 +6330,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         return None
       }
     @ir.HotOp::Block =>
-      if OiStandaloneRefGetDescBlockMoveFact::from_block(func, child_id).proves_can_move_null_check() {
+      if OiStandaloneRefGetDescBlockMoveFact::from_block(func, child_id).proves_nullable_block_move_allowed() {
         RefGetDescNullableBlockMove
       } else {
         return None
@@ -28939,13 +28939,96 @@ fn OiStandaloneRefGetDescRootShapeFact::proves_internal_br_on_null_trampoline_ro
 }
 
 ///|
+priv struct OiStandaloneRefGetDescBlockMovePrefixPayloadFact {
+  roots_allowed : Bool
+  saw_internal_ref_branch : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::empty() -> OiStandaloneRefGetDescBlockMovePrefixPayloadFact {
+  { roots_allowed: false, saw_internal_ref_branch: false }
+}
+
+///|
+fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::from_region_prefix(
+  func : @ir.HotFunc,
+  block_id : Int,
+  body : @ir.HotRegionRef,
+  root_count : Int,
+) -> OiStandaloneRefGetDescBlockMovePrefixPayloadFact {
+  // Source-order prefix fact for the represented standalone ref.get_desc block
+  // movement path: every non-final root must be void and either ordinary
+  // control-safe debris or one of the internal ref-branch handoff roots that can
+  // feed a final `ref.null` fallback.
+  let mut roots_allowed = true
+  let mut saw_internal_ref_branch = false
+  for slot = 0; slot < root_count - 1; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, body, slot)
+    let root_fact = OiStandaloneRefGetDescRootShapeFact::from_root(
+      func, block_id, root_id,
+    )
+    if !root_fact.no_results {
+      roots_allowed = false
+    } else if root_fact.proves_internal_br_on_null_trampoline_root() {
+      saw_internal_ref_branch = true
+    } else if root_fact.proves_escaping_br_if_root() {
+      ()
+    } else if root_fact.disallowed_control_or_multivalue {
+      roots_allowed = false
+    } else if root_fact.proves_internal_br_on_non_null_root() {
+      saw_internal_ref_branch = true
+    }
+  }
+  { roots_allowed, saw_internal_ref_branch }
+}
+
+///|
+priv struct OiStandaloneRefGetDescBlockMoveFinalPayloadFact {
+  root_allowed : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::empty() -> OiStandaloneRefGetDescBlockMoveFinalPayloadFact {
+  { root_allowed: false }
+}
+
+///|
+fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::from_final_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  final_id : Int,
+  prefix_payload : OiStandaloneRefGetDescBlockMovePrefixPayloadFact,
+) -> OiStandaloneRefGetDescBlockMoveFinalPayloadFact {
+  // The final root is the source-ordered nullable/control handoff: either the
+  // surviving nullable value, the represented ref.null fallback after an
+  // internal ref branch, or a terminating branch/cast root.
+  let final_fact = OiStandaloneRefGetDescRootShapeFact::from_root(
+    func, block_id, final_id,
+  )
+  let root_allowed = match @ir.hot_node_get(func, final_id).op {
+    @ir.HotOp::LocalGet =>
+      OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
+      !final_fact.disallowed_control_or_multivalue
+    @ir.HotOp::RefNull =>
+      prefix_payload.saw_internal_ref_branch &&
+      OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
+      !final_fact.disallowed_control_or_multivalue
+    @ir.HotOp::Br | @ir.HotOp::BrTable =>
+      final_fact.no_results && !final_fact.disallowed_control_or_multivalue
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
+      final_fact.proves_internal_br_on_cast_root()
+    _ => false
+  }
+  { root_allowed, }
+}
+
+///|
 priv struct OiStandaloneRefGetDescBlockMoveFact {
   live : Bool
   single_nullable_ref_result : Bool
   nonempty_region : Bool
-  prefix_roots_allowed : Bool
-  saw_internal_ref_branch : Bool
-  final_root_allowed : Bool
+  prefix_payload : OiStandaloneRefGetDescBlockMovePrefixPayloadFact
+  final_payload : OiStandaloneRefGetDescBlockMoveFinalPayloadFact
 }
 
 ///|
@@ -28956,14 +29039,14 @@ fn OiStandaloneRefGetDescBlockMoveFact::from_block(
   // This fact is the represented standalone ref.get_desc block-child proof: all
   // prefix roots must be void, free of unsupported nested control/multivalue,
   // or one of the supported branch roots, and the final root must preserve the
-  // nullable reference/control handoff shape.
+  // nullable reference/control handoff shape. Prefix and final payload facts
+  // keep those two source-order checks explicit instead of open movement flags.
   let empty = {
     live: false,
     single_nullable_ref_result: false,
     nonempty_region: false,
-    prefix_roots_allowed: false,
-    saw_internal_ref_branch: false,
-    final_root_allowed: false,
+    prefix_payload: OiStandaloneRefGetDescBlockMovePrefixPayloadFact::empty(),
+    final_payload: OiStandaloneRefGetDescBlockMoveFinalPayloadFact::empty(),
   }
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
     return empty
@@ -28981,63 +29064,31 @@ fn OiStandaloneRefGetDescBlockMoveFact::from_block(
   if root_count == 0 {
     return { ..empty, live: true, single_nullable_ref_result }
   }
-  let mut prefix_roots_allowed = true
-  let mut saw_internal_ref_branch = false
-  for slot = 0; slot < root_count - 1; slot = slot + 1 {
-    let root_id = @ir.hot_region_get(func, body, slot)
-    let root_fact = OiStandaloneRefGetDescRootShapeFact::from_root(
-      func, block_id, root_id,
-    )
-    if !root_fact.no_results {
-      prefix_roots_allowed = false
-    } else if root_fact.proves_internal_br_on_null_trampoline_root() {
-      saw_internal_ref_branch = true
-    } else if root_fact.proves_escaping_br_if_root() {
-      ()
-    } else if root_fact.disallowed_control_or_multivalue {
-      prefix_roots_allowed = false
-    } else if root_fact.proves_internal_br_on_non_null_root() {
-      saw_internal_ref_branch = true
-    }
-  }
-  let final_id = @ir.hot_region_get(func, body, root_count - 1)
-  let final_fact = OiStandaloneRefGetDescRootShapeFact::from_root(
-    func, block_id, final_id,
+  let prefix_payload = OiStandaloneRefGetDescBlockMovePrefixPayloadFact::from_region_prefix(
+    func, block_id, body, root_count,
   )
-  let final_root_allowed = match @ir.hot_node_get(func, final_id).op {
-    @ir.HotOp::LocalGet =>
-      OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
-      !final_fact.disallowed_control_or_multivalue
-    @ir.HotOp::RefNull =>
-      saw_internal_ref_branch &&
-      OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
-      !final_fact.disallowed_control_or_multivalue
-    @ir.HotOp::Br | @ir.HotOp::BrTable =>
-      final_fact.no_results && !final_fact.disallowed_control_or_multivalue
-    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
-      final_fact.proves_internal_br_on_cast_root()
-    _ => false
-  }
+  let final_id = @ir.hot_region_get(func, body, root_count - 1)
+  let final_payload = OiStandaloneRefGetDescBlockMoveFinalPayloadFact::from_final_root(
+    func, block_id, final_id, prefix_payload,
+  )
   {
     live: true,
     single_nullable_ref_result,
     nonempty_region: true,
-    prefix_roots_allowed,
-    saw_internal_ref_branch,
-    final_root_allowed,
+    prefix_payload,
+    final_payload,
   }
 }
 
 ///|
-fn OiStandaloneRefGetDescBlockMoveFact::proves_can_move_null_check(
+fn OiStandaloneRefGetDescBlockMoveFact::proves_nullable_block_move_allowed(
   self : OiStandaloneRefGetDescBlockMoveFact,
 ) -> Bool {
-  ignore(self.saw_internal_ref_branch)
   self.live &&
   self.single_nullable_ref_result &&
   self.nonempty_region &&
-  self.prefix_roots_allowed &&
-  self.final_root_allowed
+  self.prefix_payload.roots_allowed &&
+  self.final_payload.root_allowed
 }
 
 ///|
