@@ -5861,7 +5861,7 @@ fn OiDescriptorExactSuccessTargetFact::from_cast(
   // first requires the cast target itself to be exact and non-null before the
   // reference operand and descriptor facts can prove the same target. Keep that
   // target precondition as a source-shaped payload instead of parallel nullable
-  // and exactness blockers in the exact-success eligibility fact.
+  // and exactness blockers in the exact-success aggregate precondition.
   if cast_fact.nullable {
     return { kind: DescriptorExactSuccessTargetNullable }
   }
@@ -5893,7 +5893,7 @@ fn OiDescriptorExactSuccessOperandFact::from_operand(
   // Binaryen v130's descriptor exact-success skip only applies after the
   // reference operand is a call-like producer whose result is already exact,
   // non-null, and on the descriptor target heap. Keep that operand proof as a
-  // separate source fact before TNH exact-success eligibility consumes it.
+  // separate source fact before TNH exact-success preconditions consume it.
   let kind = match @ir.hot_node_get(func, operand_id).op {
     @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
       if OiRefProducerTargetRelationFact::from_producer(
@@ -5937,7 +5937,7 @@ fn OiDescriptorExactSuccessDescriptorRelationFact::from_descriptor(
   // Binaryen v130 descriptor equality exact-success skipping under TNH needs a
   // descriptor operand that exactly describes the cast target, just like the
   // normal-mode exact-miss cleanup. Keep this descriptor source relation nested
-  // under the exact-success fact so eligibility consumes source-backed operand
+  // under the exact-success fact so preconditions consume source-backed operand
   // and descriptor proofs rather than parallel booleans.
   let descriptor_type_fact = OiDescriptorTypeFact::from_node(
     ctx, func, descriptor_id,
@@ -5994,60 +5994,153 @@ fn OiDescriptorExactSuccessFact::from_node(
 }
 
 ///|
-priv enum OiDescriptorExactSuccessEligibilityKind {
-  DescriptorExactSuccessTrapsActive
-  DescriptorExactSuccessNullableTarget
-  DescriptorExactSuccessInexactTarget
-  DescriptorExactSuccessOperandNotExactNonNullTarget
-  DescriptorExactSuccessDescriptorNotExactTarget
-  DescriptorExactSuccessAllowed
+priv enum OiDescriptorExactSuccessTrapModeKind {
+  DescriptorExactSuccessTrapModeActive
+  DescriptorExactSuccessTrapModeNeverHappens
 }
 
 ///|
-priv struct OiDescriptorExactSuccessEligibilityFact {
-  kind : OiDescriptorExactSuccessEligibilityKind
+priv struct OiDescriptorExactSuccessTrapModeFact {
+  kind : OiDescriptorExactSuccessTrapModeKind
 }
 
 ///|
-fn OiDescriptorExactSuccessEligibilityFact::from_success(
+fn OiDescriptorExactSuccessTrapModeFact::from_context(
   ctx : HotPassContext,
-  success_fact : OiDescriptorExactSuccessFact,
-) -> OiDescriptorExactSuccessEligibilityFact {
-  // Binaryen v130's descriptor equality cast skip under traps-never-happen
-  // is source fact driven: the cast target must be exact and non-null, the
-  // reference producer must already prove an exact non-null target, and the
-  // descriptor must exactly describe that target. Keep each blocker explicit
-  // before the replacement-order plan decides how to preserve evaluations.
-  if !ctx.traps_never_happen {
-    return { kind: DescriptorExactSuccessTrapsActive }
+) -> OiDescriptorExactSuccessTrapModeFact {
+  // Binaryen v130 only skips descriptor equality casts for exact successes in
+  // traps-never-happen mode. Keep that mode gate as its own precondition fact
+  // instead of folding it into the source-relation checks.
+  let kind = if ctx.traps_never_happen {
+    DescriptorExactSuccessTrapModeNeverHappens
+  } else {
+    DescriptorExactSuccessTrapModeActive
   }
-  match success_fact.target_fact.kind {
-    DescriptorExactSuccessTargetNullable =>
-      return { kind: DescriptorExactSuccessNullableTarget }
-    DescriptorExactSuccessTargetInexact =>
-      return { kind: DescriptorExactSuccessInexactTarget }
-    DescriptorExactSuccessTargetExactNonNull => ()
-  }
-  if !success_fact.operand_fact.proves_exact_non_null_target() {
-    return { kind: DescriptorExactSuccessOperandNotExactNonNullTarget }
-  }
-  if !success_fact.descriptor_relation.proves_exactly_describes_target() {
-    return { kind: DescriptorExactSuccessDescriptorNotExactTarget }
-  }
-  { kind: DescriptorExactSuccessAllowed }
+  { kind, }
 }
 
 ///|
-fn OiDescriptorExactSuccessEligibilityFact::proves_tnh_exact_success_allowed(
-  self : OiDescriptorExactSuccessEligibilityFact,
+fn OiDescriptorExactSuccessTrapModeFact::proves_traps_never_happen(
+  self : OiDescriptorExactSuccessTrapModeFact,
 ) -> Bool {
   match self.kind {
-    DescriptorExactSuccessTrapsActive => false
-    DescriptorExactSuccessNullableTarget => false
-    DescriptorExactSuccessInexactTarget => false
+    DescriptorExactSuccessTrapModeActive => false
+    DescriptorExactSuccessTrapModeNeverHappens => true
+  }
+}
+
+///|
+priv enum OiDescriptorExactSuccessSourcePreconditionKind {
+  DescriptorExactSuccessOperandNotExactNonNullTarget
+  DescriptorExactSuccessDescriptorNotExactTarget
+  DescriptorExactSuccessSourceAllowed
+}
+
+///|
+priv struct OiDescriptorExactSuccessSourcePreconditionFact {
+  operand_fact : OiDescriptorExactSuccessOperandFact
+  descriptor_relation : OiDescriptorExactSuccessDescriptorRelationFact
+  kind : OiDescriptorExactSuccessSourcePreconditionKind
+}
+
+///|
+fn OiDescriptorExactSuccessSourcePreconditionFact::from_success(
+  success_fact : OiDescriptorExactSuccessFact,
+) -> OiDescriptorExactSuccessSourcePreconditionFact {
+  // Binaryen v130's TNH exact-success skip needs both source operands to prove
+  // the same exact non-null target relation: the reference producer must
+  // already be exact/non-null, and the descriptor operand must exactly describe
+  // the cast target. Group those two source facts before the aggregate
+  // precondition combines them with trap mode and target-shape facts.
+  let operand_fact = success_fact.operand_fact
+  let descriptor_relation = success_fact.descriptor_relation
+  let kind = if !operand_fact.proves_exact_non_null_target() {
+    DescriptorExactSuccessOperandNotExactNonNullTarget
+  } else if !descriptor_relation.proves_exactly_describes_target() {
+    DescriptorExactSuccessDescriptorNotExactTarget
+  } else {
+    DescriptorExactSuccessSourceAllowed
+  }
+  { operand_fact, descriptor_relation, kind }
+}
+
+///|
+fn OiDescriptorExactSuccessSourcePreconditionFact::proves_sources_allowed(
+  self : OiDescriptorExactSuccessSourcePreconditionFact,
+) -> Bool {
+  ignore(self.operand_fact)
+  ignore(self.descriptor_relation)
+  match self.kind {
     DescriptorExactSuccessOperandNotExactNonNullTarget => false
     DescriptorExactSuccessDescriptorNotExactTarget => false
-    DescriptorExactSuccessAllowed => true
+    DescriptorExactSuccessSourceAllowed => true
+  }
+}
+
+///|
+priv enum OiDescriptorExactSuccessPreconditionKind {
+  DescriptorExactSuccessPreconditionTrapsActive
+  DescriptorExactSuccessPreconditionNullableTarget
+  DescriptorExactSuccessPreconditionInexactTarget
+  DescriptorExactSuccessPreconditionSourceRejected
+  DescriptorExactSuccessPreconditionAllowed
+}
+
+///|
+priv struct OiDescriptorExactSuccessPreconditionFact {
+  trap_mode_fact : OiDescriptorExactSuccessTrapModeFact
+  target_fact : OiDescriptorExactSuccessTargetFact
+  source_precondition : OiDescriptorExactSuccessSourcePreconditionFact
+  kind : OiDescriptorExactSuccessPreconditionKind
+}
+
+///|
+fn OiDescriptorExactSuccessPreconditionFact::from_success(
+  ctx : HotPassContext,
+  success_fact : OiDescriptorExactSuccessFact,
+) -> OiDescriptorExactSuccessPreconditionFact {
+  // Binaryen v130's descriptor equality cast skip under traps-never-happen is
+  // fact-driven: mode, target shape, reference producer, and descriptor relation
+  // all have to agree before replacement-order planning can preserve the two
+  // source evaluations. Keep that as a nested precondition fact, not a flat
+  // eligibility result.
+  let trap_mode_fact = OiDescriptorExactSuccessTrapModeFact::from_context(ctx)
+  let target_fact = success_fact.target_fact
+  let source_precondition = OiDescriptorExactSuccessSourcePreconditionFact::from_success(
+    success_fact,
+  )
+  let kind = if !trap_mode_fact.proves_traps_never_happen() {
+    DescriptorExactSuccessPreconditionTrapsActive
+  } else {
+    match target_fact.kind {
+      DescriptorExactSuccessTargetNullable =>
+        DescriptorExactSuccessPreconditionNullableTarget
+      DescriptorExactSuccessTargetInexact =>
+        DescriptorExactSuccessPreconditionInexactTarget
+      DescriptorExactSuccessTargetExactNonNull =>
+        if source_precondition.proves_sources_allowed() {
+          DescriptorExactSuccessPreconditionAllowed
+        } else {
+          DescriptorExactSuccessPreconditionSourceRejected
+        }
+    }
+  }
+  { trap_mode_fact, target_fact, source_precondition, kind }
+}
+
+///|
+fn OiDescriptorExactSuccessPreconditionFact::proves_tnh_exact_success_allowed(
+  self : OiDescriptorExactSuccessPreconditionFact,
+) -> Bool {
+  ignore(self.trap_mode_fact)
+  ignore(self.target_fact)
+  ignore(self.source_precondition)
+  match self.kind {
+    DescriptorExactSuccessPreconditionTrapsActive => false
+    DescriptorExactSuccessPreconditionNullableTarget => false
+    DescriptorExactSuccessPreconditionInexactTarget => false
+    DescriptorExactSuccessPreconditionSourceRejected => false
+    DescriptorExactSuccessPreconditionAllowed => true
   }
 }
 
@@ -6073,10 +6166,10 @@ fn OiDescriptorExactSuccessRewritePlanFact::from_success(
   // full `optimizeKnownCastResult`: it requires a direct call-style reference
   // producer and an exact descriptor type fact, then preserves both operand
   // evaluations through the same ChildLocalizer-shaped replacement.
-  let eligibility_fact = OiDescriptorExactSuccessEligibilityFact::from_success(
+  let precondition_fact = OiDescriptorExactSuccessPreconditionFact::from_success(
     ctx, success_fact,
   )
-  if !eligibility_fact.proves_tnh_exact_success_allowed() {
+  if !precondition_fact.proves_tnh_exact_success_allowed() {
     return None
   }
   Some({
