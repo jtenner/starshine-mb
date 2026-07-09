@@ -6611,6 +6611,25 @@ fn dae_apply_indexed_instruction_rewrites_to_body(
 }
 
 ///|
+fn dae_apply_first_instruction_rewrite_to_body(
+  body : Array[@lib.Instruction],
+  rewrite_instr : (@lib.Instruction) -> @lib.Instruction?,
+) -> (Array[@lib.Instruction], DaeIndexedInstructionRewriteApplicationEvidence)? {
+  let mut idx = 0
+  while idx < body.length() {
+    match rewrite_instr(body[idx]) {
+      Some(rewritten_instr) =>
+        return dae_apply_indexed_instruction_rewrites_to_body(body, [idx], [
+          Some(rewritten_instr),
+        ])
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
 fn dae_result_rewrite_application_is_consistent(
   application : DaeResultRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
@@ -18944,24 +18963,15 @@ fn dae_try_wrap_func237_outer_loop_carrier_body_once(
   carrier_local : @lib.LocalIdx,
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
-  let mut idx = 0
-  while idx < body.length() {
-    match
-      dae_try_wrap_func237_outer_loop_carrier_instr(
-        body[idx],
-        carrier_local,
-        type_sec,
-      ) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    dae_try_wrap_func237_outer_loop_carrier_instr(
+      instr, carrier_local, type_sec,
+    )
   }
-  None
+  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
+  }
 }
 
 ///|
@@ -19259,23 +19269,13 @@ fn dae_try_flatten_func237_nested_branch_result_body_once(
   body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
-  let mut idx = 0
-  while idx < body.length() {
-    match
-      dae_try_flatten_func237_nested_branch_result_instr_once(
-        body[idx],
-        type_sec,
-      ) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    dae_try_flatten_func237_nested_branch_result_instr_once(instr, type_sec)
   }
-  None
+  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
+  }
 }
 
 ///|
@@ -19504,23 +19504,15 @@ fn dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
     Some(rewritten) => return Some(rewritten)
     None => ()
   }
-  let mut idx = 0
-  while idx < body.length() {
-    match
-      dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
-        body[idx],
-        type_sec,
-      ) {
-      Some(rewritten_instr) => {
-        let rewritten = body.copy()
-        rewritten[idx] = rewritten_instr
-        return Some(rewritten)
-      }
-      None => ()
-    }
-    idx += 1
+  let rewrite_instr = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
+      instr, type_sec,
+    )
   }
-  None
+  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_instr) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
+  }
 }
 
 ///|

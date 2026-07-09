@@ -2507,6 +2507,38 @@ test "dae indexed instruction rewrite evidence centralizes shared body edits" {
 }
 
 ///|
+test "dae first instruction rewrite evidence centralizes body repair scans" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_const(@lib.I32(3)),
+  ]
+  let rewrite_second = fn(instr : @lib.Instruction) -> @lib.Instruction? {
+    match instr {
+      @lib.I32Const(@lib.I32(2)) =>
+        Some(@lib.Instruction::i32_const(@lib.I32(20)))
+      _ => None
+    }
+  }
+  match dae_apply_first_instruction_rewrite_to_body(body, rewrite_second) {
+    Some((rewritten, evidence)) => {
+      assert_true(evidence.body_changed)
+      assert_eq(evidence.target_count, 1)
+      assert_eq(evidence.rewrite_count, 1)
+      assert_eq(rewritten[0], body[0])
+      assert_eq(rewritten[1], @lib.Instruction::i32_const(@lib.I32(20)))
+      assert_eq(rewritten[2], body[2])
+    }
+    None => fail("expected first-instruction rewrite evidence")
+  }
+  let no_rewrite = fn(_instr : @lib.Instruction) -> @lib.Instruction? { None }
+  match dae_apply_first_instruction_rewrite_to_body(body, no_rewrite) {
+    Some(_) => fail("first-instruction rewrite should reject no-match bodies")
+    None => ()
+  }
+}
+
+///|
 test "dae result rewrite application evidence centralizes masked slot repairs" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
