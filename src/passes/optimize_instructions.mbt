@@ -13168,8 +13168,13 @@ fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
 }
 
 ///|
-priv struct OiCallRefResultBlockTypeFact {
+priv struct OiCallRefResultArityFact {
   result_count : Int
+}
+
+///|
+priv struct OiCallRefResultBlockTypeFact {
+  arity_fact : OiCallRefResultArityFact
   block_type : @lib.BlockType?
 }
 
@@ -13184,19 +13189,27 @@ fn OiCallRefResultBlockTypeFact::from_call_ref(
   // dropped target before the direct call. Keep the single-result/multivalue
   // boundary as a fact instead of a generic helper hidden in replacement code.
   let results = @ir.hot_type_results(func, node.ty)
-  let block_type = match results.length() {
+  let arity_fact : OiCallRefResultArityFact = { result_count: results.length() }
+  let block_type = match arity_fact.result_count {
     0 => Some(@lib.BlockType::void_())
     1 => Some(@lib.BlockType::val_type(results[0]))
     _ => None
   }
-  { result_count: results.length(), block_type }
+  { arity_fact, block_type }
+}
+
+///|
+fn OiCallRefResultArityFact::proves_single_or_void_result(
+  self : OiCallRefResultArityFact,
+) -> Bool {
+  self.result_count <= 1
 }
 
 ///|
 fn OiCallRefResultBlockTypeFact::proves_representable_block_type(
   self : OiCallRefResultBlockTypeFact,
 ) -> Bool {
-  self.result_count <= 1
+  self.arity_fact.proves_single_or_void_result()
 }
 
 ///|
