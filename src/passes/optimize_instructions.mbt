@@ -4296,8 +4296,39 @@ fn OiRefCastOperandTargetFact::from_operand(
 }
 
 ///|
+priv enum OiRefCastSourceTargetDirectNullKind {
+  RefCastSourceTargetNotDirectNull
+  RefCastSourceTargetDirectNull
+}
+
+///|
 priv struct OiRefCastSourceTargetDirectNullFact {
-  direct_null_operand : Bool
+  kind : OiRefCastSourceTargetDirectNullKind
+}
+
+///|
+fn OiRefCastSourceTargetDirectNullFact::from_node_op(
+  node_op : @ir.HotOp,
+) -> OiRefCastSourceTargetDirectNullFact {
+  // Binaryen v130 `visitRefCast` handles a direct `ref.null` operand before the
+  // broader source-type relation. Keep that source proof as a selected direct
+  // null kind instead of carrying a raw boolean alongside the other relation
+  // payloads.
+  let kind = match node_op {
+    @ir.HotOp::RefNull => RefCastSourceTargetDirectNull
+    _ => RefCastSourceTargetNotDirectNull
+  }
+  { kind, }
+}
+
+///|
+fn OiRefCastSourceTargetDirectNullFact::proves_direct_null_operand(
+  self : OiRefCastSourceTargetDirectNullFact,
+) -> Bool {
+  match self.kind {
+    RefCastSourceTargetDirectNull => true
+    RefCastSourceTargetNotDirectNull => false
+  }
 }
 
 ///|
@@ -4461,10 +4492,9 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
     target_fact.literal_fact,
     target,
   )
-  let direct_null_operand = match target_fact.node_op {
-    @ir.HotOp::RefNull => true
-    _ => false
-  }
+  let direct_null_fact = OiRefCastSourceTargetDirectNullFact::from_node_op(
+    target_fact.node_op,
+  )
   let local_relation = OiRefCastLocalTargetRelationFact::from_target_fact(
     ctx, target_fact, target,
   )
@@ -4482,7 +4512,7 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
         relation,
       )
       {
-        direct_null_fact: { direct_null_operand, },
+        direct_null_fact,
         identity_fact: {
           nullable_exact_target_type_fact: OiRefTargetIdentityProofFact::when_proven(
             RefTargetNullableExactTargetTypeIdentity,
@@ -4534,7 +4564,7 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
     }
     None =>
       {
-        direct_null_fact: { direct_null_operand, },
+        direct_null_fact,
         identity_fact: {
           nullable_exact_target_type_fact: None,
           exact_target_heap_fact: None,
@@ -4571,7 +4601,7 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
 fn OiRefCastSourceTargetRelationFact::proves_direct_null_operand(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.direct_null_fact.direct_null_operand
+  self.direct_null_fact.proves_direct_null_operand()
 }
 
 ///|
