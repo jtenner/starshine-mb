@@ -14514,34 +14514,35 @@ fn OiBooleanConstantLeafFact::proves_boolean_leaf(
 }
 
 ///|
+priv enum OiBooleanConstantIfPayloadKind {
+  BooleanConstantIfPayloadNoProof
+  BooleanConstantIfMissingElse
+  BooleanConstantIfMultiResultArms
+  BooleanConstantIfNonBooleanArm
+  BooleanConstantIfBooleanArms
+}
+
+///|
 priv struct OiBooleanConstantIfPayloadFact {
-  if_shell : Bool
-  has_else : Bool
-  single_result_arms : Bool
-  then_arm_boolean : Bool
-  else_arm_boolean : Bool
+  kind : OiBooleanConstantIfPayloadKind
 }
 
 ///|
 fn OiBooleanConstantIfPayloadFact::empty() -> OiBooleanConstantIfPayloadFact {
-  {
-    if_shell: false,
-    has_else: false,
-    single_result_arms: false,
-    then_arm_boolean: false,
-    else_arm_boolean: false,
-  }
+  { kind: BooleanConstantIfPayloadNoProof }
 }
 
 ///|
 fn OiBooleanConstantIfPayloadFact::proves_boolean_if_tree(
   self : OiBooleanConstantIfPayloadFact,
 ) -> Bool {
-  self.if_shell &&
-  self.has_else &&
-  self.single_result_arms &&
-  self.then_arm_boolean &&
-  self.else_arm_boolean
+  match self.kind {
+    BooleanConstantIfPayloadNoProof => false
+    BooleanConstantIfMissingElse => false
+    BooleanConstantIfMultiResultArms => false
+    BooleanConstantIfNonBooleanArm => false
+    BooleanConstantIfBooleanArms => true
+  }
 }
 
 ///|
@@ -14594,13 +14595,7 @@ fn OiBooleanConstantTreeFact::from_node(
       return {
         live: true,
         leaf_fact: empty_leaf,
-        if_payload: {
-          if_shell: true,
-          has_else: false,
-          single_result_arms: false,
-          then_arm_boolean: false,
-          else_arm_boolean: false,
-        },
+        if_payload: { kind: BooleanConstantIfMissingElse },
       }
   }
   let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -14609,13 +14604,7 @@ fn OiBooleanConstantTreeFact::from_node(
     return {
       live: true,
       leaf_fact: empty_leaf,
-      if_payload: {
-        if_shell: true,
-        has_else: true,
-        single_result_arms,
-        then_arm_boolean: false,
-        else_arm_boolean: false,
-      },
+      if_payload: { kind: BooleanConstantIfMultiResultArms },
     }
   }
   let then_fact = OiBooleanConstantTreeFact::from_node(
@@ -14628,17 +14617,13 @@ fn OiBooleanConstantTreeFact::from_node(
     dead,
     @ir.hot_region_get(func, else_region, 0),
   )
-  {
-    live: true,
-    leaf_fact: empty_leaf,
-    if_payload: {
-      if_shell: true,
-      has_else: true,
-      single_result_arms,
-      then_arm_boolean: then_fact.proves_boolean_tree(),
-      else_arm_boolean: else_fact.proves_boolean_tree(),
-    },
+  let kind = if then_fact.proves_boolean_tree() &&
+    else_fact.proves_boolean_tree() {
+    BooleanConstantIfBooleanArms
+  } else {
+    BooleanConstantIfNonBooleanArm
   }
+  { live: true, leaf_fact: empty_leaf, if_payload: { kind, } }
 }
 
 ///|
@@ -14714,37 +14699,37 @@ fn OiBooleanTreeLeafFact::proves_allowed_leaf(
 }
 
 ///|
+priv enum OiBooleanTreeIfPayloadKind {
+  BooleanTreeIfPayloadNoProof
+  BooleanTreeIfShared
+  BooleanTreeIfMissingElse
+  BooleanTreeIfMultiResultArms
+  BooleanTreeIfNonBooleanArm
+  BooleanTreeIfAllowedArms
+}
+
+///|
 priv struct OiBooleanTreeIfPayloadFact {
-  use_count_allows_if : Bool
-  if_shell : Bool
-  has_else : Bool
-  single_result_arms : Bool
-  then_arm_allowed : Bool
-  else_arm_allowed : Bool
+  kind : OiBooleanTreeIfPayloadKind
 }
 
 ///|
 fn OiBooleanTreeIfPayloadFact::empty() -> OiBooleanTreeIfPayloadFact {
-  {
-    use_count_allows_if: false,
-    if_shell: false,
-    has_else: false,
-    single_result_arms: false,
-    then_arm_allowed: false,
-    else_arm_allowed: false,
-  }
+  { kind: BooleanTreeIfPayloadNoProof }
 }
 
 ///|
 fn OiBooleanTreeIfPayloadFact::proves_allowed_if_tree(
   self : OiBooleanTreeIfPayloadFact,
 ) -> Bool {
-  self.use_count_allows_if &&
-  self.if_shell &&
-  self.has_else &&
-  self.single_result_arms &&
-  self.then_arm_allowed &&
-  self.else_arm_allowed
+  match self.kind {
+    BooleanTreeIfPayloadNoProof => false
+    BooleanTreeIfShared => false
+    BooleanTreeIfMissingElse => false
+    BooleanTreeIfMultiResultArms => false
+    BooleanTreeIfNonBooleanArm => false
+    BooleanTreeIfAllowedArms => true
+  }
 }
 
 ///|
@@ -14781,15 +14766,11 @@ fn OiBooleanTreeUnsharedFact::from_node(
     }
   }
   let empty_leaf = OiBooleanTreeLeafFact::empty()
-  let use_count_allows_if = @ir.node_use_count(use_def, node_id) <= 1
-  if !use_count_allows_if {
+  if @ir.node_use_count(use_def, node_id) > 1 {
     return {
       live: true,
       leaf_fact: empty_leaf,
-      if_payload: {
-        ..OiBooleanTreeIfPayloadFact::empty(),
-        use_count_allows_if,
-      },
+      if_payload: { kind: BooleanTreeIfShared },
     }
   }
   match @ir.hot_node_get(func, node_id).op {
@@ -14798,10 +14779,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
       return {
         live: true,
         leaf_fact: empty_leaf,
-        if_payload: {
-          ..OiBooleanTreeIfPayloadFact::empty(),
-          use_count_allows_if,
-        },
+        if_payload: OiBooleanTreeIfPayloadFact::empty(),
       }
   }
   let then_region = @ir.hot_region_then_ref(func, node_id)
@@ -14811,14 +14789,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
       return {
         live: true,
         leaf_fact: empty_leaf,
-        if_payload: {
-          use_count_allows_if,
-          if_shell: true,
-          has_else: false,
-          single_result_arms: false,
-          then_arm_allowed: false,
-          else_arm_allowed: false,
-        },
+        if_payload: { kind: BooleanTreeIfMissingElse },
       }
   }
   let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -14827,14 +14798,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
     return {
       live: true,
       leaf_fact: empty_leaf,
-      if_payload: {
-        use_count_allows_if,
-        if_shell: true,
-        has_else: true,
-        single_result_arms,
-        then_arm_allowed: false,
-        else_arm_allowed: false,
-      },
+      if_payload: { kind: BooleanTreeIfMultiResultArms },
     }
   }
   let then_fact = OiBooleanTreeUnsharedFact::from_node(
@@ -14849,18 +14813,13 @@ fn OiBooleanTreeUnsharedFact::from_node(
     use_def,
     @ir.hot_region_get(func, else_region, 0),
   )
-  {
-    live: true,
-    leaf_fact: empty_leaf,
-    if_payload: {
-      use_count_allows_if,
-      if_shell: true,
-      has_else: true,
-      single_result_arms,
-      then_arm_allowed: then_fact.proves_allowed_tree(),
-      else_arm_allowed: else_fact.proves_allowed_tree(),
-    },
+  let kind = if then_fact.proves_allowed_tree() &&
+    else_fact.proves_allowed_tree() {
+    BooleanTreeIfAllowedArms
+  } else {
+    BooleanTreeIfNonBooleanArm
   }
+  { live: true, leaf_fact: empty_leaf, if_payload: { kind, } }
 }
 
 ///|
