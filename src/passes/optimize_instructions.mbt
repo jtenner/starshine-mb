@@ -12688,6 +12688,67 @@ fn OiSharedCrossSafeLeafFact::proves_safe(
 }
 
 ///|
+priv enum OiLocalGetCrossingChildTraversalKind {
+  OiLocalGetCrossingChildTraversalSkipped
+  OiLocalGetCrossingAllChildrenClear
+  OiLocalGetCrossingBlockedChild
+}
+
+///|
+priv struct OiLocalGetCrossingChildTraversalFact {
+  kind : OiLocalGetCrossingChildTraversalKind
+}
+
+///|
+fn OiLocalGetCrossingChildTraversalFact::skipped() -> OiLocalGetCrossingChildTraversalFact {
+  { kind: OiLocalGetCrossingChildTraversalSkipped }
+}
+
+///|
+fn OiLocalGetCrossingChildTraversalFact::from_children(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  use_def : @ir.HotUseDef,
+  node : @ir.HotNode,
+  local_id : Int,
+  loop_input_nodes : @bitset.BitSet,
+  seen_stamps : Array[Int],
+  seen_stamp : Int,
+) -> OiLocalGetCrossingChildTraversalFact {
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_is_local_tee_payload = match node.op {
+      @ir.HotOp::LocalTee => slot == 0
+      _ => false
+    }
+    if !OiLocalGetCrossingFact::from_node(
+        func,
+        dead,
+        use_def,
+        func.children[node.child_base + slot],
+        local_id,
+        child_is_local_tee_payload,
+        loop_input_nodes,
+        seen_stamps,
+        seen_stamp,
+      ).proves_crossing_allowed() {
+      return { kind: OiLocalGetCrossingBlockedChild }
+    }
+  }
+  { kind: OiLocalGetCrossingAllChildrenClear }
+}
+
+///|
+fn OiLocalGetCrossingChildTraversalFact::proves_children_clear(
+  self : OiLocalGetCrossingChildTraversalFact,
+) -> Bool {
+  match self.kind {
+    OiLocalGetCrossingChildTraversalSkipped => true
+    OiLocalGetCrossingAllChildrenClear => true
+    OiLocalGetCrossingBlockedChild => false
+  }
+}
+
+///|
 priv struct OiLocalGetCrossingFact {
   live : Bool
   repeated_visit : Bool
@@ -12695,7 +12756,7 @@ priv struct OiLocalGetCrossingFact {
   unsupported_control : Bool
   shared_use_hazard : Bool
   same_local_write : Bool
-  children_can_cross : Bool
+  child_traversal : OiLocalGetCrossingChildTraversalFact
 }
 
 ///|
@@ -12715,7 +12776,7 @@ fn OiLocalGetCrossingFact::from_node(
   // unsupported control/EH. Preserve the previous Starshine subset as a
   // fact-driven traversal: live/revisit boundaries, loop-input blockers,
   // accepted control roots, shared-use leaf safety, same-local writes, and child
-  // crossing all become named evidence fields rather than a standalone scanner.
+  // traversal all become named evidence facts rather than a standalone scanner.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return {
       live: false,
@@ -12724,7 +12785,7 @@ fn OiLocalGetCrossingFact::from_node(
       unsupported_control: false,
       shared_use_hazard: false,
       same_local_write: false,
-      children_can_cross: true,
+      child_traversal: OiLocalGetCrossingChildTraversalFact::skipped(),
     }
   }
   if node_id < seen_stamps.length() && seen_stamps[node_id] == seen_stamp {
@@ -12735,7 +12796,7 @@ fn OiLocalGetCrossingFact::from_node(
       unsupported_control: false,
       shared_use_hazard: false,
       same_local_write: false,
-      children_can_cross: true,
+      child_traversal: OiLocalGetCrossingChildTraversalFact::skipped(),
     }
   }
   if node_id < seen_stamps.length() {
@@ -12749,7 +12810,7 @@ fn OiLocalGetCrossingFact::from_node(
       unsupported_control: false,
       shared_use_hazard: false,
       same_local_write: false,
-      children_can_cross: true,
+      child_traversal: OiLocalGetCrossingChildTraversalFact::skipped(),
     }
   }
   let node = if node_id < func.nodes.length() {
@@ -12790,27 +12851,14 @@ fn OiLocalGetCrossingFact::from_node(
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id => true
     _ => false
   }
-  let mut children_can_cross = true
-  if !unsupported_control && !shared_use_hazard && !same_local_write {
-    for slot = 0; slot < node.child_count; slot = slot + 1 {
-      let child_is_local_tee_payload = match node.op {
-        @ir.HotOp::LocalTee => slot == 0
-        _ => false
-      }
-      if !OiLocalGetCrossingFact::from_node(
-          func,
-          dead,
-          use_def,
-          func.children[node.child_base + slot],
-          local_id,
-          child_is_local_tee_payload,
-          loop_input_nodes,
-          seen_stamps,
-          seen_stamp,
-        ).proves_can_cross() {
-        children_can_cross = false
-      }
-    }
+  let child_traversal = if unsupported_control ||
+    shared_use_hazard ||
+    same_local_write {
+    OiLocalGetCrossingChildTraversalFact::skipped()
+  } else {
+    OiLocalGetCrossingChildTraversalFact::from_children(
+      func, dead, use_def, node, local_id, loop_input_nodes, seen_stamps, seen_stamp,
+    )
   }
   {
     live: true,
@@ -12819,12 +12867,12 @@ fn OiLocalGetCrossingFact::from_node(
     unsupported_control,
     shared_use_hazard,
     same_local_write,
-    children_can_cross,
+    child_traversal,
   }
 }
 
 ///|
-fn OiLocalGetCrossingFact::proves_can_cross(
+fn OiLocalGetCrossingFact::proves_crossing_allowed(
   self : OiLocalGetCrossingFact,
 ) -> Bool {
   ignore(self.live)
@@ -12834,7 +12882,7 @@ fn OiLocalGetCrossingFact::proves_can_cross(
     !self.unsupported_control &&
     !self.shared_use_hazard &&
     !self.same_local_write &&
-    self.children_can_cross
+    self.child_traversal.proves_children_clear()
   )
 }
 
@@ -14649,7 +14697,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = OiLocalGetCrossingFact::from_node(
+      let crossing_allowed = OiLocalGetCrossingFact::from_node(
         func,
         dead,
         use_def,
@@ -14659,8 +14707,8 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
-      ).proves_can_cross()
-      if !can_cross {
+      ).proves_crossing_allowed()
+      if !crossing_allowed {
         return false
       }
       optimize_instructions_rewrite_exact_with_children(
@@ -14691,7 +14739,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = OiLocalGetCrossingFact::from_node(
+      let crossing_allowed = OiLocalGetCrossingFact::from_node(
         func,
         dead,
         use_def,
@@ -14701,8 +14749,8 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
-      ).proves_can_cross()
-      if !can_cross {
+      ).proves_crossing_allowed()
+      if !crossing_allowed {
         return false
       }
       optimize_instructions_rewrite_exact_with_children(
