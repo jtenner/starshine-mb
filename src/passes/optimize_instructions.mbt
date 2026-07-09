@@ -29041,7 +29041,7 @@ fn OiStandaloneRefGetDescBlockMoveFact::from_block(
   // or one of the supported branch roots, and the final root must preserve the
   // nullable reference/control handoff shape. Prefix and final payload facts
   // keep those two source-order checks explicit instead of open movement flags.
-  let empty = {
+  let empty : OiStandaloneRefGetDescBlockMoveFact = {
     live: false,
     single_nullable_ref_result: false,
     nonempty_region: false,
@@ -29092,14 +29092,90 @@ fn OiStandaloneRefGetDescBlockMoveFact::proves_nullable_block_move_allowed(
 }
 
 ///|
+priv struct OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact {
+  branch_free_roots : Bool
+  roots_void_control_allowed : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::empty() -> OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact {
+  { branch_free_roots: false, roots_void_control_allowed: false }
+}
+
+///|
+fn OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::from_region_prefix(
+  func : @ir.HotFunc,
+  block_id : Int,
+  body : @ir.HotRegionRef,
+  root_count : Int,
+) -> OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact {
+  // Source-order prefix fact for the represented known-null standalone
+  // ref.get_desc block path: every non-final root must be void/control-safe and
+  // must not be a branch root, matching the previous narrow Binaryen-style
+  // skipNonNullCast operand movement boundary without an open whitelist flag.
+  let mut branch_free_roots = true
+  let mut roots_void_control_allowed = true
+  for slot = 0; slot < root_count - 1; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, body, slot)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Br
+      | @ir.HotOp::BrIf
+      | @ir.HotOp::BrTable
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail => branch_free_roots = false
+      _ => ()
+    }
+    let control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
+      func, block_id, root_id,
+    )
+    if !OiResultShapeFact::from_node(func, root_id).proves_no_results() ||
+      control_fact.proves_disallowed_control_or_multivalue() {
+      roots_void_control_allowed = false
+    }
+  }
+  { branch_free_roots, roots_void_control_allowed }
+}
+
+///|
+priv struct OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact {
+  known_null_ref_null_leaf : Bool
+  control_allowed : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::empty() -> OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact {
+  { known_null_ref_null_leaf: false, control_allowed: false }
+}
+
+///|
+fn OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::from_final_root(
+  func : @ir.HotFunc,
+  block_id : Int,
+  final_id : Int,
+) -> OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact {
+  // Final-root payload for the known-null standalone ref.get_desc block path:
+  // the result root must be the represented ref.null leaf and must not carry
+  // unsupported nested control/multivalue effects.
+  let final_control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
+    func, block_id, final_id,
+  )
+  {
+    known_null_ref_null_leaf: OiStandaloneRefGetDescLeafFact::from_node(
+      func, final_id,
+    ).proves_known_null_ref_null_leaf(),
+    control_allowed: !final_control_fact.proves_disallowed_control_or_multivalue(),
+  }
+}
+
+///|
 priv struct OiStandaloneRefGetDescKnownNullBlockFact {
   live : Bool
   single_nullable_ref_result : Bool
   nonempty_region : Bool
-  branch_free_prefix_roots : Bool
-  prefix_roots_void_control_allowed : Bool
-  final_known_null_ref_null_leaf : Bool
-  final_control_allowed : Bool
+  prefix_payload : OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact
+  final_payload : OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact
 }
 
 ///|
@@ -29111,14 +29187,12 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
   // branch-free block subset expressed as a fact: void/control-safe prefix
   // roots, no branch roots, and a final ref.null leaf with no nested unsupported
   // control or multivalue result.
-  let empty = {
+  let empty : OiStandaloneRefGetDescKnownNullBlockFact = {
     live: false,
     single_nullable_ref_result: false,
     nonempty_region: false,
-    branch_free_prefix_roots: false,
-    prefix_roots_void_control_allowed: false,
-    final_known_null_ref_null_leaf: false,
-    final_control_allowed: false,
+    prefix_payload: OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::empty(),
+    final_payload: OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::empty(),
   }
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
     return empty
@@ -29136,42 +29210,19 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
   if root_count == 0 {
     return { ..empty, live: true, single_nullable_ref_result }
   }
-  let mut branch_free_prefix_roots = true
-  let mut prefix_roots_void_control_allowed = true
-  for slot = 0; slot < root_count - 1; slot = slot + 1 {
-    let root_id = @ir.hot_region_get(func, body, slot)
-    match @ir.hot_node_get(func, root_id).op {
-      @ir.HotOp::Br
-      | @ir.HotOp::BrIf
-      | @ir.HotOp::BrTable
-      | @ir.HotOp::BrOnNull
-      | @ir.HotOp::BrOnNonNull
-      | @ir.HotOp::BrOnCast
-      | @ir.HotOp::BrOnCastFail => branch_free_prefix_roots = false
-      _ => ()
-    }
-    let control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
-      func, block_id, root_id,
-    )
-    if !OiResultShapeFact::from_node(func, root_id).proves_no_results() ||
-      control_fact.proves_disallowed_control_or_multivalue() {
-      prefix_roots_void_control_allowed = false
-    }
-  }
+  let prefix_payload = OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::from_region_prefix(
+    func, block_id, body, root_count,
+  )
   let final_id = @ir.hot_region_get(func, body, root_count - 1)
-  let final_control_fact = OiStandaloneRefGetDescControlShapeFact::from_node(
+  let final_payload = OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::from_final_root(
     func, block_id, final_id,
   )
   {
     live: true,
     single_nullable_ref_result,
     nonempty_region: true,
-    branch_free_prefix_roots,
-    prefix_roots_void_control_allowed,
-    final_known_null_ref_null_leaf: OiStandaloneRefGetDescLeafFact::from_node(
-      func, final_id,
-    ).proves_known_null_ref_null_leaf(),
-    final_control_allowed: !final_control_fact.proves_disallowed_control_or_multivalue(),
+    prefix_payload,
+    final_payload,
   }
 }
 
@@ -29182,10 +29233,10 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::proves_known_null_child(
   self.live &&
   self.single_nullable_ref_result &&
   self.nonempty_region &&
-  self.branch_free_prefix_roots &&
-  self.prefix_roots_void_control_allowed &&
-  self.final_known_null_ref_null_leaf &&
-  self.final_control_allowed
+  self.prefix_payload.branch_free_roots &&
+  self.prefix_payload.roots_void_control_allowed &&
+  self.final_payload.known_null_ref_null_leaf &&
+  self.final_payload.control_allowed
 }
 
 ///|
