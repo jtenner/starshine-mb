@@ -6914,6 +6914,71 @@ test "dae droppable pure control value evidence centralizes control cleanup proo
 }
 
 ///|
+test "dae redundant access cleanup evidence centralizes adjacent pair rewrites" {
+  let slot = @lib.LocalIdx::new(1U)
+  let other = @lib.LocalIdx::new(2U)
+  match
+    dae_redundant_access_cleanup_evidence(
+      @lib.Instruction::local_get(slot),
+      @lib.Instruction::local_set(slot),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 0)
+      assert_true(evidence.pop_previous)
+      assert_true(evidence.skip_current)
+      assert_eq(evidence.replacement, [])
+      assert_true(dae_redundant_access_cleanup_evidence_is_consistent(evidence))
+    }
+    None => fail("expected local.get/local.set cleanup evidence")
+  }
+  match
+    dae_redundant_access_cleanup_evidence(
+      @lib.Instruction::local_get(slot),
+      @lib.Instruction::local_tee(slot),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 1)
+      assert_false(evidence.pop_previous)
+      assert_true(evidence.skip_current)
+      assert_eq(evidence.replacement, [])
+    }
+    None => fail("expected local.get/local.tee cleanup evidence")
+  }
+  match
+    dae_redundant_access_cleanup_evidence(
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 2)
+      assert_true(evidence.pop_previous)
+      assert_eq(evidence.replacement, [])
+    }
+    None => fail("expected global.get/global.set cleanup evidence")
+  }
+  match
+    dae_redundant_access_cleanup_evidence(
+      @lib.Instruction::local_tee(slot),
+      @lib.Instruction::local_set(slot),
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 3)
+      assert_true(evidence.pop_previous)
+      assert_eq(evidence.replacement, [@lib.Instruction::local_set(slot)])
+    }
+    None => fail("expected local.tee/local.set cleanup evidence")
+  }
+  match
+    dae_redundant_access_cleanup_evidence(
+      @lib.Instruction::local_get(slot),
+      @lib.Instruction::local_set(other),
+    ) {
+    Some(_) => fail("different locals must not produce cleanup evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae local-get range evidence centralizes cleanup local proof" {
   let tmp = @lib.LocalIdx::new(1U)
   let singleton_local = [@lib.Instruction::local_get(tmp)]

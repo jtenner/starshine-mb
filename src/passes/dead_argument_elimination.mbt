@@ -106,6 +106,14 @@ priv struct DaeLocalGetRangeEvidence {
 }
 
 ///|
+priv struct DaeRedundantAccessCleanupEvidence {
+  cleanup_kind : Int
+  pop_previous : Bool
+  skip_current : Bool
+  replacement : Array[@lib.Instruction]
+}
+
+///|
 priv struct DaeDroppablePureStackEvidence {
   start : Int
   end : Int
@@ -17592,6 +17600,72 @@ fn dae_local_get_range_evidence(
 }
 
 ///|
+fn dae_redundant_access_cleanup_evidence_is_consistent(
+  evidence : DaeRedundantAccessCleanupEvidence,
+) -> Bool {
+  evidence.cleanup_kind >= 0 &&
+  evidence.cleanup_kind <= 3 &&
+  evidence.skip_current &&
+  (evidence.pop_previous || evidence.replacement.length() == 0) &&
+  evidence.replacement.length() <= 1
+}
+
+///|
+fn dae_redundant_access_cleanup_evidence(
+  previous : @lib.Instruction,
+  current : @lib.Instruction,
+) -> DaeRedundantAccessCleanupEvidence? {
+  let evidence = match (previous, current) {
+    (@lib.LocalGet(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(lhs, rhs) =>
+      Some({
+        cleanup_kind: 0,
+        pop_previous: true,
+        skip_current: true,
+        replacement: [],
+      })
+    (@lib.LocalGet(lhs), @lib.LocalTee(rhs)) if dae_local_idx_equal(lhs, rhs) =>
+      Some({
+        cleanup_kind: 1,
+        pop_previous: false,
+        skip_current: true,
+        replacement: [],
+      })
+    (@lib.GlobalGet(lhs), @lib.GlobalSet(rhs)) if dae_global_idx_equal(lhs, rhs) =>
+      Some({
+        cleanup_kind: 2,
+        pop_previous: true,
+        skip_current: true,
+        replacement: [],
+      })
+    (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(lhs, rhs) =>
+      Some({
+        cleanup_kind: 3,
+        pop_previous: true,
+        skip_current: true,
+        replacement: [@lib.Instruction::local_set(lhs)],
+      })
+    _ => None
+  }
+  match evidence {
+    Some(evidence) if dae_redundant_access_cleanup_evidence_is_consistent(
+        evidence,
+      ) => Some(evidence)
+    _ => None
+  }
+}
+
+///|
+fn dae_apply_redundant_access_cleanup_evidence(
+  out : Array[@lib.Instruction],
+  evidence : DaeRedundantAccessCleanupEvidence,
+) -> Unit {
+  if evidence.pop_previous {
+    ignore(out.pop())
+  }
+  dae_push_instrs(out, evidence.replacement)
+}
+
+///|
 fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit {
   while out.length() > new_length {
     ignore(out.pop())
@@ -18246,36 +18320,13 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     }
     if out.length() > 0 {
       let last_idx = out.length() - 1
-      match (out[last_idx], instrs[idx]) {
-        (@lib.LocalGet(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
-            lhs, rhs,
-          ) => {
-          ignore(out.pop())
+      match dae_redundant_access_cleanup_evidence(out[last_idx], instrs[idx]) {
+        Some(evidence) => {
+          dae_apply_redundant_access_cleanup_evidence(out, evidence)
           idx += 1
           continue
         }
-        (@lib.LocalGet(lhs), @lib.LocalTee(rhs)) if dae_local_idx_equal(
-            lhs, rhs,
-          ) => {
-          idx += 1
-          continue
-        }
-        (@lib.GlobalGet(lhs), @lib.GlobalSet(rhs)) if dae_global_idx_equal(
-            lhs, rhs,
-          ) => {
-          ignore(out.pop())
-          idx += 1
-          continue
-        }
-        (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
-            lhs, rhs,
-          ) => {
-          ignore(out.pop())
-          out.push(@lib.Instruction::local_set(lhs))
-          idx += 1
-          continue
-        }
-        _ => ()
+        None => ()
       }
     }
     if idx + 2 < instrs.length() {
