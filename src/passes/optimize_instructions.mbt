@@ -2294,6 +2294,7 @@ fn OiRefProducerSubtypeRelationFact::proves_exact(
 
 ///|
 priv enum OiRefTargetIdentityKind {
+  RefTargetNullableExactTargetTypeIdentity
   RefTargetExactHeapIdentity
   RefTargetExactNonNullHeapIdentity
   RefTargetFinalHeapIdentity
@@ -2322,6 +2323,10 @@ fn OiRefTargetIdentityProofFact::proves_kind(
   kind : OiRefTargetIdentityKind,
 ) -> Bool {
   match (self.kind, kind) {
+    (
+      RefTargetNullableExactTargetTypeIdentity,
+      RefTargetNullableExactTargetTypeIdentity,
+    ) => true
     (RefTargetExactHeapIdentity, RefTargetExactHeapIdentity) => true
     (RefTargetExactNonNullHeapIdentity, RefTargetExactNonNullHeapIdentity) =>
       true
@@ -4215,8 +4220,8 @@ fn OiRefCastLocalTargetRelationFact::proves_null_or_miss_for_non_null_target(
 
 ///|
 priv struct OiRefCastSourceTargetIdentityFact {
-  nullable_exact_target_type : Bool
-  exact_target_heap : Bool
+  nullable_exact_target_type_fact : OiRefTargetIdentityProofFact?
+  exact_target_heap_fact : OiRefTargetIdentityProofFact?
 }
 
 ///|
@@ -4281,8 +4286,14 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
       {
         direct_null_fact: { direct_null_operand, },
         identity_fact: {
-          nullable_exact_target_type: ref_type.is_nullable() && source == target,
-          exact_target_heap: ref_type.is_exact() && source == target,
+          nullable_exact_target_type_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetNullableExactTargetTypeIdentity,
+            ref_type.is_nullable() && source == target,
+          ),
+          exact_target_heap_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetExactHeapIdentity,
+            ref_type.is_exact() && source == target,
+          ),
         },
         match_fact: {
           non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
@@ -4327,8 +4338,8 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
       {
         direct_null_fact: { direct_null_operand, },
         identity_fact: {
-          nullable_exact_target_type: false,
-          exact_target_heap: false,
+          nullable_exact_target_type_fact: None,
+          exact_target_heap_fact: None,
         },
         match_fact: {
           non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
@@ -4369,14 +4380,20 @@ fn OiRefCastSourceTargetRelationFact::proves_direct_null_operand(
 fn OiRefCastSourceTargetRelationFact::proves_nullable_exact_target_type(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.nullable_exact_target_type
+  match self.identity_fact.nullable_exact_target_type_fact {
+    Some(fact) => fact.proves_kind(RefTargetNullableExactTargetTypeIdentity)
+    None => false
+  }
 }
 
 ///|
 fn OiRefCastSourceTargetRelationFact::proves_exact_target_heap(
   self : OiRefCastSourceTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.exact_target_heap
+  match self.identity_fact.exact_target_heap_fact {
+    Some(fact) => fact.proves_kind(RefTargetExactHeapIdentity)
+    None => false
+  }
 }
 
 ///|
