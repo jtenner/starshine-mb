@@ -24350,9 +24350,15 @@ priv struct OiIdenticalPureExpressionFact {
 }
 
 ///|
+priv enum OiReferenceLeafEqualityKind {
+  ReferenceLeafNoMatch
+  ReferenceLeafRefNullMatch
+  ReferenceLeafRefFuncMatch
+}
+
+///|
 priv struct OiReferenceLeafEqualityFact {
-  matching_ref_null_leaf : Bool
-  matching_ref_func_leaf : Bool
+  kind : OiReferenceLeafEqualityKind
 }
 
 ///|
@@ -24364,46 +24370,46 @@ fn OiReferenceLeafEqualityFact::from_nodes(
   // Binaryen v130 `ExpressionAnalyzer::equal` compares reference leaves by
   // their literal heap/function target. Starshine also accepts HOT-lowered
   // RefNull/RefFunc node payloads whose result types preserve the reference
-  // type. Keep that represented subset as a fact instead of an arm-local helper
-  // scanner.
-  let mut matching_ref_null_leaf = false
-  let mut matching_ref_func_leaf = false
+  // type. Keep that represented subset as a selected fact kind instead of an
+  // arm-local helper scanner or parallel match booleans.
   match (@ir.hot_node_get(func, lhs_id), @ir.hot_node_get(func, rhs_id)) {
     (
       { op: @ir.HotOp::RefNull, ty: lhs_ty, .. },
       { op: @ir.HotOp::RefNull, ty: rhs_ty, .. },
-    ) => matching_ref_null_leaf = lhs_ty == rhs_ty
+    ) if lhs_ty == rhs_ty => { kind: ReferenceLeafRefNullMatch }
     (
       { op: @ir.HotOp::RefFunc, ty: lhs_ty, imm0: lhs_func, .. },
       { op: @ir.HotOp::RefFunc, ty: rhs_ty, imm0: rhs_func, .. },
-    ) => matching_ref_func_leaf = lhs_ty == rhs_ty && lhs_func == rhs_func
-    _ => ()
+    ) if lhs_ty == rhs_ty && lhs_func == rhs_func =>
+      { kind: ReferenceLeafRefFuncMatch }
+    _ =>
+      match
+        (
+          @ir.hot_node_exact_instr(func, lhs_id),
+          @ir.hot_node_exact_instr(func, rhs_id),
+        ) {
+        (
+          Some(@lib.Instruction::RefNull(lhs)),
+          Some(@lib.Instruction::RefNull(rhs)),
+        ) if lhs == rhs => { kind: ReferenceLeafRefNullMatch }
+        (
+          Some(@lib.Instruction::RefFunc(lhs)),
+          Some(@lib.Instruction::RefFunc(rhs)),
+        ) if lhs == rhs => { kind: ReferenceLeafRefFuncMatch }
+        _ => { kind: ReferenceLeafNoMatch }
+      }
   }
-  if !matching_ref_null_leaf && !matching_ref_func_leaf {
-    match
-      (
-        @ir.hot_node_exact_instr(func, lhs_id),
-        @ir.hot_node_exact_instr(func, rhs_id),
-      ) {
-      (
-        Some(@lib.Instruction::RefNull(lhs)),
-        Some(@lib.Instruction::RefNull(rhs)),
-      ) => matching_ref_null_leaf = lhs == rhs
-      (
-        Some(@lib.Instruction::RefFunc(lhs)),
-        Some(@lib.Instruction::RefFunc(rhs)),
-      ) => matching_ref_func_leaf = lhs == rhs
-      _ => ()
-    }
-  }
-  { matching_ref_null_leaf, matching_ref_func_leaf }
 }
 
 ///|
 fn OiReferenceLeafEqualityFact::proves_equal(
   self : OiReferenceLeafEqualityFact,
 ) -> Bool {
-  self.matching_ref_null_leaf || self.matching_ref_func_leaf
+  match self.kind {
+    ReferenceLeafNoMatch => false
+    ReferenceLeafRefNullMatch => true
+    ReferenceLeafRefFuncMatch => true
+  }
 }
 
 ///|
