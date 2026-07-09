@@ -160,6 +160,17 @@ priv struct DaeDroppedPureLeafCleanupEvidence {
 }
 
 ///|
+priv struct DaeDroppedPureExpressionCleanupEvidence {
+  cleanup_kind : Int
+  start : Int
+  end : Int
+  next_idx : Int
+  operand_count : Int
+  operator_count : Int
+  uses_leaf_preservation_policy : Bool
+}
+
+///|
 priv struct DaeDroppablePureControlValueEvidence {
   input_count : Int
   output_count : Int
@@ -18130,6 +18141,116 @@ fn dae_dropped_pure_leaf_cleanup_allows_leaf_drop(
 }
 
 ///|
+fn dae_dropped_pure_expression_cleanup_evidence_is_consistent(
+  evidence : DaeDroppedPureExpressionCleanupEvidence,
+) -> Bool {
+  evidence.start >= 0 &&
+  evidence.start < evidence.end &&
+  evidence.end == evidence.next_idx &&
+  evidence.end - evidence.start ==
+  evidence.operand_count + evidence.operator_count + 1 &&
+  (match evidence.cleanup_kind {
+    1 =>
+      evidence.operand_count == 1 &&
+      evidence.operator_count == 0 &&
+      evidence.uses_leaf_preservation_policy
+    2 =>
+      evidence.operand_count == 1 &&
+      evidence.operator_count == 1 &&
+      !evidence.uses_leaf_preservation_policy
+    3 =>
+      evidence.operand_count == 2 &&
+      evidence.operator_count == 1 &&
+      !evidence.uses_leaf_preservation_policy
+    _ => false
+  })
+}
+
+///|
+fn dae_dropped_pure_expression_cleanup_evidence(
+  out : Array[@lib.Instruction],
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  preserve_dropped_integer_const_debris : Bool,
+  preserve_effect_dropped_integer_const_debris : Bool,
+) -> DaeDroppedPureExpressionCleanupEvidence? {
+  if idx < 0 || idx >= instrs.length() {
+    return None
+  }
+  let evidence = if idx + 1 < instrs.length() &&
+    instrs[idx + 1] == @lib.Instruction::drop() {
+    let leaf_cleanup = dae_dropped_pure_leaf_cleanup_evidence_from_leaf(
+      out,
+      instrs[idx],
+      preserve_dropped_integer_const_debris,
+      preserve_effect_dropped_integer_const_debris,
+    )
+    if dae_dropped_pure_leaf_cleanup_allows_leaf_drop(leaf_cleanup) {
+      Some({
+        cleanup_kind: 1,
+        start: idx,
+        end: idx + 2,
+        next_idx: idx + 2,
+        operand_count: 1,
+        operator_count: 0,
+        uses_leaf_preservation_policy: true,
+      })
+    } else {
+      None
+    }
+  } else if idx + 2 < instrs.length() &&
+    dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
+    (
+      dae_instr_is_nontrapping_pure_unary(instrs[idx + 1]) ||
+      dae_instr_is_const_safe_float_to_int_unary(instrs[idx], instrs[idx + 1])
+    ) &&
+    instrs[idx + 2] == @lib.Instruction::drop() {
+    Some({
+      cleanup_kind: 2,
+      start: idx,
+      end: idx + 3,
+      next_idx: idx + 3,
+      operand_count: 1,
+      operator_count: 1,
+      uses_leaf_preservation_policy: false,
+    })
+  } else if idx + 3 < instrs.length() &&
+    dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
+    dae_instr_is_droppable_pure_leaf(instrs[idx + 1]) &&
+    (
+      dae_instr_is_nontrapping_pure_binary(instrs[idx + 2]) ||
+      dae_instr_is_const_safe_numeric_binary(
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+      )
+    ) &&
+    instrs[idx + 3] == @lib.Instruction::drop() {
+    match instrs[idx] {
+      @lib.LocalGet(_) => None
+      _ =>
+        Some({
+          cleanup_kind: 3,
+          start: idx,
+          end: idx + 4,
+          next_idx: idx + 4,
+          operand_count: 2,
+          operator_count: 1,
+          uses_leaf_preservation_policy: false,
+        })
+    }
+  } else {
+    None
+  }
+  match evidence {
+    Some(evidence) if dae_dropped_pure_expression_cleanup_evidence_is_consistent(
+        evidence,
+      ) => Some(evidence)
+    _ => None
+  }
+}
+
+///|
 fn dae_empty_zero_result_control_cleanup_evidence_from_lengths(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -18552,47 +18673,15 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
       _ => ()
     }
-    if idx + 1 < instrs.length() && instrs[idx + 1] == @lib.Instruction::drop() {
-      let cleanup_evidence = dae_dropped_pure_leaf_cleanup_evidence_from_leaf(
-        out,
-        instrs[idx],
-        preserve_dropped_integer_const_debris,
-        preserve_effect_dropped_integer_const_debris,
-      )
-      if dae_dropped_pure_leaf_cleanup_allows_leaf_drop(cleanup_evidence) {
-        idx += 2
+    match
+      dae_dropped_pure_expression_cleanup_evidence(
+        out, instrs, idx, preserve_dropped_integer_const_debris, preserve_effect_dropped_integer_const_debris,
+      ) {
+      Some(evidence) => {
+        idx = evidence.next_idx
         continue
       }
-    }
-    if idx + 2 < instrs.length() &&
-      dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
-      (
-        dae_instr_is_nontrapping_pure_unary(instrs[idx + 1]) ||
-        dae_instr_is_const_safe_float_to_int_unary(instrs[idx], instrs[idx + 1])
-      ) &&
-      instrs[idx + 2] == @lib.Instruction::drop() {
-      idx += 3
-      continue
-    }
-    if idx + 3 < instrs.length() &&
-      dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
-      dae_instr_is_droppable_pure_leaf(instrs[idx + 1]) &&
-      (
-        dae_instr_is_nontrapping_pure_binary(instrs[idx + 2]) ||
-        dae_instr_is_const_safe_numeric_binary(
-          instrs[idx],
-          instrs[idx + 1],
-          instrs[idx + 2],
-        )
-      ) &&
-      instrs[idx + 3] == @lib.Instruction::drop() {
-      match instrs[idx] {
-        @lib.LocalGet(_) => ()
-        _ => {
-          idx += 4
-          continue
-        }
-      }
+      None => ()
     }
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body))

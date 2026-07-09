@@ -7341,6 +7341,102 @@ test "dae dropped pure leaf cleanup evidence centralizes stack and leaf preserva
 }
 
 ///|
+test "dae dropped pure expression cleanup evidence centralizes adjacent repair plans" {
+  let effect_prefix = [@lib.Instruction::call(@lib.FuncIdx::new(0U))]
+  let leaf_drop = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::drop(),
+  ]
+  match
+    dae_dropped_pure_expression_cleanup_evidence([], leaf_drop, 0, false, false) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 1)
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 2)
+      assert_eq(evidence.next_idx, 2)
+      assert_eq(evidence.operand_count, 1)
+      assert_eq(evidence.operator_count, 0)
+      assert_true(evidence.uses_leaf_preservation_policy)
+      assert_true(
+        dae_dropped_pure_expression_cleanup_evidence_is_consistent(evidence),
+      )
+    }
+    None => fail("expected adjacent pure leaf cleanup evidence")
+  }
+  match
+    dae_dropped_pure_expression_cleanup_evidence(
+      effect_prefix, leaf_drop, 0, false, true,
+    ) {
+    Some(_) => fail("effect-adjacent integer leaf debris must stay preserved")
+    None => ()
+  }
+  let unary_drop = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::drop(),
+  ]
+  match
+    dae_dropped_pure_expression_cleanup_evidence(
+      effect_prefix, unary_drop, 0, false, true,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 2)
+      assert_eq(evidence.next_idx, 3)
+      assert_eq(evidence.operand_count, 1)
+      assert_eq(evidence.operator_count, 1)
+      assert_false(evidence.uses_leaf_preservation_policy)
+      assert_true(
+        dae_dropped_pure_expression_cleanup_evidence_is_consistent(evidence),
+      )
+    }
+    None => fail("expected adjacent pure unary cleanup evidence")
+  }
+  let binary_drop = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+  ]
+  match
+    dae_dropped_pure_expression_cleanup_evidence(
+      [],
+      binary_drop,
+      0,
+      false,
+      false,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.cleanup_kind, 3)
+      assert_eq(evidence.next_idx, 4)
+      assert_eq(evidence.operand_count, 2)
+      assert_eq(evidence.operator_count, 1)
+      assert_false(evidence.uses_leaf_preservation_policy)
+      assert_true(
+        dae_dropped_pure_expression_cleanup_evidence_is_consistent(evidence),
+      )
+    }
+    None => fail("expected adjacent pure binary cleanup evidence")
+  }
+  let local_lhs_binary_drop = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+  ]
+  match
+    dae_dropped_pure_expression_cleanup_evidence(
+      [],
+      local_lhs_binary_drop,
+      0,
+      false,
+      false,
+    ) {
+    Some(_) => fail("local-get-left binary cleanup must stay conservative")
+    None => ()
+  }
+}
+
+///|
 test "dae empty zero-result control cleanup evidence centralizes body drop" {
   let empty_evidence = dae_empty_zero_result_control_cleanup_evidence(
     @lib.BlockType::void_(),
