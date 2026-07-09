@@ -18772,9 +18772,58 @@ fn OiTupleExtractFact::can_forward_selected_directly(
 }
 
 ///|
-priv struct OiTupleSelectedMaterializeFact {
+priv enum OiTupleSelectedMaterializeKind {
+  TupleSelectedDirectValue
+  TupleSelectedSingleLocal
+  TupleSelectedMultiResultLocals
+}
+
+///|
+priv struct OiTupleSelectedLocalFact {
   selected_local : Int
+}
+
+///|
+priv struct OiTupleSelectedResultLocalsFact {
   selected_result_locals : Array[Int]
+}
+
+///|
+priv struct OiTupleSelectedMaterializeFact {
+  kind : OiTupleSelectedMaterializeKind
+  selected_local_fact : OiTupleSelectedLocalFact?
+  selected_result_locals_fact : OiTupleSelectedResultLocalsFact?
+}
+
+///|
+fn OiTupleSelectedMaterializeFact::direct_value() -> OiTupleSelectedMaterializeFact {
+  {
+    kind: TupleSelectedDirectValue,
+    selected_local_fact: None,
+    selected_result_locals_fact: None,
+  }
+}
+
+///|
+fn OiTupleSelectedMaterializeFact::single_local(
+  selected_local : Int,
+) -> OiTupleSelectedMaterializeFact {
+  {
+    kind: TupleSelectedSingleLocal,
+    selected_local_fact: Some({ selected_local, }),
+    selected_result_locals_fact: None,
+  }
+}
+
+///|
+fn OiTupleSelectedMaterializeFact::multi_result_locals(
+  selected_result_locals : Array[Int],
+) -> OiTupleSelectedMaterializeFact {
+  {
+    kind: TupleSelectedMultiResultLocals,
+    selected_local_fact: None,
+    selected_result_locals_fact: Some({ selected_result_locals, }),
+  }
 }
 
 ///|
@@ -18787,34 +18836,24 @@ fn OiTupleSelectedMaterializeFact::from_extract(
   // `getDroppedChildrenAndAppend(make, get)`. Starshine's HOT tuple shape can
   // directly forward the selected child when no later preserved sibling can
   // reorder around it, but the selected-lane materialization choice still lives
-  // in an explicit fact rather than the tuple body builder.
-  let mut selected_local = -1
-  let selected_result_locals : Array[Int] = []
+  // in an explicit fact rather than the tuple body builder. Keep the single-local
+  // and multi-result-local payloads distinct so the fact does not use a `-1`
+  // selected-local sentinel or parallel helper predicates.
   if tuple_fact.selected_results.length() > 1 {
+    let selected_result_locals : Array[Int] = []
     for result in tuple_fact.selected_results {
       selected_result_locals.push(@ir.hot_append_body_local(func, result))
     }
-  } else if tuple_fact.sibling_effect_fact.needs_selected_local() {
-    selected_local = @ir.hot_append_body_local(
-      func,
-      tuple_fact.selected_results[0],
+    return OiTupleSelectedMaterializeFact::multi_result_locals(
+      selected_result_locals,
     )
   }
-  { selected_local, selected_result_locals }
-}
-
-///|
-fn OiTupleSelectedMaterializeFact::needs_selected_local(
-  self : OiTupleSelectedMaterializeFact,
-) -> Bool {
-  self.selected_local >= 0
-}
-
-///|
-fn OiTupleSelectedMaterializeFact::has_selected_result_locals(
-  self : OiTupleSelectedMaterializeFact,
-) -> Bool {
-  self.selected_result_locals.length() > 0
+  if tuple_fact.sibling_effect_fact.needs_selected_local() {
+    return OiTupleSelectedMaterializeFact::single_local(
+      @ir.hot_append_body_local(func, tuple_fact.selected_results[0]),
+    )
+  }
+  OiTupleSelectedMaterializeFact::direct_value()
 }
 
 ///|
@@ -18824,22 +18863,38 @@ fn OiTupleSelectedMaterializeFact::append_selected_capture(
   tuple_fact : OiTupleExtractFact,
   body : Array[Int],
 ) -> Unit {
-  if self.has_selected_result_locals() {
-    let mut lane = tuple_fact.selected_results.length()
-    while lane > 0 {
-      lane = lane - 1
+  match self.kind {
+    TupleSelectedMultiResultLocals => {
+      let result_locals_fact = match self.selected_result_locals_fact {
+        Some(fact) => fact
+        None => return
+      }
+      let mut lane = tuple_fact.selected_results.length()
+      while lane > 0 {
+        lane = lane - 1
+        body.push(
+          @ir.hot_build_local_set(
+            func,
+            result_locals_fact.selected_result_locals[lane],
+            tuple_fact.selected_id,
+          ),
+        )
+      }
+    }
+    TupleSelectedSingleLocal => {
+      let local_fact = match self.selected_local_fact {
+        Some(fact) => fact
+        None => return
+      }
       body.push(
         @ir.hot_build_local_set(
           func,
-          self.selected_result_locals[lane],
+          local_fact.selected_local,
           tuple_fact.selected_id,
         ),
       )
     }
-  } else if self.needs_selected_local() {
-    body.push(
-      @ir.hot_build_local_set(func, self.selected_local, tuple_fact.selected_id),
-    )
+    TupleSelectedDirectValue => ()
   }
 }
 
@@ -18850,17 +18905,27 @@ fn OiTupleSelectedMaterializeFact::append_selected_result(
   tuple_fact : OiTupleExtractFact,
   body : Array[Int],
 ) -> Unit {
-  if self.has_selected_result_locals() {
-    body.push(
-      @ir.hot_build_local_get(
-        func,
-        self.selected_result_locals[tuple_fact.selected_lane],
-      ),
-    )
-  } else if self.needs_selected_local() {
-    body.push(@ir.hot_build_local_get(func, self.selected_local))
-  } else {
-    body.push(tuple_fact.selected_id)
+  match self.kind {
+    TupleSelectedMultiResultLocals => {
+      let result_locals_fact = match self.selected_result_locals_fact {
+        Some(fact) => fact
+        None => return
+      }
+      body.push(
+        @ir.hot_build_local_get(
+          func,
+          result_locals_fact.selected_result_locals[tuple_fact.selected_lane],
+        ),
+      )
+    }
+    TupleSelectedSingleLocal => {
+      let local_fact = match self.selected_local_fact {
+        Some(fact) => fact
+        None => return
+      }
+      body.push(@ir.hot_build_local_get(func, local_fact.selected_local))
+    }
+    TupleSelectedDirectValue => body.push(tuple_fact.selected_id)
   }
 }
 
