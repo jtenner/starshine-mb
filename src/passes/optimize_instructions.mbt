@@ -10307,9 +10307,59 @@ fn OiCallRefSelectArmFact::from_target_arm(
 }
 
 ///|
+priv enum OiCallRefSelectConditionEffectKind {
+  CallRefSelectConditionEffectsElidable
+  CallRefSelectConditionPreserveByDrop
+}
+
+///|
+priv struct OiCallRefSelectConditionPreserveEffectsFact {
+  condition_drop_id : Int
+}
+
+///|
+priv struct OiCallRefSelectConditionEffectFact {
+  kind : OiCallRefSelectConditionEffectKind
+  preserve_fact : OiCallRefSelectConditionPreserveEffectsFact?
+}
+
+///|
 priv struct OiCallRefSelectConditionFact {
   condition_id : Int
-  has_effects : Bool
+  effect_fact : OiCallRefSelectConditionEffectFact
+}
+
+///|
+fn OiCallRefSelectConditionEffectFact::elidable() -> OiCallRefSelectConditionEffectFact {
+  { kind: CallRefSelectConditionEffectsElidable, preserve_fact: None }
+}
+
+///|
+fn OiCallRefSelectConditionEffectFact::preserve_by_drop(
+  condition_drop_id : Int,
+) -> OiCallRefSelectConditionEffectFact? {
+  if condition_drop_id < 0 {
+    return None
+  }
+  Some({
+    kind: CallRefSelectConditionPreserveByDrop,
+    preserve_fact: Some({ condition_drop_id, }),
+  })
+}
+
+///|
+fn OiCallRefSelectConditionEffectFact::preserved_drop_id(
+  self : OiCallRefSelectConditionEffectFact,
+) -> Int? {
+  match self.kind {
+    CallRefSelectConditionEffectsElidable => None
+    CallRefSelectConditionPreserveByDrop =>
+      match self.preserve_fact {
+        Some(fact) if fact.condition_drop_id >= 0 =>
+          Some(fact.condition_drop_id)
+        _ => None
+      }
+  }
 }
 
 ///|
@@ -10322,13 +10372,20 @@ fn OiCallRefSelectConditionFact::from_select_condition(
     return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
-    [condition_type] if condition_type == @lib.ValType::i32() =>
-      Some({
-        condition_id,
-        has_effects: !OiSideEffectFreeExpressionFact::proves_node_free(
+    [condition_type] if condition_type == @lib.ValType::i32() => {
+      let effect_fact = if OiSideEffectFreeExpressionFact::proves_node_free(
           func, dead, condition_id,
-        ),
-      })
+        ) {
+        OiCallRefSelectConditionEffectFact::elidable()
+      } else {
+        match
+          OiCallRefSelectConditionEffectFact::preserve_by_drop(condition_id) {
+          Some(fact) => fact
+          None => return None
+        }
+      }
+      Some({ condition_id, effect_fact })
+    }
     _ => None
   }
 }
@@ -10680,8 +10737,9 @@ fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
   self : OiCallRefSelectResidueOperandInterpositionFact,
   func : @ir.HotFunc,
 ) -> Array[Int]? {
-  if !self.residue_fact.has_effects() {
-    return Some(self.args.copy())
+  match self.residue_fact.preserved_condition_drop_id() {
+    Some(_) => ()
+    None => return Some(self.args.copy())
   }
   let arg_count = self.args.length()
   if arg_count == 0 {
@@ -10692,6 +10750,11 @@ fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
   for i = 0; i < last_index; i = i + 1 {
     operands.push(self.args[i])
   }
+  let target_evaluation = match
+    self.residue_fact.build_dropped_target_evaluation(func) {
+    Some(evaluation) => evaluation
+    None => return None
+  }
   let temp_local = @ir.hot_append_body_local(func, self.arg_types[last_index])
   operands.push(
     @ir.hot_build_block(
@@ -10699,7 +10762,7 @@ fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
       @lib.BlockType::val_type(self.arg_types[last_index]),
       [
         @ir.hot_build_local_set(func, temp_local, self.args[last_index]),
-        self.residue_fact.build_dropped_target_evaluation(func),
+        target_evaluation,
         @ir.hot_build_local_get(func, temp_local),
       ],
     ),
@@ -10755,27 +10818,33 @@ fn OiCallRefSelectTargetResidueFact::from_same_target(
 }
 
 ///|
-fn OiCallRefSelectTargetResidueFact::has_effects(
+fn OiCallRefSelectTargetResidueFact::preserved_condition_drop_id(
   self : OiCallRefSelectTargetResidueFact,
-) -> Bool {
-  self.condition_fact.has_effects
+) -> Int? {
+  self.condition_fact.effect_fact.preserved_drop_id()
 }
 
 ///|
 fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
   self : OiCallRefSelectTargetResidueFact,
   func : @ir.HotFunc,
-) -> Int {
+) -> Int? {
   // This mirrors the Binaryen v130 `CallUtils::convertToDirectCalls` residue for
-  // identical select arms: the i32 condition is dropped for effects, then a
+  // identical select arms: an effectful i32 condition is dropped, then a
   // fact-proven target arm is materialized as the block result and the whole
   // target evaluation is dropped before the direct call.
-  @ir.hot_build_drop(
-    func,
-    @ir.hot_build_block(func, @lib.BlockType::val_type(self.target_type), [
-      @ir.hot_build_drop(func, self.condition_fact.condition_id),
-      self.target_arm_id,
-    ]),
+  let condition_drop_id = match self.preserved_condition_drop_id() {
+    Some(id) => id
+    None => return None
+  }
+  Some(
+    @ir.hot_build_drop(
+      func,
+      @ir.hot_build_block(func, @lib.BlockType::val_type(self.target_type), [
+        @ir.hot_build_drop(func, condition_drop_id),
+        self.target_arm_id,
+      ]),
+    ),
   )
 }
 
@@ -11142,22 +11211,22 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
         results,
         operands,
       )
-      if residue_fact.has_effects() && operand_fact.args.length() == 0 {
-        let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
-          func, node,
-        )
-        let block_type = match result_type_fact.representable_block_type() {
-          Some(block_type) => block_type
-          None => return None
+      match residue_fact.build_dropped_target_evaluation(func) {
+        Some(target_evaluation) if operand_fact.args.length() == 0 => {
+          let result_type_fact = OiCallRefResultBlockTypeFact::from_call_ref(
+            func, node,
+          )
+          let block_type = match result_type_fact.representable_block_type() {
+            Some(block_type) => block_type
+            None => return None
+          }
+          Some(
+            @ir.hot_build_block(func, block_type, [
+              target_evaluation, direct_call,
+            ]),
+          )
         }
-        Some(
-          @ir.hot_build_block(func, block_type, [
-            residue_fact.build_dropped_target_evaluation(func),
-            direct_call,
-          ]),
-        )
-      } else {
-        Some(direct_call)
+        _ => Some(direct_call)
       }
     }
     @ir.HotOp::ReturnCallRef => {
@@ -11166,15 +11235,14 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
         same_target_fact.direct_func,
         operands,
       )
-      if residue_fact.has_effects() && operand_fact.args.length() == 0 {
-        Some(
-          @ir.hot_build_block(func, @lib.BlockType::void_(), [
-            residue_fact.build_dropped_target_evaluation(func),
-            direct_call,
-          ]),
-        )
-      } else {
-        Some(direct_call)
+      match residue_fact.build_dropped_target_evaluation(func) {
+        Some(target_evaluation) if operand_fact.args.length() == 0 =>
+          Some(
+            @ir.hot_build_block(func, @lib.BlockType::void_(), [
+              target_evaluation, direct_call,
+            ]),
+          )
+        _ => Some(direct_call)
       }
     }
     _ => None
