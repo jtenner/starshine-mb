@@ -437,6 +437,35 @@ test "optimize-instructions preserves local.tee while folding maxBits compares" 
 }
 
 ///|
+test "optimize-instructions carries local maxBits through loop fallthrough assignments" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 LocalScanner queries
+  // `Properties::getFallthrough` on local.set values, so a loop body's tail can
+  // seed the assigned local's maxBits fact even though direct loop compares are
+  // an oracle-observed keep-spelling boundary.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (result i32) (local $tmp i32)
+        #|    (local.set $tmp
+        #|      (loop (result i32)
+        #|        (i32.and (local.get $x) (i32.const 255))))
+        #|    (i32.eq (local.get $tmp) (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop-assigned local maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant block-produced unsigned mask facts" {
   // OI-E finite closeout `.tmp/oi-e-v01-closeout-signoff-10000` exposed the
   // `oi-local-facts:block-produced-mask` bucket as the only sampled

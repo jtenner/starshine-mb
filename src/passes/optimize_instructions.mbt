@@ -9417,6 +9417,50 @@ fn OiMaxBitsFallthroughFact::from_local_tee(
 }
 
 ///|
+priv enum OiAssignedMaxBitsFallthroughKind {
+  AssignedMaxBitsNoFallthrough
+  AssignedMaxBitsLoopTail
+}
+
+///|
+priv struct OiAssignedMaxBitsFallthroughFact {
+  kind : OiAssignedMaxBitsFallthroughKind
+  value_id : Int
+}
+
+///|
+fn OiAssignedMaxBitsFallthroughFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiAssignedMaxBitsFallthroughFact {
+  // Binaryen v130 LocalScanner asks `Properties::getFallthrough` about
+  // local-set/tee values before feeding `Bits::getMaxBits`. Keep assignment-only
+  // loop fallthrough separate from the direct compare producer path because the
+  // oracle keeps direct loop maxBits compares spelled as compares.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      match optimize_instructions_region_tail_id(func, body_ref) {
+        Some(tail_id) => { kind: AssignedMaxBitsLoopTail, value_id: tail_id }
+        None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+      }
+    }
+    _ => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+  }
+}
+
+///|
+fn OiAssignedMaxBitsFallthroughFact::selected_value(
+  self : OiAssignedMaxBitsFallthroughFact,
+) -> Int {
+  match self.kind {
+    AssignedMaxBitsLoopTail => self.value_id
+    AssignedMaxBitsNoFallthrough => self.value_id
+  }
+}
+
+///|
 priv enum OiCombinedShiftZeroBitsKind {
   CombinedShiftZeroI32
   CombinedShiftZeroI64
@@ -10039,12 +10083,15 @@ fn OiUnsignedMaxValueFact::from_assigned_i32_value(
 ) -> OiUnsignedMaxValueFact {
   // Assignment facts seed the LocalScanner-like summary. They deliberately do
   // not recurse through LocalGet summaries, matching the conservative previous
-  // scanner behavior for local-carried and self-referential values.
+  // scanner behavior for local-carried and self-referential values. Assignment
+  // values get the source-backed `Properties::getFallthrough` subset that is not
+  // necessarily enabled for direct expression consumers.
+  let fallthrough = OiAssignedMaxBitsFallthroughFact::from_node(func, node_id)
   OiUnsignedMaxValueFact::from_i32_node_with_local_facts(
     func,
     dead,
     None,
-    node_id,
+    fallthrough.selected_value(),
   )
 }
 
@@ -10056,12 +10103,15 @@ fn OiUnsignedMaxValueFact::from_assigned_i64_value(
 ) -> OiUnsignedMaxValueFact {
   // Assignment facts seed the LocalScanner-like summary. They deliberately do
   // not recurse through LocalGet summaries, matching the conservative previous
-  // scanner behavior for local-carried and self-referential values.
+  // scanner behavior for local-carried and self-referential values. Assignment
+  // values get the source-backed `Properties::getFallthrough` subset that is not
+  // necessarily enabled for direct expression consumers.
+  let fallthrough = OiAssignedMaxBitsFallthroughFact::from_node(func, node_id)
   OiUnsignedMaxValueFact::from_i64_node_with_local_facts(
     func,
     dead,
     None,
-    node_id,
+    fallthrough.selected_value(),
   )
 }
 
