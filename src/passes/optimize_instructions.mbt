@@ -17414,34 +17414,101 @@ fn OiMemoryOffsetFoldFact::build_address_const(
 }
 
 ///|
-fn OiMemoryOffsetFoldFact::access_fact(
-  self : OiMemoryOffsetFoldFact,
-) -> OiMemoryAccessFact? {
-  OiMemoryAccessFact::from_instr(self.instr)
+priv struct OiMemoryOffsetFoldAtomicFact {
+  new_address_id : Int
+  new_instr : @lib.Instruction
 }
 
 ///|
-fn OiMemoryOffsetFoldFact::atomic_fact(
-  self : OiMemoryOffsetFoldFact,
-) -> OiAtomicAccessFact? {
-  OiAtomicAccessFact::from_instr(self.instr)
+priv struct OiMemoryOffsetFoldLoadFact {
+  offset_fact : OiMemoryOffsetFoldFact
+  new_address_id : Int
+  new_instr : @lib.Instruction
+  result_type : @lib.ValType
 }
 
 ///|
-priv enum OiMemoryOffsetFoldRewritePlanKind {
-  MemoryOffsetFoldLoad
-  MemoryOffsetFoldStore
-  MemoryOffsetFoldAtomic
-}
-
-///|
-priv struct OiMemoryOffsetFoldRewritePlanFact {
-  kind : OiMemoryOffsetFoldRewritePlanKind
+priv struct OiMemoryOffsetFoldStoreFact {
   offset_fact : OiMemoryOffsetFoldFact
   new_address_id : Int
   new_instr : @lib.Instruction
   store_value_id : Int
-  load_result_type : @lib.ValType?
+}
+
+///|
+fn OiMemoryOffsetFoldAtomicFact::from_offset(
+  offset_fact : OiMemoryOffsetFoldFact,
+  new_address_id : Int,
+) -> OiMemoryOffsetFoldAtomicFact? {
+  // Binaryen v130 `optimizeMemoryAccess` rebuilds load/store atomics by
+  // replacing only the memarg after the source address fold is proven. Keep the
+  // atomic opcode projection here so the plan no longer carries sentinel
+  // load/store fields or asks the offset fact for a generic optional access.
+  let atomic_fact = match OiAtomicAccessFact::from_instr(offset_fact.instr) {
+    Some(fact) => fact
+    None => return None
+  }
+  let new_instr = match atomic_fact.with_memarg(offset_fact.new_memarg) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({ new_address_id, new_instr })
+}
+
+///|
+fn OiMemoryOffsetFoldLoadFact::from_offset(
+  offset_fact : OiMemoryOffsetFoldFact,
+  new_address_id : Int,
+) -> OiMemoryOffsetFoldLoadFact? {
+  // Binaryen v130 scalar loads need the rebuilt load result type and zero-offset
+  // memarg together. Keep both in the load-specific fact instead of sharing a
+  // plan with optional store-only payloads.
+  let access_fact = match OiMemoryAccessFact::from_instr(offset_fact.instr) {
+    Some(fact) => fact
+    None => return None
+  }
+  let result_type = match access_fact.load_result_type {
+    Some(result_type) => result_type
+    None => return None
+  }
+  let new_instr = match access_fact.with_memarg(offset_fact.new_memarg) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({ offset_fact, new_address_id, new_instr, result_type })
+}
+
+///|
+fn OiMemoryOffsetFoldStoreFact::from_offset(
+  func : @ir.HotFunc,
+  node_id : Int,
+  offset_fact : OiMemoryOffsetFoldFact,
+  new_address_id : Int,
+) -> OiMemoryOffsetFoldStoreFact? {
+  // Binaryen v130 scalar stores preserve the value child while replacing the
+  // address child and memarg. Capture that store-only child in a store-specific
+  // fact so non-store plans no longer encode a `-1` placeholder.
+  let access_fact = match OiMemoryAccessFact::from_instr(offset_fact.instr) {
+    Some(fact) => fact
+    None => return None
+  }
+  let new_instr = match access_fact.with_memarg(offset_fact.new_memarg) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some({
+    offset_fact,
+    new_address_id,
+    new_instr,
+    store_value_id: @ir.hot_child_get(func, node_id, 1),
+  })
+}
+
+///|
+priv enum OiMemoryOffsetFoldRewritePlanFact {
+  MemoryOffsetFoldAtomicPlan(OiMemoryOffsetFoldAtomicFact)
+  MemoryOffsetFoldLoadPlan(OiMemoryOffsetFoldLoadFact)
+  MemoryOffsetFoldStorePlan(OiMemoryOffsetFoldStoreFact)
 }
 
 ///|
@@ -17451,9 +17518,9 @@ fn OiMemoryOffsetFoldRewritePlanFact::from_node(
 ) -> OiMemoryOffsetFoldRewritePlanFact? {
   // Binaryen v130 `optimizeMemoryAccess` derives one source-level address
   // folding fact, then rebuilds the matching load/store/atomic access with the
-  // zero-offset memarg. Keep the replacement choice here so the visitor does
-  // not own a separate memory-access scanner after `OiMemoryOffsetFoldFact` has
-  // proven the overflow-safe constant fold.
+  // zero-offset memarg. Keep the replacement choice here as explicit
+  // access-kind facts so the visitor does not own a memory scanner and the plan
+  // carries no irrelevant sentinel payloads.
   let node = @ir.hot_node_get(func, node_id)
   let offset_fact = match OiMemoryOffsetFoldFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -17468,68 +17535,33 @@ fn OiMemoryOffsetFoldRewritePlanFact::from_node(
       if node.child_count != 1 && node.child_count != 2 {
         return None
       }
-      let atomic_fact = match offset_fact.atomic_fact() {
-        Some(fact) => fact
-        None => return None
+      match
+        OiMemoryOffsetFoldAtomicFact::from_offset(offset_fact, new_address_id) {
+        Some(fact) => Some(MemoryOffsetFoldAtomicPlan(fact))
+        None => None
       }
-      let new_instr = match atomic_fact.with_memarg(offset_fact.new_memarg) {
-        Some(instr) => instr
-        None => return None
-      }
-      Some({
-        kind: MemoryOffsetFoldAtomic,
-        offset_fact,
-        new_address_id,
-        new_instr,
-        store_value_id: -1,
-        load_result_type: None,
-      })
     }
     @ir.HotOp::Load => {
       if node.child_count != 1 {
         return None
       }
-      let access_fact = match offset_fact.access_fact() {
-        Some(fact) => fact
-        None => return None
+      match
+        OiMemoryOffsetFoldLoadFact::from_offset(offset_fact, new_address_id) {
+        Some(fact) => Some(MemoryOffsetFoldLoadPlan(fact))
+        None => None
       }
-      let result_type = match access_fact.load_result_type {
-        Some(result_type) => result_type
-        None => return None
-      }
-      let new_instr = match access_fact.with_memarg(offset_fact.new_memarg) {
-        Some(instr) => instr
-        None => return None
-      }
-      Some({
-        kind: MemoryOffsetFoldLoad,
-        offset_fact,
-        new_address_id,
-        new_instr,
-        store_value_id: -1,
-        load_result_type: Some(result_type),
-      })
     }
     @ir.HotOp::Store => {
       if node.child_count != 2 {
         return None
       }
-      let access_fact = match offset_fact.access_fact() {
-        Some(fact) => fact
-        None => return None
+      match
+        OiMemoryOffsetFoldStoreFact::from_offset(
+          func, node_id, offset_fact, new_address_id,
+        ) {
+        Some(fact) => Some(MemoryOffsetFoldStorePlan(fact))
+        None => None
       }
-      let new_instr = match access_fact.with_memarg(offset_fact.new_memarg) {
-        Some(instr) => instr
-        None => return None
-      }
-      Some({
-        kind: MemoryOffsetFoldStore,
-        offset_fact,
-        new_address_id,
-        new_instr,
-        store_value_id: @ir.hot_child_get(func, node_id, 1),
-        load_result_type: None,
-      })
     }
     _ => None
   }
@@ -17542,39 +17574,35 @@ fn OiMemoryOffsetFoldRewritePlanFact::apply(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  match self.kind {
-    MemoryOffsetFoldAtomic => {
-      @ir.hot_child_set(func, node_id, 0, self.new_address_id)
-      @ir.hot_node_exact_instr_set(func, node_id, self.new_instr)
+  match self {
+    MemoryOffsetFoldAtomicPlan(fact) => {
+      @ir.hot_child_set(func, node_id, 0, fact.new_address_id)
+      @ir.hot_node_exact_instr_set(func, node_id, fact.new_instr)
       pass_mark_mutated(ctx, func)
       true
     }
-    MemoryOffsetFoldLoad => {
-      let result_type = match self.load_result_type {
-        Some(result_type) => result_type
-        None => return false
-      }
+    MemoryOffsetFoldLoadPlan(fact) => {
       let temp = @ir.hot_build_load(
         func,
-        result_type,
-        self.offset_fact.new_memarg,
-        self.new_address_id,
+        fact.result_type,
+        fact.offset_fact.new_memarg,
+        fact.new_address_id,
       )
-      @ir.hot_node_exact_instr_set(func, temp, self.new_instr)
+      @ir.hot_node_exact_instr_set(func, temp, fact.new_instr)
       let replacement = @ir.hot_node_get(func, temp)
       @ir.hot_delete_node(func, temp)
       @ir.hot_replace_node(func, node_id, replacement)
       pass_mark_mutated(ctx, func)
       true
     }
-    MemoryOffsetFoldStore => {
+    MemoryOffsetFoldStorePlan(fact) => {
       let temp = @ir.hot_build_store(
         func,
-        self.offset_fact.new_memarg,
-        self.new_address_id,
-        self.store_value_id,
+        fact.offset_fact.new_memarg,
+        fact.new_address_id,
+        fact.store_value_id,
       )
-      @ir.hot_node_exact_instr_set(func, temp, self.new_instr)
+      @ir.hot_node_exact_instr_set(func, temp, fact.new_instr)
       let replacement = @ir.hot_node_get(func, temp)
       @ir.hot_delete_node(func, temp)
       @ir.hot_replace_node(func, node_id, replacement)
