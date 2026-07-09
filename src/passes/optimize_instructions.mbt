@@ -23630,12 +23630,18 @@ fn OiOrderedBinaryLocalLocalEqualityFact::proves_f64_nontrapping_scalar(
 }
 
 ///|
+priv enum OiOrderedBinaryLocalConstEqualityKind {
+  OrderedBinaryLocalConstNoMatch
+  OrderedBinaryI32LocalConstMatch
+  OrderedBinaryI64LocalConstMatch
+  OrderedBinaryF32LocalConstMatch
+  OrderedBinaryF64LocalConstMatch
+}
+
+///|
 priv struct OiOrderedBinaryLocalConstEqualityFact {
   instr : @lib.Instruction?
-  matching_i32_local_const_operands : Bool
-  matching_i64_local_const_operands : Bool
-  matching_f32_local_const_operands : Bool
-  matching_f64_local_const_operands : Bool
+  kind : OiOrderedBinaryLocalConstEqualityKind
 }
 
 ///|
@@ -23651,10 +23657,7 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
   // nontrapping ordered local+constant subset whose local operand cannot be
   // invalidated by an effectful condition and whose constant operand is stable.
   let mut instr : @lib.Instruction? = None
-  let mut matching_i32_local_const_operands = false
-  let mut matching_i64_local_const_operands = false
-  let mut matching_f32_local_const_operands = false
-  let mut matching_f64_local_const_operands = false
+  let mut kind = OrderedBinaryLocalConstNoMatch
   match
     (
       @ir.hot_node_exact_instr(func, lhs),
@@ -23684,8 +23687,8 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
             optimize_instructions_i32_const(func, dead, lhs_right),
             optimize_instructions_i32_const(func, dead, rhs_right),
           ) {
-          (Some(lhs_const), Some(rhs_const)) =>
-            matching_i32_local_const_operands = lhs_const == rhs_const
+          (Some(lhs_const), Some(rhs_const)) if lhs_const == rhs_const =>
+            kind = OrderedBinaryI32LocalConstMatch
           _ => ()
         }
         match
@@ -23693,8 +23696,8 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
             optimize_instructions_i64_const(func, dead, lhs_right),
             optimize_instructions_i64_const(func, dead, rhs_right),
           ) {
-          (Some(lhs_const), Some(rhs_const)) =>
-            matching_i64_local_const_operands = lhs_const == rhs_const
+          (Some(lhs_const), Some(rhs_const)) if lhs_const == rhs_const =>
+            kind = OrderedBinaryI64LocalConstMatch
           _ => ()
         }
         match
@@ -23702,8 +23705,8 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
             optimize_instructions_f32_const(func, dead, lhs_right),
             optimize_instructions_f32_const(func, dead, rhs_right),
           ) {
-          (Some(lhs_const), Some(rhs_const)) =>
-            matching_f32_local_const_operands = lhs_const == rhs_const
+          (Some(lhs_const), Some(rhs_const)) if lhs_const == rhs_const =>
+            kind = OrderedBinaryF32LocalConstMatch
           _ => ()
         }
         match
@@ -23711,21 +23714,15 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
             optimize_instructions_f64_const(func, dead, lhs_right),
             optimize_instructions_f64_const(func, dead, rhs_right),
           ) {
-          (Some(lhs_const), Some(rhs_const)) =>
-            matching_f64_local_const_operands = lhs_const == rhs_const
+          (Some(lhs_const), Some(rhs_const)) if lhs_const == rhs_const =>
+            kind = OrderedBinaryF64LocalConstMatch
           _ => ()
         }
       }
     }
     _ => ()
   }
-  {
-    instr,
-    matching_i32_local_const_operands,
-    matching_i64_local_const_operands,
-    matching_f32_local_const_operands,
-    matching_f64_local_const_operands,
-  }
+  { instr, kind }
 }
 
 ///|
@@ -23744,7 +23741,10 @@ fn OiOrderedBinaryLocalConstEqualityFact::proves_i32_instr(
   self : OiOrderedBinaryLocalConstEqualityFact,
   instr : @lib.Instruction,
 ) -> Bool {
-  self.matching_i32_local_const_operands && self.proves_instr(instr)
+  match self.kind {
+    OrderedBinaryI32LocalConstMatch => self.proves_instr(instr)
+    _ => false
+  }
 }
 
 ///|
@@ -23752,7 +23752,10 @@ fn OiOrderedBinaryLocalConstEqualityFact::proves_i64_instr(
   self : OiOrderedBinaryLocalConstEqualityFact,
   instr : @lib.Instruction,
 ) -> Bool {
-  self.matching_i64_local_const_operands && self.proves_instr(instr)
+  match self.kind {
+    OrderedBinaryI64LocalConstMatch => self.proves_instr(instr)
+    _ => false
+  }
 }
 
 ///|
@@ -23760,7 +23763,10 @@ fn OiOrderedBinaryLocalConstEqualityFact::proves_f32_instr(
   self : OiOrderedBinaryLocalConstEqualityFact,
   instr : @lib.Instruction,
 ) -> Bool {
-  self.matching_f32_local_const_operands && self.proves_instr(instr)
+  match self.kind {
+    OrderedBinaryF32LocalConstMatch => self.proves_instr(instr)
+    _ => false
+  }
 }
 
 ///|
@@ -23768,7 +23774,10 @@ fn OiOrderedBinaryLocalConstEqualityFact::proves_f64_instr(
   self : OiOrderedBinaryLocalConstEqualityFact,
   instr : @lib.Instruction,
 ) -> Bool {
-  self.matching_f64_local_const_operands && self.proves_instr(instr)
+  match self.kind {
+    OrderedBinaryF64LocalConstMatch => self.proves_instr(instr)
+    _ => false
+  }
 }
 
 ///|
