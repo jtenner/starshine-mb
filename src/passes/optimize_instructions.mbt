@@ -9996,10 +9996,15 @@ priv struct OiCallRefSelectTargetFact {
 }
 
 ///|
-priv struct OiCallRefDirectTargetFact {
-  target_id : Int
+priv struct OiCallRefDirectFunctionFact {
   direct_func : Int
   ref_func_heap : @lib.HeapType?
+}
+
+///|
+priv struct OiCallRefDirectTargetFact {
+  target_id : Int
+  direct_func_fact : OiCallRefDirectFunctionFact
 }
 
 ///|
@@ -10111,23 +10116,33 @@ fn OiCallRefDirectTargetFact::from_target(
   let target = @ir.hot_node_get(func, target_id)
   match target.op {
     @ir.HotOp::RefFunc => {
-      let ref_func_heap = match
-        optimize_instructions_node_ref_result_type(func, target_id) {
-        Some(ref_type) => Some(ref_type.get_heap_type())
-        None => None
+      let direct_func_fact : OiCallRefDirectFunctionFact = {
+        direct_func: target.imm0,
+        ref_func_heap: match
+          optimize_instructions_node_ref_result_type(func, target_id) {
+          Some(ref_type) => Some(ref_type.get_heap_type())
+          None => None
+        },
       }
-      Some({ target_id, direct_func: target.imm0, ref_func_heap })
+      Some({ target_id, direct_func_fact })
     }
     _ => None
   }
 }
 
 ///|
+fn OiCallRefDirectFunctionFact::proves_direct_ref_func(
+  self : OiCallRefDirectFunctionFact,
+) -> Bool {
+  ignore(self.ref_func_heap)
+  self.direct_func >= 0
+}
+
+///|
 fn OiCallRefDirectTargetFact::proves_direct_ref_func(
   self : OiCallRefDirectTargetFact,
 ) -> Bool {
-  ignore(self.ref_func_heap)
-  self.target_id >= 0 && self.direct_func >= 0
+  self.target_id >= 0 && self.direct_func_fact.proves_direct_ref_func()
 }
 
 ///|
@@ -10693,7 +10708,7 @@ fn OiCallRefDirectFuncPlanFact::from_target_fact(
   // target record.
   match target_fact.direct_fact {
     Some(fact) if fact.proves_direct_ref_func() =>
-      Some({ direct_func: fact.direct_func })
+      Some({ direct_func: fact.direct_func_fact.direct_func })
     _ => None
   }
 }
