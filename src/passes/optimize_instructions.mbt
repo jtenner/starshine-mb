@@ -23687,8 +23687,18 @@ priv struct OiArrayDefaultValueFact {
 }
 
 ///|
+priv enum OiArrayStorageDefaultValueKind {
+  ArrayStorageI32ZeroDefault
+  ArrayStorageI64ZeroDefault
+  ArrayStorageF32ZeroDefault
+  ArrayStorageF64ZeroDefault
+  ArrayStorageNullableRefNullDefault
+  ArrayStorageNonDefault
+}
+
+///|
 priv struct OiArrayStorageDefaultValueFact {
-  is_default : Bool
+  kind : OiArrayStorageDefaultValueKind
 }
 
 ///|
@@ -23702,59 +23712,67 @@ fn OiArrayStorageDefaultValueFact::from_value(
   // Keep the exact represented zero/null set as a reusable fact; broader SIMD
   // and nullable array constructor cases remain documented parser/HOT blockers.
   let value = @ir.hot_node_get(func, value_id)
-  let is_default = match storage.unpack() {
+  let kind = match storage.unpack() {
     @lib.ValType::NumTypeValType(@lib.NumType::I32NumType) =>
       match value.op {
-        @ir.HotOp::Const =>
-          @ir.hot_const_get(func, value.imm0) ==
-          @ir.HotConstPayload::i32_const(@lib.I32(0))
-        _ => false
+        @ir.HotOp::Const if @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::i32_const(@lib.I32(0)) =>
+          ArrayStorageI32ZeroDefault
+        _ => ArrayStorageNonDefault
       }
     @lib.ValType::NumTypeValType(@lib.NumType::I64NumType) =>
       match value.op {
-        @ir.HotOp::Const =>
-          @ir.hot_const_get(func, value.imm0) ==
-          @ir.HotConstPayload::i64_const(@lib.I64(0L))
-        _ => false
+        @ir.HotOp::Const if @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::i64_const(@lib.I64(0L)) =>
+          ArrayStorageI64ZeroDefault
+        _ => ArrayStorageNonDefault
       }
     @lib.ValType::NumTypeValType(@lib.NumType::F32NumType) =>
       match value.op {
-        @ir.HotOp::Const =>
-          @ir.hot_const_get(func, value.imm0) ==
-          @ir.HotConstPayload::f32_const(@lib.F32(0.0))
-        _ => false
+        @ir.HotOp::Const if @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::f32_const(@lib.F32(0.0)) =>
+          ArrayStorageF32ZeroDefault
+        _ => ArrayStorageNonDefault
       }
     @lib.ValType::NumTypeValType(@lib.NumType::F64NumType) =>
       match value.op {
-        @ir.HotOp::Const =>
-          @ir.hot_const_get(func, value.imm0) ==
-          @ir.HotConstPayload::f64_const(@lib.F64(0.0))
-        _ => false
+        @ir.HotOp::Const if @ir.hot_const_get(func, value.imm0) ==
+          @ir.HotConstPayload::f64_const(@lib.F64(0.0)) =>
+          ArrayStorageF64ZeroDefault
+        _ => ArrayStorageNonDefault
       }
     @lib.ValType::RefTypeValType(ref_type) =>
       if !ref_type.is_nullable() {
-        false
+        ArrayStorageNonDefault
       } else {
         match value.op {
-          @ir.HotOp::RefNull => true
+          @ir.HotOp::RefNull => ArrayStorageNullableRefNullDefault
           @ir.HotOp::Const =>
             match @ir.hot_const_get(func, value.imm0) {
-              @ir.HotConstPayload::RefNullConst(_) => true
-              _ => false
+              @ir.HotConstPayload::RefNullConst(_) =>
+                ArrayStorageNullableRefNullDefault
+              _ => ArrayStorageNonDefault
             }
-          _ => false
+          _ => ArrayStorageNonDefault
         }
       }
-    _ => false
+    _ => ArrayStorageNonDefault
   }
-  { is_default, }
+  { kind, }
 }
 
 ///|
 fn OiArrayStorageDefaultValueFact::proves_default(
   self : OiArrayStorageDefaultValueFact,
 ) -> Bool {
-  self.is_default
+  match self.kind {
+    ArrayStorageI32ZeroDefault
+    | ArrayStorageI64ZeroDefault
+    | ArrayStorageF32ZeroDefault
+    | ArrayStorageF64ZeroDefault
+    | ArrayStorageNullableRefNullDefault => true
+    ArrayStorageNonDefault => false
+  }
 }
 
 ///|
