@@ -2683,6 +2683,80 @@ test "optimize-instructions simplifies boolean zero-minus leaves" {
 }
 
 ///|
+test "optimize-instructions recursively simplifies boolean or operands" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // recursively optimizes both i32.or operands in boolean context. The focused
+  // oracle `.tmp/oi-probes/boolean-leaf-binary-rules.wat` proves direct
+  // ne-zero/zero-minus operands and the nested block -> or -> select shape.
+  let direct = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (if (result i32) (i32.or (i32.ne (local.get 0) (i32.const 0)) (i32.sub (i32.const 0) (local.get 1))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let direct_or = @ir.hot_child_get(direct, @ir.hot_root_get(direct, 0), 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(direct, direct_or),
+    Some(@lib.Instruction::i32_or()),
+  )
+  let direct_left = @ir.hot_child_get(direct, direct_or, 0)
+  let direct_right = @ir.hot_child_get(direct, direct_or, 1)
+  match
+    (
+      @ir.hot_node_get(direct, direct_left).op,
+      @ir.hot_node_get(direct, direct_right).op,
+    ) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => {
+      let left_local = @ir.hot_node_get(direct, direct_left).imm0
+      let right_local = @ir.hot_node_get(direct, direct_right).imm0
+      @debug.assert_eq(left_local + right_local, 1)
+      assert_true(left_local != right_local)
+    }
+    other =>
+      fail("expected both direct boolean or operands to simplify, got \{other}")
+  }
+
+  let nested = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) (if (result i32) (block (result i32) (drop (local.get 2)) (i32.or (select (i32.ne (local.get 0) (i32.const 0)) (i32.sub (i32.const 0) (local.get 1)) (local.get 2)) (i32.ne (local.get 2) (i32.const 0)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let block = @ir.hot_child_get(nested, @ir.hot_root_get(nested, 0), 0)
+  let body = @ir.hot_region_body_ref(nested, block)
+  @debug.assert_eq(@ir.hot_region_root_count(nested, body), 2)
+  match @ir.hot_node_get(nested, @ir.hot_region_get(nested, body, 0)).op {
+    @ir.HotOp::Drop => ()
+    other =>
+      fail("expected nested boolean block prefix to remain, got \{other}")
+  }
+  let nested_or = @ir.hot_region_get(nested, body, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(nested, nested_or),
+    Some(@lib.Instruction::i32_or()),
+  )
+  let left = @ir.hot_child_get(nested, nested_or, 0)
+  let right = @ir.hot_child_get(nested, nested_or, 1)
+  let (select, sibling) = match
+    (@ir.hot_node_get(nested, left).op, @ir.hot_node_get(nested, right).op) {
+    (@ir.HotOp::Select, @ir.HotOp::LocalGet) => (left, right)
+    (@ir.HotOp::LocalGet, @ir.HotOp::Select) => (right, left)
+    other =>
+      fail(
+        "expected nested boolean or to retain select plus local, got \{other}",
+      )
+  }
+  @debug.assert_eq(@ir.hot_node_get(nested, sibling).imm0, 2)
+  for slot = 0; slot < 2; slot = slot + 1 {
+    let arm = @ir.hot_child_get(nested, select, slot)
+    match @ir.hot_node_get(nested, arm).op {
+      @ir.HotOp::LocalGet =>
+        @debug.assert_eq(@ir.hot_node_get(nested, arm).imm0, slot)
+      other =>
+        fail(
+          "expected nested boolean select arm \{slot} to simplify, got \{other}",
+        )
+    }
+  }
+  let selector = @ir.hot_child_get(nested, select, 2)
+  @debug.assert_eq(@ir.hot_node_get(nested, selector).imm0, 2)
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to

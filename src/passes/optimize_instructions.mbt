@@ -18727,15 +18727,6 @@ fn optimize_instructions_try_optimize_if_condition(
   let cond_id = func.children[node.child_base]
   let then_region = func.children[node.child_base + 1]
   let else_region = func.children[node.child_base + 2]
-  match
-    OiBooleanContextLeafRewriteFact::from_node(func, dead, cond_id).proven_replacement() {
-    Some(replacement_id) => {
-      @ir.hot_child_set(func, node_id, 0, replacement_id)
-      pass_mark_mutated(ctx, func)
-      return true
-    }
-    None => ()
-  }
   let flip_if = fn(next_cond : Int) -> Bool {
     match optimize_instructions_i32_const(func, dead, next_cond) {
       Some(@lib.I32(raw)) if raw == 0 => return false
@@ -38580,23 +38571,45 @@ fn OiBooleanContextLeafRewriteFact::proven_replacement(
 }
 
 ///|
+priv struct OiBooleanOrOperandsContextFact {
+  or_id : Int
+  left_id : Int
+  right_id : Int
+}
+
+///|
+fn OiBooleanOrOperandsContextFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiBooleanOrOperandsContextFact? {
+  // Binaryen v130 `optimizeBoolean` gives only direct i32.or operands boolean
+  // context, and visits both sides independently before continuing.
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Or) if @ir.hot_child_count(func, node_id) == 2 =>
+      Some({
+        or_id: node_id,
+        left_id: @ir.hot_child_get(func, node_id, 0),
+        right_id: @ir.hot_child_get(func, node_id, 1),
+      })
+    _ => None
+  }
+}
+
+///|
 priv struct OiBooleanBlockTailContextFact {
   block_id : Int
   body_ref : @ir.HotRegionRef
   tail_slot : Int
-  tail_rewrite : OiBooleanContextLeafRewriteFact
+  tail_id : Int
 }
 
 ///|
 fn OiBooleanBlockTailContextFact::from_condition(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   condition_id : Int,
 ) -> OiBooleanBlockTailContextFact? {
   // Binaryen v130 `optimizeBoolean` recurses only into the final expression of
-  // a nonempty i32 block. HOT stores that final expression as the final region
-  // root, so preserve every prefix root and carry only the selected tail slot
-  // plus its source-backed boolean leaf rewrite.
+  // a nonempty i32 block. HOT stores that expression as the final region root.
   match @ir.hot_node_get(func, condition_id).op {
     @ir.HotOp::Block => ()
     _ => return None
@@ -38611,54 +38624,28 @@ fn OiBooleanBlockTailContextFact::from_condition(
     return None
   }
   let tail_slot = root_count - 1
-  let tail_id = @ir.hot_region_get(func, body_ref, tail_slot)
-  let tail_rewrite = OiBooleanContextLeafRewriteFact::from_node(
-    func, dead, tail_id,
-  )
-  match tail_rewrite.proven_replacement() {
-    Some(_) =>
-      Some({ block_id: condition_id, body_ref, tail_slot, tail_rewrite })
-    None => None
-  }
-}
-
-///|
-fn OiBooleanBlockTailContextFact::apply(
-  self : OiBooleanBlockTailContextFact,
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-) -> Bool {
-  let replacement_id = match self.tail_rewrite.proven_replacement() {
-    Some(replacement_id) => replacement_id
-    None => return false
-  }
-  if self.block_id < 0 || self.tail_slot < 0 {
-    return false
-  }
-  ignore(
-    @ir.hot_region_set(func, self.body_ref, self.tail_slot, replacement_id),
-  )
-  pass_mark_mutated(ctx, func)
-  true
+  Some({
+    block_id: condition_id,
+    body_ref,
+    tail_slot,
+    tail_id: @ir.hot_region_get(func, body_ref, tail_slot),
+  })
 }
 
 ///|
 priv struct OiBooleanSelectArmsContextFact {
   select_id : Int
-  true_rewrite : OiBooleanContextLeafRewriteFact
-  false_rewrite : OiBooleanContextLeafRewriteFact
+  true_id : Int
+  false_id : Int
 }
 
 ///|
 fn OiBooleanSelectArmsContextFact::from_condition(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   condition_id : Int,
 ) -> OiBooleanSelectArmsContextFact? {
-  // Binaryen v130 `optimizeBoolean` recursively optimizes both value arms of a
-  // select without changing the selector. Bound the HOT form to a single i32
-  // result and carry each independently selected leaf rewrite, allowing either
-  // or both arms to make progress.
+  // Binaryen v130 `optimizeBoolean` recursively optimizes both select value
+  // arms without changing the selector.
   let node = @ir.hot_node_get(func, condition_id)
   match node.op {
     @ir.HotOp::Select if node.child_count == 3 => ()
@@ -38668,64 +38655,23 @@ fn OiBooleanSelectArmsContextFact::from_condition(
     [result] if result == @lib.ValType::i32() => ()
     _ => return None
   }
-  let true_rewrite = OiBooleanContextLeafRewriteFact::from_node(
-    func,
-    dead,
-    @ir.hot_child_get(func, condition_id, 0),
-  )
-  let false_rewrite = OiBooleanContextLeafRewriteFact::from_node(
-    func,
-    dead,
-    @ir.hot_child_get(func, condition_id, 1),
-  )
-  if true_rewrite.proven_replacement() is None &&
-    false_rewrite.proven_replacement() is None {
-    return None
-  }
-  Some({ select_id: condition_id, true_rewrite, false_rewrite })
-}
-
-///|
-fn OiBooleanSelectArmsContextFact::apply(
-  self : OiBooleanSelectArmsContextFact,
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-) -> Bool {
-  if self.select_id < 0 {
-    return false
-  }
-  let mut changed = false
-  match self.true_rewrite.proven_replacement() {
-    Some(replacement_id) => {
-      @ir.hot_child_set(func, self.select_id, 0, replacement_id)
-      changed = true
-    }
-    None => ()
-  }
-  match self.false_rewrite.proven_replacement() {
-    Some(replacement_id) => {
-      @ir.hot_child_set(func, self.select_id, 1, replacement_id)
-      changed = true
-    }
-    None => ()
-  }
-  if changed {
-    pass_mark_mutated(ctx, func)
-  }
-  changed
+  Some({
+    select_id: condition_id,
+    true_id: @ir.hot_child_get(func, condition_id, 0),
+    false_id: @ir.hot_child_get(func, condition_id, 1),
+  })
 }
 
 ///|
 priv struct OiBooleanIfArmContextFact {
   region_ref : @ir.HotRegionRef
   tail_slot : Int
-  tail_rewrite : OiBooleanContextLeafRewriteFact
+  tail_id : Int
 }
 
 ///|
 fn OiBooleanIfArmContextFact::from_region(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
 ) -> OiBooleanIfArmContextFact? {
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -38736,33 +38682,8 @@ fn OiBooleanIfArmContextFact::from_region(
   Some({
     region_ref,
     tail_slot,
-    tail_rewrite: OiBooleanContextLeafRewriteFact::from_node(
-      func,
-      dead,
-      @ir.hot_region_get(func, region_ref, tail_slot),
-    ),
+    tail_id: @ir.hot_region_get(func, region_ref, tail_slot),
   })
-}
-
-///|
-fn OiBooleanIfArmContextFact::apply(
-  self : OiBooleanIfArmContextFact,
-  func : @ir.HotFunc,
-) -> Bool {
-  match self.tail_rewrite.proven_replacement() {
-    Some(replacement_id) => {
-      ignore(
-        @ir.hot_region_set(
-          func,
-          self.region_ref,
-          self.tail_slot,
-          replacement_id,
-        ),
-      )
-      true
-    }
-    None => false
-  }
 }
 
 ///|
@@ -38775,12 +38696,11 @@ priv struct OiBooleanIfArmsContextFact {
 ///|
 fn OiBooleanIfArmsContextFact::from_condition(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   condition_id : Int,
 ) -> OiBooleanIfArmsContextFact? {
   // Binaryen v130 `optimizeBoolean` recursively optimizes both arms only when
   // the if itself has i32 type. HOT stores each arm expression as a region, so
-  // preserve any arm prefixes and carry the final root rewrite independently.
+  // preserve any arm prefixes and carry each final root independently.
   match @ir.hot_node_get(func, condition_id).op {
     @ir.HotOp::If => ()
     _ => return None
@@ -38792,7 +38712,6 @@ fn OiBooleanIfArmsContextFact::from_condition(
   let then_arm = match
     OiBooleanIfArmContextFact::from_region(
       func,
-      dead,
       @ir.hot_region_then_ref(func, condition_id),
     ) {
     Some(fact) => fact
@@ -38803,33 +38722,149 @@ fn OiBooleanIfArmsContextFact::from_condition(
     None => return None
   }
   let else_arm = match
-    OiBooleanIfArmContextFact::from_region(func, dead, else_region) {
+    OiBooleanIfArmContextFact::from_region(func, else_region) {
     Some(fact) => fact
     None => return None
-  }
-  if then_arm.tail_rewrite.proven_replacement() is None &&
-    else_arm.tail_rewrite.proven_replacement() is None {
-    return None
   }
   Some({ if_id: condition_id, then_arm, else_arm })
 }
 
 ///|
-fn OiBooleanIfArmsContextFact::apply(
-  self : OiBooleanIfArmsContextFact,
-  ctx : HotPassContext,
+priv struct OiBooleanContextRewriteOutcome {
+  result_id : Int
+  changed : Bool
+}
+
+///|
+fn OiBooleanContextRewriteOutcome::unchanged(
+  node_id : Int,
+) -> OiBooleanContextRewriteOutcome {
+  { result_id: node_id, changed: false }
+}
+
+///|
+fn optimize_instructions_rewrite_boolean_context_node(
   func : @ir.HotFunc,
-) -> Bool {
-  if self.if_id < 0 {
-    return false
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBooleanContextRewriteOutcome {
+  // Follow Binaryen v130 `optimizeBoolean` source order: direct unary/binary
+  // rewrites first, then recursive i32.or, block, if, and select contexts.
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return OiBooleanContextRewriteOutcome::unchanged(node_id)
   }
-  let then_changed = self.then_arm.apply(func)
-  let else_changed = self.else_arm.apply(func)
-  let changed = then_changed || else_changed
-  if changed {
-    pass_mark_mutated(ctx, func)
+  match
+    OiBooleanContextLeafRewriteFact::from_node(func, dead, node_id).proven_replacement() {
+    Some(replacement_id) => return { result_id: replacement_id, changed: true }
+    None => ()
   }
-  changed
+  match OiBooleanOrOperandsContextFact::from_node(func, node_id) {
+    Some(fact) => {
+      let left = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.left_id,
+      )
+      let right = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.right_id,
+      )
+      if left.result_id != fact.left_id {
+        @ir.hot_child_set(func, fact.or_id, 0, left.result_id)
+      }
+      if right.result_id != fact.right_id {
+        @ir.hot_child_set(func, fact.or_id, 1, right.result_id)
+      }
+      return { result_id: fact.or_id, changed: left.changed || right.changed }
+    }
+    None => ()
+  }
+  match OiBooleanBlockTailContextFact::from_condition(func, node_id) {
+    Some(fact) => {
+      let tail = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.tail_id,
+      )
+      if tail.result_id != fact.tail_id {
+        ignore(
+          @ir.hot_region_set(
+            func,
+            fact.body_ref,
+            fact.tail_slot,
+            tail.result_id,
+          ),
+        )
+      }
+      return { result_id: fact.block_id, changed: tail.changed }
+    }
+    None => ()
+  }
+  match OiBooleanIfArmsContextFact::from_condition(func, node_id) {
+    Some(fact) => {
+      let then_result = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.then_arm.tail_id,
+      )
+      let else_result = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.else_arm.tail_id,
+      )
+      if then_result.result_id != fact.then_arm.tail_id {
+        ignore(
+          @ir.hot_region_set(
+            func,
+            fact.then_arm.region_ref,
+            fact.then_arm.tail_slot,
+            then_result.result_id,
+          ),
+        )
+      }
+      if else_result.result_id != fact.else_arm.tail_id {
+        ignore(
+          @ir.hot_region_set(
+            func,
+            fact.else_arm.region_ref,
+            fact.else_arm.tail_slot,
+            else_result.result_id,
+          ),
+        )
+      }
+      return {
+        result_id: fact.if_id,
+        changed: then_result.changed || else_result.changed,
+      }
+    }
+    None => ()
+  }
+  match OiBooleanSelectArmsContextFact::from_condition(func, node_id) {
+    Some(fact) => {
+      let true_result = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.true_id,
+      )
+      let false_result = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.false_id,
+      )
+      if true_result.result_id != fact.true_id {
+        @ir.hot_child_set(func, fact.select_id, 0, true_result.result_id)
+      }
+      if false_result.result_id != fact.false_id {
+        @ir.hot_child_set(func, fact.select_id, 1, false_result.result_id)
+      }
+      return {
+        result_id: fact.select_id,
+        changed: true_result.changed || false_result.changed,
+      }
+    }
+    None => OiBooleanContextRewriteOutcome::unchanged(node_id)
+  }
 }
 
 ///|
@@ -38845,21 +38880,17 @@ fn optimize_instructions_try_optimize_boolean_condition_context(
     _ => return false
   }
   let condition_id = @ir.hot_child_get(func, node_id, 0)
-  match
-    OiBooleanBlockTailContextFact::from_condition(func, dead, condition_id) {
-    Some(fact) => fact.apply(ctx, func)
-    None =>
-      match
-        OiBooleanSelectArmsContextFact::from_condition(func, dead, condition_id) {
-        Some(fact) => fact.apply(ctx, func)
-        None =>
-          match
-            OiBooleanIfArmsContextFact::from_condition(func, dead, condition_id) {
-            Some(fact) => fact.apply(ctx, func)
-            None => false
-          }
-      }
+  let outcome = optimize_instructions_rewrite_boolean_context_node(
+    func, dead, condition_id,
+  )
+  if !outcome.changed {
+    return false
   }
+  if outcome.result_id != condition_id {
+    @ir.hot_child_set(func, node_id, 0, outcome.result_id)
+  }
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
