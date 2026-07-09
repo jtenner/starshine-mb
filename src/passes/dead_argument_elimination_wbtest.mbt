@@ -1594,6 +1594,8 @@ test "dae control result slices centralize flat and return arm bounds" {
       assert_eq(evidence.result_count, 2)
       assert_eq(evidence.body.length(), 2)
       assert_false(evidence.body_has_effect_or_branch)
+      assert_true(evidence.effect_free_body.effect_free)
+      assert_eq(evidence.effect_free_body.body_length, 2)
     }
     None => fail("expected shared single-block result carrier evidence")
   }
@@ -2103,11 +2105,21 @@ test "dae control result pair GC evidence centralizes terminal arm LUB rewrites"
 }
 
 ///|
-test "dae effect-free fallthrough evidence centralizes mixed-arm side-effect guards" {
+test "dae effect-free body evidence centralizes carrier and fallthrough guards" {
   let effect_free_arm = [
     @lib.Instruction::i32_const(@lib.I32(1)),
     @lib.Instruction::drop(),
   ]
+  match dae_effect_free_body_evidence(effect_free_arm) {
+    Some(evidence) => {
+      assert_eq(evidence.body.length(), 2)
+      assert_eq(evidence.body_length, 2)
+      assert_false(evidence.has_observable_effect_or_branch)
+      assert_true(evidence.effect_free)
+      assert_true(dae_effect_free_body_evidence_is_consistent(evidence))
+    }
+    None => fail("expected effect-free body evidence")
+  }
   match dae_effect_free_fallthrough_evidence(effect_free_arm) {
     Some(evidence) => {
       assert_eq(evidence.body.length(), 2)
@@ -2119,6 +2131,10 @@ test "dae effect-free fallthrough evidence centralizes mixed-arm side-effect gua
     None => fail("expected effect-free fallthrough evidence")
   }
   let effectful_arm = [@lib.Instruction::call(@lib.FuncIdx::new(0U))]
+  match dae_effect_free_body_evidence(effectful_arm) {
+    Some(_) => fail("effectful body should not be accepted")
+    None => ()
+  }
   match dae_effect_free_fallthrough_evidence(effectful_arm) {
     Some(_) =>
       fail("effectful arm should not be accepted as fallthrough evidence")

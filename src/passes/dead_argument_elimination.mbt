@@ -309,10 +309,19 @@ priv struct DaeControlResultSlice {
 }
 
 ///|
+priv struct DaeEffectFreeBodyEvidence {
+  body : Array[@lib.Instruction]
+  body_length : Int
+  has_observable_effect_or_branch : Bool
+  effect_free : Bool
+}
+
+///|
 priv struct DaeSingleBlockResultCarrierEvidence {
   body : Array[@lib.Instruction]
   result_count : Int
   body_has_effect_or_branch : Bool
+  effect_free_body : DaeEffectFreeBodyEvidence
 }
 
 ///|
@@ -2725,6 +2734,35 @@ fn dae_make_multi_result_control_slice(
 }
 
 ///|
+fn dae_effect_free_body_evidence_is_consistent(
+  evidence : DaeEffectFreeBodyEvidence,
+) -> Bool {
+  evidence.body_length == evidence.body.length() &&
+  evidence.effect_free == !evidence.has_observable_effect_or_branch &&
+  evidence.effect_free
+}
+
+///|
+fn dae_effect_free_body_evidence(
+  body : Array[@lib.Instruction],
+) -> DaeEffectFreeBodyEvidence? {
+  let has_observable_effect_or_branch = dae_instrs_have_observable_effect_or_branch(
+    body,
+  )
+  let evidence = {
+    body,
+    body_length: body.length(),
+    has_observable_effect_or_branch,
+    effect_free: !has_observable_effect_or_branch,
+  }
+  if dae_effect_free_body_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_single_block_result_carrier_evidence(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
@@ -2744,13 +2782,15 @@ fn dae_single_block_result_carrier_evidence(
         Some(_) => ()
         None => return None
       }
-      let body_has_effect_or_branch = dae_instrs_have_observable_effect_or_branch(
-        block_body,
-      )
-      if body_has_effect_or_branch {
-        None
-      } else {
-        Some({ body: block_body, result_count, body_has_effect_or_branch })
+      match dae_effect_free_body_evidence(block_body) {
+        Some(effect_free_body) =>
+          Some({
+            body: block_body,
+            result_count,
+            body_has_effect_or_branch: effect_free_body.has_observable_effect_or_branch,
+            effect_free_body,
+          })
+        None => None
       }
     }
     _ => None
@@ -2804,7 +2844,8 @@ fn dae_multi_result_control_carrier_chain_slice(
       ) {
       Some(evidence) =>
         if evidence.result_count == result_count &&
-          !evidence.body_has_effect_or_branch {
+          !evidence.body_has_effect_or_branch &&
+          evidence.effect_free_body.effect_free {
           candidate_body = evidence.body
           flattened = true
           carrier_kind = 1
@@ -7902,19 +7943,21 @@ fn dae_effect_free_fallthrough_evidence_is_consistent(
 fn dae_effect_free_fallthrough_evidence(
   arm_body : Array[@lib.Instruction],
 ) -> DaeEffectFreeFallthroughEvidence? {
-  let has_observable_effect_or_branch = dae_instrs_have_observable_effect_or_branch(
-    arm_body,
-  )
-  let evidence = {
-    body: arm_body,
-    body_length: arm_body.length(),
-    has_observable_effect_or_branch,
-    effect_free_fallthrough: !has_observable_effect_or_branch,
-  }
-  if dae_effect_free_fallthrough_evidence_is_consistent(evidence) {
-    Some(evidence)
-  } else {
-    None
+  match dae_effect_free_body_evidence(arm_body) {
+    Some(body_evidence) => {
+      let evidence = {
+        body: body_evidence.body,
+        body_length: body_evidence.body_length,
+        has_observable_effect_or_branch: body_evidence.has_observable_effect_or_branch,
+        effect_free_fallthrough: body_evidence.effect_free,
+      }
+      if dae_effect_free_fallthrough_evidence_is_consistent(evidence) {
+        Some(evidence)
+      } else {
+        None
+      }
+    }
+    None => None
   }
 }
 
@@ -9905,9 +9948,7 @@ fn dae_try_refine_direct_gc_types(
                 mod_.type_sec,
                 results.length(),
               ) {
-              Some(_) if !dae_instrs_have_observable_effect_or_branch(
-                  block_body,
-                ) ||
+              Some(_) if dae_effect_free_body_evidence(block_body) is Some(_) ||
                 dae_instrs_have_only_terminal_function_return(block_body) => {
                 candidate_body = block_body
                 keep_unwrapping = true
