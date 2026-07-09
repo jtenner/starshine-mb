@@ -13841,56 +13841,131 @@ fn OiLocalGetCrossingFact::proves_crossing_allowed(
 }
 
 ///|
-fn optimize_instructions_commutative_node_kind_rank(op : @ir.HotOp) -> Int? {
-  match op {
-    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => Some(-1)
-    @ir.HotOp::LocalGet => Some(0)
-    @ir.HotOp::LocalTee => Some(1)
-    @ir.HotOp::GlobalGet => Some(2)
-    @ir.HotOp::Load => Some(3)
-    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => Some(4)
-    @ir.HotOp::Unary => Some(5)
-    @ir.HotOp::Convert => Some(5)
-    @ir.HotOp::Binary => Some(6)
-    @ir.HotOp::Compare => Some(7)
-    _ => None
+priv enum OiCommutativeOperandClassKind {
+  OiCommutativeOperandUnsupported
+  OiCommutativeOperandCallLike
+  OiCommutativeOperandLocalGet
+  OiCommutativeOperandLocalTee
+  OiCommutativeOperandGlobalGet
+  OiCommutativeOperandLoad
+  OiCommutativeOperandLeafLiteral
+  OiCommutativeOperandUnaryLike
+  OiCommutativeOperandBinary
+  OiCommutativeOperandCompare
+}
+
+///|
+priv struct OiCommutativeOperandClassFact {
+  kind : OiCommutativeOperandClassKind
+  local_index : Int?
+}
+
+///|
+fn OiCommutativeOperandClassFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiCommutativeOperandClassFact {
+  // Binaryen OI canonicalizes commutative operands into a stable source order
+  // before applying rewrites. Keep Starshine's represented HOT subset as an
+  // explicit operand-class fact instead of a nullable rank table with a call
+  // sentinel. The later swap fact consumes only these named classes plus the
+  // local.get tie-break payload.
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+      { kind: OiCommutativeOperandCallLike, local_index: None }
+    @ir.HotOp::LocalGet =>
+      { kind: OiCommutativeOperandLocalGet, local_index: Some(node.imm0) }
+    @ir.HotOp::LocalTee =>
+      { kind: OiCommutativeOperandLocalTee, local_index: None }
+    @ir.HotOp::GlobalGet =>
+      { kind: OiCommutativeOperandGlobalGet, local_index: None }
+    @ir.HotOp::Load => { kind: OiCommutativeOperandLoad, local_index: None }
+    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc =>
+      { kind: OiCommutativeOperandLeafLiteral, local_index: None }
+    @ir.HotOp::Unary | @ir.HotOp::Convert =>
+      { kind: OiCommutativeOperandUnaryLike, local_index: None }
+    @ir.HotOp::Binary => { kind: OiCommutativeOperandBinary, local_index: None }
+    @ir.HotOp::Compare =>
+      { kind: OiCommutativeOperandCompare, local_index: None }
+    _ => { kind: OiCommutativeOperandUnsupported, local_index: None }
   }
 }
 
 ///|
-fn optimize_instructions_should_swap_commutative_node_kinds(
+fn OiCommutativeOperandClassFact::order_index(
+  self : OiCommutativeOperandClassFact,
+) -> Int? {
+  match self.kind {
+    OiCommutativeOperandUnsupported => None
+    OiCommutativeOperandCallLike => Some(0)
+    OiCommutativeOperandLocalGet => Some(1)
+    OiCommutativeOperandLocalTee => Some(2)
+    OiCommutativeOperandGlobalGet => Some(3)
+    OiCommutativeOperandLoad => Some(4)
+    OiCommutativeOperandLeafLiteral => Some(5)
+    OiCommutativeOperandUnaryLike => Some(6)
+    OiCommutativeOperandBinary => Some(7)
+    OiCommutativeOperandCompare => Some(8)
+  }
+}
+
+///|
+priv enum OiCommutativeOperandSwapKind {
+  OiCommutativeOperandSwapUnsupported
+  OiCommutativeOperandAlreadyCanonical
+  OiCommutativeOperandSwapByClassOrder
+  OiCommutativeOperandSwapByLocalGetIndex
+}
+
+///|
+priv struct OiCommutativeOperandSwapFact {
+  kind : OiCommutativeOperandSwapKind
+}
+
+///|
+fn OiCommutativeOperandSwapFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
-) -> Bool {
+) -> OiCommutativeOperandSwapFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
     !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-    return false
+    return { kind: OiCommutativeOperandSwapUnsupported }
   }
-  let lhs = if lhs_id < func.nodes.length() {
-    func.nodes[lhs_id]
-  } else {
-    @ir.hot_node_get(func, lhs_id)
-  }
-  let rhs = if rhs_id < func.nodes.length() {
-    func.nodes[rhs_id]
-  } else {
-    @ir.hot_node_get(func, rhs_id)
-  }
-  match
-    (
-      optimize_instructions_commutative_node_kind_rank(lhs.op),
-      optimize_instructions_commutative_node_kind_rank(rhs.op),
-    ) {
-    (Some(lhs_rank), Some(rhs_rank)) => {
-      let local_get_tie_break = match (lhs.op, rhs.op) {
-        (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => lhs.imm0 > rhs.imm0
-        _ => false
+  let lhs_fact = OiCommutativeOperandClassFact::from_node(func, lhs_id)
+  let rhs_fact = OiCommutativeOperandClassFact::from_node(func, rhs_id)
+  match (lhs_fact.order_index(), rhs_fact.order_index()) {
+    (Some(lhs_order), Some(rhs_order)) =>
+      if lhs_order > rhs_order {
+        { kind: OiCommutativeOperandSwapByClassOrder }
+      } else if lhs_order < rhs_order {
+        { kind: OiCommutativeOperandAlreadyCanonical }
+      } else {
+        match (lhs_fact.local_index, rhs_fact.local_index) {
+          (Some(lhs_local), Some(rhs_local)) if lhs_local > rhs_local =>
+            { kind: OiCommutativeOperandSwapByLocalGetIndex }
+          _ => { kind: OiCommutativeOperandAlreadyCanonical }
+        }
       }
-      lhs_rank > rhs_rank || (lhs_rank == rhs_rank && local_get_tie_break)
-    }
-    _ => false
+    _ => { kind: OiCommutativeOperandSwapUnsupported }
+  }
+}
+
+///|
+fn OiCommutativeOperandSwapFact::proves_should_swap(
+  self : OiCommutativeOperandSwapFact,
+) -> Bool {
+  match self.kind {
+    OiCommutativeOperandSwapByClassOrder => true
+    OiCommutativeOperandSwapByLocalGetIndex => true
+    OiCommutativeOperandSwapUnsupported
+    | OiCommutativeOperandAlreadyCanonical => false
   }
 }
 
@@ -13910,9 +13985,7 @@ fn optimize_instructions_try_canonicalize_commutative(
   // shared Binaryen-style effect/use-def proof says the operand subtrees can
   // exchange positions without changing observable behavior.
   ignore(scratch)
-  if !optimize_instructions_should_swap_commutative_node_kinds(
-      func, dead, lhs_id, rhs_id,
-    ) {
+  if !OiCommutativeOperandSwapFact::from_operands(func, dead, lhs_id, rhs_id).proves_should_swap() {
     return false
   }
   if !OiLeadingOperandSwapFact::from_operands(ctx, func, lhs_id, rhs_id).proves_swappable() {
@@ -15752,9 +15825,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
   match OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id {
     Some(local_id) => {
       if OiConstlikeLeafFact::from_node(func, dead, lhs_id).proves_constlike() ||
-        !optimize_instructions_should_swap_commutative_node_kinds(
-          func, dead, lhs_id, rhs_id,
-        ) {
+        !OiCommutativeOperandSwapFact::from_operands(func, dead, lhs_id, rhs_id).proves_should_swap() {
         return false
       }
       let use_def = pass_require_use_def(ctx, func)
