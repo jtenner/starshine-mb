@@ -38638,6 +38638,79 @@ fn OiBooleanBlockTailContextFact::apply(
 }
 
 ///|
+priv struct OiBooleanSelectArmsContextFact {
+  select_id : Int
+  true_rewrite : OiBooleanContextLeafRewriteFact
+  false_rewrite : OiBooleanContextLeafRewriteFact
+}
+
+///|
+fn OiBooleanSelectArmsContextFact::from_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  condition_id : Int,
+) -> OiBooleanSelectArmsContextFact? {
+  // Binaryen v130 `optimizeBoolean` recursively optimizes both value arms of a
+  // select without changing the selector. Bound the HOT form to a single i32
+  // result and carry each independently selected leaf rewrite, allowing either
+  // or both arms to make progress.
+  let node = @ir.hot_node_get(func, condition_id)
+  match node.op {
+    @ir.HotOp::Select if node.child_count == 3 => ()
+    _ => return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let true_rewrite = OiBooleanContextLeafRewriteFact::from_node(
+    func,
+    dead,
+    @ir.hot_child_get(func, condition_id, 0),
+  )
+  let false_rewrite = OiBooleanContextLeafRewriteFact::from_node(
+    func,
+    dead,
+    @ir.hot_child_get(func, condition_id, 1),
+  )
+  if true_rewrite.proven_replacement() is None &&
+    false_rewrite.proven_replacement() is None {
+    return None
+  }
+  Some({ select_id: condition_id, true_rewrite, false_rewrite })
+}
+
+///|
+fn OiBooleanSelectArmsContextFact::apply(
+  self : OiBooleanSelectArmsContextFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  if self.select_id < 0 {
+    return false
+  }
+  let mut changed = false
+  match self.true_rewrite.proven_replacement() {
+    Some(replacement_id) => {
+      @ir.hot_child_set(func, self.select_id, 0, replacement_id)
+      changed = true
+    }
+    None => ()
+  }
+  match self.false_rewrite.proven_replacement() {
+    Some(replacement_id) => {
+      @ir.hot_child_set(func, self.select_id, 1, replacement_id)
+      changed = true
+    }
+    None => ()
+  }
+  if changed {
+    pass_mark_mutated(ctx, func)
+  }
+  changed
+}
+
+///|
 fn optimize_instructions_try_optimize_boolean_condition_context(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -38653,7 +38726,12 @@ fn optimize_instructions_try_optimize_boolean_condition_context(
   match
     OiBooleanBlockTailContextFact::from_condition(func, dead, condition_id) {
     Some(fact) => fact.apply(ctx, func)
-    None => false
+    None =>
+      match
+        OiBooleanSelectArmsContextFact::from_condition(func, dead, condition_id) {
+        Some(fact) => fact.apply(ctx, func)
+        None => false
+      }
   }
 }
 

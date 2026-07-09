@@ -2537,6 +2537,38 @@ test "optimize-instructions recursively simplifies boolean block tails" {
 }
 
 ///|
+test "optimize-instructions recursively simplifies boolean select arms" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // recursively treats both arms of a select as boolean values when that select
+  // is itself an `if` condition. The focused oracle keeps the select and its
+  // condition while removing exact `i32.ne(x, 0)` shells from both arms.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) (if (result i32) (select (i32.ne (local.get 0) (i32.const 0)) (i32.ne (local.get 1) (i32.const 0)) (local.get 2)) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let condition = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, condition).op {
+    @ir.HotOp::Select => ()
+    other => fail("expected boolean condition to remain a select, got \{other}")
+  }
+  for slot = 0; slot < 2; slot = slot + 1 {
+    let arm = @ir.hot_child_get(func, condition, slot)
+    match @ir.hot_node_get(func, arm).op {
+      @ir.HotOp::LocalGet =>
+        @debug.assert_eq(@ir.hot_node_get(func, arm).imm0, slot)
+      other =>
+        fail("expected boolean select arm \{slot} to simplify, got \{other}")
+    }
+  }
+  let selector = @ir.hot_child_get(func, condition, 2)
+  match @ir.hot_node_get(func, selector).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(func, selector).imm0, 2)
+    other => fail("expected boolean select condition to remain, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to
