@@ -1346,8 +1346,14 @@ fn OiI31HeapTargetFact::proves_miss_target(self : OiI31HeapTargetFact) -> Bool {
 }
 
 ///|
+priv enum OiRefFuncLiteralTargetKind {
+  RefFuncLiteralNoTargetMatch
+  RefFuncLiteralMatchesFuncTarget
+}
+
+///|
 priv struct OiRefFuncLiteralTargetFact {
-  match_target : Bool
+  kind : OiRefFuncLiteralTargetKind
 }
 
 ///|
@@ -1357,19 +1363,24 @@ fn OiRefFuncLiteralTargetFact::from_target(
   // Preserve the existing direct `ref.func` literal target proof exactly: this
   // narrow literal fact only recognizes the concrete func heap. Broader func ->
   // any compatibility remains in the module heap-target fact used for typed
-  // producers.
-  let match_target = match target {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::func()
-    _ => false
+  // producers. Keep the literal-target relation as a selected source fact
+  // instead of a direct match boolean.
+  let kind = match target {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) if abs == @lib.AbsHeapType::func() =>
+      RefFuncLiteralMatchesFuncTarget
+    _ => RefFuncLiteralNoTargetMatch
   }
-  { match_target, }
+  { kind, }
 }
 
 ///|
 fn OiRefFuncLiteralTargetFact::proves_match_target(
   self : OiRefFuncLiteralTargetFact,
 ) -> Bool {
-  self.match_target
+  match self.kind {
+    RefFuncLiteralMatchesFuncTarget => true
+    RefFuncLiteralNoTargetMatch => false
+  }
 }
 
 ///|
