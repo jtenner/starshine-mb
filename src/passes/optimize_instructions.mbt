@@ -15840,36 +15840,69 @@ fn OiControlExitRegionFact::proves_exits_via_nonbranch_terminal(
 }
 
 ///|
-fn optimize_instructions_holder_flows_to_drop(
+priv enum OiRegionHolderDropFlowKind {
+  RegionHolderDropFlowRootRegion
+  RegionHolderDropFlowSharedHolder
+  RegionHolderDropFlowRootUseSentinel
+  RegionHolderDropFlowChildDrop
+  RegionHolderDropFlowChildNonDrop
+  RegionHolderDropFlowTraversalLimit
+}
+
+///|
+priv struct OiRegionHolderDropFlowFact {
+  kind : OiRegionHolderDropFlowKind
+}
+
+///|
+fn OiRegionHolderDropFlowFact::from_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-) -> Bool {
+) -> OiRegionHolderDropFlowFact {
+  // Dead-suffix zero-sentinel preservation needs to know whether the current
+  // region holder reaches a surrounding `drop` through single-use root hops.
+  // Keep the local writeback/root-use sentinel and traversal-limit outcomes as
+  // an explicit fact so the cleanup no longer owns a raw use-def scanner.
   if region_ref == @ir.HotRegionRef::root() {
-    return false
+    return { kind: RegionHolderDropFlowRootRegion }
   }
   let use_def = pass_require_use_def(ctx, func)
   let mut current = region_ref.holder
   for hops = 0; hops < 64; hops = hops + 1 {
     if @ir.node_use_count(use_def, current) != 1 {
-      return false
+      return { kind: RegionHolderDropFlowSharedHolder }
     }
     let sites = @ir.node_use_sites_borrowed(use_def, current)
     let site = sites[0]
     if site.user == -1 {
-      return false
+      return { kind: RegionHolderDropFlowRootUseSentinel }
     }
     let user = @ir.hot_node_get(func, site.user)
     match site.kind {
       @ir.HotUseSlotKind::ChildUseSlot =>
         match user.op {
-          @ir.HotOp::Drop => return true
-          _ => return false
+          @ir.HotOp::Drop => return { kind: RegionHolderDropFlowChildDrop }
+          _ => return { kind: RegionHolderDropFlowChildNonDrop }
         }
       @ir.HotUseSlotKind::RootUseSlot => current = site.user
     }
   }
-  false
+  { kind: RegionHolderDropFlowTraversalLimit }
+}
+
+///|
+fn OiRegionHolderDropFlowFact::proves_flows_to_drop(
+  self : OiRegionHolderDropFlowFact,
+) -> Bool {
+  match self.kind {
+    RegionHolderDropFlowChildDrop => true
+    RegionHolderDropFlowRootRegion
+    | RegionHolderDropFlowSharedHolder
+    | RegionHolderDropFlowRootUseSentinel
+    | RegionHolderDropFlowChildNonDrop
+    | RegionHolderDropFlowTraversalLimit => false
+  }
 }
 
 ///|
@@ -15947,7 +15980,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         root_exit_fact.proves_exits_via_nonbranch_terminal()
       if OiZeroSentinelFact::proves_node_zero_sentinel(func, tail_id) &&
         (
-          optimize_instructions_holder_flows_to_drop(ctx, func, region_ref) ||
+          OiRegionHolderDropFlowFact::from_region(ctx, func, region_ref).proves_flows_to_drop() ||
           keep_result_zero_sentinel
         ) {
         return false
