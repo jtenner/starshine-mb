@@ -9340,6 +9340,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixDropStructAtomicCmpxchgLowering
   MaxBitsBlockPrefixDropAtomicRmw
   MaxBitsBlockPrefixDropArrayAtomicRmw
+  MaxBitsBlockPrefixDropArrayAtomicCmpxchg
   MaxBitsBlockPrefixDropAtomicCmpxchg
   MaxBitsBlockPrefixDropAtomicWait
   MaxBitsBlockPrefixDropAtomicNotify
@@ -9563,6 +9564,12 @@ fn OiMaxBitsBlockPrefixFact::from_root(
             ) => Some({ kind: MaxBitsBlockPrefixDropAtomicWait, root_id })
             _ => None
           }
+        @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 4 =>
+          match @ir.hot_node_exact_instr(func, child_id) {
+            Some(@lib.Instruction::ArrayAtomicCmpxchg(_)) =>
+              Some({ kind: MaxBitsBlockPrefixDropArrayAtomicCmpxchg, root_id })
+            _ => None
+          }
         @ir.HotOp::Block =>
           match
             OiDroppedStructAtomicRmwLoweringFact::from_drop_child(
@@ -9637,6 +9644,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixDropStructAtomicCmpxchgLowering
     | MaxBitsBlockPrefixDropAtomicRmw
     | MaxBitsBlockPrefixDropArrayAtomicRmw
+    | MaxBitsBlockPrefixDropArrayAtomicCmpxchg
     | MaxBitsBlockPrefixDropAtomicCmpxchg
     | MaxBitsBlockPrefixDropAtomicWait
     | MaxBitsBlockPrefixDropAtomicNotify

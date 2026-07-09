@@ -1305,6 +1305,40 @@ test "optimize-instructions preserves array-atomic-rmw drop block prefixes after
 }
 
 ///|
+test "optimize-instructions preserves array-atomic-cmpxchg drop block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
+  // maxBits compare through a drop-wrapped aggregate array.atomic.rmw.cmpxchg
+  // prefix under shared-everything, preserving the ordered aggregate
+  // compare-exchange, null/index trap behavior, operands, and dropped old value
+  // before the folded constant. This is the direct represented array cmpxchg
+  // form and does not admit arbitrary dropped effectful operations.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $A (sub (array (mut i32))))
+        #|  (func (param $a (ref null $A)) (param $x i32) (param $i i32) (param $e i32) (param $v i32) (result i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (drop (array.atomic.rmw.cmpxchg $A (local.get $a) (local.get $i) (local.get $e) (local.get $v)))
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected array-atomic-cmpxchg prefix maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("array.atomic.rmw.cmpxchg"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves atomic-cmpxchg drop block prefixes after maxBits compare folds" {
   // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
   // maxBits compare through a drop-wrapped atomic cmpxchg prefix while keeping
