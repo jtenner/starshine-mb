@@ -5966,9 +5966,14 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
 }
 
 ///|
+priv struct OiRefGetDescExplicitNullableChildFact {
+  child_id : Int
+}
+
+///|
 priv struct OiRefGetDescFact {
   child_id : Int
-  nullable_child_id : Int
+  explicit_nullable_child_fact : OiRefGetDescExplicitNullableChildFact?
 }
 
 ///|
@@ -5984,20 +5989,20 @@ fn OiRefGetDescFact::from_node(
     return None
   }
   let child_id = @ir.hot_child_get(func, node_id, 0)
-  let nullable_child_id = match @ir.hot_node_exact_instr(func, child_id) {
+  let explicit_nullable_child_fact : OiRefGetDescExplicitNullableChildFact? = match
+    @ir.hot_node_exact_instr(func, child_id) {
     Some(@lib.Instruction::RefAsNonNull) if @ir.hot_child_count(func, child_id) ==
-      1 => @ir.hot_child_get(func, child_id, 0)
-    _ => -1
+      1 => Some({ child_id: @ir.hot_child_get(func, child_id, 0) })
+    _ => None
   }
-  Some({ child_id, nullable_child_id })
+  Some({ child_id, explicit_nullable_child_fact })
 }
 
 ///|
 fn OiRefGetDescFact::explicit_nullable_child(self : OiRefGetDescFact) -> Int? {
-  if self.nullable_child_id >= 0 {
-    Some(self.nullable_child_id)
-  } else {
-    None
+  match self.explicit_nullable_child_fact {
+    Some(fact) => Some(fact.child_id)
+    None => None
   }
 }
 
@@ -6008,10 +6013,15 @@ priv enum OiRefGetDescKnownNullChildKind {
 }
 
 ///|
+priv struct OiRefGetDescKnownNullPreserveChildFact {
+  child_id : Int
+}
+
+///|
 priv struct OiRefGetDescKnownNullChildFact {
   kind : OiRefGetDescKnownNullChildKind
   get_desc_fact : OiRefGetDescFact
-  preserve_child_id : Int
+  preserve_child_fact : OiRefGetDescKnownNullPreserveChildFact?
 }
 
 ///|
@@ -6033,7 +6043,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         Some({
           kind: RefGetDescKnownNullDirectTrap,
           get_desc_fact,
-          preserve_child_id: -1,
+          preserve_child_fact: None,
         })
       } else {
         None
@@ -6043,7 +6053,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         Some({
           kind: RefGetDescKnownNullPreserveChild,
           get_desc_fact,
-          preserve_child_id: nullable_child,
+          preserve_child_fact: Some({ child_id: nullable_child }),
         })
       } else {
         None
@@ -6055,7 +6065,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         Some({
           kind: RefGetDescKnownNullPreserveChild,
           get_desc_fact,
-          preserve_child_id: nullable_child,
+          preserve_child_fact: Some({ child_id: nullable_child }),
         })
       } else {
         None
@@ -6078,14 +6088,18 @@ fn OiRefGetDescKnownNullChildFact::apply(
         optimize_instructions_replace_with_unreachable(ctx, func, descriptor_id),
       )
     RefGetDescKnownNullPreserveChild =>
-      ignore(
-        optimize_instructions_replace_with_drop_then_unreachable(
-          ctx,
-          func,
-          descriptor_id,
-          self.preserve_child_id,
-        ),
-      )
+      match self.preserve_child_fact {
+        Some(preserve_child) =>
+          ignore(
+            optimize_instructions_replace_with_drop_then_unreachable(
+              ctx,
+              func,
+              descriptor_id,
+              preserve_child.child_id,
+            ),
+          )
+        None => ()
+      }
   }
   true
 }
