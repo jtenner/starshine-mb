@@ -9339,6 +9339,22 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
 }
 
 ///|
+fn OiMaxBitsFallthroughFact::from_local_tee(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMaxBitsFallthroughFact? {
+  // Binaryen's fallthrough/maxBits path can inspect the value written by a
+  // `local.tee` while later replacement still preserves the tee as a dropped
+  // effect. Keep that as a separate fact from erasable single-value blocks.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalTee if node.child_count == 1 =>
+      Some({ value_id: func.children[node.child_base] })
+    _ => None
+  }
+}
+
+///|
 priv enum OiCombinedShiftZeroBitsKind {
   CombinedShiftZeroI32
   CombinedShiftZeroI64
@@ -10642,6 +10658,17 @@ fn OiI32MaxBitsProducerFact::from_node(
           )
         None => return None
       }
+    @ir.HotOp::LocalTee =>
+      match OiMaxBitsFallthroughFact::from_local_tee(func, node_id) {
+        Some(fact) =>
+          OiUnsignedMaxValueFact::i32_max_for_node(
+            func,
+            dead,
+            local_facts,
+            fact.value_id,
+          )
+        None => return None
+      }
     _ => return None
   }
   Some({ value_id: node_id, max_value })
@@ -10728,6 +10755,17 @@ fn OiI64MaxBitsProducerFact::from_node(
     }
     @ir.HotOp::Block =>
       match OiMaxBitsFallthroughFact::from_single_value_block(func, node_id) {
+        Some(fact) =>
+          OiUnsignedMaxValueFact::i64_max_for_node(
+            func,
+            dead,
+            local_facts,
+            fact.value_id,
+          )
+        None => return None
+      }
+    @ir.HotOp::LocalTee =>
+      match OiMaxBitsFallthroughFact::from_local_tee(func, node_id) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i64_max_for_node(
             func,

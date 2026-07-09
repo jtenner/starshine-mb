@@ -347,6 +347,34 @@ test "optimize-instructions erases pure block operands after maxBits compare fol
 }
 
 ///|
+test "optimize-instructions preserves local.tee while folding maxBits compares" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 `Bits::getMaxBits`
+  // sees through a local.tee value but preserves the local write before the
+  // folded constant. HOT may materialize the preserved tee effect as local.set;
+  // the parity requirement is that the impossible compare folds without erasing
+  // the write.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (result i32) (local $tmp i32)
+        #|    (i32.eq
+        #|      (local.tee $tmp (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local.tee maxBits compare fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant block-produced unsigned mask facts" {
   // OI-E finite closeout `.tmp/oi-e-v01-closeout-signoff-10000` exposed the
   // `oi-local-facts:block-produced-mask` bucket as the only sampled
