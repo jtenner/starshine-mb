@@ -2051,8 +2051,38 @@ fn OiHeapStrictConcreteTargetMatchFact::proves_target_match(
 }
 
 ///|
+priv enum OiHeapNullableExactOnlyNullTargetKind {
+  UnknownNullableExactOnlyNullTargetMatch
+  NullableExactOnlyNullTargetMatch
+}
+
+///|
+priv struct OiHeapNullableExactOnlyNullSourceNullabilityFact {
+  nullable : Bool
+}
+
+///|
+priv struct OiHeapNullableExactOnlyNullSourceExactnessFact {
+  exact : Bool
+}
+
+///|
+priv struct OiHeapNullableExactOnlyNullTargetNullabilityFact {
+  nullable : Bool
+}
+
+///|
+priv struct OiHeapNullableExactOnlyNullTargetEvidenceFact {
+  relation : OiHeapRelationFact
+  source_nullability_fact : OiHeapNullableExactOnlyNullSourceNullabilityFact
+  source_exactness_fact : OiHeapNullableExactOnlyNullSourceExactnessFact
+  target_nullability_fact : OiHeapNullableExactOnlyNullTargetNullabilityFact
+}
+
+///|
 priv struct OiHeapNullableExactOnlyNullTargetFact {
-  target_match : Bool
+  kind : OiHeapNullableExactOnlyNullTargetKind
+  evidence_fact : OiHeapNullableExactOnlyNullTargetEvidenceFact?
 }
 
 ///|
@@ -2065,13 +2095,25 @@ fn OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
   // Binaryen's nullable-exact check can only fold to a null test when the
   // nullable source is a different concrete heap from a nullable exact target;
   // an exact source or module target match proves any successful cast must be
-  // the null case.
-  {
-    target_match: target_nullable &&
+  // the null case. Keep those source, target, and heap-relation payloads nested
+  // instead of collapsing the proof to a direct boolean.
+  let evidence_fact = {
+    relation,
+    source_nullability_fact: { nullable: source_nullable },
+    source_exactness_fact: { exact: source_exact },
+    target_nullability_fact: { nullable: target_nullable },
+  }
+  if target_nullable &&
     source_nullable &&
     relation.proves_both_concrete_heaps() &&
     !relation.proves_same_heap() &&
-    (source_exact || relation.match_fact.proves_module_heap_match()),
+    (source_exact || relation.match_fact.proves_module_heap_match()) {
+    {
+      kind: NullableExactOnlyNullTargetMatch,
+      evidence_fact: Some(evidence_fact),
+    }
+  } else {
+    { kind: UnknownNullableExactOnlyNullTargetMatch, evidence_fact: None }
   }
 }
 
@@ -2079,7 +2121,18 @@ fn OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
 fn OiHeapNullableExactOnlyNullTargetFact::proves_target_match(
   self : OiHeapNullableExactOnlyNullTargetFact,
 ) -> Bool {
-  self.target_match
+  match (self.kind, self.evidence_fact) {
+    (NullableExactOnlyNullTargetMatch, Some(evidence)) =>
+      evidence.target_nullability_fact.nullable &&
+      evidence.source_nullability_fact.nullable &&
+      evidence.relation.proves_both_concrete_heaps() &&
+      !evidence.relation.proves_same_heap() &&
+      (
+        evidence.source_exactness_fact.exact ||
+        evidence.relation.match_fact.proves_module_heap_match()
+      )
+    _ => false
+  }
 }
 
 ///|
