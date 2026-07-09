@@ -11035,7 +11035,17 @@ priv struct OiCallRefTargetClassificationFact {
 }
 
 ///|
+priv enum OiCallRefTargetKind {
+  CallRefUnknownTarget
+  CallRefDirectTarget
+  CallRefTableTarget
+  CallRefFallthroughDirectTarget
+  CallRefSelectTarget
+}
+
+///|
 priv struct OiCallRefTargetFact {
+  kind : OiCallRefTargetKind
   select_fact : OiCallRefSelectTargetFact?
   direct_fact : OiCallRefDirectTargetFact?
   table_fact : OiCallRefTableTargetFact?
@@ -11045,6 +11055,7 @@ priv struct OiCallRefTargetFact {
 ///|
 fn OiCallRefTargetFact::unknown() -> OiCallRefTargetFact {
   {
+    kind: CallRefUnknownTarget,
     select_fact: None,
     direct_fact: None,
     table_fact: None,
@@ -11057,6 +11068,7 @@ fn OiCallRefTargetFact::from_direct_fact(
   fact : OiCallRefDirectTargetFact,
 ) -> OiCallRefTargetFact {
   {
+    kind: CallRefDirectTarget,
     select_fact: None,
     direct_fact: Some(fact),
     table_fact: None,
@@ -11069,6 +11081,7 @@ fn OiCallRefTargetFact::from_table_fact(
   fact : OiCallRefTableTargetFact,
 ) -> OiCallRefTargetFact {
   {
+    kind: CallRefTableTarget,
     select_fact: None,
     direct_fact: None,
     table_fact: Some(fact),
@@ -11081,6 +11094,7 @@ fn OiCallRefTargetFact::from_fallthrough_direct_fact(
   fact : OiCallRefFallthroughDirectTargetFact,
 ) -> OiCallRefTargetFact {
   {
+    kind: CallRefFallthroughDirectTarget,
     select_fact: None,
     direct_fact: None,
     table_fact: None,
@@ -11093,10 +11107,51 @@ fn OiCallRefTargetFact::from_select_fact(
   fact : OiCallRefSelectTargetFact,
 ) -> OiCallRefTargetFact {
   {
+    kind: CallRefSelectTarget,
     select_fact: Some(fact),
     direct_fact: None,
     table_fact: None,
     fallthrough_direct_fact: None,
+  }
+}
+
+///|
+fn OiCallRefTargetFact::direct_target(
+  self : OiCallRefTargetFact,
+) -> OiCallRefDirectTargetFact? {
+  match self.kind {
+    CallRefDirectTarget => self.direct_fact
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefTargetFact::table_target(
+  self : OiCallRefTargetFact,
+) -> OiCallRefTableTargetFact? {
+  match self.kind {
+    CallRefTableTarget => self.table_fact
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefTargetFact::fallthrough_direct_target(
+  self : OiCallRefTargetFact,
+) -> OiCallRefFallthroughDirectTargetFact? {
+  match self.kind {
+    CallRefFallthroughDirectTarget => self.fallthrough_direct_fact
+    _ => None
+  }
+}
+
+///|
+fn OiCallRefTargetFact::select_target(
+  self : OiCallRefTargetFact,
+) -> OiCallRefSelectTargetFact? {
+  match self.kind {
+    CallRefSelectTarget => self.select_fact
+    _ => None
   }
 }
 
@@ -11740,7 +11795,7 @@ fn OiCallRefDirectFuncPlanFact::from_target_fact(
   // Binaryen v130 `visitCallRef` direct-target planning should consume the
   // explicit immediate `ref.func` proof, not sentinel fields on the broader
   // target record.
-  match target_fact.direct_fact {
+  match target_fact.direct_target() {
     Some(fact) if fact.proves_direct_ref_func() =>
       Some({ direct_func: fact.direct_func_fact.direct_func })
     _ => None
@@ -11754,7 +11809,7 @@ fn OiCallRefTableTargetPlanFact::from_target_fact(
   // Binaryen v130 lowers only a proven immediate `table.get` callee to
   // call_indirect. Keep the table/index payload behind that proof fact instead
   // of asking sentinel-style questions of `OiCallRefTargetFact`.
-  match target_fact.table_fact {
+  match target_fact.table_target() {
     Some(fact) if fact.proves_table_get_target() =>
       Some({
         table_idx: fact.table_index_fact.table_idx,
@@ -11771,7 +11826,7 @@ fn OiCallRefFallthroughFuncPlanFact::from_target_fact(
   // Binaryen v130's fallthrough directization requires the fallthrough-target
   // proof plus heap compatibility. Route the direct function payload through a
   // plan fact so fallthrough calls do not depend on generic sentinel fields.
-  match target_fact.fallthrough_direct_fact {
+  match target_fact.fallthrough_direct_target() {
     Some(fact) if fact.proves_fallthrough_ref_func() =>
       Some({ direct_func: fact.function_fact.direct_func })
     _ => None
@@ -12050,7 +12105,7 @@ fn OiCallRefSelectTargetResidueFact::from_same_target(
   callee_ref_id : Int,
   target_fact : OiCallRefTargetFact,
 ) -> OiCallRefSelectTargetResidueFact? {
-  let same_target_fact = match target_fact.select_fact {
+  let same_target_fact = match target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
         Some(fact) => fact
@@ -12198,7 +12253,7 @@ fn OiCallRefDirectizePlanFact::from_target(
     }
     None => ()
   }
-  match target_fact.select_fact {
+  match target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
         Some(_) => {
@@ -12216,7 +12271,7 @@ fn OiCallRefDirectizePlanFact::from_target(
       }
     None => ()
   }
-  match target_fact.select_fact {
+  match target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectDirectCallsFact::from_select_target(select_fact) {
         Some(_) => {
@@ -12430,7 +12485,7 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
   callee_ref_id : Int,
   operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  let same_target_fact = match self.target_fact.select_fact {
+  let same_target_fact = match self.target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
         Some(fact) => fact
@@ -12508,7 +12563,7 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
   node : @ir.HotNode,
   operand_fact : OiCallRefOperandFact,
 ) -> Int? {
-  let direct_calls_fact = match self.target_fact.select_fact {
+  let direct_calls_fact = match self.target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectDirectCallsFact::from_select_target(select_fact) {
         Some(fact) => fact
