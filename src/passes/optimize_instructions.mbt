@@ -9325,6 +9325,7 @@ priv enum OiMaxBitsBlockPrefixKind {
   MaxBitsBlockPrefixAtomicStore
   MaxBitsBlockPrefixCall
   MaxBitsBlockPrefixCallIndirect
+  MaxBitsBlockPrefixCallRef
   MaxBitsBlockPrefixDropCall
   MaxBitsBlockPrefixDropCallIndirect
   MaxBitsBlockPrefixDropCallRef
@@ -9364,9 +9365,10 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // preserves those effects by dropping the whole block. Keep the source-backed
   // effectful prefix outcomes intentionally narrow to straight-line assignment,
   // memory/table store, atomic store, passive-data/table-init/drop, drop-wrapped
-  // atomic load/RMW/cmpxchg/wait/notify, value-returning direct, indirect, and
-  // reference calls, table.grow and memory.grow, direct/indirect call, and global write roots so branch, control, and generalized localization
-  // remain out of this fact.
+  // atomic load/RMW/cmpxchg/wait/notify, direct, indirect, and reference calls,
+  // value-returning drop-wrapped calls, table.grow and memory.grow, and global
+  // write roots so branch, control, and generalized localization remain out of
+  // this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id })
   }
@@ -9391,6 +9393,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
     @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixCall, root_id })
     @ir.HotOp::CallIndirect =>
       Some({ kind: MaxBitsBlockPrefixCallIndirect, root_id })
+    @ir.HotOp::CallRef => Some({ kind: MaxBitsBlockPrefixCallRef, root_id })
     @ir.HotOp::GlobalSet if @ir.hot_child_count(func, root_id) == 1 =>
       Some({ kind: MaxBitsBlockPrefixGlobalSet, root_id })
     @ir.HotOp::TableSet if @ir.hot_child_count(func, root_id) == 2 =>
@@ -9471,6 +9474,7 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
     | MaxBitsBlockPrefixAtomicStore
     | MaxBitsBlockPrefixCall
     | MaxBitsBlockPrefixCallIndirect
+    | MaxBitsBlockPrefixCallRef
     | MaxBitsBlockPrefixDropCall
     | MaxBitsBlockPrefixDropCallIndirect
     | MaxBitsBlockPrefixDropCallRef
