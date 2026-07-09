@@ -31448,6 +31448,140 @@ fn optimize_instructions_try_fold_i64_masked_unsigned_compare(
 }
 
 ///|
+priv enum OiEqzBooleanCompareWidthKind {
+  EqzBooleanCompareI32
+  EqzBooleanCompareI64
+}
+
+///|
+priv enum OiEqzBooleanCompareRewriteKind {
+  EqzBooleanCompareKeepEqz
+  EqzBooleanCompareInvertToNeZero
+}
+
+///|
+priv struct OiEqzBooleanCompareOperandFact {
+  eqz_id : Int
+  operand_id : Int
+  const_value : Int
+  width : OiEqzBooleanCompareWidthKind
+}
+
+///|
+fn OiEqzBooleanCompareOperandFact::from_pair(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  eqz_id : Int,
+  const_id : Int,
+) -> OiEqzBooleanCompareOperandFact? {
+  // Binaryen v130 `visitBinary` recognizes equality/inequality compares between
+  // a direct `i32.eqz` / `i64.eqz` boolean and exact i32 boolean constants. Keep
+  // the direct eqz shell, literal boolean, operand liveness, and eqz width as a
+  // source-backed fact instead of returning a `-1` sentinel pair to the visitor.
+  let width = match @ir.hot_node_exact_instr(func, eqz_id) {
+    Some(@lib.Instruction::I32Eqz) => EqzBooleanCompareI32
+    Some(@lib.Instruction::I64Eqz) => EqzBooleanCompareI64
+    _ => return None
+  }
+  let const_value = match
+    optimize_instructions_i32_const(func, dead, const_id) {
+    Some(@lib.I32(raw)) if raw == 0 || raw == 1 => raw
+    _ => return None
+  }
+  if @ir.hot_child_count(func, eqz_id) != 1 {
+    return None
+  }
+  let operand_id = @ir.hot_child_get(func, eqz_id, 0)
+  if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
+    return None
+  }
+  Some({ eqz_id, operand_id, const_value, width })
+}
+
+///|
+priv struct OiEqzBooleanCompareFact {
+  operand_fact : OiEqzBooleanCompareOperandFact
+  rewrite : OiEqzBooleanCompareRewriteKind
+}
+
+///|
+fn OiEqzBooleanCompareFact::from_operands(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiEqzBooleanCompareFact? {
+  match instr {
+    @lib.Instruction::I32Eq | @lib.Instruction::I32Ne => ()
+    _ => return None
+  }
+  let operand_fact = match
+    OiEqzBooleanCompareOperandFact::from_pair(func, dead, lhs_id, rhs_id) {
+    Some(fact) => fact
+    None =>
+      match
+        OiEqzBooleanCompareOperandFact::from_pair(func, dead, rhs_id, lhs_id) {
+        Some(fact) => fact
+        None => return None
+      }
+  }
+  let rewrite = match (instr, operand_fact.const_value) {
+    (@lib.Instruction::I32Eq, 1) | (@lib.Instruction::I32Ne, 0) =>
+      EqzBooleanCompareKeepEqz
+    _ => EqzBooleanCompareInvertToNeZero
+  }
+  Some({ operand_fact, rewrite })
+}
+
+///|
+fn OiEqzBooleanCompareFact::apply(
+  self : OiEqzBooleanCompareFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  ignore(self.operand_fact.eqz_id)
+  let operand_id = self.operand_fact.operand_id
+  match (self.rewrite, self.operand_fact.width) {
+    (EqzBooleanCompareKeepEqz, EqzBooleanCompareI64) =>
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_eqz(),
+        operand_id,
+      )
+    (EqzBooleanCompareKeepEqz, EqzBooleanCompareI32) =>
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_eqz(),
+        operand_id,
+      )
+    (EqzBooleanCompareInvertToNeZero, EqzBooleanCompareI64) =>
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_ne(),
+        operand_id,
+        @ir.hot_build_const_i64(func, @lib.I64(0L)),
+      )
+    (EqzBooleanCompareInvertToNeZero, EqzBooleanCompareI32) =>
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        operand_id,
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+      )
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_compare_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -31463,80 +31597,13 @@ fn optimize_instructions_try_rewrite_compare_eqz(
     ) {
     return false
   }
-  match instr {
-    @lib.Instruction::I32Eq | @lib.Instruction::I32Ne => {
-      let (eqz_id, const_value) = match
-        (
-          @ir.hot_node_exact_instr(func, lhs_id),
-          @ir.hot_node_exact_instr(func, rhs_id),
-          optimize_instructions_i32_const(func, dead, lhs_id),
-          optimize_instructions_i32_const(func, dead, rhs_id),
-        ) {
-        (Some(@lib.Instruction::I32Eqz), _, _, Some(@lib.I32(raw)))
-        | (Some(@lib.Instruction::I64Eqz), _, _, Some(@lib.I32(raw))) =>
-          (lhs_id, raw)
-        (_, Some(@lib.Instruction::I32Eqz), Some(@lib.I32(raw)), _)
-        | (_, Some(@lib.Instruction::I64Eqz), Some(@lib.I32(raw)), _) =>
-          (rhs_id, raw)
-        _ => (-1, 0)
-      }
-      if eqz_id >= 0 &&
-        (const_value == 0 || const_value == 1) &&
-        @ir.hot_child_count(func, eqz_id) == 1 {
-        let operand_id = @ir.hot_child_get(func, eqz_id, 0)
-        if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
-          return false
-        }
-        let keep_eqz = match (instr, const_value) {
-          (@lib.Instruction::I32Eq, 1) | (@lib.Instruction::I32Ne, 0) => true
-          _ => false
-        }
-        let eqz_instr = @ir.hot_node_exact_instr(func, eqz_id)
-        if keep_eqz {
-          match eqz_instr {
-            Some(@lib.Instruction::I64Eqz) =>
-              optimize_instructions_replace_with_exact_unary(
-                ctx,
-                func,
-                node_id,
-                @lib.Instruction::i64_eqz(),
-                operand_id,
-              )
-            _ =>
-              optimize_instructions_replace_with_exact_unary(
-                ctx,
-                func,
-                node_id,
-                @lib.Instruction::i32_eqz(),
-                operand_id,
-              )
-          }
-        } else {
-          match eqz_instr {
-            Some(@lib.Instruction::I64Eqz) =>
-              optimize_instructions_replace_with_exact_compare(
-                ctx,
-                func,
-                node_id,
-                @lib.Instruction::i64_ne(),
-                operand_id,
-                @ir.hot_build_const_i64(func, @lib.I64(0L)),
-              )
-            _ =>
-              optimize_instructions_replace_with_exact_compare(
-                ctx,
-                func,
-                node_id,
-                @lib.Instruction::i32_ne(),
-                operand_id,
-                @ir.hot_build_const_i32(func, @lib.I32(0)),
-              )
-          }
-        }
-        return true
-      }
+  match
+    OiEqzBooleanCompareFact::from_operands(func, dead, instr, lhs_id, rhs_id) {
+    Some(fact) => {
+      fact.apply(ctx, func, node_id)
+      return true
     }
-    _ => ()
+    None => ()
   }
   match
     (
