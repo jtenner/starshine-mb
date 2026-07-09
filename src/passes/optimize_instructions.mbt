@@ -11041,9 +11041,14 @@ priv enum OiCallRefIfFallthroughArmChoiceKind {
 }
 
 ///|
+priv struct OiCallRefIfFallthroughArmTailFact {
+  fallthrough_arm_id : Int
+}
+
+///|
 priv struct OiCallRefIfFallthroughArmChoiceFact {
   kind : OiCallRefIfFallthroughArmChoiceKind
-  fallthrough_arm_id : Int
+  arm_tail_fact : OiCallRefIfFallthroughArmTailFact
 }
 
 ///|
@@ -11383,7 +11388,15 @@ fn OiCallRefIfFallthroughArmChoiceFact::from_regions(
       tail_id
     _ => return None
   }
-  Some({ kind, fallthrough_arm_id })
+  let arm_tail_fact = { fallthrough_arm_id, }
+  Some({ kind, arm_tail_fact })
+}
+
+///|
+fn OiCallRefIfFallthroughArmTailFact::proves_live_fallthrough_arm(
+  self : OiCallRefIfFallthroughArmTailFact,
+) -> Bool {
+  self.fallthrough_arm_id >= 0
 }
 
 ///|
@@ -11394,7 +11407,7 @@ fn OiCallRefIfFallthroughArmChoiceFact::proves_one_sided_fallthrough_arm(
     CallRefIfThenStopsElseFallsThrough | CallRefIfElseStopsThenFallsThrough =>
       true
   }
-  supported_one_sided_choice && self.fallthrough_arm_id >= 0
+  supported_one_sided_choice && self.arm_tail_fact.proves_live_fallthrough_arm()
 }
 
 ///|
@@ -11428,7 +11441,7 @@ fn OiCallRefIfFallthroughTargetFact::from_if_target(
   let arm_fact = OiCallRefFallthroughTargetFact::from_node(
     func,
     dead,
-    arm_choice_fact.fallthrough_arm_id,
+    arm_choice_fact.arm_tail_fact.fallthrough_arm_id,
     depth=depth + 1,
   )
   Some({ arm_choice_fact, arm_fact })
