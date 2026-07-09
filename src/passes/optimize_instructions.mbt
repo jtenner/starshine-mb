@@ -916,17 +916,97 @@ fn optimize_instructions_region_tail_id(
 }
 
 ///|
-fn optimize_instructions_region_explicitly_does_not_fallthrough(
+priv enum OiRegionFallthroughExitKind {
+  RegionMayFallThrough
+  RegionExplicitUnreachableTail
+}
+
+///|
+priv struct OiRegionFallthroughExitFact {
+  kind : OiRegionFallthroughExitKind
+  tail_id : Int?
+}
+
+///|
+fn OiRegionFallthroughExitFact::from_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-) -> Bool {
+) -> OiRegionFallthroughExitFact {
+  // Binaryen's represented one-sided fallthrough paths treat a region as
+  // stopping only when the live tail is an explicit `unreachable`. Keep that
+  // as a source-backed fact instead of a boolean helper shared by unrelated
+  // descriptor/call_ref/array fallthrough scanners.
   match optimize_instructions_region_tail_id(func, region_ref) {
     Some(tail_id) =>
       match @ir.hot_node_get(func, tail_id).op {
-        @ir.HotOp::Unreachable => true
-        _ => false
+        @ir.HotOp::Unreachable =>
+          { kind: RegionExplicitUnreachableTail, tail_id: Some(tail_id) }
+        _ => { kind: RegionMayFallThrough, tail_id: Some(tail_id) }
       }
-    None => false
+    None => { kind: RegionMayFallThrough, tail_id: None }
+  }
+}
+
+///|
+fn OiRegionFallthroughExitFact::proves_explicit_no_fallthrough(
+  self : OiRegionFallthroughExitFact,
+) -> Bool {
+  ignore(self.tail_id)
+  match self.kind {
+    RegionExplicitUnreachableTail => true
+    RegionMayFallThrough => false
+  }
+}
+
+///|
+priv enum OiIfOneSidedFallthroughRegionKind {
+  IfNoOneSidedFallthroughRegion
+  IfThenStopsElseFallsThroughRegion
+  IfElseStopsThenFallsThroughRegion
+}
+
+///|
+priv struct OiIfOneSidedFallthroughRegionFact {
+  kind : OiIfOneSidedFallthroughRegionKind
+  then_exit : OiRegionFallthroughExitFact
+  else_exit : OiRegionFallthroughExitFact
+  fallthrough_region : @ir.HotRegionRef?
+}
+
+///|
+fn OiIfOneSidedFallthroughRegionFact::from_regions(
+  func : @ir.HotFunc,
+  then_ref : @ir.HotRegionRef,
+  else_ref : @ir.HotRegionRef,
+) -> OiIfOneSidedFallthroughRegionFact {
+  // Binaryen v130 `Properties::getImmediateFallthrough` and Starshine's
+  // represented array-default fallthrough search both descend through an `if`
+  // only when exactly one arm explicitly stops. Capture the arm-choice as one
+  // fact so callers do not each carry parallel then/else stop booleans.
+  let then_exit = OiRegionFallthroughExitFact::from_region(func, then_ref)
+  let else_exit = OiRegionFallthroughExitFact::from_region(func, else_ref)
+  let then_stops = then_exit.proves_explicit_no_fallthrough()
+  let else_stops = else_exit.proves_explicit_no_fallthrough()
+  let (kind, fallthrough_region) = if then_stops && !else_stops {
+    (IfThenStopsElseFallsThroughRegion, Some(else_ref))
+  } else if else_stops && !then_stops {
+    (IfElseStopsThenFallsThroughRegion, Some(then_ref))
+  } else {
+    (IfNoOneSidedFallthroughRegion, None)
+  }
+  { kind, then_exit, else_exit, fallthrough_region }
+}
+
+///|
+fn OiIfOneSidedFallthroughRegionFact::proven_fallthrough_region(
+  self : OiIfOneSidedFallthroughRegionFact,
+) -> @ir.HotRegionRef? {
+  ignore(self.then_exit)
+  ignore(self.else_exit)
+  match self.kind {
+    IfThenStopsElseFallsThroughRegion | IfElseStopsThenFallsThroughRegion =>
+      self.fallthrough_region
+    IfNoOneSidedFallthroughRegion => None
   }
 }
 
@@ -1922,24 +2002,17 @@ fn OiRefFallthroughFact::from_node(
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) => {
           let then_ref = @ir.hot_region_then_ref(func, node_id)
-          let then_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-            func, then_ref,
+          let one_sided_fact = OiIfOneSidedFallthroughRegionFact::from_regions(
+            func, then_ref, else_ref,
           )
-          let else_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-            func, else_ref,
-          )
-          if then_stops && !else_stops {
-            match
-              OiRefFallthroughRegionFact::from_region(ctx, func, else_ref).proven_ref_type() {
-              Some(ref_type) => return { ref_type: Some(ref_type) }
-              None => ()
-            }
-          } else if else_stops && !then_stops {
-            match
-              OiRefFallthroughRegionFact::from_region(ctx, func, then_ref).proven_ref_type() {
-              Some(ref_type) => return { ref_type: Some(ref_type) }
-              None => ()
-            }
+          match one_sided_fact.proven_fallthrough_region() {
+            Some(region_ref) =>
+              match
+                OiRefFallthroughRegionFact::from_region(ctx, func, region_ref).proven_ref_type() {
+                Some(ref_type) => return { ref_type: Some(ref_type) }
+                None => ()
+              }
+            None => ()
           }
         }
         None => ()
@@ -9877,19 +9950,17 @@ fn OiCallRefIfFallthroughArmChoiceFact::from_regions(
   // `if` only when exactly one arm is unreachable. Carry that as the explicit
   // chosen-arm fact instead of storing parallel then/else stop booleans on the
   // broader call_ref target record.
-  let then_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-    func, then_ref,
+  let one_sided_fact = OiIfOneSidedFallthroughRegionFact::from_regions(
+    func, then_ref, else_ref,
   )
-  let else_explicitly_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-    func, else_ref,
-  )
-  let (kind, fallthrough_region) = if then_explicitly_stops &&
-    !else_explicitly_stops {
-    (CallRefIfThenStopsElseFallsThrough, else_ref)
-  } else if else_explicitly_stops && !then_explicitly_stops {
-    (CallRefIfElseStopsThenFallsThrough, then_ref)
-  } else {
-    return None
+  let kind = match one_sided_fact.kind {
+    IfThenStopsElseFallsThroughRegion => CallRefIfThenStopsElseFallsThrough
+    IfElseStopsThenFallsThroughRegion => CallRefIfElseStopsThenFallsThrough
+    IfNoOneSidedFallthroughRegion => return None
+  }
+  let fallthrough_region = match one_sided_fact.proven_fallthrough_region() {
+    Some(region_ref) => region_ref
+    None => return None
   }
   let fallthrough_arm_id = match
     optimize_instructions_region_tail_id(func, fallthrough_region) {
@@ -21075,20 +21146,10 @@ fn optimize_instructions_array_default_fallthrough_id(
       match @ir.hot_region_else_ref(func, value_id) {
         Some(else_ref) => {
           let then_ref = @ir.hot_region_then_ref(func, value_id)
-          let then_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-            func, then_ref,
+          let one_sided_fact = OiIfOneSidedFallthroughRegionFact::from_regions(
+            func, then_ref, else_ref,
           )
-          let else_stops = optimize_instructions_region_explicitly_does_not_fallthrough(
-            func, else_ref,
-          )
-          let fallthrough_region = if then_stops && !else_stops {
-            Some(else_ref)
-          } else if else_stops && !then_stops {
-            Some(then_ref)
-          } else {
-            None
-          }
-          match fallthrough_region {
+          match one_sided_fact.proven_fallthrough_region() {
             Some(region_ref) =>
               match optimize_instructions_region_tail_id(func, region_ref) {
                 Some(tail_id) =>
