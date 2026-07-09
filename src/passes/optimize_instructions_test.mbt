@@ -2727,6 +2727,30 @@ test "optimize-instructions folds i64 zero-test self-selects through consecutive
 }
 
 ///|
+test "optimize-instructions lowers one-bit false-zero selects to and" {
+  // Red-first OI-F parity slice: Binaryen version_130 `optimizeSelect` uses
+  // `Bits::getMaxBits` facts for the condition and both i32 arms before
+  // rewriting `select(y, 0, x)` to `i32.and(y, x)`. The focused oracle is
+  // `.tmp/oi-probes/select-boolean-algebra.wat`.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32 i32) (result i32) local.get 2 local.get 3 i32.eq i32.const 0 local.get 0 local.get 1 i32.lt_u select))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_and()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, root, 0)),
+    Some(@lib.Instruction::i32_eq()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, root, 1)),
+    Some(@lib.Instruction::i32_lt_u()),
+  )
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to

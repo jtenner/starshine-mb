@@ -27639,6 +27639,115 @@ fn OiI64ZeroTestSelfSelectFact::apply(
 }
 
 ///|
+priv struct OiOneBitI32ValueFact {
+  producer_fact : OiI32MaxBitsProducerFact
+}
+
+///|
+fn OiOneBitI32ValueFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  node_id : Int,
+) -> OiOneBitI32ValueFact? {
+  // Binaryen v130 `optimizeSelect` asks `Bits::getMaxBits` for the condition
+  // and both arms before applying boolean algebra. Reuse the fact-owned i32
+  // maxBits producer instead of adding a select-local opcode whitelist.
+  match OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+    Some(producer_fact) =>
+      match producer_fact.max_value {
+        Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) <=
+          1 => Some({ producer_fact, })
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn OiOneBitI32ValueFact::value_id(self : OiOneBitI32ValueFact) -> Int {
+  self.producer_fact.value_id
+}
+
+///|
+priv enum OiBooleanSelectAlgebraKind {
+  BooleanSelectAndFalseZero
+}
+
+///|
+priv struct OiBooleanSelectAlgebraFact {
+  kind : OiBooleanSelectAlgebraKind
+  condition_fact : OiOneBitI32ValueFact
+  if_true_fact : OiOneBitI32ValueFact
+  if_false_fact : OiOneBitI32ValueFact
+}
+
+///|
+fn OiBooleanSelectAlgebraFact::from_select(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  local_facts : OptimizeInstructionsLocalFacts?,
+  node_id : Int,
+  if_true : Int,
+  if_false : Int,
+  condition_id : Int,
+) -> OiBooleanSelectAlgebraFact? {
+  // Binaryen v130 `optimizeSelect` rewrites `select(y, 0, x)` to `x & y`
+  // only after all three i32 inputs are proven one-bit values. Keep the
+  // selected maxBits proofs with the exact false-zero shell.
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [result_type] if result_type == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  match optimize_instructions_i32_const(func, dead, if_false) {
+    Some(@lib.I32(0)) => ()
+    _ => return None
+  }
+  let condition_fact = match
+    OiOneBitI32ValueFact::from_node(func, dead, local_facts, condition_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let if_true_fact = match
+    OiOneBitI32ValueFact::from_node(func, dead, local_facts, if_true) {
+    Some(fact) => fact
+    None => return None
+  }
+  let if_false_fact = match
+    OiOneBitI32ValueFact::from_node(func, dead, local_facts, if_false) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({
+    kind: BooleanSelectAndFalseZero,
+    condition_fact,
+    if_true_fact,
+    if_false_fact,
+  })
+}
+
+///|
+fn OiBooleanSelectAlgebraFact::apply(
+  self : OiBooleanSelectAlgebraFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  ignore(self.if_false_fact)
+  let instr = match self.kind {
+    BooleanSelectAndFalseZero => @lib.Instruction::i32_and()
+  }
+  let replacement = optimize_instructions_build_i32_binary(
+    func,
+    instr,
+    self.if_true_fact.value_id(),
+    self.condition_fact.value_id(),
+  )
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
+  true
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -28714,6 +28823,7 @@ fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -28774,6 +28884,19 @@ fn optimize_instructions_try_fold_const_select(
       fact.apply(ctx, func, node_id)
       return true
     }
+    _ => ()
+  }
+  match
+    OiBooleanSelectAlgebraFact::from_select(
+      func,
+      dead,
+      Some(scratch.local_facts),
+      node_id,
+      if_true,
+      if_false,
+      condition,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
   }
   let identical_arm_fact = OiIdenticalPureExpressionFact::from_select_arms(
@@ -38004,7 +38127,9 @@ fn optimize_instructions_visit_node(
         ctx, func, node_id,
       )
     @ir.HotOp::Select =>
-      optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+      optimize_instructions_try_fold_const_select(
+        ctx, func, dead, scratch, node_id,
+      )
     @ir.HotOp::Drop =>
       optimize_instructions_try_collapse_dropped_unreachable_block(
         ctx, func, node_id,
