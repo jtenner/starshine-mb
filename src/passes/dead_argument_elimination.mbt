@@ -175,6 +175,14 @@ priv struct DaeControlBlockTypeSignatureEvidence {
 }
 
 ///|
+priv struct DaeI32ParamZeroResultLoopEvidence {
+  signature : DaeControlBlockTypeSignatureEvidence
+  body : Array[@lib.Instruction]
+  body_length : Int
+  iteration_local : @lib.LocalIdx?
+}
+
+///|
 priv struct DaeControlBlockTypeGcResultEvidence {
   signature : DaeControlBlockTypeSignatureEvidence
   result_index : Int
@@ -1284,12 +1292,12 @@ fn dae_control_block_type_stack_shape_accepts(
 }
 
 ///|
-fn dae_control_block_type_exact_signature_accepts(
+fn dae_control_block_type_exact_signature_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
-) -> Bool {
+) -> DaeControlBlockTypeSignatureEvidence? {
   match
     dae_control_block_type_stack_shape_evidence(
       block_type,
@@ -1297,7 +1305,24 @@ fn dae_control_block_type_exact_signature_accepts(
       params.length(),
       results.length(),
     ) {
-    Some(evidence) => evidence.params == params && evidence.results == results
+    Some(evidence) if evidence.params == params && evidence.results == results =>
+      Some(evidence)
+    _ => None
+  }
+}
+
+///|
+fn dae_control_block_type_exact_signature_accepts(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> Bool {
+  match
+    dae_control_block_type_exact_signature_evidence(
+      block_type, type_sec, params, results,
+    ) {
+    Some(_) => true
     None => false
   }
 }
@@ -21536,16 +21561,74 @@ fn dae_try_flatten_selected_func237_zero_branch_once(
 }
 
 ///|
-fn dae_block_type_is_single_i32_param_zero_result(
-  block_type : @lib.BlockType,
-  type_sec : @lib.TypeSec?,
+fn dae_i32_param_zero_result_loop_evidence_is_consistent(
+  evidence : DaeI32ParamZeroResultLoopEvidence,
 ) -> Bool {
-  dae_control_block_type_exact_signature_accepts(
-    block_type,
-    type_sec,
-    [@lib.ValType::i32()],
-    [],
-  )
+  if evidence.body_length != evidence.body.length() {
+    return false
+  }
+  if evidence.signature.params != [@lib.ValType::i32()] ||
+    evidence.signature.results != [] ||
+    evidence.signature.input_count != 1 ||
+    evidence.signature.output_count != 0 {
+    return false
+  }
+  match evidence.iteration_local {
+    Some(iter_local) =>
+      match evidence.body {
+        [@lib.LocalTee(idx), ..] => dae_local_idx_equal(idx, iter_local)
+        _ => false
+      }
+    None =>
+      match evidence.body {
+        [@lib.LocalTee(_), ..] => false
+        _ => true
+      }
+  }
+}
+
+///|
+fn dae_i32_param_zero_result_loop_evidence(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> DaeI32ParamZeroResultLoopEvidence? {
+  let (block_type, body) = match instr {
+    @lib.Loop(block_type, @lib.Expr(body)) => (block_type, body)
+    _ => return None
+  }
+  if !dae_control_block_type_exact_signature_accepts(
+      block_type,
+      type_sec,
+      [@lib.ValType::i32()],
+      [],
+    ) {
+    return None
+  }
+  let signature = match
+    dae_control_block_type_exact_signature_evidence(
+      block_type,
+      type_sec,
+      [@lib.ValType::i32()],
+      [],
+    ) {
+    Some(signature) => signature
+    None => return None
+  }
+  let iteration_local = match body {
+    [@lib.LocalTee(idx), ..] => Some(idx)
+    _ => None
+  }
+  let evidence = {
+    signature,
+    body,
+    body_length: body.length(),
+    iteration_local,
+  }
+  if dae_i32_param_zero_result_loop_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -21668,17 +21751,18 @@ fn dae_try_spill_i32_param_loop_at(
     @lib.I32Const(_) => ()
     _ => return None
   }
-  let (block_type, loop_body) = match body[loop_idx] {
-    @lib.Loop(block_type, @lib.Expr(loop_body)) => (block_type, loop_body)
-    _ => return None
+  let loop_evidence = match
+    dae_i32_param_zero_result_loop_evidence(body[loop_idx], type_sec) {
+    Some(evidence) => evidence
+    None => return None
   }
-  if !dae_block_type_is_single_i32_param_zero_result(block_type, type_sec) ||
-    loop_body.length() != 5 {
+  let loop_body = loop_evidence.body
+  if loop_evidence.body_length != 5 {
     return None
   }
-  let iteration_local = match loop_body[0] {
-    @lib.LocalTee(idx) => idx
-    _ => return None
+  let iteration_local = match loop_evidence.iteration_local {
+    Some(idx) => idx
+    None => return None
   }
   let rewritten_if = match
     dae_try_spill_i32_param_loop_if(
@@ -21749,18 +21833,14 @@ fn dae_try_spill_i32_param_loop_at_with_iteration_carrier(
   if loop_idx <= 0 || loop_idx >= body.length() {
     return None
   }
-  let loop_body = match body[loop_idx] {
-    @lib.Loop(block_type, @lib.Expr(loop_body)) if dae_block_type_is_single_i32_param_zero_result(
-        block_type, type_sec,
-      ) => loop_body
-    _ => return None
+  let loop_evidence = match
+    dae_i32_param_zero_result_loop_evidence(body[loop_idx], type_sec) {
+    Some(evidence) => evidence
+    None => return None
   }
-  if loop_body.length() == 0 {
-    return None
-  }
-  let iteration_local = match loop_body[0] {
-    @lib.LocalTee(idx) => idx
-    _ => return None
+  let iteration_local = match loop_evidence.iteration_local {
+    Some(idx) => idx
+    None => return None
   }
   dae_try_spill_i32_param_loop_at(body, loop_idx, iteration_local, type_sec)
 }

@@ -7372,6 +7372,82 @@ test "dae func237 leading default carrier folds to local0" {
 }
 
 ///|
+test "dae i32-param zero-result loop evidence centralizes typed-loop shape" {
+  let i32_loop_type = @lib.TypeIdx::new(0U)
+  let wrong_result_type = @lib.TypeIdx::new(1U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let loop_body = [
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ]
+  match
+    dae_control_block_type_exact_signature_evidence(
+      @lib.BlockType::type_idx(i32_loop_type),
+      Some(type_sec),
+      [@lib.ValType::i32()],
+      [],
+    ) {
+    Some(signature) => {
+      assert_eq(signature.input_count, 1)
+      assert_eq(signature.output_count, 0)
+      assert_eq(signature.params, [@lib.ValType::i32()])
+    }
+    None => fail("expected exact i32-param zero-result control signature")
+  }
+  match
+    dae_i32_param_zero_result_loop_evidence(
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(i32_loop_type),
+        @lib.Expr::new(loop_body),
+      ),
+      Some(type_sec),
+    ) {
+    Some(evidence) => {
+      assert_true(
+        dae_i32_param_zero_result_loop_evidence_is_consistent(evidence),
+      )
+      assert_eq(evidence.body, loop_body)
+      assert_eq(evidence.body_length, 2)
+      assert_eq(evidence.iteration_local, Some(@lib.LocalIdx::new(5U)))
+      assert_eq(evidence.signature.params, [@lib.ValType::i32()])
+      assert_eq(evidence.signature.results, [])
+    }
+    None => fail("expected i32-param zero-result loop evidence")
+  }
+  match
+    dae_i32_param_zero_result_loop_evidence(
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(wrong_result_type),
+        @lib.Expr::new(loop_body),
+      ),
+      Some(type_sec),
+    ) {
+    Some(_) => fail("wrong result shape must not produce loop evidence")
+    None => ()
+  }
+  match
+    dae_i32_param_zero_result_loop_evidence(
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(i32_loop_type),
+        @lib.Expr::new(loop_body),
+      ),
+      Some(type_sec),
+    ) {
+    Some(_) => fail("non-loop control must not produce loop evidence")
+    None => ()
+  }
+}
+
+///|
 test "dae spills single-i32-param loops into explicit local carrier" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let type_sec = @lib.TypeSec::new([
