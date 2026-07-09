@@ -3019,6 +3019,102 @@ test "optimize-instructions hoists matching integer sign extension select arm sh
 }
 
 ///|
+test "optimize-instructions hoists matching float unary select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
+  // loop hoists all scalar f32/f64 unary arithmetic shells. Oracle:
+  // `.tmp/oi-probes/select-matching-float-unary-hoist.wat`.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_child_type : @lib.ValType,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other =>
+        fail("expected matching float unary shells to hoist, got \{other}")
+    }
+    @debug.assert_eq(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, inner)),
+      [expected_child_type],
+    )
+  }
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.abs local.get 1 f32.abs local.get 2 select))",
+    @lib.Instruction::f32_abs(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.neg local.get 1 f32.neg local.get 2 select))",
+    @lib.Instruction::f32_neg(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.ceil local.get 1 f32.ceil local.get 2 select))",
+    @lib.Instruction::f32_ceil(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.floor local.get 1 f32.floor local.get 2 select))",
+    @lib.Instruction::f32_floor(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.trunc local.get 1 f32.trunc local.get 2 select))",
+    @lib.Instruction::f32_trunc(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.nearest local.get 1 f32.nearest local.get 2 select))",
+    @lib.Instruction::f32_nearest(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f32 f32 i32) (result f32) local.get 0 f32.sqrt local.get 1 f32.sqrt local.get 2 select))",
+    @lib.Instruction::f32_sqrt(),
+    @lib.ValType::f32(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.abs local.get 1 f64.abs local.get 2 select))",
+    @lib.Instruction::f64_abs(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.neg local.get 1 f64.neg local.get 2 select))",
+    @lib.Instruction::f64_neg(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.ceil local.get 1 f64.ceil local.get 2 select))",
+    @lib.Instruction::f64_ceil(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.floor local.get 1 f64.floor local.get 2 select))",
+    @lib.Instruction::f64_floor(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.trunc local.get 1 f64.trunc local.get 2 select))",
+    @lib.Instruction::f64_trunc(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.nearest local.get 1 f64.nearest local.get 2 select))",
+    @lib.Instruction::f64_nearest(),
+    @lib.ValType::f64(),
+  )
+  assert_hoisted(
+    "(module (func (param f64 f64 i32) (result f64) local.get 0 f64.sqrt local.get 1 f64.sqrt local.get 2 select))",
+    @lib.Instruction::f64_sqrt(),
+    @lib.ValType::f64(),
+  )
+}
+
+///|
 test "optimize-instructions hoists repeated matching unary select arm chains" {
   // Red-first OI-F ternary parity slice: Binaryen version_130 repeats the
   // shallow-equal one-child loop until the select sits below the full matching
