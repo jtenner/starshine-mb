@@ -10972,6 +10972,26 @@ priv struct OiCallRefFallthroughDirectFuncFact {
 }
 
 ///|
+priv enum OiCallRefFallthroughWrapperKind {
+  CallRefFallthroughLocalTeeWrapper
+  CallRefFallthroughRefAsNonNullWrapper
+  CallRefFallthroughRefCastWrapper
+}
+
+///|
+priv struct OiCallRefFallthroughWrapperChildFact {
+  kind : OiCallRefFallthroughWrapperKind
+  wrapper_id : Int
+  child_id : Int
+}
+
+///|
+priv struct OiCallRefWrappedFallthroughTargetFact {
+  wrapper_child_fact : OiCallRefFallthroughWrapperChildFact
+  child_fact : OiCallRefFallthroughTargetFact
+}
+
+///|
 priv enum OiCallRefBlockTailKind {
   CallRefBlockFinalRoot
 }
@@ -11151,31 +11171,15 @@ fn OiCallRefFallthroughTargetFact::from_node(
         }),
       }
     }
-    @ir.HotOp::LocalTee if node.child_count == 1 =>
-      OiCallRefFallthroughTargetFact::from_node(
-        func,
-        dead,
-        @ir.hot_child_get(func, node_id, 0),
-        depth=depth + 1,
-      )
-    @ir.HotOp::Heap if node.child_count == 1 =>
-      match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefAsNonNull) =>
-          OiCallRefFallthroughTargetFact::from_node(
-            func,
-            dead,
-            @ir.hot_child_get(func, node_id, 0),
-            depth=depth + 1,
-          )
+    @ir.HotOp::LocalTee | @ir.HotOp::Heap | @ir.HotOp::RefCast =>
+      match
+        OiCallRefWrappedFallthroughTargetFact::from_wrapper_target(
+          func, dead, node_id, depth,
+        ) {
+        Some(fact) if fact.proves_ref_func_wrapped_fallthrough() =>
+          fact.child_fact
         _ => OiCallRefFallthroughTargetFact::unknown()
       }
-    @ir.HotOp::RefCast if node.child_count == 1 =>
-      OiCallRefFallthroughTargetFact::from_node(
-        func,
-        dead,
-        @ir.hot_child_get(func, node_id, 0),
-        depth=depth + 1,
-      )
     @ir.HotOp::Block =>
       match
         OiCallRefBlockFallthroughTargetFact::from_block_target(
@@ -11215,6 +11219,69 @@ fn OiCallRefFallthroughTargetFact::from_node(
       }
     _ => OiCallRefFallthroughTargetFact::unknown()
   }
+}
+
+///|
+fn OiCallRefWrappedFallthroughTargetFact::from_wrapper_target(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  depth : Int,
+) -> OiCallRefWrappedFallthroughTargetFact? {
+  // Binaryen v130 `Properties::getImmediateFallthrough` can peel simple target
+  // wrappers such as `local.tee`, `ref.as_non_null`, and `ref.cast` before
+  // `visitCallRef` checks whether the selected fallthrough is a direct
+  // `ref.func`. Carry the wrapper kind and selected child as a fact so wrapper
+  // descent is not encoded as a small opcode whitelist in the generic traversal.
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 1 {
+    return None
+  }
+  let kind = match node.op {
+    @ir.HotOp::LocalTee => CallRefFallthroughLocalTeeWrapper
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefAsNonNull) =>
+          CallRefFallthroughRefAsNonNullWrapper
+        _ => return None
+      }
+    @ir.HotOp::RefCast => CallRefFallthroughRefCastWrapper
+    _ => return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  let child_fact = OiCallRefFallthroughTargetFact::from_node(
+    func,
+    dead,
+    child_id,
+    depth=depth + 1,
+  )
+  let wrapper_child_fact = { kind, wrapper_id: node_id, child_id }
+  Some({ wrapper_child_fact, child_fact })
+}
+
+///|
+fn OiCallRefFallthroughWrapperChildFact::proves_selected_wrapper_child(
+  self : OiCallRefFallthroughWrapperChildFact,
+) -> Bool {
+  match self.kind {
+    CallRefFallthroughLocalTeeWrapper
+    | CallRefFallthroughRefAsNonNullWrapper
+    | CallRefFallthroughRefCastWrapper =>
+      self.wrapper_id >= 0 && self.child_id >= 0
+  }
+}
+
+///|
+fn OiCallRefWrappedFallthroughTargetFact::proves_ref_func_wrapped_fallthrough(
+  self : OiCallRefWrappedFallthroughTargetFact,
+) -> Bool {
+  let direct_child_fact = match
+    OiCallRefFallthroughDirectFuncFact::from_fallthrough(self.child_fact) {
+    Some(fact) => fact
+    None => return false
+  }
+  self.wrapper_child_fact.proves_selected_wrapper_child() &&
+  direct_child_fact.proves_direct_ref_func_fallthrough()
 }
 
 ///|
