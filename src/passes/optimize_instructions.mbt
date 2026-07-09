@@ -27752,6 +27752,180 @@ fn OiBooleanSelectAlgebraFact::apply(
 }
 
 ///|
+priv enum OiEqzSelectArmKind {
+  EqzSelectArmI32
+  EqzSelectArmI64
+}
+
+///|
+priv struct OiEqzSelectArmFact {
+  kind : OiEqzSelectArmKind
+  inner_id : Int
+}
+
+///|
+fn OiEqzSelectArmFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiEqzSelectArmFact? {
+  // Binaryen v130 `optimizeTernary` matches a direct abstract `EqZ` arm and
+  // later rebuilds its child type under the inner ternary. Keep the width and
+  // surviving child as an explicit arm fact.
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let inner_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) => Some({ kind: EqzSelectArmI32, inner_id })
+    Some(@lib.Instruction::I64Eqz) => Some({ kind: EqzSelectArmI64, inner_id })
+    _ => None
+  }
+}
+
+///|
+priv struct OiTernaryBooleanConstFact {
+  node_id : Int
+  flipped_value : Int
+}
+
+///|
+fn OiTernaryBooleanConstFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiTernaryBooleanConstFact? {
+  // Binaryen's `bval` matcher accepts exactly i32 zero or one here, then flips
+  // the value before changing it to the hoisted eqz input type.
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(0)) => Some({ node_id, flipped_value: 1 })
+    Some(@lib.I32(1)) => Some({ node_id, flipped_value: 0 })
+    _ => None
+  }
+}
+
+///|
+priv enum OiEqzBooleanSelectHoistKind {
+  EqzBooleanSelectTrueArm
+  EqzBooleanSelectFalseArm
+}
+
+///|
+priv struct OiEqzBooleanSelectHoistFact {
+  kind : OiEqzBooleanSelectHoistKind
+  eqz_arm_fact : OiEqzSelectArmFact
+  boolean_const_fact : OiTernaryBooleanConstFact
+  condition_id : Int
+}
+
+///|
+fn OiEqzBooleanSelectHoistFact::from_select(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiEqzBooleanSelectHoistFact? {
+  // Binaryen v130 `optimizeTernary` hoists one direct eqz arm across a sibling
+  // boolean constant, after ordinary `optimizeSelect` rules have declined.
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [result_type] if result_type == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Select if node.child_count == 3 => ()
+    _ => return None
+  }
+  let if_true = @ir.hot_child_get(func, node_id, 0)
+  let if_false = @ir.hot_child_get(func, node_id, 1)
+  let condition_id = @ir.hot_child_get(func, node_id, 2)
+  match
+    (
+      OiEqzSelectArmFact::from_node(func, if_true),
+      OiTernaryBooleanConstFact::from_node(func, dead, if_false),
+    ) {
+    (Some(eqz_arm_fact), Some(boolean_const_fact)) =>
+      return Some({
+        kind: EqzBooleanSelectTrueArm,
+        eqz_arm_fact,
+        boolean_const_fact,
+        condition_id,
+      })
+    _ => ()
+  }
+  match
+    (
+      OiEqzSelectArmFact::from_node(func, if_false),
+      OiTernaryBooleanConstFact::from_node(func, dead, if_true),
+    ) {
+    (Some(eqz_arm_fact), Some(boolean_const_fact)) =>
+      Some({
+        kind: EqzBooleanSelectFalseArm,
+        eqz_arm_fact,
+        boolean_const_fact,
+        condition_id,
+      })
+    _ => None
+  }
+}
+
+///|
+fn OiEqzBooleanSelectHoistFact::apply(
+  self : OiEqzBooleanSelectHoistFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  ignore(self.boolean_const_fact.node_id)
+  let (input_type, eqz_instr, flipped_const) = match self.eqz_arm_fact.kind {
+    EqzSelectArmI32 =>
+      (
+        @lib.ValType::i32(),
+        @lib.Instruction::i32_eqz(),
+        @ir.hot_build_const_i32(
+          func,
+          @lib.I32(self.boolean_const_fact.flipped_value),
+        ),
+      )
+    EqzSelectArmI64 =>
+      (
+        @lib.ValType::i64(),
+        @lib.Instruction::i64_eqz(),
+        @ir.hot_build_const_i64(
+          func,
+          @lib.I64(self.boolean_const_fact.flipped_value.to_int64()),
+        ),
+      )
+  }
+  let (if_true, if_false) = match self.kind {
+    EqzBooleanSelectTrueArm => (self.eqz_arm_fact.inner_id, flipped_const)
+    EqzBooleanSelectFalseArm => (flipped_const, self.eqz_arm_fact.inner_id)
+  }
+  let inner_select = @ir.hot_build_select(
+    func,
+    input_type,
+    if_true,
+    if_false,
+    self.condition_id,
+  )
+  let replacement = @ir.hot_build_unary(func, @lib.ValType::i32(), inner_select)
+  @ir.hot_node_exact_instr_set(func, replacement, eqz_instr)
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
+  true
+}
+
+///|
+fn optimize_instructions_try_hoist_eqz_boolean_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match OiEqzBooleanSelectHoistFact::from_select(func, dead, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -38133,6 +38307,9 @@ fn optimize_instructions_visit_node(
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(
         ctx, func, dead, scratch, node_id,
+      ) ||
+      optimize_instructions_try_hoist_eqz_boolean_select(
+        ctx, func, dead, node_id,
       )
     @ir.HotOp::Drop =>
       optimize_instructions_try_collapse_dropped_unreachable_block(

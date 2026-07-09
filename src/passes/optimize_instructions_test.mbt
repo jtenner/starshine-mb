@@ -2775,6 +2775,59 @@ test "optimize-instructions lowers one-bit true-one selects to or" {
 }
 
 ///|
+test "optimize-instructions hoists eqz from select arms paired with booleans" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130
+  // `optimizeTernary` moves a direct i32/i64 eqz out of a select when the
+  // sibling arm is an i32 boolean constant, flips that constant into the eqz
+  // input type, and leaves the original condition on the inner select. Oracle:
+  // `.tmp/oi-probes/select-eqz-const-hoist.wat`.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_const : @ir.HotConstPayload,
+    const_slot : Int,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other => fail("expected hoisted eqz child select, got \{other}")
+    }
+    let flipped_const = @ir.hot_child_get(func, inner, const_slot)
+    @debug.assert_eq(
+      @ir.hot_const_get(func, @ir.hot_node_get(func, flipped_const).imm0),
+      expected_const,
+    )
+  }
+  assert_hoisted(
+    "(module (func (param i32 i32) (result i32) local.get 0 i32.eqz i32.const 0 local.get 1 select))",
+    @lib.Instruction::i32_eqz(),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    1,
+  )
+  assert_hoisted(
+    "(module (func (param i32 i32) (result i32) i32.const 1 local.get 0 i32.eqz local.get 1 select))",
+    @lib.Instruction::i32_eqz(),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+    0,
+  )
+  assert_hoisted(
+    "(module (func (param i64 i32) (result i32) local.get 0 i64.eqz i32.const 1 local.get 1 select))",
+    @lib.Instruction::i64_eqz(),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+    1,
+  )
+  assert_hoisted(
+    "(module (func (param i64 i32) (result i32) i32.const 0 local.get 0 i64.eqz local.get 1 select))",
+    @lib.Instruction::i64_eqz(),
+    @ir.HotConstPayload::i64_const(@lib.I64(1L)),
+    0,
+  )
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to
