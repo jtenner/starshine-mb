@@ -18727,6 +18727,15 @@ fn optimize_instructions_try_optimize_if_condition(
   let cond_id = func.children[node.child_base]
   let then_region = func.children[node.child_base + 1]
   let else_region = func.children[node.child_base + 2]
+  match
+    OiBooleanContextLeafRewriteFact::from_node(func, dead, cond_id).proven_replacement() {
+    Some(replacement_id) => {
+      @ir.hot_child_set(func, node_id, 0, replacement_id)
+      pass_mark_mutated(ctx, func)
+      return true
+    }
+    None => ()
+  }
   let flip_if = fn(next_cond : Int) -> Bool {
     match optimize_instructions_i32_const(func, dead, next_cond) {
       Some(@lib.I32(raw)) if raw == 0 => return false
@@ -18758,22 +18767,6 @@ fn optimize_instructions_try_optimize_if_condition(
     }
   }
   let direct_rewrite = match cond_instr {
-    @lib.Instruction::I32Ne => {
-      if @ir.hot_child_count(func, cond_id) != 2 {
-        return false
-      }
-      let lhs_id = @ir.hot_child_get(func, cond_id, 0)
-      let rhs_id = @ir.hot_child_get(func, cond_id, 1)
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) if raw == 0 &&
-          OiI32ValueFact::proves_node_i32_value(func, lhs_id) => {
-          @ir.hot_child_set(func, node_id, 0, lhs_id)
-          pass_mark_mutated(ctx, func)
-          true
-        }
-        _ => false
-      }
-    }
     @lib.Instruction::I32Eq => {
       if @ir.hot_child_count(func, cond_id) != 2 {
         return false
@@ -38514,6 +38507,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
 priv enum OiBooleanContextLeafRewriteKind {
   BooleanContextLeafNoRewrite
   BooleanContextLeafForwardI32NeZero
+  BooleanContextLeafForwardI32ZeroMinus
 }
 
 ///|
@@ -38529,31 +38523,41 @@ fn OiBooleanContextLeafRewriteFact::from_node(
   dead : @bitset.BitSet,
   node_id : Int,
 ) -> OiBooleanContextLeafRewriteFact {
-  // Binaryen v130 `optimizeBoolean` removes an exact `i32.ne(x, 0)` shell when
-  // the result is consumed only for truthiness. Keep the exact instruction,
-  // zero literal, i32 operand, and surviving child as a fact shared by the
-  // source-recursive block/select/if context facts below.
+  // Binaryen v130 `optimizeBoolean` forwards exact `i32.ne(x, 0)` and
+  // `i32.sub(0, x)` shells when their results are consumed only for truthiness.
+  // Keep the selected source rule and surviving i32 child in one fact shared by
+  // direct conditions and the source-recursive block/select/if contexts below.
   let no_rewrite = {
     kind: BooleanContextLeafNoRewrite,
     node_id,
     replacement_id: node_id,
   }
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) ||
+    @ir.hot_child_count(func, node_id) != 2 {
     return no_rewrite
-  }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32Ne) if @ir.hot_child_count(func, node_id) == 2 =>
-      ()
-    _ => return no_rewrite
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
   let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  match optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(0)) if OiI32ValueFact::proves_node_i32_value(func, lhs_id) =>
-      {
-        kind: BooleanContextLeafForwardI32NeZero,
-        node_id,
-        replacement_id: lhs_id,
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Ne) =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(0)) if OiI32ValueFact::proves_node_i32_value(func, lhs_id) =>
+          {
+            kind: BooleanContextLeafForwardI32NeZero,
+            node_id,
+            replacement_id: lhs_id,
+          }
+        _ => no_rewrite
+      }
+    Some(@lib.Instruction::I32Sub) =>
+      match optimize_instructions_i32_const(func, dead, lhs_id) {
+        Some(@lib.I32(0)) if OiI32ValueFact::proves_node_i32_value(func, rhs_id) =>
+          {
+            kind: BooleanContextLeafForwardI32ZeroMinus,
+            node_id,
+            replacement_id: rhs_id,
+          }
+        _ => no_rewrite
       }
     _ => no_rewrite
   }
@@ -38564,7 +38568,8 @@ fn OiBooleanContextLeafRewriteFact::proven_replacement(
   self : OiBooleanContextLeafRewriteFact,
 ) -> Int? {
   match self.kind {
-    BooleanContextLeafForwardI32NeZero =>
+    BooleanContextLeafForwardI32NeZero
+    | BooleanContextLeafForwardI32ZeroMinus =>
       if self.node_id >= 0 && self.replacement_id >= 0 {
         Some(self.replacement_id)
       } else {

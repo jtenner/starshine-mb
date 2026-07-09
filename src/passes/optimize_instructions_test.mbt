@@ -2639,6 +2639,50 @@ test "optimize-instructions recursively simplifies boolean if arms" {
 }
 
 ///|
+test "optimize-instructions simplifies boolean zero-minus leaves" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // rewrites `bool(0 - x)` to `bool(x)`. The focused oracle
+  // `.tmp/oi-probes/boolean-leaf-binary-rules.wat` proves both the direct outer
+  // condition and a recursively selected i32 block tail while preserving the
+  // block prefix.
+  let direct = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (if (result i32) (i32.sub (i32.const 0) (local.get 0)) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let direct_condition = @ir.hot_child_get(
+    direct,
+    @ir.hot_root_get(direct, 0),
+    0,
+  )
+  match @ir.hot_node_get(direct, direct_condition).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(direct, direct_condition).imm0, 0)
+    other =>
+      fail("expected direct zero-minus boolean to forward x, got \{other}")
+  }
+
+  let nested = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (if (result i32) (block (result i32) (drop (local.get 1)) (i32.sub (i32.const 0) (local.get 0))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let nested_condition = @ir.hot_child_get(
+    nested,
+    @ir.hot_root_get(nested, 0),
+    0,
+  )
+  let body = @ir.hot_region_body_ref(nested, nested_condition)
+  @debug.assert_eq(@ir.hot_region_root_count(nested, body), 2)
+  match @ir.hot_node_get(nested, @ir.hot_region_get(nested, body, 0)).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected zero-minus block prefix to remain, got \{other}")
+  }
+  let tail = @ir.hot_region_get(nested, body, 1)
+  match @ir.hot_node_get(nested, tail).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(nested, tail).imm0, 0)
+    other => fail("expected zero-minus block tail to forward x, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to
