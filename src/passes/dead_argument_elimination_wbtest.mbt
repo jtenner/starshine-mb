@@ -2659,6 +2659,80 @@ test "dae recursive body rewrite helper centralizes current and child repair sca
 }
 
 ///|
+test "dae recursive body rewrite application evidence centralizes repair planning" {
+  let root_body = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+  ]
+  let rewrite_current = fn(
+    body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    if body == root_body {
+      Some([@lib.Instruction::i32_const(@lib.I32(10))])
+    } else {
+      None
+    }
+  }
+  let rewrite_child_never = fn(
+    _body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    Some([@lib.Instruction::i32_const(@lib.I32(99))])
+  }
+  match
+    dae_apply_first_recursive_body_rewrite(
+      root_body, rewrite_current, rewrite_child_never,
+    ) {
+    Some((rewritten, evidence)) => {
+      assert_eq(rewritten, [@lib.Instruction::i32_const(@lib.I32(10))])
+      assert_true(evidence.applied_to_current_body)
+      assert_eq(evidence.target_count, 0)
+      assert_eq(evidence.rewrite_count, 1)
+      assert_true(evidence.body_changed)
+    }
+    None => fail("expected current body rewrite application evidence")
+  }
+
+  let then_body = [@lib.Instruction::i32_const(@lib.I32(3))]
+  let else_body = [@lib.Instruction::i32_const(@lib.I32(4))]
+  let outer_body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::if_(@lib.BlockType::void_(), then_body, Some(else_body)),
+  ]
+  let no_current = fn(
+    _body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    None
+  }
+  let rewrite_else = fn(
+    body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    if body == else_body {
+      Some([@lib.Instruction::i32_const(@lib.I32(40))])
+    } else {
+      None
+    }
+  }
+  match
+    dae_apply_first_recursive_body_rewrite(outer_body, no_current, rewrite_else) {
+    Some((rewritten, evidence)) => {
+      assert_false(evidence.applied_to_current_body)
+      assert_eq(evidence.target_count, 1)
+      assert_eq(evidence.rewrite_count, 1)
+      assert_true(evidence.body_changed)
+      match rewritten[1] {
+        @lib.If(_, rewritten_then, Some(rewritten_else)) => {
+          assert_eq(rewritten[0], outer_body[0])
+          assert_eq(rewritten_then, then_body)
+          assert_eq(rewritten_else, [@lib.Instruction::i32_const(@lib.I32(40))])
+        }
+        _ => fail("expected nested control child rewrite")
+      }
+    }
+    None => fail("expected child body rewrite application evidence")
+  }
+}
+
+///|
 test "dae result rewrite application evidence centralizes masked slot repairs" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
