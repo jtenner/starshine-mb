@@ -5503,9 +5503,43 @@ fn OiDescriptorExactMissPreservationFact::from_operands(
 }
 
 ///|
+priv enum OiDescriptorExactTargetRelationKind {
+  DescriptorExactTargetRelationDescribesTarget
+  DescriptorExactTargetRelationUnsupported
+}
+
+///|
+priv struct OiDescriptorExactTargetRelationFact {
+  kind : OiDescriptorExactTargetRelationKind
+}
+
+///|
+fn OiDescriptorExactTargetRelationFact::from_descriptor_type(
+  descriptor_type_fact : OiDescriptorTypeFact,
+  target : @lib.HeapType,
+) -> OiDescriptorExactTargetRelationFact {
+  let kind = if descriptor_type_fact.exactly_describes(target) {
+    DescriptorExactTargetRelationDescribesTarget
+  } else {
+    DescriptorExactTargetRelationUnsupported
+  }
+  { kind, }
+}
+
+///|
+fn OiDescriptorExactTargetRelationFact::proves_exactly_describes_target(
+  self : OiDescriptorExactTargetRelationFact,
+) -> Bool {
+  match self.kind {
+    DescriptorExactTargetRelationDescribesTarget => true
+    DescriptorExactTargetRelationUnsupported => false
+  }
+}
+
+///|
 priv struct OiDescriptorExactMissDescriptorRelationFact {
   descriptor_type_fact : OiDescriptorTypeFact
-  exactly_describes_target : Bool
+  target_relation_fact : OiDescriptorExactTargetRelationFact
 }
 
 ///|
@@ -5524,7 +5558,9 @@ fn OiDescriptorExactMissDescriptorRelationFact::from_descriptor(
   )
   {
     descriptor_type_fact,
-    exactly_describes_target: descriptor_type_fact.exactly_describes(target),
+    target_relation_fact: OiDescriptorExactTargetRelationFact::from_descriptor_type(
+      descriptor_type_fact, target,
+    ),
   }
 }
 
@@ -5533,7 +5569,7 @@ fn OiDescriptorExactMissDescriptorRelationFact::proves_exactly_describes_target(
   self : OiDescriptorExactMissDescriptorRelationFact,
 ) -> Bool {
   ignore(self.descriptor_type_fact)
-  self.exactly_describes_target
+  self.target_relation_fact.proves_exactly_describes_target()
 }
 
 ///|
