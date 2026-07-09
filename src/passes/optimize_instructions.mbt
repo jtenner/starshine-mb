@@ -6310,7 +6310,7 @@ fn OiRefGetDescNullableChildMoveFact::from_child(
         return None
       }
     @ir.HotOp::Call | @ir.HotOp::CallIndirect =>
-      if OiStandaloneRefGetDescCallMoveFact::from_call(func, child_id).proves_can_move_null_check() {
+      if OiStandaloneRefGetDescCallMoveFact::from_call(func, child_id).proves_nullable_ref_call_move_allowed() {
         RefGetDescNullableCallMove
       } else {
         return None
@@ -29134,10 +29134,47 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::proves_known_null_child(
 }
 
 ///|
+priv struct OiStandaloneRefGetDescCallOperandLeafFact {
+  all_nontrapping_leaves : Bool
+}
+
+///|
+fn OiStandaloneRefGetDescCallOperandLeafFact::empty() -> OiStandaloneRefGetDescCallOperandLeafFact {
+  { all_nontrapping_leaves: false }
+}
+
+///|
+fn OiStandaloneRefGetDescCallOperandLeafFact::from_call(
+  func : @ir.HotFunc,
+  call_id : Int,
+) -> OiStandaloneRefGetDescCallOperandLeafFact {
+  // Standalone ref.get_desc call-child movement keeps Binaryen's skipNonNullCast
+  // null-check motion bounded to calls whose operands are represented simple
+  // nontrapping leaves, so the operand traversal is an explicit leaf fact rather
+  // than an aggregate boolean on the call movement fact.
+  let mut all_nontrapping_leaves = true
+  for slot = 0; slot < @ir.hot_child_count(func, call_id); slot = slot + 1 {
+    all_nontrapping_leaves = all_nontrapping_leaves &&
+      OiStandaloneRefGetDescLeafFact::from_node(
+        func,
+        @ir.hot_child_get(func, call_id, slot),
+      ).proves_nontrapping_call_operand_leaf()
+  }
+  { all_nontrapping_leaves, }
+}
+
+///|
+fn OiStandaloneRefGetDescCallOperandLeafFact::proves_all_nontrapping_leaves(
+  self : OiStandaloneRefGetDescCallOperandLeafFact,
+) -> Bool {
+  self.all_nontrapping_leaves
+}
+
+///|
 priv struct OiStandaloneRefGetDescCallMoveFact {
   live : Bool
   single_ref_result : Bool
-  operands_nontrapping_leaves : Bool
+  operand_leaf_fact : OiStandaloneRefGetDescCallOperandLeafFact
 }
 
 ///|
@@ -29146,13 +29183,13 @@ fn OiStandaloneRefGetDescCallMoveFact::from_call(
   call_id : Int,
 ) -> OiStandaloneRefGetDescCallMoveFact {
   // The current represented call-child movement subset keeps Binaryen's
-  // skipNonNullCast idea but only for calls whose operands are simple
-  // nontrapping leaves, so moving the ref.as_non_null check across the call
-  // operands cannot reorder observable traps or effects.
+  // skipNonNullCast idea but only for calls whose operands are proven by the
+  // nested leaf fact to avoid observable traps or effects before the moved
+  // ref.as_non_null check.
   let empty = {
     live: false,
     single_ref_result: false,
-    operands_nontrapping_leaves: false,
+    operand_leaf_fact: OiStandaloneRefGetDescCallOperandLeafFact::empty(),
   }
   if call_id < 0 || !@ir.hot_node_is_live(func, call_id) {
     return empty
@@ -29165,22 +29202,22 @@ fn OiStandaloneRefGetDescCallMoveFact::from_call(
   if !single_ref_result {
     return { ..empty, live: true }
   }
-  let mut operands_nontrapping_leaves = true
-  for slot = 0; slot < @ir.hot_child_count(func, call_id); slot = slot + 1 {
-    operands_nontrapping_leaves = operands_nontrapping_leaves &&
-      OiStandaloneRefGetDescLeafFact::from_node(
-        func,
-        @ir.hot_child_get(func, call_id, slot),
-      ).proves_nontrapping_call_operand_leaf()
+  {
+    live: true,
+    single_ref_result,
+    operand_leaf_fact: OiStandaloneRefGetDescCallOperandLeafFact::from_call(
+      func, call_id,
+    ),
   }
-  { live: true, single_ref_result, operands_nontrapping_leaves }
 }
 
 ///|
-fn OiStandaloneRefGetDescCallMoveFact::proves_can_move_null_check(
+fn OiStandaloneRefGetDescCallMoveFact::proves_nullable_ref_call_move_allowed(
   self : OiStandaloneRefGetDescCallMoveFact,
 ) -> Bool {
-  self.live && self.single_ref_result && self.operands_nontrapping_leaves
+  self.live &&
+  self.single_ref_result &&
+  self.operand_leaf_fact.proves_all_nontrapping_leaves()
 }
 
 ///|
