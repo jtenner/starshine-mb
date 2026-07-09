@@ -1517,8 +1517,125 @@ fn OiConcreteCompAbsTargetFact::proves_match_target(
 }
 
 ///|
+priv enum OiModuleHeapSourceKind {
+  ModuleHeapSourceSameHeap
+  ModuleHeapSourceAbstractPair
+  ModuleHeapSourceConcreteHeap
+  ModuleHeapSourceUnsupported
+}
+
+///|
+priv struct OiModuleHeapSourceFact {
+  kind : OiModuleHeapSourceKind
+}
+
+///|
+fn OiModuleHeapSourceFact::from_heaps(
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiModuleHeapSourceFact {
+  let kind = if source == target {
+    ModuleHeapSourceSameHeap
+  } else {
+    match (source, target) {
+      (
+        @lib.HeapType::AbsHeapTypeHeapType(_),
+        @lib.HeapType::AbsHeapTypeHeapType(_),
+      ) => ModuleHeapSourceAbstractPair
+      (@lib.HeapType::HeapType(_), _) => ModuleHeapSourceConcreteHeap
+      _ => ModuleHeapSourceUnsupported
+    }
+  }
+  { kind, }
+}
+
+///|
+priv enum OiModuleHeapSubtypeTargetKind {
+  ModuleHeapSubtypeTargetNoMatch
+  ModuleHeapSubtypeTargetConcreteCompAbs
+  ModuleHeapSubtypeTargetSupertypeWalk
+}
+
+///|
+priv struct OiModuleHeapSubtypeTargetFact {
+  kind : OiModuleHeapSubtypeTargetKind
+}
+
+///|
+fn OiModuleHeapSubtypeTargetFact::from_subtype(
+  module_ctx : @ir.HotModuleContext,
+  subtype : @lib.SubType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> OiModuleHeapSubtypeTargetFact {
+  if fuel <= 0 {
+    return { kind: ModuleHeapSubtypeTargetNoMatch }
+  }
+  let (_, supers, comp) = match subtype {
+    @lib.CompTypeSubType(_, comp) => (false, [], comp)
+    @lib.SubType(is_final, supers, _, comp) => (is_final, supers, comp)
+  }
+  match target {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
+      if OiConcreteCompAbsTargetFact::from_comp_abs(comp, abs).proves_match_target() {
+        return { kind: ModuleHeapSubtypeTargetConcreteCompAbs }
+      }
+    _ => ()
+  }
+  for super_idx in supers {
+    if OiModuleHeapTargetFact::from_heaps(
+        module_ctx,
+        @lib.HeapType::new(super_idx),
+        target,
+        fuel - 1,
+      ).proves_match_target() {
+      return { kind: ModuleHeapSubtypeTargetSupertypeWalk }
+    }
+  }
+  { kind: ModuleHeapSubtypeTargetNoMatch }
+}
+
+///|
+fn OiModuleHeapSubtypeTargetFact::proves_match_target(
+  self : OiModuleHeapSubtypeTargetFact,
+) -> Bool {
+  match self.kind {
+    ModuleHeapSubtypeTargetConcreteCompAbs
+    | ModuleHeapSubtypeTargetSupertypeWalk => true
+    ModuleHeapSubtypeTargetNoMatch => false
+  }
+}
+
+///|
+priv enum OiModuleHeapTargetKind {
+  ModuleHeapTargetNoKnownMatch
+  ModuleHeapTargetNoFuel
+  ModuleHeapTargetSameHeap
+  ModuleHeapTargetAbstractPair
+  ModuleHeapTargetConcreteSubtype
+}
+
+///|
+priv struct OiModuleHeapTargetEvidenceFact {
+  kind : OiModuleHeapTargetKind
+  source : OiModuleHeapSourceFact
+}
+
+///|
+fn OiModuleHeapTargetEvidenceFact::proves_source_classified(
+  self : OiModuleHeapTargetEvidenceFact,
+) -> Bool {
+  match self.source.kind {
+    ModuleHeapSourceSameHeap
+    | ModuleHeapSourceAbstractPair
+    | ModuleHeapSourceConcreteHeap
+    | ModuleHeapSourceUnsupported => true
+  }
+}
+
+///|
 priv struct OiModuleHeapTargetFact {
-  match_target : Bool
+  evidence : OiModuleHeapTargetEvidenceFact
 }
 
 ///|
@@ -1530,86 +1647,69 @@ fn OiModuleHeapTargetFact::from_heaps(
 ) -> OiModuleHeapTargetFact {
   // Source-backed equivalent of Binaryen's heap-target compatibility walk: fast
   // abstract-heap lattice facts first, then bounded module subtype traversal.
+  let source_fact = OiModuleHeapSourceFact::from_heaps(source, target)
   if source == target {
-    return { match_target: true }
+    return { evidence: { kind: ModuleHeapTargetSameHeap, source: source_fact } }
   }
   if fuel <= 0 {
-    return { match_target: false }
+    return { evidence: { kind: ModuleHeapTargetNoFuel, source: source_fact } }
   }
-  let match_target = match (source, target) {
+  let kind = match (source, target) {
     (
       @lib.HeapType::AbsHeapTypeHeapType(source_abs),
       @lib.HeapType::AbsHeapTypeHeapType(target_abs),
     ) =>
-      source_abs == target_abs ||
-      (
-        source_abs == @lib.AbsHeapType::i31() &&
-        OiI31HeapTargetFact::from_target(target).proves_match_target()
-      ) ||
-      OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_match_target() ||
-      (
-        source_abs == @lib.AbsHeapType::eq() &&
-        target_abs == @lib.AbsHeapType::any()
-      ) ||
-      (
-        source_abs == @lib.AbsHeapType::func() &&
-        target_abs == @lib.AbsHeapType::any()
-      )
+      if source_abs == target_abs ||
+        (
+          source_abs == @lib.AbsHeapType::i31() &&
+          OiI31HeapTargetFact::from_target(target).proves_match_target()
+        ) ||
+        OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_match_target() ||
+        (
+          source_abs == @lib.AbsHeapType::eq() &&
+          target_abs == @lib.AbsHeapType::any()
+        ) ||
+        (
+          source_abs == @lib.AbsHeapType::func() &&
+          target_abs == @lib.AbsHeapType::any()
+        ) {
+        ModuleHeapTargetAbstractPair
+      } else {
+        ModuleHeapTargetNoKnownMatch
+      }
     (@lib.HeapType::HeapType(source_idx), _) =>
       match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
         Some(subtype) =>
-          OiModuleHeapTargetFact::subtype_matches_target(
-            module_ctx,
-            subtype,
-            target,
-            fuel - 1,
-          )
-        None => false
+          if OiModuleHeapSubtypeTargetFact::from_subtype(
+              module_ctx,
+              subtype,
+              target,
+              fuel - 1,
+            ).proves_match_target() {
+            ModuleHeapTargetConcreteSubtype
+          } else {
+            ModuleHeapTargetNoKnownMatch
+          }
+        None => ModuleHeapTargetNoKnownMatch
       }
-    _ => false
+    _ => ModuleHeapTargetNoKnownMatch
   }
-  { match_target, }
-}
-
-///|
-fn OiModuleHeapTargetFact::subtype_matches_target(
-  module_ctx : @ir.HotModuleContext,
-  subtype : @lib.SubType,
-  target : @lib.HeapType,
-  fuel : Int,
-) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
-  let (_, supers, comp) = match subtype {
-    @lib.CompTypeSubType(_, comp) => (false, [], comp)
-    @lib.SubType(is_final, supers, _, comp) => (is_final, supers, comp)
-  }
-  match target {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
-      if OiConcreteCompAbsTargetFact::from_comp_abs(comp, abs).proves_match_target() {
-        return true
-      }
-    _ => ()
-  }
-  for super_idx in supers {
-    if OiModuleHeapTargetFact::from_heaps(
-        module_ctx,
-        @lib.HeapType::new(super_idx),
-        target,
-        fuel - 1,
-      ).proves_match_target() {
-      return true
-    }
-  }
-  false
+  { evidence: { kind, source: source_fact } }
 }
 
 ///|
 fn OiModuleHeapTargetFact::proves_match_target(
   self : OiModuleHeapTargetFact,
 ) -> Bool {
-  self.match_target
+  if not(self.evidence.proves_source_classified()) {
+    return false
+  }
+  match self.evidence.kind {
+    ModuleHeapTargetSameHeap
+    | ModuleHeapTargetAbstractPair
+    | ModuleHeapTargetConcreteSubtype => true
+    ModuleHeapTargetNoKnownMatch | ModuleHeapTargetNoFuel => false
+  }
 }
 
 ///|
