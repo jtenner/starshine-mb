@@ -14250,21 +14250,60 @@ fn OiTriviallyPureOperandFact::proves_live_node_pure(
 }
 
 ///|
+priv enum OiSideEffectFreeInstructionKind {
+  SideEffectFreeInstructionNoProof
+  SideEffectFreeV128ConstLeafInstruction
+  SideEffectFreeSimdSplatPayloadInstruction
+}
+
+///|
+priv struct OiSideEffectFreeInstructionFact {
+  kind : OiSideEffectFreeInstructionKind
+}
+
+///|
+fn OiSideEffectFreeInstructionFact::from_instruction(
+  instr : @lib.Instruction,
+) -> OiSideEffectFreeInstructionFact {
+  match instr {
+    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      { kind: SideEffectFreeV128ConstLeafInstruction }
+    _ =>
+      if instr == @lib.Instruction::i8x16_splat() ||
+        instr == @lib.Instruction::i16x8_splat() ||
+        instr == @lib.Instruction::i32x4_splat() ||
+        instr == @lib.Instruction::i64x2_splat() ||
+        instr == @lib.Instruction::f32x4_splat() ||
+        instr == @lib.Instruction::f64x2_splat() {
+        { kind: SideEffectFreeSimdSplatPayloadInstruction }
+      } else {
+        { kind: SideEffectFreeInstructionNoProof }
+      }
+  }
+}
+
+///|
+priv enum OiSideEffectFreeExpressionKind {
+  SideEffectFreeExpressionNoProof
+  SideEffectFreeTrivialLeaf
+  SideEffectFreeExactRefNullLeaf
+  SideEffectFreeExactV128ConstLeaf
+  SideEffectFreeRefI31Payload
+  SideEffectFreeSimdSplatPayload
+  SideEffectFreeBranchlessScalarShell
+}
+
+///|
 priv struct OiSideEffectFreeExpressionFact {
-  live : Bool
+  kind : OiSideEffectFreeExpressionKind
   trivial_leaf : OiTriviallyPureOperandFact
-  exact_ref_null_leaf : Bool
-  exact_v128_const_leaf : Bool
-  ref_i31_payload : Bool
-  simd_splat_payload : Bool
-  branchless_scalar_shell : Bool
   children_effect_free : Bool
 }
 
 ///|
 fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
   {
-    live: false,
+    kind: SideEffectFreeExpressionNoProof,
     trivial_leaf: {
       local_get_leaf: false,
       global_get_leaf: false,
@@ -14272,36 +14311,8 @@ fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
       ref_null_leaf: false,
       ref_func_leaf: false,
     },
-    exact_ref_null_leaf: false,
-    exact_v128_const_leaf: false,
-    ref_i31_payload: false,
-    simd_splat_payload: false,
-    branchless_scalar_shell: false,
     children_effect_free: false,
   }
-}
-
-///|
-fn OiSideEffectFreeExpressionFact::instr_is_v128_const(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-      true
-    _ => false
-  }
-}
-
-///|
-fn OiSideEffectFreeExpressionFact::instr_is_simd_splat(
-  instr : @lib.Instruction,
-) -> Bool {
-  instr == @lib.Instruction::i8x16_splat() ||
-  instr == @lib.Instruction::i16x8_splat() ||
-  instr == @lib.Instruction::i32x4_splat() ||
-  instr == @lib.Instruction::i64x2_splat() ||
-  instr == @lib.Instruction::f32x4_splat() ||
-  instr == @lib.Instruction::f64x2_splat()
 }
 
 ///|
@@ -14330,24 +14341,8 @@ fn OiSideEffectFreeExpressionFact::from_node(
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefNull(_)) =>
       return {
-        live: true,
+        kind: SideEffectFreeExactRefNullLeaf,
         trivial_leaf,
-        exact_ref_null_leaf: true,
-        exact_v128_const_leaf: false,
-        ref_i31_payload: false,
-        simd_splat_payload: false,
-        branchless_scalar_shell: false,
-        children_effect_free: true,
-      }
-    Some(instr) if OiSideEffectFreeExpressionFact::instr_is_v128_const(instr) =>
-      return {
-        live: true,
-        trivial_leaf,
-        exact_ref_null_leaf: false,
-        exact_v128_const_leaf: true,
-        ref_i31_payload: false,
-        simd_splat_payload: false,
-        branchless_scalar_shell: false,
         children_effect_free: true,
       }
     Some(@lib.Instruction::RefI31) if node.child_count == 1 => {
@@ -14357,45 +14352,39 @@ fn OiSideEffectFreeExpressionFact::from_node(
         func.children[node.child_base],
       )
       return {
-        live: true,
+        kind: SideEffectFreeRefI31Payload,
         trivial_leaf,
-        exact_ref_null_leaf: false,
-        exact_v128_const_leaf: false,
-        ref_i31_payload: true,
-        simd_splat_payload: false,
-        branchless_scalar_shell: false,
         children_effect_free: child_fact.proves_free(),
       }
     }
-    Some(instr) if node.child_count == 1 &&
-      OiSideEffectFreeExpressionFact::instr_is_simd_splat(instr) => {
-      let child_fact = OiSideEffectFreeExpressionFact::from_node(
-        func,
-        dead,
-        func.children[node.child_base],
-      )
-      return {
-        live: true,
-        trivial_leaf,
-        exact_ref_null_leaf: false,
-        exact_v128_const_leaf: false,
-        ref_i31_payload: false,
-        simd_splat_payload: true,
-        branchless_scalar_shell: false,
-        children_effect_free: child_fact.proves_free(),
+    Some(instr) =>
+      match OiSideEffectFreeInstructionFact::from_instruction(instr).kind {
+        SideEffectFreeV128ConstLeafInstruction =>
+          return {
+            kind: SideEffectFreeExactV128ConstLeaf,
+            trivial_leaf,
+            children_effect_free: true,
+          }
+        SideEffectFreeSimdSplatPayloadInstruction if node.child_count == 1 => {
+          let child_fact = OiSideEffectFreeExpressionFact::from_node(
+            func,
+            dead,
+            func.children[node.child_base],
+          )
+          return {
+            kind: SideEffectFreeSimdSplatPayload,
+            trivial_leaf,
+            children_effect_free: child_fact.proves_free(),
+          }
+        }
+        _ => ()
       }
-    }
     _ => ()
   }
   if trivial_leaf.proves_pure() {
     return {
-      live: true,
+      kind: SideEffectFreeTrivialLeaf,
       trivial_leaf,
-      exact_ref_null_leaf: false,
-      exact_v128_const_leaf: false,
-      ref_i31_payload: false,
-      simd_splat_payload: false,
-      branchless_scalar_shell: false,
       children_effect_free: true,
     }
   }
@@ -14417,25 +14406,15 @@ fn OiSideEffectFreeExpressionFact::from_node(
         }
       }
       {
-        live: true,
+        kind: SideEffectFreeBranchlessScalarShell,
         trivial_leaf,
-        exact_ref_null_leaf: false,
-        exact_v128_const_leaf: false,
-        ref_i31_payload: false,
-        simd_splat_payload: false,
-        branchless_scalar_shell: true,
         children_effect_free,
       }
     }
     _ =>
       {
-        live: true,
+        kind: SideEffectFreeExpressionNoProof,
         trivial_leaf,
-        exact_ref_null_leaf: false,
-        exact_v128_const_leaf: false,
-        ref_i31_payload: false,
-        simd_splat_payload: false,
-        branchless_scalar_shell: false,
         children_effect_free: false,
       }
   }
@@ -14445,20 +14424,15 @@ fn OiSideEffectFreeExpressionFact::from_node(
 fn OiSideEffectFreeExpressionFact::proves_free(
   self : OiSideEffectFreeExpressionFact,
 ) -> Bool {
-  self.live &&
-  (
-    self.trivial_leaf.proves_pure() ||
-    self.exact_ref_null_leaf ||
-    self.exact_v128_const_leaf ||
-    (
-      (
-        self.ref_i31_payload ||
-        self.simd_splat_payload ||
-        self.branchless_scalar_shell
-      ) &&
-      self.children_effect_free
-    )
-  )
+  match self.kind {
+    SideEffectFreeExpressionNoProof => false
+    SideEffectFreeTrivialLeaf => self.trivial_leaf.proves_pure()
+    SideEffectFreeExactRefNullLeaf => true
+    SideEffectFreeExactV128ConstLeaf => true
+    SideEffectFreeRefI31Payload => self.children_effect_free
+    SideEffectFreeSimdSplatPayload => self.children_effect_free
+    SideEffectFreeBranchlessScalarShell => self.children_effect_free
+  }
 }
 
 ///|
