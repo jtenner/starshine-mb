@@ -691,6 +691,37 @@ test "optimize-instructions preserves memory-fill block prefixes after maxBits c
 }
 
 ///|
+test "optimize-instructions preserves elem-drop block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
+  // maxBits compare through a straight-line elem.drop block prefix while
+  // keeping the passive-element state mutation before the folded constant.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (table 1 funcref)
+        #|  (elem $e func)
+        #|  (func (param $x i32) (result i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (elem.drop $e)
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected elem-drop prefix maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("elem.drop"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves local.tee while folding maxBits compares" {
   // Red-first OI-E behavior-parity slice: Binaryen v130 `Bits::getMaxBits`
   // sees through a local.tee value but preserves the local write before the
