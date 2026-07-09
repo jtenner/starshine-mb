@@ -27346,6 +27346,124 @@ fn optimize_instructions_inverted_select_compare(
 }
 
 ///|
+priv enum OiConsecutiveInputFoldabilityKind {
+  ConsecutiveInputFoldablePure
+  ConsecutiveInputNotFoldable
+}
+
+///|
+priv struct OiConsecutiveInputFoldabilityFact {
+  right_id : Int
+  kind : OiConsecutiveInputFoldabilityKind
+}
+
+///|
+fn OiConsecutiveInputFoldabilityFact::from_right(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  right_id : Int,
+) -> OiConsecutiveInputFoldabilityFact {
+  // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
+  // the later equal input to have no unremovable effects before it can be
+  // folded into the earlier input. Start with Starshine's represented pure
+  // expression proof; idempotent-call widening remains separate source work.
+  let kind = if OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, right_id,
+    ) {
+    ConsecutiveInputFoldablePure
+  } else {
+    ConsecutiveInputNotFoldable
+  }
+  { right_id, kind }
+}
+
+///|
+fn OiConsecutiveInputFoldabilityFact::proves_foldable(
+  self : OiConsecutiveInputFoldabilityFact,
+) -> Bool {
+  ignore(self.right_id)
+  match self.kind {
+    ConsecutiveInputFoldablePure => true
+    ConsecutiveInputNotFoldable => false
+  }
+}
+
+///|
+priv enum OiConsecutiveSelfSelectKind {
+  ConsecutiveSelfSelectI32Truthy
+}
+
+///|
+priv struct OiConsecutiveSelfSelectFact {
+  kind : OiConsecutiveSelfSelectKind
+  selected_id : Int
+  equality_fact : OiConsecutiveInputEqualityFact
+  foldability_fact : OiConsecutiveInputFoldabilityFact
+}
+
+///|
+fn OiConsecutiveSelfSelectFact::from_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  if_true : Int,
+  if_false : Int,
+  condition_id : Int,
+) -> OiConsecutiveSelfSelectFact? {
+  // Binaryen v130 `optimizeSelect`'s first SCCP compatibility rule rewrites
+  // `i32(x) ? i32(x) : 0` to the earlier `x` when the true arm and condition
+  // are consecutive equal foldable inputs. Keep the literal/type shell,
+  // equality proof, and right-input erasure proof together as one OI-F fact.
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [result_type] if result_type == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  match optimize_instructions_i32_const(func, dead, if_false) {
+    Some(@lib.I32(0)) => ()
+    _ => return None
+  }
+  let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
+    ctx, func, if_true, condition_id,
+  )
+  let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
+    func, dead, condition_id,
+  )
+  if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
+    return None
+  }
+  Some({
+    kind: ConsecutiveSelfSelectI32Truthy,
+    selected_id: if_true,
+    equality_fact,
+    foldability_fact,
+  })
+}
+
+///|
+fn OiConsecutiveSelfSelectFact::apply(
+  self : OiConsecutiveSelfSelectFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !self.equality_fact.proves_equal(func) ||
+    !self.foldability_fact.proves_foldable() {
+    return false
+  }
+  match self.kind {
+    ConsecutiveSelfSelectI32Truthy =>
+      optimize_instructions_replace_with_node_id(
+        ctx,
+        func,
+        node_id,
+        self.selected_id,
+      )
+  }
+  true
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -28431,6 +28549,13 @@ fn optimize_instructions_try_fold_const_select(
   let if_true = @ir.hot_child_get(func, node_id, 0)
   let if_false = @ir.hot_child_get(func, node_id, 1)
   let condition = @ir.hot_child_get(func, node_id, 2)
+  match
+    OiConsecutiveSelfSelectFact::from_select(
+      ctx, func, dead, node_id, if_true, if_false, condition,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
+    _ => ()
+  }
   match
     OiEqzConditionSelectFact::from_select_condition(
       func, dead, node_id, condition, if_true, if_false,

@@ -2619,6 +2619,24 @@ test "optimize-instructions folds boolean const select arms to condition compare
 }
 
 ///|
+test "optimize-instructions folds i32 truthy self-selects through consecutive-input facts" {
+  // Red-first OI-F parity slice: Binaryen version_130 `optimizeSelect` uses
+  // `areConsecutiveInputsEqualAndFoldable` to rewrite `select(x, 0, x)` to
+  // `x`. The source and `.tmp/oi-probes/select-consecutive-inputs.wat` oracle
+  // both preserve the selected value directly, without a boolean compare shell.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 0 local.get 0 select))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 0)
+    other =>
+      fail("expected truthy self-select to become local.get, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to
