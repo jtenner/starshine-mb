@@ -29764,6 +29764,119 @@ fn OiRefEqI31Fact::from_node(
 }
 
 ///|
+priv enum OiRefEqSkipCastShellKind {
+  RefEqSkipCastRefCast
+  RefEqSkipCastRefAsNonNull
+}
+
+///|
+priv struct OiRefEqSkipCastShellFact {
+  child_id : Int
+  kind : OiRefEqSkipCastShellKind
+}
+
+///|
+fn OiRefEqSkipCastShellFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefEqSkipCastShellFact? {
+  // Binaryen v130 `visitRefEq` reuses the GC skip-cast shell set for nullable-eq
+  // operands: ordinary `ref.cast` and `ref.as_non_null` wrappers are removable
+  // only after a separate child-type fact proves the child already satisfies the
+  // required `(ref null eq)` target. Keep the wrapper classification as a fact
+  // instead of returning a local `-1` sentinel for unsupported opcodes.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefCast if @ir.hot_child_count(func, node_id) == 1 =>
+      Some({
+        child_id: @ir.hot_child_get(func, node_id, 0),
+        kind: RefEqSkipCastRefCast,
+      })
+    @ir.HotOp::Heap if @ir.hot_child_count(func, node_id) == 1 =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefAsNonNull) =>
+          Some({
+            child_id: @ir.hot_child_get(func, node_id, 0),
+            kind: RefEqSkipCastRefAsNonNull,
+          })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn OiRefEqSkipCastShellFact::replacement_child_id(
+  self : OiRefEqSkipCastShellFact,
+) -> Int {
+  match self.kind {
+    RefEqSkipCastRefCast | RefEqSkipCastRefAsNonNull => self.child_id
+  }
+}
+
+///|
+priv struct OiRefEqNullableEqRequirementFact {
+  child_id : Int
+}
+
+///|
+fn OiRefEqNullableEqRequirementFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefEqNullableEqRequirementFact? {
+  // The cast wrapper is removable only when the child heap is a known match for
+  // nullable eqref, matching Binaryen v130 `skipCast(input, (ref null eq))` and
+  // preserving validation after the wrapper is erased.
+  let ref_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => ref_type
+    _ => return None
+  }
+  if OiHeapRelationFact::from_heaps(
+      ctx,
+      ref_type.get_heap_type(),
+      @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+    ).known_match_target() {
+    Some({ child_id: node_id })
+  } else {
+    None
+  }
+}
+
+///|
+priv struct OiRefEqSkipCastStepFact {
+  shell_fact : OiRefEqSkipCastShellFact
+  requirement_fact : OiRefEqNullableEqRequirementFact
+}
+
+///|
+fn OiRefEqSkipCastStepFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiRefEqSkipCastStepFact? {
+  let shell_fact = match OiRefEqSkipCastShellFact::from_node(func, node_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  let child_id = shell_fact.replacement_child_id()
+  let requirement_fact = match
+    OiRefEqNullableEqRequirementFact::from_node(ctx, func, child_id) {
+    Some(fact) => fact
+    None => return None
+  }
+  Some({ shell_fact, requirement_fact })
+}
+
+///|
+fn OiRefEqSkipCastStepFact::replacement_child_id(
+  self : OiRefEqSkipCastStepFact,
+) -> Int {
+  ignore(self.requirement_fact.child_id)
+  self.shell_fact.replacement_child_id()
+}
+
+///|
 priv struct OiRefEqSkipCastOperandFact {
   replacement_id : Int
   changed : Bool
@@ -29776,54 +29889,24 @@ fn OiRefEqSkipCastOperandFact::from_node(
   node_id : Int,
 ) -> OiRefEqSkipCastOperandFact {
   // Binaryen v130 `visitRefEq` calls `skipCast(input, (ref null eq))` only
-  // under traps-never-happen. Keep the required-type check with the skip fact:
-  // an operand wrapper is removable only when its child is already a nullable-eq
-  // subtype, so removing the cast cannot make the resulting `ref.eq` invalid.
+  // under traps-never-happen. The operand fact now walks explicit skip-cast
+  // shell and nullable-eq child-requirement facts so unsupported wrappers simply
+  // stop the chain instead of flowing through a sentinel child id.
   if !ctx.traps_never_happen {
     return { replacement_id: node_id, changed: false }
   }
   let mut current_id = node_id
   let mut changed = false
   while current_id >= 0 && @ir.hot_node_is_live(func, current_id) {
-    let child_id = match @ir.hot_node_get(func, current_id).op {
-      @ir.HotOp::RefCast if @ir.hot_child_count(func, current_id) == 1 =>
-        @ir.hot_child_get(func, current_id, 0)
-      @ir.HotOp::Heap if @ir.hot_child_count(func, current_id) == 1 =>
-        match @ir.hot_node_exact_instr(func, current_id) {
-          Some(@lib.Instruction::RefAsNonNull) =>
-            @ir.hot_child_get(func, current_id, 0)
-          _ => -1
-        }
-      _ => -1
+    let step_fact = match
+      OiRefEqSkipCastStepFact::from_node(ctx, func, current_id) {
+      Some(fact) => fact
+      None => break
     }
-    if child_id < 0 ||
-      !OiRefEqSkipCastOperandFact::node_satisfies_nullable_eq_requirement(
-        ctx, func, child_id,
-      ) {
-      break
-    }
-    current_id = child_id
+    current_id = step_fact.replacement_child_id()
     changed = true
   }
   { replacement_id: current_id, changed }
-}
-
-///|
-fn OiRefEqSkipCastOperandFact::node_satisfies_nullable_eq_requirement(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  let ref_type = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] => ref_type
-    _ => return false
-  }
-  OiHeapRelationFact::from_heaps(
-    ctx,
-    ref_type.get_heap_type(),
-    @lib.HeapType::abs(@lib.AbsHeapType::eq()),
-  ).known_match_target()
 }
 
 ///|
