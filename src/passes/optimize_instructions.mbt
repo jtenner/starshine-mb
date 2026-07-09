@@ -13731,9 +13731,73 @@ fn OiZeroSentinelFact::proves_node_drop_zero_sentinel(
 }
 
 ///|
-priv struct OiBranchTableTargetFact {
-  default_targets_label : Bool
+priv struct OiBranchTableDefaultTargetFact {
+  targets_label : Bool
+}
+
+///|
+fn OiBranchTableDefaultTargetFact::from_table(
+  func : @ir.HotFunc,
+  table_id : Int,
+  label_id : Int,
+) -> OiBranchTableDefaultTargetFact {
+  {
+    targets_label: @ir.hot_branch_table_default_target(func, table_id) ==
+    label_id,
+  }
+}
+
+///|
+fn OiBranchTableDefaultTargetFact::proves_targets_label(
+  self : OiBranchTableDefaultTargetFact,
+) -> Bool {
+  self.targets_label
+}
+
+///|
+priv struct OiBranchTableExplicitTargetsFact {
   all_targets_label : Bool
+}
+
+///|
+fn OiBranchTableExplicitTargetsFact::from_table(
+  func : @ir.HotFunc,
+  table_id : Int,
+  label_id : Int,
+) -> OiBranchTableExplicitTargetsFact {
+  let mut all_targets_label = true
+  for target in @ir.hot_branch_table_targets(func, table_id) {
+    if target != label_id {
+      all_targets_label = false
+    }
+  }
+  { all_targets_label, }
+}
+
+///|
+fn OiBranchTableExplicitTargetsFact::proves_all_targets_label(
+  self : OiBranchTableExplicitTargetsFact,
+) -> Bool {
+  self.all_targets_label
+}
+
+///|
+priv struct OiBranchTableAllTargetsFact {
+  default_target_fact : OiBranchTableDefaultTargetFact
+  explicit_targets_fact : OiBranchTableExplicitTargetsFact
+}
+
+///|
+fn OiBranchTableAllTargetsFact::proves_all_targets_label(
+  self : OiBranchTableAllTargetsFact,
+) -> Bool {
+  self.default_target_fact.proves_targets_label() &&
+  self.explicit_targets_fact.proves_all_targets_label()
+}
+
+///|
+priv struct OiBranchTableTargetFact {
+  all_targets_fact : OiBranchTableAllTargetsFact?
 }
 
 ///|
@@ -13742,26 +13806,35 @@ fn OiBranchTableTargetFact::from_table(
   table_id : Int,
   label_id : Int,
 ) -> OiBranchTableTargetFact {
-  let default_targets_label = @ir.hot_branch_table_default_target(
-      func, table_id,
-    ) ==
-    label_id
-  let mut all_targets_label = default_targets_label
-  if all_targets_label {
-    for target in @ir.hot_branch_table_targets(func, table_id) {
-      if target != label_id {
-        all_targets_label = false
-      }
-    }
+  // `br_table` exits to a surrounding label only when both the default edge and
+  // every explicit table edge target that label. Keep those source-level edges
+  // as nested facts instead of parallel default/all booleans on the control
+  // cleanup fact.
+  let default_target_fact = OiBranchTableDefaultTargetFact::from_table(
+    func, table_id, label_id,
+  )
+  if !default_target_fact.proves_targets_label() {
+    return { all_targets_fact: None }
   }
-  { default_targets_label, all_targets_label }
+  let explicit_targets_fact = OiBranchTableExplicitTargetsFact::from_table(
+    func, table_id, label_id,
+  )
+  let all_targets_fact = if explicit_targets_fact.proves_all_targets_label() {
+    Some({ default_target_fact, explicit_targets_fact })
+  } else {
+    None
+  }
+  { all_targets_fact, }
 }
 
 ///|
 fn OiBranchTableTargetFact::proves_all_targets_label(
   self : OiBranchTableTargetFact,
 ) -> Bool {
-  self.default_targets_label && self.all_targets_label
+  match self.all_targets_fact {
+    Some(fact) => fact.proves_all_targets_label()
+    None => false
+  }
 }
 
 ///|
