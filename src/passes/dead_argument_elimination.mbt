@@ -469,6 +469,14 @@ priv struct DaeLocalUse {
 }
 
 ///|
+priv struct DaeLocalUsageEvidence {
+  target_local : @lib.LocalIdx
+  get_count : Int
+  write_count : Int
+  has_try_table : Bool
+}
+
+///|
 priv struct DaePassResult {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -21411,77 +21419,106 @@ fn dae_try_spill_i32_param_loop_recursive_body_once(
 }
 
 ///|
-fn dae_count_local_gets_instr(
+fn dae_empty_local_usage_evidence(
+  target_local : @lib.LocalIdx,
+) -> DaeLocalUsageEvidence {
+  { target_local, get_count: 0, write_count: 0, has_try_table: false }
+}
+
+///|
+fn dae_merge_local_usage_evidence(
+  lhs : DaeLocalUsageEvidence,
+  rhs : DaeLocalUsageEvidence,
+) -> DaeLocalUsageEvidence {
+  {
+    target_local: lhs.target_local,
+    get_count: lhs.get_count + rhs.get_count,
+    write_count: lhs.write_count + rhs.write_count,
+    has_try_table: lhs.has_try_table || rhs.has_try_table,
+  }
+}
+
+///|
+fn dae_local_usage_evidence_instr(
   instr : @lib.Instruction,
   target_local : @lib.LocalIdx,
-) -> Int {
+) -> DaeLocalUsageEvidence {
+  let evidence = dae_empty_local_usage_evidence(target_local)
   match instr {
     @lib.LocalGet(idx) =>
       if dae_local_idx_equal(idx, target_local) {
-        1
+        { target_local, get_count: 1, write_count: 0, has_try_table: false }
       } else {
-        0
+        evidence
       }
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      dae_count_local_gets_instrs(body, target_local)
-    @lib.If(_, then_body, Some(else_body)) =>
-      dae_count_local_gets_instrs(then_body, target_local) +
-      dae_count_local_gets_instrs(else_body, target_local)
-    @lib.If(_, then_body, None) =>
-      dae_count_local_gets_instrs(then_body, target_local)
-    _ => 0
-  }
-}
-
-///|
-fn dae_count_local_gets_instrs(
-  instrs : Array[@lib.Instruction],
-  target_local : @lib.LocalIdx,
-) -> Int {
-  let mut count = 0
-  for instr in instrs {
-    count += dae_count_local_gets_instr(instr, target_local)
-  }
-  count
-}
-
-///|
-fn dae_count_local_writes_instr(
-  instr : @lib.Instruction,
-  target_local : @lib.LocalIdx,
-) -> Int {
-  match instr {
     @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
       if dae_local_idx_equal(idx, target_local) {
-        1
+        { target_local, get_count: 0, write_count: 1, has_try_table: false }
       } else {
-        0
+        evidence
       }
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      dae_count_local_writes_instrs(body, target_local)
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      dae_local_usage_evidence(body, target_local)
+    @lib.TryTable(_, _, @lib.Expr(body)) => {
+      let child = dae_local_usage_evidence(body, target_local)
+      {
+        target_local: child.target_local,
+        get_count: child.get_count,
+        write_count: child.write_count,
+        has_try_table: true,
+      }
+    }
     @lib.If(_, then_body, Some(else_body)) =>
-      dae_count_local_writes_instrs(then_body, target_local) +
-      dae_count_local_writes_instrs(else_body, target_local)
+      dae_merge_local_usage_evidence(
+        dae_local_usage_evidence(then_body, target_local),
+        dae_local_usage_evidence(else_body, target_local),
+      )
     @lib.If(_, then_body, None) =>
-      dae_count_local_writes_instrs(then_body, target_local)
-    _ => 0
+      dae_local_usage_evidence(then_body, target_local)
+    _ => evidence
   }
 }
 
 ///|
-fn dae_count_local_writes_instrs(
+fn dae_local_usage_evidence_range(
   instrs : Array[@lib.Instruction],
   target_local : @lib.LocalIdx,
-) -> Int {
-  let mut count = 0
-  for instr in instrs {
-    count += dae_count_local_writes_instr(instr, target_local)
+  start_idx : Int,
+  end_idx : Int,
+) -> DaeLocalUsageEvidence {
+  let mut evidence = dae_empty_local_usage_evidence(target_local)
+  let bounded_start = if start_idx < 0 { 0 } else { start_idx }
+  let bounded_end = if end_idx > instrs.length() {
+    instrs.length()
+  } else {
+    end_idx
   }
-  count
+  let mut idx = bounded_start
+  while idx < bounded_end {
+    evidence = dae_merge_local_usage_evidence(
+      evidence,
+      dae_local_usage_evidence_instr(instrs[idx], target_local),
+    )
+    idx += 1
+  }
+  evidence
+}
+
+///|
+fn dae_local_usage_evidence(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> DaeLocalUsageEvidence {
+  dae_local_usage_evidence_range(instrs, target_local, 0, instrs.length())
+}
+
+///|
+fn dae_local_usage_evidence_has_single_get_write(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> Bool {
+  let evidence = dae_local_usage_evidence(instrs, target_local)
+  evidence.get_count == 1 && evidence.write_count == 1
 }
 
 ///|
@@ -21765,9 +21802,10 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
         continue
       }
     }
+    let temp_usage = dae_local_usage_evidence(root_body, temp_local)
     if dae_local_idx_slot(temp_local) < param_count ||
-      dae_count_local_writes_instrs(root_body, temp_local) != 1 ||
-      dae_count_local_gets_instrs(root_body, temp_local) != 1 {
+      temp_usage.write_count != 1 ||
+      temp_usage.get_count != 1 {
       set_idx += 1
       continue
     }
@@ -21886,13 +21924,7 @@ fn dae_count_local_gets_instrs_range(
   start_idx : Int,
   end_idx : Int,
 ) -> Int {
-  let mut count = 0
-  let mut idx = start_idx
-  while idx < end_idx {
-    count += dae_count_local_gets_instr(instrs[idx], target_local)
-    idx += 1
-  }
-  count
+  dae_local_usage_evidence_range(instrs, target_local, start_idx, end_idx).get_count
 }
 
 ///|
@@ -21931,12 +21963,13 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
         continue
       }
     }
+    let temp_usage = dae_local_usage_evidence(root_body, temp_local)
     if dae_local_idx_slot(temp_local) < param_count ||
-      dae_count_local_writes_instrs(root_body, temp_local) != 1 {
+      temp_usage.write_count != 1 {
       set_idx += 1
       continue
     }
-    let total_temp_reads = dae_count_local_gets_instrs(root_body, temp_local)
+    let total_temp_reads = temp_usage.get_count
     if total_temp_reads < 2 {
       set_idx += 1
       continue
@@ -24096,8 +24129,7 @@ fn dae_try_inline_i32_const_local_set_flat_once(
           local_idx,
         ) >=
         protected_local_slots &&
-        dae_count_local_writes_instrs(body, local_idx) == 1 &&
-        dae_count_local_gets_instrs(body, local_idx) == 1 => {
+        dae_local_usage_evidence_has_single_get_write(body, local_idx) => {
         let without_set : Array[@lib.Instruction] = []
         let mut copy_idx = 0
         while copy_idx < body.length() {
@@ -24247,8 +24279,7 @@ fn dae_rewrite_func311_i64_if_temp_instrs(
       match instr {
         @lib.If(block_type, then_body, Some(else_body)) if block_type ==
           @lib.BlockType::val_type(@lib.ValType::i64()) &&
-          dae_count_local_writes_instrs(then_body, temp_local) == 1 &&
-          dae_count_local_gets_instrs(then_body, temp_local) == 1 =>
+          dae_local_usage_evidence_has_single_get_write(then_body, temp_local) =>
           @lib.Instruction::if_(
             block_type,
             dae_rewrite_single_local_instrs(then_body, temp_local, target_local),
@@ -24426,8 +24457,9 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
   if dae_instrs_reference_local_at_or_above(mapped, 5) {
     let max_local = dae_max_referenced_local_slot_instrs(mapped, -1)
     let max_idx = @lib.LocalIdx::new(max_local.reinterpret_as_uint())
-    let max_gets = dae_count_local_gets_instrs(mapped, max_idx)
-    let max_writes = dae_count_local_writes_instrs(mapped, max_idx)
+    let max_usage = dae_local_usage_evidence(mapped, max_idx)
+    let max_gets = max_usage.get_count
+    let max_writes = max_usage.write_count
     trace(
       "pass[dae-optimizing]:selected-func311-terminal-call-args partial=keep-high-local max=\{max_local} gets=\{max_gets} writes=\{max_writes}",
     )

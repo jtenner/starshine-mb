@@ -8497,6 +8497,59 @@ test "dae func237 store-carrier copy folds local tee target" {
 }
 
 ///|
+test "dae local usage evidence centralizes local counts and try-table scan" {
+  let target = @lib.LocalIdx::new(108U)
+  let other = @lib.LocalIdx::new(33U)
+  let body = [
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::local_set(other),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_tee(target),
+        @lib.Instruction::local_get(target),
+      ]),
+    ),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::local_set(target)],
+      Some([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [],
+          @lib.Expr::new([@lib.Instruction::local_get(target)]),
+        ),
+      ]),
+    ),
+  ]
+  let evidence = dae_local_usage_evidence(body, target)
+  assert_eq(evidence.target_local, target)
+  assert_eq(evidence.get_count, 3)
+  assert_eq(evidence.write_count, 2)
+  assert_true(evidence.has_try_table)
+  assert_true(
+    dae_local_usage_evidence_has_single_get_write(
+      [@lib.Instruction::local_get(target), @lib.Instruction::local_set(target)],
+      target,
+    ),
+  )
+  assert_false(
+    dae_local_usage_evidence_has_single_get_write(
+      [
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::local_set(target),
+      ],
+      target,
+    ),
+  )
+  let range_evidence = dae_local_usage_evidence_range(body, target, 3, 4)
+  assert_eq(range_evidence.get_count, 1)
+  assert_eq(range_evidence.write_count, 1)
+  assert_true(range_evidence.has_try_table)
+}
+
+///|
 test "dae func237 local copy gap evidence shares immediate and used-temp policy" {
   let temp = @lib.LocalIdx::new(108U)
   let target = @lib.LocalIdx::new(33U)
