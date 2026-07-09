@@ -10231,10 +10231,15 @@ fn OiCallRefSelectArmDirectFact::from_arm_fact(
 }
 
 ///|
+priv struct OiCallRefSelectArmCastHeapMatchFact {
+  cast_heap : @lib.HeapType
+  ref_func_heap : @lib.HeapType
+}
+
+///|
 priv struct OiCallRefSelectArmCastFact {
   child_direct_fact : OiCallRefSelectArmDirectFact
-  ref_func_heap : @lib.HeapType?
-  heaps_match : Bool
+  heap_match_fact : OiCallRefSelectArmCastHeapMatchFact?
 }
 
 ///|
@@ -10264,22 +10269,40 @@ fn OiCallRefSelectArmCastFact::from_cast_arm(
     Some(fact) => fact
     None => return None
   }
-  let heaps_match = match child_direct_fact.ref_func_heap {
-    Some(ref_func_heap) => ref_func_heap == cast_heap
-    None => false
+  let heap_match_fact = match child_direct_fact.ref_func_heap {
+    Some(ref_func_heap) if ref_func_heap == cast_heap =>
+      Some({ cast_heap, ref_func_heap })
+    _ => None
   }
-  Some({
-    child_direct_fact,
-    ref_func_heap: child_direct_fact.ref_func_heap,
-    heaps_match,
-  })
+  Some({ child_direct_fact, heap_match_fact })
+}
+
+///|
+fn OiCallRefSelectArmCastHeapMatchFact::proves_ref_func_heap_matches_cast_heap(
+  self : OiCallRefSelectArmCastHeapMatchFact,
+) -> Bool {
+  self.ref_func_heap == self.cast_heap
 }
 
 ///|
 fn OiCallRefSelectArmCastFact::proves_known_success(
   self : OiCallRefSelectArmCastFact,
 ) -> Bool {
-  self.heaps_match
+  match self.heap_match_fact {
+    Some(fact) => fact.proves_ref_func_heap_matches_cast_heap()
+    None => false
+  }
+}
+
+///|
+fn OiCallRefSelectArmCastFact::matched_ref_func_heap(
+  self : OiCallRefSelectArmCastFact,
+) -> @lib.HeapType? {
+  match self.heap_match_fact {
+    Some(fact) if fact.proves_ref_func_heap_matches_cast_heap() =>
+      Some(fact.ref_func_heap)
+    _ => None
+  }
 }
 
 ///|
@@ -10339,7 +10362,7 @@ fn OiCallRefSelectArmFact::from_target_arm(
         Some(cast_fact) if cast_fact.proves_known_success() =>
           OiCallRefSelectArmFact::direct(
             cast_fact.child_direct_fact.direct_func,
-            cast_fact.ref_func_heap,
+            cast_fact.matched_ref_func_heap(),
             elided_non_null_wrapper_depth=cast_fact.child_direct_fact.elided_non_null_wrapper_depth,
             elided_cast_wrapper_depth=cast_fact.child_direct_fact.elided_cast_wrapper_depth +
               1,
