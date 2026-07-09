@@ -24267,16 +24267,26 @@ fn OiRefI31PayloadEqualityFact::proves_nontrapping_reorderable(
 }
 
 ///|
+priv enum OiNontrappingReorderableExpressionEqualityKind {
+  NontrappingReorderableNoMatch
+  NontrappingReorderableRefI31PayloadMatch
+  NontrappingReorderableI32LocalLocalScalarMatch
+  NontrappingReorderableI64LocalLocalScalarMatch
+  NontrappingReorderableI32LocalConstScalarMatch
+  NontrappingReorderableI64LocalConstScalarMatch
+  NontrappingReorderableI32UnaryLocalScalarMatch
+  NontrappingReorderableI64UnaryLocalScalarMatch
+  NontrappingReorderableF32LocalLocalScalarMatch
+  NontrappingReorderableF32UnaryLocalScalarMatch
+  NontrappingReorderableF32LocalConstScalarMatch
+  NontrappingReorderableF64LocalLocalScalarMatch
+  NontrappingReorderableF64UnaryLocalScalarMatch
+  NontrappingReorderableF64LocalConstScalarMatch
+}
+
+///|
 priv struct OiNontrappingReorderableExpressionEqualityFact {
-  matching_ref_i31_payload : Bool
-  matching_i32_local_local_scalar : Bool
-  matching_i64_local_local_scalar : Bool
-  matching_i32_local_const_scalar : Bool
-  matching_i64_local_const_scalar : Bool
-  matching_i32_unary_local_scalar : Bool
-  matching_i64_unary_local_scalar : Bool
-  matching_f32_scalar : Bool
-  matching_f64_scalar : Bool
+  kind : OiNontrappingReorderableExpressionEqualityKind
 }
 
 ///|
@@ -24289,50 +24299,80 @@ fn OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
   // Binaryen v130 `visitSelect` preserves an effectful condition before a
   // folded identical arm only when the condition does not invalidate the value's
   // effects (`!condition.invalidates(value)`). This source-backed fact records
-  // the represented nontrapping, local/constant-only equality families that can
+  // one represented nontrapping, local/constant-only equality family that can
   // safely be re-evaluated after the dropped condition instead of leaving them
-  // as a visitor-local opcode cascade.
+  // as a visitor-local opcode cascade or parallel match booleans.
+  if OiRefI31PayloadEqualityFact::from_nodes(func, dead, if_true, if_false).proves_nontrapping_reorderable() {
+    return { kind: NontrappingReorderableRefI31PayloadMatch }
+  }
   let ordered_binary_local_local = OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
-  let unary_local = OiUnaryLocalEqualityFact::from_nodes(
-    func, dead, if_true, if_false,
-  )
+  if ordered_binary_local_local.proves_i32_nontrapping_scalar() {
+    return { kind: NontrappingReorderableI32LocalLocalScalarMatch }
+  }
+  if ordered_binary_local_local.proves_i64_nontrapping_scalar() {
+    return { kind: NontrappingReorderableI64LocalLocalScalarMatch }
+  }
   let ordered_binary_local_const = OiOrderedBinaryLocalConstEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
-  {
-    matching_ref_i31_payload: OiRefI31PayloadEqualityFact::from_nodes(
-      func, dead, if_true, if_false,
-    ).proves_nontrapping_reorderable(),
-    matching_i32_local_local_scalar: ordered_binary_local_local.proves_i32_nontrapping_scalar(),
-    matching_i64_local_local_scalar: ordered_binary_local_local.proves_i64_nontrapping_scalar(),
-    matching_i32_local_const_scalar: ordered_binary_local_const.proves_i32_nontrapping_scalar(),
-    matching_i64_local_const_scalar: ordered_binary_local_const.proves_i64_nontrapping_scalar(),
-    matching_i32_unary_local_scalar: unary_local.proves_i32_nontrapping_scalar(),
-    matching_i64_unary_local_scalar: unary_local.proves_i64_nontrapping_scalar(),
-    matching_f32_scalar: ordered_binary_local_local.proves_f32_nontrapping_scalar() ||
-    unary_local.proves_f32_nontrapping_scalar() ||
-    ordered_binary_local_const.proves_f32_nontrapping_scalar(),
-    matching_f64_scalar: ordered_binary_local_local.proves_f64_nontrapping_scalar() ||
-    unary_local.proves_f64_nontrapping_scalar() ||
-    ordered_binary_local_const.proves_f64_nontrapping_scalar(),
+  if ordered_binary_local_const.proves_i32_nontrapping_scalar() {
+    return { kind: NontrappingReorderableI32LocalConstScalarMatch }
   }
+  if ordered_binary_local_const.proves_i64_nontrapping_scalar() {
+    return { kind: NontrappingReorderableI64LocalConstScalarMatch }
+  }
+  let unary_local = OiUnaryLocalEqualityFact::from_nodes(
+    func, dead, if_true, if_false,
+  )
+  if unary_local.proves_i32_nontrapping_scalar() {
+    return { kind: NontrappingReorderableI32UnaryLocalScalarMatch }
+  }
+  if unary_local.proves_i64_nontrapping_scalar() {
+    return { kind: NontrappingReorderableI64UnaryLocalScalarMatch }
+  }
+  if ordered_binary_local_local.proves_f32_nontrapping_scalar() {
+    return { kind: NontrappingReorderableF32LocalLocalScalarMatch }
+  }
+  if unary_local.proves_f32_nontrapping_scalar() {
+    return { kind: NontrappingReorderableF32UnaryLocalScalarMatch }
+  }
+  if ordered_binary_local_const.proves_f32_nontrapping_scalar() {
+    return { kind: NontrappingReorderableF32LocalConstScalarMatch }
+  }
+  if ordered_binary_local_local.proves_f64_nontrapping_scalar() {
+    return { kind: NontrappingReorderableF64LocalLocalScalarMatch }
+  }
+  if unary_local.proves_f64_nontrapping_scalar() {
+    return { kind: NontrappingReorderableF64UnaryLocalScalarMatch }
+  }
+  if ordered_binary_local_const.proves_f64_nontrapping_scalar() {
+    return { kind: NontrappingReorderableF64LocalConstScalarMatch }
+  }
+  { kind: NontrappingReorderableNoMatch }
 }
 
 ///|
 fn OiNontrappingReorderableExpressionEqualityFact::proves_equal(
   self : OiNontrappingReorderableExpressionEqualityFact,
 ) -> Bool {
-  self.matching_ref_i31_payload ||
-  self.matching_i32_local_local_scalar ||
-  self.matching_i64_local_local_scalar ||
-  self.matching_i32_local_const_scalar ||
-  self.matching_i64_local_const_scalar ||
-  self.matching_i32_unary_local_scalar ||
-  self.matching_i64_unary_local_scalar ||
-  self.matching_f32_scalar ||
-  self.matching_f64_scalar
+  match self.kind {
+    NontrappingReorderableNoMatch => false
+    NontrappingReorderableRefI31PayloadMatch => true
+    NontrappingReorderableI32LocalLocalScalarMatch => true
+    NontrappingReorderableI64LocalLocalScalarMatch => true
+    NontrappingReorderableI32LocalConstScalarMatch => true
+    NontrappingReorderableI64LocalConstScalarMatch => true
+    NontrappingReorderableI32UnaryLocalScalarMatch => true
+    NontrappingReorderableI64UnaryLocalScalarMatch => true
+    NontrappingReorderableF32LocalLocalScalarMatch => true
+    NontrappingReorderableF32UnaryLocalScalarMatch => true
+    NontrappingReorderableF32LocalConstScalarMatch => true
+    NontrappingReorderableF64LocalLocalScalarMatch => true
+    NontrappingReorderableF64UnaryLocalScalarMatch => true
+    NontrappingReorderableF64LocalConstScalarMatch => true
+  }
 }
 
 ///|
