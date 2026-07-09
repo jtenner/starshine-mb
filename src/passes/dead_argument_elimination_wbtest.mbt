@@ -6985,6 +6985,9 @@ test "dae empty zero-result control cleanup evidence centralizes body drop" {
       assert_eq(evidence.input_count, 0)
       assert_eq(evidence.output_count, 0)
       assert_eq(evidence.rewritten_body_length, 0)
+      assert_eq(evidence.primary_body_length, 0)
+      assert_eq(evidence.secondary_body_length, -1)
+      assert_eq(evidence.body_count, 1)
       assert_true(evidence.drops_empty_control)
       assert_true(dae_empty_zero_result_control_cleanup_allows_drop(evidence))
     }
@@ -6998,6 +7001,9 @@ test "dae empty zero-result control cleanup evidence centralizes body drop" {
   match nonempty_evidence {
     Some(evidence) => {
       assert_eq(evidence.rewritten_body_length, 1)
+      assert_eq(evidence.primary_body_length, 1)
+      assert_eq(evidence.secondary_body_length, -1)
+      assert_eq(evidence.body_count, 1)
       assert_false(evidence.drops_empty_control)
       assert_false(dae_empty_zero_result_control_cleanup_allows_drop(evidence))
     }
@@ -7014,6 +7020,40 @@ test "dae empty zero-result control cleanup evidence centralizes body drop" {
         "non-zero-result block must not produce empty-control cleanup evidence",
       )
     None => ()
+  }
+  match
+    dae_empty_zero_result_if_cleanup_evidence(
+      @lib.BlockType::void_(),
+      None,
+      0,
+      0,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.input_count, 0)
+      assert_eq(evidence.output_count, 0)
+      assert_eq(evidence.primary_body_length, 0)
+      assert_eq(evidence.secondary_body_length, 0)
+      assert_eq(evidence.body_count, 2)
+      assert_true(evidence.drops_empty_control)
+      assert_true(dae_empty_zero_result_control_cleanup_allows_drop(evidence))
+    }
+    None => fail("expected empty zero-result if cleanup evidence")
+  }
+  match
+    dae_empty_zero_result_if_cleanup_evidence(
+      @lib.BlockType::void_(),
+      None,
+      0,
+      1,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.primary_body_length, 0)
+      assert_eq(evidence.secondary_body_length, 1)
+      assert_eq(evidence.body_count, 2)
+      assert_false(evidence.drops_empty_control)
+      assert_false(dae_empty_zero_result_control_cleanup_allows_drop(evidence))
+    }
+    None => fail("expected nonempty zero-result if cleanup evidence")
   }
 }
 

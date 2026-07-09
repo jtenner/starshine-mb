@@ -135,6 +135,9 @@ priv struct DaeEmptyZeroResultControlCleanupEvidence {
   input_count : Int
   output_count : Int
   rewritten_body_length : Int
+  primary_body_length : Int
+  secondary_body_length : Int
+  body_count : Int
   drops_empty_control : Bool
 }
 
@@ -17658,13 +17661,20 @@ fn dae_dropped_pure_leaf_cleanup_allows_leaf_drop(
 }
 
 ///|
-fn dae_empty_zero_result_control_cleanup_evidence(
+fn dae_empty_zero_result_control_cleanup_evidence_from_lengths(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  rewritten_body_length : Int,
+  primary_body_length : Int,
+  secondary_body_length : Int,
 ) -> DaeEmptyZeroResultControlCleanupEvidence? {
-  if rewritten_body_length < 0 {
+  if primary_body_length < 0 || secondary_body_length < -1 {
     return None
+  }
+  let body_count = if secondary_body_length >= 0 { 2 } else { 1 }
+  let rewritten_body_length = if body_count == 2 {
+    primary_body_length + secondary_body_length
+  } else {
+    primary_body_length
   }
   match
     dae_control_block_type_zero_input_output_count_evidence(
@@ -17675,6 +17685,9 @@ fn dae_empty_zero_result_control_cleanup_evidence(
         input_count: signature.input_count,
         output_count: signature.output_count,
         rewritten_body_length,
+        primary_body_length,
+        secondary_body_length,
+        body_count,
         drops_empty_control: rewritten_body_length == 0,
       })
     None => None
@@ -17682,11 +17695,43 @@ fn dae_empty_zero_result_control_cleanup_evidence(
 }
 
 ///|
+fn dae_empty_zero_result_control_cleanup_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  rewritten_body_length : Int,
+) -> DaeEmptyZeroResultControlCleanupEvidence? {
+  dae_empty_zero_result_control_cleanup_evidence_from_lengths(
+    block_type, type_sec, rewritten_body_length, -1,
+  )
+}
+
+///|
+fn dae_empty_zero_result_if_cleanup_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  rewritten_then_length : Int,
+  rewritten_else_length : Int,
+) -> DaeEmptyZeroResultControlCleanupEvidence? {
+  dae_empty_zero_result_control_cleanup_evidence_from_lengths(
+    block_type, type_sec, rewritten_then_length, rewritten_else_length,
+  )
+}
+
+///|
 fn dae_empty_zero_result_control_cleanup_allows_drop(
   evidence : DaeEmptyZeroResultControlCleanupEvidence,
 ) -> Bool {
+  let body_lengths_match = if evidence.body_count == 2 {
+    evidence.rewritten_body_length ==
+    evidence.primary_body_length + evidence.secondary_body_length
+  } else {
+    evidence.body_count == 1 &&
+    evidence.secondary_body_length == -1 &&
+    evidence.rewritten_body_length == evidence.primary_body_length
+  }
   evidence.input_count == 0 &&
   evidence.output_count == 0 &&
+  body_lengths_match &&
   evidence.rewritten_body_length == 0 &&
   evidence.drops_empty_control
 }
@@ -18212,19 +18257,26 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
             )
           None => None
         }
-        let else_empty = match rewritten_else {
-          Some(body) => body.length() == 0
-          None => true
+        let rewritten_else_length = match rewritten_else {
+          Some(body) => body.length()
+          None => 0
         }
-        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
-          rewritten_then.length() == 0 &&
-          else_empty {
-          dae_strip_or_drop_condition(out, type_sec)
-        } else {
-          dae_simplify_live_if_condition(out)
-          out.push(
-            @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
-          )
+        match
+          dae_empty_zero_result_if_cleanup_evidence(
+            block_type,
+            type_sec,
+            rewritten_then.length(),
+            rewritten_else_length,
+          ) {
+          Some(evidence) if dae_empty_zero_result_control_cleanup_allows_drop(
+              evidence,
+            ) => dae_strip_or_drop_condition(out, type_sec)
+          _ => {
+            dae_simplify_live_if_condition(out)
+            out.push(
+              @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+            )
+          }
         }
       }
       _ => out.push(instrs[idx])
