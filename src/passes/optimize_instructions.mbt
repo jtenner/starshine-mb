@@ -27938,6 +27938,11 @@ priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectI32WrapI64
   MatchingSelectI64ExtendI32S
   MatchingSelectI64ExtendI32U
+  MatchingSelectI32Extend8S
+  MatchingSelectI32Extend16S
+  MatchingSelectI64Extend8S
+  MatchingSelectI64Extend16S
+  MatchingSelectI64Extend32S
 }
 
 ///|
@@ -28040,6 +28045,41 @@ fn OiMatchingUnarySelectArmFact::from_node(
         @lib.ValType::i64(),
         @lib.ValType::i32(),
       )
+    Some(@lib.Instruction::I32Extend8S) =>
+      (
+        MatchingSelectI32Extend8S,
+        @lib.Instruction::i32_extend8s(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I32Extend16S) =>
+      (
+        MatchingSelectI32Extend16S,
+        @lib.Instruction::i32_extend16s(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I64Extend8S) =>
+      (
+        MatchingSelectI64Extend8S,
+        @lib.Instruction::i64_extend8s(),
+        @lib.ValType::i64(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::I64Extend16S) =>
+      (
+        MatchingSelectI64Extend16S,
+        @lib.Instruction::i64_extend16s(),
+        @lib.ValType::i64(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::I64Extend32S) =>
+      (
+        MatchingSelectI64Extend32S,
+        @lib.Instruction::i64_extend32s(),
+        @lib.ValType::i64(),
+        @lib.ValType::i64(),
+      )
     _ => return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -28088,6 +28128,11 @@ fn OiMatchingUnarySelectArmPairFact::from_arms(
     (MatchingSelectI32WrapI64, MatchingSelectI32WrapI64) => ()
     (MatchingSelectI64ExtendI32S, MatchingSelectI64ExtendI32S) => ()
     (MatchingSelectI64ExtendI32U, MatchingSelectI64ExtendI32U) => ()
+    (MatchingSelectI32Extend8S, MatchingSelectI32Extend8S) => ()
+    (MatchingSelectI32Extend16S, MatchingSelectI32Extend16S) => ()
+    (MatchingSelectI64Extend8S, MatchingSelectI64Extend8S) => ()
+    (MatchingSelectI64Extend16S, MatchingSelectI64Extend16S) => ()
+    (MatchingSelectI64Extend32S, MatchingSelectI64Extend32S) => ()
     _ => return None
   }
   if true_fact.child_type != false_fact.child_type ||

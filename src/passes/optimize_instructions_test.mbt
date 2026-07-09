@@ -2968,6 +2968,57 @@ test "optimize-instructions hoists matching integer width conversion select arm 
 }
 
 ///|
+test "optimize-instructions hoists matching integer sign extension select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
+  // loop hoists the nontrapping integer sign-extension operators. Oracle:
+  // `.tmp/oi-probes/select-matching-unary-hoist.wat`.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_child_type : @lib.ValType,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other =>
+        fail("expected matching integer sign extensions to hoist, got \{other}")
+    }
+    @debug.assert_eq(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, inner)),
+      [expected_child_type],
+    )
+  }
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result i32) local.get 0 i32.extend8_s local.get 1 i32.extend8_s local.get 2 select))",
+    @lib.Instruction::i32_extend8s(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result i32) local.get 0 i32.extend16_s local.get 1 i32.extend16_s local.get 2 select))",
+    @lib.Instruction::i32_extend16s(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result i64) local.get 0 i64.extend8_s local.get 1 i64.extend8_s local.get 2 select))",
+    @lib.Instruction::i64_extend8s(),
+    @lib.ValType::i64(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result i64) local.get 0 i64.extend16_s local.get 1 i64.extend16_s local.get 2 select))",
+    @lib.Instruction::i64_extend16s(),
+    @lib.ValType::i64(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result i64) local.get 0 i64.extend32_s local.get 1 i64.extend32_s local.get 2 select))",
+    @lib.Instruction::i64_extend32s(),
+    @lib.ValType::i64(),
+  )
+}
+
+///|
 test "optimize-instructions hoists repeated matching unary select arm chains" {
   // Red-first OI-F ternary parity slice: Binaryen version_130 repeats the
   // shallow-equal one-child loop until the select sits below the full matching
