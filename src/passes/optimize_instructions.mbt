@@ -6459,7 +6459,7 @@ fn OiDescriptorExactSuccessOperandFact::proves_exact_non_null_target(
 ///|
 priv struct OiDescriptorExactSuccessDescriptorRelationFact {
   descriptor_type_fact : OiDescriptorTypeFact
-  exactly_describes_target : Bool
+  target_relation_fact : OiDescriptorExactTargetRelationFact
 }
 
 ///|
@@ -6479,7 +6479,9 @@ fn OiDescriptorExactSuccessDescriptorRelationFact::from_descriptor(
   )
   {
     descriptor_type_fact,
-    exactly_describes_target: descriptor_type_fact.exactly_describes(target),
+    target_relation_fact: OiDescriptorExactTargetRelationFact::from_descriptor_type(
+      descriptor_type_fact, target,
+    ),
   }
 }
 
@@ -6488,7 +6490,7 @@ fn OiDescriptorExactSuccessDescriptorRelationFact::proves_exactly_describes_targ
   self : OiDescriptorExactSuccessDescriptorRelationFact,
 ) -> Bool {
   ignore(self.descriptor_type_fact)
-  self.exactly_describes_target
+  self.target_relation_fact.proves_exactly_describes_target()
 }
 
 ///|
