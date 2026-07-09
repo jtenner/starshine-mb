@@ -27935,6 +27935,9 @@ priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectI64Clz
   MatchingSelectI64Ctz
   MatchingSelectI64Popcnt
+  MatchingSelectI32WrapI64
+  MatchingSelectI64ExtendI32S
+  MatchingSelectI64ExtendI32U
 }
 
 ///|
@@ -28016,6 +28019,27 @@ fn OiMatchingUnarySelectArmFact::from_node(
         @lib.ValType::i64(),
         @lib.ValType::i64(),
       )
+    Some(@lib.Instruction::I32WrapI64) =>
+      (
+        MatchingSelectI32WrapI64,
+        @lib.Instruction::i32_wrap_i64(),
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      )
+    Some(@lib.Instruction::I64ExtendI32S) =>
+      (
+        MatchingSelectI64ExtendI32S,
+        @lib.Instruction::i64_extend_i32s(),
+        @lib.ValType::i64(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I64ExtendI32U) =>
+      (
+        MatchingSelectI64ExtendI32U,
+        @lib.Instruction::i64_extend_i32u(),
+        @lib.ValType::i64(),
+        @lib.ValType::i32(),
+      )
     _ => return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -28073,6 +28097,9 @@ fn OiMatchingUnarySelectHoistFact::from_select(
     (MatchingSelectI64Clz, MatchingSelectI64Clz) => ()
     (MatchingSelectI64Ctz, MatchingSelectI64Ctz) => ()
     (MatchingSelectI64Popcnt, MatchingSelectI64Popcnt) => ()
+    (MatchingSelectI32WrapI64, MatchingSelectI32WrapI64) => ()
+    (MatchingSelectI64ExtendI32S, MatchingSelectI64ExtendI32S) => ()
+    (MatchingSelectI64ExtendI32U, MatchingSelectI64ExtendI32U) => ()
     _ => return None
   }
   if true_fact.child_type != false_fact.child_type ||
