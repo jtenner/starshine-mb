@@ -2502,6 +2502,41 @@ test "optimize-instructions rewrites eqz on float eq-ne compares into inverted c
 }
 
 ///|
+test "optimize-instructions recursively simplifies boolean block tails" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // recurses into the final value of an i32 block used as an `if` condition.
+  // The focused oracle `.tmp/oi-probes/boolean-recursive-contexts.wat` removes
+  // the tail-local `i32.ne(x, 0)` while preserving the preceding dropped value.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (if (result i32) (block (result i32) (drop (local.get 1)) (i32.ne (local.get 0) (i32.const 0))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail("expected outer boolean consumer to remain an if, got \{other}")
+  }
+  let condition = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, condition).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected boolean condition to remain a block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, condition)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected boolean block prefix drop to remain, got \{other}")
+  }
+  let tail = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, tail).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(func, tail).imm0, 0)
+    other =>
+      fail("expected boolean block tail to simplify to local.get, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to

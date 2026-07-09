@@ -38511,6 +38511,153 @@ fn optimize_instructions_try_rewrite_compare_eqz(
 }
 
 ///|
+priv enum OiBooleanContextLeafRewriteKind {
+  BooleanContextLeafNoRewrite
+  BooleanContextLeafForwardI32NeZero
+}
+
+///|
+priv struct OiBooleanContextLeafRewriteFact {
+  kind : OiBooleanContextLeafRewriteKind
+  node_id : Int
+  replacement_id : Int
+}
+
+///|
+fn OiBooleanContextLeafRewriteFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBooleanContextLeafRewriteFact {
+  // Binaryen v130 `optimizeBoolean` removes an exact `i32.ne(x, 0)` shell when
+  // the result is consumed only for truthiness. Keep the exact instruction,
+  // zero literal, i32 operand, and surviving child as a fact shared by the
+  // source-recursive block/select/if context facts below.
+  let no_rewrite = {
+    kind: BooleanContextLeafNoRewrite,
+    node_id,
+    replacement_id: node_id,
+  }
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return no_rewrite
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Ne) if @ir.hot_child_count(func, node_id) == 2 =>
+      ()
+    _ => return no_rewrite
+  }
+  let lhs_id = @ir.hot_child_get(func, node_id, 0)
+  let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(0)) if OiI32ValueFact::proves_node_i32_value(func, lhs_id) =>
+      {
+        kind: BooleanContextLeafForwardI32NeZero,
+        node_id,
+        replacement_id: lhs_id,
+      }
+    _ => no_rewrite
+  }
+}
+
+///|
+fn OiBooleanContextLeafRewriteFact::proven_replacement(
+  self : OiBooleanContextLeafRewriteFact,
+) -> Int? {
+  match self.kind {
+    BooleanContextLeafForwardI32NeZero =>
+      if self.node_id >= 0 && self.replacement_id >= 0 {
+        Some(self.replacement_id)
+      } else {
+        None
+      }
+    BooleanContextLeafNoRewrite => None
+  }
+}
+
+///|
+priv struct OiBooleanBlockTailContextFact {
+  block_id : Int
+  body_ref : @ir.HotRegionRef
+  tail_slot : Int
+  tail_rewrite : OiBooleanContextLeafRewriteFact
+}
+
+///|
+fn OiBooleanBlockTailContextFact::from_condition(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  condition_id : Int,
+) -> OiBooleanBlockTailContextFact? {
+  // Binaryen v130 `optimizeBoolean` recurses only into the final expression of
+  // a nonempty i32 block. HOT stores that final expression as the final region
+  // root, so preserve every prefix root and carry only the selected tail slot
+  // plus its source-backed boolean leaf rewrite.
+  match @ir.hot_node_get(func, condition_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, condition_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 {
+    return None
+  }
+  let tail_slot = root_count - 1
+  let tail_id = @ir.hot_region_get(func, body_ref, tail_slot)
+  let tail_rewrite = OiBooleanContextLeafRewriteFact::from_node(
+    func, dead, tail_id,
+  )
+  match tail_rewrite.proven_replacement() {
+    Some(_) =>
+      Some({ block_id: condition_id, body_ref, tail_slot, tail_rewrite })
+    None => None
+  }
+}
+
+///|
+fn OiBooleanBlockTailContextFact::apply(
+  self : OiBooleanBlockTailContextFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let replacement_id = match self.tail_rewrite.proven_replacement() {
+    Some(replacement_id) => replacement_id
+    None => return false
+  }
+  if self.block_id < 0 || self.tail_slot < 0 {
+    return false
+  }
+  ignore(
+    @ir.hot_region_set(func, self.body_ref, self.tail_slot, replacement_id),
+  )
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_optimize_boolean_condition_context(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If if node.child_count > 0 => ()
+    _ => return false
+  }
+  let condition_id = @ir.hot_child_get(func, node_id, 0)
+  match
+    OiBooleanBlockTailContextFact::from_condition(func, dead, condition_id) {
+    Some(fact) => fact.apply(ctx, func)
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -39093,6 +39240,9 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_constant_if_condition(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_optimize_boolean_condition_context(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
