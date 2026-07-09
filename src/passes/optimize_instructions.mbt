@@ -5142,51 +5142,120 @@ priv enum OiDescriptorExactMissRewritePlanKind {
 }
 
 ///|
-priv enum OiDescriptorExactMissEligibilityKind {
-  DescriptorExactMissTrapsDisabled
+priv enum OiDescriptorExactMissTrapModeKind {
+  DescriptorExactMissTrapModeAllowsCleanup
+  DescriptorExactMissTrapModeDisablesCleanup
+}
+
+///|
+priv struct OiDescriptorExactMissTrapModeFact {
+  kind : OiDescriptorExactMissTrapModeKind
+}
+
+///|
+fn OiDescriptorExactMissTrapModeFact::from_context(
+  ctx : HotPassContext,
+) -> OiDescriptorExactMissTrapModeFact {
+  // Binaryen v130 descriptor-equality miss cleanup is a trap-producing rewrite,
+  // so it is only represented in normal trapping mode. Keep this mode gate
+  // separate from source/target proofs and source-order preservation outcomes.
+  if ctx.traps_never_happen || ctx.ignore_implicit_traps {
+    { kind: DescriptorExactMissTrapModeDisablesCleanup }
+  } else {
+    { kind: DescriptorExactMissTrapModeAllowsCleanup }
+  }
+}
+
+///|
+priv enum OiDescriptorExactMissTargetEvidenceKind {
+  DescriptorExactMissTargetEvidenceSatisfied
   DescriptorExactMissDescriptorNotExactTarget
   DescriptorExactMissOperandNotMissTarget
-  DescriptorExactMissBothErase
-  DescriptorExactMissDescriptorEraseOperandDrop
-  DescriptorExactMissOperandEraseDescriptorDrop
-  DescriptorExactMissBothDrop
-  DescriptorExactMissCannotPreserveEffects
 }
 
 ///|
-priv struct OiDescriptorExactMissEligibilityFact {
-  kind : OiDescriptorExactMissEligibilityKind
+priv struct OiDescriptorExactMissTargetEvidenceFact {
+  kind : OiDescriptorExactMissTargetEvidenceKind
 }
 
 ///|
-fn OiDescriptorExactMissEligibilityFact::from_miss(
-  ctx : HotPassContext,
+fn OiDescriptorExactMissTargetEvidenceFact::from_miss(
   miss_fact : OiDescriptorExactMissFact,
-) -> OiDescriptorExactMissEligibilityFact {
-  // Binaryen v130 `visitRefCast`/descriptor-equality miss cleanup runs in
-  // normal trapping mode after the descriptor exactly describes the target and
-  // the reference operand is known to miss. Keep those blockers plus the
-  // represented source-order preservation outcomes as one result fact before the
-  // rewrite plan maps an allowed outcome to a concrete replacement shape.
-  if ctx.traps_never_happen || ctx.ignore_implicit_traps {
-    return { kind: DescriptorExactMissTrapsDisabled }
-  }
+) -> OiDescriptorExactMissTargetEvidenceFact {
+  // The exact-miss rewrite needs both halves of Binaryen v130's
+  // descriptor-equality cast proof: the descriptor must exactly describe the
+  // target, and the reference operand must be known to miss that exact target.
   if !miss_fact.descriptor_relation.proves_exactly_describes_target() {
     return { kind: DescriptorExactMissDescriptorNotExactTarget }
   }
   if !miss_fact.operand_relation.proves_exact_target_miss() {
     return { kind: DescriptorExactMissOperandNotMissTarget }
   }
-  match miss_fact.preservation_fact.kind {
-    DescriptorExactMissPreserveBothErase =>
-      { kind: DescriptorExactMissBothErase }
-    DescriptorExactMissPreserveDescriptorEraseOperandDrop =>
-      { kind: DescriptorExactMissDescriptorEraseOperandDrop }
-    DescriptorExactMissPreserveOperandEraseDescriptorDrop =>
-      { kind: DescriptorExactMissOperandEraseDescriptorDrop }
-    DescriptorExactMissPreserveBothDrop => { kind: DescriptorExactMissBothDrop }
-    DescriptorExactMissPreserveUnsupported =>
-      { kind: DescriptorExactMissCannotPreserveEffects }
+  { kind: DescriptorExactMissTargetEvidenceSatisfied }
+}
+
+///|
+priv enum OiDescriptorExactMissPreconditionKind {
+  DescriptorExactMissPreconditionSatisfied
+  DescriptorExactMissTrapsDisabled
+  DescriptorExactMissDescriptorPreconditionFailed
+  DescriptorExactMissOperandPreconditionFailed
+}
+
+///|
+priv struct OiDescriptorExactMissPreconditionFact {
+  kind : OiDescriptorExactMissPreconditionKind
+  trap_mode_fact : OiDescriptorExactMissTrapModeFact
+  target_evidence_fact : OiDescriptorExactMissTargetEvidenceFact
+}
+
+///|
+fn OiDescriptorExactMissPreconditionFact::from_miss(
+  ctx : HotPassContext,
+  miss_fact : OiDescriptorExactMissFact,
+) -> OiDescriptorExactMissPreconditionFact {
+  // Keep the Binaryen v130 exact-miss preconditions factored ahead of the
+  // source-order preservation decision: trap mode decides whether a trap rewrite
+  // is legal, while target evidence decides whether the cast is a known miss.
+  let trap_mode_fact = OiDescriptorExactMissTrapModeFact::from_context(ctx)
+  let target_evidence_fact = OiDescriptorExactMissTargetEvidenceFact::from_miss(
+    miss_fact,
+  )
+  let kind = match trap_mode_fact.kind {
+    DescriptorExactMissTrapModeDisablesCleanup =>
+      DescriptorExactMissTrapsDisabled
+    DescriptorExactMissTrapModeAllowsCleanup =>
+      match target_evidence_fact.kind {
+        DescriptorExactMissTargetEvidenceSatisfied =>
+          DescriptorExactMissPreconditionSatisfied
+        DescriptorExactMissDescriptorNotExactTarget =>
+          DescriptorExactMissDescriptorPreconditionFailed
+        DescriptorExactMissOperandNotMissTarget =>
+          DescriptorExactMissOperandPreconditionFailed
+      }
+  }
+  { kind, trap_mode_fact, target_evidence_fact }
+}
+
+///|
+fn OiDescriptorExactMissPreconditionFact::proves_exact_miss_rewrite_allowed(
+  self : OiDescriptorExactMissPreconditionFact,
+) -> Bool {
+  let trap_mode_allows_cleanup = match self.trap_mode_fact.kind {
+    DescriptorExactMissTrapModeAllowsCleanup => true
+    DescriptorExactMissTrapModeDisablesCleanup => false
+  }
+  let target_evidence_satisfied = match self.target_evidence_fact.kind {
+    DescriptorExactMissTargetEvidenceSatisfied => true
+    DescriptorExactMissDescriptorNotExactTarget => false
+    DescriptorExactMissOperandNotMissTarget => false
+  }
+  match self.kind {
+    DescriptorExactMissPreconditionSatisfied =>
+      trap_mode_allows_cleanup && target_evidence_satisfied
+    DescriptorExactMissTrapsDisabled => false
+    DescriptorExactMissDescriptorPreconditionFailed => false
+    DescriptorExactMissOperandPreconditionFailed => false
   }
 }
 
@@ -5205,20 +5274,21 @@ fn OiDescriptorExactMissRewritePlanFact::from_miss(
   // normal trapping mode. Keep the source-level replacement choice as a plan
   // fact so descriptor casts do not hide a visitor-local drop/unreachable
   // branch cascade.
-  let eligibility_fact = OiDescriptorExactMissEligibilityFact::from_miss(
+  let precondition_fact = OiDescriptorExactMissPreconditionFact::from_miss(
     ctx, miss_fact,
   )
-  let kind = match eligibility_fact.kind {
-    DescriptorExactMissTrapsDisabled => return None
-    DescriptorExactMissDescriptorNotExactTarget => return None
-    DescriptorExactMissOperandNotMissTarget => return None
-    DescriptorExactMissCannotPreserveEffects => return None
-    DescriptorExactMissBothErase => DescriptorExactMissUnreachable
-    DescriptorExactMissDescriptorEraseOperandDrop =>
+  if !precondition_fact.proves_exact_miss_rewrite_allowed() {
+    return None
+  }
+  let kind = match miss_fact.preservation_fact.kind {
+    DescriptorExactMissPreserveUnsupported => return None
+    DescriptorExactMissPreserveBothErase => DescriptorExactMissUnreachable
+    DescriptorExactMissPreserveDescriptorEraseOperandDrop =>
       DescriptorExactMissDropOperandThenUnreachable
-    DescriptorExactMissOperandEraseDescriptorDrop =>
+    DescriptorExactMissPreserveOperandEraseDescriptorDrop =>
       DescriptorExactMissDropDescriptorThenUnreachable
-    DescriptorExactMissBothDrop => DescriptorExactMissDropBothThenUnreachable
+    DescriptorExactMissPreserveBothDrop =>
+      DescriptorExactMissDropBothThenUnreachable
   }
   Some({ kind, miss_fact })
 }
