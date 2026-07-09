@@ -149,6 +149,18 @@ priv struct DaeStackSliceTransitionEvidence {
 }
 
 ///|
+priv struct DaeStackSliceLocalizationRequest {
+  body : Array[@lib.Instruction]
+  start : Int
+  end : Int
+  initial_stack_values : Int
+  expected_final_stack_values : Int
+  depth : Int
+  instr_allowed : (@lib.Instruction) -> Bool
+  keep_operand : Bool
+}
+
+///|
 priv struct DaeEscapingBranchEvidence {
   start : Int
   end : Int
@@ -258,6 +270,13 @@ priv struct DaeSingleResultControlPairGcEvidence {
   candidate : @lib.ValType
   rewritten_then_body : Array[@lib.Instruction]
   rewritten_else_body : Array[@lib.Instruction]
+}
+
+///|
+priv struct DaeSingleResultControlPairApplicationEvidence {
+  result_is_void : Bool
+  then_body_length : Int
+  else_body_length : Int
 }
 
 ///|
@@ -6078,6 +6097,50 @@ fn dae_single_result_control_pair_gc_evidence(
 }
 
 ///|
+fn dae_single_result_control_pair_application_is_consistent(
+  application : DaeSingleResultControlPairApplicationEvidence,
+  evidence : DaeSingleResultControlPairGcEvidence,
+  result_is_void : Bool,
+) -> Bool {
+  application.result_is_void == result_is_void &&
+  application.then_body_length == evidence.rewritten_then_body.length() &&
+  application.else_body_length == evidence.rewritten_else_body.length()
+}
+
+///|
+fn dae_apply_single_result_control_pair_gc_evidence(
+  evidence : DaeSingleResultControlPairGcEvidence,
+  result_is_void : Bool,
+) -> (@lib.Instruction, DaeSingleResultControlPairApplicationEvidence)? {
+  let block_type = if result_is_void {
+    @lib.BlockType::void_()
+  } else {
+    @lib.BlockType::val_type(evidence.candidate)
+  }
+  let application = {
+    result_is_void,
+    then_body_length: evidence.rewritten_then_body.length(),
+    else_body_length: evidence.rewritten_else_body.length(),
+  }
+  if dae_single_result_control_pair_application_is_consistent(
+      application, evidence, result_is_void,
+    ) {
+    Some(
+      (
+        @lib.Instruction::if_(
+          block_type,
+          evidence.rewritten_then_body,
+          Some(evidence.rewritten_else_body),
+        ),
+        application,
+      ),
+    )
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_direct_gc_result_explicit_return_candidate_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -6162,18 +6225,14 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
                       else_rewrite, old_type,
                     ) {
                     Some(evidence) =>
-                      Some(
-                        (
-                          evidence.candidate,
-                          Some(
-                            @lib.Instruction::if_(
-                              @lib.BlockType::void_(),
-                              evidence.rewritten_then_body,
-                              Some(evidence.rewritten_else_body),
-                            ),
-                          ),
-                        ),
-                      )
+                      match
+                        dae_apply_single_result_control_pair_gc_evidence(
+                          evidence, true,
+                        ) {
+                        Some((rewritten, _)) =>
+                          Some((evidence.candidate, Some(rewritten)))
+                        None => None
+                      }
                     None => None
                   }
                 None => None
@@ -6361,14 +6420,15 @@ fn dae_direct_gc_result_candidate_instr(
                       mod_, then_body, then_candidate, then_rewrite, else_body, else_candidate,
                       else_rewrite, old_type,
                     ) {
-                    Some(evidence) => {
-                      let rewritten = @lib.Instruction::if_(
-                        @lib.BlockType::val_type(evidence.candidate),
-                        evidence.rewritten_then_body,
-                        Some(evidence.rewritten_else_body),
-                      )
-                      Some((evidence.candidate, Some(rewritten)))
-                    }
+                    Some(evidence) =>
+                      match
+                        dae_apply_single_result_control_pair_gc_evidence(
+                          evidence, false,
+                        ) {
+                        Some((rewritten, _)) =>
+                          Some((evidence.candidate, Some(rewritten)))
+                        None => None
+                      }
                     None => None
                   }
                 None => None
@@ -7438,10 +7498,12 @@ fn dae_select_condition_slice_is_stack_local(
       func_type_indices,
     )
   }
+  let request = dae_stack_slice_localization_request(
+    body, start, end, 0, 1, 0, dae_select_condition_stack_slice_instr_allowed, true,
+  )
   match
-    dae_stack_slice_localization_evidence(
-      mod_, func_type_indices, body, start, end, 0, 1, 0, dae_select_condition_stack_slice_instr_allowed,
-      true,
+    dae_stack_slice_localization_evidence_from_request(
+      mod_, func_type_indices, request,
     ) {
     Some(_) => true
     None => false
@@ -8152,10 +8214,13 @@ fn dae_parametric_typeidx_prefix_consumes_params_stack_safe(
   end : Int,
   param_count : Int,
 ) -> Bool {
+  let request = dae_stack_slice_localization_request(
+    arm_body, 0, end, param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed,
+    true,
+  )
   match
-    dae_stack_slice_localization_evidence(
-      mod_, func_type_indices, arm_body, 0, end, param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed,
-      true,
+    dae_stack_slice_localization_evidence_from_request(
+      mod_, func_type_indices, request,
     ) {
     Some(_) => true
     None => false
@@ -18189,9 +18254,7 @@ fn dae_stack_slice_localization_evidence_is_consistent(
 }
 
 ///|
-fn dae_stack_slice_localization_evidence(
-  mod_ : @lib.Module,
-  func_type_indices : Array[@lib.TypeIdx],
+fn dae_stack_slice_localization_request(
   body : Array[@lib.Instruction],
   start : Int,
   end : Int,
@@ -18200,21 +18263,51 @@ fn dae_stack_slice_localization_evidence(
   depth : Int,
   instr_allowed : (@lib.Instruction) -> Bool,
   keep_operand : Bool,
+) -> DaeStackSliceLocalizationRequest {
+  {
+    body,
+    start,
+    end,
+    initial_stack_values,
+    expected_final_stack_values,
+    depth,
+    instr_allowed,
+    keep_operand,
+  }
+}
+
+///|
+fn dae_stack_slice_localization_evidence_from_request(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  request : DaeStackSliceLocalizationRequest,
 ) -> DaeStackSliceLocalizationEvidence? {
   let transition = match
     dae_stack_slice_transition_evidence(
-      mod_, func_type_indices, body, start, end, initial_stack_values, expected_final_stack_values,
-      instr_allowed,
+      mod_,
+      func_type_indices,
+      request.body,
+      request.start,
+      request.end,
+      request.initial_stack_values,
+      request.expected_final_stack_values,
+      request.instr_allowed,
     ) {
     Some(evidence) => evidence
     None => return None
   }
   let no_escape_branch = match
-    dae_no_escaping_branch_range_evidence(body, start, end, depth) {
+    dae_no_escaping_branch_range_evidence(
+      request.body,
+      request.start,
+      request.end,
+      request.depth,
+    ) {
     Some(evidence) => evidence
     None => return None
   }
-  let disposition = match dae_operand_disposition_from_range(body, start, end) {
+  let disposition = match
+    dae_operand_disposition_from_range(request.body, request.start, request.end) {
     Some(evidence) => evidence
     None => return None
   }
@@ -18222,7 +18315,7 @@ fn dae_stack_slice_localization_evidence(
     transition,
     no_escape_branch,
     disposition,
-    removal_plan: dae_operand_removal_plan(disposition, keep_operand),
+    removal_plan: dae_operand_removal_plan(disposition, request.keep_operand),
   }
   if dae_stack_slice_localization_evidence_is_consistent(evidence) {
     Some(evidence)

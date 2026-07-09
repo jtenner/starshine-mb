@@ -1778,6 +1778,51 @@ test "dae single-result control pair GC evidence centralizes LUB rewrites" {
 }
 
 ///|
+test "dae single-result control pair application centralizes if rewrites" {
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let candidate = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+  )
+  let then_body = [@lib.Instruction::struct_new_default(leaf_type)]
+  let else_body = [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]
+  let evidence : DaeSingleResultControlPairGcEvidence = {
+    candidate,
+    rewritten_then_body: then_body,
+    rewritten_else_body: else_body,
+  }
+  match dae_apply_single_result_control_pair_gc_evidence(evidence, false) {
+    Some((rewritten, application)) => {
+      assert_false(application.result_is_void)
+      assert_eq(application.then_body_length, then_body.length())
+      assert_eq(application.else_body_length, else_body.length())
+      assert_eq(
+        rewritten,
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(candidate),
+          then_body,
+          Some(else_body),
+        ),
+      )
+    }
+    None => fail("expected value-result if application evidence")
+  }
+  match dae_apply_single_result_control_pair_gc_evidence(evidence, true) {
+    Some((rewritten, application)) => {
+      assert_true(application.result_is_void)
+      assert_eq(
+        rewritten,
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          then_body,
+          Some(else_body),
+        ),
+      )
+    }
+    None => fail("expected void-result if application evidence")
+  }
+}
+
+///|
 test "dae control result pair GC evidence centralizes terminal arm LUB rewrites" {
   let base_type = @lib.TypeIdx::new(0U)
   let left_type = @lib.TypeIdx::new(1U)
@@ -3219,25 +3264,25 @@ test "dae multi result carrier chain evidence centralizes fallthrough and return
 test "dae stack slice localization evidence carries transition escape and repair facts" {
   let mod_ = @lib.Module::new()
   let body = [@lib.Instruction::i32_const(@lib.I32(7))]
-  match
-    dae_stack_slice_localization_evidence(
-      mod_,
-      [],
-      body,
-      0,
-      body.length(),
-      0,
-      1,
-      0,
-      fn(instr) { !dae_instr_has_branch(instr) },
-      false,
-    ) {
+  let request = dae_stack_slice_localization_request(
+    body,
+    0,
+    body.length(),
+    0,
+    1,
+    0,
+    fn(instr) { !dae_instr_has_branch(instr) },
+    false,
+  )
+  match dae_stack_slice_localization_evidence_from_request(mod_, [], request) {
     Some(evidence) => {
       assert_eq(evidence.transition.simulation.start, 0)
       assert_eq(evidence.transition.simulation.end, body.length())
       assert_eq(evidence.transition.simulation.final_stack_values, 1)
+      assert_eq(evidence.transition.expected_final_stack_values, 1)
       assert_eq(evidence.no_escape_branch.start, 0)
       assert_eq(evidence.no_escape_branch.end, body.length())
+      assert_eq(evidence.no_escape_branch.depth, 0)
       assert_false(evidence.no_escape_branch.has_escaping_branch)
       assert_eq(evidence.disposition.start, 0)
       assert_eq(evidence.disposition.end, body.length())
@@ -3247,39 +3292,68 @@ test "dae stack slice localization evidence carries transition escape and repair
         dae_operand_removal_plan_drops_without_repair(evidence.removal_plan),
       )
     }
-    None => fail("expected stack-slice localization evidence")
+    None => fail("expected request-backed localization evidence")
   }
+  let wrong_final_request = dae_stack_slice_localization_request(
+    body,
+    0,
+    body.length(),
+    0,
+    0,
+    0,
+    fn(instr) { !dae_instr_has_branch(instr) },
+    false,
+  )
   match
-    dae_stack_slice_localization_evidence(
+    dae_stack_slice_localization_evidence_from_request(
       mod_,
       [],
-      body,
-      0,
-      body.length(),
-      0,
-      0,
-      0,
-      fn(instr) { !dae_instr_has_branch(instr) },
-      false,
+      wrong_final_request,
     ) {
     Some(_) => fail("localization evidence should reject wrong final stack")
     None => ()
   }
+  let escaping_request = dae_stack_slice_localization_request(
+    [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+    0,
+    1,
+    0,
+    0,
+    0,
+    fn(_) { true },
+    false,
+  )
   match
-    dae_stack_slice_localization_evidence(
+    dae_stack_slice_localization_evidence_from_request(
       mod_,
       [],
-      [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
-      0,
-      1,
-      0,
-      0,
-      0,
-      fn(_) { true },
-      false,
+      escaping_request,
     ) {
     Some(_) => fail("localization evidence should reject escaping branches")
     None => ()
+  }
+  let parametric_request = dae_stack_slice_localization_request(
+    [@lib.Instruction::i32_add(), @lib.Instruction::drop()],
+    0,
+    2,
+    2,
+    0,
+    0,
+    dae_parametric_typeidx_stack_slice_instr_allowed,
+    true,
+  )
+  match
+    dae_stack_slice_localization_evidence_from_request(
+      mod_,
+      [],
+      parametric_request,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.transition.simulation.initial_stack_values, 2)
+      assert_eq(evidence.transition.simulation.final_stack_values, 0)
+      assert_true(evidence.removal_plan.keep_operand)
+    }
+    None => fail("expected parametric request-backed localization evidence")
   }
 }
 
