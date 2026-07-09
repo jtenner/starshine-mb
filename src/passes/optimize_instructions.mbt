@@ -15478,16 +15478,32 @@ priv struct OiNodeEffectPurityFact {
 }
 
 ///|
+priv enum OiConsecutiveInputEqualityProofKind {
+  ConsecutiveInputNoKnownEquality
+  ConsecutiveInputLocalTeeAndGet
+  ConsecutiveInputPureScalarTree
+  ConsecutiveInputStableStateRead
+  ConsecutiveInputStableStateScalarTree
+  ConsecutiveInputStableMemoryRead
+  ConsecutiveInputRightLocalTeeFallthrough
+}
+
+///|
+priv struct OiConsecutiveInputEqualityProofFact {
+  kind : OiConsecutiveInputEqualityProofKind
+}
+
+///|
+priv struct OiConsecutiveInputInterferenceFact {
+  effects_interfere : Bool
+}
+
+///|
 priv struct OiConsecutiveInputEqualityFact {
   left_fallthrough_id : Int
   right_fallthrough_id : Int
-  matching_tee_and_get : Bool
-  matching_pure_scalar_tree : Bool
-  matching_stable_state_read : Bool
-  matching_stable_state_scalar_tree : Bool
-  matching_stable_memory_read : Bool
-  matching_right_local_tee_fallthrough : Bool
-  intervening_effects_interfere : Bool
+  equality_proof : OiConsecutiveInputEqualityProofFact
+  interference_fact : OiConsecutiveInputInterferenceFact
 }
 
 ///|
@@ -16390,6 +16406,69 @@ fn OiRightLocalTeeFallthroughEqualityFact::proves_equal(
 }
 
 ///|
+fn OiConsecutiveInputEqualityProofFact::from_source_facts(
+  tee_and_get : Bool,
+  scalar_tree_fact : OiScalarTreeEqualityFact,
+  stable_state_read_fact : OiStableStateReadEqualityFact,
+  stable_state_scalar_tree_fact : OiScalarTreeEqualityFact,
+  stable_memory_read_fact : OiStableMemoryReadEqualityFact,
+  right_local_tee_fact : OiRightLocalTeeFallthroughEqualityFact,
+) -> OiConsecutiveInputEqualityProofFact {
+  // Binaryen v130 `areConsecutiveInputsEqual` accepts any one represented
+  // equality source after fallthrough peeling, then checks intervening effects
+  // separately. Keep the selected proof as a single nested fact instead of
+  // carrying a parallel set of scanner booleans on the aggregate equality fact.
+  let kind = if tee_and_get {
+    ConsecutiveInputLocalTeeAndGet
+  } else if scalar_tree_fact.proves_pure_equal() {
+    ConsecutiveInputPureScalarTree
+  } else if stable_state_read_fact.proves_equal() {
+    ConsecutiveInputStableStateRead
+  } else if stable_state_scalar_tree_fact.proves_stable_state_scalar_equal() {
+    ConsecutiveInputStableStateScalarTree
+  } else if stable_memory_read_fact.proves_equal() {
+    ConsecutiveInputStableMemoryRead
+  } else if right_local_tee_fact.proves_equal() {
+    ConsecutiveInputRightLocalTeeFallthrough
+  } else {
+    ConsecutiveInputNoKnownEquality
+  }
+  { kind, }
+}
+
+///|
+fn OiConsecutiveInputEqualityProofFact::proves_equal(
+  self : OiConsecutiveInputEqualityProofFact,
+) -> Bool {
+  match self.kind {
+    ConsecutiveInputNoKnownEquality => false
+    ConsecutiveInputLocalTeeAndGet
+    | ConsecutiveInputPureScalarTree
+    | ConsecutiveInputStableStateRead
+    | ConsecutiveInputStableStateScalarTree
+    | ConsecutiveInputStableMemoryRead
+    | ConsecutiveInputRightLocalTeeFallthrough => true
+  }
+}
+
+///|
+fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  right_fallthrough_id : Int,
+  intervening_effect_fact : OiInterveningEffectFact,
+) -> OiConsecutiveInputInterferenceFact {
+  // Keep the Binaryen `EffectAnalyzer::orderedBefore(effects(right))` blocker
+  // as its own nested fact so equality proof selection and effect invalidation
+  // remain independent source-backed decisions.
+  {
+    effects_interfere: intervening_effect_fact.ordered_before_right_fallthrough(
+      func, node_masks, right_fallthrough_id,
+    ),
+  }
+}
+
+///|
 fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -16412,7 +16491,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let left_fallthrough_id = left_fallthrough.fallthrough_id
   let left = @ir.hot_node_get(func, left_fallthrough_id)
   let right = @ir.hot_node_get(func, right_fallthrough_id)
-  let matching_tee_and_get = match (left.op, right.op) {
+  let tee_and_get = match (left.op, right.op) {
     (@ir.HotOp::LocalTee, @ir.HotOp::LocalGet) => left.imm0 == right.imm0
     _ => false
   }
@@ -16425,35 +16504,33 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     right_fallthrough_id,
     include_stable_state_read=true,
   )
-  let matching_pure_scalar_tree = scalar_tree_fact.proves_pure_equal()
-  let matching_stable_state_read = OiStableStateReadEqualityFact::from_nodes(
+  let stable_state_read_fact = OiStableStateReadEqualityFact::from_nodes(
     left, right,
-  ).proves_equal()
-  let matching_stable_state_scalar_tree = state_scalar_tree_fact.proves_stable_state_scalar_equal()
-  let matching_stable_memory_read = OiStableMemoryReadEqualityFact::from_nodes(
+  )
+  let stable_memory_read_fact = OiStableMemoryReadEqualityFact::from_nodes(
     func, left_fallthrough_id, right_fallthrough_id,
-  ).proves_equal()
-  let matching_right_local_tee_fallthrough = OiRightLocalTeeFallthroughEqualityFact::from_nodes(
+  )
+  let right_local_tee_fact = OiRightLocalTeeFallthroughEqualityFact::from_nodes(
     func, left_fallthrough_id, right_id,
-  ).proves_equal()
+  )
+  let equality_proof = OiConsecutiveInputEqualityProofFact::from_source_facts(
+    tee_and_get, scalar_tree_fact, stable_state_read_fact, state_scalar_tree_fact,
+    stable_memory_read_fact, right_local_tee_fact,
+  )
   let intervening_effect_fact = OiInterveningEffectFact::from_fallthrough_facts(
     left_fallthrough, right_fallthrough,
   )
-  let intervening_effects_interfere = intervening_effect_fact.ordered_before_right_fallthrough(
+  let interference_fact = OiConsecutiveInputInterferenceFact::from_intervening_effect(
     func,
     effects.node_masks,
     right_fallthrough_id,
+    intervening_effect_fact,
   )
   {
     left_fallthrough_id,
     right_fallthrough_id,
-    matching_tee_and_get,
-    matching_pure_scalar_tree,
-    matching_stable_state_read,
-    matching_stable_state_scalar_tree,
-    matching_stable_memory_read,
-    matching_right_local_tee_fallthrough,
-    intervening_effects_interfere,
+    equality_proof,
+    interference_fact,
   }
 }
 
@@ -16465,18 +16542,10 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
   ignore(func)
   ignore(self.left_fallthrough_id)
   ignore(self.right_fallthrough_id)
-  if self.intervening_effects_interfere {
+  if self.interference_fact.effects_interfere {
     return false
   }
-  if self.matching_tee_and_get ||
-    self.matching_pure_scalar_tree ||
-    self.matching_stable_state_read ||
-    self.matching_stable_state_scalar_tree ||
-    self.matching_stable_memory_read ||
-    self.matching_right_local_tee_fallthrough {
-    return true
-  }
-  false
+  self.equality_proof.proves_equal()
 }
 
 ///|
