@@ -2394,26 +2394,21 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
     evidence.rewritten_body[0],
     @lib.Instruction::struct_new_default(leaf_type),
   )
+  let expected_rewritten_block = @lib.Instruction::block(
+    @lib.BlockType::val_type(expected_leaf_ref),
+    @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
+  )
+  let expected_rewritten_loop = @lib.Instruction::loop_(
+    @lib.BlockType::val_type(expected_leaf_ref),
+    @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
+  )
   match dae_apply_single_result_control_gc_candidate_evidence(evidence, 0) {
     Some(rewritten_block) =>
-      assert_eq(
-        rewritten_block,
-        @lib.Instruction::block(
-          @lib.BlockType::val_type(expected_leaf_ref),
-          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
-        ),
-      )
+      assert_eq(rewritten_block, expected_rewritten_block)
     None => fail("expected block rewrite from control GC candidate evidence")
   }
   match dae_apply_single_result_control_gc_candidate_evidence(evidence, 1) {
-    Some(rewritten_loop) =>
-      assert_eq(
-        rewritten_loop,
-        @lib.Instruction::loop_(
-          @lib.BlockType::val_type(expected_leaf_ref),
-          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
-        ),
-      )
+    Some(rewritten_loop) => assert_eq(rewritten_loop, expected_rewritten_loop)
     None => fail("expected loop rewrite from control GC candidate evidence")
   }
   match dae_apply_single_result_control_gc_candidate_evidence(evidence, 2) {
@@ -2421,6 +2416,46 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
       fail(
         "single-result control candidate evidence should reject if-kind application",
       )
+    None => ()
+  }
+  match
+    dae_single_result_control_gc_candidate_instr_evidence(
+      mod_,
+      [],
+      None,
+      expected_rewritten_block,
+      base_ref,
+    ) {
+    Some((candidate, Some(rewritten))) => {
+      assert_eq(candidate, expected_leaf_ref)
+      assert_eq(rewritten, expected_rewritten_block)
+    }
+    _ => fail("expected block instruction GC candidate evidence")
+  }
+  match
+    dae_single_result_control_gc_candidate_instr_evidence(
+      mod_,
+      [],
+      None,
+      expected_rewritten_loop,
+      base_ref,
+    ) {
+    Some((candidate, Some(rewritten))) => {
+      assert_eq(candidate, expected_leaf_ref)
+      assert_eq(rewritten, expected_rewritten_loop)
+    }
+    _ => fail("expected loop instruction GC candidate evidence")
+  }
+  match
+    dae_single_result_control_gc_candidate_instr_evidence(
+      mod_,
+      [],
+      None,
+      @lib.Instruction::drop(),
+      base_ref,
+    ) {
+    Some(_) =>
+      fail("non-control instruction must not produce GC candidate evidence")
     None => ()
   }
 }

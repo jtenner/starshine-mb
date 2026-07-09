@@ -6596,6 +6596,35 @@ fn dae_apply_single_result_control_gc_candidate_evidence(
 }
 
 ///|
+fn dae_single_result_control_gc_candidate_instr_evidence(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  func_locals : @lib.FunctionLocals?,
+  instr : @lib.Instruction,
+  old_type : @lib.ValType,
+) -> (@lib.ValType, @lib.Instruction?)? {
+  let (block_type, body, control_kind) = match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => (block_type, body, 0)
+    @lib.Loop(block_type, @lib.Expr(body)) => (block_type, body, 1)
+    _ => return None
+  }
+  let evidence = match
+    dae_single_result_control_gc_candidate_evidence(
+      mod_, func_type_indices, func_locals, block_type, body, old_type,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  match
+    dae_apply_single_result_control_gc_candidate_evidence(
+      evidence, control_kind,
+    ) {
+    Some(rewritten) => Some((evidence.candidate, Some(rewritten)))
+    None => None
+  }
+}
+
+///|
 fn dae_direct_gc_result_candidate_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -6624,32 +6653,10 @@ fn dae_direct_gc_result_candidate_instr(
           }
         None => None
       }
-    @lib.Block(block_type, @lib.Expr(block_body)) =>
-      match
-        dae_single_result_control_gc_candidate_evidence(
-          mod_, func_type_indices, func_locals, block_type, block_body, old_type,
-        ) {
-        Some(evidence) =>
-          match
-            dae_apply_single_result_control_gc_candidate_evidence(evidence, 0) {
-            Some(rewritten) => Some((evidence.candidate, Some(rewritten)))
-            None => None
-          }
-        None => None
-      }
-    @lib.Loop(block_type, @lib.Expr(loop_body)) =>
-      match
-        dae_single_result_control_gc_candidate_evidence(
-          mod_, func_type_indices, func_locals, block_type, loop_body, old_type,
-        ) {
-        Some(evidence) =>
-          match
-            dae_apply_single_result_control_gc_candidate_evidence(evidence, 1) {
-            Some(rewritten) => Some((evidence.candidate, Some(rewritten)))
-            None => None
-          }
-        None => None
-      }
+    @lib.Block(_, _) | @lib.Loop(_, _) =>
+      dae_single_result_control_gc_candidate_instr_evidence(
+        mod_, func_type_indices, func_locals, instr, old_type,
+      )
     @lib.If(block_type, then_body, Some(else_body)) =>
       match dae_control_single_result_block_type_evidence(block_type, mod_) {
         Some(_) =>
