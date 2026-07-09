@@ -14468,14 +14468,20 @@ fn optimize_instructions_negate_boolean_expr_recursive(
 }
 
 ///|
+priv enum OiBooleanConstantLeafKind {
+  BooleanConstantLeafNoProof
+  BooleanConstantFalseLeaf
+  BooleanConstantTrueLeaf
+}
+
+///|
 priv struct OiBooleanConstantLeafFact {
-  exact_i32_false : Bool
-  exact_i32_true : Bool
+  kind : OiBooleanConstantLeafKind
 }
 
 ///|
 fn OiBooleanConstantLeafFact::empty() -> OiBooleanConstantLeafFact {
-  { exact_i32_false: false, exact_i32_true: false }
+  { kind: BooleanConstantLeafNoProof }
 }
 
 ///|
@@ -14488,24 +14494,23 @@ fn OiBooleanConstantLeafFact::from_node(
   // i32 `0` / `1` leaves. Keep the literal proof separate from recursive `if`
   // payloads so the represented tree fact is source-shaped instead of a flat
   // scanner result.
-  let exact_i32_false = match
-    optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(0)) => true
-    _ => false
+  let kind = match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(0)) => BooleanConstantFalseLeaf
+    Some(@lib.I32(1)) => BooleanConstantTrueLeaf
+    _ => BooleanConstantLeafNoProof
   }
-  let exact_i32_true = match
-    optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(1)) => true
-    _ => false
-  }
-  { exact_i32_false, exact_i32_true }
+  { kind, }
 }
 
 ///|
 fn OiBooleanConstantLeafFact::proves_boolean_leaf(
   self : OiBooleanConstantLeafFact,
 ) -> Bool {
-  self.exact_i32_false || self.exact_i32_true
+  match self.kind {
+    BooleanConstantLeafNoProof => false
+    BooleanConstantFalseLeaf => true
+    BooleanConstantTrueLeaf => true
+  }
 }
 
 ///|
@@ -14657,15 +14662,21 @@ fn OiBooleanConstantTreeFact::proves_node_boolean_tree(
 }
 
 ///|
+priv enum OiBooleanTreeLeafKind {
+  BooleanTreeLeafNoProof
+  BooleanTreeEqzLeaf
+  BooleanTreeFalseLeaf
+  BooleanTreeTrueLeaf
+}
+
+///|
 priv struct OiBooleanTreeLeafFact {
-  direct_eqz_leaf : Bool
-  exact_i32_false : Bool
-  exact_i32_true : Bool
+  kind : OiBooleanTreeLeafKind
 }
 
 ///|
 fn OiBooleanTreeLeafFact::empty() -> OiBooleanTreeLeafFact {
-  { direct_eqz_leaf: false, exact_i32_false: false, exact_i32_true: false }
+  { kind: BooleanTreeLeafNoProof }
 }
 
 ///|
@@ -14677,29 +14688,29 @@ fn OiBooleanTreeLeafFact::from_node(
   // Source-backed leaf facts for Binaryen's nested boolean-condition rewrites:
   // direct `eqz` plus exact boolean constants. The unshared recursive `if`
   // proof is recorded separately below.
-  let direct_eqz_leaf = match @ir.hot_node_exact_instr(func, node_id) {
+  let kind = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
-      true
-    _ => false
+      BooleanTreeEqzLeaf
+    _ =>
+      match optimize_instructions_i32_const(func, dead, node_id) {
+        Some(@lib.I32(0)) => BooleanTreeFalseLeaf
+        Some(@lib.I32(1)) => BooleanTreeTrueLeaf
+        _ => BooleanTreeLeafNoProof
+      }
   }
-  let exact_i32_false = match
-    optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(0)) => true
-    _ => false
-  }
-  let exact_i32_true = match
-    optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(1)) => true
-    _ => false
-  }
-  { direct_eqz_leaf, exact_i32_false, exact_i32_true }
+  { kind, }
 }
 
 ///|
 fn OiBooleanTreeLeafFact::proves_allowed_leaf(
   self : OiBooleanTreeLeafFact,
 ) -> Bool {
-  self.direct_eqz_leaf || self.exact_i32_false || self.exact_i32_true
+  match self.kind {
+    BooleanTreeLeafNoProof => false
+    BooleanTreeEqzLeaf => true
+    BooleanTreeFalseLeaf => true
+    BooleanTreeTrueLeaf => true
+  }
 }
 
 ///|
