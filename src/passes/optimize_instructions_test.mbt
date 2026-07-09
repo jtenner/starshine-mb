@@ -574,6 +574,74 @@ test "optimize-instructions preserves drop-call_indirect block prefixes after ma
 }
 
 ///|
+test "optimize-instructions preserves drop-call_ref block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
+  // maxBits compare through a drop-wrapped value-returning call_ref prefix,
+  // preserving the null trap/callee effects and dropped result before the folded
+  // constant. Use a parameter target so this does not rely on same-pass ref.func
+  // directization; branch/control, aggregate atomics, and generalized
+  // localization stay separate. Build the fixture programmatically because the
+  // WAT parser does not currently accept the typed function-reference spelling.
+  let callee_type = @lib.TypeIdx::new(0U)
+  let callee_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(callee_type)),
+  )
+  let test_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([callee_ref, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([callee_type, test_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::call_ref(callee_type),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(@lib.I32(255)),
+                @lib.Instruction::i32_and(),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(256)),
+            @lib.Instruction::i32_eq(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves global-set block prefixes after maxBits compare folds" {
   // Red-first OI-E behavior-parity slice: Binaryen v130's block-tail maxBits
   // fold also preserves a straight-line mutable-global write prefix. The folded
