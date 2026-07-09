@@ -1224,6 +1224,20 @@ fn dae_control_block_type_zero_input_evidence(
 }
 
 ///|
+fn dae_control_block_type_zero_input_output_count_evidence(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+  output_count : Int,
+) -> DaeControlBlockTypeSignatureEvidence? {
+  if output_count < 0 {
+    return None
+  }
+  dae_control_block_type_stack_shape_evidence(
+    block_type, type_sec, 0, output_count,
+  )
+}
+
+///|
 fn dae_val_type_is_non_null_concrete_gc_ref_candidate(
   vt : @lib.ValType,
 ) -> Bool {
@@ -2614,13 +2628,14 @@ fn dae_single_block_result_carrier_evidence(
   }
   match body {
     [@lib.Block(block_type, @lib.Expr(block_body))] => {
-      let signature = match
-        dae_control_block_type_zero_input_evidence(block_type, mod_.type_sec) {
-        Some(signature) => signature
+      match
+        dae_control_block_type_zero_input_output_count_evidence(
+          block_type,
+          mod_.type_sec,
+          result_count,
+        ) {
+        Some(_) => ()
         None => return None
-      }
-      if signature.output_count != result_count {
-        return None
       }
       let body_has_effect_or_branch = dae_instrs_have_observable_effect_or_branch(
         block_body,
@@ -7837,9 +7852,14 @@ fn dae_direct_gc_result_mixed_if_fallthrough_candidate_body(
       (block_type, then_body, else_body_opt)
     _ => return None
   }
-  match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-    Some((0, 0)) => ()
-    _ => return None
+  match
+    dae_control_block_type_zero_input_output_count_evidence(
+      block_type,
+      mod_.type_sec,
+      0,
+    ) {
+    Some(_) => ()
+    None => return None
   }
   let (terminal_candidate, terminal_rewrite) = match
     dae_direct_gc_result_candidate_instr(
@@ -9009,10 +9029,13 @@ fn dae_find_multi_result_control_slice(
   }
   match body {
     [@lib.Block(block_type, @lib.Expr(block_body))] =>
-      match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-        Some((0, 0)) if dae_instrs_have_only_terminal_function_return(
-            block_body,
-          ) =>
+      match
+        dae_control_block_type_zero_input_output_count_evidence(
+          block_type,
+          mod_.type_sec,
+          0,
+        ) {
+        Some(_) if dae_instrs_have_only_terminal_function_return(block_body) =>
           match
             dae_multi_result_control_carrier_chain_slice(
               mod_,
@@ -9222,9 +9245,14 @@ fn dae_try_refine_mixed_multi_result_if_fallthrough_body(
       (block_type, then_body, else_body_opt)
     _ => return None
   }
-  match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-    Some((0, 0)) => ()
-    _ => return None
+  match
+    dae_control_block_type_zero_input_output_count_evidence(
+      block_type,
+      mod_.type_sec,
+      0,
+    ) {
+    Some(_) => ()
+    None => return None
   }
   let combined_candidates : Array[@lib.ValType?] = Array::make(
     results.length(),
@@ -9567,8 +9595,13 @@ fn dae_try_refine_direct_gc_types(
     if body.length() > 0 {
       match body[body.length() - 1] {
         @lib.If(block_type, then_body, Some(else_body)) =>
-          match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-            Some((0, outputs)) if outputs == results.length() =>
+          match
+            dae_control_block_type_zero_input_output_count_evidence(
+              block_type,
+              mod_.type_sec,
+              results.length(),
+            ) {
+            Some(_) =>
               match
                 dae_multi_result_if_pair_gc_refinement_evidence(
                   mod_, type_indices, result_func_locals, then_body, else_body, results,
@@ -9614,8 +9647,13 @@ fn dae_try_refine_direct_gc_types(
     if body.length() >= 2 {
       match (body[body.length() - 2], body[body.length() - 1]) {
         (@lib.If(block_type, then_body, Some(else_body)), @lib.Unreachable) =>
-          match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-            Some((0, 0)) =>
+          match
+            dae_control_block_type_zero_input_output_count_evidence(
+              block_type,
+              mod_.type_sec,
+              0,
+            ) {
+            Some(_) =>
               match
                 dae_multi_result_if_pair_gc_refinement_evidence(
                   mod_,
@@ -9661,20 +9699,30 @@ fn dae_try_refine_direct_gc_types(
     let mut preserve_loop_carrier = false
     match body {
       [@lib.Block(block_type, @lib.Expr(block_body))] =>
-        match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-          Some((0, outputs)) if outputs == results.length() => {
+        match
+          dae_control_block_type_zero_input_output_count_evidence(
+            block_type,
+            mod_.type_sec,
+            results.length(),
+          ) {
+          Some(_) => {
             candidate_body = block_body
             flatten_block_carrier = true
           }
-          _ => ()
+          None => ()
         }
       [@lib.Loop(block_type, @lib.Expr(loop_body))] =>
-        match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-          Some((0, outputs)) if outputs == results.length() => {
+        match
+          dae_control_block_type_zero_input_output_count_evidence(
+            block_type,
+            mod_.type_sec,
+            results.length(),
+          ) {
+          Some(_) => {
             candidate_body = loop_body
             preserve_loop_carrier = true
           }
-          _ => ()
+          None => ()
         }
       _ => ()
     }
@@ -9684,12 +9732,16 @@ fn dae_try_refine_direct_gc_types(
         keep_unwrapping = false
         match candidate_body {
           [@lib.Block(block_type, @lib.Expr(block_body))] =>
-            match dae_instr_stack_effect_from_block_type(block_type, mod_) {
-              Some((0, outputs)) if outputs == results.length() &&
-                (
-                  !dae_instrs_have_observable_effect_or_branch(block_body) ||
-                  dae_instrs_have_only_terminal_function_return(block_body)
-                ) => {
+            match
+              dae_control_block_type_zero_input_output_count_evidence(
+                block_type,
+                mod_.type_sec,
+                results.length(),
+              ) {
+              Some(_) if !dae_instrs_have_observable_effect_or_branch(
+                  block_body,
+                ) ||
+                dae_instrs_have_only_terminal_function_return(block_body) => {
                 candidate_body = block_body
                 keep_unwrapping = true
               }

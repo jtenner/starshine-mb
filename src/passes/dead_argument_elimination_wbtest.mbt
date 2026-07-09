@@ -4566,6 +4566,19 @@ test "dae control block input evidence centralizes zero-input control checks" {
     None => fail("expected zero-input typeidx control evidence")
   }
   match
+    dae_control_block_type_zero_input_output_count_evidence(
+      @lib.BlockType::type_idx(zero_multi_type),
+      Some(type_sec),
+      2,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.input_count, 0)
+      assert_eq(evidence.output_count, 2)
+      assert_eq(evidence.results[1], concrete_ref)
+    }
+    None => fail("expected zero-input/output-count typeidx evidence")
+  }
+  match
     dae_control_block_type_zero_input_evidence(
       @lib.BlockType::val_type(concrete_ref),
       Some(type_sec),
@@ -4583,6 +4596,15 @@ test "dae control block input evidence centralizes zero-input control checks" {
       Some(type_sec),
     ) {
     Some(_) => fail("parametric typeidx control must not be zero-input")
+    None => ()
+  }
+  match
+    dae_control_block_type_zero_input_output_count_evidence(
+      @lib.BlockType::type_idx(zero_multi_type),
+      Some(type_sec),
+      1,
+    ) {
+    Some(_) => fail("wrong output-count control must not produce evidence")
     None => ()
   }
   match
