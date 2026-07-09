@@ -2149,10 +2149,10 @@ fn OiDescriptorTypeFact::exactly_describes(
 ///|
 priv struct OiDescriptorOperandFact {
   type_fact : OiDescriptorTypeFact
-  traps_without_effects : Bool
-  erases_without_effects : Bool
-  should_localize_when_skipped : Bool
-  may_drop_exactness_for_tnh_escaping_ref_get_desc : Bool
+  trap_fact : OiDescriptorOperandTrapFact
+  erase_fact : OiDescriptorOperandEraseFact
+  skip_localization_fact : OiDescriptorOperandSkipLocalizationFact
+  exactness_drop_fact : OiDescriptorExactnessDropFact
 }
 
 ///|
@@ -2202,19 +2202,45 @@ fn OiDescriptorOperandFact::from_operand(
 ) -> OiDescriptorOperandFact {
   {
     type_fact: OiDescriptorTypeFact::from_node(ctx, func, node_id),
-    traps_without_effects: OiDescriptorOperandTrapFact::from_operand(
-      func, node_id,
-    ).proves_traps_without_effects(),
-    erases_without_effects: OiDescriptorOperandEraseFact::from_operand(
+    trap_fact: OiDescriptorOperandTrapFact::from_operand(func, node_id),
+    erase_fact: OiDescriptorOperandEraseFact::from_operand(
       ctx, func, dead, node_id,
-    ).proves_erases_without_effects(),
-    should_localize_when_skipped: OiDescriptorOperandSkipLocalizationFact::from_operand(
+    ),
+    skip_localization_fact: OiDescriptorOperandSkipLocalizationFact::from_operand(
       func, node_id,
-    ).proves_should_localize_when_skipped(),
-    may_drop_exactness_for_tnh_escaping_ref_get_desc: OiDescriptorExactnessDropFact::from_operand(
+    ),
+    exactness_drop_fact: OiDescriptorExactnessDropFact::from_operand(
       func, node_id,
-    ).proves_may_drop_exactness(),
+    ),
   }
+}
+
+///|
+fn OiDescriptorOperandFact::proves_traps_without_effects(
+  self : OiDescriptorOperandFact,
+) -> Bool {
+  self.trap_fact.proves_traps_without_effects()
+}
+
+///|
+fn OiDescriptorOperandFact::proves_erases_without_effects(
+  self : OiDescriptorOperandFact,
+) -> Bool {
+  self.erase_fact.proves_erases_without_effects()
+}
+
+///|
+fn OiDescriptorOperandFact::proves_should_localize_when_skipped(
+  self : OiDescriptorOperandFact,
+) -> Bool {
+  self.skip_localization_fact.proves_should_localize_when_skipped()
+}
+
+///|
+fn OiDescriptorOperandFact::proves_may_drop_exactness_for_tnh_escaping_ref_get_desc(
+  self : OiDescriptorOperandFact,
+) -> Bool {
+  self.exactness_drop_fact.proves_may_drop_exactness()
 }
 
 ///|
@@ -4538,7 +4564,7 @@ fn OiDescriptorTnhSkipEligibilityFact::from_skip(
       )
       if OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype() &&
         !described_relation.proves_exact_heap_target() &&
-        !skip_fact.descriptor_fact.may_drop_exactness_for_tnh_escaping_ref_get_desc {
+        !skip_fact.descriptor_fact.proves_may_drop_exactness_for_tnh_escaping_ref_get_desc() {
         return { kind: DescriptorTnhSkipDescriptorExactnessPreserved }
       }
     }
@@ -4594,11 +4620,11 @@ fn OiDescriptorTnhSkipRewritePlanFact::from_skip(
   }
   let cast_fact = skip_fact.cast_fact
   let descriptor_fact = skip_fact.descriptor_fact
-  let kind = if descriptor_fact.erases_without_effects {
+  let kind = if descriptor_fact.proves_erases_without_effects() {
     DescriptorTnhSkipForwardOperand
   } else if OiDescriptorSkipOrderFact::from_node(func, cast_fact.operand_id).proves_must_preserve_operand_order() {
     DescriptorTnhSkipLocalizeOperandThenDescriptor
-  } else if descriptor_fact.should_localize_when_skipped {
+  } else if descriptor_fact.proves_should_localize_when_skipped() {
     DescriptorTnhSkipLocalSetDescriptorThenOperand
   } else {
     DescriptorTnhSkipDropDescriptorThenOperand
@@ -4725,19 +4751,19 @@ fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
   // plan fact so the visitor no longer owns a null/ref/descriptor erase cascade.
   let cast_fact = null_fact.cast_fact
   let descriptor_fact = null_fact.descriptor_fact
-  if descriptor_fact.traps_without_effects {
+  if descriptor_fact.proves_traps_without_effects() {
     return Some({ kind: DescriptorNullCastUnreachable, null_fact })
   }
   if descriptor_traps_only {
     return None
   }
   let kind = if cast_fact.nullable {
-    if descriptor_fact.erases_without_effects {
+    if descriptor_fact.proves_erases_without_effects() {
       DescriptorNullCastTypedNull
     } else {
       DescriptorNullCastDropDescriptorThenTypedNull
     }
-  } else if descriptor_fact.erases_without_effects {
+  } else if descriptor_fact.proves_erases_without_effects() {
     DescriptorNullCastUnreachable
   } else {
     DescriptorNullCastDropDescriptorThenUnreachable
