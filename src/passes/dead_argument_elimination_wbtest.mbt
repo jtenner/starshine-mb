@@ -6827,6 +6827,93 @@ test "dae raw cleanup folds live integer self binary operations" {
 }
 
 ///|
+test "dae droppable pure control value evidence centralizes control cleanup proof" {
+  let result_block = @lib.BlockType::val_type(@lib.ValType::i32())
+  let value_body = [@lib.Instruction::i32_const(@lib.I32(7))]
+  match
+    dae_droppable_pure_control_value_evidence(
+      @lib.Instruction::block(result_block, @lib.Expr::new(value_body)),
+      None,
+    ) {
+    Some(evidence) => {
+      assert_true(
+        dae_droppable_pure_control_value_evidence_is_consistent(evidence),
+      )
+      assert_eq(evidence.input_count, 0)
+      assert_eq(evidence.output_count, 1)
+      assert_eq(evidence.condition_arity, 0)
+      assert_eq(evidence.body_count, 1)
+      assert_eq(evidence.primary_body_length, 1)
+      assert_eq(evidence.secondary_body_length, 0)
+      assert_eq(evidence.catch_count, 0)
+    }
+    None => fail("expected pure block value evidence")
+  }
+  match
+    dae_droppable_pure_control_value_evidence(
+      @lib.Instruction::if_(
+        result_block,
+        value_body,
+        Some([@lib.Instruction::i32_const(@lib.I32(8))]),
+      ),
+      None,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.condition_arity, 1)
+      assert_eq(evidence.body_count, 2)
+      assert_eq(evidence.primary_body_length, 1)
+      assert_eq(evidence.secondary_body_length, 1)
+      assert_true(
+        dae_instr_droppable_pure_if_value(
+          @lib.Instruction::if_(
+            result_block,
+            value_body,
+            Some([@lib.Instruction::i32_const(@lib.I32(8))]),
+          ),
+          None,
+        ),
+      )
+    }
+    None => fail("expected pure if value evidence")
+  }
+  match
+    dae_droppable_pure_control_value_evidence(
+      @lib.Instruction::try_table(result_block, [], @lib.Expr::new(value_body)),
+      None,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.condition_arity, 0)
+      assert_eq(evidence.catch_count, 0)
+    }
+    None => fail("expected catch-free pure try_table value evidence")
+  }
+  match
+    dae_droppable_pure_control_value_evidence(
+      @lib.Instruction::if_(
+        result_block,
+        value_body,
+        Some([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+      ),
+      None,
+    ) {
+    Some(_) => fail("effectful if arm must not produce pure value evidence")
+    None => ()
+  }
+  match
+    dae_droppable_pure_control_value_evidence(
+      @lib.Instruction::if_(
+        result_block,
+        value_body,
+        Some([@lib.Instruction::i32_const(@lib.I32(8))]),
+      ),
+      None,
+    ) {
+    Some(evidence) => assert_eq(evidence.condition_arity, 1)
+    None => fail("expected pure if evidence for condition-arity check")
+  }
+}
+
+///|
 test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
   let pure_stack = [
     @lib.Instruction::i32_const(@lib.I32(1)),

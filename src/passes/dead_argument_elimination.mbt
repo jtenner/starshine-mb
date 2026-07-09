@@ -131,6 +131,17 @@ priv struct DaeDroppedPureLeafCleanupEvidence {
 }
 
 ///|
+priv struct DaeDroppablePureControlValueEvidence {
+  input_count : Int
+  output_count : Int
+  condition_arity : Int
+  body_count : Int
+  primary_body_length : Int
+  secondary_body_length : Int
+  catch_count : Int
+}
+
+///|
 priv struct DaeEmptyZeroResultControlCleanupEvidence {
   input_count : Int
   output_count : Int
@@ -17293,32 +17304,117 @@ fn dae_block_type_is_zero_param_zero_result(
 }
 
 ///|
-fn dae_instr_droppable_pure_control_value(
-  instr : @lib.Instruction,
+fn dae_droppable_pure_control_body_accepts(
+  body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
 ) -> Bool {
+  match dae_find_droppable_pure_stack_expr_start(body, type_sec) {
+    Some(0) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_droppable_pure_control_value_evidence_is_consistent(
+  evidence : DaeDroppablePureControlValueEvidence,
+) -> Bool {
+  evidence.input_count == 0 &&
+  evidence.output_count == 1 &&
+  (evidence.condition_arity == 0 || evidence.condition_arity == 1) &&
+  evidence.body_count > 0 &&
+  evidence.primary_body_length >= 0 &&
+  evidence.secondary_body_length >= 0 &&
+  evidence.catch_count >= 0
+}
+
+///|
+fn dae_droppable_pure_control_value_evidence(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> DaeDroppablePureControlValueEvidence? {
   match instr {
     @lib.Block(block_type, @lib.Expr(body))
-    | @lib.Loop(block_type, @lib.Expr(body)) =>
-      if dae_block_type_is_zero_param_single_result(block_type, type_sec) {
-        match dae_find_droppable_pure_stack_expr_start(body, type_sec) {
-          Some(0) => true
-          _ => false
-        }
-      } else {
-        false
+    | @lib.Loop(block_type, @lib.Expr(body)) => {
+      let signature = match
+        dae_control_block_type_zero_input_output_count_evidence(
+          block_type, type_sec, 1,
+        ) {
+        Some(evidence) => evidence
+        None => return None
       }
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      if catches.length() == 0 &&
-        dae_block_type_is_zero_param_single_result(block_type, type_sec) {
-        match dae_find_droppable_pure_stack_expr_start(body, type_sec) {
-          Some(0) => true
-          _ => false
-        }
-      } else {
-        false
+      if !dae_droppable_pure_control_body_accepts(body, type_sec) {
+        return None
       }
-    _ => false
+      let evidence = {
+        input_count: signature.input_count,
+        output_count: signature.output_count,
+        condition_arity: 0,
+        body_count: 1,
+        primary_body_length: body.length(),
+        secondary_body_length: 0,
+        catch_count: 0,
+      }
+      if dae_droppable_pure_control_value_evidence_is_consistent(evidence) {
+        Some(evidence)
+      } else {
+        None
+      }
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let signature = match
+        dae_control_block_type_zero_input_output_count_evidence(
+          block_type, type_sec, 1,
+        ) {
+        Some(evidence) => evidence
+        None => return None
+      }
+      if catches.length() != 0 ||
+        !dae_droppable_pure_control_body_accepts(body, type_sec) {
+        return None
+      }
+      let evidence = {
+        input_count: signature.input_count,
+        output_count: signature.output_count,
+        condition_arity: 0,
+        body_count: 1,
+        primary_body_length: body.length(),
+        secondary_body_length: 0,
+        catch_count: catches.length(),
+      }
+      if dae_droppable_pure_control_value_evidence_is_consistent(evidence) {
+        Some(evidence)
+      } else {
+        None
+      }
+    }
+    @lib.If(block_type, then_body, Some(else_body)) => {
+      let signature = match
+        dae_control_block_type_zero_input_output_count_evidence(
+          block_type, type_sec, 1,
+        ) {
+        Some(evidence) => evidence
+        None => return None
+      }
+      if !dae_droppable_pure_control_body_accepts(then_body, type_sec) ||
+        !dae_droppable_pure_control_body_accepts(else_body, type_sec) {
+        return None
+      }
+      let evidence = {
+        input_count: signature.input_count,
+        output_count: signature.output_count,
+        condition_arity: 1,
+        body_count: 2,
+        primary_body_length: then_body.length(),
+        secondary_body_length: else_body.length(),
+        catch_count: 0,
+      }
+      if dae_droppable_pure_control_value_evidence_is_consistent(evidence) {
+        Some(evidence)
+      } else {
+        None
+      }
+    }
+    _ => None
   }
 }
 
@@ -17327,21 +17423,9 @@ fn dae_instr_droppable_pure_if_value(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
 ) -> Bool {
-  match instr {
-    @lib.If(block_type, then_body, Some(else_body)) =>
-      if dae_block_type_is_zero_param_single_result(block_type, type_sec) {
-        match
-          (
-            dae_find_droppable_pure_stack_expr_start(then_body, type_sec),
-            dae_find_droppable_pure_stack_expr_start(else_body, type_sec),
-          ) {
-          (Some(0), Some(0)) => true
-          _ => false
-        }
-      } else {
-        false
-      }
-    _ => false
+  match dae_droppable_pure_control_value_evidence(instr, type_sec) {
+    Some(evidence) => evidence.condition_arity == 1
+    None => false
   }
 }
 
@@ -17350,12 +17434,12 @@ fn dae_instr_dropped_pure_value_arity(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
 ) -> Int? {
-  if dae_instr_is_droppable_pure_leaf(instr) ||
-    dae_instr_droppable_pure_control_value(instr, type_sec) {
+  if dae_instr_is_droppable_pure_leaf(instr) {
     return Some(0)
   }
-  if dae_instr_droppable_pure_if_value(instr, type_sec) {
-    return Some(1)
+  match dae_droppable_pure_control_value_evidence(instr, type_sec) {
+    Some(evidence) => return Some(evidence.condition_arity)
+    None => ()
   }
   if dae_instr_is_nontrapping_pure_unary(instr) {
     return Some(1)
