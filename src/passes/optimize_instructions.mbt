@@ -27944,8 +27944,7 @@ priv struct OiRefGetDescOperandEraseFact {
   child_non_nullable_type : Bool
   child_known_non_null : Bool
   child_side_effect_free : Bool
-  explicit_nullable_child : Bool
-  nullable_child_can_erase_traps_never_happen : Bool
+  nullable_child_erase_tnh_fact : OiDescriptorNullableChildEraseTnhFact?
   kind : OiRefGetDescOperandEraseKind
 }
 
@@ -27969,8 +27968,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
         child_non_nullable_type: false,
         child_known_non_null: false,
         child_side_effect_free: false,
-        explicit_nullable_child: false,
-        nullable_child_can_erase_traps_never_happen: false,
+        nullable_child_erase_tnh_fact: None,
         kind: RefGetDescOperandMustPreserve,
       }
   }
@@ -27984,24 +27982,24 @@ fn OiRefGetDescOperandEraseFact::from_node(
   )
   let default_can_erase = (child_non_nullable_type || child_known_non_null) &&
     child_side_effect_free
-  let (explicit_nullable_child, nullable_child_can_erase_traps_never_happen) = match
+  let nullable_child_erase_tnh_fact = match
     get_desc_fact.explicit_nullable_child() {
     Some(nullable_child) =>
-      (
-        true,
+      Some(
         OiDescriptorNullableChildEraseTnhFact::from_child(
           func, dead, nullable_child,
-        ).proves_can_erase(),
+        ),
       )
-    None => (false, false)
+    None => None
   }
   let kind = if default_can_erase {
     RefGetDescOperandEraseDefault
-  } else if explicit_nullable_child &&
-    nullable_child_can_erase_traps_never_happen {
-    RefGetDescOperandEraseTrapsNeverHappen
   } else {
-    RefGetDescOperandMustPreserve
+    match nullable_child_erase_tnh_fact {
+      Some(fact) if fact.proves_can_erase() =>
+        RefGetDescOperandEraseTrapsNeverHappen
+      _ => RefGetDescOperandMustPreserve
+    }
   }
   {
     live: true,
@@ -28009,8 +28007,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
     child_non_nullable_type,
     child_known_non_null,
     child_side_effect_free,
-    explicit_nullable_child,
-    nullable_child_can_erase_traps_never_happen,
+    nullable_child_erase_tnh_fact,
     kind,
   }
 }
@@ -28038,8 +28035,10 @@ fn OiRefGetDescOperandEraseFact::proves_tnh_can_erase(
   self.ref_get_desc &&
   (match self.kind {
     RefGetDescOperandEraseTrapsNeverHappen =>
-      self.explicit_nullable_child &&
-      self.nullable_child_can_erase_traps_never_happen
+      match self.nullable_child_erase_tnh_fact {
+        Some(fact) => fact.proves_can_erase()
+        None => false
+      }
     RefGetDescOperandEraseDefault | RefGetDescOperandMustPreserve => false
   })
 }
@@ -28055,8 +28054,7 @@ priv struct OiRefAsNonNullDescriptorOperandEraseTnhFact {
   live : Bool
   ref_as_non_null : Bool
   single_child : Bool
-  nullable_child_id : Int?
-  nullable_child_can_erase_traps_never_happen : Bool
+  nullable_child_erase_tnh_fact : OiDescriptorNullableChildEraseTnhFact?
   kind : OiRefAsNonNullDescriptorOperandEraseTnhKind
 }
 
@@ -28076,29 +28074,27 @@ fn OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
     _ => false
   }
   let single_child = ref_as_non_null && @ir.hot_child_count(func, node_id) == 1
-  let nullable_child_id = if single_child {
-    Some(@ir.hot_child_get(func, node_id, 0))
+  let nullable_child_erase_tnh_fact = if single_child {
+    Some(
+      OiDescriptorNullableChildEraseTnhFact::from_child(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 0),
+      ),
+    )
   } else {
     None
   }
-  let nullable_child_can_erase_traps_never_happen = match nullable_child_id {
-    Some(nullable_child) =>
-      OiDescriptorNullableChildEraseTnhFact::from_child(
-        func, dead, nullable_child,
-      ).proves_can_erase()
-    None => false
-  }
-  let kind = if nullable_child_can_erase_traps_never_happen {
-    RefAsNonNullOperandEraseNullableChildTnh
-  } else {
-    RefAsNonNullOperandMustPreserve
+  let kind = match nullable_child_erase_tnh_fact {
+    Some(fact) if fact.proves_can_erase() =>
+      RefAsNonNullOperandEraseNullableChildTnh
+    _ => RefAsNonNullOperandMustPreserve
   }
   {
     live: true,
     ref_as_non_null,
     single_child,
-    nullable_child_id,
-    nullable_child_can_erase_traps_never_happen,
+    nullable_child_erase_tnh_fact,
     kind,
   }
 }
@@ -28112,8 +28108,8 @@ fn OiRefAsNonNullDescriptorOperandEraseTnhFact::proves_can_erase(
   self.single_child &&
   (match self.kind {
     RefAsNonNullOperandEraseNullableChildTnh =>
-      match self.nullable_child_id {
-        Some(_) => self.nullable_child_can_erase_traps_never_happen
+      match self.nullable_child_erase_tnh_fact {
+        Some(fact) => fact.proves_can_erase()
         None => false
       }
     RefAsNonNullOperandMustPreserve => false
