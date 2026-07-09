@@ -13413,9 +13413,14 @@ fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
 }
 
 ///|
+priv struct OiCallRefSelectTargetResidueTypeFact {
+  target_type : @lib.ValType
+}
+
+///|
 priv struct OiCallRefSelectTargetResidueFact {
   target_arm_id : Int
-  target_type : @lib.ValType
+  type_fact : OiCallRefSelectTargetResidueTypeFact
   condition_fact : OiCallRefSelectConditionFact
 }
 
@@ -13437,11 +13442,18 @@ fn OiCallRefSelectTargetResidueFact::from_same_target(
     [target_type] =>
       Some({
         target_arm_id: same_target_fact.residue_arm_id,
-        target_type,
+        type_fact: { target_type, },
         condition_fact: same_target_fact.condition_fact,
       })
     _ => None
   }
+}
+
+///|
+fn OiCallRefSelectTargetResidueTypeFact::result_type(
+  self : OiCallRefSelectTargetResidueTypeFact,
+) -> @lib.ValType {
+  self.target_type
 }
 
 ///|
@@ -13467,10 +13479,11 @@ fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
   Some(
     @ir.hot_build_drop(
       func,
-      @ir.hot_build_block(func, @lib.BlockType::val_type(self.target_type), [
-        @ir.hot_build_drop(func, condition_drop_id),
-        self.target_arm_id,
-      ]),
+      @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(self.type_fact.result_type()),
+        [@ir.hot_build_drop(func, condition_drop_id), self.target_arm_id],
+      ),
     ),
   )
 }
