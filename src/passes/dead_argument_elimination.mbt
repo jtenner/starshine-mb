@@ -96,6 +96,16 @@ priv struct DaeDroppablePureStackEvidence {
 }
 
 ///|
+priv struct DaeDroppedPureLeafSubjectEvidence {
+  start : Int
+  end : Int
+  prefix_end : Int
+  instr : @lib.Instruction
+  range_allows_cleanup : Bool
+  prefix_has_observable_effect : Bool
+}
+
+///|
 priv struct DaeDroppedPureLeafCleanupEvidence {
   range_allows_cleanup : Bool
   preserve_integer_const_debris : Bool
@@ -17331,9 +17341,55 @@ fn dae_instr_prefix_has_observable_effect(
 }
 
 ///|
-fn dae_should_preserve_dropped_integer_const_debris(
+fn dae_dropped_pure_leaf_subject_evidence_from_stack(
   out : Array[@lib.Instruction],
   start : Int,
+) -> DaeDroppedPureLeafSubjectEvidence? {
+  if start < 0 || start >= out.length() {
+    return None
+  }
+  let range_allows_cleanup = out.length() - start == 1 ||
+    !dae_instr_range_contains_local_get(out, start)
+  Some({
+    start,
+    end: out.length(),
+    prefix_end: start,
+    instr: out[start],
+    range_allows_cleanup,
+    prefix_has_observable_effect: dae_instr_prefix_has_observable_effect(
+      out, start,
+    ),
+  })
+}
+
+///|
+fn dae_dropped_pure_leaf_subject_evidence_from_leaf(
+  out : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+) -> DaeDroppedPureLeafSubjectEvidence {
+  let start = out.length()
+  {
+    start,
+    end: start + 1,
+    prefix_end: start,
+    instr,
+    range_allows_cleanup: dae_instr_is_droppable_pure_leaf(instr),
+    prefix_has_observable_effect: dae_instr_prefix_has_observable_effect(
+      out, start,
+    ),
+  }
+}
+
+///|
+fn dae_dropped_pure_leaf_subject_is_singleton(
+  evidence : DaeDroppedPureLeafSubjectEvidence,
+) -> Bool {
+  evidence.end - evidence.start == 1
+}
+
+///|
+fn dae_dropped_pure_leaf_subject_preserves_integer_const_debris(
+  evidence : DaeDroppedPureLeafSubjectEvidence,
   preserve_dropped_integer_const_debris : Bool,
   preserve_effect_dropped_integer_const_debris : Bool,
 ) -> Bool {
@@ -17342,29 +17398,29 @@ fn dae_should_preserve_dropped_integer_const_debris(
   // lanes, while the selected func236 local-retarget lane strips that debris.
   // Keep the preservation mode explicit so shape fixes can follow Binaryen's
   // lane-specific cleanup rather than globally preferring smaller output.
-  out.length() - start == 1 &&
-  dae_instr_is_integer_const_leaf(out[start]) &&
+  dae_dropped_pure_leaf_subject_is_singleton(evidence) &&
+  dae_instr_is_integer_const_leaf(evidence.instr) &&
   (
     preserve_dropped_integer_const_debris ||
     (
       preserve_effect_dropped_integer_const_debris &&
-      dae_instr_prefix_has_observable_effect(out, start)
+      evidence.prefix_has_observable_effect
     )
   )
 }
 
 ///|
-fn dae_should_preserve_dropped_local_get_after_same_set_stack(
+fn dae_dropped_pure_leaf_subject_preserves_local_get_after_same_set(
   out : Array[@lib.Instruction],
-  start : Int,
+  evidence : DaeDroppedPureLeafSubjectEvidence,
 ) -> Bool {
-  if out.length() - start != 1 || start <= 0 {
+  if !dae_dropped_pure_leaf_subject_is_singleton(evidence) ||
+    evidence.prefix_end < 2 ||
+    evidence.prefix_end > out.length() {
     return false
   }
-  if start < 2 {
-    return false
-  }
-  match (out[start - 2], out[start - 1], out[start]) {
+  match
+    (out[evidence.prefix_end - 2], out[evidence.prefix_end - 1], evidence.instr) {
     (@lib.LocalGet(source), @lib.LocalSet(written), @lib.LocalGet(read)) =>
       dae_local_idx_equal(written, read) && !dae_local_idx_equal(source, read)
     _ => false
@@ -17372,42 +17428,14 @@ fn dae_should_preserve_dropped_local_get_after_same_set_stack(
 }
 
 ///|
-fn dae_should_preserve_dropped_local_get_after_same_set_leaf(
-  out : Array[@lib.Instruction],
-  instr : @lib.Instruction,
+fn dae_dropped_pure_leaf_subject_preserves_local_get_after_effect(
+  evidence : DaeDroppedPureLeafSubjectEvidence,
 ) -> Bool {
-  if out.length() < 2 {
+  if !dae_dropped_pure_leaf_subject_is_singleton(evidence) {
     return false
   }
-  match (out[out.length() - 2], out[out.length() - 1], instr) {
-    (@lib.LocalGet(source), @lib.LocalSet(written), @lib.LocalGet(read)) =>
-      dae_local_idx_equal(written, read) && !dae_local_idx_equal(source, read)
-    _ => false
-  }
-}
-
-///|
-fn dae_should_preserve_dropped_local_get_after_effect_stack(
-  out : Array[@lib.Instruction],
-  start : Int,
-) -> Bool {
-  if out.length() - start != 1 {
-    return false
-  }
-  match out[start] {
-    @lib.LocalGet(_) => dae_instr_prefix_has_observable_effect(out, start)
-    _ => false
-  }
-}
-
-///|
-fn dae_should_preserve_dropped_local_get_after_effect_leaf(
-  out : Array[@lib.Instruction],
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.LocalGet(_) =>
-      dae_instr_prefix_has_observable_effect(out, out.length())
+  match evidence.instr {
+    @lib.LocalGet(_) => evidence.prefix_has_observable_effect
     _ => false
   }
 }
@@ -17419,22 +17447,27 @@ fn dae_dropped_pure_leaf_cleanup_evidence_from_stack(
   preserve_dropped_integer_const_debris : Bool,
   preserve_effect_dropped_integer_const_debris : Bool,
 ) -> DaeDroppedPureLeafCleanupEvidence {
-  let range_allows_cleanup = out.length() - start == 1 ||
-    !dae_instr_range_contains_local_get(out, start)
-  let preserve_integer_const_debris = dae_should_preserve_dropped_integer_const_debris(
-    out, start, preserve_dropped_integer_const_debris, preserve_effect_dropped_integer_const_debris,
-  )
-  let preserve_local_get_after_same_set = dae_should_preserve_dropped_local_get_after_same_set_stack(
-    out, start,
-  )
-  let preserve_local_get_after_effect = dae_should_preserve_dropped_local_get_after_effect_stack(
-    out, start,
-  )
-  {
-    range_allows_cleanup,
-    preserve_integer_const_debris,
-    preserve_local_get_after_same_set,
-    preserve_local_get_after_effect,
+  match dae_dropped_pure_leaf_subject_evidence_from_stack(out, start) {
+    Some(subject) =>
+      {
+        range_allows_cleanup: subject.range_allows_cleanup,
+        preserve_integer_const_debris: dae_dropped_pure_leaf_subject_preserves_integer_const_debris(
+          subject, preserve_dropped_integer_const_debris, preserve_effect_dropped_integer_const_debris,
+        ),
+        preserve_local_get_after_same_set: dae_dropped_pure_leaf_subject_preserves_local_get_after_same_set(
+          out, subject,
+        ),
+        preserve_local_get_after_effect: dae_dropped_pure_leaf_subject_preserves_local_get_after_effect(
+          subject,
+        ),
+      }
+    None =>
+      {
+        range_allows_cleanup: false,
+        preserve_integer_const_debris: false,
+        preserve_local_get_after_same_set: false,
+        preserve_local_get_after_effect: false,
+      }
   }
 }
 
@@ -17445,25 +17478,18 @@ fn dae_dropped_pure_leaf_cleanup_evidence_from_leaf(
   preserve_dropped_integer_const_debris : Bool,
   preserve_effect_dropped_integer_const_debris : Bool,
 ) -> DaeDroppedPureLeafCleanupEvidence {
-  let preserve_integer_const_debris = dae_instr_is_integer_const_leaf(instr) &&
-    (
-      preserve_dropped_integer_const_debris ||
-      (
-        preserve_effect_dropped_integer_const_debris &&
-        dae_instr_prefix_has_observable_effect(out, out.length())
-      )
-    )
-  let preserve_local_get_after_same_set = dae_should_preserve_dropped_local_get_after_same_set_leaf(
-    out, instr,
-  )
-  let preserve_local_get_after_effect = dae_should_preserve_dropped_local_get_after_effect_leaf(
-    out, instr,
-  )
+  let subject = dae_dropped_pure_leaf_subject_evidence_from_leaf(out, instr)
   {
-    range_allows_cleanup: dae_instr_is_droppable_pure_leaf(instr),
-    preserve_integer_const_debris,
-    preserve_local_get_after_same_set,
-    preserve_local_get_after_effect,
+    range_allows_cleanup: subject.range_allows_cleanup,
+    preserve_integer_const_debris: dae_dropped_pure_leaf_subject_preserves_integer_const_debris(
+      subject, preserve_dropped_integer_const_debris, preserve_effect_dropped_integer_const_debris,
+    ),
+    preserve_local_get_after_same_set: dae_dropped_pure_leaf_subject_preserves_local_get_after_same_set(
+      out, subject,
+    ),
+    preserve_local_get_after_effect: dae_dropped_pure_leaf_subject_preserves_local_get_after_effect(
+      subject,
+    ),
   }
 }
 

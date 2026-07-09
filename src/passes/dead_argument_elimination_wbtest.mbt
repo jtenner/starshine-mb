@@ -6777,6 +6777,64 @@ test "dae droppable pure stack evidence centralizes local-free cleanup proof" {
 }
 
 ///|
+test "dae dropped pure leaf subject evidence shares stack and leaf preservation proofs" {
+  let tmp = @lib.LocalIdx::new(1U)
+  let stack_after_same_set = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(tmp),
+    @lib.Instruction::local_get(tmp),
+  ]
+  match
+    dae_dropped_pure_leaf_subject_evidence_from_stack(stack_after_same_set, 2) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 2)
+      assert_eq(evidence.end, 3)
+      assert_eq(evidence.prefix_end, 2)
+      assert_true(evidence.range_allows_cleanup)
+      assert_false(evidence.prefix_has_observable_effect)
+      assert_true(dae_dropped_pure_leaf_subject_is_singleton(evidence))
+      assert_true(
+        dae_dropped_pure_leaf_subject_preserves_local_get_after_same_set(
+          stack_after_same_set, evidence,
+        ),
+      )
+      assert_false(
+        dae_dropped_pure_leaf_subject_preserves_local_get_after_effect(evidence),
+      )
+    }
+    None => fail("expected stack subject evidence")
+  }
+  let leaf_after_effect = dae_dropped_pure_leaf_subject_evidence_from_leaf(
+    [@lib.Instruction::call(@lib.FuncIdx::new(0U))],
+    @lib.Instruction::local_get(tmp),
+  )
+  assert_eq(leaf_after_effect.start, 1)
+  assert_eq(leaf_after_effect.end, 2)
+  assert_true(leaf_after_effect.prefix_has_observable_effect)
+  assert_true(
+    dae_dropped_pure_leaf_subject_preserves_local_get_after_effect(
+      leaf_after_effect,
+    ),
+  )
+  assert_false(
+    dae_dropped_pure_leaf_subject_preserves_local_get_after_same_set(
+      [@lib.Instruction::call(@lib.FuncIdx::new(0U))],
+      leaf_after_effect,
+    ),
+  )
+  assert_true(
+    dae_dropped_pure_leaf_subject_preserves_integer_const_debris(
+      dae_dropped_pure_leaf_subject_evidence_from_leaf(
+        [@lib.Instruction::call(@lib.FuncIdx::new(0U))],
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ),
+      false,
+      true,
+    ),
+  )
+}
+
+///|
 test "dae dropped pure leaf cleanup evidence centralizes stack and leaf preservation" {
   let tmp = @lib.LocalIdx::new(1U)
   let stack_after_same_set = [
