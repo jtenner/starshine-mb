@@ -5035,30 +5035,33 @@ test "dae GC select value evidence computes reusable LUB and refined candidates"
   let body = [
     @lib.Instruction::struct_new_default(leaf1_type),
     @lib.Instruction::struct_new_default(leaf2_type),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_eqz(),
     @lib.Instruction::select(types=Some([base_ref])),
   ]
-  let slices = match dae_find_select_value_slices(mod_, [], body, 3) {
-    Some(slices) => slices
-    None => fail("expected reusable select value slices")
-  }
   match
-    dae_gc_select_value_slices_evidence(
+    dae_gc_select_value_slices_candidate_evidence(
       mod_,
       [],
       None,
       body,
-      slices,
+      4,
       base_ref,
       require_refined=true,
     ) {
     Some(evidence) => {
-      assert_eq(evidence.candidate, expected_mid_ref)
-      assert_eq(evidence.refined_candidate, Some(expected_mid_ref))
-      assert_eq(evidence.left_rewrite, None)
-      assert_eq(evidence.right_rewrite, None)
+      assert_eq(evidence.slices.left.start, 0)
+      assert_eq(evidence.slices.right.start, 1)
+      assert_eq(evidence.slices.condition.start, 2)
+      assert_eq(evidence.slices.condition.end, 4)
+      assert_eq(evidence.slices.condition.instr_count, 2)
+      assert_true(evidence.slices.condition.stack_slice is Some(_))
+      assert_eq(evidence.gc.candidate, expected_mid_ref)
+      assert_eq(evidence.gc.refined_candidate, Some(expected_mid_ref))
+      assert_eq(evidence.gc.left_rewrite, None)
+      assert_eq(evidence.gc.right_rewrite, None)
     }
-    None => fail("expected reusable GC select value evidence")
+    None => fail("expected reusable GC select value-slices candidate evidence")
   }
 }
 

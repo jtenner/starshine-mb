@@ -412,6 +412,12 @@ priv struct DaeGcSelectValueEvidence {
 }
 
 ///|
+priv struct DaeGcSelectValueSlicesEvidence {
+  slices : DaeSelectValueSlices
+  gc : DaeGcSelectValueEvidence
+}
+
+///|
 priv struct DaeIndirectGcResultSliceEvidence {
   candidate : @lib.ValType
   param_count : Int
@@ -8054,6 +8060,48 @@ fn dae_gc_select_value_slices_evidence(
 }
 
 ///|
+fn dae_gc_select_value_slices_candidate_evidence(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  func_locals : @lib.FunctionLocals?,
+  body : Array[@lib.Instruction],
+  select_idx : Int,
+  old_type : @lib.ValType,
+  required_left_start? : Int = -1,
+  require_dropped_prefix? : Bool = false,
+  require_refined? : Bool = false,
+) -> DaeGcSelectValueSlicesEvidence? {
+  let slices = match
+    dae_find_select_value_slices(
+      mod_,
+      func_type_indices,
+      body,
+      select_idx,
+      required_left_start~,
+      require_dropped_prefix~,
+    ) {
+    Some(slices) => slices
+    None => return None
+  }
+  if !dae_select_value_slices_are_consistent(slices, select_idx) {
+    return None
+  }
+  match
+    dae_gc_select_value_slices_evidence(
+      mod_,
+      func_type_indices,
+      func_locals,
+      body,
+      slices,
+      old_type,
+      require_refined~,
+    ) {
+    Some(gc) => Some({ slices, gc })
+    None => None
+  }
+}
+
+///|
 fn dae_instr_has_function_return(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Return
@@ -8467,39 +8515,27 @@ fn dae_direct_gc_result_select_candidate_body(
     }
     let select_idx = body.length() - 1 - terminal_extra
     match
-      dae_find_select_value_slices(
+      dae_gc_select_value_slices_candidate_evidence(
         mod_,
         func_type_indices,
+        func_locals,
         body,
         select_idx,
+        old_type,
         require_dropped_prefix=true,
       ) {
-      Some(slices) => {
-        if !dae_select_value_slices_are_consistent(slices, select_idx) {
-          mode += 1
-          continue
-        }
-        let left_idx = slices.left.start
-        let right_idx = slices.right.start
-        let evidence = match
-          dae_gc_select_value_slices_evidence(
-            mod_, func_type_indices, func_locals, body, slices, old_type,
-          ) {
-          Some(result) => result
-          None => {
-            mode += 1
-            continue
-          }
-        }
+      Some(evidence) => {
+        let slices = evidence.slices
+        let gc = evidence.gc
         let (rewritten, _) = match
           dae_apply_select_value_rewrites_to_body(
             body,
-            left_idx,
-            right_idx,
+            slices.left.start,
+            slices.right.start,
             slices.select_idx,
-            evidence.left_rewrite,
-            evidence.right_rewrite,
-            Some(@lib.Instruction::select(types=Some([evidence.candidate]))),
+            gc.left_rewrite,
+            gc.right_rewrite,
+            Some(@lib.Instruction::select(types=Some([gc.candidate]))),
           ) {
           Some(application) => application
           None => {
@@ -8507,7 +8543,7 @@ fn dae_direct_gc_result_select_candidate_body(
             continue
           }
         }
-        return Some((evidence.candidate, Some(rewritten)))
+        return Some((gc.candidate, Some(rewritten)))
       }
       None => ()
     }
@@ -9034,7 +9070,7 @@ fn dae_try_refine_multi_result_select_operand_body(
   )
   for bounds in suffix_bounds {
     ignore(bounds.has_terminal_return)
-    let select_slices : Array[DaeSelectValueSlices?] = Array::make(
+    let select_evidence : Array[DaeGcSelectValueSlicesEvidence?] = Array::make(
       results.length(),
       None,
     )
@@ -9062,34 +9098,22 @@ fn dae_try_refine_multi_result_select_operand_body(
       let mut select_idx = operand_start + 3
       while !consumed && select_idx <= max_select_idx {
         match
-          dae_find_select_value_slices(
+          dae_gc_select_value_slices_candidate_evidence(
             mod_,
             func_type_indices,
+            func_locals,
             body,
             select_idx,
+            results[result_idx],
             required_left_start=operand_start,
+            require_refined=true,
           ) {
-          Some(slices) =>
-            if dae_select_value_slices_are_consistent(slices, select_idx) {
-              match
-                dae_gc_select_value_slices_evidence(
-                  mod_,
-                  func_type_indices,
-                  func_locals,
-                  body,
-                  slices,
-                  results[result_idx],
-                  require_refined=true,
-                ) {
-                Some(_) => {
-                  select_slices[result_idx] = Some(slices)
-                  instr_idx = slices.select_idx + 1
-                  saw_select_operand = true
-                  consumed = true
-                }
-                None => ()
-              }
-            }
+          Some(evidence) => {
+            select_evidence[result_idx] = Some(evidence)
+            instr_idx = evidence.slices.select_idx + 1
+            saw_select_operand = true
+            consumed = true
+          }
           None => ()
         }
         select_idx += 1
@@ -9122,41 +9146,29 @@ fn dae_try_refine_multi_result_select_operand_body(
     let mut changed = false
     result_idx = 0
     while result_idx < results.length() {
-      match select_slices[result_idx] {
-        Some(slices) =>
-          match
-            dae_gc_select_value_slices_evidence(
-              mod_,
-              func_type_indices,
-              func_locals,
-              body,
-              slices,
-              results[result_idx],
-              require_refined=true,
-            ) {
-            Some(evidence) =>
-              match evidence.refined_candidate {
-                Some(refined) => {
-                  next_results[result_idx] = refined
-                  changed = true
-                  let (next_body, _) = match
-                    dae_apply_select_value_rewrites_to_body(
-                      rewritten_body,
-                      slices.left.start,
-                      slices.right.start,
-                      slices.select_idx,
-                      evidence.left_rewrite,
-                      evidence.right_rewrite,
-                      Some(@lib.Instruction::select(types=Some([refined]))),
-                    ) {
-                    Some(application) => application
-                    None => return None
-                  }
-                  rewritten_body.clear()
-                  rewritten_body.append(next_body)
-                }
-                None => ()
+      match select_evidence[result_idx] {
+        Some(evidence) =>
+          match evidence.gc.refined_candidate {
+            Some(refined) => {
+              let slices = evidence.slices
+              next_results[result_idx] = refined
+              changed = true
+              let (next_body, _) = match
+                dae_apply_select_value_rewrites_to_body(
+                  rewritten_body,
+                  slices.left.start,
+                  slices.right.start,
+                  slices.select_idx,
+                  evidence.gc.left_rewrite,
+                  evidence.gc.right_rewrite,
+                  Some(@lib.Instruction::select(types=Some([refined]))),
+                ) {
+                Some(application) => application
+                None => return None
               }
+              rewritten_body.clear()
+              rewritten_body.append(next_body)
+            }
             None => ()
           }
         None => ()
