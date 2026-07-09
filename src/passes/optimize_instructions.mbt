@@ -27930,19 +27930,28 @@ fn OiDescriptorNullableIfControlMoveFact::proves_nullable_if_control_move_allowe
 }
 
 ///|
+priv enum OiDescriptorBranchControlSummaryKind {
+  DescriptorBranchControlAbsent
+  DescriptorBranchControlInternal
+  DescriptorBranchControlEscaping
+}
+
+///|
+priv struct OiDescriptorBranchControlSummaryFact {
+  kind : OiDescriptorBranchControlSummaryKind
+}
+
+///|
 priv struct OiDescriptorBranchControlFact {
   live : Bool
-  direct_branch_control : Bool
-  nested_branch_control : Bool
-  direct_escaping_branch_control : Bool
-  nested_escaping_branch_control : Bool
+  direct_control_fact : OiDescriptorBranchControlSummaryFact
+  nested_control_fact : OiDescriptorBranchControlSummaryFact
 }
 
 ///|
 priv struct OiDescriptorBranchControlRegionFact {
   root_count : Int
-  has_branch_control : Bool
-  has_escaping_branch_control : Bool
+  control_fact : OiDescriptorBranchControlSummaryFact
 }
 
 ///|
@@ -28127,13 +28136,51 @@ fn OiDescriptorInternalLabelFact::proves_internal(
 }
 
 ///|
+fn OiDescriptorBranchControlSummaryFact::from_flags(
+  has_branch_control : Bool,
+  has_escaping_branch_control : Bool,
+) -> OiDescriptorBranchControlSummaryFact {
+  let kind = if has_escaping_branch_control {
+    DescriptorBranchControlEscaping
+  } else if has_branch_control {
+    DescriptorBranchControlInternal
+  } else {
+    DescriptorBranchControlAbsent
+  }
+  { kind, }
+}
+
+///|
+fn OiDescriptorBranchControlSummaryFact::empty() -> OiDescriptorBranchControlSummaryFact {
+  { kind: DescriptorBranchControlAbsent }
+}
+
+///|
+fn OiDescriptorBranchControlSummaryFact::proves_has_branch_control(
+  self : OiDescriptorBranchControlSummaryFact,
+) -> Bool {
+  match self.kind {
+    DescriptorBranchControlAbsent => false
+    DescriptorBranchControlInternal | DescriptorBranchControlEscaping => true
+  }
+}
+
+///|
+fn OiDescriptorBranchControlSummaryFact::proves_has_escaping_branch_control(
+  self : OiDescriptorBranchControlSummaryFact,
+) -> Bool {
+  match self.kind {
+    DescriptorBranchControlEscaping => true
+    DescriptorBranchControlAbsent | DescriptorBranchControlInternal => false
+  }
+}
+
+///|
 fn OiDescriptorBranchControlFact::empty() -> OiDescriptorBranchControlFact {
   {
     live: false,
-    direct_branch_control: false,
-    nested_branch_control: false,
-    direct_escaping_branch_control: false,
-    nested_escaping_branch_control: false,
+    direct_control_fact: OiDescriptorBranchControlSummaryFact::empty(),
+    nested_control_fact: OiDescriptorBranchControlSummaryFact::empty(),
   }
 }
 
@@ -28259,10 +28306,12 @@ fn OiDescriptorBranchControlFact::from_node(
   }
   {
     live: true,
-    direct_branch_control,
-    nested_branch_control,
-    direct_escaping_branch_control,
-    nested_escaping_branch_control,
+    direct_control_fact: OiDescriptorBranchControlSummaryFact::from_flags(
+      direct_branch_control, direct_escaping_branch_control,
+    ),
+    nested_control_fact: OiDescriptorBranchControlSummaryFact::from_flags(
+      nested_branch_control, nested_escaping_branch_control,
+    ),
   }
 }
 
@@ -28270,7 +28319,11 @@ fn OiDescriptorBranchControlFact::from_node(
 fn OiDescriptorBranchControlFact::proves_has_branch_control(
   self : OiDescriptorBranchControlFact,
 ) -> Bool {
-  self.live && (self.direct_branch_control || self.nested_branch_control)
+  self.live &&
+  (
+    self.direct_control_fact.proves_has_branch_control() ||
+    self.nested_control_fact.proves_has_branch_control()
+  )
 }
 
 ///|
@@ -28278,7 +28331,10 @@ fn OiDescriptorBranchControlFact::proves_has_escaping_branch_control(
   self : OiDescriptorBranchControlFact,
 ) -> Bool {
   self.live &&
-  (self.direct_escaping_branch_control || self.nested_escaping_branch_control)
+  (
+    self.direct_control_fact.proves_has_escaping_branch_control() ||
+    self.nested_control_fact.proves_has_escaping_branch_control()
+  )
 }
 
 ///|
@@ -28344,32 +28400,29 @@ fn OiDescriptorBranchControlRegionFact::from_region_range(
   }
   {
     root_count: end - start_slot,
-    has_branch_control,
-    has_escaping_branch_control,
+    control_fact: OiDescriptorBranchControlSummaryFact::from_flags(
+      has_branch_control, has_escaping_branch_control,
+    ),
   }
 }
 
 ///|
 fn OiDescriptorBranchControlRegionFact::empty() -> OiDescriptorBranchControlRegionFact {
-  {
-    root_count: 0,
-    has_branch_control: false,
-    has_escaping_branch_control: false,
-  }
+  { root_count: 0, control_fact: OiDescriptorBranchControlSummaryFact::empty() }
 }
 
 ///|
 fn OiDescriptorBranchControlRegionFact::proves_has_branch_control(
   self : OiDescriptorBranchControlRegionFact,
 ) -> Bool {
-  self.root_count > 0 && self.has_branch_control
+  self.root_count > 0 && self.control_fact.proves_has_branch_control()
 }
 
 ///|
 fn OiDescriptorBranchControlRegionFact::proves_has_escaping_branch_control(
   self : OiDescriptorBranchControlRegionFact,
 ) -> Bool {
-  self.root_count > 0 && self.has_escaping_branch_control
+  self.root_count > 0 && self.control_fact.proves_has_escaping_branch_control()
 }
 
 ///|
