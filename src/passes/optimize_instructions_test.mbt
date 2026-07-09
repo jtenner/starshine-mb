@@ -538,6 +538,42 @@ test "optimize-instructions preserves call_indirect block prefixes after maxBits
 }
 
 ///|
+test "optimize-instructions preserves drop-call_indirect block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 folds the impossible
+  // maxBits compare through a drop-wrapped value-returning indirect call prefix,
+  // preserving the table/type trap, callee effects, and dropped result before
+  // the folded constant. This does not claim call_ref or branch/control breadth.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $t (func (result i32)))
+        #|  (table 1 funcref)
+        #|  (elem (i32.const 0) $side)
+        #|  (func $side (result i32) (i32.const 7))
+        #|  (func (param $x i32) (result i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (drop (call_indirect (type $t) (i32.const 0)))
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected drop-call_indirect prefix maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves global-set block prefixes after maxBits compare folds" {
   // Red-first OI-E behavior-parity slice: Binaryen v130's block-tail maxBits
   // fold also preserves a straight-line mutable-global write prefix. The folded
