@@ -14146,12 +14146,18 @@ fn optimize_instructions_try_canonicalize_commutative(
 }
 
 ///|
+priv enum OiTriviallyPureOperandKind {
+  TriviallyPureOperandNoProof
+  TriviallyPureLocalGetLeaf
+  TriviallyPureGlobalGetLeaf
+  TriviallyPureConstLeaf
+  TriviallyPureRefNullLeaf
+  TriviallyPureRefFuncLeaf
+}
+
+///|
 priv struct OiTriviallyPureOperandFact {
-  local_get_leaf : Bool
-  global_get_leaf : Bool
-  const_leaf : Bool
-  ref_null_leaf : Bool
-  ref_func_leaf : Bool
+  kind : OiTriviallyPureOperandKind
 }
 
 ///|
@@ -14160,75 +14166,38 @@ fn OiTriviallyPureOperandFact::from_node(
   node_id : Int,
 ) -> OiTriviallyPureOperandFact {
   // Binaryen OI frequently asks whether an operand can be erased without
-  // preserving effects. Keep the represented direct leaf set as a fact instead
-  // of a helper-local opcode whitelist so descriptor, array, select, compare,
-  // and memory facts share the same source-backed predicate.
+  // preserving effects. Keep the represented direct leaf set as a selected fact
+  // kind instead of parallel booleans or a helper-local opcode whitelist so
+  // descriptor, array, select, compare, and memory facts share the same
+  // source-backed predicate.
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
   }
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      {
-        local_get_leaf: true,
-        global_get_leaf: false,
-        const_leaf: false,
-        ref_null_leaf: false,
-        ref_func_leaf: false,
-      }
-    @ir.HotOp::GlobalGet =>
-      {
-        local_get_leaf: false,
-        global_get_leaf: true,
-        const_leaf: false,
-        ref_null_leaf: false,
-        ref_func_leaf: false,
-      }
-    @ir.HotOp::Const =>
-      {
-        local_get_leaf: false,
-        global_get_leaf: false,
-        const_leaf: true,
-        ref_null_leaf: false,
-        ref_func_leaf: false,
-      }
-    @ir.HotOp::RefNull =>
-      {
-        local_get_leaf: false,
-        global_get_leaf: false,
-        const_leaf: false,
-        ref_null_leaf: true,
-        ref_func_leaf: false,
-      }
-    @ir.HotOp::RefFunc =>
-      {
-        local_get_leaf: false,
-        global_get_leaf: false,
-        const_leaf: false,
-        ref_null_leaf: false,
-        ref_func_leaf: true,
-      }
-    _ =>
-      {
-        local_get_leaf: false,
-        global_get_leaf: false,
-        const_leaf: false,
-        ref_null_leaf: false,
-        ref_func_leaf: false,
-      }
+  let kind = match node.op {
+    @ir.HotOp::LocalGet => TriviallyPureLocalGetLeaf
+    @ir.HotOp::GlobalGet => TriviallyPureGlobalGetLeaf
+    @ir.HotOp::Const => TriviallyPureConstLeaf
+    @ir.HotOp::RefNull => TriviallyPureRefNullLeaf
+    @ir.HotOp::RefFunc => TriviallyPureRefFuncLeaf
+    _ => TriviallyPureOperandNoProof
   }
+  { kind, }
 }
 
 ///|
 fn OiTriviallyPureOperandFact::proves_pure(
   self : OiTriviallyPureOperandFact,
 ) -> Bool {
-  self.local_get_leaf ||
-  self.global_get_leaf ||
-  self.const_leaf ||
-  self.ref_null_leaf ||
-  self.ref_func_leaf
+  match self.kind {
+    TriviallyPureOperandNoProof => false
+    TriviallyPureLocalGetLeaf
+    | TriviallyPureGlobalGetLeaf
+    | TriviallyPureConstLeaf
+    | TriviallyPureRefNullLeaf
+    | TriviallyPureRefFuncLeaf => true
+  }
 }
 
 ///|
@@ -14304,13 +14273,7 @@ priv struct OiSideEffectFreeExpressionFact {
 fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
   {
     kind: SideEffectFreeExpressionNoProof,
-    trivial_leaf: {
-      local_get_leaf: false,
-      global_get_leaf: false,
-      const_leaf: false,
-      ref_null_leaf: false,
-      ref_func_leaf: false,
-    },
+    trivial_leaf: { kind: TriviallyPureOperandNoProof },
     children_effect_free: false,
   }
 }
