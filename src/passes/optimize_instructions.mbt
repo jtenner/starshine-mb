@@ -526,8 +526,14 @@ fn OiRefIsNullResultFact::known_result(
 }
 
 ///|
+priv enum OiRefIsNullOperandErasureKind {
+  RefIsNullOperandErasable
+  RefIsNullOperandPreserveEffectsWithDrop
+}
+
+///|
 priv struct OiRefIsNullOperandErasureFact {
-  operand_effects_are_pure : Bool
+  kind : OiRefIsNullOperandErasureKind
 }
 
 ///|
@@ -536,18 +542,28 @@ fn OiRefIsNullOperandErasureFact::from_operand(
   func : @ir.HotFunc,
   operand_id : Int,
 ) -> OiRefIsNullOperandErasureFact {
-  {
-    operand_effects_are_pure: optimize_instructions_node_effects_are_pure(
+  // Binaryen v130 `visitRefIsNull` erases the operand only when the operand's
+  // effects are pure; otherwise it materializes the known boolean after a drop.
+  // Keep that as a selected effect-preservation outcome rather than a raw
+  // purity boolean on the rewrite fact.
+  let kind = if optimize_instructions_node_effects_are_pure(
       ctx, func, operand_id,
-    ),
+    ) {
+    RefIsNullOperandErasable
+  } else {
+    RefIsNullOperandPreserveEffectsWithDrop
   }
+  { kind, }
 }
 
 ///|
 fn OiRefIsNullOperandErasureFact::proves_operand_erasable(
   self : OiRefIsNullOperandErasureFact,
 ) -> Bool {
-  self.operand_effects_are_pure
+  match self.kind {
+    RefIsNullOperandErasable => true
+    RefIsNullOperandPreserveEffectsWithDrop => false
+  }
 }
 
 ///|
