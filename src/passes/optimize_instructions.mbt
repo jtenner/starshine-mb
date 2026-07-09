@@ -14844,13 +14844,43 @@ fn optimize_instructions_boolean_tree_if_nodes_are_unshared(
 }
 
 ///|
+priv struct OiDirectBranchRootFact {
+  node_id : Int
+  label_id : Int
+  value_count : Int
+}
+
+///|
+fn OiDirectBranchRootFact::from_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiDirectBranchRootFact? {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br =>
+      Some({ node_id, label_id: node.imm0, value_count: node.child_count })
+    _ => None
+  }
+}
+
+///|
+priv enum OiBranchPairRelationKind {
+  BranchPairMissingDirectBranch
+  BranchPairDifferentLabel
+  BranchPairDifferentArity
+  BranchPairDifferentOperands
+  BranchPairSameDirectBranch
+}
+
+///|
 priv struct OiBranchShapeFact {
-  lhs_live : Bool
-  rhs_live : Bool
-  both_br : Bool
-  same_label : Bool
-  same_arity : Bool
-  same_operands : Bool
+  lhs_branch : OiDirectBranchRootFact?
+  rhs_branch : OiDirectBranchRootFact?
+  relation : OiBranchPairRelationKind
 }
 
 ///|
@@ -14862,51 +14892,50 @@ fn OiBranchShapeFact::from_pair(
 ) -> OiBranchShapeFact {
   // The represented duplicate-branch collapse mirrors Binaryen's ability to
   // fold identical branch arms after condition cleanup, but HOT only rewrites
-  // direct `br` roots with byte-identical target label and value operands. Make
-  // those branch-control facts explicit so future `br_if`/fallthrough work can
-  // extend the fact instead of adding ad hoc branch scanners.
-  let lhs_live = OiLiveNodeFact::proves_node_live(func, dead, lhs_id)
-  let rhs_live = OiLiveNodeFact::proves_node_live(func, dead, rhs_id)
-  if !lhs_live || !rhs_live {
-    return {
-      lhs_live,
-      rhs_live,
-      both_br: false,
-      same_label: false,
-      same_arity: false,
-      same_operands: false,
-    }
-  }
-  let lhs = @ir.hot_node_get(func, lhs_id)
-  let rhs = @ir.hot_node_get(func, rhs_id)
-  let both_br = match (lhs.op, rhs.op) {
-    (@ir.HotOp::Br, @ir.HotOp::Br) => true
-    _ => false
-  }
-  let same_label = both_br && lhs.imm0 == rhs.imm0
-  let same_arity = both_br && lhs.child_count == rhs.child_count
-  let mut same_operands = both_br && same_arity
-  if same_operands {
-    for slot = 0; slot < lhs.child_count; slot = slot + 1 {
-      if @ir.hot_child_get(func, lhs_id, slot) !=
-        @ir.hot_child_get(func, rhs_id, slot) {
-        same_operands = false
+  // direct `br` roots with byte-identical target label and value operands. Keep
+  // the two direct-branch roots and the selected pair relation as explicit
+  // facts so future `br_if`/fallthrough work can extend the relation instead of
+  // adding ad hoc branch scanners or parallel shell booleans.
+  let lhs_branch = OiDirectBranchRootFact::from_node(func, dead, lhs_id)
+  let rhs_branch = OiDirectBranchRootFact::from_node(func, dead, rhs_id)
+  let relation = match (lhs_branch, rhs_branch) {
+    (Some(lhs), Some(rhs)) =>
+      if lhs.label_id != rhs.label_id {
+        BranchPairDifferentLabel
+      } else if lhs.value_count != rhs.value_count {
+        BranchPairDifferentArity
+      } else {
+        let mut same_operands = true
+        for slot = 0; slot < lhs.value_count; slot = slot + 1 {
+          if @ir.hot_child_get(func, lhs.node_id, slot) !=
+            @ir.hot_child_get(func, rhs.node_id, slot) {
+            same_operands = false
+          }
+        }
+        if same_operands {
+          BranchPairSameDirectBranch
+        } else {
+          BranchPairDifferentOperands
+        }
       }
-    }
+    _ => BranchPairMissingDirectBranch
   }
-  { lhs_live, rhs_live, both_br, same_label, same_arity, same_operands }
+  { lhs_branch, rhs_branch, relation }
 }
 
 ///|
 fn OiBranchShapeFact::proves_same_direct_branch(
   self : OiBranchShapeFact,
 ) -> Bool {
-  self.lhs_live &&
-  self.rhs_live &&
-  self.both_br &&
-  self.same_label &&
-  self.same_arity &&
-  self.same_operands
+  ignore(self.lhs_branch)
+  ignore(self.rhs_branch)
+  match self.relation {
+    BranchPairMissingDirectBranch => false
+    BranchPairDifferentLabel => false
+    BranchPairDifferentArity => false
+    BranchPairDifferentOperands => false
+    BranchPairSameDirectBranch => true
+  }
 }
 
 ///|
