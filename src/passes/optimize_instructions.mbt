@@ -8939,34 +8939,103 @@ fn OiDroppedChildrenReplacementFact::replace_with_const_i64(
 }
 
 ///|
-fn optimize_instructions_exact_instr_nontrapping_for_dropped_children(
+priv enum OiDroppedChildrenNontrappingRootKind {
+  DroppedChildrenI32AndRoot
+  DroppedChildrenI64AndRoot
+  DroppedChildrenI32OrRoot
+  DroppedChildrenI64OrRoot
+  DroppedChildrenI32XorRoot
+  DroppedChildrenI64XorRoot
+  DroppedChildrenI32AddRoot
+  DroppedChildrenI64AddRoot
+  DroppedChildrenI32ShlRoot
+  DroppedChildrenI64ShlRoot
+  DroppedChildrenI32ShrURoot
+  DroppedChildrenI64ShrURoot
+  DroppedChildrenI32ShrSRoot
+  DroppedChildrenI64ShrSRoot
+  DroppedChildrenI32EqzRoot
+  DroppedChildrenI64EqzRoot
+  DroppedChildrenI32WrapI64Root
+  DroppedChildrenI64ExtendI32SRoot
+  DroppedChildrenI64ExtendI32URoot
+}
+
+///|
+priv struct OiDroppedChildrenNontrappingRootFact {
+  kind : OiDroppedChildrenNontrappingRootKind
+}
+
+///|
+fn OiDroppedChildrenNontrappingRootFact::from_instr(
   instr : @lib.Instruction,
+) -> OiDroppedChildrenNontrappingRootFact? {
+  // Keep the non-pure zero-bit rewrite bounded to source-probed numeric roots
+  // whose Binaryen v130 `replaceZeroBitsWithZero` rewrite delegates preserved
+  // effects to `getDroppedChildrenAndAppend`. Trapping div/rem, checked
+  // conversions, and effectful multiply-by-zero (kept by Binaryen) remain
+  // explicit miss cases instead of being hidden behind a generic nontrapping
+  // opcode helper.
+  let kind = match instr {
+    @lib.Instruction::I32And => DroppedChildrenI32AndRoot
+    @lib.Instruction::I64And => DroppedChildrenI64AndRoot
+    @lib.Instruction::I32Or => DroppedChildrenI32OrRoot
+    @lib.Instruction::I64Or => DroppedChildrenI64OrRoot
+    @lib.Instruction::I32Xor => DroppedChildrenI32XorRoot
+    @lib.Instruction::I64Xor => DroppedChildrenI64XorRoot
+    @lib.Instruction::I32Add => DroppedChildrenI32AddRoot
+    @lib.Instruction::I64Add => DroppedChildrenI64AddRoot
+    @lib.Instruction::I32Shl => DroppedChildrenI32ShlRoot
+    @lib.Instruction::I64Shl => DroppedChildrenI64ShlRoot
+    @lib.Instruction::I32ShrU => DroppedChildrenI32ShrURoot
+    @lib.Instruction::I64ShrU => DroppedChildrenI64ShrURoot
+    @lib.Instruction::I32ShrS => DroppedChildrenI32ShrSRoot
+    @lib.Instruction::I64ShrS => DroppedChildrenI64ShrSRoot
+    @lib.Instruction::I32Eqz => DroppedChildrenI32EqzRoot
+    @lib.Instruction::I64Eqz => DroppedChildrenI64EqzRoot
+    @lib.Instruction::I32WrapI64 => DroppedChildrenI32WrapI64Root
+    @lib.Instruction::I64ExtendI32S => DroppedChildrenI64ExtendI32SRoot
+    @lib.Instruction::I64ExtendI32U => DroppedChildrenI64ExtendI32URoot
+    _ => return None
+  }
+  Some({ kind, })
+}
+
+///|
+fn OiDroppedChildrenNontrappingRootFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiDroppedChildrenNontrappingRootFact? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => OiDroppedChildrenNontrappingRootFact::from_instr(instr)
+    None => None
+  }
+}
+
+///|
+fn OiDroppedChildrenNontrappingRootFact::proves_nontrapping_root(
+  self : OiDroppedChildrenNontrappingRootFact,
 ) -> Bool {
-  // Keep the non-pure zero-bit rewrite bounded to source-probed numeric
-  // operators whose Binaryen v130 rewrite uses dropped-child preservation.
-  // Trapping div/rem, checked conversions, and effectful multiply-by-zero (kept
-  // by Binaryen) remain boundaries instead of treating nontrapping as enough.
-  match instr {
-    @lib.Instruction::I32And
-    | @lib.Instruction::I64And
-    | @lib.Instruction::I32Or
-    | @lib.Instruction::I64Or
-    | @lib.Instruction::I32Xor
-    | @lib.Instruction::I64Xor
-    | @lib.Instruction::I32Add
-    | @lib.Instruction::I64Add
-    | @lib.Instruction::I32Shl
-    | @lib.Instruction::I64Shl
-    | @lib.Instruction::I32ShrU
-    | @lib.Instruction::I64ShrU
-    | @lib.Instruction::I32ShrS
-    | @lib.Instruction::I64ShrS
-    | @lib.Instruction::I32Eqz
-    | @lib.Instruction::I64Eqz
-    | @lib.Instruction::I32WrapI64
-    | @lib.Instruction::I64ExtendI32S
-    | @lib.Instruction::I64ExtendI32U => true
-    _ => false
+  match self.kind {
+    DroppedChildrenI32AndRoot
+    | DroppedChildrenI64AndRoot
+    | DroppedChildrenI32OrRoot
+    | DroppedChildrenI64OrRoot
+    | DroppedChildrenI32XorRoot
+    | DroppedChildrenI64XorRoot
+    | DroppedChildrenI32AddRoot
+    | DroppedChildrenI64AddRoot
+    | DroppedChildrenI32ShlRoot
+    | DroppedChildrenI64ShlRoot
+    | DroppedChildrenI32ShrURoot
+    | DroppedChildrenI64ShrURoot
+    | DroppedChildrenI32ShrSRoot
+    | DroppedChildrenI64ShrSRoot
+    | DroppedChildrenI32EqzRoot
+    | DroppedChildrenI64EqzRoot
+    | DroppedChildrenI32WrapI64Root
+    | DroppedChildrenI64ExtendI32SRoot
+    | DroppedChildrenI64ExtendI32URoot => true
   }
 }
 
@@ -9607,10 +9676,8 @@ fn OiZeroBitsReplacementFact::from_node(
     ) {
     OiDroppedChildrenReplacementFact::empty()
   } else {
-    match @ir.hot_node_exact_instr(func, node_id) {
-      Some(instr) if optimize_instructions_exact_instr_nontrapping_for_dropped_children(
-          instr,
-        ) =>
+    match OiDroppedChildrenNontrappingRootFact::from_node(func, node_id) {
+      Some(root_fact) if root_fact.proves_nontrapping_root() =>
         OiDroppedChildrenReplacementFact::from_node_children(ctx, func, node_id)
       _ => return None
     }
