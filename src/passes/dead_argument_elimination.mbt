@@ -317,6 +317,16 @@ priv struct DaeEffectFreeBodyEvidence {
 }
 
 ///|
+priv struct DaeTerminalReturnBodyEvidence {
+  body : Array[@lib.Instruction]
+  body_length : Int
+  return_idx : Int
+  prefix_length : Int
+  prefix_has_observable_effect_or_branch : Bool
+  terminal_return_only : Bool
+}
+
+///|
 priv struct DaeSingleBlockResultCarrierEvidence {
   body : Array[@lib.Instruction]
   result_count : Int
@@ -2756,6 +2766,61 @@ fn dae_effect_free_body_evidence(
     effect_free: !has_observable_effect_or_branch,
   }
   if dae_effect_free_body_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
+}
+
+///|
+fn dae_terminal_return_body_evidence_is_consistent(
+  evidence : DaeTerminalReturnBodyEvidence,
+) -> Bool {
+  if evidence.body_length != evidence.body.length() || evidence.body_length == 0 {
+    return false
+  }
+  if evidence.return_idx != evidence.body_length - 1 ||
+    evidence.prefix_length != evidence.return_idx {
+    return false
+  }
+  match evidence.body[evidence.return_idx] {
+    @lib.Return => ()
+    _ => return false
+  }
+  evidence.terminal_return_only ==
+  !evidence.prefix_has_observable_effect_or_branch &&
+  evidence.terminal_return_only
+}
+
+///|
+fn dae_terminal_return_body_evidence(
+  body : Array[@lib.Instruction],
+) -> DaeTerminalReturnBodyEvidence? {
+  if body.length() == 0 {
+    return None
+  }
+  let return_idx = body.length() - 1
+  match body[return_idx] {
+    @lib.Return => ()
+    _ => return None
+  }
+  let mut prefix_has_observable_effect_or_branch = false
+  let mut idx = 0
+  while idx < return_idx {
+    if dae_instr_has_observable_effect_or_branch(body[idx]) {
+      prefix_has_observable_effect_or_branch = true
+    }
+    idx += 1
+  }
+  let evidence = {
+    body,
+    body_length: body.length(),
+    return_idx,
+    prefix_length: return_idx,
+    prefix_has_observable_effect_or_branch,
+    terminal_return_only: !prefix_has_observable_effect_or_branch,
+  }
+  if dae_terminal_return_body_evidence_is_consistent(evidence) {
     Some(evidence)
   } else {
     None
@@ -9245,7 +9310,7 @@ fn dae_find_multi_result_control_slice(
           mod_.type_sec,
           0,
         ) {
-        Some(_) if dae_instrs_have_only_terminal_function_return(block_body) =>
+        Some(_) if dae_terminal_return_body_evidence(block_body) is Some(_) =>
           match
             dae_multi_result_control_carrier_chain_slice(
               mod_,
@@ -9949,7 +10014,7 @@ fn dae_try_refine_direct_gc_types(
                 results.length(),
               ) {
               Some(_) if dae_effect_free_body_evidence(block_body) is Some(_) ||
-                dae_instrs_have_only_terminal_function_return(block_body) => {
+                dae_terminal_return_body_evidence(block_body) is Some(_) => {
                 candidate_body = block_body
                 keep_unwrapping = true
               }
@@ -10277,28 +10342,6 @@ fn dae_instrs_have_observable_effect_or_branch(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   instrs.any(fn(instr) { dae_instr_has_observable_effect_or_branch(instr) })
-}
-
-///|
-fn dae_instrs_have_only_terminal_function_return(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  if instrs.length() == 0 {
-    return false
-  }
-  let last_idx = instrs.length() - 1
-  match instrs[last_idx] {
-    @lib.Return => ()
-    _ => return false
-  }
-  let mut idx = 0
-  while idx < last_idx {
-    if dae_instr_has_observable_effect_or_branch(instrs[idx]) {
-      return false
-    }
-    idx += 1
-  }
-  true
 }
 
 ///|

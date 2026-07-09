@@ -2105,6 +2105,35 @@ test "dae control result pair GC evidence centralizes terminal arm LUB rewrites"
 }
 
 ///|
+test "dae terminal-return body evidence centralizes return-carrier guards" {
+  let terminal_arm = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::return_(),
+  ]
+  match dae_terminal_return_body_evidence(terminal_arm) {
+    Some(evidence) => {
+      assert_eq(evidence.body.length(), 3)
+      assert_eq(evidence.body_length, 3)
+      assert_eq(evidence.return_idx, 2)
+      assert_eq(evidence.prefix_length, 2)
+      assert_false(evidence.prefix_has_observable_effect_or_branch)
+      assert_true(evidence.terminal_return_only)
+      assert_true(dae_terminal_return_body_evidence_is_consistent(evidence))
+    }
+    None => fail("expected terminal-return body evidence")
+  }
+  let effectful_terminal_arm = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ]
+  match dae_terminal_return_body_evidence(effectful_terminal_arm) {
+    Some(_) => fail("effectful terminal-return prefix should not be accepted")
+    None => ()
+  }
+}
+
+///|
 test "dae effect-free body evidence centralizes carrier and fallthrough guards" {
   let effect_free_arm = [
     @lib.Instruction::i32_const(@lib.I32(1)),
