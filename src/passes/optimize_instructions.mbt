@@ -10956,8 +10956,13 @@ fn optimize_instructions_rewrite_exact_with_children(
 }
 
 ///|
-priv struct OiCallRefFallthroughFunctionFact {
+priv struct OiCallRefFallthroughFunctionIndexFact {
   direct_func : Int
+}
+
+///|
+priv struct OiCallRefFallthroughFunctionFact {
+  index_fact : OiCallRefFallthroughFunctionIndexFact
   ref_func_heap : @lib.HeapType?
 }
 
@@ -10990,11 +10995,36 @@ fn OiCallRefFallthroughDirectFuncFact::from_fallthrough(
 }
 
 ///|
+fn OiCallRefFallthroughFunctionIndexFact::proves_function_index(
+  self : OiCallRefFallthroughFunctionIndexFact,
+) -> Bool {
+  self.direct_func >= 0
+}
+
+///|
+fn OiCallRefFallthroughFunctionIndexFact::function_index(
+  self : OiCallRefFallthroughFunctionIndexFact,
+) -> Int {
+  self.direct_func
+}
+
+///|
 fn OiCallRefFallthroughFunctionFact::proves_ref_func_payload(
   self : OiCallRefFallthroughFunctionFact,
 ) -> Bool {
+  // Binaryen v130 `visitCallRef` fallthrough directization consumes a concrete
+  // `ref.func` selected by `Properties::getFallthrough`. Keep that selected
+  // function index as its own proof fact so the optional heap compatibility
+  // payload does not double as a sentinel for directizability.
   ignore(self.ref_func_heap)
-  self.direct_func >= 0
+  self.index_fact.proves_function_index()
+}
+
+///|
+fn OiCallRefFallthroughFunctionFact::function_index(
+  self : OiCallRefFallthroughFunctionFact,
+) -> Int {
+  self.index_fact.function_index()
 }
 
 ///|
@@ -11075,7 +11105,10 @@ fn OiCallRefFallthroughTargetFact::from_node(
       }
       {
         direct_fact: Some({
-          function_fact: { direct_func: node.imm0, ref_func_heap },
+          function_fact: {
+            index_fact: { direct_func: node.imm0 },
+            ref_func_heap,
+          },
         }),
       }
     }
@@ -12682,7 +12715,7 @@ fn OiCallRefFallthroughFuncPlanFact::from_target_fact(
   // plan fact so fallthrough calls do not depend on generic sentinel fields.
   match target_fact.fallthrough_direct_target() {
     Some(fact) if fact.proves_fallthrough_ref_func() =>
-      Some({ direct_func: fact.function_fact.direct_func })
+      Some({ direct_func: fact.function_fact.function_index() })
     _ => None
   }
 }
