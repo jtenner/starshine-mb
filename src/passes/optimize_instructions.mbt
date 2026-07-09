@@ -2293,10 +2293,48 @@ fn OiRefProducerSubtypeRelationFact::proves_exact(
 }
 
 ///|
+priv enum OiRefTargetIdentityKind {
+  RefTargetExactHeapIdentity
+  RefTargetExactNonNullHeapIdentity
+  RefTargetFinalHeapIdentity
+}
+
+///|
+priv struct OiRefTargetIdentityProofFact {
+  kind : OiRefTargetIdentityKind
+}
+
+///|
+fn OiRefTargetIdentityProofFact::when_proven(
+  kind : OiRefTargetIdentityKind,
+  proven : Bool,
+) -> OiRefTargetIdentityProofFact? {
+  if proven {
+    Some({ kind, })
+  } else {
+    None
+  }
+}
+
+///|
+fn OiRefTargetIdentityProofFact::proves_kind(
+  self : OiRefTargetIdentityProofFact,
+  kind : OiRefTargetIdentityKind,
+) -> Bool {
+  match (self.kind, kind) {
+    (RefTargetExactHeapIdentity, RefTargetExactHeapIdentity) => true
+    (RefTargetExactNonNullHeapIdentity, RefTargetExactNonNullHeapIdentity) =>
+      true
+    (RefTargetFinalHeapIdentity, RefTargetFinalHeapIdentity) => true
+    _ => false
+  }
+}
+
+///|
 priv struct OiRefProducerTargetIdentityFact {
-  exact_heap : Bool
-  exact_non_null_heap : Bool
-  final_heap : Bool
+  exact_heap_fact : OiRefTargetIdentityProofFact?
+  exact_non_null_heap_fact : OiRefTargetIdentityProofFact?
+  final_heap_fact : OiRefTargetIdentityProofFact?
 }
 
 ///|
@@ -2445,11 +2483,20 @@ fn OiRefProducerTargetRelationFact::from_producer(
       }
       {
         identity_fact: {
-          exact_heap: ref_type.is_exact() && source == target,
-          exact_non_null_heap: ref_type.is_non_nullable() &&
-          ref_type.is_exact() &&
-          source == target,
-          final_heap,
+          exact_heap_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetExactHeapIdentity,
+            ref_type.is_exact() && source == target,
+          ),
+          exact_non_null_heap_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetExactNonNullHeapIdentity,
+            ref_type.is_non_nullable() &&
+            ref_type.is_exact() &&
+            source == target,
+          ),
+          final_heap_fact: OiRefTargetIdentityProofFact::when_proven(
+            RefTargetFinalHeapIdentity,
+            final_heap,
+          ),
         },
         match_fact: {
           nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
@@ -2499,9 +2546,9 @@ fn OiRefProducerTargetRelationFact::from_producer(
     None =>
       {
         identity_fact: {
-          exact_heap: false,
-          exact_non_null_heap: false,
-          final_heap: false,
+          exact_heap_fact: None,
+          exact_non_null_heap_fact: None,
+          final_heap_fact: None,
         },
         match_fact: {
           nullable_match_fact: None,
@@ -2524,21 +2571,30 @@ fn OiRefProducerTargetRelationFact::from_producer(
 fn OiRefProducerTargetRelationFact::proves_exact_heap_target(
   self : OiRefProducerTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.exact_heap
+  match self.identity_fact.exact_heap_fact {
+    Some(fact) => fact.proves_kind(RefTargetExactHeapIdentity)
+    None => false
+  }
 }
 
 ///|
 fn OiRefProducerTargetRelationFact::proves_exact_non_null_heap_target(
   self : OiRefProducerTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.exact_non_null_heap
+  match self.identity_fact.exact_non_null_heap_fact {
+    Some(fact) => fact.proves_kind(RefTargetExactNonNullHeapIdentity)
+    None => false
+  }
 }
 
 ///|
 fn OiRefProducerTargetRelationFact::proves_final_heap_target(
   self : OiRefProducerTargetRelationFact,
 ) -> Bool {
-  self.identity_fact.final_heap
+  match self.identity_fact.final_heap_fact {
+    Some(fact) => fact.proves_kind(RefTargetFinalHeapIdentity)
+    None => false
+  }
 }
 
 ///|
