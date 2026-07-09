@@ -9318,6 +9318,49 @@ fn OiI64LogicalShiftMaxBitsFact::from_shr_u(
 }
 
 ///|
+priv enum OiMaxBitsBlockPrefixKind {
+  MaxBitsBlockPrefixPure
+  MaxBitsBlockPrefixLocalSet
+}
+
+///|
+priv struct OiMaxBitsBlockPrefixFact {
+  kind : OiMaxBitsBlockPrefixKind
+  root_id : Int
+}
+
+///|
+fn OiMaxBitsBlockPrefixFact::from_root(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  root_id : Int,
+) -> OiMaxBitsBlockPrefixFact? {
+  // Binaryen v130 `Bits::getMaxBits` can use the value fallthrough of a block
+  // even when earlier straight-line roots have effects; the later replacement
+  // preserves those effects by dropping the whole block. Keep the first
+  // effectful prefix outcome intentionally narrow to local.set roots so branch,
+  // control, and generalized localization remain out of this fact.
+  if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
+    return Some({ kind: MaxBitsBlockPrefixPure, root_id })
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 =>
+      Some({ kind: MaxBitsBlockPrefixLocalSet, root_id })
+    _ => None
+  }
+}
+
+///|
+fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
+  self : OiMaxBitsBlockPrefixFact,
+) -> Bool {
+  ignore(self.root_id)
+  match self.kind {
+    MaxBitsBlockPrefixPure | MaxBitsBlockPrefixLocalSet => true
+  }
+}
+
+///|
 priv struct OiMaxBitsFallthroughFact {
   value_id : Int
 }
@@ -9331,8 +9374,9 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
   // Starshine's represented block fallthrough mirrors the local Binaryen
   // `Properties::getFallthrough` maxBits path used by the local scanner. Record
   // the fallthrough child as a fact before the unsigned-max query recurses. For
-  // region-backed blocks, only pure prefixes are admitted so folded constants do
-  // not erase effects or branch/control behavior.
+  // region-backed blocks, only pure prefixes and the first source-backed
+  // straight-line effectful prefix are admitted so folded constants do not erase
+  // effects or branch/control behavior.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block if node.child_count == 1 =>
@@ -9345,10 +9389,9 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
       }
       for slot = 0; slot < root_count - 1; slot = slot + 1 {
         let root_id = @ir.hot_region_get(func, body_ref, slot)
-        if !OiSideEffectFreeExpressionFact::proves_node_free(
-            func, dead, root_id,
-          ) {
-          return None
+        match OiMaxBitsBlockPrefixFact::from_root(func, dead, root_id) {
+          Some(fact) if fact.proves_preservable_prefix() => ()
+          _ => return None
         }
       }
       Some({ value_id: @ir.hot_region_get(func, body_ref, root_count - 1) })

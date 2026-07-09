@@ -378,6 +378,37 @@ test "optimize-instructions erases pure block prefixes after maxBits compare fol
 }
 
 ///|
+test "optimize-instructions preserves effectful block prefixes after maxBits compare folds" {
+  // Red-first OI-E behavior-parity slice: Binaryen v130 uses a block tail's
+  // maxBits even when earlier block roots have effects, but preserves the full
+  // block before the folded constant. This keeps branch/control localization out
+  // of scope while covering straight-line effectful prefixes.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (result i32) (local $tmp i32)
+        #|    (i32.eq
+        #|      (block (result i32)
+        #|        (local.set $tmp (i32.const 7))
+        #|        (i32.and (local.get $x) (i32.const 255)))
+        #|      (i32.const 256))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected effectful-prefix block maxBits fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves local.tee while folding maxBits compares" {
   // Red-first OI-E behavior-parity slice: Binaryen v130 `Bits::getMaxBits`
   // sees through a local.tee value but preserves the local write before the
