@@ -2828,6 +2828,43 @@ test "optimize-instructions hoists eqz from select arms paired with booleans" {
 }
 
 ///|
+test "optimize-instructions hoists matching eqz select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
+  // one-child loop moves matching direct i32/i64 eqz shells outside a select
+  // after proving equal child types, no shallow shell effects, and selectable
+  // child arms. Oracle: `.tmp/oi-probes/select-matching-unary-hoist.wat`.
+  let assert_hoisted = fn(
+    wat : String,
+    expected_unary : @lib.Instruction,
+    expected_child_type : @lib.ValType,
+  ) raise {
+    let func = optimize_instructions_test_run_hot(wat)
+    let root = @ir.hot_root_get(func, 0)
+    @debug.assert_eq(@ir.hot_node_exact_instr(func, root), Some(expected_unary))
+    let inner = @ir.hot_child_get(func, root, 0)
+    match @ir.hot_node_get(func, inner).op {
+      @ir.HotOp::Select => ()
+      other =>
+        fail("expected matching eqz shells to hoist over select, got \{other}")
+    }
+    @debug.assert_eq(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, inner)),
+      [expected_child_type],
+    )
+  }
+  assert_hoisted(
+    "(module (func (param i32 i32 i32) (result i32) local.get 0 i32.eqz local.get 1 i32.eqz local.get 2 select))",
+    @lib.Instruction::i32_eqz(),
+    @lib.ValType::i32(),
+  )
+  assert_hoisted(
+    "(module (func (param i64 i64 i32) (result i32) local.get 0 i64.eqz local.get 1 i64.eqz local.get 2 select))",
+    @lib.Instruction::i64_eqz(),
+    @lib.ValType::i64(),
+  )
+}
+
+///|
 test "optimize-instructions removes eqz from select conditions by swapping arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to

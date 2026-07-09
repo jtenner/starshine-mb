@@ -27926,6 +27926,154 @@ fn optimize_instructions_try_hoist_eqz_boolean_select(
 }
 
 ///|
+priv enum OiMatchingUnarySelectShellKind {
+  MatchingSelectI32Eqz
+  MatchingSelectI64Eqz
+}
+
+///|
+priv struct OiMatchingUnarySelectArmFact {
+  kind : OiMatchingUnarySelectShellKind
+  instr : @lib.Instruction
+  result_type : @lib.ValType
+  child_type : @lib.ValType
+  child_id : Int
+}
+
+///|
+fn OiMatchingUnarySelectArmFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingUnarySelectArmFact? {
+  // Binaryen v130's `optimizeTernary` shallow-equal loop first excludes control
+  // structures, requires one child, and later requires equal child types. This
+  // narrow starter fact admits only direct eqz shells, whose shallow operation
+  // is side-effect-free, and records both the output and selectable child type.
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let (kind, instr, result_type, child_type) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) =>
+      (
+        MatchingSelectI32Eqz,
+        @lib.Instruction::i32_eqz(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      )
+    Some(@lib.Instruction::I64Eqz) =>
+      (
+        MatchingSelectI64Eqz,
+        @lib.Instruction::i64_eqz(),
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      )
+    _ => return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [actual_result] if actual_result == result_type => ()
+    _ => return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, child_id)) {
+    [actual_child] if actual_child == child_type => ()
+    _ => return None
+  }
+  Some({ kind, instr, result_type, child_type, child_id })
+}
+
+///|
+priv struct OiMatchingUnarySelectHoistFact {
+  shell_fact : OiMatchingUnarySelectArmFact
+  if_true_child : Int
+  if_false_child : Int
+  condition_id : Int
+}
+
+///|
+fn OiMatchingUnarySelectHoistFact::from_select(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingUnarySelectHoistFact? {
+  // This is the direct-select subset of Binaryen v130's repeated shallow-equal
+  // one-child hoist. Equal selected fact kinds model `shallowEqual`; the exact
+  // scalar child type check models both equal child types and the currently
+  // representable `canEmitSelectWithArms` boundary.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Select if node.child_count == 3 => ()
+    _ => return None
+  }
+  let if_true = @ir.hot_child_get(func, node_id, 0)
+  let if_false = @ir.hot_child_get(func, node_id, 1)
+  let condition_id = @ir.hot_child_get(func, node_id, 2)
+  let true_fact = match OiMatchingUnarySelectArmFact::from_node(func, if_true) {
+    Some(fact) => fact
+    None => return None
+  }
+  let false_fact = match
+    OiMatchingUnarySelectArmFact::from_node(func, if_false) {
+    Some(fact) => fact
+    None => return None
+  }
+  match (true_fact.kind, false_fact.kind) {
+    (MatchingSelectI32Eqz, MatchingSelectI32Eqz) => ()
+    (MatchingSelectI64Eqz, MatchingSelectI64Eqz) => ()
+    _ => return None
+  }
+  if true_fact.child_type != false_fact.child_type ||
+    true_fact.result_type != false_fact.result_type {
+    return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [select_result] if select_result == true_fact.result_type => ()
+    _ => return None
+  }
+  Some({
+    shell_fact: false_fact,
+    if_true_child: true_fact.child_id,
+    if_false_child: false_fact.child_id,
+    condition_id,
+  })
+}
+
+///|
+fn OiMatchingUnarySelectHoistFact::apply(
+  self : OiMatchingUnarySelectHoistFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let inner_select = @ir.hot_build_select(
+    func,
+    self.shell_fact.child_type,
+    self.if_true_child,
+    self.if_false_child,
+    self.condition_id,
+  )
+  let replacement = @ir.hot_build_unary(
+    func,
+    self.shell_fact.result_type,
+    inner_select,
+  )
+  @ir.hot_node_exact_instr_set(func, replacement, self.shell_fact.instr)
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
+  true
+}
+
+///|
+fn optimize_instructions_try_hoist_matching_unary_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match OiMatchingUnarySelectHoistFact::from_select(func, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -38310,7 +38458,8 @@ fn optimize_instructions_visit_node(
       ) ||
       optimize_instructions_try_hoist_eqz_boolean_select(
         ctx, func, dead, node_id,
-      )
+      ) ||
+      optimize_instructions_try_hoist_matching_unary_select(ctx, func, node_id)
     @ir.HotOp::Drop =>
       optimize_instructions_try_collapse_dropped_unreachable_block(
         ctx, func, node_id,
