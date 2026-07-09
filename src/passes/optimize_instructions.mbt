@@ -1781,12 +1781,85 @@ fn OiHeapRelationMissFact::proves_abs_struct_array_disjoint(
 }
 
 ///|
+priv enum OiHeapIdentityKind {
+  HeapIdentityDifferentOrUnknown
+  HeapIdentitySame
+}
+
+///|
+priv struct OiHeapIdentityFact {
+  kind : OiHeapIdentityKind
+}
+
+///|
+fn OiHeapIdentityFact::from_heaps(
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiHeapIdentityFact {
+  // Binaryen's GC cast check first observes exact heap equality before asking
+  // broader subtype or overlap questions. Keep that source-order identity
+  // outcome explicit instead of storing another raw relation boolean.
+  {
+    kind: if source == target {
+      HeapIdentitySame
+    } else {
+      HeapIdentityDifferentOrUnknown
+    },
+  }
+}
+
+///|
+fn OiHeapIdentityFact::proves_same_heap(self : OiHeapIdentityFact) -> Bool {
+  match self.kind {
+    HeapIdentitySame => true
+    HeapIdentityDifferentOrUnknown => false
+  }
+}
+
+///|
+priv enum OiConcreteHeapPairKind {
+  ConcreteHeapPairNoProof
+  ConcreteHeapPairBothConcrete
+}
+
+///|
+priv struct OiConcreteHeapPairFact {
+  kind : OiConcreteHeapPairKind
+}
+
+///|
+fn OiConcreteHeapPairFact::from_heaps(
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> OiConcreteHeapPairFact {
+  // Strict concrete-subtype success and exact-target miss facts are only valid
+  // for two module-defined concrete heaps. Represent that relation as a named
+  // fact rather than a parallel boolean on the aggregate heap relation.
+  let kind = match (source, target) {
+    (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) =>
+      ConcreteHeapPairBothConcrete
+    _ => ConcreteHeapPairNoProof
+  }
+  { kind, }
+}
+
+///|
+fn OiConcreteHeapPairFact::proves_both_concrete_heaps(
+  self : OiConcreteHeapPairFact,
+) -> Bool {
+  match self.kind {
+    ConcreteHeapPairBothConcrete => true
+    ConcreteHeapPairNoProof => false
+  }
+}
+
+///|
 priv struct OiHeapRelationFact {
   match_fact : OiHeapRelationMatchFact
   miss_fact : OiHeapRelationMissFact
-  same_heap : Bool
-  known_subtype : Bool
-  both_concrete_heaps : Bool
+  identity_fact : OiHeapIdentityFact
+  subtype_fact : OiHeapSubtypeFact
+  concrete_pair_fact : OiConcreteHeapPairFact
 }
 
 ///|
@@ -1795,16 +1868,12 @@ fn OiHeapRelationFact::from_heaps(
   source : @lib.HeapType,
   target : @lib.HeapType,
 ) -> OiHeapRelationFact {
-  let both_concrete_heaps = match (source, target) {
-    (@lib.HeapType::HeapType(_), @lib.HeapType::HeapType(_)) => true
-    _ => false
-  }
   {
     match_fact: OiHeapRelationMatchFact::from_heaps(ctx, source, target),
     miss_fact: OiHeapRelationMissFact::from_heaps(ctx, source, target),
-    same_heap: source == target,
-    known_subtype: OiHeapSubtypeFact::from_heaps(ctx, source, target).proves_known_subtype(),
-    both_concrete_heaps,
+    identity_fact: OiHeapIdentityFact::from_heaps(source, target),
+    subtype_fact: OiHeapSubtypeFact::from_heaps(ctx, source, target),
+    concrete_pair_fact: OiConcreteHeapPairFact::from_heaps(source, target),
   }
 }
 
@@ -1833,8 +1902,20 @@ fn OiHeapRelationFact::known_abs_struct_array_disjoint(
 }
 
 ///|
+fn OiHeapRelationFact::proves_same_heap(self : OiHeapRelationFact) -> Bool {
+  self.identity_fact.proves_same_heap()
+}
+
+///|
 fn OiHeapRelationFact::proves_known_subtype(self : OiHeapRelationFact) -> Bool {
-  self.known_subtype
+  self.subtype_fact.proves_known_subtype()
+}
+
+///|
+fn OiHeapRelationFact::proves_both_concrete_heaps(
+  self : OiHeapRelationFact,
+) -> Bool {
+  self.concrete_pair_fact.proves_both_concrete_heaps()
 }
 
 ///|
@@ -1862,15 +1943,15 @@ fn OiHeapSubtypeTargetPayloadFact::from_heap_relation(
   // strict concrete subtype flows to the target. Keep the exactness adjustment
   // (`strict subtype` cannot prove exact target instances) in this explicit
   // fact instead of a relation helper returning tuple sentinels.
-  if relation.same_heap {
+  if relation.proves_same_heap() {
     {
       kind: SameHeapSubtypeTargetPayload,
       nullable: source_nullable,
       exact: source_exact,
     }
-  } else if relation.both_concrete_heaps &&
-    !relation.same_heap &&
-    relation.known_subtype {
+  } else if relation.proves_both_concrete_heaps() &&
+    !relation.proves_same_heap() &&
+    relation.proves_known_subtype() {
     {
       kind: StrictConcreteSubtypeTargetPayload,
       nullable: source_nullable,
@@ -1904,8 +1985,8 @@ fn OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
   // concrete subtype that also module-matches the target cannot be an exact
   // instance of the target heap.
   {
-    target_match: relation.both_concrete_heaps &&
-    !relation.same_heap &&
+    target_match: relation.proves_both_concrete_heaps() &&
+    !relation.proves_same_heap() &&
     relation.match_fact.proves_module_heap_match(),
   }
 }
@@ -1936,8 +2017,8 @@ fn OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
   {
     target_match: target_nullable &&
     source_nullable &&
-    relation.both_concrete_heaps &&
-    !relation.same_heap &&
+    relation.proves_both_concrete_heaps() &&
+    !relation.proves_same_heap() &&
     (source_exact || relation.match_fact.proves_module_heap_match()),
   }
 }
