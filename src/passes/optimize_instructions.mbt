@@ -1772,8 +1772,17 @@ fn OiConcreteSourceTargetOverlapFact::proves_no_target_overlap(
 }
 
 ///|
+priv enum OiFinalHeapKind {
+  FinalHeapConcreteSubtype
+  FinalHeapCompTypeSubtype
+  FinalHeapNonFinalConcreteSubtype
+  FinalHeapUnresolvedConcreteHeap
+  FinalHeapNonConcreteHeap
+}
+
+///|
 priv struct OiFinalHeapFact {
-  final_heap : Bool
+  kind : OiFinalHeapKind
 }
 
 ///|
@@ -1781,21 +1790,32 @@ fn OiFinalHeapFact::from_heap(
   module_ctx : @ir.HotModuleContext,
   heap : @lib.HeapType,
 ) -> OiFinalHeapFact {
-  let final_heap = match heap {
+  // Binaryen's GC cast checks use final heap evidence only for module-defined
+  // concrete heaps whose resolved subtype is final or whose composite type is
+  // already represented as a concrete comp subtype. Keep the non-final,
+  // unresolved, and non-concrete cases explicit so exact-target consumers do
+  // not depend on a raw boolean payload.
+  let kind = match heap {
     @lib.HeapType::HeapType(type_idx) =>
       match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
-        Some(@lib.CompTypeSubType(_, _)) => true
-        Some(@lib.SubType(true, _, _, _)) => true
-        _ => false
+        Some(@lib.CompTypeSubType(_, _)) => FinalHeapCompTypeSubtype
+        Some(@lib.SubType(true, _, _, _)) => FinalHeapConcreteSubtype
+        Some(@lib.SubType(false, _, _, _)) => FinalHeapNonFinalConcreteSubtype
+        None => FinalHeapUnresolvedConcreteHeap
       }
-    _ => false
+    _ => FinalHeapNonConcreteHeap
   }
-  { final_heap, }
+  { kind, }
 }
 
 ///|
 fn OiFinalHeapFact::proves_final_heap(self : OiFinalHeapFact) -> Bool {
-  self.final_heap
+  match self.kind {
+    FinalHeapConcreteSubtype | FinalHeapCompTypeSubtype => true
+    FinalHeapNonFinalConcreteSubtype
+    | FinalHeapUnresolvedConcreteHeap
+    | FinalHeapNonConcreteHeap => false
+  }
 }
 
 ///|
