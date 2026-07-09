@@ -323,7 +323,15 @@ fn dae_test_call_ref_declarative_fixture() -> @lib.Module {
 }
 
 ///|
-test "dae-optimizing is an active module pass under canonical and descriptive names" {
+test "plain DAE and dae-optimizing are active module passes under canonical names and aliases" {
+  @debug.assert_eq(
+    pass_registry_category("dead-argument-elimination"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("dae"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
   @debug.assert_eq(
     pass_registry_category("dae-optimizing"),
     Some(HotPassRegistryCategory::module_pass()),
@@ -332,6 +340,5385 @@ test "dae-optimizing is an active module pass under canonical and descriptive na
     pass_registry_category("dead-argument-elimination-optimizing"),
     Some(HotPassRegistryCategory::module_pass()),
   )
+}
+
+///|
+test "dead-argument-elimination preserves imported tag type references while pruning types" {
+  let source =
+    #|(module
+    #|  (type $tag_ty (func (param i32)))
+    #|  (tag $e (import "8" "") (type $tag_ty))
+    #|  (data "\1f\b4"))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  match optimized.type_sec {
+    Some(@lib.TypeSec(rec_types)) => @debug.assert_eq(rec_types.length(), 1)
+    None => fail("expected imported tag type to remain live")
+  }
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [@lib.Import(_, _, @lib.TagExternType(@lib.TagType(type_idx)))]
+      )
+    ) => @debug.assert_eq(type_idx, @lib.TypeIdx::new(0U))
+    _ => fail("expected one imported tag after DAE")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected imported tag type repair output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination removes a private unused scalar parameter at direct calls" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 20
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(callee_locals.length(), 0)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_true(caller.contains("local.get (Local 0)"), msg=caller)
+  assert_false(caller.contains("i32.const I32(20)"), msg=caller)
+}
+
+///|
+test "dae alias removes a private unused scalar parameter at direct calls" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 20
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dae")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(callee_locals.length(), 0)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_true(caller.contains("local.get (Local 0)"), msg=caller)
+  assert_false(caller.contains("i32.const I32(20)"), msg=caller)
+}
+
+///|
+test "dead-argument-elimination trims unreachable tail debris from coverage-shaped functions" {
+  let source =
+    #|(module
+    #|  (type $void (func))
+    #|  (import "env" "imp" (func $imp (type $void)))
+    #|  (func $main (type $void)
+    #|    i32.const 0
+    #|    drop
+    #|    block
+    #|      i32.const 1
+    #|      br_table 0 0
+    #|    end
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $imp
+    #|    return_call $imp)
+    #|  (start $main)
+    #|  (export "main" (func $main)))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("call"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected unreachable-tail DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination repairs direct return_call sites when removing an unused parameter" {
+  let source =
+    #|(module
+    #|  (func $entry (export "main") (result i32)
+    #|    i32.const 31
+    #|    i32.const 41
+    #|    return_call $f)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func $other (result i32)
+    #|    i32.const 32
+    #|    i32.const 42
+    #|    return_call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  let entry = optimized.pretty_print_defined_func(0U)
+  let other = optimized.pretty_print_defined_func(2U)
+  assert_true(entry.contains("return_call"), msg=entry)
+  assert_true(other.contains("return_call"), msg=other)
+  assert_false(entry.contains("i32.const I32(31)"), msg=entry)
+  assert_false(other.contains("i32.const I32(32)"), msg=other)
+  assert_true(entry.contains("i32.const I32(41)"), msg=entry)
+  assert_true(other.contains("i32.const I32(42)"), msg=other)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected return_call DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters to exact owned direct allocations" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected DAE argument-refinement output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through typed block operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    (block (result (ref $leaf))
+    #|      struct.new_default $leaf)
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-block argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through typeidx block operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    (block (type $carrier)
+    #|      struct.new_default $leaf)
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-block argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through typeidx if operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then struct.new_default $leaf)
+    #|      (else struct.new_default $leaf))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-if argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through typeidx loop operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    (loop (type $carrier)
+    #|      struct.new_default $leaf)
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-loop argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through parametric typeidx block operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    (block (type $carrier)
+    #|      drop
+    #|      struct.new_default $leaf)
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE parametric typeidx-block argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through parametric typeidx if operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    i32.const 7
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then
+    #|        drop
+    #|        struct.new_default $leaf)
+    #|      (else
+    #|        drop
+    #|        struct.new_default $leaf))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE parametric typeidx-if argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through parametric typeidx loop operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    (loop (type $carrier)
+    #|      drop
+    #|      struct.new_default $leaf)
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE parametric typeidx-loop argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through multi-result typeidx block operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result i32 (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    (block (type $carrier)
+    #|      i32.const 9
+    #|      struct.new_default $leaf)
+    #|    call $f
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result typeidx-block argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through multi-result typeidx if operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result i32 (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then
+    #|        i32.const 9
+    #|        struct.new_default $leaf)
+    #|      (else
+    #|        i32.const 11
+    #|        struct.new_default $leaf))
+    #|    call $f
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result typeidx-if argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through multi-result typeidx loop operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result i32 (ref $leaf))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    (loop (type $carrier)
+    #|      i32.const 9
+    #|      struct.new_default $leaf)
+    #|    call $f
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result typeidx-loop argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through typed select operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    struct.new_default $leaf
+    #|    struct.new_default $leaf
+    #|    local.get 0
+    #|    select (result (ref $leaf))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-select argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through typed-call select operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $make1 (result (ref $leaf1))
+    #|    struct.new_default $leaf1)
+    #|  (func $make2 (result (ref $leaf2))
+    #|    struct.new_default $leaf2)
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    call $make1
+    #|    call $make2
+    #|    local.get 0
+    #|    select (result (ref null $base))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-call select-operand argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through effectful typed-select conditions" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $cond (result i32)
+    #|    i32.const 1)
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    struct.new_default $leaf
+    #|    call $cond
+    #|    select (result (ref $leaf))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 1), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE effectful typed-select argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters through branchful typed-select conditions" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    select (result (ref null $base))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE branchful typed-select argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination preserves nullable select LUB while narrowing live GC parameters" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    ref.null $leaf
+    #|    struct.new_default $leaf
+    #|    local.get 0
+    #|    select (result (ref null $leaf))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_nullable_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_nullable_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nullable typed-select argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows nullable typed-select actuals to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "a") (param i32) (result i32)
+    #|    ref.null $leaf1
+    #|    struct.new_default $leaf1
+    #|    local.get 0
+    #|    select (result (ref null $leaf1))
+    #|    call $f)
+    #|  (func (export "b") (param i32) (result i32)
+    #|    ref.null $leaf2
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    select (result (ref null $leaf2))
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_nullable_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_nullable_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nullable typed-select LUB argument-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC parameters to common direct-call LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "a") (result i32)
+    #|    struct.new_default $leaf1
+    #|    call $f)
+    #|  (func (export "b") (result i32)
+    #|    struct.new_default $leaf2
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE argument-LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dae-optimizing folds exact non-null ref.is_null and then removes the dead parameter" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $entry (export "main") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $f)
+    #|  (func $f (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func $other (result i32)
+    #|    struct.new_default $leaf
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dae-optimizing")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let helper = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("i32.const I32(0)"), msg=helper)
+  let entry = optimized.pretty_print_defined_func(0U)
+  let other = optimized.pretty_print_defined_func(2U)
+  assert_false(entry.contains("struct.new_default"), msg=entry)
+  assert_false(other.contains("struct.new_default"), msg=other)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dae-optimizing exact ref.is_null output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results to exact helper allocations" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (result (ref null $base))
+    #|    struct.new_default $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected DAE return-refinement output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results from local.get evidence" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (result (ref null $base))
+    #|    (local $x (ref null $leaf))
+    #|    struct.new_default $leaf
+    #|    local.set $x
+    #|    local.get $x)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=false,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE local.get return-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows branchful select-condition GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE branchful select-condition result-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results in flat multi-result bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    struct.new_default $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result return-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results in flat multi-result bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    struct.new_default $leaf
+    #|    return)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result explicit-return refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results after droppable multi-result prefix" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    i64.const 99
+    #|    drop
+    #|    i32.const 7
+    #|    struct.new_default $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE prefixed multi-result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if (result i32 (ref null $base))
+    #|      i32.const 7
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      i32.const 8
+    #|      struct.new_default $leaf2
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through tail single-result if operands in multi-result bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE tail single-result if operand multi-result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through leading single-result if operands in multi-result bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base) i32)
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end
+    #|    i32.const 7)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_mid,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE leading single-result if operand multi-result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through middle single-result if operands in multi-result bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base) i64)
+    #|    i32.const 7
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end
+    #|    i64.const 9
+    #|    return)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+    @lib.ValType::i64(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE explicit-return middle single-result if operand multi-result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through multiple single-result if operands in multi-result bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $leaf3 (sub $mid (struct (field i16))))
+    #|  (type $leaf4 (sub $mid (struct (field i8))))
+    #|  (func $f (param i32 i32) (result (ref null $base) i32 (ref null $base))
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end
+    #|    i32.const 7
+    #|    local.get 1
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf3
+    #|    else
+    #|      struct.new_default $leaf4
+    #|    end)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f
+    #|    ref.is_null
+    #|    drop
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_mid,
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multiple single-result if operand multi-result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through interleaved droppable debris before single-result if operands" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    i64.const 99
+    #|    drop
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE interleaved-debris single-result if operand multi-result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through block-carrier multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if (result i32 (ref null $base))
+    #|      block (result i32 (ref null $base))
+    #|        i32.const 7
+    #|        struct.new_default $leaf
+    #|      end
+    #|    else
+    #|      block (result i32 (ref null $base))
+    #|        i32.const 8
+    #|        struct.new_default $leaf
+    #|      end
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE block-carrier multi-result if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through nested block-carrier multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if (result i32 (ref null $base))
+    #|      block (result i32 (ref null $base))
+    #|        block (result i32 (ref null $base))
+    #|          i32.const 7
+    #|          struct.new_default $leaf
+    #|        end
+    #|      end
+    #|    else
+    #|      block (result i32 (ref null $base))
+    #|        block (result i32 (ref null $base))
+    #|          i32.const 8
+    #|          struct.new_default $leaf
+    #|        end
+    #|      end
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nested block-carrier multi-result if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    else
+    #|      i32.const 8
+    #|      struct.new_default $leaf2
+    #|      return
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result explicit-return if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through block-carrier multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      block (result i32 (ref null $base))
+    #|        i32.const 7
+    #|        struct.new_default $leaf
+    #|      end
+    #|      return
+    #|    else
+    #|      block (result i32 (ref null $base))
+    #|        i32.const 8
+    #|        struct.new_default $leaf
+    #|      end
+    #|      return
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE block-carrier multi-result explicit-return if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through nested block-carrier multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      block (result i32 (ref null $base))
+    #|        block (result i32 (ref null $base))
+    #|          i32.const 7
+    #|          struct.new_default $leaf
+    #|        end
+    #|      end
+    #|      return
+    #|    else
+    #|      block (result i32 (ref null $base))
+    #|        block (result i32 (ref null $base))
+    #|          i32.const 8
+    #|          struct.new_default $leaf
+    #|        end
+    #|      end
+    #|      return
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nested block-carrier multi-result explicit-return if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through void-block multi-result if arms" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      block
+    #|        i32.const 7
+    #|        struct.new_default $leaf
+    #|        return
+    #|      end
+    #|    else
+    #|      block
+    #|        i32.const 8
+    #|        struct.new_default $leaf
+    #|        return
+    #|      end
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE void-block multi-result explicit-return if-arm refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through multi-result block carriers" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    (block (result i32 (ref null $base))
+    #|      i32.const 7
+    #|      struct.new_default $leaf))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result block-carrier refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through nested multi-result block carriers" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    (block (result i32 (ref null $base))
+    #|      (block (result i32 (ref null $base))
+    #|        i32.const 7
+    #|        struct.new_default $leaf)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nested multi-result block-carrier refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through nested multi-result block carriers" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    (block (result i32 (ref null $base))
+    #|      (block (result i32 (ref null $base))
+    #|        i32.const 7
+    #|        struct.new_default $leaf
+    #|        return)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nested explicit-return multi-result block-carrier refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through multi-result block carriers" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (result i32 (ref null $base))
+    #|    (block (result i32 (ref null $base))
+    #|      i32.const 7
+    #|      struct.new_default $leaf
+    #|      return))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE explicit-return multi-result block-carrier refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through typed block bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $f (result (ref null $base))
+    #|    (block (result (ref $leaf))
+    #|      struct.new_default $leaf))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-block result-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results through typeidx block bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (result (ref null $base))))
+    #|  (func $f (result (ref null $base))
+    #|    (block (type $carrier)
+    #|      struct.new_default $leaf))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-block result-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results through typeidx block bodies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (result (ref null $base))))
+    #|  (func $f (result (ref null $base))
+    #|    (block (type $carrier)
+    #|      struct.new_default $leaf
+    #|      return)
+    #|    unreachable)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-block explicit-return refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-tail-lane parametric typeidx block GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    (block (type $carrier)
+    #|      drop
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-tail-lane parametric typeidx-block refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-tail-lane parametric typeidx if GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (param i32) (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then
+    #|        drop
+    #|        struct.new_default $leaf
+    #|        i32.const 9)
+    #|      (else
+    #|        drop
+    #|        struct.new_default $leaf
+    #|        i32.const 10)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-tail-lane parametric typeidx-if refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-tail-lane parametric typeidx loop GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    (loop (type $carrier)
+    #|      drop
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-tail-lane parametric typeidx-loop refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-drop parametric typeidx block GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    (block (type $carrier)
+    #|      i32.eqz
+    #|      drop
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-drop parametric typeidx-block refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-drop parametric typeidx if GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (param i32) (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then
+    #|        i32.eqz
+    #|        drop
+    #|        struct.new_default $leaf
+    #|        i32.const 9)
+    #|      (else
+    #|        i32.eqz
+    #|        drop
+    #|        struct.new_default $leaf
+    #|        i32.const 10)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-drop parametric typeidx-if refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-drop parametric typeidx loop GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    (loop (type $carrier)
+    #|      i32.eqz
+    #|      drop
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-drop parametric typeidx-loop refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows effectful parametric typeidx block GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    (block (type $carrier)
+    #|      call $sink
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func $sink (param i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE effectful parametric typeidx-block refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows effectful parametric typeidx if GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (param i32) (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then
+    #|        call $sink
+    #|        struct.new_default $leaf
+    #|        i32.const 9)
+    #|      (else
+    #|        call $sink
+    #|        struct.new_default $leaf
+    #|        i32.const 10)))
+    #|  (func $sink (param i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE effectful parametric typeidx-if refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows effectful parametric typeidx loop GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 7
+    #|    (loop (type $carrier)
+    #|      call $sink
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func $sink (param i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE effectful parametric typeidx-loop refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows trapping-load parametric typeidx block GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (memory 1)
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 0
+    #|    (block (type $carrier)
+    #|      i32.load
+    #|      drop
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE trapping-load parametric typeidx-block refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows trapping-load parametric typeidx if GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (memory 1)
+    #|  (func $f (param i32) (result (ref null $base) i32)
+    #|    i32.const 0
+    #|    local.get 0
+    #|    (if (type $carrier)
+    #|      (then
+    #|        i32.load
+    #|        drop
+    #|        struct.new_default $leaf
+    #|        i32.const 9)
+    #|      (else
+    #|        i32.load
+    #|        drop
+    #|        struct.new_default $leaf
+    #|        i32.const 10)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE trapping-load parametric typeidx-if refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows trapping-load parametric typeidx loop GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $carrier (func (param i32) (result (ref null $base) i32)))
+    #|  (memory 1)
+    #|  (func $f (result (ref null $base) i32)
+    #|    i32.const 0
+    #|    (loop (type $carrier)
+    #|      i32.load
+    #|      drop
+    #|      struct.new_default $leaf
+    #|      i32.const 9))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_leaf,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE trapping-load parametric typeidx-loop refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows fallthrough loop GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result (ref null $base))))
+    #|  (func $typed_f (result (ref null $base))
+    #|    (loop (result (ref null $base))
+    #|      struct.new_default $leaf))
+    #|  (func $typeidx_f (result (ref null $base))
+    #|    (loop (type $carrier)
+    #|      struct.new_default $leaf))
+    #|  (func (export "run") (result i32)
+    #|    call $typed_f
+    #|    ref.is_null
+    #|    call $typeidx_f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 1), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE fallthrough-loop result-refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows fallthrough loop multi-result GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (type $carrier (func (result i32 (ref null $base))))
+    #|  (func $f (result i32 (ref null $base))
+    #|    (loop (type $carrier)
+    #|      i32.const 7
+    #|      struct.new_default $leaf))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_leaf,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result fallthrough-loop refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows live GC results to common returned-value LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows typed-call select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $leaf1_result (result (ref $leaf1))
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (result (ref $leaf2))
+    #|    struct.new_default $leaf2)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    call $leaf1_result
+    #|    call $leaf2_result
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-call select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [leaf1_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [leaf2_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => fail("expected call_ref select fixture to validate, got \{err}")
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows parameterized call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [leaf1_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [leaf2_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected parameterized call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE parameterized call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows two-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], [
+              leaf1_ref,
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], [
+              leaf2_ref,
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected two-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE two-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows two-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE two-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows three-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::i32()],
+              [leaf1_ref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::i32()],
+              [leaf2_ref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected three-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE three-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows three-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE three-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows four-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+              ],
+              [leaf1_ref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+              ],
+              [leaf2_ref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected four-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE four-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows four-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE four-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows five-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+              ],
+              [leaf1_ref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+              ],
+              [leaf2_ref],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::i32_const(@lib.I32(15)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::i32_const(@lib.I32(26)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected five-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE five-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows five-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64 i32) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64 i32) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 15
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 26
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE five-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows six-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let six_params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(six_params, [leaf1_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(six_params, [leaf2_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::i32_const(@lib.I32(15)),
+            @lib.Instruction::i64_const(@lib.I64(16L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::i32_const(@lib.I32(26)),
+            @lib.Instruction::i64_const(@lib.I64(27L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected six-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE six-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows seven-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let seven_params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(seven_params, [leaf1_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(seven_params, [leaf2_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::i32_const(@lib.I32(15)),
+            @lib.Instruction::i64_const(@lib.I64(16L)),
+            @lib.Instruction::i32_const(@lib.I32(17)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::i32_const(@lib.I32(26)),
+            @lib.Instruction::i64_const(@lib.I64(27L)),
+            @lib.Instruction::i32_const(@lib.I32(28)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected seven-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE seven-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows eight-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let eight_params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(eight_params, [leaf1_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(eight_params, [leaf2_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::i32_const(@lib.I32(15)),
+            @lib.Instruction::i64_const(@lib.I64(16L)),
+            @lib.Instruction::i32_const(@lib.I32(17)),
+            @lib.Instruction::i64_const(@lib.I64(18L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::i32_const(@lib.I32(26)),
+            @lib.Instruction::i64_const(@lib.I64(27L)),
+            @lib.Instruction::i32_const(@lib.I32(28)),
+            @lib.Instruction::i64_const(@lib.I64(29L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected eight-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE eight-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows nine-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let nine_params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(nine_params, [leaf1_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(nine_params, [leaf2_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::i32_const(@lib.I32(15)),
+            @lib.Instruction::i64_const(@lib.I64(16L)),
+            @lib.Instruction::i32_const(@lib.I32(17)),
+            @lib.Instruction::i64_const(@lib.I64(18L)),
+            @lib.Instruction::i32_const(@lib.I32(19)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::i32_const(@lib.I32(26)),
+            @lib.Instruction::i64_const(@lib.I64(27L)),
+            @lib.Instruction::i32_const(@lib.I32(28)),
+            @lib.Instruction::i64_const(@lib.I64(29L)),
+            @lib.Instruction::i32_const(@lib.I32(30)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nine-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nine-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows ten-parameter call_ref select returned-value GC results to common LUB" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let mid_type = @lib.TypeIdx::new(1U)
+  let leaf1_type = @lib.TypeIdx::new(2U)
+  let leaf2_type = @lib.TypeIdx::new(3U)
+  let maker1_type = @lib.TypeIdx::new(4U)
+  let maker2_type = @lib.TypeIdx::new(5U)
+  let f_type = @lib.TypeIdx::new(6U)
+  let run_type = @lib.TypeIdx::new(7U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf1_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf1_type)),
+  )
+  let leaf2_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf2_type)),
+  )
+  let ten_params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [mid_type],
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(ten_params, [leaf1_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(ten_params, [leaf2_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [base_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([maker1_type, maker2_type, f_type, run_type]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf1_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(leaf2_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(13)),
+            @lib.Instruction::i64_const(@lib.I64(14L)),
+            @lib.Instruction::i32_const(@lib.I32(15)),
+            @lib.Instruction::i64_const(@lib.I64(16L)),
+            @lib.Instruction::i32_const(@lib.I32(17)),
+            @lib.Instruction::i64_const(@lib.I64(18L)),
+            @lib.Instruction::i32_const(@lib.I32(19)),
+            @lib.Instruction::i64_const(@lib.I64(20L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(maker1_type),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::i64_const(@lib.I64(23L)),
+            @lib.Instruction::i32_const(@lib.I32(24)),
+            @lib.Instruction::i64_const(@lib.I64(25L)),
+            @lib.Instruction::i32_const(@lib.I32(26)),
+            @lib.Instruction::i64_const(@lib.I64(27L)),
+            @lib.Instruction::i32_const(@lib.I32(28)),
+            @lib.Instruction::i64_const(@lib.I64(29L)),
+            @lib.Instruction::i32_const(@lib.I32(30)),
+            @lib.Instruction::i64_const(@lib.I64(31L)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call_ref(maker2_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([base_ref])),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected ten-parameter call_ref select fixture to validate, got \{err}",
+      )
+  }
+  let optimized = dae_run_module_pass(mod_, optimize=false)
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(mid_type)),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE ten-parameter call_ref select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows nine-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64 i32 i64 i32 i64 i32) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64 i32 i64 i32 i64 i32) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 15
+    #|    i64.const 16
+    #|    i32.const 17
+    #|    i64.const 18
+    #|    i32.const 19
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 26
+    #|    i64.const 27
+    #|    i32.const 28
+    #|    i64.const 29
+    #|    i32.const 30
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE nine-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows ten-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64 i32 i64 i32 i64 i32 i64) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64 i32 i64 i32 i64 i32 i64) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 15
+    #|    i64.const 16
+    #|    i32.const 17
+    #|    i64.const 18
+    #|    i32.const 19
+    #|    i64.const 20
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 26
+    #|    i64.const 27
+    #|    i32.const 28
+    #|    i64.const 29
+    #|    i32.const 30
+    #|    i64.const 31
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE ten-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows six-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64 i32 i64) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64 i32 i64) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 15
+    #|    i64.const 16
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 26
+    #|    i64.const 27
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE six-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows seven-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64 i32 i64 i32) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64 i32 i64 i32) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 15
+    #|    i64.const 16
+    #|    i32.const 17
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 26
+    #|    i64.const 27
+    #|    i32.const 28
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE seven-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows eight-parameter call_indirect select returned-value GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $maker1 (func (param i32 i64 i32 i64 i32 i64 i32 i64) (result (ref $leaf1))))
+    #|  (type $maker2 (func (param i32 i64 i32 i64 i32 i64 i32 i64) (result (ref $leaf2))))
+    #|  (func $leaf1_result (type $maker1)
+    #|    struct.new_default $leaf1)
+    #|  (func $leaf2_result (type $maker2)
+    #|    struct.new_default $leaf2)
+    #|  (table 2 funcref)
+    #|  (elem (i32.const 0) $leaf1_result $leaf2_result)
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    i32.const 11
+    #|    i64.const 12
+    #|    i32.const 13
+    #|    i64.const 14
+    #|    i32.const 15
+    #|    i64.const 16
+    #|    i32.const 17
+    #|    i64.const 18
+    #|    i32.const 0
+    #|    call_indirect (type $maker1)
+    #|    i32.const 22
+    #|    i64.const 23
+    #|    i32.const 24
+    #|    i64.const 25
+    #|    i32.const 26
+    #|    i64.const 27
+    #|    i32.const 28
+    #|    i64.const 29
+    #|    i32.const 1
+    #|    call_indirect (type $maker2)
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 2), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE eight-parameter call_indirect select returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    select (result (ref null $base))
+    #|    return)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE explicit-return select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows pure-condition select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    i32.const 1
+    #|    i32.eqz
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE pure-condition select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows call-condition select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $cond (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.eqz)
+    #|  (func $f (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    i32.const 1
+    #|    call $cond
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 1), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE call-condition select result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows call-postop select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $cond (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.and)
+    #|  (func $f (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    i32.const 3
+    #|    call $cond
+    #|    i32.eqz
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 1), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE call-postop select result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows memory-condition select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (memory 1)
+    #|  (func $f (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    i32.const 0
+    #|    i32.load
+    #|    i32.eqz
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE memory-condition select result refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows pure-condition multi-result select GC operands to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    i32.const 1
+    #|    i32.eqz
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE pure-condition multi-result select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows block-condition select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (result (ref null $base))
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    (block (result i32)
+    #|      i32.const 1)
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE block-condition select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows block-condition multi-result select GC operands to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    (block (result i32)
+    #|      i32.const 1)
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE block-condition multi-result select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows multi-result select GC operands to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    select (result (ref null $base)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    drop
+    #|    i32.const 0))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE multi-result select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows non-tail-lane multi-result select GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base) i32)
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    select (result (ref null $base))
+    #|    i32.const 9)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    expected_mid,
+    @lib.ValType::i32(),
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE non-tail-lane multi-result select refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return multi-result select GC operands to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    i32.const 7
+    #|    struct.new_default $leaf1
+    #|    struct.new_default $leaf2
+    #|    local.get 0
+    #|    select (result (ref null $base))
+    #|    return)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    drop
+    #|    drop
+    #|    i32.const 0))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE explicit-return multi-result select LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows mixed return and fallthrough GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    end
+    #|    struct.new_default $leaf2)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE mixed return/fallthrough refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows mixed multi-result return and fallthrough GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result i32 (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    end
+    #|    i32.const 8
+    #|    struct.new_default $leaf2)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::i32(),
+    expected_mid,
+  ])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE mixed multi-result return/fallthrough refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows else-return and fallthrough GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|    else
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    end
+    #|    struct.new_default $leaf2)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE else-return/fallthrough refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows explicit-return GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    else
+    #|      struct.new_default $leaf2
+    #|      return
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE explicit-return LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows typeidx if GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $carrier (func (result (ref null $base))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if (type $carrier)
+    #|      struct.new_default $leaf1
+    #|    else
+    #|      struct.new_default $leaf2
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-if returned-value LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows typeidx if explicit-return GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (type $void (func))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if (type $void)
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    else
+    #|      struct.new_default $leaf2
+    #|      return
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typeidx-if explicit-return LUB refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows typed-if explicit-return GC results to common LUB" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $mid (sub $base (struct)))
+    #|  (type $leaf1 (sub $mid (struct (field i32))))
+    #|  (type $leaf2 (sub $mid (struct (field i64))))
+    #|  (func $f (param i32) (result (ref null $base))
+    #|    local.get 0
+    #|    if (result (ref null $base))
+    #|      struct.new_default $leaf1
+    #|      return
+    #|    else
+    #|      struct.new_default $leaf2
+    #|      return
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_mid = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_mid])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-if explicit-return refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows loop-carried explicit-return GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $f (result (ref null $base))
+    #|    (loop
+    #|      struct.new_default $leaf
+    #|      return)
+    #|    unreachable)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE loop explicit-return refinement output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination narrows typed-control explicit-return GC results" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub final $base (struct)))
+    #|  (func $block_f (result (ref null $base))
+    #|    (block (result (ref null $base))
+    #|      struct.new_default $leaf
+    #|      return)
+    #|    unreachable)
+    #|  (func $loop_f (result (ref null $base))
+    #|    (loop (result (ref null $base))
+    #|      struct.new_default $leaf
+    #|      return)
+    #|    unreachable)
+    #|  (func (export "run") (result i32)
+    #|    call $block_f
+    #|    ref.is_null
+    #|    call $loop_f
+    #|    ref.is_null
+    #|    i32.add))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 1), [expected_leaf])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE typed-control explicit-return refinement output to validate, got \{err}",
+      )
+  }
 }
 
 ///|
@@ -636,7 +6023,7 @@ test "dae-optimizing splits selected Func260 zero tees before result copies" {
 }
 
 ///|
-test "dae-optimizing rewrites unique function types in place" {
+test "dae-optimizing rewrites unique function signatures without losing marker types" {
   let source =
     #|(module
     #|  (type $target_ty (func (param i32) (result i32)))
@@ -650,16 +6037,61 @@ test "dae-optimizing rewrites unique function types in place" {
     #|    i32.const 0
     #|    call $target))
   let optimized = dae_test_run(source)
-  let @lib.FuncType(first_params, first_results) = dae_test_type_sec_func_type(
+  let @lib.FuncType(first_params, first_results) = dae_test_func_type(
     optimized, 0,
   )
   @debug.assert_eq(first_params.length(), 0)
   @debug.assert_eq(first_results, [@lib.ValType::i32()])
-  let @lib.FuncType(marker_params, marker_results) = dae_test_type_sec_func_type(
+  let @lib.FuncType(marker_params, marker_results) = dae_test_func_type(
     optimized, 1,
   )
   @debug.assert_eq(marker_params.length(), 0)
   @debug.assert_eq(marker_results, [@lib.ValType::i32(), @lib.ValType::i32()])
+}
+
+///|
+test "dead-argument-elimination reuses converged simple function signatures" {
+  let source =
+    #|(module
+    #|  (type $main_ty (func (result i32)))
+    #|  (type $wide_ty (func (param i32 i32) (result i32)))
+    #|  (export "main" (func $entry))
+    #|  (func $entry (type $main_ty) (result i32)
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    call $wrapper)
+    #|  (func $wrapper (type $wide_ty) (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $leaf)
+    #|  (func $leaf (type $wide_ty) (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func $also_wrapper (type $main_ty) (result i32)
+    #|    i32.const 30
+    #|    i32.const 40
+    #|    call $wrapper)
+    #|  (func $also_leaf (type $main_ty) (result i32)
+    #|    i32.const 50
+    #|    i32.const 60
+    #|    call $leaf))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  match optimized.type_sec {
+    Some(@lib.TypeSec(rec_types)) => @debug.assert_eq(rec_types.length(), 2)
+    None =>
+      fail("expected DAE output to keep the two live simple function types")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => {
+      @debug.assert_eq(type_idxs[1], @lib.TypeIdx::new(1U))
+      @debug.assert_eq(type_idxs[2], @lib.TypeIdx::new(1U))
+    }
+    None => fail("expected DAE output to keep function signatures")
+  }
+  let @lib.FuncType(shared_params, shared_results) = dae_test_type_sec_func_type(
+    optimized, 1,
+  )
+  @debug.assert_eq(shared_params.length(), 1)
+  @debug.assert_eq(shared_results, [@lib.ValType::i32()])
 }
 
 ///|
@@ -5861,6 +11293,62 @@ test "dae-optimizing removes results when all direct callers drop them" {
 }
 
 ///|
+test "dae-optimizing preserves results on functions that tail-call result callees" {
+  let source =
+    #|(module
+    #|  (func $start
+    #|    i32.const 0
+    #|    call $g
+    #|    drop)
+    #|  (start $start)
+    #|  (func $g (param i32) (result i32)
+    #|    i32.const 1
+    #|    call $g
+    #|    drop
+    #|    local.get 0
+    #|    return_call $f)
+    #|  (func $f (param i32) (result i32)
+    #|    local.get 0))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tail-call result-preservation DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dae-optimizing preserves results for return_call sites after unreachable roots" {
+  let source =
+    #|(module
+    #|  (func $start
+    #|    i32.const 0
+    #|    call $f
+    #|    drop)
+    #|  (start $start)
+    #|  (func $tail_after_unreachable (param i32) (result i32)
+    #|    unreachable
+    #|    local.get 0
+    #|    return_call $f)
+    #|  (func $f (param i32) (result i32)
+    #|    local.get 0))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected unreachable-suffix return_call DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "dae-optimizing preserves uncalled no-param results like Binaryen" {
   let source =
     #|(module
@@ -5869,6 +11357,42 @@ test "dae-optimizing preserves uncalled no-param results like Binaryen" {
     #|  (func (export "run")))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+}
+
+///|
+test "dae-optimizing reruns DAE after unused-return cleanup exposes dead params" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32)
+    #|    i32.const 10
+    #|    i32.const 11
+    #|    call $f
+    #|    drop
+    #|    i32.const 12)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (result i32)
+    #|    i32.const 20
+    #|    i32.const 21
+    #|    call $f
+    #|    drop
+    #|    i32.const 22))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  let main = optimized.pretty_print_defined_func(0U)
+  let helper = optimized.pretty_print_defined_func(1U)
+  let other = optimized.pretty_print_defined_func(2U)
+  assert_true(main.contains("(call (Func 1))"), msg=main)
+  assert_false(main.contains("i32.const I32(10)"), msg=main)
+  assert_false(main.contains("i32.const I32(11)"), msg=main)
+  assert_true(helper.contains("nop"), msg=helper)
+  assert_false(helper.contains("local.get"), msg=helper)
+  assert_true(other.contains("(call (Func 1))"), msg=other)
+  assert_false(other.contains("i32.const I32(20)"), msg=other)
+  assert_false(other.contains("i32.const I32(21)"), msg=other)
 }
 
 ///|

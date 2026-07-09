@@ -56,6 +56,8 @@ pub fn gen_valid_const_expr_observed_op_matrix(@lib.Module) -> Array[GenValidCon
 
 pub fn gen_valid_coverage_template_signature(@lib.Module) -> String
 
+pub fn gen_valid_dead_argument_elimination_profile_config(GenValidProfile) -> GenValidConfig
+
 pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
@@ -1139,6 +1141,18 @@ pub enum GenValidProfile {
   RseHazardBoundaryProfile
   RseVacuumTailProfile
   PassDaeProfile
+  DaeAllProfile
+  DaeUnusedParamsProfile
+  DaeEffectfulArgsProfile
+  DaeConstantArgsProfile
+  DaeUnusedReturnsProfile
+  DaeArgTypeRefinementProfile
+  DaeReturnTypeRefinementProfile
+  DaeUnseenCallBoundaryProfile
+  DaeTailCallBoundaryProfile
+  DaeLocalizationProfile
+  DaeConvergenceProfile
+  DaeOptimizingProfile
   PassInliningProfile
   InliningOptimizingDirectWrapperProfile
   InliningOptimizingParamSpillProfile

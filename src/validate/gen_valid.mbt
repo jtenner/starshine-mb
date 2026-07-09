@@ -665,6 +665,18 @@ pub enum GenValidProfile {
   RseHazardBoundaryProfile
   RseVacuumTailProfile
   PassDaeProfile
+  DaeAllProfile
+  DaeUnusedParamsProfile
+  DaeEffectfulArgsProfile
+  DaeConstantArgsProfile
+  DaeUnusedReturnsProfile
+  DaeArgTypeRefinementProfile
+  DaeReturnTypeRefinementProfile
+  DaeUnseenCallBoundaryProfile
+  DaeTailCallBoundaryProfile
+  DaeLocalizationProfile
+  DaeConvergenceProfile
+  DaeOptimizingProfile
   PassInliningProfile
   InliningOptimizingDirectWrapperProfile
   InliningOptimizingParamSpillProfile
@@ -856,6 +868,18 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RseHazardBoundaryProfile => "rse-hazard-boundary"
     RseVacuumTailProfile => "rse-vacuum-tail"
     PassDaeProfile => "pass-dae"
+    DaeAllProfile => "dead-argument-elimination"
+    DaeUnusedParamsProfile => "dae-unused-params"
+    DaeEffectfulArgsProfile => "dae-effectful-args"
+    DaeConstantArgsProfile => "dae-constant-args"
+    DaeUnusedReturnsProfile => "dae-unused-returns"
+    DaeArgTypeRefinementProfile => "dae-arg-type-refinement"
+    DaeReturnTypeRefinementProfile => "dae-return-type-refinement"
+    DaeUnseenCallBoundaryProfile => "dae-unseen-call-boundary"
+    DaeTailCallBoundaryProfile => "dae-tail-call-boundary"
+    DaeLocalizationProfile => "dae-localization"
+    DaeConvergenceProfile => "dae-convergence"
+    DaeOptimizingProfile => "dae-optimizing"
     PassInliningProfile => "pass-inlining"
     InliningOptimizingDirectWrapperProfile =>
       "inlining-optimizing-direct-wrapper"
@@ -1031,6 +1055,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
   match profile {
     VacuumProfile
     | RseAllProfile
+    | DaeAllProfile
     | GsiDescCastAllProfile
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
@@ -1080,6 +1105,19 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(RseExceptionBoundariesProfile, 1),
         GenValidProfileMember::new(RseHazardBoundaryProfile, 2),
         GenValidProfileMember::new(RseVacuumTailProfile, 2),
+      ]
+    DaeAllProfile =>
+      [
+        GenValidProfileMember::new(DaeUnusedParamsProfile, 3),
+        GenValidProfileMember::new(DaeEffectfulArgsProfile, 2),
+        GenValidProfileMember::new(DaeConstantArgsProfile, 3),
+        GenValidProfileMember::new(DaeUnusedReturnsProfile, 2),
+        GenValidProfileMember::new(DaeArgTypeRefinementProfile, 1),
+        GenValidProfileMember::new(DaeReturnTypeRefinementProfile, 1),
+        GenValidProfileMember::new(DaeUnseenCallBoundaryProfile, 1),
+        GenValidProfileMember::new(DaeTailCallBoundaryProfile, 1),
+        GenValidProfileMember::new(DaeLocalizationProfile, 1),
+        GenValidProfileMember::new(DaeConvergenceProfile, 1),
       ]
     GsiDescCastAllProfile =>
       [
@@ -1280,6 +1318,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
+        GenValidProfileMember::new(DaeAllProfile, 1),
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
         GenValidProfileMember::new(CoalesceLocalsAllProfile, 1),
@@ -1365,6 +1404,18 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RseHazardBoundaryProfile,
     RseVacuumTailProfile,
     PassDaeProfile,
+    DaeAllProfile,
+    DaeUnusedParamsProfile,
+    DaeEffectfulArgsProfile,
+    DaeConstantArgsProfile,
+    DaeUnusedReturnsProfile,
+    DaeArgTypeRefinementProfile,
+    DaeReturnTypeRefinementProfile,
+    DaeUnseenCallBoundaryProfile,
+    DaeTailCallBoundaryProfile,
+    DaeLocalizationProfile,
+    DaeConvergenceProfile,
+    DaeOptimizingProfile,
     PassInliningProfile,
     InliningOptimizingDirectWrapperProfile,
     InliningOptimizingParamSpillProfile,
@@ -1569,6 +1620,13 @@ pub fn gen_valid_profile_by_name(
     "rse-closeout" => Ok(RseAllProfile)
     "rse-all" => Ok(RseAllProfile)
     "rse-all-profiles" => Ok(RseAllProfile)
+    "dae" => Ok(DaeAllProfile)
+    "dae-all" => Ok(DaeAllProfile)
+    "dae-closeout" => Ok(DaeAllProfile)
+    "dead-argument-elimination-all" => Ok(DaeAllProfile)
+    "dead-argument-elimination-closeout" => Ok(DaeAllProfile)
+    "dae-optimizing-closeout" => Ok(DaeOptimizingProfile)
+    "pass-dae-closeout" => Ok(DaeAllProfile)
     "pick-load-signs" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
@@ -1661,6 +1719,832 @@ pub fn gen_valid_profile_by_name(
         "unknown gen-valid profile '\{name}'; expected \{gen_valid_join_profile_names(gen_valid_profile_names())}",
       )
   }
+}
+
+///|
+pub fn gen_valid_dead_argument_elimination_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  let uses_gc = profile == DaeArgTypeRefinementProfile ||
+    profile == DaeReturnTypeRefinementProfile
+  let uses_unseen_call_boundary = profile == DaeUnseenCallBoundaryProfile
+  let uses_effectful_args = profile == DaeEffectfulArgsProfile ||
+    profile == DaeLocalizationProfile
+  let body_statements = match profile {
+    DaeUnusedParamsProfile => 4
+    DaeEffectfulArgsProfile => 5
+    DaeConstantArgsProfile => 6
+    DaeUnusedReturnsProfile => 7
+    DaeArgTypeRefinementProfile => 8
+    DaeReturnTypeRefinementProfile => 9
+    DaeUnseenCallBoundaryProfile => 10
+    DaeTailCallBoundaryProfile => 11
+    DaeLocalizationProfile => 12
+    DaeConvergenceProfile => 13
+    DaeOptimizingProfile => 14
+    _ => 3
+  }
+  let defined_funcs = if profile == DaeConvergenceProfile ||
+    profile == DaeOptimizingProfile {
+    5
+  } else if profile == DaeEffectfulArgsProfile ||
+    profile == DaeLocalizationProfile {
+    4
+  } else {
+    3
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if uses_gc {
+      6
+    } else {
+      3
+    },
+    max_imports: 0,
+    max_defined_funcs: defined_funcs,
+    max_tables: if uses_unseen_call_boundary {
+      1
+    } else {
+      0
+    },
+    max_mems: 0,
+    max_globals: if uses_effectful_args {
+      1
+    } else {
+      0
+    },
+    max_tags: 0,
+    max_elems: if uses_unseen_call_boundary {
+      1
+    } else {
+      0
+    },
+    max_datas: 0,
+    max_params: 3,
+    max_results: if profile == DaeReturnTypeRefinementProfile {
+      2
+    } else {
+      1
+    },
+    max_locals: 2,
+    max_body_statements: body_statements,
+    max_body_depth: if profile == DaeOptimizingProfile {
+      2
+    } else {
+      1
+    },
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: uses_unseen_call_boundary,
+      allow_mems: false,
+      allow_globals: uses_effectful_args,
+      allow_tags: false,
+      allow_start: false,
+      allow_elems: uses_unseen_call_boundary,
+      allow_datas: false,
+      allow_ref_types: uses_gc || uses_unseen_call_boundary,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: true,
+      allow_call_indirect: uses_unseen_call_boundary,
+      allow_tail_calls: profile == DaeTailCallBoundaryProfile,
+      allow_branch_heavy_control: profile == DaeConvergenceProfile ||
+      profile == DaeOptimizingProfile,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: uses_unseen_call_boundary,
+      allow_const_expr_variants: uses_unseen_call_boundary,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: uses_gc,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_dae_unused_params_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeUnusedParamsProfile)
+}
+
+///|
+fn gen_valid_is_dae_effectful_args_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeEffectfulArgsProfile)
+}
+
+///|
+fn gen_valid_is_dae_constant_args_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeConstantArgsProfile)
+}
+
+///|
+fn gen_valid_is_dae_unused_returns_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeUnusedReturnsProfile)
+}
+
+///|
+fn gen_valid_is_dae_arg_type_refinement_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeArgTypeRefinementProfile)
+}
+
+///|
+fn gen_valid_is_dae_return_type_refinement_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeReturnTypeRefinementProfile)
+}
+
+///|
+fn gen_valid_is_dae_unseen_call_boundary_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeUnseenCallBoundaryProfile)
+}
+
+///|
+fn gen_valid_is_dae_tail_call_boundary_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeTailCallBoundaryProfile)
+}
+
+///|
+fn gen_valid_is_dae_localization_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DaeLocalizationProfile)
+}
+
+///|
+fn gen_valid_is_dae_convergence_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(DaeConvergenceProfile)
+}
+
+///|
+fn gen_valid_is_dae_optimizing_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(DaeOptimizingProfile)
+}
+
+///|
+fn gen_valid_dae_unused_params_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+            ValType::i32(),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(10)),
+          Instruction::i32_const(I32(11)),
+          Instruction::i32_const(I32(12)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(20)),
+          Instruction::i32_const(I32(21)),
+          Instruction::i32_const(I32(22)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_effectful_args_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([entry_type, helper_type, entry_type, entry_type]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(2U)),
+          Instruction::i32_const(I32(7)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(1U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::global_set(GlobalIdx::new(0U)),
+          Instruction::i32_const(I32(30)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(2U)),
+          Instruction::i32_const(I32(8)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_unused_returns_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(10)),
+          Instruction::i32_const(I32(11)),
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::i32_const(I32(12)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_add(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(20)),
+          Instruction::i32_const(I32(21)),
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::i32_const(I32(22)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_arg_type_refinement_profile_module() -> Module {
+  let base_struct_type = TypeIdx::new(0U)
+  let leaf_struct_type = TypeIdx::new(1U)
+  let entry_type = TypeIdx::new(2U)
+  let helper_type = TypeIdx::new(3U)
+  let base_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(base_struct_type)),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
+      RecType::new(
+        SubType::new(true, [base_struct_type], CompType::struct_([])),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(CompType::func([base_ref], [ValType::i32()])),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::struct_new_default(leaf_struct_type),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::ref_is_null(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::struct_new_default(leaf_struct_type),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_return_type_refinement_profile_module() -> Module {
+  let base_struct_type = TypeIdx::new(0U)
+  let leaf_struct_type = TypeIdx::new(1U)
+  let entry_type = TypeIdx::new(2U)
+  let helper_type = TypeIdx::new(3U)
+  let base_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(base_struct_type)),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
+      RecType::new(
+        SubType::new(true, [base_struct_type], CompType::struct_([])),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(SubType::comp_type(CompType::func([], [base_ref]))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::ref_is_null(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::struct_new_default(leaf_struct_type)]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::ref_is_null(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_unseen_call_boundary_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  let funcref_type = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(funcref_type, Limits::i32(1U, Some(1U))), None),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::active(
+          TableIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        ElemKind::func_exprs([
+          Expr::new([Instruction::ref_func(FuncIdx::new(1U))]),
+        ]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(51)),
+          Instruction::i32_const(I32(61)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(1U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(52)),
+          Instruction::i32_const(I32(62)),
+          Instruction::i32_const(I32(0)),
+          Instruction::call_indirect(helper_type, TableIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_tail_call_boundary_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(31)),
+          Instruction::i32_const(I32(41)),
+          Instruction::return_call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(1U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(32)),
+          Instruction::i32_const(I32(42)),
+          Instruction::return_call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_constant_args_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([entry_type, helper_type, entry_type]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(10)),
+          Instruction::i32_const(I32(77)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_add(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(20)),
+          Instruction::i32_const(I32(77)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_localization_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([entry_type, helper_type, entry_type, entry_type]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([Instruction::call(FuncIdx::new(2U))]),
+          ),
+          Instruction::i32_const(I32(13)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(1U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(2)),
+          Instruction::global_set(GlobalIdx::new(0U)),
+          Instruction::i32_const(I32(70)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([Instruction::call(FuncIdx::new(2U))]),
+          ),
+          Instruction::i32_const(I32(14)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_optimizing_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([entry_type, helper_type, entry_type, entry_type, entry_type]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(101)),
+          Instruction::i32_const(I32(201)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_const(I32(0)),
+          Instruction::i32_add(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(102)),
+          Instruction::i32_const(I32(202)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(103)),
+          Instruction::i32_const(I32(203)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(104)),
+          Instruction::i32_const(I32(204)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_dae_convergence_profile_module() -> Module {
+  let entry_type = TypeIdx::new(0U)
+  let helper_type = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([entry_type, helper_type, helper_type, entry_type, entry_type]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("main"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(10)),
+          Instruction::i32_const(I32(20)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::call(FuncIdx::new(2U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(30)),
+          Instruction::i32_const(I32(40)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(50)),
+          Instruction::i32_const(I32(60)),
+          Instruction::call(FuncIdx::new(2U)),
+        ]),
+      ),
+    ]),
+  )
 }
 
 ///|
@@ -1786,6 +2670,19 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | RseExceptionBoundariesProfile
     | RseHazardBoundaryProfile
     | RseVacuumTailProfile => gen_valid_rse_profile_config(profile)
+    DaeAllProfile
+    | DaeUnusedParamsProfile
+    | DaeEffectfulArgsProfile
+    | DaeConstantArgsProfile
+    | DaeUnusedReturnsProfile
+    | DaeArgTypeRefinementProfile
+    | DaeReturnTypeRefinementProfile
+    | DaeUnseenCallBoundaryProfile
+    | DaeTailCallBoundaryProfile
+    | DaeLocalizationProfile
+    | DaeConvergenceProfile
+    | DaeOptimizingProfile =>
+      gen_valid_dead_argument_elimination_profile_config(profile)
     PassDaeProfile => {
       let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
       GenValidConfig::{
@@ -23806,6 +24703,39 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_rse_profile_config(config) {
     return gen_valid_rse_profile_module(config)
+  }
+  if gen_valid_is_dae_unused_params_profile_config(config) {
+    return gen_valid_dae_unused_params_profile_module()
+  }
+  if gen_valid_is_dae_effectful_args_profile_config(config) {
+    return gen_valid_dae_effectful_args_profile_module()
+  }
+  if gen_valid_is_dae_constant_args_profile_config(config) {
+    return gen_valid_dae_constant_args_profile_module()
+  }
+  if gen_valid_is_dae_unused_returns_profile_config(config) {
+    return gen_valid_dae_unused_returns_profile_module()
+  }
+  if gen_valid_is_dae_arg_type_refinement_profile_config(config) {
+    return gen_valid_dae_arg_type_refinement_profile_module()
+  }
+  if gen_valid_is_dae_return_type_refinement_profile_config(config) {
+    return gen_valid_dae_return_type_refinement_profile_module()
+  }
+  if gen_valid_is_dae_unseen_call_boundary_profile_config(config) {
+    return gen_valid_dae_unseen_call_boundary_profile_module()
+  }
+  if gen_valid_is_dae_tail_call_boundary_profile_config(config) {
+    return gen_valid_dae_tail_call_boundary_profile_module()
+  }
+  if gen_valid_is_dae_localization_profile_config(config) {
+    return gen_valid_dae_localization_profile_module()
+  }
+  if gen_valid_is_dae_convergence_profile_config(config) {
+    return gen_valid_dae_convergence_profile_module()
+  }
+  if gen_valid_is_dae_optimizing_profile_config(config) {
+    return gen_valid_dae_optimizing_profile_module()
   }
   if gen_valid_is_pick_load_signs_profile_config(config) {
     return gen_valid_pick_load_signs_profile_module(config)

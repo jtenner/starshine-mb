@@ -58555,6 +58555,190 @@ fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
 }
 
 ///|
+fn run_hot_pipeline_dae_val_type_is_exact_nonnull_ref(
+  vt : @lib.ValType,
+) -> Bool {
+  match vt {
+    @lib.RefTypeValType(@lib.HeapTypeRefType(false, true, _)) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_has_touched_nop_body_with_params(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Bool {
+  let (type_idxs, funcs) = match (mod_.func_sec, mod_.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      (type_idxs, funcs)
+    _ => return false
+  }
+  let imported = dae_imported_func_count(mod_)
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    if body != [@lib.Instruction::nop()] {
+      continue
+    }
+    match dae_resolve_func_type(mod_, type_idxs, imported + def_idx) {
+      Some(@lib.FuncType(params, _)) => if params.length() > 0 { return true }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Bool {
+  let (type_idxs, funcs) = match (mod_.func_sec, mod_.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      (type_idxs, funcs)
+    _ => return false
+  }
+  let imported = dae_imported_func_count(mod_)
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    if body != [@lib.Instruction::i32_const(@lib.I32(0))] {
+      continue
+    }
+    match dae_resolve_func_type(mod_, type_idxs, imported + def_idx) {
+      Some(@lib.FuncType(params, _)) =>
+        if params.any(fn(param) {
+            run_hot_pipeline_dae_val_type_is_exact_nonnull_ref(param)
+          }) {
+          return true
+        }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dae_strip_dropped_struct_defaults_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+        body,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), changed)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+        body,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), changed)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+        body,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+        then_body,
+      )
+      let mut changed = then_changed
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (rewritten, else_changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+            body,
+          )
+          changed = changed || else_changed
+          Some(rewritten)
+        }
+        None => None
+      }
+      (
+        @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.StructNewDefault(_), @lib.Drop) => {
+          changed = true
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let (rewritten, nested_changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instr(
+      instrs[idx],
+    )
+    out.push(rewritten)
+    changed = changed || nested_changed
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let rewritten_funcs = funcs.copy()
+  let mut changed = false
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx < touched.length() && touched[def_idx] {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      let (rewritten_body, func_changed) = run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
+        body,
+      )
+      if func_changed {
+        rewritten_funcs[def_idx] = @lib.Func::new(
+          locals,
+          @lib.Expr::new(rewritten_body),
+        )
+        changed = true
+      }
+    }
+  }
+  if changed {
+    mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs)).without_name_sec()
+  } else {
+    mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_dae_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -59397,11 +59581,44 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     Ok(next) => next
     Err(err) => return Err(err)
   }
+  let mut post_cleanup_mod = cleaned
+  let mut post_cleanup_touched : Array[Bool] = []
+  if run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
+      cleaned,
+      result.touched,
+    ) ||
+    run_hot_pipeline_dae_has_touched_nop_body_with_params(
+      cleaned,
+      result.touched,
+    ) {
+    let post_cleanup_core_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:dae:post-cleanup-core",
+    )
+    let post_cleanup = dae_run_core(cleaned, options.trace, perf=options.perf)
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:post-cleanup-core",
+      post_cleanup_core_start_us,
+    )
+    post_cleanup_mod = post_cleanup.mod_out
+    post_cleanup_touched = post_cleanup.touched
+  }
+  let recleaned = match
+    run_hot_pipeline_apply_dae_nested_cleanup(
+      post_cleanup_mod, post_cleanup_touched, options,
+    ) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  let post_cleanup_stripped = run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
+    recleaned, post_cleanup_touched,
+  )
   let prune_start_us = perf_start_timer_opt(
     options.perf,
     "detail:dae:prune-unused-simple-func-types",
   )
-  let pruned = dae_prune_unused_simple_func_types(cleaned)
+  let pruned = dae_prune_unused_simple_func_types(post_cleanup_stripped)
   perf_stop_timer_opt(
     options.perf,
     "detail:dae:prune-unused-simple-func-types",
@@ -59465,6 +59682,7 @@ fn run_hot_pipeline_apply_module_pass(
         Ok(next) => next
         Err(err) => return Err(err)
       }
+    "dead-argument-elimination" | "dae" => dae_run_module_pass(mod_)
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
       match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
         Ok(next) => next

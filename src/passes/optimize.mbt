@@ -127,14 +127,13 @@ fn pass_registry_entry_preset(
 fn pass_registry_boundary_only_names() -> Array[String] {
   [
     "abstract-type-refining", "alignment-lowering", "constant-field-propagation",
-    "constant-field-null-test-folding", "dead-argument-elimination", "signature-pruning",
-    "signature-refining", "global-type-optimization", "simplify-globals", "global-effects",
-    "propagate-globals-globally", "type-refining", "type-generalizing", "type-finalizing",
-    "type-un-finalizing", "unsubtyping", "inline-main", "merge-similar-functions",
-    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
-    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "reorder-types",
-    "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
-    "remove-unused",
+    "constant-field-null-test-folding", "signature-pruning", "signature-refining",
+    "global-type-optimization", "simplify-globals", "global-effects", "propagate-globals-globally",
+    "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
+    "unsubtyping", "inline-main", "merge-similar-functions", "minimize-rec-groups",
+    "type-merging", "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing",
+    "gufa-cast-all", "i64-to-i32-lowering", "reorder-types", "reorder-globals-always",
+    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
   ]
 }
 
@@ -293,6 +292,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "simplify-globals-optimizing",
       simplify_globals_optimizing_summary(),
     ),
+    pass_registry_entry_module("dead-argument-elimination", dae_summary()),
+    pass_registry_entry_module("dae", dae_summary()),
     pass_registry_entry_module("dae-optimizing", dae_optimizing_summary()),
     pass_registry_entry_module(
       "dead-argument-elimination-optimizing",

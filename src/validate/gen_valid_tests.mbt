@@ -1841,6 +1841,54 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
 test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(gen_valid_profile_name(PassCleanupProfile), "pass-cleanup")
   @debug.assert_eq(gen_valid_profile_name(PassDaeProfile), "pass-dae")
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeAllProfile),
+    "dead-argument-elimination",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeUnusedParamsProfile),
+    "dae-unused-params",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeEffectfulArgsProfile),
+    "dae-effectful-args",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeConstantArgsProfile),
+    "dae-constant-args",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeUnusedReturnsProfile),
+    "dae-unused-returns",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeArgTypeRefinementProfile),
+    "dae-arg-type-refinement",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeReturnTypeRefinementProfile),
+    "dae-return-type-refinement",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeUnseenCallBoundaryProfile),
+    "dae-unseen-call-boundary",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeTailCallBoundaryProfile),
+    "dae-tail-call-boundary",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeLocalizationProfile),
+    "dae-localization",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeConvergenceProfile),
+    "dae-convergence",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingProfile),
+    "dae-optimizing",
+  )
   @debug.assert_eq(gen_valid_profile_name(PassInliningProfile), "pass-inlining")
   @debug.assert_eq(
     gen_valid_profile_name(InliningOptimizingDirectWrapperProfile),
@@ -1940,6 +1988,73 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   assert_true(dae.features.allow_globals)
   assert_true(dae.max_defined_funcs >= 6)
   assert_true(dae.max_params >= 3)
+
+  let dae_unused = gen_valid_dead_argument_elimination_profile_config(
+    DaeUnusedParamsProfile,
+  )
+  @debug.assert_eq(gen_valid_config_label(dae_unused), "dae-unused-params")
+  assert_true(dae_unused.features.allow_calls)
+  assert_false(dae_unused.features.allow_imports)
+  assert_false(dae_unused.features.allow_ref_types)
+  assert_false(dae_unused.features.allow_tail_calls)
+  @debug.assert_eq(dae_unused.max_defined_funcs, 3)
+  assert_true(dae_unused.max_params >= 3)
+
+  let dae_effectful = GenValidConfig::for_profile(DaeEffectfulArgsProfile)
+  @debug.assert_eq(gen_valid_config_label(dae_effectful), "dae-effectful-args")
+  assert_true(dae_effectful.features.allow_calls)
+  assert_true(dae_effectful.features.allow_globals)
+  @debug.assert_eq(dae_effectful.max_defined_funcs, 4)
+  @debug.assert_eq(dae_effectful.max_globals, 1)
+  assert_false(dae_effectful.features.allow_imports)
+  assert_false(dae_effectful.features.allow_call_indirect)
+
+  let dae_unused_returns = GenValidConfig::for_profile(DaeUnusedReturnsProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(dae_unused_returns),
+    "dae-unused-returns",
+  )
+  assert_true(dae_unused_returns.features.allow_calls)
+  @debug.assert_eq(dae_unused_returns.max_defined_funcs, 3)
+  @debug.assert_eq(dae_unused_returns.max_results, 1)
+  assert_false(dae_unused_returns.features.allow_tail_calls)
+  assert_false(dae_unused_returns.features.allow_call_indirect)
+
+  let dae_refinement = GenValidConfig::for_profile(DaeArgTypeRefinementProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(dae_refinement),
+    "dae-arg-type-refinement",
+  )
+  assert_true(dae_refinement.features.allow_ref_types)
+  assert_true(dae_refinement.features.allow_subtyping_topology)
+  assert_false(dae_refinement.features.allow_tail_calls)
+
+  let dae_tail = GenValidConfig::for_profile(DaeTailCallBoundaryProfile)
+  @debug.assert_eq(gen_valid_config_label(dae_tail), "dae-tail-call-boundary")
+  assert_true(dae_tail.features.allow_tail_calls)
+  @debug.assert_eq(dae_tail.max_defined_funcs, 3)
+  assert_false(dae_tail.features.allow_call_indirect)
+
+  let dae_unseen = GenValidConfig::for_profile(DaeUnseenCallBoundaryProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(dae_unseen),
+    "dae-unseen-call-boundary",
+  )
+  assert_true(dae_unseen.features.allow_tables)
+  assert_true(dae_unseen.features.allow_elems)
+  assert_true(dae_unseen.features.allow_call_indirect)
+  assert_true(dae_unseen.features.allow_ref_types)
+  @debug.assert_eq(dae_unseen.max_defined_funcs, 3)
+  @debug.assert_eq(dae_unseen.max_tables, 1)
+  @debug.assert_eq(dae_unseen.max_elems, 1)
+  assert_false(dae_unseen.features.allow_tail_calls)
+
+  let dae_optimizing = GenValidConfig::for_profile(DaeOptimizingProfile)
+  @debug.assert_eq(gen_valid_config_label(dae_optimizing), "dae-optimizing")
+  assert_true(dae_optimizing.features.allow_branch_heavy_control)
+  assert_true(dae_optimizing.max_defined_funcs >= 5)
+
+  @debug.assert_eq(gen_valid_profile_members(DaeAllProfile).length(), 10)
 
   let inlining = GenValidConfig::for_profile(PassInliningProfile)
   assert_true(inlining.features.allow_calls)
@@ -2094,6 +2209,18 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     Ok(profile) => @debug.assert_eq(profile, PassDaeProfile)
     Err(msg) => fail(msg)
   }
+  match gen_valid_profile_by_name("dae") {
+    Ok(profile) => @debug.assert_eq(profile, DaeAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("dae-closeout") {
+    Ok(profile) => @debug.assert_eq(profile, DaeAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("dae optimizing closeout") {
+    Ok(profile) => @debug.assert_eq(profile, DaeOptimizingProfile)
+    Err(msg) => fail(msg)
+  }
   match gen_valid_profile_by_name("tuple optimization") {
     Ok(profile) => @debug.assert_eq(profile, TupleOptimizationAllProfile)
     Err(msg) => fail(msg)
@@ -2105,6 +2232,859 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   match gen_valid_profile_by_name("cl-closeout") {
     Ok(profile) => @debug.assert_eq(profile, CoalesceLocalsAllProfile)
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "dae-unused-params profile emits direct helper with unused parameters" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0001UL,
+      GenValidConfig::for_profile(DaeUnusedParamsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-unused-params")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="unused-params leaf should not rely on indirect/ref/tail-call boundaries",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="unused-params helper should be private so DAE can rewrite its boundary",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+        msg="helper param 1 should be syntactically unused",
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(2U)),
+        msg="helper param 2 should be syntactically unused",
+      )
+    }
+    None => fail("expected DAE unused-params code section")
+  }
+}
+
+///|
+test "dae-effectful-args profile emits direct helper with effectful unused actual" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0003UL,
+      GenValidConfig::for_profile(DaeEffectfulArgsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-effectful-args")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="effectful-args leaf should keep the unused-actual opportunity on owned direct calls",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="effectful-args helper should be private so DAE can rewrite its boundary",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(2U)),
+    msg="effectful argument producer should be private and directly owned by the generated module",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected effectful-args helper function type")
+  }
+  match generated.wasm_module.global_sec {
+    Some(GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
+    None =>
+      fail("expected effectful-args mutable global for side-effect producer")
+  }
+  assert_true(
+    gen_valid_test_module_has_global_set(generated.wasm_module),
+    msg="effectful-args profile should preserve a concrete side effect source",
+  )
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 4)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(producer_body)) = funcs[2]
+      let Func(_, Expr(extra_caller_body)) = funcs[3]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(2U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(2U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_call_i32_const_call_sequence(
+          entry_body,
+          FuncIdx::new(2U),
+          FuncIdx::new(1U),
+        ),
+        msg="entry should pass the side-effect producer result as helper param 0",
+      )
+      assert_true(
+        gen_valid_test_instrs_have_call_i32_const_call_sequence(
+          extra_caller_body,
+          FuncIdx::new(2U),
+          FuncIdx::new(1U),
+        ),
+        msg="extra caller should pass the side-effect producer result as helper param 0",
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+        msg="helper param 0 should be syntactically unused so DAE must preserve its effectful actual separately",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_global_set(producer_body),
+        msg="producer function should mutate the private global before returning an i32 actual",
+      )
+    }
+    None => fail("expected DAE effectful-args code section")
+  }
+}
+
+///|
+test "dae-unused-returns profile emits single-result direct helper with dropped result" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0004UL,
+      GenValidConfig::for_profile(DaeUnusedReturnsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-unused-returns")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="unused-returns leaf should keep the dropped-return opportunity on owned direct calls",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="unused-returns helper should be private so DAE can rewrite its boundary",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected unused-returns helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_call_drop_sequence(
+          entry_body,
+          FuncIdx::new(1U),
+        ),
+        msg="entry should drop one helper result so DAE can remove that result from the helper signature",
+      )
+      assert_true(
+        gen_valid_test_instrs_have_call_drop_sequence(
+          extra_caller_body,
+          FuncIdx::new(1U),
+        ),
+        msg="extra caller should drop the same helper result so the result is dead across all direct callers",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+    }
+    None => fail("expected DAE unused-returns code section")
+  }
+}
+
+///|
+test "dae-arg-type-refinement profile emits direct callers with narrower GC actuals" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE000AUL,
+      GenValidConfig::for_profile(DaeArgTypeRefinementProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-arg-type-refinement")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="arg-type refinement leaf should keep the type-tightening opportunity on owned direct calls",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="arg-type refinement helper should be private so DAE can refine its boundary",
+  )
+  assert_true(
+    gen_valid_test_module_has_struct_subtype(
+      generated.wasm_module,
+      TypeIdx::new(1U),
+      TypeIdx::new(0U),
+    ),
+    msg="arg-type refinement profile should provide a leaf GC subtype below the broad helper parameter type",
+  )
+  assert_false(
+    gen_valid_test_module_struct_type_is_final(
+      generated.wasm_module,
+      TypeIdx::new(0U),
+    ),
+    msg="arg-type refinement base GC type must be non-final so the leaf subtype validates in wasm-tools",
+  )
+  let base_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0U))),
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [base_ref])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected arg-type refinement helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      assert_true(
+        gen_valid_test_instrs_have_struct_new_default_call_sequence(
+          entry_body,
+          TypeIdx::new(1U),
+          FuncIdx::new(1U),
+        ),
+        msg="entry should pass a leaf struct value to the broad helper parameter",
+      )
+      assert_true(
+        gen_valid_test_instrs_have_struct_new_default_call_sequence(
+          extra_caller_body,
+          TypeIdx::new(1U),
+          FuncIdx::new(1U),
+        ),
+        msg="extra caller should pass the same narrow leaf type so DAE can refine the helper parameter",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_ref_is_null(helper_body),
+        msg="helper should use the broad ref parameter so the leaf covers type refinement rather than unused-param deletion",
+      )
+    }
+    None => fail("expected DAE arg-type refinement code section")
+  }
+}
+
+///|
+test "dae-return-type-refinement profile emits helper returning narrower GC values" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE000BUL,
+      GenValidConfig::for_profile(DaeReturnTypeRefinementProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-return-type-refinement")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="return-type refinement leaf should keep the type-tightening opportunity on owned direct calls",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="return-type refinement helper should be private so DAE can refine its boundary",
+  )
+  assert_true(
+    gen_valid_test_module_has_struct_subtype(
+      generated.wasm_module,
+      TypeIdx::new(1U),
+      TypeIdx::new(0U),
+    ),
+    msg="return-type refinement profile should provide a leaf GC subtype below the broad helper result type",
+  )
+  assert_false(
+    gen_valid_test_module_struct_type_is_final(
+      generated.wasm_module,
+      TypeIdx::new(0U),
+    ),
+    msg="return-type refinement base GC type must be non-final so the leaf subtype validates in wasm-tools",
+  )
+  let base_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0U))),
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [])
+      @debug.assert_eq(results, [base_ref])
+    }
+    None => fail("expected return-type refinement helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      assert_true(
+        gen_valid_test_instrs_have_call_ref_is_null_sequence(
+          entry_body,
+          FuncIdx::new(1U),
+        ),
+        msg="entry should consume the broad helper result through a ref predicate",
+      )
+      assert_true(
+        gen_valid_test_instrs_have_call_ref_is_null_sequence(
+          extra_caller_body,
+          FuncIdx::new(1U),
+        ),
+        msg="extra caller should consume the same helper result so the helper remains directly owned",
+      )
+      assert_true(
+        gen_valid_test_instrs_have_struct_new_default(
+          helper_body,
+          TypeIdx::new(1U),
+        ),
+        msg="helper should always produce the narrower leaf subtype for DAE result refinement",
+      )
+    }
+    None => fail("expected DAE return-type refinement code section")
+  }
+}
+
+///|
+test "dae-unseen-call-boundary profile emits helper escaped through elem and indirect call" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0006UL,
+      GenValidConfig::for_profile(DaeUnseenCallBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-unseen-call-boundary")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_true(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="unseen-call boundary leaf should expose a concrete indirect/reference boundary",
+  )
+  assert_true(
+    gen_valid_test_module_elem_has_ref_func(
+      generated.wasm_module,
+      FuncIdx::new(1U),
+    ),
+    msg="helper should escape through an active element ref.func so DAE must treat it as unseen-call reachable",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="unseen-call helper should be private; the bailout comes from ref.func/table reachability, not export reachability",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected unseen-call boundary helper function type")
+  }
+  match generated.wasm_module.table_sec {
+    Some(TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
+    None => fail("expected unseen-call boundary table section")
+  }
+  match generated.wasm_module.elem_sec {
+    Some(ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
+    None => fail("expected unseen-call boundary active element section")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(indirect_caller_body)) = funcs[2]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(
+        gen_valid_test_instrs_call_indirect_type(
+          indirect_caller_body,
+          TypeIdx::new(1U),
+        ),
+        msg="extra caller should use call_indirect through the table that contains the helper",
+      )
+      assert_false(
+        gen_valid_test_instrs_return_call_func(entry_body, FuncIdx::new(1U)),
+        msg="unseen-call boundary should stay distinct from the tail-call boundary leaf",
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+        msg="helper param 0 would otherwise be DAE-eligible but ref.func/table escape must block the rewrite",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+    }
+    None => fail("expected DAE unseen-call boundary code section")
+  }
+}
+
+///|
+test "dae-tail-call-boundary profile emits private helper reached through return_call" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0005UL,
+      GenValidConfig::for_profile(DaeTailCallBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-tail-call-boundary")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_true(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="tail-call boundary leaf should expose a concrete return_call boundary",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="tail-call boundary helper should remain private while being reached through a tail call",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected tail-call boundary helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      assert_true(
+        gen_valid_test_instrs_return_call_func(entry_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_return_call_func(
+          extra_caller_body,
+          FuncIdx::new(1U),
+        ),
+      )
+      assert_false(
+        gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)),
+        msg="entry should reach the helper only through return_call",
+      )
+      assert_false(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+        msg="extra caller should reach the helper only through return_call",
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+        msg="helper param 0 would otherwise be DAE-eligible but the tail-call boundary must keep the leaf separate",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+    }
+    None => fail("expected DAE tail-call boundary code section")
+  }
+}
+
+///|
+test "dae-constant-args profile emits direct helper with same constant actual" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0002UL,
+      GenValidConfig::for_profile(DaeConstantArgsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-constant-args")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="constant-args leaf should keep the same-constant opportunity on owned direct calls",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="constant-args helper should be private so DAE can rewrite its boundary",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected constant-args helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+      let first_actuals = gen_valid_test_i32_const_call_args(
+        generated.wasm_module,
+        FuncIdx::new(1U),
+        0,
+      )
+      let second_actuals = gen_valid_test_i32_const_call_args(
+        generated.wasm_module,
+        FuncIdx::new(1U),
+        1,
+      )
+      @debug.assert_eq(first_actuals.length(), 2)
+      @debug.assert_eq(second_actuals.length(), 2)
+      assert_true(
+        first_actuals[0] != first_actuals[1],
+        msg="constant-args profile should keep one varying actual so the same-constant family is isolated to one parameter",
+      )
+      @debug.assert_eq(second_actuals[0], 77)
+      @debug.assert_eq(second_actuals[1], 77)
+    }
+    None => fail("expected DAE constant-args code section")
+  }
+}
+
+///|
+test "dae-localization profile emits hard effectful actual for localization retry" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0008UL,
+      GenValidConfig::for_profile(DaeLocalizationProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-localization")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="localization leaf should keep the rewrite candidate on owned direct calls, not unseen or tail boundaries",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="localization helper should be private so DAE can rewrite its boundary after localizing hard operands",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(2U)),
+    msg="localization producer should be private and owned by the generated module",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected localization helper function type")
+  }
+  match generated.wasm_module.global_sec {
+    Some(GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
+    None =>
+      fail("expected localization mutable global for hard-operand producer")
+  }
+  assert_true(
+    gen_valid_test_module_has_global_set(generated.wasm_module),
+    msg="localization profile should include a concrete side effect that cannot be silently discarded",
+  )
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 4)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(producer_body)) = funcs[2]
+      let Func(_, Expr(extra_caller_body)) = funcs[3]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(2U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(2U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
+          entry_body,
+          FuncIdx::new(2U),
+          FuncIdx::new(1U),
+        ),
+        msg="entry should pass a value-producing block with an effectful producer as the unused helper actual",
+      )
+      assert_true(
+        gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
+          extra_caller_body,
+          FuncIdx::new(2U),
+          FuncIdx::new(1U),
+        ),
+        msg="extra caller should pass the same hard operand shape so DAE must localize/preserve it before retrying",
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+        msg="helper param 0 should be syntactically unused, making the nested effectful actual the blocker",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_global_set(producer_body),
+        msg="producer function should mutate the private global before returning the hard actual",
+      )
+    }
+    None => fail("expected DAE localization code section")
+  }
+}
+
+///|
+test "dae-optimizing profile emits DAE trigger plus nested cleanup debris" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0009UL,
+      GenValidConfig::for_profile(DaeOptimizingProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-optimizing")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="dae-optimizing leaf should keep nested cleanup evidence on owned direct calls, not on unseen/tail boundaries",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="dae-optimizing helper should be private so DAE changes the helper before nested cleanup runs",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected dae-optimizing helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 5)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(helper_body)) = funcs[1]
+      let Func(_, Expr(extra_caller_body)) = funcs[2]
+      let Func(_, Expr(third_caller_body)) = funcs[3]
+      let Func(_, Expr(fourth_caller_body)) = funcs[4]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(extra_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(third_caller_body, FuncIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(fourth_caller_body, FuncIdx::new(1U)),
+      )
+      assert_false(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(0U)),
+        msg="helper param 0 should be removed by the DAE core before the optimizing suffix reruns nested cleanup",
+      )
+      assert_true(
+        gen_valid_test_instrs_use_local(helper_body, LocalIdx::new(1U)),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+          helper_body,
+          LocalIdx::new(1U),
+        ),
+        msg="helper body should contain identity add debris for dae-optimizing's post-change cleanup rerun",
+      )
+    }
+    None => fail("expected DAE optimizing code section")
+  }
+}
+
+///|
+test "dae-convergence profile emits chained helpers requiring another DAE iteration" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0xDAE0007UL,
+      GenValidConfig::for_profile(DaeConvergenceProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "dae-convergence")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  @debug.assert_eq(gen_valid_test_imported_func_count(generated.wasm_module), 0)
+  assert_false(
+    gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+      generated.wasm_module,
+    ),
+    msg="convergence leaf should keep all calls directly owned so iteration, not unseen-call bailout, is exercised",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(1U)),
+    msg="wrapper helper should be private so DAE can rewrite its boundary after the callee changes",
+  )
+  assert_false(
+    gen_valid_test_module_exports_func(generated.wasm_module, FuncIdx::new(2U)),
+    msg="leaf helper should be private so its unused parameter can be removed first",
+  )
+  match gen_valid_test_defined_func_type(generated.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected convergence wrapper helper function type")
+  }
+  match gen_valid_test_defined_func_type(generated.wasm_module, 2) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected convergence leaf helper function type")
+  }
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 5)
+      let Func(_, Expr(entry_body)) = funcs[0]
+      let Func(_, Expr(wrapper_body)) = funcs[1]
+      let Func(_, Expr(leaf_body)) = funcs[2]
+      let Func(_, Expr(extra_wrapper_caller_body)) = funcs[3]
+      let Func(_, Expr(extra_leaf_caller_body)) = funcs[4]
+      assert_true(gen_valid_test_instrs_call_func(entry_body, FuncIdx::new(1U)))
+      assert_true(
+        gen_valid_test_instrs_call_func(
+          extra_wrapper_caller_body,
+          FuncIdx::new(1U),
+        ),
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(
+          extra_leaf_caller_body,
+          FuncIdx::new(2U),
+        ),
+      )
+      assert_true(
+        gen_valid_test_instrs_have_local_get_local_get_call_sequence(
+          wrapper_body,
+          LocalIdx::new(0U),
+          LocalIdx::new(1U),
+          FuncIdx::new(2U),
+        ),
+        msg="wrapper should initially use param 1 only as an actual to the leaf, so leaf signature pruning unlocks wrapper pruning on the next DAE iteration",
+      )
+      assert_true(gen_valid_test_instrs_use_local(leaf_body, LocalIdx::new(0U)))
+      assert_false(
+        gen_valid_test_instrs_use_local(leaf_body, LocalIdx::new(1U)),
+        msg="leaf helper param 1 should be removed before wrapper param 1 becomes syntactically unused",
+      )
+    }
+    None => fail("expected DAE convergence code section")
   }
 }
 
@@ -8512,7 +9492,7 @@ fn gen_valid_test_defined_func_locals(mod_ : Module) -> Array[Locals] {
 }
 
 ///|
-fn gen_valid_test_defined_func_type(
+fn gen_valid_test_defined_func_type_from_indices(
   func_types : Array[FuncType],
   func_type_idxs : Array[TypeIdx],
   defined_idx : Int,
@@ -8633,7 +9613,10 @@ fn gen_valid_test_has_v128_threaded_body(mod_ : Module) -> Bool {
       let mut saw_v128_local_set = false
       let mut saw_v128_result_control = false
       for i = 0; i < funcs.length(); i = i + 1 {
-        match gen_valid_test_defined_func_type(func_types, type_idxs, i) {
+        match
+          gen_valid_test_defined_func_type_from_indices(
+            func_types, type_idxs, i,
+          ) {
           Some(func_type) => {
             let FuncType(params, results) = func_type
             if params.contains(ValType::v128()) ||
@@ -10369,6 +11352,596 @@ fn gen_valid_test_instrs_call_func(
 }
 
 ///|
+fn gen_valid_test_instrs_return_call_func(
+  instrs : Array[Instruction],
+  target : FuncIdx,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      ReturnCall(idx) if idx == target => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_return_call_func(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_return_call_func(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_return_call_func(body, target) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_call_indirect_type(
+  instrs : Array[Instruction],
+  target : TypeIdx,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      CallIndirect(type_idx, _) if type_idx == target => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_call_indirect_type(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_call_indirect_type(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_call_indirect_type(body, target) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_expr_has_ref_func(expr : Expr, target : FuncIdx) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      RefFunc(func_idx) if func_idx == target => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_expr_has_ref_func(Expr::new(body), target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_expr_has_ref_func(Expr::new(then_body), target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_expr_has_ref_func(
+              Expr::new(body),
+              target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_elem_has_ref_func(
+  mod_ : Module,
+  target : FuncIdx,
+) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(_, kind) = elem
+        match kind {
+          FuncExprsElemKind(exprs) | TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              if gen_valid_test_expr_has_ref_func(expr, target) {
+                return true
+              }
+            }
+          FuncsElemKind(funcs) =>
+            for func_idx in funcs {
+              if func_idx == target {
+                return true
+              }
+            }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_append_i32_const_call_args(
+  instrs : Array[Instruction],
+  target : FuncIdx,
+  arg_index : Int,
+  out : Array[Int],
+) -> Unit {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (I32Const(I32(first)), I32Const(I32(second)), Call(idx)) if idx == target =>
+        if arg_index == 0 {
+          out.push(first)
+        } else if arg_index == 1 {
+          out.push(second)
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        gen_valid_test_append_i32_const_call_args(body, target, arg_index, out)
+      If(_, then_body, else_body) => {
+        gen_valid_test_append_i32_const_call_args(
+          then_body, target, arg_index, out,
+        )
+        match else_body {
+          Some(body) =>
+            gen_valid_test_append_i32_const_call_args(
+              body, target, arg_index, out,
+            )
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn gen_valid_test_instrs_have_call_drop_sequence(
+  instrs : Array[Instruction],
+  target : FuncIdx,
+) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (Call(idx), Drop) if idx == target => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_call_drop_sequence(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_call_drop_sequence(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_call_drop_sequence(
+              body, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+  instrs : Array[Instruction],
+  target : LocalIdx,
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (LocalGet(idx), I32Const(I32(value)), I32Add) =>
+        if idx == target && value == 0 {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+            body, target,
+          ) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+            then_body, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+              body, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_struct_new_default(
+  instrs : Array[Instruction],
+  target : TypeIdx,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      StructNewDefault(type_idx) if type_idx == target => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_struct_new_default(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_struct_new_default(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_struct_new_default(
+              body, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_ref_is_null(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      RefIsNull => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_ref_is_null(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_ref_is_null(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_ref_is_null(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_struct_new_default_call_sequence(
+  instrs : Array[Instruction],
+  type_idx : TypeIdx,
+  target : FuncIdx,
+) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (StructNewDefault(idx), Call(func_idx)) =>
+        if idx == type_idx && func_idx == target {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_struct_new_default_call_sequence(
+            body, type_idx, target,
+          ) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_struct_new_default_call_sequence(
+            then_body, type_idx, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_struct_new_default_call_sequence(
+              body, type_idx, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_call_ref_is_null_sequence(
+  instrs : Array[Instruction],
+  target : FuncIdx,
+) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (Call(func_idx), RefIsNull) if func_idx == target => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_call_ref_is_null_sequence(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_call_ref_is_null_sequence(
+            then_body, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_call_ref_is_null_sequence(
+              body, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_local_get_local_get_call_sequence(
+  instrs : Array[Instruction],
+  first : LocalIdx,
+  second : LocalIdx,
+  target : FuncIdx,
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (LocalGet(first_idx), LocalGet(second_idx), Call(target_idx)) =>
+        if first_idx == first && second_idx == second && target_idx == target {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_local_get_local_get_call_sequence(
+            body, first, second, target,
+          ) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_local_get_local_get_call_sequence(
+            then_body, first, second, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_local_get_local_get_call_sequence(
+              body, first, second, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_call_i32_const_call_sequence(
+  instrs : Array[Instruction],
+  producer : FuncIdx,
+  target : FuncIdx,
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (Call(producer_idx), I32Const(_), Call(target_idx)) =>
+        if producer_idx == producer && target_idx == target {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_call_i32_const_call_sequence(
+            body, producer, target,
+          ) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_call_i32_const_call_sequence(
+            then_body, producer, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_call_i32_const_call_sequence(
+              body, producer, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
+  instrs : Array[Instruction],
+  producer : FuncIdx,
+  target : FuncIdx,
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (Block(ValTypeBlockType(vt), Expr(body)), I32Const(_), Call(target_idx)) =>
+        if vt == ValType::i32() &&
+          target_idx == target &&
+          gen_valid_test_instrs_call_func(body, producer) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
+            body, producer, target,
+          ) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
+            then_body, producer, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
+              body, producer, target,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_i32_const_call_args(
+  mod_ : Module,
+  target : FuncIdx,
+  arg_index : Int,
+) -> Array[Int] {
+  let out : Array[Int] = []
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        gen_valid_test_append_i32_const_call_args(
+          instrs, target, arg_index, out,
+        )
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn gen_valid_test_instrs_use_local(
+  instrs : Array[Instruction],
+  target : LocalIdx,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      LocalGet(idx) | LocalSet(idx) | LocalTee(idx) if idx == target =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_use_local(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_use_local(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_use_local(body, target) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_non_direct_or_tail_call_boundary(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      CallIndirect(_, _)
+      | CallRef(_)
+      | ReturnCall(_)
+      | ReturnCallIndirect(_, _)
+      | ReturnCallRef(_)
+      | RefFunc(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_non_direct_or_tail_call_boundary(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_non_direct_or_tail_call_boundary(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_non_direct_or_tail_call_boundary(
+              body,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_non_direct_or_tail_call_boundary(
+  mod_ : Module,
+) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_have_non_direct_or_tail_call_boundary(instrs) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_instrs_read_imported_global(
   instrs : Array[Instruction],
   imported_global_count : Int,
@@ -10420,6 +11993,87 @@ fn gen_valid_test_imported_func_count(mod_ : Module) -> Int {
     None => ()
   }
   count
+}
+
+///|
+fn gen_valid_test_module_exports_func(mod_ : Module, target : FuncIdx) -> Bool {
+  match mod_.export_sec {
+    Some(ExportSec(exports)) =>
+      for export_ in exports {
+        let Export(_, extern_idx) = export_
+        match extern_idx {
+          FuncExternIdx(func_idx) if func_idx == target => return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_struct_subtype(
+  mod_ : Module,
+  sub_type : TypeIdx,
+  super_type : TypeIdx,
+) -> Bool {
+  let target = match sub_type {
+    TypeIdx(raw) | RecIdx(raw) => raw.reinterpret_as_int()
+  }
+  match mod_.type_sec {
+    Some(TypeSec(rec_types)) if target >= 0 && target < rec_types.length() =>
+      match rec_types[target] {
+        SingleRecType(SubType(_, supers, _, StructCompType(_))) =>
+          supers.contains(super_type)
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_module_struct_type_is_final(
+  mod_ : Module,
+  type_ : TypeIdx,
+) -> Bool {
+  let target = match type_ {
+    TypeIdx(raw) | RecIdx(raw) => raw.reinterpret_as_int()
+  }
+  match mod_.type_sec {
+    Some(TypeSec(rec_types)) if target >= 0 && target < rec_types.length() =>
+      match rec_types[target] {
+        SingleRecType(SubType(is_final, _, _, StructCompType(_))) => is_final
+        SingleRecType(CompTypeSubType(_, StructCompType(_))) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_defined_func_type(mod_ : Module, def_idx : Int) -> FuncType? {
+  let type_idx = match mod_.func_sec {
+    Some(FuncSec(type_idxs)) if def_idx >= 0 && def_idx < type_idxs.length() =>
+      type_idxs[def_idx]
+    _ => return None
+  }
+  let type_slot = match type_idx {
+    TypeIdx(raw) => raw.reinterpret_as_int()
+    RecIdx(raw) => raw.reinterpret_as_int()
+  }
+  match mod_.type_sec {
+    Some(TypeSec(rec_types)) if type_slot >= 0 && type_slot < rec_types.length() =>
+      match rec_types[type_slot] {
+        SingleRecType(subtype) =>
+          match subtype.get_comptype() {
+            FuncCompType(params, results) =>
+              Some(FuncType::new(params, results))
+            _ => None
+          }
+        GroupRecType(_) => None
+      }
+    _ => None
+  }
 }
 
 ///|
