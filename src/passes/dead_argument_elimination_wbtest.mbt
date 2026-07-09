@@ -2480,6 +2480,19 @@ test "dae multi-result operand slot evidence centralizes suffix scan fallback" {
   assert_eq(prefix.next, 2)
   assert_eq(prefix.skipped_pairs, 1)
   assert_false(prefix.consumed_single_producer)
+  match dae_trivially_dropped_prefix_evidence(body, 2) {
+    Some(evidence) => {
+      assert_eq(evidence.start, 0)
+      assert_eq(evidence.end, 2)
+      assert_eq(evidence.next, 2)
+      assert_eq(evidence.skipped_pairs, 1)
+    }
+    None => fail("expected dropped-prefix evidence")
+  }
+  match dae_trivially_dropped_prefix_evidence(body, 3) {
+    Some(_) => fail("dropped-prefix evidence must reject partial operands")
+    None => ()
+  }
   match
     dae_multi_result_operand_slot_single_producer_evidence(
       mod_,

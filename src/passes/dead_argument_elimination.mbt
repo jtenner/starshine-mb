@@ -2356,22 +2356,19 @@ fn dae_slice_is_trivially_droppable(
 }
 
 ///|
-fn dae_prefix_is_trivially_dropped(
+fn dae_trivially_dropped_prefix_evidence(
   instrs : Array[@lib.Instruction],
   end : Int,
-) -> Bool {
-  let mut idx = 0
-  while idx < end {
-    if idx + 1 >= end || !dae_instr_is_trivially_droppable(instrs[idx]) {
-      return false
-    }
-    match instrs[idx + 1] {
-      @lib.Drop => ()
-      _ => return false
-    }
-    idx += 2
+) -> DaeDroppedOperandPairSkipEvidence? {
+  let skipped = match dae_dropped_operand_pair_skip_evidence(instrs, 0, end) {
+    Some(evidence) => evidence
+    None => return None
   }
-  true
+  if skipped.next == end {
+    Some(skipped)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -2546,7 +2543,7 @@ fn dae_find_select_value_slices(
       continue
     }
     if require_dropped_prefix &&
-      !dae_prefix_is_trivially_dropped(body, left_shape.start) {
+      dae_trivially_dropped_prefix_evidence(body, left_shape.start) is None {
       condition_start -= 1
       continue
     }
@@ -8306,10 +8303,9 @@ fn dae_flat_multi_result_start(
     return -1
   }
   let candidate_start = body.length() - result_count
-  if dae_prefix_is_trivially_dropped(body, candidate_start) {
-    candidate_start
-  } else {
-    -1
+  match dae_trivially_dropped_prefix_evidence(body, candidate_start) {
+    Some(_) => candidate_start
+    None => -1
   }
 }
 
@@ -8324,10 +8320,9 @@ fn dae_flat_multi_return_result_start(
   match body[body.length() - 1] {
     @lib.Return => {
       let candidate_start = body.length() - 1 - result_count
-      if dae_prefix_is_trivially_dropped(body, candidate_start) {
-        candidate_start
-      } else {
-        -1
+      match dae_trivially_dropped_prefix_evidence(body, candidate_start) {
+        Some(_) => candidate_start
+        None => -1
       }
     }
     _ => -1
@@ -8510,7 +8505,7 @@ fn dae_multi_result_suffix_bounds_evidence(
     let max_start = operand_end - result_count
     let mut suffix_start = 0
     while suffix_start <= max_start {
-      if dae_prefix_is_trivially_dropped(body, suffix_start) {
+      if dae_trivially_dropped_prefix_evidence(body, suffix_start) is Some(_) {
         out.push({ suffix_start, operand_end, has_terminal_return })
       }
       suffix_start += 1
@@ -9810,7 +9805,8 @@ fn dae_try_refine_direct_gc_types(
     }
     if result_end >= results.length() {
       let candidate_start = result_end - results.length()
-      if dae_prefix_is_trivially_dropped(candidate_body, candidate_start) {
+      if dae_trivially_dropped_prefix_evidence(candidate_body, candidate_start)
+        is Some(_) {
         result_start = candidate_start
       }
     }
