@@ -16120,13 +16120,40 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
 }
 
 ///|
+priv struct OiBulkMemoryConstSizeFact {
+  size : Int
+}
+
+///|
 priv struct OiBulkMemoryFact {
   dst_id : Int
   src_or_value_id : Int
   size_id : Int
-  size : Int
+  const_size_fact : OiBulkMemoryConstSizeFact?
   dst_mem_idx : Int
   src_mem_idx : Int
+}
+
+///|
+priv struct OiBulkMemorySameAddressCopyDropFact {
+  bulk_fact : OiBulkMemoryFact
+}
+
+///|
+priv struct OiBulkMemoryZeroSizeDropFact {
+  bulk_fact : OiBulkMemoryFact
+}
+
+///|
+fn OiBulkMemoryConstSizeFact::from_size_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  size_id : Int,
+) -> OiBulkMemoryConstSizeFact? {
+  match optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(size) => Some({ size, })
+    None => None
+  }
 }
 
 ///|
@@ -16140,16 +16167,13 @@ fn OiBulkMemoryFact::from_copy(
     return None
   }
   let size_id = @ir.hot_child_get(func, node_id, 2)
-  let size = match
-    optimize_instructions_const_memory_size(func, dead, size_id) {
-    Some(size) => size
-    None => -1
-  }
   Some({
     dst_id: @ir.hot_child_get(func, node_id, 0),
     src_or_value_id: @ir.hot_child_get(func, node_id, 1),
     size_id,
-    size,
+    const_size_fact: OiBulkMemoryConstSizeFact::from_size_operand(
+      func, dead, size_id,
+    ),
     dst_mem_idx: node.imm0,
     src_mem_idx: node.imm1,
   })
@@ -16166,16 +16190,13 @@ fn OiBulkMemoryFact::from_fill(
     return None
   }
   let size_id = @ir.hot_child_get(func, node_id, 2)
-  let size = match
-    optimize_instructions_const_memory_size(func, dead, size_id) {
-    Some(size) => size
-    None => -1
-  }
   Some({
     dst_id: @ir.hot_child_get(func, node_id, 0),
     src_or_value_id: @ir.hot_child_get(func, node_id, 1),
     size_id,
-    size,
+    const_size_fact: OiBulkMemoryConstSizeFact::from_size_operand(
+      func, dead, size_id,
+    ),
     dst_mem_idx: node.imm0,
     src_mem_idx: node.imm0,
   })
@@ -16189,16 +16210,6 @@ fn OiBulkMemoryFact::dst_memarg(self : OiBulkMemoryFact) -> @lib.MemArg {
 ///|
 fn OiBulkMemoryFact::src_memarg(self : OiBulkMemoryFact) -> @lib.MemArg {
   optimize_instructions_memarg_for_mem_idx(self.src_mem_idx)
-}
-
-///|
-fn OiBulkMemoryFact::has_const_size_operand(self : OiBulkMemoryFact) -> Bool {
-  self.size_id >= 0 && self.size >= 0
-}
-
-///|
-fn OiBulkMemoryFact::has_same_memory(self : OiBulkMemoryFact) -> Bool {
-  self.dst_mem_idx == self.src_mem_idx
 }
 
 ///|
@@ -16229,31 +16240,47 @@ fn OiBulkMemoryFact::dest_and_source_are_consecutive_equal_address(
 }
 
 ///|
-fn OiBulkMemoryFact::can_drop_same_address_copy_trap_relaxed(
-  self : OiBulkMemoryFact,
+fn OiBulkMemorySameAddressCopyDropFact::from_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-) -> Bool {
-  (ctx.traps_never_happen || ctx.ignore_implicit_traps) &&
-  self.has_same_memory() &&
-  self.dest_and_source_are_consecutive_equal_address(ctx, func)
+  bulk_fact : OiBulkMemoryFact,
+) -> OiBulkMemorySameAddressCopyDropFact? {
+  // Binaryen v130 drops same-address memory.copy only after the trap-relaxed
+  // flags make the source/destination bounds checks irrelevant, the memories
+  // match, and `areConsecutiveInputsEqual` proves the address operands equal.
+  // Keep that as a drop fact rather than a helper-style `can_drop` predicate.
+  if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
+    return None
+  }
+  if bulk_fact.dst_mem_idx != bulk_fact.src_mem_idx {
+    return None
+  }
+  if !bulk_fact.dest_and_source_are_consecutive_equal_address(ctx, func) {
+    return None
+  }
+  Some({ bulk_fact, })
 }
 
 ///|
-fn OiBulkMemoryFact::can_drop_zero_size_trap_relaxed(
-  self : OiBulkMemoryFact,
+fn OiBulkMemoryZeroSizeDropFact::from_bulk(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-) -> Bool {
+  bulk_fact : OiBulkMemoryFact,
+) -> OiBulkMemoryZeroSizeDropFact? {
+  // Binaryen v130 can erase zero-size bulk memory only in trap-relaxed mode.
+  // The represented HOT route first records the dead-aware constant-size fact;
+  // the exact fallback preserves the previous live-constant boundary without
+  // using `-1` as a nonconstant-size sentinel.
   if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
-    return false
+    return None
   }
-  if self.size == 0 {
-    return true
+  match bulk_fact.const_size_fact {
+    Some(fact) if fact.size == 0 => return Some({ bulk_fact, })
+    _ => ()
   }
-  match optimize_instructions_const_memory_size_exact(func, self.size_id) {
-    Some(0) => true
-    _ => false
+  match optimize_instructions_const_memory_size_exact(func, bulk_fact.size_id) {
+    Some(0) => Some({ bulk_fact, })
+    _ => None
   }
 }
 
@@ -21094,26 +21121,32 @@ fn OiBulkMemoryRewritePlanFact::from_copy(
     Some(fact) => fact
     None => return None
   }
-  if bulk_fact.can_drop_same_address_copy_trap_relaxed(ctx, func) {
-    return Some({
-      kind: BulkMemoryDropSameAddressCopy,
-      bulk_fact,
-      copy_fact: None,
-      fill_fact: None,
-    })
+  match OiBulkMemorySameAddressCopyDropFact::from_copy(ctx, func, bulk_fact) {
+    Some(fact) =>
+      return Some({
+        kind: BulkMemoryDropSameAddressCopy,
+        bulk_fact: fact.bulk_fact,
+        copy_fact: None,
+        fill_fact: None,
+      })
+    None => ()
   }
-  if bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
-    return Some({
-      kind: BulkMemoryDropZeroSizeCopy,
-      bulk_fact,
-      copy_fact: None,
-      fill_fact: None,
-    })
+  match OiBulkMemoryZeroSizeDropFact::from_bulk(ctx, func, bulk_fact) {
+    Some(fact) =>
+      return Some({
+        kind: BulkMemoryDropZeroSizeCopy,
+        bulk_fact: fact.bulk_fact,
+        copy_fact: None,
+        fill_fact: None,
+      })
+    None => ()
   }
-  if !bulk_fact.has_const_size_operand() {
-    return None
+  let const_size_fact = match bulk_fact.const_size_fact {
+    Some(fact) => fact
+    None => return None
   }
-  let copy_fact = match OiTinyMemoryCopyFact::from_size(ctx, bulk_fact.size) {
+  let copy_fact = match
+    OiTinyMemoryCopyFact::from_size(ctx, const_size_fact.size) {
     Some(fact) => fact
     None => return None
   }
@@ -21140,23 +21173,26 @@ fn OiBulkMemoryRewritePlanFact::from_fill(
     Some(fact) => fact
     None => return None
   }
-  if bulk_fact.can_drop_zero_size_trap_relaxed(ctx, func) {
-    return Some({
-      kind: BulkMemoryDropZeroSizeFill,
-      bulk_fact,
-      copy_fact: None,
-      fill_fact: None,
-    })
+  match OiBulkMemoryZeroSizeDropFact::from_bulk(ctx, func, bulk_fact) {
+    Some(fact) =>
+      return Some({
+        kind: BulkMemoryDropZeroSizeFill,
+        bulk_fact: fact.bulk_fact,
+        copy_fact: None,
+        fill_fact: None,
+      })
+    None => ()
   }
-  if !bulk_fact.has_const_size_operand() {
-    return None
+  let const_size_fact = match bulk_fact.const_size_fact {
+    Some(fact) => fact
+    None => return None
   }
   let fill_fact = match
     OiTinyMemoryFillFact::from_size_and_value(
       ctx,
       func,
       dead,
-      bulk_fact.size,
+      const_size_fact.size,
       bulk_fact.src_or_value_id,
     ) {
     Some(fact) => fact
