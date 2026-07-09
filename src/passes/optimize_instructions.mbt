@@ -15962,10 +15962,29 @@ fn OiPureScalarEqualTreeShellFact::proves_shell(
 }
 
 ///|
+priv enum OiStableStateReadEqualityKind {
+  StableStateReadUnsupported
+  StableStateReadMemorySize
+  StableStateReadTableSize
+}
+
+///|
+priv struct OiStableStateReadIndexRelationFact {
+  left_index : Int
+  right_index : Int
+}
+
+///|
+fn OiStableStateReadIndexRelationFact::proves_same_index(
+  self : OiStableStateReadIndexRelationFact,
+) -> Bool {
+  self.left_index == self.right_index
+}
+
+///|
 priv struct OiStableStateReadEqualityFact {
-  matching_memory_size : Bool
-  matching_table_size : Bool
-  same_index : Bool
+  kind : OiStableStateReadEqualityKind
+  index_relation : OiStableStateReadIndexRelationFact?
 }
 
 ///|
@@ -15977,27 +15996,21 @@ fn OiStableStateReadEqualityFact::from_nodes(
   // `ExpressionAnalyzer::equal` after fallthrough peeling. Deterministic state
   // reads with the same index compare equal there, but only after the enclosing
   // equality fact has checked that intervening effects are not ordered before
-  // the right read. Keep this fact separate from pure scalar equality so state
-  // reads remain visible as effect-sensitive equality, not pure values.
+  // the right read. Keep the represented memory.size/table.size source kind and
+  // the same-index relation as explicit facts so state reads remain visible as
+  // effect-sensitive equality, not pure values or parallel booleans.
   match (left.op, right.op) {
     (@ir.HotOp::MemorySize, @ir.HotOp::MemorySize) =>
       {
-        matching_memory_size: true,
-        matching_table_size: false,
-        same_index: left.imm0 == right.imm0,
+        kind: StableStateReadMemorySize,
+        index_relation: Some({ left_index: left.imm0, right_index: right.imm0 }),
       }
     (@ir.HotOp::TableSize, @ir.HotOp::TableSize) =>
       {
-        matching_memory_size: false,
-        matching_table_size: true,
-        same_index: left.imm0 == right.imm0,
+        kind: StableStateReadTableSize,
+        index_relation: Some({ left_index: left.imm0, right_index: right.imm0 }),
       }
-    _ =>
-      {
-        matching_memory_size: false,
-        matching_table_size: false,
-        same_index: false,
-      }
+    _ => { kind: StableStateReadUnsupported, index_relation: None }
   }
 }
 
@@ -16005,7 +16018,16 @@ fn OiStableStateReadEqualityFact::from_nodes(
 fn OiStableStateReadEqualityFact::proves_equal(
   self : OiStableStateReadEqualityFact,
 ) -> Bool {
-  self.same_index && (self.matching_memory_size || self.matching_table_size)
+  let same_index = match self.index_relation {
+    Some(fact) => fact.proves_same_index()
+    None => false
+  }
+  let matching_state_kind = match self.kind {
+    StableStateReadMemorySize => true
+    StableStateReadTableSize => true
+    StableStateReadUnsupported => false
+  }
+  same_index && matching_state_kind
 }
 
 ///|
