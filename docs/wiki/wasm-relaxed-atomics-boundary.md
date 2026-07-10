@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md
@@ -55,9 +56,9 @@ This page intentionally does not try to freeze the future opcode contract beyond
 | --- | --- | --- |
 | Core instruction model | [`Instruction`](../../src/lib/types.mbt) contains ordinary `MemoryAtomicNotify`, `MemoryAtomicWait32`, `MemoryAtomicWait64`, `AtomicFence`, atomic loads/stores, `AtomicRmw`, and `AtomicCmpxchg`. It has no `Pause` and no ordering field on linear-memory atomics. | No core carrier for relaxed-atomics ordering or `pause`. |
 | Binary decode/encode | [`src/binary/decode.mbt`](../../src/binary/decode.mbt) handles `0xFE` subcodes for ordinary atomics and rejects nonzero `atomic.fence` immediates; [`src/binary/encode.mbt`](../../src/binary/encode.mbt) emits ordinary atomic subcodes and zero-immediate `AtomicFence`. | `0xFE 0x04` and ordering-bearing memargs are unsupported bytes today. |
-| Validation | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) typechecks `MemArg`-based atomics through the current shared-memory gate and treats `AtomicFence` as no stack effect. | No validation rule for relaxed ordering strength, `pause`, or ordering-immediate legality. |
+| Validation | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) typechecks `MemArg`-based atomics through ordinary selected-memory/alignment/offset/address checks without a sharedness requirement and treats `AtomicFence` as no stack effect. | No validation rule for relaxed ordering strength, `pause`, or ordering-immediate legality. |
 | WAST text | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) records that ordinary linear-memory atomic text keywords are already a WAST gap. | Relaxed-atomics text is also unsupported; do not add examples before parser/lowerer/printer tests. |
-| Valid generator | [`GenValidProposalFeature`](../../src/validate/gen_valid.mbt) has `AtomicsFeature` and `RelaxedSimdFeature`, but no `RelaxedAtomicsFeature`. `[FZG]017` emits ordinary current-Starshine-valid atomics when shared memory exists. | Generator atomics coverage is not relaxed-atomics evidence. |
+| Valid generator | [`GenValidProposalFeature`](../../src/validate/gen_valid.mbt) has `AtomicsFeature` and `RelaxedSimdFeature`, but no `RelaxedAtomicsFeature`. `[FZG]017` deliberately selects shared memory before emitting ordinary current-Starshine-valid atomics. | Generator atomics coverage is not relaxed-atomics evidence or a local validator sharedness requirement. |
 | HOT/effects/passes | Existing atomic effects are treated as memory/trap/order-sensitive ordinary atomics. | Any pass that moves, drops, merges, or rewrites a future relaxed atomic must understand ordering semantics first. |
 
 ## Three Easy Confusions
@@ -104,6 +105,6 @@ After implementation, signoff should include:
 
 - Focused source bridge: [`raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md)
 - Earlier routing bridges: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md), [`raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md)
-- Current ordinary atomics evidence: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md), [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
+- Current ordinary atomics evidence: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md), and the historical June shared-memory/fence bridges.
 - Shared-GC atomic-get evidence: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Local code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt)

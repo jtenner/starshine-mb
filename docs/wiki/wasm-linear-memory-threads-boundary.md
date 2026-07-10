@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
@@ -43,7 +44,7 @@ Use this page when a Starshine claim mentions **linear shared memory**, **ordina
 
 For beginners: a WebAssembly module can define one or more linear memories. A **shared** memory is intended for multiple agents/threads, so it needs a maximum bound and can be used by atomic operations. Atomic operations are not just unusual loads and stores: they carry synchronization semantics that optimizers must preserve.
 
-The current primary-source bridge is [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md). A follow-up bridge, [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md), supersedes one older shorthand: Starshine's selected-memory sharedness gate applies to `MemArg`-based atomic memory operations, but **not** to standalone `AtomicFence`. The official active proposal routing bridge [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) keeps Threads as active Phase 4 status-only evidence, not proof of full local support.
+The current reconciliation is [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md). It supersedes the June local-validation claim: current [`memarg_check_atomic(...)`](../../src/validate/typecheck.mbt) accepts an existing selected memory whether it is shared or unshared, after ordinary index/alignment/offset checks. `AtomicFence` remains distinct because it has no memory argument or stack effect, but that difference is **not** a sharedness split. The earlier shared-memory and fence bridges remain historical evidence for memory-type flags, the maximum-on-shared-memory resource rule, and proposal execution distinctions. The official active proposal routing bridge [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) keeps Threads as active Phase 4 status-only evidence, not proof of full local support.
 
 ## Boundary Map
 
@@ -51,7 +52,7 @@ The current primary-source bridge is [`raw/wasm/2026-06-04-linear-memory-threads
 | --- | --- | --- | --- |
 | Ordinary memory32/memory64 limits | Core / finished-feature evidence for address width and limits. | Core and binary model `I32Limits` and `I64Limits`; WAST declarations are still narrower. | [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md) |
 | Shared linear memory | Threads proposal/draft evidence, not stable-Core-alone evidence. | `MemType(Limits, Bool)` stores sharedness; validation rejects shared memories without a maximum. | This page plus [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md) |
-| Ordinary `0xFE` atomics | Threads proposal/draft instruction evidence. | Core, binary, validator, generator, HOT/effects support the current local subset. Linear-memory WAST keywords are absent. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
+| Ordinary `0xFE` atomics | Threads proposal/draft instruction evidence. | Core, binary, validator, generator, HOT/effects support the current local subset. `MemArg` forms typecheck against an existing shared **or unshared** memory; generator coverage intentionally chooses shared memory. Linear-memory WAST keywords are absent. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
 | `atomic.fence` | Threads proposal/draft ordering barrier. | Core/binary/validator support zero-immediate fence as standalone `[] -> []`; no selected memory and no sharedness check. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
 | Relaxed Atomics | Separate active Phase-2 proposal for ordering immediates and `pause`. | No local support: no `pause`, no linear-memory ordering field, no nonzero fence ordering. | [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) |
 | Shared-GC aggregate atomics | Shared-Everything / GC aggregate surface, not linear-memory `MemArg` atomics. | Focused `struct.atomic.get*` WAST/core/binary/validator support only; broader aggregate atomics remain future work. | [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) |
@@ -94,12 +95,12 @@ Starshine's current ordinary linear-memory atomic support is real but layer-spec
 
 1. [`src/lib/types.mbt`](../../src/lib/types.mbt) has ordinary atomic instruction variants for wait/notify, fence, atomic loads/stores, RMW, and compare-exchange.
 2. [`src/binary/decode.mbt`](../../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../../src/binary/encode.mbt) handle the `0xFE` atomic-prefixed family.
-3. [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) routes `MemArg`-based atomics through `memarg_check_atomic(...)`, which first checks the ordinary memory argument and then requires the selected memory's `shared` bit.
+3. [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) routes `MemArg`-based atomics through `memarg_check_atomic(...)`, which currently performs ordinary memory-index, alignment, offset, and address-width checks but does **not** require the selected memory's `shared` bit. [`src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt) locks the positive non-shared atomic-load case.
 4. `AtomicFence` is different: the typechecker accepts it as `Ok(st)` because it has no memory argument and no stack effect.
-5. [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) emits ordinary atomics only when `allow_atomics` is enabled and a shared memory exists.
+5. [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) emits its coverage prelude only when `allow_atomics` is enabled and it can find a shared memory. That is representative generator topology, not a validator precondition; see [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md).
 6. Current high-level WAST keywords/parser arms do **not** expose `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, or sibling linear-memory atomic text. Use core builders, binary bytes, or `gen_valid` for tests until [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) is widened.
 
-### Example: valid current-Starshine shared-memory core shape
+### Example: valid shared-memory core shape (but sharedness is not an atomic validation precondition)
 
 ```moonbit
 let mem = @lib.MemType::new(@lib.Limits::i32(1, Some(2)), shared=true)
@@ -111,7 +112,7 @@ let body = [
 ]
 ```
 
-This is a core/validator fixture shape, not WAST text. The memory's shared max is part of the module resource shape; the atomic instruction's `MemArg` selects that memory; and validation then checks the address type and sharedness before stack-typing the atomic operation.
+This is a core/validator fixture shape, not WAST text. The memory's shared max is part of the module resource shape; the atomic instruction's `MemArg` selects that memory; and validation then checks the selected memory, address type, alignment, offset, and stack shape. It does not reject this instruction merely because a selected memory is unshared.
 
 ### Example: invalid but useful shared-without-max specimen
 
@@ -127,7 +128,7 @@ These bytes are useful when testing decode-versus-validation staging. They shoul
 Treat shared memory and atomics as semantic constraints, not as incidental syntax:
 
 - a pass that remaps, deletes, or reorders memories must repair every `MemArg` carrier, including atomic `MemArg`s;
-- a pass that removes or moves atomic operations must have a memory-ordering proof, not just stack-type preservation;
+- a pass that removes or moves atomic operations must have a memory-ordering proof, not just stack-type preservation; this remains true for atomics on unshared memories;
 - `atomic.fence` has no memory index to repair, but it is still an ordering barrier and must not be treated as a harmless `nop`;
 - shared-memory maxima and memory64/table64 address-width facts belong in resource/validator evidence, not in WAST declaration examples unless the WAST text path has been widened; and
 - external validators may accept a different proposal revision or feature default, so classify disagreements through [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) before filing a Starshine bug.
@@ -146,18 +147,19 @@ When touching shared memory or ordinary atomics:
 
 1. **Resource validation:** cover valid shared-with-max and invalid shared-without-max for memory32 and memory64 when relevant.
 2. **Binary staging:** keep decode-accepted / validation-invalid specimens (`0x02`, `0x06`) distinct from invalid-byte specimens.
-3. **Atomic stack typing:** cover selected-memory index, address-width, alignment, operand order, and result shape for the atomic family being changed.
-4. **Fence split:** test `AtomicFence` separately from `MemArg` atomics; it has no selected-memory sharedness check.
-5. **Generator coverage:** keep `[FZG]006` shared-memory/resource coverage and `[FZG]017` ordinary atomics scoped to current Starshine-valid surfaces.
+3. **Atomic stack typing:** cover selected-memory index, address-width, alignment, operand order, and result shape for the atomic family being changed. Include an unshared-memory positive when changing `memarg_check_atomic(...)` policy, because current local validation accepts it.
+4. **Fence split:** test `AtomicFence` separately from `MemArg` atomics; it has no selected-memory lookup at all.
+5. **Generator coverage:** keep `[FZG]006` shared-memory/resource coverage and `[FZG]017` ordinary atomics scoped to their current shared-memory generation topology; neither is a validator sharedness requirement.
 6. **WAST claims:** say “core/binary/validator/generator evidence” unless `src/wast/keywords.mbt`, `src/wast/parser.mbt`, lowering, printing, and WAST tests have actually been widened.
 7. **Feature-status wording:** cite this page for ordinary Threads/shared-memory claims, [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) for relaxed ordering / `pause`, and [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) for active-vs-finished proposal vocabulary.
 
 ## Sources
 
-- Current shared-memory source bridge: [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
-- Fence and unshared-memory reconciliation: [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
+- Current unshared-atomic validation reconciliation: [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
+- Historical shared-memory source bridge: [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
+- Historical fence/unshared-memory reconciliation: [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
 - Active proposal routing: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Atomic source manifest: [`raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](raw/wasm/2026-05-20-atomic-memory-instruction-sources.md)
 - Living companion pages: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)
 - WebAssembly Threads proposal and draft: <https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md>, <https://webassembly.github.io/threads/core/syntax/types.html#memory-types>, <https://webassembly.github.io/threads/core/binary/types.html#memory-types>, <https://webassembly.github.io/threads/core/valid/types.html#memory-types>, <https://webassembly.github.io/threads/core/syntax/instructions.html>, <https://webassembly.github.io/threads/core/valid/instructions.html>, <https://webassembly.github.io/threads/core/exec/instructions.html>
-- Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
+- Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
