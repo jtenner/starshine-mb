@@ -38510,7 +38510,8 @@ priv struct OiBooleanForwardReplacementFact {
 
 ///|
 priv enum OiBooleanTryExpressionThrowKind {
-  BooleanTryExpressionProvenNonThrowing
+  BooleanTryOrdinaryExpressionProvenNonThrowing
+  BooleanTryBlockRegionProvenNonThrowing
 }
 
 ///|
@@ -38523,8 +38524,54 @@ fn OiBooleanTryExpressionThrowFact::proves_nonthrowing(
   self : OiBooleanTryExpressionThrowFact,
 ) -> Bool {
   match self.kind {
-    BooleanTryExpressionProvenNonThrowing => true
+    BooleanTryOrdinaryExpressionProvenNonThrowing
+    | BooleanTryBlockRegionProvenNonThrowing => true
   }
+}
+
+///|
+priv enum OiBooleanTryRegionThrowKind {
+  BooleanTryRegionProvenNonThrowing
+}
+
+///|
+priv struct OiBooleanTryRegionThrowFact {
+  kind : OiBooleanTryRegionThrowKind
+}
+
+///|
+fn OiBooleanTryRegionThrowFact::proves_nonthrowing(
+  self : OiBooleanTryRegionThrowFact,
+) -> Bool {
+  match self.kind {
+    BooleanTryRegionProvenNonThrowing => true
+  }
+}
+
+///|
+fn OiBooleanTryRegionThrowFact::from_region(
+  func : @ir.HotFunc,
+  region : @ir.HotRegionRef,
+  states : Array[Int],
+  depth : Int,
+) -> OiBooleanTryRegionThrowFact? {
+  if depth >= 64 {
+    return None
+  }
+  let root_count = @ir.hot_region_root_count(func, region)
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    match
+      OiBooleanTryExpressionThrowFact::from_node(
+        func,
+        @ir.hot_region_get(func, region, slot),
+        states,
+        depth + 1,
+      ) {
+      Some(fact) if fact.proves_nonthrowing() => ()
+      _ => return None
+    }
+  }
+  Some({ kind: BooleanTryRegionProvenNonThrowing })
 }
 
 ///|
@@ -38536,36 +38583,56 @@ fn OiBooleanTryExpressionThrowFact::from_node(
 ) -> OiBooleanTryExpressionThrowFact? {
   // Binaryen v130 admits a Try fallthrough only when
   // `EffectAnalyzer(..., try.body).throws()` is false. Prove that narrow
-  // property recursively over ordinary HOT expression children instead of
-  // treating the direct node flag as a subtree summary. Structured controls
-  // remain fail-closed until their owned regions are audited explicitly.
+  // property recursively rather than treating the direct node flag as a
+  // subtree summary. Ordinary expression children and nested block regions are
+  // explicit facts; other structured controls remain fail-closed until their
+  // owned regions are audited.
   if depth >= 64 || node_id < 0 || node_id >= states.length() {
     return None
   }
   match states[node_id] {
-    2 => return Some({ kind: BooleanTryExpressionProvenNonThrowing })
+    2 => return Some({ kind: BooleanTryOrdinaryExpressionProvenNonThrowing })
     1 => return None
     _ => states[node_id] = 1
   }
-  if @ir.hot_node_may_throw_exception(func, node_id) ||
-    @ir.hot_is_control_node(func, node_id) {
+  if @ir.hot_node_may_throw_exception(func, node_id) {
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    match
-      OiBooleanTryExpressionThrowFact::from_node(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-        states,
-        depth + 1,
-      ) {
-      Some(fact) if fact.proves_nonthrowing() => ()
-      _ => return None
+  let kind = match node.op {
+    @ir.HotOp::Block =>
+      match
+        OiBooleanTryRegionThrowFact::from_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          states,
+          depth + 1,
+        ) {
+        Some(fact) if fact.proves_nonthrowing() =>
+          BooleanTryBlockRegionProvenNonThrowing
+        _ => return None
+      }
+    _ => {
+      if @ir.hot_is_control_node(func, node_id) {
+        return None
+      }
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        match
+          OiBooleanTryExpressionThrowFact::from_node(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            states,
+            depth + 1,
+          ) {
+          Some(fact) if fact.proves_nonthrowing() => ()
+          _ => return None
+        }
+      }
+      BooleanTryOrdinaryExpressionProvenNonThrowing
     }
   }
   states[node_id] = 2
-  Some({ kind: BooleanTryExpressionProvenNonThrowing })
+  Some({ kind, })
 }
 
 ///|

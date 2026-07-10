@@ -3567,6 +3567,120 @@ test "optimize-instructions folds prefixed nonthrowing try fallthrough chains" {
 }
 
 ///|
+test "optimize-instructions folds eqz through nonthrowing try block bodies" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130
+  // `EffectAnalyzer(..., try.body).throws()` recursively inspects a nested
+  // block region before `getFallthrough` selects its constant tail. A call in
+  // that owned region remains an exceptional boundary. Oracle:
+  // `.tmp/oi-probes/boolean-eqz-fallthrough-try.wat`.
+  let i32_type = @lib.ValType::i32()
+  let pure = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(pure, @ir.hot_type_intern_value(pure, i32_type))
+  let pure_block = @ir.hot_build_block(
+    pure,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(pure, @lib.I32(0))],
+  )
+  let pure_try = @ir.hot_build_try(
+    pure,
+    @lib.BlockType::val_type(i32_type),
+    [pure_block],
+    catch_body=Some([@ir.hot_build_const_i32(pure, @lib.I32(9))]),
+  )
+  let pure_condition = @ir.hot_build_unary(pure, i32_type, pure_try)
+  @ir.hot_node_exact_instr_set(
+    pure,
+    pure_condition,
+    @lib.Instruction::i32_eqz(),
+  )
+  @ir.hot_root_append(
+    pure,
+    @ir.hot_build_if(
+      pure,
+      @lib.BlockType::val_type(i32_type),
+      pure_condition,
+      [@ir.hot_build_const_i32(pure, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(pure, @lib.I32(22))]),
+    ),
+  )
+  let pure_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(pure_ctx, pure) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested block try optimization, got \{err}")
+  }
+  let pure_result = @ir.hot_child_get(pure, @ir.hot_root_get(pure, 0), 0)
+  match @ir.hot_node_get(pure, pure_result).op {
+    @ir.HotOp::Const => ()
+    other => fail("expected nested block try truth constant, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(pure, @ir.hot_node_get(pure, pure_result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let calling = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    calling,
+    @ir.hot_type_intern_value(calling, i32_type),
+  )
+  let call = @ir.hot_build_call(calling, 0, [i32_type], [])
+  let calling_block = @ir.hot_build_block(
+    calling,
+    @lib.BlockType::val_type(i32_type),
+    [
+      @ir.hot_build_drop(calling, call),
+      @ir.hot_build_const_i32(calling, @lib.I32(0)),
+    ],
+  )
+  let calling_try = @ir.hot_build_try(
+    calling,
+    @lib.BlockType::val_type(i32_type),
+    [calling_block],
+    catch_body=Some([@ir.hot_build_const_i32(calling, @lib.I32(9))]),
+  )
+  let calling_condition = @ir.hot_build_unary(calling, i32_type, calling_try)
+  @ir.hot_node_exact_instr_set(
+    calling,
+    calling_condition,
+    @lib.Instruction::i32_eqz(),
+  )
+  @ir.hot_root_append(
+    calling,
+    @ir.hot_build_if(
+      calling,
+      @lib.BlockType::val_type(i32_type),
+      calling_condition,
+      [@ir.hot_build_const_i32(calling, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(calling, @lib.I32(22))]),
+    ),
+  )
+  let calling_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(calling_ctx, calling) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested block call boundary, got \{err}")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      calling,
+      @ir.hot_child_get(calling, @ir.hot_root_get(calling, 0), 0),
+    ),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+}
+
+///|
 test "optimize-instructions folds recursive eqz fallthrough wrapper chains" {
   // Red-first OI-F behavior-parity slice: Binaryen v130 `getFallthrough`
   // repeatedly applies `getImmediateFallthrough`, then preserves only the
