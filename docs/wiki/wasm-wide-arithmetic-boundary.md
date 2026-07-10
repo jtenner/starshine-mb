@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
   - raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - ../../src/lib/types.mbt
@@ -28,7 +29,7 @@ Use this page when a fixture, external tool result, Binaryen comparison, or opti
 
 For beginners: ordinary `i64.add` consumes two `i64` values and pushes one wrapped `i64` result. Wide Arithmetic adds instructions whose result is too wide for one `i64`, so the proposal represents the result as **two `i64` values** on the wasm stack. That makes it a scalar-numeric proposal, but it also touches multi-value validation, binary prefixed-opcode assignment, WAST printing/parsing, and pass rewrite safety.
 
-The current source bridge is [`raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md). It checked the official proposals tracker, the Wide Arithmetic proposal repository/overview, the draft binary and validation pages, current Binaryen release-horizon notes, and current Starshine WAST/core/binary/validator/generator source evidence.
+The current source bridge is [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md). It rechecks the official proposal tracker, maintained proposal overview, rendered binary/validation drafts, and Starshine's current `0xFC` codec. It supersedes the June source bridge **only for interpreting the exact proposed opcode range**: the old rendered binary table remains inconsistent, but the maintained overview gives the operational placement described below.
 
 ## Proposal Shape
 
@@ -64,19 +65,19 @@ Starshine currently has **no documented Wide Arithmetic support**.
 
 This means current Wide Arithmetic inputs should be classified as `unsupported-feature` or active-proposal evidence in external-validator/fuzz reports, not as ordinary scalar numeric parser bugs.
 
-## Opcode And Source Caveat
+## Opcode Routing: Current Operational Rule And Draft Lag
 
-The current proposal sources have a visible opcode-routing caveat. The proposal overview says existing `0xFC` subcodes `8` through `17` are occupied by bulk memory/table operations, `memory.discard` is expected at `18`, and Wide Arithmetic is expected at `19` through `22`. The draft rendered binary page checked in the same refresh still lists Wide Arithmetic in a `0xFC 13` through `0xFC 16` range, which collides with current Core table operations as implemented by Starshine's `0xFC` decoder.
+The proposal is still active, so its encoding is not a final Core compatibility promise. However, the current sources no longer leave a Starshine implementation free to choose either apparent range:
 
-Do not smooth over that contradiction. A future implementation slice should first recheck:
+| `0xFC` subcodes | Current meaning | Starshine handling today |
+| --- | --- | --- |
+| `13..17` | Current Core table operations: `elem.drop`, `table.copy`, `table.grow`, `table.size`, `table.fill` | Decoded and encoded as those table instructions. They are **not** Wide Arithmetic bytes. |
+| `18` | Expected Memory Control `memory.discard` slot in the Wide Arithmetic overview | Unsupported; keep separate from Wide Arithmetic. |
+| `19..22` | Current Wide Arithmetic overview placement: `i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u` | Unsupported; these are the only bytes a future proposal-gated Wide Arithmetic slice should target. |
 
-1. the proposal overview and rendered spec pages;
-2. issue/PR history in the Wide Arithmetic repository;
-3. the current official proposals tracker;
-4. WABT, wasm-tools, and Binaryen behavior under explicit feature flags;
-5. Starshine's existing `0xFC` table/bulk-memory decode cases.
+The maintained proposal overview explicitly rejects `13..16` because those values collide with table instructions and places Wide Arithmetic at `19..22`. The rendered proposal binary page still shows `13..16` and identifies itself as a 2025-09-21 draft. Record that page as an unreconciled/stale artifact, not an alternate legal encoding. A compatibility decoder for its values would reinterpret valid Core table instructions and is therefore forbidden.
 
-Until then, this wiki treats the exact subopcode assignment as **unsettled proposal evidence** and records only that Starshine currently rejects/omits Wide Arithmetic.
+Before implementation, recheck the overview, rendered drafts, tracker, and exact tool versions/feature flags. The task is to detect whether the rendered draft caught up—not to reopen `13..16` as a possible implementation choice. See [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md) for the evidence and remaining active-proposal uncertainty.
 
 ## Examples And Non-Examples
 
@@ -110,9 +111,9 @@ Wide Arithmetic uses scalar `i64` stack values and multi-value results. It is un
 
 A safe Starshine implementation would need all of these, in order:
 
-1. **Status recheck:** refresh the proposal source bridge and resolve the subopcode contradiction before writing codec tests.
+1. **Status recheck:** refresh the proposal source bridge and record whether the rendered draft has caught up; use the maintained overview's `0xFC 19..22` placement unless the upstream project changes it.
 2. **Core model:** add explicit instruction variants and constructor helpers in [`src/lib/types.mbt`](../../src/lib/types.mbt).
-3. **Binary:** add decode/encode cases for the final `0xFC` subcodes plus malformed/overwide/reserved-subopcode tests in [`src/binary/tests.mbt`](../../src/binary/tests.mbt).
+3. **Binary:** add proposal-gated decode/encode cases for `0xFC 19..22`, malformed/overwide/reserved-subopcode tests, and explicit non-reinterpretation tests proving `13..17` remain Core table instructions in [`src/binary/tests.mbt`](../../src/binary/tests.mbt).
 4. **Validation:** add stack typing for four-input/two-output add/sub and two-input/two-output multiply in [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), including unreachable/bottom behavior through [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md).
 5. **WAST:** add keywords, parser classifications, lowerer mapping, printer output, and text roundtrip tests in `src/wast`.
 6. **Generator/fuzzing:** add a feature gate, opcode counts, profile routing, and external-validator adapter classification before treating random inputs as ordinary valid modules.
@@ -120,7 +121,8 @@ A safe Starshine implementation would need all of these, in order:
 
 ## Sources
 
-- Source bridge: [`raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md)
+- Current opcode reconciliation: [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md)
+- Historical source bridge: [`raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md)
 - Active proposal routing: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - Numeric and binary companion pages: [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md)
 - Local source evidence: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

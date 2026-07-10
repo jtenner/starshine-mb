@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
@@ -147,7 +148,7 @@ Two source-current caveats are worth keeping visible:
 
 - **Official text literals are broader than every Starshine local path.** Current WebAssembly text permits decimal/hex integer forms with separators and several float special forms. Starshine recognizes many of these at the lexer/lowerer boundary, but scalar body constants, index parsing, SIMD lane parsing, and WAST assertion result rendering still use different helper paths. Keep large unsigned wraparound, separator-heavy scalar integers, hex floats, and NaN payload roundtrips focused and test-backed.
 - **Official and Starshine constant-expression lists differ.** The current official constant-expression predicate admits scalar numeric constants plus only integer `i32`/`i64` `add`/`sub`/`mul` among scalar numeric no-argument operators. Starshine's [`validate_const_instr(...)`](../../../src/validate/validate.mbt) deliberately admits many more scalar numeric operators locally, then relies on ordinary typechecking for arity and result type. Use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) when a pass or fixture depends on initializer portability.
-- **Wide Arithmetic is not part of this current scalar surface.** The active Phase-3 proposal adds multi-result scalar integer instructions and has a current proposal-source subopcode contradiction. Current Starshine has no WAST keywords, core variants, binary cases, typecheck cases, or generator rows for those instructions; see [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md) before triaging any `i64.add128` / `i64.mul_wide_*` input.
+- **Wide Arithmetic is not part of this current scalar surface.** The active Phase-3 proposal adds multi-result scalar integer instructions. Current Starshine has no WAST keywords, core variants, binary cases, typecheck cases, or generator rows for them. Future proposal-gated byte work targets `0xFC 19..22`; the rendered `13..16` proposal table collides with current Core table instructions and is stale/unreconciled, not an alternate encoding. See [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md) before triaging any `i64.add128` / `i64.mul_wide_*` input.
 
 ## Binary And Validation Contract
 
@@ -217,7 +218,7 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md)
 - Targeted literal/rewrite refresh: [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
 - Current-source refresh: [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md)
-- Wide Arithmetic proposal boundary: [`../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md), [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
+- Wide Arithmetic proposal boundary: [`../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md), [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Official numeric execution and text values sources: <https://webassembly.github.io/spec/core/exec/numerics.html>, <https://webassembly.github.io/spec/core/text/values.html>
 - Local parser/lowerer/printer sources listed in the frontmatter above.
