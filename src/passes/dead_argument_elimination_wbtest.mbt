@@ -124,6 +124,52 @@ fn dae_original_result_removal_prune_row(
 }
 
 ///|
+test "dae core result application installs changes and preserves scheduler state" {
+  let current = dae_wbtest_call_summary_fixture()
+  let rewritten = @lib.Module::new()
+  let changed_result : DaePassResult = {
+    mod_out: rewritten,
+    touched: [false, true, true],
+    changed: true,
+    primary_def: 2,
+  }
+  let adopted = dae_apply_core_result(current, [], false, changed_result)
+  assert_true(adopted.applied)
+  assert_eq(adopted.mod_out, rewritten)
+  assert_eq(adopted.touched, [false, true, true])
+  assert_true(adopted.changed)
+  assert_eq(adopted.primary_def, 2)
+  let merged = dae_apply_core_result(
+    current,
+    [true, false, false],
+    true,
+    changed_result,
+  )
+  assert_true(merged.applied)
+  assert_eq(merged.mod_out, rewritten)
+  assert_eq(merged.touched, [true, true, true])
+  assert_true(merged.changed)
+  assert_eq(merged.primary_def, 2)
+  let no_change_result : DaePassResult = {
+    mod_out: rewritten,
+    touched: [false, true, true],
+    changed: false,
+    primary_def: 2,
+  }
+  let preserved = dae_apply_core_result(
+    current,
+    [true, false, false],
+    true,
+    no_change_result,
+  )
+  assert_false(preserved.applied)
+  assert_eq(preserved.mod_out, current)
+  assert_eq(preserved.touched, [true, false, false])
+  assert_true(preserved.changed)
+  assert_eq(preserved.primary_def, -1)
+}
+
+///|
 test "dae call boundary facts expose reusable forwarding gates" {
   let facts = dae_make_call_boundary_facts(
     [false, true, false],
