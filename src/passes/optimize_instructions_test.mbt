@@ -2639,6 +2639,88 @@ test "optimize-instructions recursively simplifies boolean if arms" {
 }
 
 ///|
+test "optimize-instructions recursively simplifies boolean try body and catch" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // independently rewrites the body and every catch body of an i32 try used as
+  // a condition. `.tmp/oi-probes/boolean-try-contexts.wat` preserves both
+  // region prefixes while forwarding body ne-zero and catch zero-minus tails.
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i32_type]),
+  )
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+
+  let body_tail = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+  )
+  @ir.hot_node_exact_instr_set(func, body_tail, @lib.Instruction::i32_ne())
+  let catch_tail = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    @ir.hot_build_local_get(func, 1),
+  )
+  @ir.hot_node_exact_instr_set(func, catch_tail, @lib.Instruction::i32_sub())
+  let condition = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)), body_tail],
+    catch_body=Some([
+      @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 0)),
+      catch_tail,
+    ]),
+  )
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_if(
+      func,
+      @lib.BlockType::val_type(i32_type),
+      condition,
+      [@ir.hot_build_const_i32(func, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(22))]),
+    ),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected boolean try optimization success, got \{err}")
+  }
+
+  let assert_region = fn(
+    region : @ir.HotRegionRef,
+    expected_local : Int,
+    label : String,
+  ) raise {
+    @debug.assert_eq(@ir.hot_region_root_count(func, region), 2)
+    match @ir.hot_node_get(func, @ir.hot_region_get(func, region, 0)).op {
+      @ir.HotOp::Drop => ()
+      other => fail("expected \{label} prefix drop to remain, got \{other}")
+    }
+    let tail = @ir.hot_region_get(func, region, 1)
+    match @ir.hot_node_get(func, tail).op {
+      @ir.HotOp::LocalGet =>
+        @debug.assert_eq(@ir.hot_node_get(func, tail).imm0, expected_local)
+      other => fail("expected \{label} boolean tail to simplify, got \{other}")
+    }
+  }
+  assert_region(@ir.hot_region_body_ref(func, condition), 0, "try body")
+  let catch_region = match @ir.hot_region_catch_ref(func, condition) {
+    Some(region) => region
+    None => fail("expected represented try catch region")
+  }
+  assert_region(catch_region, 1, "try catch")
+}
+
+///|
 test "optimize-instructions simplifies boolean zero-minus leaves" {
   // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
   // rewrites `bool(0 - x)` to `bool(x)`. The focused oracle

@@ -38939,6 +38939,45 @@ fn OiBooleanIfArmsContextFact::from_condition(
 }
 
 ///|
+priv struct OiBooleanTryContextFact {
+  try_id : Int
+  body_arm : OiBooleanIfArmContextFact
+  catch_arm : OiBooleanIfArmContextFact?
+}
+
+///|
+fn OiBooleanTryContextFact::from_condition(
+  func : @ir.HotFunc,
+  condition_id : Int,
+) -> OiBooleanTryContextFact? {
+  // Binaryen v130 `optimizeBoolean` recursively optimizes an i32 try body and
+  // every catch body independently. HOT's represented legacy Try has one body
+  // region plus at most one catch region, each with a final root and optional
+  // preserved prefix roots.
+  match @ir.hot_node_get(func, condition_id).op {
+    @ir.HotOp::Try => ()
+    _ => return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, condition_id)) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let body_arm = match
+    OiBooleanIfArmContextFact::from_region(
+      func,
+      @ir.hot_region_body_ref(func, condition_id),
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  let catch_arm = match @ir.hot_region_catch_ref(func, condition_id) {
+    Some(region) => OiBooleanIfArmContextFact::from_region(func, region)
+    None => None
+  }
+  Some({ try_id: condition_id, body_arm, catch_arm })
+}
+
+///|
 priv struct OiBooleanContextRewriteOutcome {
   result_id : Int
   changed : Bool
@@ -38958,7 +38997,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
   node_id : Int,
 ) -> OiBooleanContextRewriteOutcome {
   // Follow Binaryen v130 `optimizeBoolean` source order: direct unary/binary
-  // rewrites first, then recursive i32.or, block, if, and select contexts.
+  // rewrites first, then recursive i32.or, block, if, select, and try contexts.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiBooleanContextRewriteOutcome::unchanged(node_id)
   }
@@ -39072,6 +39111,55 @@ fn optimize_instructions_rewrite_boolean_context_node(
       return {
         result_id: fact.select_id,
         changed: true_result.changed || false_result.changed,
+      }
+    }
+    None => ()
+  }
+  match OiBooleanTryContextFact::from_condition(func, node_id) {
+    Some(fact) => {
+      let body_result = optimize_instructions_rewrite_boolean_context_node(
+        func,
+        dead,
+        fact.body_arm.tail_id,
+      )
+      if body_result.result_id != fact.body_arm.tail_id {
+        ignore(
+          @ir.hot_region_set(
+            func,
+            fact.body_arm.region_ref,
+            fact.body_arm.tail_slot,
+            body_result.result_id,
+          ),
+        )
+      }
+      let catch_result = match fact.catch_arm {
+        Some(catch_arm) => {
+          let result = optimize_instructions_rewrite_boolean_context_node(
+            func,
+            dead,
+            catch_arm.tail_id,
+          )
+          if result.result_id != catch_arm.tail_id {
+            ignore(
+              @ir.hot_region_set(
+                func,
+                catch_arm.region_ref,
+                catch_arm.tail_slot,
+                result.result_id,
+              ),
+            )
+          }
+          Some(result)
+        }
+        None => None
+      }
+      let catch_changed = match catch_result {
+        Some(result) => result.changed
+        None => false
+      }
+      return {
+        result_id: fact.try_id,
+        changed: body_result.changed || catch_changed,
       }
     }
     None => OiBooleanContextRewriteOutcome::unchanged(node_id)
