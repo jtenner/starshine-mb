@@ -28557,6 +28557,140 @@ fn optimize_instructions_try_hoist_matching_unary_select(
 }
 
 ///|
+priv enum OiMatchingReferenceSelectShellKind {
+  MatchingSelectRefIsNull
+}
+
+///|
+priv struct OiMatchingReferenceSelectArmFact {
+  kind : OiMatchingReferenceSelectShellKind
+  shell_id : Int
+  child_type : @lib.ValType
+  child_id : Int
+}
+
+///|
+fn OiMatchingReferenceSelectArmFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingReferenceSelectArmFact? {
+  // Binaryen v130's generic `optimizeTernary` loop accepts shallow-equal
+  // one-child shells, equal child types, and side-effect-free select shells.
+  // Keep reference-shaped shells separate from exact numeric Unary facts.
+  let node = @ir.hot_node_get(func, node_id)
+  let kind = match node.op {
+    @ir.HotOp::RefIsNull if node.child_count == 1 => MatchingSelectRefIsNull
+    _ => return None
+  }
+  match @ir.hot_type_results(func, node.ty) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  let child_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, child_id)) {
+    [result] => result
+    _ => return None
+  }
+  Some({ kind, shell_id: node_id, child_type, child_id })
+}
+
+///|
+priv struct OiMatchingReferenceSelectHoistFact {
+  kind : OiMatchingReferenceSelectShellKind
+  shell_id : Int
+  child_type : @lib.ValType
+  if_true_child : Int
+  if_false_child : Int
+  condition_id : Int
+}
+
+///|
+fn OiMatchingReferenceSelectHoistFact::from_select(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingReferenceSelectHoistFact? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Select if node.child_count == 3 => ()
+    _ => return None
+  }
+  match @ir.hot_type_results(func, node.ty) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let true_fact = match
+    OiMatchingReferenceSelectArmFact::from_node(
+      func,
+      @ir.hot_child_get(func, node_id, 0),
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  let false_fact = match
+    OiMatchingReferenceSelectArmFact::from_node(
+      func,
+      @ir.hot_child_get(func, node_id, 1),
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  match (true_fact.kind, false_fact.kind) {
+    (MatchingSelectRefIsNull, MatchingSelectRefIsNull) => ()
+  }
+  if true_fact.child_type != false_fact.child_type {
+    return None
+  }
+  Some({
+    kind: false_fact.kind,
+    shell_id: false_fact.shell_id,
+    child_type: false_fact.child_type,
+    if_true_child: true_fact.child_id,
+    if_false_child: false_fact.child_id,
+    condition_id: @ir.hot_child_get(func, node_id, 2),
+  })
+}
+
+///|
+fn OiMatchingReferenceSelectHoistFact::apply(
+  self : OiMatchingReferenceSelectHoistFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let inner = @ir.hot_build_select(
+    func,
+    self.child_type,
+    self.if_true_child,
+    self.if_false_child,
+    self.condition_id,
+  )
+  let replacement = match self.kind {
+    MatchingSelectRefIsNull =>
+      @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, self.shell_id).op,
+        @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+        children=[inner],
+      )
+  }
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
+  true
+}
+
+///|
+fn optimize_instructions_try_hoist_matching_reference_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match OiMatchingReferenceSelectHoistFact::from_select(func, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -40029,6 +40163,9 @@ fn optimize_instructions_visit_node(
       ) ||
       optimize_instructions_try_hoist_eqz_boolean_select(
         ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_hoist_matching_reference_select(
+        ctx, func, node_id,
       ) ||
       optimize_instructions_try_hoist_matching_unary_select(ctx, func, node_id)
     @ir.HotOp::Drop =>

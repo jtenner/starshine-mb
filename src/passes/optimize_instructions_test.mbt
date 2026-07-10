@@ -4305,6 +4305,30 @@ test "optimize-instructions hoists matching integer sign extension select arm sh
 }
 
 ///|
+test "optimize-instructions hoists matching ref.is_null select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen v130's generic shallow-equal
+  // one-child loop hoists matching side-effect-free ref.is_null shells over a
+  // reference-typed child select. Oracle:
+  // `.tmp/oi-probes/select-matching-ref-shell-hoist.wat`.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param $a externref) (param $b externref) (param $cond i32) (result i32) (select (ref.is_null (local.get $a)) (ref.is_null (local.get $b)) (local.get $cond))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::RefIsNull => ()
+    other => fail("expected matching ref.is_null shells to hoist, got \{other}")
+  }
+  let inner = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, inner).op {
+    @ir.HotOp::Select => ()
+    other => fail("expected reference child select after hoist, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_type_results(func, @ir.hot_node_type(func, inner)), [
+    @lib.ValType::externref(),
+  ])
+}
+
+///|
 test "optimize-instructions hoists matching float unary select arm shells" {
   // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
   // loop hoists all scalar f32/f64 unary arithmetic shells. Oracle:
