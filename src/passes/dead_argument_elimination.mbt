@@ -34,6 +34,14 @@ priv struct DaeOperandDisposition {
 }
 
 ///|
+priv struct DaeInstructionObservabilityEvidence {
+  has_observable_effect : Bool
+  has_branch_control : Bool
+  may_trap_or_unknown : Bool
+  erasable_before_unreachable : Bool
+}
+
+///|
 priv struct DaeOperandRewriteDisposition {
   operand : DaeOperandDisposition
   localization_available : Bool
@@ -10807,7 +10815,24 @@ fn dae_try_rewrite_candidate(
 }
 
 ///|
-fn dae_instr_has_observable_effect(instr : @lib.Instruction) -> Bool {
+fn dae_instruction_observability_evidence_is_consistent(
+  evidence : DaeInstructionObservabilityEvidence,
+) -> Bool {
+  evidence.erasable_before_unreachable ==
+  (
+    !evidence.has_observable_effect &&
+    !evidence.has_branch_control &&
+    !evidence.may_trap_or_unknown
+  )
+}
+
+///|
+fn dae_instruction_observability_evidence(
+  instr : @lib.Instruction,
+) -> DaeInstructionObservabilityEvidence {
+  let mut has_observable_effect = false
+  let mut has_branch_control = false
+  let mut child_may_trap_or_unknown = false
   match instr {
     @lib.Call(_)
     | @lib.CallIndirect(_, _)
@@ -10841,44 +10866,135 @@ fn dae_instr_has_observable_effect(instr : @lib.Instruction) -> Bool {
     | @lib.I64AtomicStore16(_)
     | @lib.I64AtomicStore32(_)
     | @lib.AtomicRmw(_, _)
-    | @lib.AtomicCmpxchg(_, _) => true
+    | @lib.AtomicCmpxchg(_, _) => has_observable_effect = true
+    @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return =>
+      has_branch_control = true
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      body.any(fn(child) { dae_instr_has_observable_effect(child) })
-    @lib.If(_, then_body, Some(else_body)) =>
-      then_body.any(fn(child) { dae_instr_has_observable_effect(child) }) ||
-      else_body.any(fn(child) { dae_instr_has_observable_effect(child) })
-    @lib.If(_, then_body, None) =>
-      then_body.any(fn(child) { dae_instr_has_observable_effect(child) })
-    _ => false
+      for child in body {
+        let child_evidence = dae_instruction_observability_evidence(child)
+        has_observable_effect = has_observable_effect ||
+          child_evidence.has_observable_effect
+        has_branch_control = has_branch_control ||
+          child_evidence.has_branch_control
+        child_may_trap_or_unknown = child_may_trap_or_unknown ||
+          child_evidence.may_trap_or_unknown
+      }
+    @lib.If(_, then_body, else_body) => {
+      for child in then_body {
+        let child_evidence = dae_instruction_observability_evidence(child)
+        has_observable_effect = has_observable_effect ||
+          child_evidence.has_observable_effect
+        has_branch_control = has_branch_control ||
+          child_evidence.has_branch_control
+        child_may_trap_or_unknown = child_may_trap_or_unknown ||
+          child_evidence.may_trap_or_unknown
+      }
+      match else_body {
+        Some(body) =>
+          for child in body {
+            let child_evidence = dae_instruction_observability_evidence(child)
+            has_observable_effect = has_observable_effect ||
+              child_evidence.has_observable_effect
+            has_branch_control = has_branch_control ||
+              child_evidence.has_branch_control
+            child_may_trap_or_unknown = child_may_trap_or_unknown ||
+              child_evidence.may_trap_or_unknown
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  let known_nontrapping = match instr {
+    @lib.Nop
+    | @lib.Drop
+    | @lib.LocalSet(_)
+    | @lib.LocalTee(_)
+    | @lib.Select(_)
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return => true
+    @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _) => !child_may_trap_or_unknown
+    _ =>
+      dae_instr_is_droppable_pure_leaf(instr) ||
+      dae_instr_is_nontrapping_pure_unary(instr) ||
+      dae_instr_is_nontrapping_pure_binary(instr)
+  }
+  let may_trap_or_unknown = !known_nontrapping
+  let evidence = {
+    has_observable_effect,
+    has_branch_control,
+    may_trap_or_unknown,
+    erasable_before_unreachable: !has_observable_effect &&
+    !has_branch_control &&
+    !may_trap_or_unknown,
+  }
+  if dae_instruction_observability_evidence_is_consistent(evidence) {
+    evidence
+  } else {
+    {
+      has_observable_effect: true,
+      has_branch_control: true,
+      may_trap_or_unknown: true,
+      erasable_before_unreachable: false,
+    }
   }
 }
 
 ///|
-fn dae_instr_has_observable_effect_or_branch(instr : @lib.Instruction) -> Bool {
-  if dae_instr_has_observable_effect(instr) {
+fn dae_instruction_is_erasable_before_unreachable_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  if idx < 0 || idx >= instrs.length() {
+    return false
+  }
+  let evidence = dae_instruction_observability_evidence(instrs[idx])
+  if evidence.has_observable_effect {
+    return false
+  }
+  if evidence.has_branch_control {
+    match instrs[idx] {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _) =>
+        if dae_instr_has_escaping_branch(instrs[idx], 0) {
+          return false
+        }
+      _ => return false
+    }
+  }
+  if !evidence.may_trap_or_unknown {
     return true
   }
-  match instr {
-    @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return => true
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      body.any(fn(child) { dae_instr_has_observable_effect_or_branch(child) })
-    @lib.If(_, then_body, Some(else_body)) =>
-      then_body.any(fn(child) {
-        dae_instr_has_observable_effect_or_branch(child)
-      }) ||
-      else_body.any(fn(child) {
-        dae_instr_has_observable_effect_or_branch(child)
-      })
-    @lib.If(_, then_body, None) =>
-      then_body.any(fn(child) {
-        dae_instr_has_observable_effect_or_branch(child)
-      })
-    _ => false
+  if idx >= 1 &&
+    dae_instr_is_const_safe_float_to_int_unary(instrs[idx - 1], instrs[idx]) {
+    return true
   }
+  idx >= 2 &&
+  dae_instr_is_const_safe_numeric_binary(
+    instrs[idx - 2],
+    instrs[idx - 1],
+    instrs[idx],
+  )
+}
+
+///|
+fn dae_instr_has_observable_effect(instr : @lib.Instruction) -> Bool {
+  dae_instruction_observability_evidence(instr).has_observable_effect
+}
+
+///|
+fn dae_instr_has_observable_effect_or_branch(instr : @lib.Instruction) -> Bool {
+  let evidence = dae_instruction_observability_evidence(instr)
+  evidence.has_observable_effect || evidence.has_branch_control
 }
 
 ///|
@@ -10928,7 +11044,7 @@ fn dae_simplify_to_unreachable_when_prefix_unobservable(
     if dae_instr_is_unreachable_root(body[idx]) {
       let mut prefix_idx = 0
       while prefix_idx < idx {
-        if dae_instr_has_observable_effect(body[prefix_idx]) {
+        if !dae_instruction_is_erasable_before_unreachable_at(body, prefix_idx) {
           return func
         }
         prefix_idx += 1

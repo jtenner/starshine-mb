@@ -465,7 +465,8 @@ test "dead-argument-elimination preserves trapping prefixes before unreachable c
   assert_false(pretty.contains("I32(9)"), msg=pretty)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
-    Err(err) => fail("expected trapping-prefix DAE output to validate, got \{err}")
+    Err(err) =>
+      fail("expected trapping-prefix DAE output to validate, got \{err}")
   }
 }
 
