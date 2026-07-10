@@ -3898,6 +3898,39 @@ test "dae operand rewrite disposition separates removal localization and rejecti
 }
 
 ///|
+test "dae instruction observability evidence blocks effects branches and traps" {
+  let pure = dae_instruction_observability_evidence(
+    @lib.Instruction::i32_const(@lib.I32(1)),
+  )
+  assert_false(pure.has_observable_effect)
+  assert_false(pure.has_branch_control)
+  assert_false(pure.may_trap_or_unknown)
+  assert_true(pure.erasable_before_unreachable)
+  assert_true(dae_instruction_observability_evidence_is_consistent(pure))
+
+  let effect = dae_instruction_observability_evidence(
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  )
+  assert_true(effect.has_observable_effect)
+  assert_false(effect.erasable_before_unreachable)
+  assert_true(dae_instruction_observability_evidence_is_consistent(effect))
+
+  let branch = dae_instruction_observability_evidence(
+    @lib.Instruction::return_(),
+  )
+  assert_true(branch.has_branch_control)
+  assert_false(branch.erasable_before_unreachable)
+  assert_true(dae_instruction_observability_evidence_is_consistent(branch))
+
+  let trap = dae_instruction_observability_evidence(
+    @lib.Instruction::i32_div_s(),
+  )
+  assert_true(trap.may_trap_or_unknown)
+  assert_false(trap.erasable_before_unreachable)
+  assert_true(dae_instruction_observability_evidence_is_consistent(trap))
+}
+
+///|
 test "dae dead suffix evidence centralizes unreachable tails" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),

@@ -441,6 +441,35 @@ test "dead-argument-elimination trims unreachable tail debris from coverage-shap
 }
 
 ///|
+test "dead-argument-elimination preserves trapping prefixes before unreachable cleanup" {
+  let source =
+    #|(module
+    #|  (func $f (param i32)
+    #|    i32.const 1
+    #|    i32.const 0
+    #|    i32.div_s
+    #|    drop
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 9
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected trapping-prefix DAE output to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination repairs direct return_call sites when removing an unused parameter" {
   let source =
     #|(module
