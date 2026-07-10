@@ -1043,8 +1043,15 @@ test "dae original dead-suffix side-call evidence centralizes cleanup gates" {
     [0, 0],
     [0, 0],
   )
+  let result_side_call : DaeOriginalResultSideCallRow = {
+    dead_suffix_other_call: true,
+    dead_suffix_result_other_call: false,
+    dead_suffix_self_recursive_void_side_call: false,
+    dead_suffix_self_recursive_result_side_call: true,
+    dead_suffix_mutual_call: result_side_row.dead_suffix_mutual_call,
+  }
   let result_side = dae_original_dead_suffix_side_call_evidence(
-    result_side_row, true, false, false, true,
+    result_side_row, result_side_call,
   )
   assert_false(result_side.void_side_cleanup_preservation)
   assert_true(result_side.result_side_chain_preservation)
@@ -1073,8 +1080,15 @@ test "dae original dead-suffix side-call evidence centralizes cleanup gates" {
     [0, 0],
     [0, 0],
   )
+  let void_side_call : DaeOriginalResultSideCallRow = {
+    dead_suffix_other_call: true,
+    dead_suffix_result_other_call: false,
+    dead_suffix_self_recursive_void_side_call: true,
+    dead_suffix_self_recursive_result_side_call: false,
+    dead_suffix_mutual_call: void_side_row.dead_suffix_mutual_call,
+  }
   let void_side = dae_original_dead_suffix_side_call_evidence(
-    void_side_row, true, false, true, false,
+    void_side_row, void_side_call,
   )
   assert_true(void_side.void_side_cleanup_preservation)
   assert_false(void_side.result_side_chain_preservation)

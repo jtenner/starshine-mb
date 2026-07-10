@@ -996,6 +996,9 @@ priv struct DaeOriginalResultBoundaryContext {
   preservation : DaeOriginalResultPreservationContext
   original_private_result_escaped_operand_call_counts : Array[Int]
   original_dead_suffix_undropped_escaped_result_calls : Array[Bool]
+  original_dead_suffix_other_calls : Array[Bool]
+  original_dead_suffix_self_recursive_void_side_calls : Array[Bool]
+  original_dead_suffix_self_recursive_result_side_calls : Array[Bool]
   original_active_parameterized_result_nonself_call_counts : Array[Int]
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool]
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool]
@@ -1034,6 +1037,7 @@ priv struct DaeOriginalResultPreservationRow {
 priv struct DaeOriginalResultBoundaryRow {
   preservation : DaeOriginalResultPreservationRow
   escape : DaeOriginalResultEscapeRow
+  side_call : DaeOriginalResultSideCallRow
   prune : DaeOriginalResultRemovalPruneRow
 }
 
@@ -1047,6 +1051,15 @@ priv struct DaeOriginalResultEscapeRow {
   dead_suffix_result_calls_from_no_param_undropped_self_caller : Int
   dead_suffix_calls_from_param_operand_self_result_caller : Int
   dead_suffix_escaped_result_operand_call_count : Int
+}
+
+///|
+priv struct DaeOriginalResultSideCallRow {
+  dead_suffix_other_call : Bool
+  dead_suffix_result_other_call : Bool
+  dead_suffix_self_recursive_void_side_call : Bool
+  dead_suffix_self_recursive_result_side_call : Bool
+  dead_suffix_mutual_call : Bool
 }
 
 ///|
@@ -15298,18 +15311,15 @@ fn dae_should_preserve_same_self_result_operand_from_row(
 ///|
 fn dae_original_dead_suffix_side_call_evidence(
   row : DaeOriginalResultRemovalPruneRow,
-  dead_suffix_other_call : Bool,
-  dead_suffix_result_other_call : Bool,
-  dead_suffix_self_recursive_void_side_call : Bool,
-  dead_suffix_self_recursive_result_side_call : Bool,
+  side_call : DaeOriginalResultSideCallRow,
 ) -> DaeOriginalDeadSuffixSideCallEvidence {
   let originally_had_params = row.param_count > 0
-  let void_dead_suffix_side_call = dead_suffix_other_call &&
-    !dead_suffix_result_other_call
+  let void_dead_suffix_side_call = side_call.dead_suffix_other_call &&
+    !side_call.dead_suffix_result_other_call
   let void_side_cleanup_preservation = originally_had_params &&
     row.self_call_count == 0 &&
     void_dead_suffix_side_call &&
-    dead_suffix_self_recursive_void_side_call &&
+    side_call.dead_suffix_self_recursive_void_side_call &&
     row.escaped_dead_suffix_call_count == 0 &&
     row.call_count > 0 &&
     row.active_nonself_call_count > 0 &&
@@ -15317,8 +15327,8 @@ fn dae_original_dead_suffix_side_call_evidence(
   let result_side_chain_preservation = originally_had_params &&
     row.self_call_count > 0 &&
     row.dead_suffix_undropped_self_call &&
-    row.dead_suffix_mutual_call &&
-    dead_suffix_self_recursive_result_side_call &&
+    side_call.dead_suffix_mutual_call &&
+    side_call.dead_suffix_self_recursive_result_side_call &&
     row.call_count > row.self_call_count
   let same_self_result_operand_preservation = originally_had_params &&
     row.self_call_count > 0 &&
@@ -15327,7 +15337,7 @@ fn dae_original_dead_suffix_side_call_evidence(
     row.call_count >= row.self_call_count
   {
     dead_suffix_undropped_self_call: row.dead_suffix_undropped_self_call,
-    dead_suffix_mutual_call: row.dead_suffix_mutual_call,
+    dead_suffix_mutual_call: side_call.dead_suffix_mutual_call,
     void_side_cleanup_preservation,
     result_side_chain_preservation,
     same_self_result_operand_preservation,
@@ -15614,6 +15624,9 @@ fn dae_original_result_boundary_context(
   preservation : DaeOriginalResultPreservationContext,
   original_private_result_escaped_operand_call_counts : Array[Int],
   original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
+  original_dead_suffix_other_calls : Array[Bool],
+  original_dead_suffix_self_recursive_void_side_calls : Array[Bool],
+  original_dead_suffix_self_recursive_result_side_calls : Array[Bool],
   original_active_parameterized_result_nonself_call_counts : Array[Int],
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
@@ -15626,6 +15639,9 @@ fn dae_original_result_boundary_context(
     preservation,
     original_private_result_escaped_operand_call_counts,
     original_dead_suffix_undropped_escaped_result_calls,
+    original_dead_suffix_other_calls,
+    original_dead_suffix_self_recursive_void_side_calls,
+    original_dead_suffix_self_recursive_result_side_calls,
     original_active_parameterized_result_nonself_call_counts,
     original_dead_suffix_dropped_self_call_full_param_forwards,
     original_dead_suffix_dropped_earlier_result_calls,
@@ -15752,6 +15768,22 @@ fn dae_original_result_boundary_row_from_context(
       dead_suffix_result_calls_from_no_param_undropped_self_caller: preservation.dead_suffix_result_calls_from_no_param_undropped_self_caller,
       dead_suffix_calls_from_param_operand_self_result_caller: preservation.dead_suffix_calls_from_param_operand_self_result_caller,
       dead_suffix_escaped_result_operand_call_count: preservation.dead_suffix_escaped_result_operand_call_count,
+    },
+    side_call: {
+      dead_suffix_other_call: dae_original_bool_fact_at(
+        context.original_dead_suffix_other_calls,
+        def_idx,
+      ),
+      dead_suffix_result_other_call: preservation.dead_suffix_result_other_call,
+      dead_suffix_self_recursive_void_side_call: dae_original_bool_fact_at(
+        context.original_dead_suffix_self_recursive_void_side_calls,
+        def_idx,
+      ),
+      dead_suffix_self_recursive_result_side_call: dae_original_bool_fact_at(
+        context.original_dead_suffix_self_recursive_result_side_calls,
+        def_idx,
+      ),
+      dead_suffix_mutual_call: preservation.dead_suffix_mutual_call,
     },
     prune: dae_original_result_removal_prune_row_from_preservation_row(
       preservation,
@@ -16067,10 +16099,12 @@ fn dae_run_core_once(
   )
   let original_result_boundary_context = dae_original_result_boundary_context(
     original_result_preservation_context, original_private_result_escaped_operand_call_counts,
-    original_dead_suffix_undropped_escaped_result_calls, original_active_parameterized_result_nonself_call_counts,
-    original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_dropped_earlier_result_calls,
-    original_later_dead_suffix_dropped_call_counts, original_private_result_dead_suffix_call_counts,
-    original_dead_suffix_dropped_calls_from_no_param_result_callers, original_dead_suffix_mixed_dropped_undropped_call_counts,
+    original_dead_suffix_undropped_escaped_result_calls, original_dead_suffix_other_calls,
+    original_dead_suffix_self_recursive_void_side_calls, original_dead_suffix_self_recursive_result_side_calls,
+    original_active_parameterized_result_nonself_call_counts, original_dead_suffix_dropped_self_call_full_param_forwards,
+    original_dead_suffix_dropped_earlier_result_calls, original_later_dead_suffix_dropped_call_counts,
+    original_private_result_dead_suffix_call_counts, original_dead_suffix_dropped_calls_from_no_param_result_callers,
+    original_dead_suffix_mixed_dropped_undropped_call_counts,
   )
   let scan_limit = if max_def_exclusive >= 0 && max_def_exclusive < defined {
     max_def_exclusive
@@ -16153,18 +16187,11 @@ fn dae_run_core_once(
       }
     }
     if boundary_candidate.direct_call_count == 0 {
-      let original_self_calls = if def_idx < original_self_call_counts.length() {
-        original_self_call_counts[def_idx]
-      } else {
+      let original_result_side_call_row = original_result_boundary_row.side_call
+      let original_self_calls = original_result_preservation_row.self_call_count
+      let originally_had_params = original_result_preservation_row.param_count >
         0
-      }
-      let originally_had_params = def_idx < original_param_counts.length() &&
-        original_param_counts[def_idx] > 0
-      let original_call_count = if def_idx < original_call_counts.length() {
-        original_call_counts[def_idx]
-      } else {
-        0
-      }
+      let original_call_count = original_result_preservation_row.call_count
       let original_prior_calls = if def_idx <
         original_prior_call_counts.length() {
         original_prior_call_counts[def_idx]
@@ -16177,36 +16204,11 @@ fn dae_run_core_once(
       } else {
         0
       }
-      let original_active_nonself_calls = if def_idx <
-        original_active_nonself_call_counts.length() {
-        original_active_nonself_call_counts[def_idx]
-      } else {
-        0
-      }
-      let original_active_parameterized_nonself_calls = if def_idx <
-        original_active_parameterized_nonself_call_counts.length() {
-        original_active_parameterized_nonself_call_counts[def_idx]
-      } else {
-        0
-      }
-      let original_active_parameterized_result_nonself_calls = if def_idx <
-        original_active_parameterized_result_nonself_call_counts.length() {
-        original_active_parameterized_result_nonself_call_counts[def_idx]
-      } else {
-        0
-      }
-      let original_nonself_undropped_calls = if def_idx <
-        original_nonself_undropped_call_counts.length() {
-        original_nonself_undropped_call_counts[def_idx]
-      } else {
-        0
-      }
-      let original_private_result_dead_suffix_calls = if def_idx <
-        original_private_result_dead_suffix_call_counts.length() {
-        original_private_result_dead_suffix_call_counts[def_idx]
-      } else {
-        0
-      }
+      let original_active_nonself_calls = original_result_preservation_row.active_nonself_call_count
+      let original_active_parameterized_nonself_calls = original_result_preservation_row.active_parameterized_nonself_call_count
+      let original_active_parameterized_result_nonself_calls = original_result_removal_prune_row.active_parameterized_result_nonself_call_count
+      let original_nonself_undropped_calls = original_result_preservation_row.nonself_undropped_call_count
+      let original_private_result_dead_suffix_calls = original_result_removal_prune_row.private_result_dead_suffix_call_count
       let original_private_result_same_operand_calls = if def_idx <
         original_private_result_same_operand_call_counts.length() {
         original_private_result_same_operand_call_counts[def_idx]
@@ -16219,9 +16221,7 @@ fn dae_run_core_once(
       } else {
         0
       }
-      let original_dead_suffix_other_call = def_idx <
-        original_dead_suffix_other_calls.length() &&
-        original_dead_suffix_other_calls[def_idx]
+      let original_dead_suffix_other_call = original_result_side_call_row.dead_suffix_other_call
       let original_mixed_self_suffix = dae_should_preserve_mixed_self_suffix_from_row(
         original_result_removal_prune_row,
       )
@@ -16231,22 +16231,13 @@ fn dae_run_core_once(
       } else {
         0
       }
-      let original_dead_suffix_result_other_call = def_idx <
-        original_dead_suffix_result_other_calls.length() &&
-        original_dead_suffix_result_other_calls[def_idx]
+      let original_dead_suffix_result_other_call = original_result_side_call_row.dead_suffix_result_other_call
       let original_dropped_only_result_side_caller_prune = original_result_removal_prune_for_def.dropped_only_no_param_result_side_caller
       let original_escaped_block_self_result = dae_should_preserve_escaped_block_self_result_from_row(
         original_result_removal_prune_row, true,
       )
-      let original_dead_suffix_self_recursive_void_side_call = def_idx <
-        original_dead_suffix_self_recursive_void_side_calls.length() &&
-        original_dead_suffix_self_recursive_void_side_calls[def_idx]
-      let original_dead_suffix_self_recursive_result_side_call = def_idx <
-        original_dead_suffix_self_recursive_result_side_calls.length() &&
-        original_dead_suffix_self_recursive_result_side_calls[def_idx]
       let original_dead_suffix_side_call_evidence = dae_original_dead_suffix_side_call_evidence(
-        original_result_removal_prune_row, original_dead_suffix_other_call, original_dead_suffix_result_other_call,
-        original_dead_suffix_self_recursive_void_side_call, original_dead_suffix_self_recursive_result_side_call,
+        original_result_removal_prune_row, original_result_side_call_row,
       )
       let original_dead_suffix_undropped_self_call = original_dead_suffix_side_call_evidence.dead_suffix_undropped_self_call
       let original_dead_suffix_mutual_call = original_dead_suffix_side_call_evidence.dead_suffix_mutual_call
@@ -16348,8 +16339,7 @@ fn dae_run_core_once(
           (
             originally_had_params &&
             original_self_calls > 0 &&
-            def_idx < original_dead_suffix_dropped_self_calls.length() &&
-            original_dead_suffix_dropped_self_calls[def_idx] &&
+            original_result_preservation_row.dead_suffix_dropped_self_call &&
             !original_dead_suffix_undropped_self_call &&
             original_call_count > original_self_calls &&
             original_active_nonself_calls > 0 &&
