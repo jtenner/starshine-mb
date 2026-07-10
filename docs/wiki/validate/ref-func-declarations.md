@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
@@ -42,9 +43,9 @@ related:
 1. a valid function index in the module's imported-prefix function index space; and
 2. present in the module's declared function-reference set.
 
-The official WebAssembly 3.0 validation sources call that second set `refs`. The 2026-06-04 refresh in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md) rechecked the current 2026-06-03 module, instruction, syntax, and binary pages and found no teaching-relevant drift from the older [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md): `ref.func x` still requires `x` in the validation context's `funcs` and `refs`, and module validation still builds `refs` from function-index occurrences in module-level declaration sources such as globals, memories, tables, element segments, optional start, and exports. The memory family is in the official formula, but ordinary Starshine memory definitions do not currently carry function indices directly.
+The official WebAssembly 3.0 validation sources call that second set `refs`. The current-source correction in [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md) confirms that `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and that module validation builds `refs` from function-index occurrences in globals, memories, tables, element segments, and exports—**not** from the optional start field. The memory family remains in the official formula, but ordinary Starshine memory definitions do not currently carry function indices directly.
 
-Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). The text/core/binary stack shape for the `ref.func` instruction itself is summarized with the rest of the reference family in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md). This page owns the additional whole-module declaration rule. It has one visible local/spec divergence: current Starshine does **not** treat `start_sec` alone as a `ref.func` declaration source. That stricter local policy is deliberate enough to have a regression test, so keep it visible until a validator change intentionally aligns it with the official rule.
+Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). The text/core/binary stack shape for the `ref.func` instruction itself is summarized with the rest of the reference family in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md). Starshine's deliberate `start_sec` exclusion now matches the current Core rule: start remains a function-index carrier and instantiation entrypoint, but is not itself a declaration source.
 
 ## Beginner Model
 
@@ -82,7 +83,7 @@ That split matters because [`typecheck_ref_func`](../../../src/validate/typechec
 | Element segment function-index payload | Yes | `FuncsElemKind(funcs)` entries are marked directly. | Declarative elements are the canonical text-level way to forward-declare function references. Current Starshine WAST parsing accepts only the narrow `(elem declare func ...)` branch and text lowering loses declarative mode; official typed declarative element text is broader, so route text evidence through [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md). |
 | Element expression `ref.func` | Yes | `FuncExprsElemKind` and `TypedExprsElemKind` expressions are scanned; tests cover typed expression sources and mixed element declarations. | See [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) for element-mode shapes. |
 | Function body `ref.func` | Use site, not declaration source | `validate_ref_func_declarations_in_module` scans bodies after computing the bitmap. | A body `ref.func` fails unless some module-level source declared the same index. |
-| Start section | **No, current local divergence** | [`collect_declared_funcs_bitmap`](../../../src/validate/validate.mbt#L2608-L2657) intentionally excludes `start_sec`; test `validate_module does not treat start as a ref.func declaration source`; empty-signature start validation itself is documented in [`start-section.md`](start-section.md). | The current official module-validation rule still includes optional start in `refs`; Starshine currently does not. Treat start as a function-index carrier to remap, not as a local declaration source. |
+| Start section | No | [`collect_declared_funcs_bitmap`](../../../src/validate/validate.mbt#L2608-L2657) intentionally excludes `start_sec`; test `validate_module does not treat start as a ref.func declaration source`; empty-signature start validation itself is documented in [`start-section.md`](start-section.md). | Current Core 3.0 also excludes start from `refs`. Treat start as a function-index carrier to remap, not as a declaration source. |
 | Direct `call` / `return_call` | No | Declaration scan only matches `Instruction::RefFunc`. | Calls validate through ordinary function type rules, not reference-declaration rules. |
 
 ## Worked Shapes
@@ -122,7 +123,7 @@ The export marks `$f` in the declaration bitmap before the body scan, so the bod
 
 The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function. In current Starshine, direct core/binary declarative segments preserve that distinction, while WAST text lowering parses this narrow syntax but currently lowers it through the passive empty-offset path. Official typed declarative element text is broader than this local branch; use [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) before treating text roundtrips as declarative-mode evidence.
 
-### Start-only declaration is currently rejected locally
+### Start-only metadata does not declare a reference
 
 ```wat
 (module
@@ -132,12 +133,12 @@ The element function-index payload declares `$f` even though the segment is not 
   (start $f))
 ```
 
-The current official module-validation source set includes start, but current Starshine intentionally rejects this shape unless another declaration source also names `$f`. If Starshine changes this policy, update this page, [`start-section.md`](start-section.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), the raw-source snapshots, and the validator regression tests together.
+This shape is rejected unless another declaration source names `$f`. Current Core 3.0 and Starshine agree: start validates the instantiation target but does not add that target to `refs`. If Starshine deliberately changes this policy, update this page, [`start-section.md`](start-section.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), the source correction, and the validator regression tests together.
 
 ## Pass And Validator Invariants
 
 - Function-index rewrites must preserve **both** target identity and declaration coverage. A pass that keeps a `ref.func` use but deletes the only export/element/global/table declaration for that index can create an invalid module even when ordinary call indices still resolve.
-- Start rewrites are still part of the function-index remap set even though start is not a Starshine declaration source today. If a future change aligns Starshine with the official start-in-`refs` rule, update the declaration bitmap in [`collect_declared_funcs_bitmap`](../../../src/validate/validate.mbt#L2608-L2657), the start-only negative regression, invalid-fuzzer expectations if needed, and the focused start/function-call docs together.
+- Start rewrites are still part of the function-index remap set even though start is not a declaration source. If a future local extension makes start declare `ref.func`, update the declaration bitmap in [`collect_declared_funcs_bitmap`](../../../src/validate/validate.mbt#L2608-L2657), the start-only negative regression, invalid-fuzzer expectations if needed, and the focused start/function-call docs together; it would diverge from the current Core rule.
 - Function deletion must treat declaration sources as roots when the corresponding `ref.func` can survive. This is why module-element removal, duplicate-function elimination, function reordering, and JS-interface legalization docs should link back to the shared function-index checklist in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
 - Declaration diagnostics belong to the use site. Starshine's body scan wraps undeclared body uses in `ValidationIssue::FunctionBody` and records the absolute function index computed through the imported-prefix helper path; the general family and stage contract lives in [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md).
 - Do not collapse this phase into ordinary instruction typechecking unless the replacement still has module-level visibility into exports, globals, table initializers, element payloads, and the start-policy decision.
@@ -152,7 +153,8 @@ The current official module-validation source set includes start, but current St
 ## Sources
 
 - Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
-- Current primary-source refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
+- Current primary-source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Superseded historical refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Previous source refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Earlier source snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
 - Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)

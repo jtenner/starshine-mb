@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
@@ -200,13 +201,14 @@ Existing pass dossiers that depend on this checklist include:
 - **Empty `FuncSec`/`CodeSec` absence is equivalent.** Starshine validation accepts both sections absent, and also accepts a present empty side without a non-empty partner; a non-empty side without the other side is invalid.
 - **Imports are bodyless functions.** Imported functions can be called, exported, named, and used as start targets if their signature is empty, but they do not have entries in `CodeSec`.
 - **Export-name uniqueness is semantic in Starshine validation.** Import names do not need to be unique, but duplicate export names are rejected; see [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md) for the `ExportSection` diagnostic and invalid-fuzzer strategy map.
-- **Start does not by itself make `ref.func` declared in Starshine's current declaration check.** The focused start-section guide in [`../validate/start-section.md`](../validate/start-section.md) owns empty-signature validation, imported-start invalid matrices, and rewrite guidance; the declaration guide in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) records the current local/spec divergence after the 2026-06-04 current-source refresh. The current test suite includes a regression titled `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L9227-L9255). If that policy changes, update this page, both validator guides, and the raw-source snapshots together.
+- **Start does not by itself make `ref.func` declared.** The focused start-section guide in [`../validate/start-section.md`](../validate/start-section.md) owns empty-signature validation, imported-start invalid matrices, and rewrite guidance; the declaration guide in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) and its [`2026-07-10 source correction`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md) confirm this matches the current Core rule. The current test suite includes a regression titled `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L9227-L9255). If a local extension changes that policy, update this page, both validator guides, and the source correction together.
 - **Function body diagnostics use absolute indices.** A code-body ordinal is not a user-facing function index once imports exist.
 - **Section order is canonical on encode.** WAST source order and custom-section gaps are normalized into the core section order; exact source layout is not a stable post-lowering property.
 
 ## Sources
 
-- Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
+- Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Binaryen `remove-exports` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Function/code primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
 - Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)

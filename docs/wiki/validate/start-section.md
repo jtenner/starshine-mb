@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
@@ -83,15 +84,15 @@ That import can be the start function because its type is `[] -> []`. The same i
 
 ## Official Versus Starshine Contract
 
-The current official WebAssembly sources checked in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md), with the focused start-section baseline still preserved in [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md), establish these portable facts:
+The current official WebAssembly sources checked in [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md), with older source captures retained for audit history, establish these portable facts:
 
 - start is optional and stores a single function index;
 - binary section id `8` is the start section;
 - text format uses a `(start ...)` module field;
 - validation requires an existing empty-signature function; and
-- module validation includes the optional start function in the `refs` set used by `ref.func` declaration checking.
+- module validation does **not** include start in the `refs` set used by `ref.func` declaration checking.
 
-Starshine matches the empty-signature validation rule and imported-prefix index model, but it intentionally does **not** match the last point today: `start_sec` alone is not treated as a declaration source for `ref.func`. The negative regression `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L9227-L9255) keeps that divergence explicit. If Starshine changes this policy, update this page and [`ref-func-declarations.md`](ref-func-declarations.md) in the same change.
+Starshine matches both the empty-signature validation rule and start's non-membership in `refs`: `start_sec` alone is not a declaration source for `ref.func`. The negative regression `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L9227-L9255) therefore records shared current behavior, not a local/spec divergence. If Starshine changes this policy, update this page and [`ref-func-declarations.md`](ref-func-declarations.md) in the same change.
 
 ## Starshine Validation Flow
 
@@ -151,7 +152,7 @@ Checklist for mutating passes:
 1. **Remap or delete `start_sec` deliberately.** Never leave a stale `FuncIdx` after deleting, merging, or reordering functions.
 2. **Revalidate signatures after retargeting.** A replacement function that is call-compatible elsewhere can still be invalid as start if it has params or results.
 3. **Separate start metadata from function body liveness.** Some optimization families may delete a start declaration while preserving the target function body, or root a target function because startup effects matter. Record which behavior the pass owns.
-4. **Do not infer `ref.func` declaration coverage from start today.** A surviving body `ref.func $f` still needs an export, global/table initializer, or element declaration source under current Starshine policy.
+4. **Do not infer `ref.func` declaration coverage from start.** A surviving body `ref.func $f` still needs an export, global/table initializer, or element declaration source under both current Core and Starshine rules.
 5. **Preserve imported-prefix arithmetic.** A start target of `FuncIdx(0)` may be an import. Defined body ordinal `0` is `FuncIdx(imported_func_count)`, not necessarily `FuncIdx(0)`.
 
 Pass dossiers that should link back here when they touch start metadata include [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md), [`remove-unused-non-function-elements`](../binaryen/passes/remove-unused-non-function-elements/index.md), [`duplicate-import-elimination`](../binaryen/passes/duplicate-import-elimination/index.md), [`duplicate-function-elimination`](../binaryen/passes/duplicate-function-elimination/index.md), [`reorder-functions`](../binaryen/passes/reorder-functions/index.md), and [`reorder-functions-by-name`](../binaryen/passes/reorder-functions-by-name/index.md).
@@ -160,12 +161,13 @@ Pass dossiers that should link back here when they touch start metadata include 
 
 - **Mistake: “Start is just a call.”** It is not encoded in a function body and has no operand stack. It is a module field validated against function signatures.
 - **Mistake: “Imported functions cannot be starts.”** They can, if their imported function type is empty.
-- **Mistake: “Start declares `ref.func` in Starshine.”** Not today. Current official WebAssembly includes start in the `refs` source set, but Starshine intentionally keeps start-only `ref.func` uses invalid.
+- **Mistake: “Start declares `ref.func`.”** No. Current Core and Starshine both keep start-only `ref.func` uses invalid; start is an instantiation target, not a declaration source.
 - **Mistake: “Deleting a no-op start is always equivalent to deleting the function.”** Start metadata and the target function body are separate module surfaces. A pass may remove one without the other only if its contract and validation evidence prove that behavior.
 
 ## Sources
 
-- Current `refs` / start cross-check: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
+- Current `refs` / start source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Superseded historical `refs` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Start-section source bridge: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
 - Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Core, WAST, and binary surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)

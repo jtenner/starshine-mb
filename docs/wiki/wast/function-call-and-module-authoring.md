@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
@@ -146,7 +147,7 @@ Exports target absolute function indices and have globally unique export names a
 (start $init)
 ```
 
-A start function must exist and have no parameters and no results. The focused validation and invalid-fuzz matrix now lives in [`../validate/start-section.md`](../validate/start-section.md). Current WAST lowering stores the last parsed start field as the module `StartSec`; validation still rejects invalid start signatures. Do not use start as a stand-in for a `ref.func` declaration source in current Starshine: the 2026-06-04 current-source refresh confirms that the official module-validation rule still includes start in the `refs` set, but Starshine intentionally does not yet treat start-only references as declared, as documented in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+A start function must exist and have no parameters and no results. The focused validation and invalid-fuzz matrix now lives in [`../validate/start-section.md`](../validate/start-section.md). Current WAST lowering stores the last parsed start field as the module `StartSec`; validation still rejects invalid start signatures. Do not use start as a stand-in for a `ref.func` declaration source: the current Core rule and Starshine both exclude start from `refs`, as documented in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) and its [`2026-07-10 source correction`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md).
 
 ## Call Instruction Shapes
 
@@ -216,13 +217,14 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 - **Mistake: “The first defined function is always `FuncIdx(0)`.** It is only `0` when there are no function imports. With imports, defined bodies start at `imported_func_count`.
 - **Mistake: “Inline exports are source-only and can be ignored after parsing.”** They lower to ordinary export entries and affect duplicate-export validation, external-boundary docs, and `ref.func` declaration coverage.
 - **Mistake: “`call_indirect` belongs only to table docs.”** Table docs own table resource rules, but the instruction also depends on function types and call argument/result typing.
-- **Mistake: “Start roots a `ref.func` use in Starshine.”** Not today. Start validates as an empty-signature function target through [`../validate/start-section.md`](../validate/start-section.md), but start-only `ref.func` declaration remains a recorded local/spec divergence.
+- **Mistake: “Start roots a `ref.func` use.”** No. Start validates as an empty-signature function target through [`../validate/start-section.md`](../validate/start-section.md), but it is not a `ref.func` declaration source under current Core or Starshine rules.
 - **Mistake: “WAST arbitrary call text proves valid module typing.”** WAST arbitrary primarily exercises parser/printer roundtrips. Use `gen_valid` and module validation for typed-validity evidence.
 
 ## Sources
 
 - Current reference call/cast/branch refresh: [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
-- Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
+- Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Focused `call_ref` source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Focused function/import/export/start snapshot: [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md)
 - Binary code-entry/local-run refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
