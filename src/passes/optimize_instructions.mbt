@@ -38615,7 +38615,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
   node_id : Int,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen's sibling EqZInt64 path has the same i32 result and preservation
-  // contract; only the operand block and final literal width differ.
+  // contract; only the fallthrough value and final literal width differ.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()
@@ -38625,22 +38625,17 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
   if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return None
   }
-  match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::Block => ()
+  let fallthrough = match
+    OiBooleanEqzFallthroughValueFact::from_operand(
+      func,
+      operand_id,
+      @lib.ValType::i64(),
+    ) {
+    Some(fact) if fact.proves_supported_wrapper() => fact
     _ => return None
   }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
-    [result] if result == @lib.ValType::i64() => ()
-    _ => return None
-  }
-  let body_ref = @ir.hot_region_body_ref(func, operand_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count == 0 {
-    return None
-  }
-  let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
   let folded_value = match
-    optimize_instructions_i64_const(func, dead, tail_id) {
+    optimize_instructions_i64_const(func, dead, fallthrough.value_id) {
     Some(@lib.I64(0L)) => 1
     Some(@lib.I64(_)) => 0
     None => return None
