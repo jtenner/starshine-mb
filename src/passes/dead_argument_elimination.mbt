@@ -24557,40 +24557,22 @@ fn dae_try_flatten_selected_func288_return_wrapper_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 288
-  if def_idx >= selected_defs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let rewrite_func = fn(
+    func : @lib.Func,
+    type_sec : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    if locals.length() != 3 {
+      return None
+    }
+    match dae_try_flatten_func288_return_wrapper_body_once(body, type_sec) {
+      Some(rewritten) => Some(@lib.Func::new(locals, @lib.Expr::new(rewritten)))
+      None => None
+    }
   }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  if locals.length() != 3 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten = match
-    dae_try_flatten_func288_return_wrapper_body_once(body, mod_.type_sec) {
-    Some(rewritten) => rewritten
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_func_rewrite_once(
+    mod_, selected_defs, 288, rewrite_func,
+  )
 }
 
 ///|
@@ -24598,60 +24580,39 @@ fn dae_try_strip_selected_func237_raw_debris_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let param_count = match
-    dae_resolve_func_type(
-      mod_,
-      dae_collect_func_type_indices(mod_),
-      dae_imported_func_count(mod_) + def_idx,
-    ) {
-    Some(@lib.FuncType(params, _)) => params.length()
-    None => 4
-  }
-  let folded_body = dae_fold_func237_used_temp_copies(
-    dae_fold_func237_immediate_local_copies(
-      dae_fold_func237_store_carrier_copies(body, param_count),
+  let rewrite_func = fn(
+    func : @lib.Func,
+    _type_sec : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    let param_count = match
+      dae_resolve_func_type(
+        mod_,
+        dae_collect_func_type_indices(mod_),
+        dae_imported_func_count(mod_) + 237,
+      ) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => 4
+    }
+    let folded_body = dae_fold_func237_used_temp_copies(
+      dae_fold_func237_immediate_local_copies(
+        dae_fold_func237_store_carrier_copies(body, param_count),
+        param_count,
+      ),
       param_count,
-    ),
-    param_count,
-  )
-  let mapped_body = dae_rewrite_func237_frontier_low_locals(
-    folded_body, locals, param_count,
-  )
-  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(mapped_body)
-  let rewritten_locals = dae_trim_trailing_unused_func237_locals(
-    locals, rewritten, param_count,
-  )
-  if rewritten == body && rewritten_locals.length() == locals.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    )
+    let mapped_body = dae_rewrite_func237_frontier_low_locals(
+      folded_body, locals, param_count,
+    )
+    let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(mapped_body)
+    let rewritten_locals = dae_trim_trailing_unused_func237_locals(
+      locals, rewritten, param_count,
+    )
+    Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten)))
   }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(
-    rewritten_locals,
-    @lib.Expr::new(rewritten),
+  dae_try_apply_selected_def_func_rewrite_once(
+    mod_, selected_defs, 237, rewrite_func,
   )
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
 }
 
 ///|
@@ -24659,52 +24620,32 @@ fn dae_try_spill_selected_func237_param_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
   let carrier_local = @lib.LocalIdx::new(0U)
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  // Func237's original `$0` is used only by the leading call path before this
-  // slice; do not reuse it as a Binaryen-shaped loop carrier if any later
-  // instruction still references it.
-  if dae_instrs_reference_local_from(body, carrier_local, 1) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
+    // Func237's original `$0` is used only by the leading call path before this
+    // slice; do not reuse it as a Binaryen-shaped loop carrier if any later
+    // instruction still references it.
+    if dae_instrs_reference_local_from(body, carrier_local, 1) {
+      return None
+    }
+    let mut rewritten = match
+      dae_try_spill_i32_param_loop_body_once(body, carrier_local, type_sec) {
+      Some(instrs) => instrs
+      None => return None
+    }
+    match
+      dae_try_spill_i32_param_loop_recursive_body_once(rewritten, type_sec) {
+      Some(nested_rewritten) => rewritten = nested_rewritten
+      None => ()
+    }
+    Some(rewritten)
   }
-  let mut rewritten = match
-    dae_try_spill_i32_param_loop_body_once(body, carrier_local, mod_.type_sec) {
-    Some(instrs) => instrs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  match
-    dae_try_spill_i32_param_loop_recursive_body_once(rewritten, mod_.type_sec) {
-    Some(nested_rewritten) => rewritten = nested_rewritten
-    None => ()
-  }
-  if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_body_rewrite_once(
+    mod_, selected_defs, 237, rewrite_body,
+  )
 }
 
 ///|
