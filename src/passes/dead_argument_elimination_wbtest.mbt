@@ -1527,6 +1527,89 @@ test "dae escaped result direct call evidence centralizes dropped and undropped 
 }
 
 ///|
+test "dae original escaped result operand call facts share one module scan" {
+  let source_type = @lib.TypeIdx::new(0U)
+  let target_type = @lib.TypeIdx::new(1U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let mod_ = @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(
+      @lib.FuncSec::new([source_type, target_type, source_type, source_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let escaped = [true, false, true, false]
+  let escaped_result_calls = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
+    mod_,
+    escaped,
+  )
+  let facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
+    mod_,
+    escaped,
+    escaped_result_calls,
+  )
+  assert_eq(facts.dead_suffix_escaped_result_operand_call_counts, [0, 1, 0, 0])
+  assert_eq(facts.private_result_escaped_operand_call_counts, [0, 1, 0, 0])
+  let no_code_mod = @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(
+      @lib.FuncSec::new([source_type, target_type, source_type, source_type]),
+    )
+  let no_code = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
+    no_code_mod,
+    escaped,
+    dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
+      no_code_mod,
+      escaped,
+    ),
+  )
+  assert_eq(
+    no_code.dead_suffix_escaped_result_operand_call_counts,
+    [0, 0, 0, 0],
+  )
+  assert_eq(no_code.private_result_escaped_operand_call_counts, [0, 0, 0, 0])
+}
+
+///|
 test "dae original dead suffix escaped result call facts share one module scan" {
   let result_type = @lib.TypeIdx::new(0U)
   let void_type = @lib.TypeIdx::new(1U)
