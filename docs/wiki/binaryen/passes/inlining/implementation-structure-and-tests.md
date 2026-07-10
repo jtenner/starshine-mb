@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
@@ -23,6 +24,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../inlining-optimizing/implementation-structure-and-tests.md
+  - ../../../tooling/pass-fuzz-compare.md
 ---
 
 # `inlining`: implementation structure and tests
@@ -238,7 +240,8 @@ A future implementation slice should validate in this order:
 
 1. focused Moon tests in `src/passes/inlining_test.mbt` for each new shape;
 2. `moon build --target native --release src/cmd` before long compare lanes;
-3. direct `bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` for plain stop-point behavior;
-4. direct `bun scripts/pass-fuzz-compare.ts --pass inlining-optimizing ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` for optimizing behavior;
-5. saved mismatch replay from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2` until retired or split;
-6. late-tail neighborhood replay only after direct pass semantics are green across the agreed seed lanes.
+3. direct `bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` for plain stop-point behavior;
+4. direct `bun scripts/pass-fuzz-compare.ts --pass inlining-optimizing ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` for optimizing behavior;
+5. use the freshly built `_build/...` executable, not a merely present `target/native/...` artifact, unless a timestamp or hash proves it is fresh; the local policy and broader harness contract are [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md);
+6. saved mismatch replay from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2` until retired or split;
+7. late-tail neighborhood replay only after direct pass semantics are green across the agreed seed lanes.

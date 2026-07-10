@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
@@ -168,7 +169,7 @@ For docs-only updates, this page's evidence is source and test-map based. For fu
 
 1. `moon test src/passes`
 2. `moon test src/cmd`
-3. focused Binaryen parity with `moon build --target native --release src/cmd` followed by `bun scripts/pass-fuzz-compare.ts --pass merge-blocks ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` once the harness lane is being modified
+3. focused Binaryen parity with `moon build --target native --release src/cmd` followed by `bun scripts/pass-fuzz-compare.ts --pass merge-blocks ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` once the harness lane is being modified; do not substitute a merely present `target/native/...` artifact without a freshness check (see [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md))
 4. debug-artifact replay if pass placement or HOT lower/writeback behavior changes
 
 ## Sources
