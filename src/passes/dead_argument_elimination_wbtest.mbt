@@ -1579,13 +1579,10 @@ test "dae original escaped result operand call facts share one module scan" {
     )
   let escaped = [true, false, true, false]
   let escaped_result_calls = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
-    mod_,
-    escaped,
+    mod_, escaped,
   )
   let facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
-    mod_,
-    escaped,
-    escaped_result_calls,
+    mod_, escaped, escaped_result_calls,
   )
   assert_eq(facts.dead_suffix_escaped_result_operand_call_counts, [0, 1, 0, 0])
   assert_eq(facts.private_result_escaped_operand_call_counts, [0, 1, 0, 0])
@@ -1598,14 +1595,10 @@ test "dae original escaped result operand call facts share one module scan" {
     no_code_mod,
     escaped,
     dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
-      no_code_mod,
-      escaped,
+      no_code_mod, escaped,
     ),
   )
-  assert_eq(
-    no_code.dead_suffix_escaped_result_operand_call_counts,
-    [0, 0, 0, 0],
-  )
+  assert_eq(no_code.dead_suffix_escaped_result_operand_call_counts, [0, 0, 0, 0])
   assert_eq(no_code.private_result_escaped_operand_call_counts, [0, 0, 0, 0])
 }
 

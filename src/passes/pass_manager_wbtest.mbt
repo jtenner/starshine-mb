@@ -16081,12 +16081,13 @@ fn pass_manager_test_dae_core_apply_iters(
   let original_private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts_with_escaped(
     mod_, original_escaped,
   )
-  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts_with_escaped(
+  let original_dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     mod_, original_escaped,
   )
-  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts_with_escaped(
-    mod_, original_escaped,
+  let original_escaped_result_operand_call_facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
+    mod_, original_escaped, original_dead_suffix_escaped_result_call_facts,
   )
+  let original_dead_suffix_escaped_result_operand_call_counts = original_escaped_result_operand_call_facts.dead_suffix_escaped_result_operand_call_counts
   let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
     mod_, original_dead_suffix_escaped_result_operand_call_counts,
   )
@@ -16150,9 +16151,6 @@ fn pass_manager_test_dae_core_apply_iters(
   let original_dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
     mod_,
   )
-  let original_dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
-    mod_, original_escaped,
-  )
   let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
     mod_,
   )
@@ -16181,8 +16179,7 @@ fn pass_manager_test_dae_core_apply_iters(
       original_self_call_counts,
       original_private_result_dead_suffix_call_counts,
       original_private_result_same_operand_call_counts,
-      original_private_result_escaped_operand_call_counts,
-      original_dead_suffix_escaped_result_operand_call_counts,
+      original_escaped_result_operand_call_facts,
       original_private_result_dead_suffix_calls_from_escaped_operand_callees,
       original_escaped_dead_suffix_call_counts,
       original_escaped_undropped_dead_suffix_call_counts,
@@ -16239,9 +16236,13 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
   let original_active_parameterized_nonself_call_counts = original_call_summary.active_parameterized_nonself_call_counts
   let original_nonself_undropped_call_counts = original_call_summary.nonself_undropped_call_counts
   let original_self_call_counts = original_call_summary.self_call_counts
-  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts_with_escaped(
+  let original_dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     mod_, original_escaped,
   )
+  let original_escaped_result_operand_call_facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
+    mod_, original_escaped, original_dead_suffix_escaped_result_call_facts,
+  )
+  let original_dead_suffix_escaped_result_operand_call_counts = original_escaped_result_operand_call_facts.dead_suffix_escaped_result_operand_call_counts
   let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
     mod_, original_dead_suffix_escaped_result_operand_call_counts,
   )
@@ -16270,9 +16271,6 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
     mod_,
   )
   let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls_with_escaped(
-    mod_, original_escaped,
-  )
-  let original_dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     mod_, original_escaped,
   )
   let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
@@ -16359,12 +16357,13 @@ fn pass_manager_test_dae_core_primary_defs(
   let original_private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts_with_escaped(
     mod_, original_escaped,
   )
-  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts_with_escaped(
+  let original_dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     mod_, original_escaped,
   )
-  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts_with_escaped(
-    mod_, original_escaped,
+  let original_escaped_result_operand_call_facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
+    mod_, original_escaped, original_dead_suffix_escaped_result_call_facts,
   )
+  let original_dead_suffix_escaped_result_operand_call_counts = original_escaped_result_operand_call_facts.dead_suffix_escaped_result_operand_call_counts
   let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
     mod_, original_dead_suffix_escaped_result_operand_call_counts,
   )
@@ -16428,9 +16427,6 @@ fn pass_manager_test_dae_core_primary_defs(
   let original_dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
     mod_,
   )
-  let original_dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
-    mod_, original_escaped,
-  )
   let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
     mod_,
   )
@@ -16460,8 +16456,7 @@ fn pass_manager_test_dae_core_primary_defs(
       original_self_call_counts,
       original_private_result_dead_suffix_call_counts,
       original_private_result_same_operand_call_counts,
-      original_private_result_escaped_operand_call_counts,
-      original_dead_suffix_escaped_result_operand_call_counts,
+      original_escaped_result_operand_call_facts,
       original_private_result_dead_suffix_calls_from_escaped_operand_callees,
       original_escaped_dead_suffix_call_counts,
       original_escaped_undropped_dead_suffix_call_counts,
