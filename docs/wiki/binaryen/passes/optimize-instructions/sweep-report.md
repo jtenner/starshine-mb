@@ -130,7 +130,7 @@ OI-F closeout now has two finite buckets rather than an evidence-expansion TODO.
 
 Second, branch-hint/code-metadata and `optimize-instructions-never-fold-or-reorder` are explicit v0.1 blocked surfaces. Binaryen `version_130` source/lit review records `doWalkFunction()` reading the no-fold/no-reorder option, `visitIf` branch-hint flip behavior, `src/ir/branch-hints.h`, and `optimize-instructions_branch-hints-fold.wast`. Starshine has no expression-level branch-hint/code-metadata representation, HOT metadata remap, or OI pass-option plumbing. The sampled non-metadata lane was already reconfirmed at 40/40 normalized matches by `--summarize-existing` over `.tmp/oi-f-if-shell-fix-count40-20260630`, so more non-metadata breadth does not reduce this row.
 
-The only OI-F closeout action is finite: keep the row `blocked-surface` for v0.1 until representation/pass-option support exists, then implement with focused branch-hint flip/preservation and no-fold/no-reorder tests. If release policy wants a final non-metadata smoke, run exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 40 --seed 0x5eed --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-v01-boundary-signoff-count40 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Do not add OI-F labels for closeout, and do not apply OI-F evidence to OI-J descriptor/exactness/TNH/IIT.
+The only OI-F closeout action is finite: keep the row `blocked-surface` for v0.1 until representation/pass-option support exists, then implement with focused branch-hint flip/preservation and no-fold/no-reorder tests. If release policy wants a final non-metadata smoke, run exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 40 --seed 0x5eed --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-v01-boundary-signoff-count40 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Do not add OI-F labels for closeout, and do not apply OI-F evidence to OI-J descriptor/exactness/TNH/IIT.
 
 ## 2026-07-01 OI-J descriptor-compatible blocked boundary
 
@@ -188,7 +188,7 @@ OI-D closeout now has finite buckets instead of a request for more scalar genera
 
 The remaining sampled residuals are classified as Starshine-win only where the inspected transform is pure constant folding and has validation plus size evidence. `.tmp/pass-fuzz-optimize-instructions-oi-d-default-scalar-10000` left constant-if folding mismatches after fixing the default scalar spelling family; sampled canonical sizes were smaller for Starshine (`4161->4135`, `5539->5501`, `5559->5516`) and no side-effecting condition was removed. `.tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke` removed the literal double-`eqz` gap and left pure constant compare/sign-extension residuals with validated canonical outputs and Starshine canonical byte deltas `-5/-2/-2`. This is not a broad semantic claim from validation alone.
 
-The only OI-D closeout command remaining is finite: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-v01-closeout-signoff-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Do not add OI-D labels; classify any residual outside the pure-constant buckets as implementation work.
+The only OI-D closeout command remaining is finite: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-v01-closeout-signoff-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Do not add OI-D labels; classify any residual outside the pure-constant buckets as implementation work.
 
 ## 2026-07-01 OI-E finite LocalScanner closeout table
 
@@ -196,7 +196,7 @@ OI-E is no longer an open-ended LocalScanner evidence row. The finite closeout t
 
 The remaining classified residuals are sampled Starshine-win output drift only where opcode/effect/trap/local/mask traffic is preserved and raw/canonical sizes improve. Existing grouped lanes validate the residual artifacts and measure aggregate Starshine wins: `.tmp/oi-e-local-facts-count30-20260630` `-50/-90/-1830`, `.tmp/oi-e-wrap-extend-mask-count110-20260630` wrap/extend `-74/-86/-1104`, `.tmp/oi-e-shifted-mask-count120-20260630` `-304/-376/-5836`, `.tmp/oi-e-wide-shifted-mask-count130-20260630` `-393/-495/-7520`, and `.tmp/oi-e-select-mask-count140-20260701` `-319/-417/-6810`. The two size-losing sampled gaps were implemented before this closeout table: local-carried existing-producer add-zero losses `+8/+6/+78` and effectful local-carried losses `+16/+12/+156` flipped to `-18/-18/-216` after the raw-skip add-zero fix, and wide local-carried mask loss `+34/+16/-193` flipped to `-10/-28/-611` after the unsigned-mask fix.
 
-Finite OI-E signoff, if release closeout requires fresh evidence, is exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-v01-closeout-signoff-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Do not add OI-E labels. The fifteenth `oi-local-facts:block-produced-mask` case remains generator/test-only until this finite signoff or an equivalent grouped classification exists. Any signoff residual that is size-losing, semantically risky, validation-failing, or loses required producer/effect/trap/local/mask traffic becomes implementation work. This non-descriptor evidence still does not close OI-J descriptor/exactness/TNH/IIT.
+Finite OI-E signoff, if release closeout requires fresh evidence, is exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-v01-closeout-signoff-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Do not add OI-E labels. The fifteenth `oi-local-facts:block-produced-mask` case remains generator/test-only until this finite signoff or an equivalent grouped classification exists. Any signoff residual that is size-losing, semantically risky, validation-failing, or loses required producer/effect/trap/local/mask traffic becomes implementation work. This non-descriptor evidence still does not close OI-J descriptor/exactness/TNH/IIT.
 
 ## 2026-07-01 OI-G v0.1 release-boundary decision
 
@@ -210,7 +210,7 @@ OI-H `call_ref` / `return_call_ref` directization is a v0.1 deferred boundary wi
 
 The residuals are not called safe because both outputs validate. They are deferred because inspected target opcodes are clean while the remaining differences are measured output-shape/cross-family drift: `.tmp/oi-h-bounded-count4-20260630` has target-wrapper/local/effectful raw/canonical/WAT deltas `+25/-101/-3619`, `+41/-18/-618`, and `+28/-54/-2291`; `.tmp/oi-h-argument-select-count40-20260630` matched the new select-argument label 1/1, validated all 44 residual raw/canonical artifacts, and left aggregate residual deltas `-42/-299/-2006` in older buckets. Do not reintroduce Binaryen-retained dropped `ref.func` debris just to match raw bytes without stronger evidence.
 
-The post-v0.1 implementation tail is finite: broader table-state proof, generalized non-void `return_call_ref`, multivalue arguments/results, general argument localization through select/control/table producers, and live effect/trap target sweeps. If release closeout requires fresh OI-H evidence, run exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 40 --seed 0x5eed --gen-valid-profile pass-oi-call-ref --out-dir .tmp/oi-h-v01-defer-signoff-count40 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Reopen for residual target opcodes in a supported known-target case, validation failure, unaccepted raw/canonical size loss, lost argument/effect/trap/target order, a failed finite signoff, or a v0.1 product requirement for one of the deferred target-state families. This non-descriptor evidence still does not close OI-J.
+The post-v0.1 implementation tail is finite: broader table-state proof, generalized non-void `return_call_ref`, multivalue arguments/results, general argument localization through select/control/table producers, and live effect/trap target sweeps. If release closeout requires fresh OI-H evidence, run exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 40 --seed 0x5eed --gen-valid-profile pass-oi-call-ref --out-dir .tmp/oi-h-v01-defer-signoff-count40 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. Reopen for residual target opcodes in a supported known-target case, validation failure, unaccepted raw/canonical size loss, lost argument/effect/trap/target order, a failed finite signoff, or a v0.1 product requirement for one of the deferred target-state families. This non-descriptor evidence still does not close OI-J.
 
 ## 2026-07-01 OI-I v0.1 non-descriptor release-boundary decision
 
@@ -218,7 +218,7 @@ OI-I closeout now has finite buckets rather than a request for more ref-GC trigg
 
 The residual classification is evidence-backed, not validation-alone. `local-carried-null-test-cast` matched 18/18. Direct-null/test/cast residuals are sampled Starshine-win output drift across 15 cases with aggregate deltas `-42/-106/-1314` and preserved `global.set 35/35` plus `local.get 8/8` while Starshine removes dropped null-test/drop debris (`ref.is_null 30/14`, `drop 134/104`). Branch-cast effectful-wrapper residuals are canonical-neutral/raw-smaller drift across 7 cases with deltas `-28/0/-28` and matching branch/control/effect counts (`br_on_cast 28/28`, `br_on_cast_fail 14/14`, `global.set 35/35`, `drop 49/49`, `unreachable 7/7`, `i32.const 84/84`).
 
-The finite action is to accept OI-I as a v0.1 non-descriptor release boundary and stop expanding labels by default. Randomized existing reference producers, non-any heap breadth, broader effect/trap wrappers, default-mode negatives, and descriptor-compatible exactness/TNH/IIT work remain post-v0.1 unless product scope changes. If release policy wants fresh OI-I evidence, run exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 45 --seed 0x5eed --gen-valid-profile pass-oi-ref-gc --out-dir .tmp/oi-i-v01-nondescriptor-boundary-count45 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. OI-I remains non-descriptor evidence and must not close OI-J.
+The finite action is to accept OI-I as a v0.1 non-descriptor release boundary and stop expanding labels by default. Randomized existing reference producers, non-any heap breadth, broader effect/trap wrappers, default-mode negatives, and descriptor-compatible exactness/TNH/IIT work remain post-v0.1 unless product scope changes. If release policy wants fresh OI-I evidence, run exactly: `moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 45 --seed 0x5eed --gen-valid-profile pass-oi-ref-gc --out-dir .tmp/oi-i-v01-nondescriptor-boundary-count45 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`. OI-I remains non-descriptor evidence and must not close OI-J.
 
 ## 2026-07-01 OI-K v0.1 GC constructor release-boundary decision
 
@@ -447,7 +447,7 @@ bun scripts/oi-parity-sweep.ts \
   --execute \
   --count 100 \
   --out-dir .tmp/oi-parity-sweep-memory-default \
-  --starshine-bin target/native/release/build/cmd/cmd.exe
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Execute a dedicated-profile row:
@@ -459,7 +459,7 @@ bun scripts/oi-parity-sweep.ts \
   --execute \
   --count 100 \
   --out-dir .tmp/oi-parity-sweep-memory \
-  --starshine-bin target/native/release/build/cmd/cmd.exe
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 The runner emits `compare-pass` commands shaped as:
@@ -471,7 +471,7 @@ bun scripts/pass-fuzz-compare.ts \
   --pass optimize-instructions \
   --out-dir <sweep-root>/<family>/<row-id> \
   --gen-valid-profile <row-profile> \
-  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
   --jobs auto
 ```
 
