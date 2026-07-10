@@ -278,6 +278,8 @@ The resulting per-definition projection has multiple production consumers:
 
 [`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt) locks equality of every shared preservation/prune field and out-of-range fail-closed defaults. Fresh direct and optimizing compare lanes retain the exact pre-refactor counts, so this is evidence-ownership consolidation rather than a hidden legality or scheduling change.
 
+The same original-boundary setup now collects dead-suffix escaped-result call facts through `DaeOriginalDeadSuffixEscapedResultCallFacts`. `dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(...)` scans each original function once and records both dropped and undropped escaped-result calls, replacing two parallel whole-module collectors. The carrier is shared by the main and reverse cores; dropped and undropped projections participate in distinct preservation, unobserved, zero-call, and exact-literal decisions. Whitebox coverage locks mixed evidence and no-code defaults, and unchanged 10000-case compare counts prove that this ownership change did not alter scheduling or legality.
+
 ## Porting takeaway
 
 For the exact current local registry, request-rejection, and future shared-core plan, read [`./starshine-strategy.md`](./starshine-strategy.md).
