@@ -11357,10 +11357,7 @@ test "plain DAE reuses one typed scratch local across sequential and nested loca
   let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
   let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(optimized, 2)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32()]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   let scratch = @lib.LocalIdx::new(0U)
   @debug.assert_eq(dae_test_count_local_set_instrs(body, scratch), 2)
   assert_false(dae_test_instrs_reference_local(body, @lib.LocalIdx::new(1U)))

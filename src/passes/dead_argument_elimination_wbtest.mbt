@@ -6183,9 +6183,7 @@ test "dae localization scratch pool reuses exact defaultable types" {
   )
   let scratch_local_types = [@lib.ValType::i32(), @lib.ValType::f64()]
   assert_eq(
-    dae_localization_scratch_slot(
-      5, scratch_local_types, @lib.ValType::i32(),
-    ),
+    dae_localization_scratch_slot(5, scratch_local_types, @lib.ValType::i32()),
     5,
   )
   assert_eq(scratch_local_types.length(), 2)
