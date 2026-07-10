@@ -218,6 +218,51 @@ test "dae selected core result application clears the consumed selection" {
 }
 
 ///|
+test "dae primary-selected core result application clears only the applied primary" {
+  let current = dae_wbtest_call_summary_fixture()
+  let rewritten = @lib.Module::new()
+  let selected = [true, true, true]
+  let changed_result : DaePassResult = {
+    mod_out: rewritten,
+    touched: [false, true, false],
+    changed: true,
+    primary_def: 1,
+  }
+  let applied = dae_apply_primary_selected_core_result(
+    current,
+    [true, false, false],
+    false,
+    selected,
+    changed_result,
+  )
+  assert_eq(selected, [true, false, true])
+  assert_true(applied.applied)
+  assert_eq(applied.mod_out, rewritten)
+  assert_eq(applied.touched, [true, true, false])
+  assert_true(applied.changed)
+  assert_eq(applied.primary_def, 1)
+  let no_change_result : DaePassResult = {
+    mod_out: rewritten,
+    touched: [false, false, true],
+    changed: false,
+    primary_def: 2,
+  }
+  let preserved = dae_apply_primary_selected_core_result(
+    current,
+    applied.touched,
+    true,
+    selected,
+    no_change_result,
+  )
+  assert_eq(selected, [true, false, true])
+  assert_false(preserved.applied)
+  assert_eq(preserved.mod_out, current)
+  assert_eq(preserved.touched, [true, true, false])
+  assert_true(preserved.changed)
+  assert_eq(preserved.primary_def, -1)
+}
+
+///|
 test "dae call boundary facts expose reusable forwarding gates" {
   let facts = dae_make_call_boundary_facts(
     [false, true, false],
