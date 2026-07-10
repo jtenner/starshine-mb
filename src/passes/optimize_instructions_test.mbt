@@ -4494,6 +4494,42 @@ test "optimize-instructions folds mixed-signature tree-bearing calls" {
 }
 
 ///|
+test "optimize-instructions folds symmetric mixed-signature call trees" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks a
+  // direct i32 first operand and exact i64.add(local, const) second operand on
+  // an annotated (i32, i64) -> i64 call. A mismatched inner i64 constant keeps
+  // both calls. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-next5-foldability.wat`
+  // (`mixed_direct_tree_equal` and `mixed_direct_tree_mismatch`).
+  let optimize_caller = fn(right_inner_const : Int64) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64) (result i64) local.get 0 i64.extend_i32_s local.get 1 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 local.get 1 i64.const 1 i64.add call $id local.get 0 local.get 1 i64.const " +
+      right_inner_const.to_string() +
+      " i64.add call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected symmetric mixed-signature call-tree OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(1L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  let different_tree = optimize_caller(2L)
+  assert_true(different_tree.contains("select"), msg=different_tree)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(different_tree, "call (Func 0)"),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds tree-bearing multi-operand idempotent calls" {
   // Red-first OI-F parity slice: Binaryen version_130 walks every operand tree
   // of repeated annotated calls. An exact i32.add(local, const) first operand
