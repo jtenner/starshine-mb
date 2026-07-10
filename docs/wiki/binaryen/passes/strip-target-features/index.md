@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
   - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -33,7 +34,7 @@ related:
 
 `strip-target-features` is a public Binaryen pass that removes the module-level target-features metadata from later output. It is **not** a code optimizer and **not** a feature-lowering pass.
 
-The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-05-05 current-main recheck preserved the same contract. The 2026-06-05 custom-metadata routing refresh in [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md) adds the Starshine-facing consequence: an opaque-section first slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression, not feature lowering or validation repair.
+The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-05-05 current-main recheck preserved the same contract. The 2026-07-10 primary-source recheck in [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) adds the missing payload boundary: `target_features` is a WebAssembly linking-convention custom section whose prefixed feature names are linker compatibility metadata, while Core custom sections remain non-semantic. An opaque-section first Starshine slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression—not feature lowering, Core-validation repair, or a faithful first-class Binaryen representation.
 
 It is currently **upstream-only** in Starshine:
 
@@ -47,7 +48,8 @@ It is currently **upstream-only** in Starshine:
 A good beginner mental model is:
 
 - WebAssembly binaries may contain custom sections that do not execute as wasm instructions.
-- Binaryen can remember that a module should have a `target_features` custom section so downstream tools know which wasm features the module expects or uses.
+- The WebAssembly linking convention uses the `target_features` custom-section payload to communicate `+` used, `-` disallowed, and `=` required feature names to link-time tooling; Core validation may still ignore that metadata.
+- Binaryen can remember that a module should emit this `target_features` custom section.
 - `strip-target-features` clears Binaryen's module-level “has target-features section” flag.
 - It does **not** rewrite functions, instructions, types, imports, exports, memories, tables, globals, or data.
 
@@ -74,14 +76,14 @@ The executable in-memory IR is otherwise unchanged, but Binaryen's module metada
 - **Only the target-features metadata flag changes:** do not silently turn this into generic custom-section stripping.
 - **Whole-section policy:** the pass removes target-feature metadata as a section-level decision. It is not a per-feature filter.
 - **No code lowering:** if a module uses relaxed SIMD, GC, memory64, or other features, this pass does not make the module compatible with engines that lack them.
-- **Explicit user/product choice:** target-feature metadata is non-executing, but downstream tools can still rely on it.
+- **Explicit user/product choice:** target-feature metadata is non-executing Core metadata, but a linking tool can still use its convention payload as a compatibility constraint.
 - **Keep neighboring names separate:** `strip-toolchain-annotations` removes Binaryen annotation metadata; `remove-relaxed-simd` rewrites relaxed-SIMD instructions to traps.
 
 ## Notable edge cases
 
 - Running the pass can make binary output differ even when every executable section is unchanged.
 - The old wiki wording that called this “option-only” is stale and superseded by the 2026-04-26 source-correction manifest.
-- A Starshine implementation over decoded `Module.custom_secs` would be architecturally different from Binaryen's `hasFeaturesSection` flag unless Starshine first adds first-class target-feature metadata.
+- A Starshine implementation over decoded `Module.custom_secs` would be architecturally different from Binaryen's `hasFeaturesSection` flag unless Starshine first adds first-class target-feature metadata. It can suppress already-present bytes, but it cannot faithfully implement `emit-target-features` until it has a source of feature facts and a payload policy.
 - The local port-readiness bridge keeps the safe first slices explicit: registry honesty, narrow opaque `target_features` custom-section deletion, then a larger first-class target-feature metadata model.
 - Starshine currently stores arbitrary custom sections as opaque `CustomSec` records and has no semantic target-features section model.
 - The neighboring `producers` tool-conventions section should be preserved by any future target-feature pass; it is provenance metadata, not an input to pass scheduling or feature validation.
@@ -114,6 +116,7 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
+- [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
 - [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
 - [`../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md)
 - [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)
