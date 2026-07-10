@@ -25649,10 +25649,18 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // This is a HOT-admission fact, not a raw rewrite. Binaryen v130's
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
-  // flat shapes cover no operands plus one repeated local.get, i32.const, or
-  // immutable global.get operand; the raw stack-effect gate would otherwise
-  // quarantine those call results before HOT can apply the source-backed fact.
+  // flat shapes cover direct i32 self-selects plus the i64 zero-test self-select
+  // with no operands, and one repeated i32 local.get, i32.const, or immutable
+  // global.get operand; the raw stack-effect gate would otherwise quarantine
+  // those call results before HOT can apply the source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      @lib.Call(left_idx),
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx => (left_idx, true, None)
     [
       @lib.Call(left_idx),
       @lib.I32Const(@lib.I32(0)),
@@ -25722,8 +25730,8 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
     _ => return None
   }
   match (@ir.hot_module_resolve_func_type(module_ctx, call_idx), operand_fact) {
-    (Some(@lib.FuncType([], results)), None) if results == [@lib.ValType::i32()] =>
-      ()
+    (Some(@lib.FuncType([], results)), None) if results == [@lib.ValType::i32()] ||
+      results == [@lib.ValType::i64()] => ()
     (Some(@lib.FuncType([param], results)), Some(_)) if param ==
       @lib.ValType::i32() &&
       results == [@lib.ValType::i32()] => ()

@@ -4046,6 +4046,25 @@ test "optimize-instructions folds no-arg idempotent-call self-selects" {
 }
 
 ///|
+test "optimize-instructions folds no-arg i64 idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 combines the direct-call
+  // idempotent exception with its i64 zero-test SCCP select form. The official
+  // source is `OptimizeInstructions.cpp:2891-2947`; the focused oracle is
+  // `.tmp/oi-probes/select-idempotent-call-i64-foldability.wat` (`no_arg`).
+  let wat = "(module (@binaryen.idempotent) (func $id (result i64) i64.const 1) (func (result i64) i64.const 0 call $id call $id i64.eqz select))"
+  let optimized = match pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected i64 idempotent-call OI success, got \{err}")
+  }
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(caller.contains("select"), msg=caller)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(caller, "call (Func 0)"),
+    1,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and
