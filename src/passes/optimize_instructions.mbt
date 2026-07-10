@@ -38706,11 +38706,7 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
       }
       Some({ kind, value_id })
     }
-    @ir.HotOp::Try => {
-      // Keep the i64 sibling staged for its own red-first parity slice.
-      if expected_type == @lib.ValType::i64() {
-        return None
-      }
+    @ir.HotOp::Try =>
       match OiBooleanTryBodyThrowFact::from_try_operand(func, operand_id) {
         Some(fact) if fact.proves_single_root_nonthrowing() =>
           Some({
@@ -38719,7 +38715,6 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
           })
         _ => None
       }
-    }
     _ => None
   }
 }
@@ -38864,7 +38859,8 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
   node_id : Int,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen's sibling EqZInt64 path has the same i32 result and preservation
-  // contract; only the fallthrough value and final literal width differ.
+  // contract, including proven-nonthrowing single-root try bodies; only the
+  // fallthrough value and final literal width differ.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()

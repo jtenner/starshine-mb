@@ -3266,6 +3266,62 @@ test "optimize-instructions folds i32 eqz nonthrowing try constants in boolean c
 }
 
 ///|
+test "optimize-instructions folds i64 eqz nonthrowing try constants in boolean context" {
+  // Red-first OI-F behavior-parity follow-up: Binaryen v130 applies the same
+  // proven-nonthrowing legacy try fallthrough to i64.eqz while still emitting
+  // i32 truth. Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-try.wat`.
+  let assert_fold = fn(tail : Int64, expected : Int) raise {
+    let i32_type = @lib.ValType::i32()
+    let i64_type = @lib.ValType::i64()
+    let func = @ir.HotFunc::new()
+    @ir.hot_body_result_type_set(
+      func,
+      @ir.hot_type_intern_value(func, i32_type),
+    )
+    let try_value = @ir.hot_build_try(
+      func,
+      @lib.BlockType::val_type(i64_type),
+      [@ir.hot_build_const_i64(func, @lib.I64(tail))],
+      catch_body=Some([@ir.hot_build_const_i64(func, @lib.I64(7L))]),
+    )
+    let condition = @ir.hot_build_unary(func, i32_type, try_value)
+    @ir.hot_node_exact_instr_set(func, condition, @lib.Instruction::i64_eqz())
+    @ir.hot_root_append(
+      func,
+      @ir.hot_build_if(
+        func,
+        @lib.BlockType::val_type(i32_type),
+        condition,
+        [@ir.hot_build_const_i32(func, @lib.I32(11))],
+        else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(22))]),
+      ),
+    )
+    let ctx = HotPassContext::new(
+      optimize_instructions_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    match hot_pass_run(ctx, func) {
+      Ok(_) => ()
+      Err(err) => fail("expected i64 try fallthrough optimization, got \{err}")
+    }
+    let result = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    match @ir.hot_node_get(func, result).op {
+      @ir.HotOp::Const => ()
+      other => fail("expected folded i64 try truth constant, got \{other}")
+    }
+    @debug.assert_eq(
+      @ir.hot_const_get(func, @ir.hot_node_get(func, result).imm0),
+      @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+    )
+  }
+  assert_fold(0L, 1)
+  assert_fold(9L, 0)
+}
+
+///|
 test "optimize-instructions folds recursive eqz fallthrough wrapper chains" {
   // Red-first OI-F behavior-parity slice: Binaryen v130 `getFallthrough`
   // repeatedly applies `getImmediateFallthrough`, then preserves only the
