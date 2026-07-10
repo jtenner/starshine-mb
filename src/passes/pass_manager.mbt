@@ -26278,6 +26278,7 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallSecondI64AddAndThirdI32AddAndDirectI32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallSecondFourthI64AddAndThreeDirectI32ToI64OperandsAdmission
+  RawOiIdempotentCallSecondI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndDirectI64I32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallDirectI32AndSecondI64AddAndDirectI32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallDirectI32I64AndThirdI32AddAndDirectI64I32ToI64OperandsAdmission
@@ -26447,6 +26448,7 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndDirectI32I64I32ToI64OperandsAdmission
     | RawOiIdempotentCallSecondFourthI64AddAndThreeDirectI32ToI64OperandsAdmission
+    | RawOiIdempotentCallSecondI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallSecondThirdFourthI32AddAndDirectI32OperandAdmission
     | RawOiIdempotentCallFirstThirdFourthI32AddAndDirectI32OperandAdmission
     | RawOiIdempotentCallFirstSecondFourthI32AddAndDirectI32OperandAdmission
@@ -26561,11 +26563,11 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // flat shapes cover direct one- and two-operand i32/i64 self-selects, the
   // exact direct (i32, i64, i32, i64, i32) -> i64 self-select plus every exact
   // one-slot i32.add/i64.add tree with four direct leaves or exact first+second,
-  // first+third, first+fourth, first+fifth, second+third, or second+fourth trees
-  // with three direct leaves, direct four-i32-operand self-selects plus an exact
-  // first-, second-, third-, or fourth-slot i32.add tree with three direct leaves,
-  // direct four-i64-operand self-selects
-  // plus exact first+second, first+third, or first+fourth i64.add trees with two
+  // first+third, first+fourth, first+fifth, second+third, second+fourth, or
+  // second+fifth trees with three direct leaves, direct four-i32-operand
+  // self-selects plus an exact first-, second-, third-, or fourth-slot i32.add
+  // tree with three direct leaves, direct four-i64-operand self-selects plus
+  // exact first+second, first+third, or first+fourth i64.add trees with two
   // direct leaves or one exact
   // first-, second-, third-, or fourth-slot i64.add tree with three direct leaves,
   // direct mixed (i32, i64, i32) -> i64, (i64, i32, i64) -> i32, and
@@ -27502,6 +27504,157 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
           leaf_facts: [
             left_first_fact, left_second_lhs_fact, left_second_rhs_fact, left_third_fact,
             left_fourth_lhs_fact, left_fourth_rhs_fact, left_fifth_fact,
+          ],
+        },
+      )
+    }
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_first,
+      left_second_lhs,
+      left_second_rhs,
+      @lib.I64Add,
+      left_third,
+      left_fourth,
+      left_fifth_lhs,
+      left_fifth_rhs,
+      @lib.I32Add,
+      @lib.Call(left_idx),
+      right_first,
+      right_second_lhs,
+      right_second_rhs,
+      @lib.I64Add,
+      right_third,
+      right_fourth,
+      right_fifth_lhs,
+      right_fifth_rhs,
+      @lib.I32Add,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx &&
+      RawOiIdempotentCallI32I64I32I64I32ToI64SignatureFact::from_func(
+        module_ctx, left_idx,
+      ).proves_match() => {
+      let left_first_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_first, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_second_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_second_lhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_second_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_second_rhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_third_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_third, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_fourth_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_fourth, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_fifth_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_fifth_lhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_fifth_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_fifth_rhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_first_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_first, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_second_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_second_lhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_second_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_second_rhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_third_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_third, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_fourth_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_fourth, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_fifth_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_fifth_lhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_fifth_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_fifth_rhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_first_fact.proves_i32_noninvalidated_leaf() ||
+        !left_second_lhs_fact.proves_i64_noninvalidated_leaf() ||
+        !left_second_rhs_fact.proves_i64_noninvalidated_leaf() ||
+        !left_third_fact.proves_i32_noninvalidated_leaf() ||
+        !left_fourth_fact.proves_i64_noninvalidated_leaf() ||
+        !left_fifth_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_fifth_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_first_fact.proves_i32_noninvalidated_leaf() ||
+        !right_second_lhs_fact.proves_i64_noninvalidated_leaf() ||
+        !right_second_rhs_fact.proves_i64_noninvalidated_leaf() ||
+        !right_third_fact.proves_i32_noninvalidated_leaf() ||
+        !right_fourth_fact.proves_i64_noninvalidated_leaf() ||
+        !right_fifth_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_fifth_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_first_fact.proves_equal(right_first_fact) ||
+        !left_second_lhs_fact.proves_equal(right_second_lhs_fact) ||
+        !left_second_rhs_fact.proves_equal(right_second_rhs_fact) ||
+        !left_third_fact.proves_equal(right_third_fact) ||
+        !left_fourth_fact.proves_equal(right_fourth_fact) ||
+        !left_fifth_lhs_fact.proves_equal(right_fifth_lhs_fact) ||
+        !left_fifth_rhs_fact.proves_equal(right_fifth_rhs_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallSecondI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission,
+          leaf_facts: [
+            left_first_fact, left_second_lhs_fact, left_second_rhs_fact, left_third_fact,
+            left_fourth_fact, left_fifth_lhs_fact, left_fifth_rhs_fact,
           ],
         },
       )
@@ -45692,6 +45845,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndDirectI32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallSecondFourthI64AddAndThreeDirectI32ToI64OperandsAdmission
+      | RawOiIdempotentCallSecondI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndDirectI64I32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallDirectI32AndSecondI64AddAndDirectI32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallDirectI32I64AndThirdI32AddAndDirectI64I32ToI64OperandsAdmission
