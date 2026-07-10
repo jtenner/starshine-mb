@@ -3322,6 +3322,251 @@ test "optimize-instructions folds i64 eqz nonthrowing try constants in boolean c
 }
 
 ///|
+test "optimize-instructions folds prefixed nonthrowing try fallthrough chains" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 proves the complete Try
+  // body does not throw, selects its final value through `getFallthrough`, and
+  // preserves an effectful body prefix under a drop. The focused oracle also
+  // proves recursive block -> try composition while call/throw bodies remain
+  // boundaries: `.tmp/oi-probes/boolean-eqz-fallthrough-try.wat`.
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+
+  let i32_func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i32_type]))
+  @ir.hot_body_result_type_set(
+    i32_func,
+    @ir.hot_type_intern_value(i32_func, i32_type),
+  )
+  let i32_try = @ir.hot_build_try(
+    i32_func,
+    @lib.BlockType::val_type(i32_type),
+    [
+      @ir.hot_build_local_set(i32_func, 0, @ir.hot_build_local_get(i32_func, 0)),
+      @ir.hot_build_const_i32(i32_func, @lib.I32(0)),
+    ],
+    catch_body=Some([@ir.hot_build_const_i32(i32_func, @lib.I32(9))]),
+  )
+  let i32_condition = @ir.hot_build_unary(i32_func, i32_type, i32_try)
+  @ir.hot_node_exact_instr_set(
+    i32_func,
+    i32_condition,
+    @lib.Instruction::i32_eqz(),
+  )
+  @ir.hot_root_append(
+    i32_func,
+    @ir.hot_build_if(
+      i32_func,
+      @lib.BlockType::val_type(i32_type),
+      i32_condition,
+      [@ir.hot_build_const_i32(i32_func, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(i32_func, @lib.I32(22))]),
+    ),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, i32_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected prefixed i32 try optimization, got \{err}")
+  }
+  let i32_result = @ir.hot_child_get(i32_func, @ir.hot_root_get(i32_func, 0), 0)
+  match @ir.hot_node_get(i32_func, i32_result).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected preserved prefixed i32 try block, got \{other}")
+  }
+  let i32_result_body = @ir.hot_region_body_ref(i32_func, i32_result)
+  @debug.assert_eq(@ir.hot_region_root_count(i32_func, i32_result_body), 2)
+  let i32_drop = @ir.hot_region_get(i32_func, i32_result_body, 0)
+  match @ir.hot_node_get(i32_func, i32_drop).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected dropped prefixed i32 try, got \{other}")
+  }
+  match
+    @ir.hot_node_get(i32_func, @ir.hot_child_get(i32_func, i32_drop, 0)).op {
+    @ir.HotOp::Try => ()
+    other => fail("expected complete i32 try under drop, got \{other}")
+  }
+  let i32_truth = @ir.hot_region_get(i32_func, i32_result_body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_func, @ir.hot_node_get(i32_func, i32_truth).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i32_type]))
+  @ir.hot_body_result_type_set(
+    i64_func,
+    @ir.hot_type_intern_value(i64_func, i32_type),
+  )
+  let i64_try = @ir.hot_build_try(
+    i64_func,
+    @lib.BlockType::val_type(i64_type),
+    [
+      @ir.hot_build_local_set(i64_func, 0, @ir.hot_build_local_get(i64_func, 0)),
+      @ir.hot_build_const_i64(i64_func, @lib.I64(9L)),
+    ],
+    catch_body=Some([@ir.hot_build_const_i64(i64_func, @lib.I64(0L))]),
+  )
+  let wrapped_i64_try = @ir.hot_build_block(
+    i64_func,
+    @lib.BlockType::val_type(i64_type),
+    [i64_try],
+  )
+  let i64_condition = @ir.hot_build_unary(i64_func, i32_type, wrapped_i64_try)
+  @ir.hot_node_exact_instr_set(
+    i64_func,
+    i64_condition,
+    @lib.Instruction::i64_eqz(),
+  )
+  @ir.hot_root_append(
+    i64_func,
+    @ir.hot_build_if(
+      i64_func,
+      @lib.BlockType::val_type(i32_type),
+      i64_condition,
+      [@ir.hot_build_const_i32(i64_func, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(i64_func, @lib.I32(22))]),
+    ),
+  )
+  let i64_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(i64_ctx, i64_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected recursive prefixed i64 try optimization, got \{err}")
+  }
+  let i64_result = @ir.hot_child_get(i64_func, @ir.hot_root_get(i64_func, 0), 0)
+  match @ir.hot_node_get(i64_func, i64_result).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected preserved recursive i64 try block, got \{other}")
+  }
+  let i64_result_body = @ir.hot_region_body_ref(i64_func, i64_result)
+  let i64_drop = @ir.hot_region_get(i64_func, i64_result_body, 0)
+  let dropped_i64_operand = @ir.hot_child_get(i64_func, i64_drop, 0)
+  match @ir.hot_node_get(i64_func, dropped_i64_operand).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected complete outer i64 block under drop, got \{other}")
+  }
+  let dropped_i64_body = @ir.hot_region_body_ref(i64_func, dropped_i64_operand)
+  match
+    @ir.hot_node_get(
+      i64_func,
+      @ir.hot_region_get(i64_func, dropped_i64_body, 0),
+    ).op {
+    @ir.HotOp::Try => ()
+    other =>
+      fail("expected nested i64 try to remain in dropped block, got \{other}")
+  }
+  let i64_truth = @ir.hot_region_get(i64_func, i64_result_body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_truth).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let throwing = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    throwing,
+    @ir.hot_type_intern_value(throwing, i32_type),
+  )
+  let throwing_try = @ir.hot_build_try(
+    throwing,
+    @lib.BlockType::val_type(i32_type),
+    [
+      @ir.hot_build_throw(throwing, @lib.TagIdx::new(0U), []),
+      @ir.hot_build_const_i32(throwing, @lib.I32(0)),
+    ],
+    catch_body=Some([@ir.hot_build_const_i32(throwing, @lib.I32(9))]),
+  )
+  let throwing_condition = @ir.hot_build_unary(throwing, i32_type, throwing_try)
+  @ir.hot_node_exact_instr_set(
+    throwing,
+    throwing_condition,
+    @lib.Instruction::i32_eqz(),
+  )
+  @ir.hot_root_append(
+    throwing,
+    @ir.hot_build_if(
+      throwing,
+      @lib.BlockType::val_type(i32_type),
+      throwing_condition,
+      [@ir.hot_build_const_i32(throwing, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(throwing, @lib.I32(22))]),
+    ),
+  )
+  let throwing_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(throwing_ctx, throwing) {
+    Ok(_) => ()
+    Err(err) => fail("expected throwing try boundary validation, got \{err}")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      throwing,
+      @ir.hot_child_get(throwing, @ir.hot_root_get(throwing, 0), 0),
+    ),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+
+  let calling = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    calling,
+    @ir.hot_type_intern_value(calling, i32_type),
+  )
+  let calling_try = @ir.hot_build_try(
+    calling,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_call(calling, 0, [i32_type], [])],
+    catch_body=Some([@ir.hot_build_const_i32(calling, @lib.I32(9))]),
+  )
+  let calling_condition = @ir.hot_build_unary(calling, i32_type, calling_try)
+  @ir.hot_node_exact_instr_set(
+    calling,
+    calling_condition,
+    @lib.Instruction::i32_eqz(),
+  )
+  @ir.hot_root_append(
+    calling,
+    @ir.hot_build_if(
+      calling,
+      @lib.BlockType::val_type(i32_type),
+      calling_condition,
+      [@ir.hot_build_const_i32(calling, @lib.I32(11))],
+      else_body=Some([@ir.hot_build_const_i32(calling, @lib.I32(22))]),
+    ),
+  )
+  let calling_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(calling_ctx, calling) {
+    Ok(_) => ()
+    Err(err) => fail("expected call try boundary validation, got \{err}")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      calling,
+      @ir.hot_child_get(calling, @ir.hot_root_get(calling, 0), 0),
+    ),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+}
+
+///|
 test "optimize-instructions folds recursive eqz fallthrough wrapper chains" {
   // Red-first OI-F behavior-parity slice: Binaryen v130 `getFallthrough`
   // repeatedly applies `getImmediateFallthrough`, then preserves only the

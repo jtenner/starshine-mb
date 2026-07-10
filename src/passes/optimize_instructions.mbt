@@ -38571,6 +38571,7 @@ fn OiBooleanTryExpressionThrowFact::from_node(
 ///|
 priv enum OiBooleanTryBodyThrowKind {
   BooleanTrySingleRootBodyProvenNonThrowing
+  BooleanTryPrefixedBodyProvenNonThrowing
 }
 
 ///|
@@ -38580,11 +38581,12 @@ priv struct OiBooleanTryBodyThrowFact {
 }
 
 ///|
-fn OiBooleanTryBodyThrowFact::proves_single_root_nonthrowing(
+fn OiBooleanTryBodyThrowFact::proves_nonthrowing(
   self : OiBooleanTryBodyThrowFact,
 ) -> Bool {
   match self.kind {
-    BooleanTrySingleRootBodyProvenNonThrowing => true
+    BooleanTrySingleRootBodyProvenNonThrowing
+    | BooleanTryPrefixedBodyProvenNonThrowing => true
   }
 }
 
@@ -38598,16 +38600,31 @@ fn OiBooleanTryBodyThrowFact::from_try_operand(
     _ => return None
   }
   let body_ref = @ir.hot_region_body_ref(func, try_id)
-  if @ir.hot_region_root_count(func, body_ref) != 1 {
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 {
     return None
   }
-  let value_id = @ir.hot_region_get(func, body_ref, 0)
   let states = Array::make(@ir.hot_node_count(func), 0)
-  match OiBooleanTryExpressionThrowFact::from_node(func, value_id, states, 0) {
-    Some(fact) if fact.proves_nonthrowing() =>
-      Some({ kind: BooleanTrySingleRootBodyProvenNonThrowing, value_id })
-    _ => None
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    match
+      OiBooleanTryExpressionThrowFact::from_node(
+        func,
+        @ir.hot_region_get(func, body_ref, slot),
+        states,
+        0,
+      ) {
+      Some(fact) if fact.proves_nonthrowing() => ()
+      _ => return None
+    }
   }
+  Some({
+    kind: if root_count == 1 {
+      BooleanTrySingleRootBodyProvenNonThrowing
+    } else {
+      BooleanTryPrefixedBodyProvenNonThrowing
+    },
+    value_id: @ir.hot_region_get(func, body_ref, root_count - 1),
+  })
 }
 
 ///|
@@ -38620,6 +38637,7 @@ priv enum OiBooleanEqzFallthroughValueKind {
   BooleanEqzFallthroughIfThenArmTail
   BooleanEqzFallthroughIfElseArmTail
   BooleanEqzFallthroughSingleRootTryBody
+  BooleanEqzFallthroughPrefixedTryBodyTail
 }
 
 ///|
@@ -38708,9 +38726,14 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
     }
     @ir.HotOp::Try =>
       match OiBooleanTryBodyThrowFact::from_try_operand(func, operand_id) {
-        Some(fact) if fact.proves_single_root_nonthrowing() =>
+        Some(fact) if fact.proves_nonthrowing() =>
           Some({
-            kind: BooleanEqzFallthroughSingleRootTryBody,
+            kind: match fact.kind {
+              BooleanTrySingleRootBodyProvenNonThrowing =>
+                BooleanEqzFallthroughSingleRootTryBody
+              BooleanTryPrefixedBodyProvenNonThrowing =>
+                BooleanEqzFallthroughPrefixedTryBodyTail
+            },
             value_id: fact.value_id,
           })
         _ => None
@@ -38731,7 +38754,8 @@ fn OiBooleanEqzFallthroughValueFact::proves_supported_wrapper(
     | BooleanEqzFallthroughPrefixedLoopBodyTail
     | BooleanEqzFallthroughIfThenArmTail
     | BooleanEqzFallthroughIfElseArmTail
-    | BooleanEqzFallthroughSingleRootTryBody => true
+    | BooleanEqzFallthroughSingleRootTryBody
+    | BooleanEqzFallthroughPrefixedTryBodyTail => true
   }
 }
 
@@ -38752,6 +38776,7 @@ fn OiBooleanEqzFallthroughValueFact::operand_preservation(
     BooleanEqzFallthroughPrefixedBlockTail
     | BooleanEqzFallthroughLocalTeeChild
     | BooleanEqzFallthroughPrefixedLoopBodyTail
+    | BooleanEqzFallthroughPrefixedTryBodyTail
     | BooleanEqzFallthroughIfThenArmTail
     | BooleanEqzFallthroughIfElseArmTail => BooleanEqzDropOriginalOperand
   }
@@ -38822,7 +38847,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
   // i32.eqz operand before folding a constant fallthrough. Represent nonempty
   // single-i32-result block tails, direct local.tee children, loop-body tails,
-  // one-sided-if live-arm tails, and proven-nonthrowing single-root try bodies,
+  // one-sided-if live-arm tails, and proven-nonthrowing try body tails,
   // preserving or erasing the operand according to the selected source-backed
   // wrapper outcome from `getDroppedChildrenAndAppend`.
   match @ir.hot_node_exact_instr(func, node_id) {
@@ -38859,8 +38884,8 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
   node_id : Int,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen's sibling EqZInt64 path has the same i32 result and preservation
-  // contract, including proven-nonthrowing single-root try bodies; only the
-  // fallthrough value and final literal width differ.
+  // contract, including proven-nonthrowing try body tails; only the fallthrough
+  // value and final literal width differ.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()
