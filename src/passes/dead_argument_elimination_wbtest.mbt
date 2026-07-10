@@ -341,6 +341,70 @@ test "dae selected function rewrite applies locals and body at the chosen bounda
 }
 
 ///|
+test "dae first productive selected function rewrite preserves scan order" {
+  let current = dae_wbtest_call_summary_fixture().with_name_sec(
+    @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
+  )
+  let selected = [true, true, true]
+  let visited : Array[Int] = []
+  let rewrite_func = fn(
+    func : @lib.Func,
+    def_idx : Int,
+    type_sec : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    visited.push(def_idx)
+    if type_sec is None || def_idx == 0 {
+      return None
+    }
+    let @lib.Func(_, @lib.Expr(body)) = func
+    let rewritten_body = body.copy()
+    rewritten_body.push(@lib.Instruction::nop())
+    Some(
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new(rewritten_body),
+      ),
+    )
+  }
+  let applied = dae_try_apply_first_selected_func_rewrite_once(
+    current, selected, rewrite_func,
+  )
+  assert_eq(visited, [0, 1])
+  assert_true(applied.changed)
+  assert_eq(applied.touched, [false, true, false])
+  assert_eq(applied.primary_def, 1)
+  @debug.assert_eq(applied.mod_out.name_sec, None)
+  match applied.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(
+        funcs[0],
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+      )
+      assert_eq(
+        funcs[1],
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::nop(),
+          ]),
+        ),
+      )
+      assert_eq(
+        funcs[2],
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      )
+    }
+    None => fail("expected first productive selected function rewrite")
+  }
+}
+
+///|
 test "dae selected Func288 return wrapper rejects an unselected boundary" {
   let funcs = Array::make(
     289,
