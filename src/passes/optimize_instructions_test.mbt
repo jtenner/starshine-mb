@@ -4147,6 +4147,40 @@ test "optimize-instructions folds immutable-global i64 idempotent-call self-sele
 }
 
 ///|
+test "optimize-instructions folds unary-tree idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 accepts an equal direct
+  // nontrapping unary operand tree when the annotated call's child effects have
+  // no unremovable side effects and cannot be invalidated by the call shell.
+  // Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-scalar-tree-foldability.wat`
+  // (`i32_unary`).
+  let optimize_caller = fn(right_local : Int) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (param i32 i32) (result i32) local.get 0 i32.eqz call $id i32.const 0 local.get " +
+      right_local.to_string() +
+      " i32.eqz call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected unary-tree idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(0)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  let different_leaf = optimize_caller(1)
+  assert_true(different_leaf.contains("select"), msg=different_leaf)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(different_leaf, "call (Func 0)"),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and

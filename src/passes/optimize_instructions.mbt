@@ -27338,10 +27338,99 @@ fn optimize_instructions_inverted_select_compare(
 }
 
 ///|
+priv enum OiIdempotentCallOperandTreeKind {
+  IdempotentCallOperandTreeUnsupported
+  IdempotentCallOperandTreeLocalConstLeaf
+  IdempotentCallOperandTreeImmutableGlobalLeaf
+  IdempotentCallOperandTreeI32EqzShell
+}
+
+///|
+priv struct OiIdempotentCallOperandTreeFact {
+  kind : OiIdempotentCallOperandTreeKind
+  children_foldable : Bool
+}
+
+///|
+fn OiIdempotentCallOperandTreeFact::empty() -> OiIdempotentCallOperandTreeFact {
+  { kind: IdempotentCallOperandTreeUnsupported, children_foldable: false }
+}
+
+///|
+fn OiIdempotentCallOperandTreeFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth? : Int = 0,
+) -> OiIdempotentCallOperandTreeFact {
+  // Binaryen v130's idempotent-call exception builds an EffectAnalyzer over
+  // every operand subtree, rejects unremovable child effects, and then asks a
+  // shallow call analyzer whether the call can invalidate those effects. Keep
+  // that proof separate from structural equality: direct local/constant leaves,
+  // immutable-global reads, and the source-probed nontrapping i32.eqz shell are
+  // the represented recursive subset.
+  if depth > 16 {
+    return OiIdempotentCallOperandTreeFact::empty()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet | @ir.HotOp::Const =>
+      return {
+        kind: IdempotentCallOperandTreeLocalConstLeaf,
+        children_foldable: true,
+      }
+    @ir.HotOp::GlobalGet =>
+      match ctx.module_ctx {
+        Some(module_ctx) =>
+          match
+            @ir.hot_module_resolve_global_type(
+              module_ctx,
+              @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+            ) {
+            Some(@lib.GlobalType(_, false)) =>
+              return {
+                kind: IdempotentCallOperandTreeImmutableGlobalLeaf,
+                children_foldable: true,
+              }
+            _ => return OiIdempotentCallOperandTreeFact::empty()
+          }
+        None => return OiIdempotentCallOperandTreeFact::empty()
+      }
+    _ => ()
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) if node.child_count == 1 => {
+      let child_fact = OiIdempotentCallOperandTreeFact::from_node(
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        depth=depth + 1,
+      )
+      {
+        kind: IdempotentCallOperandTreeI32EqzShell,
+        children_foldable: child_fact.proves_foldable(),
+      }
+    }
+    _ => OiIdempotentCallOperandTreeFact::empty()
+  }
+}
+
+///|
+fn OiIdempotentCallOperandTreeFact::proves_foldable(
+  self : OiIdempotentCallOperandTreeFact,
+) -> Bool {
+  match self.kind {
+    IdempotentCallOperandTreeLocalConstLeaf
+    | IdempotentCallOperandTreeImmutableGlobalLeaf => true
+    IdempotentCallOperandTreeI32EqzShell => self.children_foldable
+    IdempotentCallOperandTreeUnsupported => false
+  }
+}
+
+///|
 priv enum OiIdempotentCallOperandKind {
   IdempotentCallNoOperands
-  IdempotentCallPureLocalConstOperands
-  IdempotentCallPureImmutableGlobalOperands
+  IdempotentCallPureOperandTrees
   IdempotentCallUnsupportedOperands
 }
 
@@ -27349,6 +27438,7 @@ priv enum OiIdempotentCallOperandKind {
 priv struct OiIdempotentCallOperandFact {
   kind : OiIdempotentCallOperandKind
   operand_ids : Array[Int]
+  tree_facts : Array[OiIdempotentCallOperandTreeFact]
 }
 
 ///|
@@ -27366,9 +27456,10 @@ fn OiIdempotentCallFact::from_node(
 ) -> OiIdempotentCallFact? {
   // Binaryen v130 asks `Intrinsics::getCallAnnotations(...).idempotent` before
   // treating a direct call as effect-free for consecutive-input folding. The
-  // represented operand fact includes no operands, direct local.get/scalar
-  // constants, and immutable global.get leaves. The latter are state reads, but
-  // the annotated call shell cannot invalidate an immutable global.
+  // represented operand fact includes no operands plus recursively proven
+  // local/constant/immutable-global leaves under the exact nontrapping scalar
+  // shells selected by `OiIdempotentCallOperandTreeFact`. Immutable globals are
+  // state reads, but the annotated call shell cannot invalidate them.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Call if node.imm0 >= 0 => ()
@@ -27387,41 +27478,31 @@ fn OiIdempotentCallFact::from_node(
     return None
   }
   let operand_ids : Array[Int] = []
-  let mut all_local_const = true
+  let tree_facts : Array[OiIdempotentCallOperandTreeFact] = []
   let mut all_supported = true
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let operand_id = @ir.hot_child_get(func, node_id, slot)
     operand_ids.push(operand_id)
-    match @ir.hot_node_get(func, operand_id).op {
-      @ir.HotOp::LocalGet | @ir.HotOp::Const => ()
-      @ir.HotOp::GlobalGet => {
-        all_local_const = false
-        let operand = @ir.hot_node_get(func, operand_id)
-        match
-          @ir.hot_module_resolve_global_type(
-            module_ctx,
-            @lib.GlobalIdx::new(operand.imm0.reinterpret_as_uint()),
-          ) {
-          Some(@lib.GlobalType(_, false)) => ()
-          _ => all_supported = false
-        }
-      }
-      _ => {
-        all_local_const = false
-        all_supported = false
-      }
+    let tree_fact = OiIdempotentCallOperandTreeFact::from_node(
+      ctx, func, operand_id,
+    )
+    if !tree_fact.proves_foldable() {
+      all_supported = false
     }
+    tree_facts.push(tree_fact)
   }
   let kind = if node.child_count == 0 {
     IdempotentCallNoOperands
-  } else if all_local_const {
-    IdempotentCallPureLocalConstOperands
   } else if all_supported {
-    IdempotentCallPureImmutableGlobalOperands
+    IdempotentCallPureOperandTrees
   } else {
     IdempotentCallUnsupportedOperands
   }
-  Some({ call_id: node_id, func_idx, operand_fact: { kind, operand_ids } })
+  Some({
+    call_id: node_id,
+    func_idx,
+    operand_fact: { kind, operand_ids, tree_facts },
+  })
 }
 
 ///|
@@ -27429,9 +27510,7 @@ fn OiIdempotentCallOperandFact::proves_foldable(
   self : OiIdempotentCallOperandFact,
 ) -> Bool {
   match self.kind {
-    IdempotentCallNoOperands
-    | IdempotentCallPureLocalConstOperands
-    | IdempotentCallPureImmutableGlobalOperands => true
+    IdempotentCallNoOperands | IdempotentCallPureOperandTrees => true
     IdempotentCallUnsupportedOperands => false
   }
 }
@@ -27444,8 +27523,19 @@ fn OiIdempotentCallOperandFact::proves_equal(
 ) -> Bool {
   if !self.proves_foldable() ||
     !other.proves_foldable() ||
-    self.operand_ids.length() != other.operand_ids.length() {
+    self.operand_ids.length() != other.operand_ids.length() ||
+    self.tree_facts.length() != other.tree_facts.length() {
     return false
+  }
+  for fact in self.tree_facts {
+    if !fact.proves_foldable() {
+      return false
+    }
+  }
+  for fact in other.tree_facts {
+    if !fact.proves_foldable() {
+      return false
+    }
   }
   for slot = 0; slot < self.operand_ids.length(); slot = slot + 1 {
     if !OiScalarTreeEqualityFact::from_nodes(
@@ -27524,9 +27614,9 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
 ) -> OiConsecutiveInputFoldabilityFact {
   // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
   // the later equal input to have no unremovable effects before it can be
-  // folded into the earlier input. Annotated direct calls with no operands,
-  // direct local/constant operands, or immutable-global operands are the
-  // represented exceptions to the ordinary pure-expression proof.
+  // folded into the earlier input. Annotated direct calls with no operands or
+  // operands accepted by the explicit recursive child-effect/invalidation fact
+  // are the represented exceptions to the ordinary pure-expression proof.
   let kind = if OiSideEffectFreeExpressionFact::proves_node_free(
       func, dead, right_id,
     ) {

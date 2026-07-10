@@ -25638,10 +25638,46 @@ fn RawOiIdempotentCallStackOperandFact::proves_equal(
 }
 
 ///|
+priv enum RawOiIdempotentCallOperandAdmissionKind {
+  RawOiIdempotentCallNoOperandAdmission
+  RawOiIdempotentCallDirectLeafAdmission
+  RawOiIdempotentCallI32EqzTreeAdmission
+}
+
+///|
+priv struct RawOiIdempotentCallOperandAdmissionFact {
+  kind : RawOiIdempotentCallOperandAdmissionKind
+  leaf_fact : RawOiIdempotentCallStackOperandFact?
+}
+
+///|
+fn RawOiIdempotentCallOperandAdmissionFact::has_operand(
+  self : RawOiIdempotentCallOperandAdmissionFact,
+) -> Bool {
+  match self.kind {
+    RawOiIdempotentCallNoOperandAdmission => false
+    RawOiIdempotentCallDirectLeafAdmission
+    | RawOiIdempotentCallI32EqzTreeAdmission => true
+  }
+}
+
+///|
+fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
+  self : RawOiIdempotentCallOperandAdmissionFact,
+) -> Bool {
+  match (self.kind, self.leaf_fact) {
+    (RawOiIdempotentCallNoOperandAdmission, None) => true
+    (RawOiIdempotentCallDirectLeafAdmission, Some(_))
+    | (RawOiIdempotentCallI32EqzTreeAdmission, Some(_)) => true
+    _ => false
+  }
+}
+
+///|
 priv struct RawOiIdempotentCallSelfSelectFact {
   call_idx : @lib.FuncIdx
   forwards_call : Bool
-  operand_fact : RawOiIdempotentCallStackOperandFact?
+  operand_fact : RawOiIdempotentCallOperandAdmissionFact
 }
 
 ///|
@@ -25652,12 +25688,52 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // This is a HOT-admission fact, not a raw rewrite. Binaryen v130's
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
-  // flat shapes cover direct i32 self-selects plus the i64 zero-test self-select
-  // with no operands or one repeated direct local.get/i64.const/immutable
-  // global.get operand, and one repeated i32 local.get/i32.const/immutable
-  // global.get operand. The raw stack-effect gate would otherwise quarantine
-  // those call results before HOT can apply the source-backed fact.
+  // flat shapes cover direct i32 self-selects, the source-probed i32.eqz(local)
+  // operand tree, and the i64 zero-test self-select with no operands or one
+  // repeated direct local.get/i64.const/immutable global.get operand. The raw
+  // stack-effect gate would otherwise quarantine those call results before HOT
+  // can apply the source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
+    [
+      left_operand,
+      @lib.I32Eqz,
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      right_operand,
+      @lib.I32Eqz,
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_operand, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_operand, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      match (left_fact.kind, right_fact.kind) {
+        (RawOiIdempotentCallLocalOperand, RawOiIdempotentCallLocalOperand) => ()
+        _ => return None
+      }
+      if !left_fact.proves_equal(right_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallI32EqzTreeAdmission,
+          leaf_fact: Some(left_fact),
+        },
+      )
+    }
     [
       @lib.I64Const(@lib.I64(0L)),
       left_operand,
@@ -25690,7 +25766,14 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       if !left_fact.proves_equal(right_fact) {
         return None
       }
-      (left_idx, true, Some(left_fact))
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallDirectLeafAdmission,
+          leaf_fact: Some(left_fact),
+        },
+      )
     }
     [
       @lib.I64Const(@lib.I64(0L)),
@@ -25698,19 +25781,34 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       @lib.Call(right_idx),
       @lib.I64Eqz,
       @lib.Select(_),
-    ] if left_idx == right_idx => (left_idx, true, None)
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        true,
+        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_fact: None },
+      )
     [
       @lib.Call(left_idx),
       @lib.I32Const(@lib.I32(0)),
       @lib.Call(right_idx),
       @lib.Select(_),
-    ] if left_idx == right_idx => (left_idx, true, None)
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        true,
+        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_fact: None },
+      )
     [
       @lib.I32Const(@lib.I32(0)),
       @lib.Call(left_idx),
       @lib.Call(right_idx),
       @lib.Select(_),
-    ] if left_idx == right_idx => (left_idx, false, None)
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        false,
+        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_fact: None },
+      )
     [
       left_operand,
       @lib.Call(left_idx),
@@ -25736,7 +25834,14 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       if !left_fact.proves_equal(right_fact) {
         return None
       }
-      (left_idx, true, Some(left_fact))
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallDirectLeafAdmission,
+          leaf_fact: Some(left_fact),
+        },
+      )
     }
     [
       @lib.I32Const(@lib.I32(0)),
@@ -25763,14 +25868,26 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       if !left_fact.proves_equal(right_fact) {
         return None
       }
-      (left_idx, false, Some(left_fact))
+      (
+        left_idx,
+        false,
+        {
+          kind: RawOiIdempotentCallDirectLeafAdmission,
+          leaf_fact: Some(left_fact),
+        },
+      )
     }
     _ => return None
   }
-  match (@ir.hot_module_resolve_func_type(module_ctx, call_idx), operand_fact) {
-    (Some(@lib.FuncType([], results)), None) if results == [@lib.ValType::i32()] ||
+  match
+    (
+      @ir.hot_module_resolve_func_type(module_ctx, call_idx),
+      operand_fact.has_operand(),
+    ) {
+    (Some(@lib.FuncType([], results)), false) if results ==
+      [@lib.ValType::i32()] ||
       results == [@lib.ValType::i64()] => ()
-    (Some(@lib.FuncType([param], results)), Some(_)) if (
+    (Some(@lib.FuncType([param], results)), true) if (
         param == @lib.ValType::i32() && results == [@lib.ValType::i32()]
       ) ||
       (param == @lib.ValType::i64() && results == [@lib.ValType::i64()]) => ()
@@ -25790,8 +25907,7 @@ fn RawOiIdempotentCallSelfSelectFact::proves_hot_replay(
 ) -> Bool {
   ignore(self.call_idx)
   ignore(self.forwards_call)
-  ignore(self.operand_fact)
-  true
+  self.operand_fact.proves_admission()
 }
 
 ///|
