@@ -729,6 +729,15 @@ priv struct DaePassResult {
 }
 
 ///|
+priv struct DaeCoreResultApplication {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  changed : Bool
+  applied : Bool
+  primary_def : Int
+}
+
+///|
 priv struct DaeOriginalCallSummary {
   call_counts : Array[Int]
   prior_call_counts : Array[Int]
@@ -17162,6 +17171,31 @@ fn dae_merge_touched(dst : Array[Bool], src : Array[Bool]) -> Array[Bool] {
 }
 
 ///|
+fn dae_apply_core_result(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  result : DaePassResult,
+) -> DaeCoreResultApplication {
+  if !result.changed {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+    }
+  }
+  {
+    mod_out: result.mod_out,
+    touched: dae_merge_touched(touched, result.touched),
+    changed: true,
+    applied: true,
+    primary_def: result.primary_def,
+  }
+}
+
+///|
 fn dae_collect_direct_callee_defs_from_caller_prefix(
   mod_ : @lib.Module,
   max_caller_def_exclusive : Int,
@@ -29097,15 +29131,16 @@ fn dae_run_core(
       original_dead_suffix_self_recursive_result_side_calls, original_dead_suffix_escaped_result_call_facts,
       original_dead_suffix_mutual_calls,
     )
-    if !result.changed {
+    let application = dae_apply_core_result(current, touched, changed, result)
+    if !application.applied {
       break
     }
-    current = result.mod_out
-    touched = dae_merge_touched(touched, result.touched)
+    current = application.mod_out
+    touched = application.touched
+    changed = application.changed
     trace(
-      "pass[dae-optimizing]:core iter=\{iter} primary_def=\{result.primary_def}",
+      "pass[dae-optimizing]:core iter=\{iter} primary_def=\{application.primary_def}",
     )
-    changed = true
     iter += 1
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
@@ -29116,10 +29151,13 @@ fn dae_run_core(
     perf, "detail:dae:core:selected-lanes:reverse-exact-literal",
   )
   let restored = dae_restore_dead_suffix_self_operand_params(mod_, current)
-  if restored.changed {
-    current = restored.mod_out
-    touched = dae_merge_touched(touched, restored.touched)
-    changed = true
+  let restored_application = dae_apply_core_result(
+    current, touched, changed, restored,
+  )
+  if restored_application.applied {
+    current = restored_application.mod_out
+    touched = restored_application.touched
+    changed = restored_application.changed
   }
   // Reuse one selected-def singleton scratch across the artifact-specific lanes
   // that set at most one bit at a time. Each call clears the bit immediately
@@ -29144,13 +29182,16 @@ fn dae_run_core(
           current, selected_scratch_defs, reverse_call_facts,
         )
         selected_scratch_defs[reverse_def] = false
-        if reverse_result.changed {
-          current = reverse_result.mod_out
-          touched = dae_merge_touched(touched, reverse_result.touched)
+        let reverse_application = dae_apply_core_result(
+          current, touched, changed, reverse_result,
+        )
+        if reverse_application.applied {
+          current = reverse_application.mod_out
+          touched = reverse_application.touched
+          changed = reverse_application.changed
           trace(
-            "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+            "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_application.primary_def}",
           )
-          changed = true
           reverse_iter += 1
         }
       }
@@ -29169,15 +29210,18 @@ fn dae_run_core(
         original_dead_suffix_mutual_calls, original_dead_suffix_calls_from_param_operand_self_result_callers,
         original_dead_suffix_escaped_result_operand_call_counts, original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       )
-      if !reverse_result.changed {
+      let reverse_application = dae_apply_core_result(
+        current, touched, changed, reverse_result,
+      )
+      if !reverse_application.applied {
         break
       }
-      current = reverse_result.mod_out
-      touched = dae_merge_touched(touched, reverse_result.touched)
+      current = reverse_application.mod_out
+      touched = reverse_application.touched
+      changed = reverse_application.changed
       trace(
-        "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+        "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_application.primary_def}",
       )
-      changed = true
       reverse_iter += 1
     }
   }
@@ -29209,15 +29253,18 @@ fn dae_run_core(
       reverse=false,
       max_def_exclusive=4096,
     )
-    if !low_revisit_result.changed {
+    let low_revisit_application = dae_apply_core_result(
+      current, touched, changed, low_revisit_result,
+    )
+    if !low_revisit_application.applied {
       break
     }
-    current = low_revisit_result.mod_out
-    touched = dae_merge_touched(touched, low_revisit_result.touched)
+    current = low_revisit_application.mod_out
+    touched = low_revisit_application.touched
+    changed = low_revisit_application.changed
     trace(
-      "pass[dae-optimizing]:low-forwarded-const-revisit iter=\{low_revisit_iter} primary_def=\{low_revisit_result.primary_def}",
+      "pass[dae-optimizing]:low-forwarded-const-revisit iter=\{low_revisit_iter} primary_def=\{low_revisit_application.primary_def}",
     )
-    changed = true
     low_revisit_iter += 1
   }
   let mut immutable_global_revisit_iter = 0
@@ -29236,13 +29283,16 @@ fn dae_run_core(
         allow_immutable_global_get=true,
       )
       selected_scratch_defs[candidate_def] = false
-      if global_result.changed {
-        current = global_result.mod_out
-        touched = dae_merge_touched(touched, global_result.touched)
+      let global_application = dae_apply_core_result(
+        current, touched, changed, global_result,
+      )
+      if global_application.applied {
+        current = global_application.mod_out
+        touched = global_application.touched
+        changed = global_application.changed
         trace(
-          "pass[dae-optimizing]:immutable-global-revisit iter=\{immutable_global_revisit_iter} primary_def=\{global_result.primary_def}",
+          "pass[dae-optimizing]:immutable-global-revisit iter=\{immutable_global_revisit_iter} primary_def=\{global_application.primary_def}",
         )
-        changed = true
         found = true
       }
       candidate_def += 1
@@ -29269,19 +29319,22 @@ fn dae_run_core(
     let low_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, low_callee_selected_defs, low_callee_call_facts,
     )
-    if !low_callee_result.changed {
+    let low_callee_application = dae_apply_core_result(
+      current, touched, changed, low_callee_result,
+    )
+    if !low_callee_application.applied {
       break
     }
-    current = low_callee_result.mod_out
-    touched = dae_merge_touched(touched, low_callee_result.touched)
-    if low_callee_result.primary_def >= 0 &&
-      low_callee_result.primary_def < low_callee_selected_defs.length() {
-      low_callee_selected_defs[low_callee_result.primary_def] = false
+    current = low_callee_application.mod_out
+    touched = low_callee_application.touched
+    changed = low_callee_application.changed
+    if low_callee_application.primary_def >= 0 &&
+      low_callee_application.primary_def < low_callee_selected_defs.length() {
+      low_callee_selected_defs[low_callee_application.primary_def] = false
     }
     trace(
-      "pass[dae-optimizing]:low-callee-core iter=\{low_callee_iter} primary_def=\{low_callee_result.primary_def}",
+      "pass[dae-optimizing]:low-callee-core iter=\{low_callee_iter} primary_def=\{low_callee_application.primary_def}",
     )
-    changed = true
     low_callee_iter += 1
   }
   let mut low_wrapper_callee_iter = 0
@@ -29292,20 +29345,23 @@ fn dae_run_core(
     let low_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, low_wrapper_callee_selected_defs, low_callee_call_facts,
     )
-    if !low_wrapper_callee_result.changed {
+    let low_wrapper_callee_application = dae_apply_core_result(
+      current, touched, changed, low_wrapper_callee_result,
+    )
+    if !low_wrapper_callee_application.applied {
       break
     }
-    current = low_wrapper_callee_result.mod_out
-    touched = dae_merge_touched(touched, low_wrapper_callee_result.touched)
-    if low_wrapper_callee_result.primary_def >= 0 &&
-      low_wrapper_callee_result.primary_def <
+    current = low_wrapper_callee_application.mod_out
+    touched = low_wrapper_callee_application.touched
+    changed = low_wrapper_callee_application.changed
+    if low_wrapper_callee_application.primary_def >= 0 &&
+      low_wrapper_callee_application.primary_def <
       low_wrapper_callee_selected_defs.length() {
-      low_wrapper_callee_selected_defs[low_wrapper_callee_result.primary_def] = false
+      low_wrapper_callee_selected_defs[low_wrapper_callee_application.primary_def] = false
     }
     trace(
-      "pass[dae-optimizing]:low-wrapper-callee-core iter=\{low_wrapper_callee_iter} primary_def=\{low_wrapper_callee_result.primary_def}",
+      "pass[dae-optimizing]:low-wrapper-callee-core iter=\{low_wrapper_callee_iter} primary_def=\{low_wrapper_callee_application.primary_def}",
     )
-    changed = true
     low_wrapper_callee_iter += 1
   }
   // Unread-param rewrites shrink signatures and rewrite operands, but the
@@ -29342,16 +29398,16 @@ fn dae_run_core(
       current, selected_scratch_defs, low_callee_call_facts,
     )
     selected_scratch_defs[boundary_callee_def] = false
-    if boundary_wrapper_callee_result.changed {
-      current = boundary_wrapper_callee_result.mod_out
-      touched = dae_merge_touched(
-        touched,
-        boundary_wrapper_callee_result.touched,
-      )
+    let boundary_wrapper_callee_application = dae_apply_core_result(
+      current, touched, changed, boundary_wrapper_callee_result,
+    )
+    if boundary_wrapper_callee_application.applied {
+      current = boundary_wrapper_callee_application.mod_out
+      touched = boundary_wrapper_callee_application.touched
+      changed = boundary_wrapper_callee_application.changed
       trace(
-        "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_wrapper_def} primary_def=\{boundary_wrapper_callee_result.primary_def}",
+        "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_wrapper_def} primary_def=\{boundary_wrapper_callee_application.primary_def}",
       )
-      changed = true
     }
     boundary_order_idx += 1
   }
