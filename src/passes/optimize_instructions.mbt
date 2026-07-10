@@ -38512,6 +38512,8 @@ priv struct OiBooleanForwardReplacementFact {
 priv enum OiBooleanEqzFallthroughValueKind {
   BooleanEqzFallthroughBlockTail
   BooleanEqzFallthroughLocalTeeChild
+  BooleanEqzFallthroughSingleRootLoopBody
+  BooleanEqzFallthroughPrefixedLoopBodyTail
 }
 
 ///|
@@ -38527,9 +38529,9 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
   expected_type : @lib.ValType,
 ) -> OiBooleanEqzFallthroughValueFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` looks through unnamed
-  // nonempty blocks and direct local.tee values. Keep the represented wrapper
-  // and selected value together so boolean eqz folding does not grow another
-  // opcode whitelist.
+  // nonempty blocks, direct local.tee values, and loop bodies. Keep the
+  // represented wrapper and selected value together so boolean eqz folding
+  // does not grow another opcode whitelist.
   match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
     [result] if result == expected_type => ()
     _ => return None
@@ -38552,6 +38554,21 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
         kind: BooleanEqzFallthroughLocalTeeChild,
         value_id: @ir.hot_child_get(func, operand_id, 0),
       })
+    @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, operand_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count == 0 {
+        return None
+      }
+      Some({
+        kind: if root_count == 1 {
+          BooleanEqzFallthroughSingleRootLoopBody
+        } else {
+          BooleanEqzFallthroughPrefixedLoopBodyTail
+        },
+        value_id: @ir.hot_region_get(func, body_ref, root_count - 1),
+      })
+    }
     _ => None
   }
 }
@@ -38561,7 +38578,28 @@ fn OiBooleanEqzFallthroughValueFact::proves_supported_wrapper(
   self : OiBooleanEqzFallthroughValueFact,
 ) -> Bool {
   match self.kind {
-    BooleanEqzFallthroughBlockTail | BooleanEqzFallthroughLocalTeeChild => true
+    BooleanEqzFallthroughBlockTail
+    | BooleanEqzFallthroughLocalTeeChild
+    | BooleanEqzFallthroughSingleRootLoopBody
+    | BooleanEqzFallthroughPrefixedLoopBodyTail => true
+  }
+}
+
+///|
+priv enum OiBooleanEqzOperandPreservationKind {
+  BooleanEqzDropOriginalOperand
+  BooleanEqzErasePureSingleRootLoop
+}
+
+///|
+fn OiBooleanEqzFallthroughValueFact::operand_preservation(
+  self : OiBooleanEqzFallthroughValueFact,
+) -> OiBooleanEqzOperandPreservationKind {
+  match self.kind {
+    BooleanEqzFallthroughSingleRootLoopBody => BooleanEqzErasePureSingleRootLoop
+    BooleanEqzFallthroughBlockTail
+    | BooleanEqzFallthroughLocalTeeChild
+    | BooleanEqzFallthroughPrefixedLoopBodyTail => BooleanEqzDropOriginalOperand
   }
 }
 
@@ -38569,6 +38607,7 @@ fn OiBooleanEqzFallthroughValueFact::proves_supported_wrapper(
 priv struct OiBooleanEqzFallthroughConstFact {
   operand_id : Int
   folded_value : Int
+  preservation : OiBooleanEqzOperandPreservationKind
 }
 
 ///|
@@ -38579,8 +38618,9 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
   // i32.eqz operand before folding a constant fallthrough. Represent nonempty
-  // single-i32-result block tails and direct local.tee children, preserving the
-  // whole operand evaluation to match `getDroppedChildrenAndAppend`.
+  // single-i32-result block tails, direct local.tee children, and loop-body
+  // tails, preserving or erasing the operand according to the selected source-
+  // backed wrapper outcome from `getDroppedChildrenAndAppend`.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()
@@ -38605,7 +38645,11 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
     Some(@lib.I32(_)) => 0
     None => return None
   }
-  Some({ operand_id, folded_value })
+  Some({
+    operand_id,
+    folded_value,
+    preservation: fallthrough.operand_preservation(),
+  })
 }
 
 ///|
@@ -38640,7 +38684,11 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
     Some(@lib.I64(_)) => 0
     None => return None
   }
-  Some({ operand_id, folded_value })
+  Some({
+    operand_id,
+    folded_value,
+    preservation: fallthrough.operand_preservation(),
+  })
 }
 
 ///|
@@ -38783,17 +38831,23 @@ fn OiBooleanContextLeafRewriteFact::apply_selected_rewrite(
   match self.kind {
     BooleanContextLeafFoldEqzFallthroughConst =>
       match self.eqz_fallthrough_const_fact {
-        Some(fact) if self.node_id >= 0 && fact.operand_id >= 0 =>
-          Some(
-            @ir.hot_build_block(
-              func,
-              @lib.BlockType::val_type(@lib.ValType::i32()),
-              [
-                @ir.hot_build_drop(func, fact.operand_id),
-                @ir.hot_build_const_i32(func, @lib.I32(fact.folded_value)),
-              ],
-            ),
+        Some(fact) if self.node_id >= 0 && fact.operand_id >= 0 => {
+          let folded = @ir.hot_build_const_i32(
+            func,
+            @lib.I32(fact.folded_value),
           )
+          match fact.preservation {
+            BooleanEqzErasePureSingleRootLoop => Some(folded)
+            BooleanEqzDropOriginalOperand =>
+              Some(
+                @ir.hot_build_block(
+                  func,
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  [@ir.hot_build_drop(func, fact.operand_id), folded],
+                ),
+              )
+          }
+        }
         _ => None
       }
     BooleanContextLeafForwardI32NeZero

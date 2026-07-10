@@ -3049,6 +3049,77 @@ test "optimize-instructions folds i64 eqz local tee constants in boolean context
 }
 
 ///|
+test "optimize-instructions folds eqz loop-body constants in boolean context" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130
+  // `Properties::getFallthrough` descends through a loop to its body before
+  // `optimizeBoolean` folds an i32/i64 constant. The pure loop evaluation then
+  // disappears, leaving the i32 truth value. Oracle:
+  // `.tmp/oi-probes/boolean-eqz-fallthrough-control.wat`.
+  let assert_i32_fold = fn(tail : Int, expected : Int) raise {
+    let func = optimize_instructions_test_run_hot(
+      "(module (func (result i32) (if (result i32) (i32.eqz (loop (result i32) (i32.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
+    )
+    let condition = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    match @ir.hot_node_get(func, condition).op {
+      @ir.HotOp::Const =>
+        @debug.assert_eq(
+          @ir.hot_const_get(func, @ir.hot_node_get(func, condition).imm0),
+          @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+        )
+      other => fail("expected folded i32 loop truth constant, got \{other}")
+    }
+  }
+  let assert_i64_fold = fn(tail : Int, expected : Int) raise {
+    let func = optimize_instructions_test_run_hot(
+      "(module (func (result i32) (if (result i32) (i64.eqz (loop (result i64) (i64.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
+    )
+    let condition = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    match @ir.hot_node_get(func, condition).op {
+      @ir.HotOp::Const =>
+        @debug.assert_eq(
+          @ir.hot_const_get(func, @ir.hot_node_get(func, condition).imm0),
+          @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+        )
+      other => fail("expected folded i64 loop truth constant, got \{other}")
+    }
+  }
+  assert_i32_fold(0, 1)
+  assert_i32_fold(9, 0)
+  assert_i64_fold(0, 1)
+  assert_i64_fold(9, 0)
+
+  let effectful = optimize_instructions_test_run_hot(
+    "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) (if (result i32) (i32.eqz (loop (result i32) (global.set 0 (local.get 0)) (i32.const 0))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let effectful_condition = @ir.hot_child_get(
+    effectful,
+    @ir.hot_root_get(effectful, 0),
+    0,
+  )
+  match @ir.hot_node_get(effectful, effectful_condition).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected effectful loop truth block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(effectful, effectful_condition)
+  @debug.assert_eq(@ir.hot_region_root_count(effectful, body), 2)
+  let dropped = @ir.hot_region_get(effectful, body, 0)
+  match @ir.hot_node_get(effectful, dropped).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected effectful loop evaluation drop, got \{other}")
+  }
+  match
+    @ir.hot_node_get(effectful, @ir.hot_child_get(effectful, dropped, 0)).op {
+    @ir.HotOp::Loop => ()
+    other => fail("expected dropped original loop evaluation, got \{other}")
+  }
+  let result = @ir.hot_region_get(effectful, body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(effectful, @ir.hot_node_get(effectful, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to
