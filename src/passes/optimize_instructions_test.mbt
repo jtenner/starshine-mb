@@ -4329,6 +4329,81 @@ test "optimize-instructions hoists matching ref.is_null select arm shells" {
 }
 
 ///|
+test "optimize-instructions hoists matching ref.test select arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen v130's same generic
+  // shallow-equal one-child loop hoists matching side-effect-free ref.test
+  // shells, retaining their exact cast-test immediate around an anyref select.
+  // Oracle: `.tmp/oi-probes/select-matching-ref-test-hoist.wat`.
+  let i31_ref_type = @lib.RefType::new(
+    false,
+    @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::anyref(),
+                @lib.ValType::anyref(),
+                @lib.ValType::i32(),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_test_type(i31_ref_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::select(),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    ignore,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected matching ref.test HOT success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::RefTest => ()
+    other => fail("expected matching ref.test shells to hoist, got \{other}")
+  }
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefTest(_, _, _)) => ()
+    other => fail("expected preserved exact ref.test immediate, got \{other}")
+  }
+  let inner = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, inner).op {
+    @ir.HotOp::Select => ()
+    other =>
+      fail("expected anyref child select after ref.test hoist, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_type_results(func, @ir.hot_node_type(func, inner)), [
+    @lib.ValType::anyref(),
+  ])
+}
+
+///|
 test "optimize-instructions hoists matching float unary select arm shells" {
   // Red-first OI-F ternary parity slice: Binaryen version_130's shallow-equal
   // loop hoists all scalar f32/f64 unary arithmetic shells. Oracle:

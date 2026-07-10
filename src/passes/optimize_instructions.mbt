@@ -28559,12 +28559,14 @@ fn optimize_instructions_try_hoist_matching_unary_select(
 ///|
 priv enum OiMatchingReferenceSelectShellKind {
   MatchingSelectRefIsNull
+  MatchingSelectRefTest
 }
 
 ///|
 priv struct OiMatchingReferenceSelectArmFact {
   kind : OiMatchingReferenceSelectShellKind
   shell_id : Int
+  instr : @lib.Instruction?
   child_type : @lib.ValType
   child_id : Int
 }
@@ -28578,8 +28580,19 @@ fn OiMatchingReferenceSelectArmFact::from_node(
   // one-child shells, equal child types, and side-effect-free select shells.
   // Keep reference-shaped shells separate from exact numeric Unary facts.
   let node = @ir.hot_node_get(func, node_id)
-  let kind = match node.op {
-    @ir.HotOp::RefIsNull if node.child_count == 1 => MatchingSelectRefIsNull
+  let (kind, instr) = match node.op {
+    @ir.HotOp::RefIsNull if node.child_count == 1 =>
+      (MatchingSelectRefIsNull, None)
+    @ir.HotOp::RefTest if node.child_count == 1 =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(instr) =>
+          match instr {
+            @lib.Instruction::RefTest(_, _, _) =>
+              (MatchingSelectRefTest, Some(instr))
+            _ => return None
+          }
+        None => return None
+      }
     _ => return None
   }
   match @ir.hot_type_results(func, node.ty) {
@@ -28592,13 +28605,14 @@ fn OiMatchingReferenceSelectArmFact::from_node(
     [result] => result
     _ => return None
   }
-  Some({ kind, shell_id: node_id, child_type, child_id })
+  Some({ kind, shell_id: node_id, instr, child_type, child_id })
 }
 
 ///|
 priv struct OiMatchingReferenceSelectHoistFact {
   kind : OiMatchingReferenceSelectShellKind
   shell_id : Int
+  instr : @lib.Instruction?
   child_type : @lib.ValType
   if_true_child : Int
   if_false_child : Int
@@ -28637,13 +28651,17 @@ fn OiMatchingReferenceSelectHoistFact::from_select(
   }
   match (true_fact.kind, false_fact.kind) {
     (MatchingSelectRefIsNull, MatchingSelectRefIsNull) => ()
+    (MatchingSelectRefTest, MatchingSelectRefTest) => ()
+    _ => return None
   }
-  if true_fact.child_type != false_fact.child_type {
+  if true_fact.instr != false_fact.instr ||
+    true_fact.child_type != false_fact.child_type {
     return None
   }
   Some({
     kind: false_fact.kind,
     shell_id: false_fact.shell_id,
+    instr: false_fact.instr,
     child_type: false_fact.child_type,
     if_true_child: true_fact.child_id,
     if_false_child: false_fact.child_id,
@@ -28673,6 +28691,23 @@ fn OiMatchingReferenceSelectHoistFact::apply(
         @ir.hot_type_intern_value(func, @lib.ValType::i32()),
         children=[inner],
       )
+    MatchingSelectRefTest => {
+      let instr = match self.instr {
+        Some(instr) => instr
+        None => return false
+      }
+      let payload_id = @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(instr),
+      )
+      @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, self.shell_id).op,
+        @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+        imm1=payload_id,
+        children=[inner],
+      )
+    }
   }
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
   true
