@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
+  - ../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
@@ -18,6 +19,7 @@ related:
   - custom-and-name-sections.md
   - leb128-and-integer-encoding.md
   - function-import-export-and-code-sections.md
+  - ../wasm-compact-import-section-boundary.md
   - instruction-and-expression-encoding.md
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
@@ -50,7 +52,7 @@ Starshine follows those rules in its core module representation and validation e
 | Header | Magic + version | n/a | n/a | this page | [`Encode for Module`](../../../src/binary/encode.mbt#L1638-L1639) writes `00 61 73 6d 01 00 00 00`; [`decode_module_with_detail`](../../../src/binary/decode.mbt#L1271-L1284) requires the same bytes. Section payload lengths and later vector/index fields are LEB-encoded; see [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md). |
 | Any gap | Custom | `0` | `custom_secs`, `name_sec`, `raw_name_sec_payload` | [`custom-and-name-sections.md`](custom-and-name-sections.md) | Decode accepts custom sections before each standard family and at the tail; encode emits non-`name` custom sections first and the structured `name` section at the tail. |
 | 1 | Type | `1` | `type_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Defines the type index space used by signatures, blocks, casts, GC ops, tags, and resource types. |
-| 2 | Import | `2` | `import_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Imports extend function/table/memory/global/tag index spaces before local definition sections. |
+| 2 | Import | `2` | `import_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Ordinary imports extend function/table/memory/global/tag index spaces before local definition sections. Active Phase-3 Compact Import Section groups would expand to the same ordered list, but current Starshine accepts/emits only the ordinary form; see [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md). |
 | 3 | Function declarations | `3` | `func_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | One type index per defined function; imported functions are excluded. |
 | 4 | Table | `4` | `table_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local table definitions after table imports; optional table initializer expressions are preserved. |
 | 5 | Memory | `5` | `mem_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local memory definitions after memory imports; shared memories need maxima in Starshine validation. |
@@ -137,6 +139,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 ## Sources
 
 - Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
+- Compact Import Section boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md), [`../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
+  - ../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
@@ -28,6 +29,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
+  - ../wasm-compact-import-section-boundary.md
   - ../validate/import-export-and-external-type-matching.md
   - ../validate/start-section.md
   - ../validate/ref-func-declarations.md
@@ -43,6 +45,8 @@ related:
 ## Overview
 
 This is the canonical Starshine wiki page for the function-index-bearing core module surface: imports, defined-function declarations, exports, start functions, and code bodies. It intentionally sits in `docs/wiki/binary/` rather than under a pass folder because many optimizers and validators need the same section contract. For the WAST authoring side of `(func ...)`, inline import/export forms, `(start ...)`, direct `call`, and the function/type side of `call_indirect`, see [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md). For the whole-module standard-section order, custom-section placement, and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md).
+
+The active Phase-3 [`Compact Import Section`](../wasm-compact-import-section-boundary.md) proposal can make repeated import declarations smaller at the binary/text boundary, but it does not change the flat semantic import list or shared-index rules described here. Starshine currently accepts and emits only the ordinary one-item encoding; use the focused boundary page before treating a compact input as an ordinary malformed import or expecting byte-preserving round trips.
 
 The WebAssembly Core Specification models imports and definitions as shared index spaces. A function import is not a separate kind of function reference: it occupies the first entries of the function index space, and defined functions come after those imports. The same imported-prefix rule applies to tables, memories, globals, and tags; see [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for those non-function resource spaces. The binary format then splits defined functions across two parallel sections:
 
@@ -208,6 +212,7 @@ Existing pass dossiers that depend on this checklist include:
 ## Sources
 
 - Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Compact Import Section proposal boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md), [`../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Binaryen `remove-exports` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Function/code primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
