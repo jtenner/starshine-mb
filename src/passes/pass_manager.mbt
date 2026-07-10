@@ -25650,11 +25650,13 @@ fn RawOiIdempotentCallStackOperandFact::proves_i32_noninvalidated_leaf(
 }
 
 ///|
-fn RawOiIdempotentCallStackOperandFact::proves_i64_local_const_leaf(
+fn RawOiIdempotentCallStackOperandFact::proves_i64_noninvalidated_leaf(
   self : RawOiIdempotentCallStackOperandFact,
 ) -> Bool {
   match self.kind {
-    RawOiIdempotentCallLocalOperand | RawOiIdempotentCallI64ConstOperand => true
+    RawOiIdempotentCallLocalOperand
+    | RawOiIdempotentCallI64ConstOperand
+    | RawOiIdempotentCallImmutableGlobalOperand => true
     _ => false
   }
 }
@@ -25711,9 +25713,10 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // flat shapes cover direct one- and two-i32-operand self-selects, direct
   // i32.eqz(local), the canonical i32.eq(local, const) reached from the probed
   // i32.eqz(i32.add(local, const)) input, exact i32.add trees over
-  // local/constant/immutable-global leaves, exact i64.add(local, const) trees,
-  // and the i64 zero-test self-select with no operands or one repeated direct
-  // local.get/i64.const/immutable global.get operand. The raw stack-effect gate
+  // local/constant/immutable-global leaves, exact i64.add trees over the same
+  // proven leaves, and the i64 zero-test self-select with no operands or one
+  // repeated direct local.get/i64.const/immutable global.get operand. The raw
+  // stack-effect gate
   // would otherwise quarantine those call results before HOT can apply the
   // source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
@@ -25899,10 +25902,10 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         Some(fact) => fact
         None => return None
       }
-      if !left_lhs_fact.proves_i64_local_const_leaf() ||
-        !left_rhs_fact.proves_i64_local_const_leaf() ||
-        !right_lhs_fact.proves_i64_local_const_leaf() ||
-        !right_rhs_fact.proves_i64_local_const_leaf() ||
+      if !left_lhs_fact.proves_i64_noninvalidated_leaf() ||
+        !left_rhs_fact.proves_i64_noninvalidated_leaf() ||
+        !right_lhs_fact.proves_i64_noninvalidated_leaf() ||
+        !right_rhs_fact.proves_i64_noninvalidated_leaf() ||
         !left_lhs_fact.proves_equal(right_lhs_fact) ||
         !left_rhs_fact.proves_equal(right_rhs_fact) {
         return None
