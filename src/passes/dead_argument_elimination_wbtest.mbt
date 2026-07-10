@@ -1527,6 +1527,67 @@ test "dae escaped result direct call evidence centralizes dropped and undropped 
 }
 
 ///|
+test "dae original dead suffix escaped result call facts share one module scan" {
+  let result_type = @lib.TypeIdx::new(0U)
+  let void_type = @lib.TypeIdx::new(1U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32()]),
+      ),
+    ),
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  ])
+  let mod_ = @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type, void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
+    mod_,
+    [true, true, true],
+  )
+  assert_eq(facts.dropped_calls, [true, false, false])
+  assert_eq(facts.undropped_calls, [true, false, false])
+  let no_code_mod = @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type, void_type]))
+  let no_code = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
+    no_code_mod,
+    [true, true, true],
+  )
+  assert_eq(no_code.dropped_calls, [false, false, false])
+  assert_eq(no_code.undropped_calls, [false, false, false])
+}
+
+///|
 test "dae dead suffix direct target evidence centralizes dropped and undropped target lists" {
   let imported = 1
   let defined = 5
