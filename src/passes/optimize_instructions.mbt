@@ -38709,12 +38709,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
       operand_id,
       @lib.ValType::i64(),
     ) {
-    Some(fact) if fact.proves_supported_wrapper() =>
-      match fact.kind {
-        BooleanEqzFallthroughIfThenArmTail
-        | BooleanEqzFallthroughIfElseArmTail => return None
-        _ => fact
-      }
+    Some(fact) if fact.proves_supported_wrapper() => fact
     _ => return None
   }
   let folded_value = match
