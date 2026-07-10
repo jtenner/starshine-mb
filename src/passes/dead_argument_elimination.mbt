@@ -17228,6 +17228,49 @@ fn dae_apply_primary_selected_core_result(
 }
 
 ///|
+fn dae_try_apply_selected_def_body_rewrite_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  def_idx : Int,
+  rewrite_body : (Array[@lib.Instruction], @lib.TypeSec?) -> Array[
+    @lib.Instruction,
+  ]?,
+) -> DaePassResult {
+  if def_idx < 0 || def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let rewritten = match rewrite_body(body, mod_.type_sec) {
+    Some(instrs) => instrs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_collect_direct_callee_defs_from_caller_prefix(
   mod_ : @lib.Module,
   max_caller_def_exclusive : Int,
@@ -21083,44 +21126,19 @@ fn dae_try_wrap_selected_func237_outer_loop_carrier_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let rewritten = match
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
     dae_try_wrap_func237_outer_loop_carrier_body_once(
       body,
       @lib.LocalIdx::new(0U),
-      mod_.type_sec,
-    ) {
-    Some(instrs) => instrs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      type_sec,
+    )
   }
-  if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_body_rewrite_once(
+    mod_, selected_defs, 237, rewrite_body,
+  )
 }
 
 ///|
@@ -21386,40 +21404,15 @@ fn dae_try_flatten_selected_func237_nested_branch_result_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
+    dae_try_flatten_func237_nested_branch_result_body_once(body, type_sec)
   }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let rewritten = match
-    dae_try_flatten_func237_nested_branch_result_body_once(body, mod_.type_sec) {
-    Some(instrs) => instrs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_body_rewrite_once(
+    mod_, selected_defs, 237, rewrite_body,
+  )
 }
 
 ///|
@@ -22031,43 +22024,17 @@ fn dae_try_hoist_selected_func237_leading_retain_call_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let rewritten = match
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
     dae_try_hoist_func237_leading_retain_call_body_recursive_once(
-      body,
-      mod_.type_sec,
-    ) {
-    Some(instrs) => instrs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      body, type_sec,
+    )
   }
-  if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_body_rewrite_once(
+    mod_, selected_defs, 237, rewrite_body,
+  )
 }
 
 ///|
@@ -22350,44 +22317,17 @@ fn dae_try_wrap_selected_func237_inner_iteration_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let rewritten = match
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
     dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
-      body,
-      mod_.type_sec,
-      16,
-    ) {
-    Some(instrs) => instrs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      body, type_sec, 16,
+    )
   }
-  if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_body_rewrite_once(
+    mod_, selected_defs, 237, rewrite_body,
+  )
 }
 
 ///|
@@ -22736,40 +22676,15 @@ fn dae_try_flatten_selected_func237_zero_branch_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 237
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
+    dae_try_flatten_func237_zero_branch_body_once(body, type_sec)
   }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let rewritten = match
-    dae_try_flatten_func237_zero_branch_body_once(body, mod_.type_sec) {
-    Some(instrs) => instrs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_try_apply_selected_def_body_rewrite_once(
+    mod_, selected_defs, 237, rewrite_body,
+  )
 }
 
 ///|
