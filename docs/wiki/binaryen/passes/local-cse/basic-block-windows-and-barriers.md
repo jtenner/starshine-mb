@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-07
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
+  - ../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -203,6 +204,10 @@ The key idea is:
 - then replacing the second one with the first is wrong.
 
 This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for ordinary/imported/multi-result direct-call roots, `call_indirect`, core-fixture `call_ref`, `struct.new`, `struct.new_default`, descriptor `struct.new_desc` / `struct.new_default_desc`, and core-fixture `array.new` / `array.new_default` / `array.new_fixed` / `array.new_data` / `array.new_elem` members of this family: repeated call roots and repeated allocations remain separate and no temp local is introduced. Local-only arithmetic can still cross those operations when Binaryen proves that boundary positive, but the operation root itself remains non-reusable.
+
+### Relaxed SIMD is an explicit oracle case, not a generic purity rule
+
+Relaxed SIMD has ordinary `v128` stack shapes, but the feature permits host-dependent result sets for some operations while scoping them with a same-environment projection model. Typechecking alone therefore does not settle whether eliminating or merging evaluations preserves its execution semantics. Starshine's repeated relaxed-SIMD-root handling is retained because the local tests and direct Binaryen comparison evidence prove that specific `local-cse` behavior for all 20 locally modeled opcodes. Do **not** generalize that result into a blanket rule that every ordinary-looking relaxed SIMD transformation is safe; require transform-specific formal-semantics and Binaryen evidence. See [`../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md`](../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md) and [`../../../wast/simd-authoring.md`](../../../wast/simd-authoring.md).
 
 ## Barrier family 3: intervening invalidation
 

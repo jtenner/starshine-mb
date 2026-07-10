@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
+  - ../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md
   - ../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md
@@ -38,7 +39,7 @@ SIMD is WebAssembly's 128-bit vector instruction family. A value of type `v128` 
 
 Use this page when writing or reviewing WAST fixtures that mention `v128`, `v128.const`, `i8x16.shuffle`, lane extract/replace instructions, vector loads/stores, or relaxed SIMD. The byte-level `0xFD` encoding overview lives in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md); this page focuses on text syntax, lowering, validation, and fuzzer coverage.
 
-The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The current lane-immediate validation refresh is [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), which supersedes the older local-gap wording in the 2026-05-19 and 2026-05-20 manifests; the durable validator guide is [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md). The relaxed-SIMD status refresh is [`../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md), and the spelling/arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). Together they check the current official WebAssembly 3.0 syntax, text, binary, and validation instruction pages, the finished-proposals table, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, invalid/valid generators, and WAST arbitrary generator.
+The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The current lane-immediate validation refresh is [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), which supersedes the older local-gap wording in the 2026-05-19 and 2026-05-20 manifests; the durable validator guide is [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md). The relaxed-SIMD status refresh is [`../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md), the spelling/arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md), and the current execution/test-discipline recheck is [`../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md`](../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md). Together they check the current official WebAssembly 3.0 syntax, text, binary, and validation instruction pages, the finished-proposals table, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, invalid/valid generators, and WAST arbitrary generator.
 
 ## Mental Model
 
@@ -170,6 +171,18 @@ Spelling caveat: current Starshine WAST accepts the dot-product pair as `i16x8.r
 
 For pass work, keep the split with Binaryen's [`remove-relaxed-simd`](../binaryen/passes/remove-relaxed-simd/index.md) pass clear: authoring a relaxed SIMD instruction is different from implementing the upstream pass that rewrites relaxed instructions into traps or deterministic alternatives.
 
+### Relaxed execution semantics: valid does not mean one portable result
+
+Relaxed SIMD is ordinary Core 3.0 text/binary/validation syntax, but its proposal semantics permit more than one result for some operations. Therefore, a successful parse, byte roundtrip, or stack-typecheck proves the instruction surface, **not** that every compliant engine will produce identical output bits for every operand tuple.
+
+Keep assertions tiered:
+
+- Use exact assertions for WAST recognition, lowered instruction identity, opcode bytes, and stack effects.
+- For runtime output, choose an input class whose allowed result is known to collapse to one value, or assert the source-defined allowed-result set instead of copying one engine's output as a universal golden value.
+- Keep default portable generator lanes free of relaxed SIMD. Use `relaxed-simd` or `binaryen-oracle-relaxed-simd` when the feature itself is the test subject.
+
+The proposal overview scopes its host-dependent result sets with a same-environment projection model. This page does not derive which evaluation-merging transformations follow from that model. Do not infer a broad optimizer rule merely from an operation's ordinary `v128` stack signature. Starshine's current relaxed-root `local-cse` handling is a separate, explicitly Binaryen-observed slice; see [`../binaryen/passes/local-cse/starshine-strategy.md`](../binaryen/passes/local-cse/starshine-strategy.md) and the current [`execution-semantics recheck`](../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md).
+
 ## Starshine Code Map
 
 | Layer | Files | What to inspect |
@@ -206,6 +219,7 @@ When changing SIMD WAST support:
 - Current SIMD lane-immediate validation manifest: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md)
 - Original SIMD lane-immediate validation manifest: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
 - Focused lane-immediate validator guide: [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
+- Relaxed-SIMD execution/test-discipline recheck: [`../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md`](../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md)
 - Relaxed-SIMD status manifest: [`../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md)
 - Relaxed-SIMD spelling/arity manifest: [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md)
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md)
