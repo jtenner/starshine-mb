@@ -5380,6 +5380,54 @@ test "optimize-instructions folds mixed i32-result three-operand idempotent call
 }
 
 ///|
+test "optimize-instructions folds first tree in mixed i32-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks an
+  // exact i64.add(local, const) first operand plus direct i32 and i64 leaves on
+  // an annotated (i64, i32, i64) -> i32 call. A mismatch in any logical
+  // operand retains both calls. Source: `OptimizeInstructions.cpp:2891-2947`;
+  // oracle: `.tmp/oi-probes/select-idempotent-call-next11-foldability.wat`
+  // (`mixed_three_i32_first_tree_equal` and its three mismatch functions).
+  let optimize_caller = fn(
+    right_tree_const : Int64,
+    right_second_local : Int,
+    right_third_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64 i32 i32) (result i32) local.get 0 i64.const 1 i64.add local.get 1 i64.const 9 call $id i32.const 0 local.get 0 i64.const " +
+      right_tree_const.to_string() +
+      " i64.add local.get " +
+      right_second_local.to_string() +
+      " i64.const " +
+      right_third_const.to_string() +
+      " call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected first-tree mixed i32-result call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(1L, 1, 9L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(2L, 1, 9L),
+      optimize_caller(1L, 2, 9L),
+      optimize_caller(1L, 1, 10L),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds three-operand i64 idempotent calls" {
   // Red-first OI-F parity slice: Binaryen version_130 checks every parameter of
   // repeated annotated direct (i64, i64, i64) -> i64 calls. A mismatch in
