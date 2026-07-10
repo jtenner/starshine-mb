@@ -9,10 +9,10 @@ sources:
 
 # `dead-code-elimination` Fuzzing Profile
 
-Recommended smoke lane for future DCE changes: run the ordinary mixed-generator compare-pass lane for this pass, adding the documented `local-cleanup-debris` normalizer when the expected raw diff is Starshine-only local/no-op cleanup:
+Recommended smoke lane for future DCE changes: run the ordinary GenValid compare-pass lane for this pass, adding the documented `local-cleanup-debris` normalizer when the expected raw diff is Starshine-only local/no-op cleanup:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profile status: **closed for the current Binaryen `version_130` DCE audit.** The aggregate has twelve leaves; the count-10000 `dead-code-elimination-all` lane completes with every mismatch classified; fixed split-local-set remains green at scale; branch-payload-forwarder plus pure/effectful structured-prefix mismatches are measured Starshine wins; prefix-to-branch-payload is normalized-green; explicit count-10000 wasm-smith, broad random-all-profiles, bounded O4z/neighborhood DCE-slot evidence, and the fresh regular direct count-100000 lane with `local-cleanup-debris` are classified. Legacy `try`, old-EH `pop`/nested-pop, and stack-switching remain documented local representation/tool boundaries with reopening criteria, not hidden parity claims.
@@ -237,4 +237,4 @@ bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass dead-code-e
 
 Result: compared 100000/100000 with 0 raw normalized matches, 100000 cleanup-normalized matches, zero mismatches, zero validation/generator/property/command failures, `maxFailuresHit=false`, and cache counters wasm-smith 0/0, Binaryen 10334/89666, Binaryen failures 0/0. The local oracle was `wasm-opt version 130 (version_130)`. Agent classification: this is the same documented direct DCE cleanup family already inspected at count 10000—Binaryen-retained no-op/local/pure-result debris normalized by `local-cleanup-debris`; no new mismatch or failure family appeared.
 
-Future full pass closeout reruns, if required after new DCE changes, should use the repo-standard pass matrix with the DCE-specific cleanup normalizer on the regular and broad lanes. If this checkout's native build emits `_build/native/release/build/cmd/cmd.exe` rather than `target/native/release/build/cmd/cmd.exe`, use the actual path produced by `moon build --target native --release src/cmd` and record that path in the audit note.
+Future full pass closeout reruns, if required after new DCE changes, should use the repo-standard pass matrix with the DCE-specific cleanup normalizer on the regular and broad lanes. Use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`; a concurrently present `target/native/...` artifact needs explicit freshness verification before it can be used for signoff.

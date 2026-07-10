@@ -376,7 +376,7 @@ The latest OI-G classification pass split every residual from `.tmp/oi-g-shared-
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/pass-fuzz-optimize-instructions --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/pass-fuzz-optimize-instructions --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 ## Family-based sweep
@@ -396,7 +396,7 @@ bun scripts/oi-parity-sweep.ts \
   --default-gen-valid \
   --execute \
   --count 100 \
-  --starshine-bin target/native/release/build/cmd/cmd.exe
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 The dedicated row profiles now exist as smoke-level GenValid profiles, so the ordinary profile-backed row no longer needs `--include-profile-stubs`:
@@ -406,7 +406,7 @@ bun scripts/oi-parity-sweep.ts \
   --family OI-D \
   --execute \
   --count 100 \
-  --starshine-bin target/native/release/build/cmd/cmd.exe
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 The wrapper calls `scripts/pass-fuzz-compare.ts --pass optimize-instructions`, which compares Binaryen `wasm-opt --all-features --optimize-instructions` against Starshine `--optimize-instructions` through the existing canonicalized normalized-WAT comparison path. Executed sweeps now print a `Result summaries` section with per-row match/mismatch/failure counts, `genValidProfileCaseCounts`, and `cases.jsonl` status groups by `genValidProfileCaseLabel`; when profile labels are absent, transformed GenValid cases fall back to `transform:<id>` groups. Pass `--summarize-existing` with the same filters and `--out-dir` to re-read existing sweep output without rerunning comparisons.

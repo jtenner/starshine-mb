@@ -11,7 +11,7 @@ sources:
 
 # `duplicate-import-elimination` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for this pass:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-import-elimination --out-dir .tmp/pass-fuzz-duplicate-import-elimination --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe

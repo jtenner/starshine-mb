@@ -40,10 +40,10 @@ sources:
 
 # `tuple-optimization` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for this pass:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass tuple-optimization --out-dir .tmp/pass-fuzz-tuple-optimization --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass tuple-optimization --out-dir .tmp/pass-fuzz-tuple-optimization --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profiles now exist for this pass:
@@ -62,7 +62,7 @@ The aggregate profile emits type-indexed multivalue block carriers and spills/co
 Recommended dedicated smoke lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass tuple-optimization --gen-valid-profile tuple-optimization-all --out-dir .tmp/pass-fuzz-tuple-optimization-profile --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass tuple-optimization --gen-valid-profile tuple-optimization-all --out-dir .tmp/pass-fuzz-tuple-optimization-profile --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Final 2026-06-30 closeout lanes are recorded in [`../../../raw/research/1387-2026-06-30-tuple-optimization-closeout-soft-exception.md`](../../../raw/research/1387-2026-06-30-tuple-optimization-closeout-soft-exception.md): regular GenValid `100000 / 100000` normalized with zero failures; wasm-smith `9956 / 10000` compared with one unreachable-control-debris raw mismatch and `44` Binaryen/tool command failures, then zero mismatches under `--normalize unreachable-control-debris`; dedicated `tuple-optimization-all` `10000 / 10000` raw-red with zero failures and selected/profile-case counts spill `5030`, tee `1674`, copy-chain `3296`; random all-profiles `10000 / 10000` normalized with zero failures. The dedicated lane remains intentionally raw-red but is classified as the narrow simple type-indexed pure/drop-only scalar-spelling Starshine-win family: all `10000` cases have zero effect/trap facts and Starshine is uniformly smaller/fewer locals/fewer effective WAT ops in every profile family.

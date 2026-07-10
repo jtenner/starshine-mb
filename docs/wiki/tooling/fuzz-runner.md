@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
   - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
+  - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt
   - ../../../src/fuzz/invalid_repro.mbt
@@ -172,7 +173,7 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 - `--moon <path>` / `--moon=<path>`.
 - `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-index`, `--shard-count`, `--report-json`, ordinary-run `--out-dir`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding, including batch `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, `--max-attempts`, `--manifest`, and repeated `--metamorphic-transform` options.
 
-`bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine, `wasm-tools`, and Binaryen. For pass signoff lanes, build `src/cmd` once and include `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` explicitly. The compare-pass task uses `.tmp/pass-fuzz-cache` by default to reuse deterministic `wasm-smith` inputs and Binaryen oracle outputs/failures; use `--cache-dir <dir>` to isolate/share that cache or `--no-cache` only for cache debugging.
+`bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine, `wasm-tools`, and Binaryen. For pass signoff lanes, build `src/cmd` once and include `--jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` explicitly. Do not select a legacy `target/native/...` artifact by mere existence; the current-native freshness rule is recorded in [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md). The compare-pass task uses `.tmp/pass-fuzz-cache` by default to reuse deterministic `wasm-smith` inputs and Binaryen oracle outputs/failures; use `--cache-dir <dir>` to isolate/share that cache or `--no-cache` only for cache debugging.
 
 Use compare-pass for optimizer parity signoff or failure-replay workflows, not broad fuzz-suite coverage. Compare-pass runs now also write `summary.json` in the compact `starshine.fuzz-summary-report.v1` shape so `bun fuzz coverage-delta` can compare requested/compared cases, generator mix, GenValid transforms, input effect facts, statuses, failures, and failure artifacts across pass-fuzz runs; detailed cache hit/miss counters live in `result.json.cache`. The detailed command, generator, normalization, failure-class, replay, persistent-cache, `summary.json`, and explicit `--jobs auto` / `--starshine-bin` contract now lives in [`pass-fuzz-compare.md`](pass-fuzz-compare.md); keep this page focused on the ordinary `src/fuzz` runner and wrapper split.
 

@@ -1,11 +1,12 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
   - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
   - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
+  - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
@@ -103,10 +104,10 @@ Use pass comparison lanes when a mutating optimizer pass changes. Build the nati
 
 ```text
 moon build --target native --release src/cmd
-bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly; use the same `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` pair there too.
+For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly; use the same `--jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` pair there too. The path is a Starshine freshness policy rather than a generic MoonBit output guarantee: after the native build, do not substitute a pre-existing `target/native/...` binary unless its timestamp or hash proves it is the refreshed executable; see [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
 
 The pass-comparison harness has its own contract: generated inputs, default persistent caching for deterministic `wasm-smith` inputs and Binaryen oracle outputs/failures, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and parallel lanes requiring a prebuilt `--starshine-bin` next to `--jobs auto`. Keep pass evidence in the affected pass dossier; keep the detailed harness behavior in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), and keep this page as the shared gate map. Optional command-harness binary differential validators (`wasm-tools`, WABT, Binaryen) are a separate opt-in evidence surface; use [`external-validator-adapters.md`](external-validator-adapters.md) for their stage classification, command lines, and skipped-tool semantics. For DAE / generator-debris lanes, use the explicit `--normalize drop-consts --normalize unreachable-control-debris` pair so cleanup-normalized matches stay separate from exact normalized matches.
 

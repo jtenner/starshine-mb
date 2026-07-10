@@ -61,13 +61,13 @@ sources:
 
 # `code-pushing` Fuzzing Profile
 
-Recommended ordinary mixed-generator smoke lane:
+Recommended ordinary GenValid smoke lane:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --out-dir .tmp/pass-fuzz-code-pushing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Native-path note for this checkout: after `moon build --target native --release src/cmd`, the working native command binary is `_build/native/release/build/cmd/cmd.exe`. The older documented `target/native/release/build/cmd/cmd.exe` path remains absent here.
+Native-path note: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` artifact may coexist, but it is not signoff evidence unless timestamp/hash comparison verifies that it is the freshly built executable; see [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
 
 ## Dedicated GenValid profile
 

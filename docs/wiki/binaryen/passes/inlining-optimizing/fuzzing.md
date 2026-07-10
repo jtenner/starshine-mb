@@ -10,7 +10,7 @@ sources:
 
 # `inlining-optimizing` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for this pass:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
 moon build --target native --release src/cmd

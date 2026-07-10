@@ -64,10 +64,10 @@ sources:
 
 # `heap-store-optimization` Fuzzing Profile
 
-Recommended ordinary mixed-generator smoke lane:
+Recommended ordinary GenValid smoke lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --out-dir .tmp/pass-fuzz-heap-store-optimization --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --out-dir .tmp/pass-fuzz-heap-store-optimization --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profile: `heap-store-optimization` (alias: `hso`). The required random all-profiles closeout lane should use the composite GenValid profile `random-all-profiles` (aliases: `all-profiles`, `random-profiles`) at seed `0x5555`; do not apply the dedicated HSO `local-cleanup-debris` normalizer to that random all-profiles lane unless a mismatch is separately inspected and justified.
@@ -120,13 +120,13 @@ The dedicated HSO profile emits valid GC modules with deterministic HSO-owned op
 Recommended dedicated-profile smoke lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --gen-valid-profile heap-store-optimization --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-heap-store-optimization-genvalid-profile-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --gen-valid-profile heap-store-optimization --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-heap-store-optimization-genvalid-profile-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
 Recommended random all-profiles closeout lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass heap-store-optimization --gen-valid-profile random-all-profiles --out-dir .tmp/pass-fuzz-heap-store-optimization-genvalid-random-all-profiles-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass heap-store-optimization --gen-valid-profile random-all-profiles --out-dir .tmp/pass-fuzz-heap-store-optimization-genvalid-random-all-profiles-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
 Use `--normalize local-cleanup-debris` for the dedicated HSO profile while Starshine removes folded-store `nop` roots that Binaryen retains. Research note `1023` classified the initial 20-case raw mismatch family as a Starshine-win cleanup drift: Binaryen output kept `(nop)` placeholders after HSO folds, while Starshine emitted smaller validated output without those dead roots. The refreshed 2026-06-25 10000-case dedicated-profile lane in research note `1073` compared `10000/10000` cases with `0` raw mismatches/failures and `10000` cleanup-normalized matches under this normalizer; `cases.jsonl` selected `heap-store-optimization` for all `10000` cases.

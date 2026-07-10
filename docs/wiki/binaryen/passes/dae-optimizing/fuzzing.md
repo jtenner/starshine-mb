@@ -9,10 +9,10 @@ sources:
 
 # `dae-optimizing` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane with the documented DAE cleanup normalizers:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane with the documented DAE cleanup normalizers:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profile: none documented specifically for `dae-optimizing` yet. The general `pass-dae` GenValid profile can be used for targeted direct-call and parameter-pruning generator work, but it is not the current pass-folder closeout profile.

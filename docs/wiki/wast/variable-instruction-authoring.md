@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
+  - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -155,7 +156,7 @@ When a pass changes locals or globals, check these invariants before accepting o
 5. **Type refinement:** if a pass tightens a local/global reference type, retag gets/tees/sets consistently and run validation.
 6. **Roundtrip expectations:** WAST source `$` ids may be lost during print; compare semantic indices and name-section metadata separately.
 
-Useful validation lanes are ordinary `moon test` for local parser/lowerer/typechecker coverage, focused package tests such as `moon test src/wast`, `moon test src/binary`, and `moon test src/validate`, and pass-specific `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass <name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` when a transform mutates variable instructions.
+Useful validation lanes are ordinary `moon test` for local parser/lowerer/typechecker coverage, focused package tests such as `moon test src/wast`, `moon test src/binary`, and `moon test src/validate`, and pass-specific `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass <name> --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` (do not use a pre-existing `target/native/...` binary without freshness verification; see [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md)) when a transform mutates variable instructions.
 
 ## Common Mistakes
 

@@ -10,7 +10,7 @@ sources:
 
 # `global-struct-inference-desc-cast` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for the public pass spelling after building native Starshine:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for the public pass spelling after building native Starshine:
 
 ```sh
 moon build --target native --release src/cmd

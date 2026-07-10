@@ -1,12 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-10
 sources:
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
+  - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
@@ -85,7 +86,7 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-statu
 
 `bun scripts/pass-fuzz-compare.ts ...` is the same underlying implementation. `bun fuzz compare-pass` reaches it through [`scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), which treats compare-pass as a sibling command rather than a `src/fuzz` suite.
 
-Native binary path note: current Moon native release builds refresh `_build/native/release/build/cmd/cmd.exe`. Older docs and stale local worktrees may still contain `target/native/release/build/cmd/cmd.exe`; do not use that path for signoff unless you have just verified it is the freshly built binary. Prefer `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`.
+Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
 
 ## Input Generators
 
@@ -226,6 +227,7 @@ For preset or neighborhood work, direct pass green is necessary but not sufficie
 
 - Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Tool/source bridge: [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md)
+- Native artifact-path policy bridge: [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md)
 - Harness implementation: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
 - Wrapper split: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)
 - Command-shape tests: [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts), [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)

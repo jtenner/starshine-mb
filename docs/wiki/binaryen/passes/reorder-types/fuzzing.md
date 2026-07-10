@@ -9,10 +9,10 @@ sources:
 
 # `reorder-types` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for this pass:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-types --out-dir .tmp/pass-fuzz-reorder-types --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-types --out-dir .tmp/pass-fuzz-reorder-types --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profile: none documented for this pass yet.

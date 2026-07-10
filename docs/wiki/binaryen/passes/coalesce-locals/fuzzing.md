@@ -15,7 +15,7 @@ sources:
 Recommended direct smoke lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --out-dir .tmp/pass-fuzz-coalesce-locals --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --out-dir .tmp/pass-fuzz-coalesce-locals --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profile: use `coalesce-locals-all` for the required pass-specific closeout lane. It is a composite over three deterministic leaves:
@@ -29,7 +29,7 @@ Aliases accepted by `GenValidConfig::profile(...)`: `coalesce-locals`, `coalesce
 Required dedicated lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --gen-valid-profile coalesce-locals-all --out-dir .tmp/pass-fuzz-coalesce-locals-profile-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --gen-valid-profile coalesce-locals-all --out-dir .tmp/pass-fuzz-coalesce-locals-profile-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
 Latest closeout evidence:

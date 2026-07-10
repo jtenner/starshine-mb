@@ -9,10 +9,10 @@ sources:
 
 # `remove-unused-brs` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for this pass:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir .tmp/pass-fuzz-remove-unused-brs --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir .tmp/pass-fuzz-remove-unused-brs --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid profile: `remove-unused-brs-all` now exists as an experimental RUB-focused aggregate. Aliases `remove-unused-brs`, `remove-unused-brs-closeout`, `remove-unused-brs-all-profiles`, `rub`, and `rub-closeout` resolve to it. The aggregate currently samples compact `remove-unused-brs-control`, `remove-unused-brs-switch`, and `remove-unused-brs-cleanup` leaves and records the selected leaf in `genValidSelectedProfileCounts`; the targeted `remove-unused-brs-gc` singleton exists but is intentionally excluded from the closeout aggregate because early smoke evidence showed boundary-heavy GC output drift.

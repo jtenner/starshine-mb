@@ -12,7 +12,7 @@ sources:
 
 # `local-subtyping` Fuzzing Profile
 
-Recommended ordinary mixed-generator smoke lane for this pass:
+Recommended ordinary GenValid smoke lane for this pass:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
