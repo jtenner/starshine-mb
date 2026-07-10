@@ -519,6 +519,21 @@ priv struct DaeSingleResultControlGcCandidateEvidence {
 }
 
 ///|
+priv struct DaeTypeidxControlRewritePlan {
+  control_kind : Int
+  params : Array[@lib.ValType]
+  results : Array[@lib.ValType]
+  body : Array[@lib.Instruction]
+  else_body : Array[@lib.Instruction]?
+}
+
+///|
+priv struct DaeTypeidxControlRewriteApplication {
+  type_sec : @lib.TypeSec
+  rewritten : @lib.Instruction
+}
+
+///|
 priv enum DaeGcActualShapeKind {
   DaeDirectGcActualShape
   DaeBlockGcActualShape
@@ -9270,11 +9285,56 @@ fn dae_find_or_append_func_type(
 }
 
 ///|
-fn dae_find_or_append_zero_param_func_type(
-  type_sec : @lib.TypeSec,
+fn dae_typeidx_control_rewrite_plan(
+  control_kind : Int,
+  params : Array[@lib.ValType],
   results : Array[@lib.ValType],
-) -> (@lib.TypeSec, @lib.TypeIdx) {
-  dae_find_or_append_func_type(type_sec, [], results)
+  body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction]?,
+) -> DaeTypeidxControlRewritePlan? {
+  if results.length() == 0 {
+    return None
+  }
+  match (control_kind, else_body) {
+    (0 | 1, None) =>
+      Some({
+        control_kind,
+        params: params.copy(),
+        results: results.copy(),
+        body: body.copy(),
+        else_body: None,
+      })
+    (2, Some(else_body)) =>
+      Some({
+        control_kind,
+        params: params.copy(),
+        results: results.copy(),
+        body: body.copy(),
+        else_body: Some(else_body.copy()),
+      })
+    _ => None
+  }
+}
+
+///|
+fn dae_apply_typeidx_control_rewrite(
+  type_sec : @lib.TypeSec,
+  plan : DaeTypeidxControlRewritePlan,
+) -> DaeTypeidxControlRewriteApplication? {
+  let (next_type_sec, block_type_idx) = dae_find_or_append_func_type(
+    type_sec,
+    plan.params,
+    plan.results,
+  )
+  let block_type = @lib.BlockType::type_idx(block_type_idx)
+  let rewritten = match (plan.control_kind, plan.else_body) {
+    (0, None) => @lib.Instruction::block(block_type, @lib.Expr::new(plan.body))
+    (1, None) => @lib.Instruction::loop_(block_type, @lib.Expr::new(plan.body))
+    (2, Some(else_body)) =>
+      @lib.Instruction::if_(block_type, plan.body, Some(else_body))
+    _ => return None
+  }
+  Some({ type_sec: next_type_sec, rewritten })
 }
 
 ///|
@@ -9904,31 +9964,21 @@ fn dae_try_refine_parametric_typeidx_multi_result_terminal_control_body(
   if !changed {
     return None
   }
-  let (next_type_sec, block_type_idx) = dae_find_or_append_func_type(
-    type_sec, params, refined_results,
-  )
-  let rewritten_instr = match kind {
-    0 =>
-      @lib.Instruction::block(
-        @lib.BlockType::type_idx(block_type_idx),
-        @lib.Expr::new(rewritten_arm),
-      )
-    1 =>
-      @lib.Instruction::loop_(
-        @lib.BlockType::type_idx(block_type_idx),
-        @lib.Expr::new(rewritten_arm),
-      )
-    _ =>
-      @lib.Instruction::if_(
-        @lib.BlockType::type_idx(block_type_idx),
-        rewritten_arm,
-        next_else_body,
-      )
+  let plan = match
+    dae_typeidx_control_rewrite_plan(
+      kind, params, refined_results, rewritten_arm, next_else_body,
+    ) {
+    Some(plan) => plan
+    None => return None
+  }
+  let application = match dae_apply_typeidx_control_rewrite(type_sec, plan) {
+    Some(application) => application
+    None => return None
   }
   let rewritten_body = body.copy()
-  rewritten_body[terminal_idx] = rewritten_instr
+  rewritten_body[terminal_idx] = application.rewritten
   ignore(body_changed)
-  Some((next_type_sec, rewritten_body))
+  Some((application.type_sec, rewritten_body))
 }
 
 ///|
@@ -10553,18 +10603,37 @@ fn dae_try_refine_direct_gc_types(
                   }
                   match mod_.type_sec {
                     Some(type_sec) => {
-                      let (next_type_sec, block_type_idx) = dae_find_or_append_zero_param_func_type(
-                        type_sec,
-                        pair_evidence.refined_results,
-                      )
-                      rewrite_type_sec = Some(next_type_sec)
-                      let rewritten = @lib.Instruction::if_(
-                        @lib.BlockType::type_idx(block_type_idx),
-                        pair_evidence.rewritten_then_body,
-                        Some(pair_evidence.rewritten_else_body),
-                      )
+                      let plan = match
+                        dae_typeidx_control_rewrite_plan(
+                          2,
+                          [],
+                          pair_evidence.refined_results,
+                          pair_evidence.rewritten_then_body,
+                          Some(pair_evidence.rewritten_else_body),
+                        ) {
+                        Some(plan) => plan
+                        None =>
+                          return {
+                            mod_out: mod_,
+                            touched: [],
+                            changed: false,
+                            primary_def: -1,
+                          }
+                      }
+                      let application = match
+                        dae_apply_typeidx_control_rewrite(type_sec, plan) {
+                        Some(application) => application
+                        None =>
+                          return {
+                            mod_out: mod_,
+                            touched: [],
+                            changed: false,
+                            primary_def: -1,
+                          }
+                      }
+                      rewrite_type_sec = Some(application.type_sec)
                       let rewritten_body = body.copy()
-                      rewritten_body[rewritten_body.length() - 1] = rewritten
+                      rewritten_body[rewritten_body.length() - 1] = application.rewritten
                       next_body = rewritten_body
                       result_body_changed = true
                     }
@@ -10754,16 +10823,36 @@ fn dae_try_refine_direct_gc_types(
         if preserve_loop_carrier {
           match mod_.type_sec {
             Some(type_sec) => {
-              let (next_type_sec, block_type_idx) = dae_find_or_append_zero_param_func_type(
-                type_sec, next_results,
-              )
-              rewrite_type_sec = Some(next_type_sec)
-              next_body = [
-                @lib.Instruction::loop_(
-                  @lib.BlockType::type_idx(block_type_idx),
-                  @lib.Expr::new(rewritten_body),
-                ),
-              ]
+              let plan = match
+                dae_typeidx_control_rewrite_plan(
+                  1,
+                  [],
+                  next_results,
+                  rewritten_body,
+                  None,
+                ) {
+                Some(plan) => plan
+                None =>
+                  return {
+                    mod_out: mod_,
+                    touched: [],
+                    changed: false,
+                    primary_def: -1,
+                  }
+              }
+              let application = match
+                dae_apply_typeidx_control_rewrite(type_sec, plan) {
+                Some(application) => application
+                None =>
+                  return {
+                    mod_out: mod_,
+                    touched: [],
+                    changed: false,
+                    primary_def: -1,
+                  }
+              }
+              rewrite_type_sec = Some(application.type_sec)
+              next_body = [application.rewritten]
               result_body_changed = true
             }
             None => ()

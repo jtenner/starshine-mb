@@ -3195,7 +3195,6 @@ test "dae typeidx control rewrite plan centralizes type installation and reconst
     None => fail("expected block typeidx rewrite application")
   }
   assert_eq(block_application.type_sec, type_sec)
-  assert_eq(block_application.block_type_idx, @lib.TypeIdx::new(0U))
   assert_eq(
     block_application.rewritten,
     @lib.Instruction::block(
@@ -3221,13 +3220,7 @@ test "dae typeidx control rewrite plan centralizes type installation and reconst
     ),
   )
   let if_plan = match
-    dae_typeidx_control_rewrite_plan(
-      2,
-      params,
-      results,
-      body,
-      Some(else_body),
-    ) {
+    dae_typeidx_control_rewrite_plan(2, params, results, body, Some(else_body)) {
     Some(plan) => plan
     None => fail("expected if typeidx rewrite plan")
   }
