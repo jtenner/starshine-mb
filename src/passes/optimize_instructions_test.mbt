@@ -13098,6 +13098,65 @@ test "optimize-instructions folds first third fourth and fifth trees in five-ope
 }
 
 ///|
+test "optimize-instructions folds second third fourth and fifth trees in five-operand mixed i32-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks a
+  // direct first leaf followed by exact add trees in the second through fifth
+  // operands of annotated (i32, i64, i32, i64, i32) -> i32 calls in the
+  // canonical i32 SCCP self-select. A mismatch in any logical slot retains
+  // both calls. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-tree-placements-foldability.wat`
+  // (`second_third_fourth_fifth_equal` and its five mismatch functions).
+  let optimize_caller = fn(
+    right_first_const : Int,
+    right_second_tree_const : Int64,
+    right_third_tree_const : Int,
+    right_fourth_tree_const : Int64,
+    right_fifth_tree_const : Int,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32 i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id i32.const 0 i32.const " +
+      right_first_const.to_string() +
+      " local.get 0 i64.const " +
+      right_second_tree_const.to_string() +
+      " i64.add local.get 1 i32.const " +
+      right_third_tree_const.to_string() +
+      " i32.add local.get 2 i64.const " +
+      right_fourth_tree_const.to_string() +
+      " i64.add local.get 3 i32.const " +
+      right_fifth_tree_const.to_string() +
+      " i32.add call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected second+third+fourth+fifth-tree five-operand mixed i32-result call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(3, 5L, 7, 11L, 13)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(4, 5L, 7, 11L, 13),
+      optimize_caller(3, 6L, 7, 11L, 13),
+      optimize_caller(3, 5L, 8, 11L, 13),
+      optimize_caller(3, 5L, 7, 12L, 13),
+      optimize_caller(3, 5L, 7, 11L, 14),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds second third and fourth trees in five-operand mixed i32-result calls" {
   // Red-first OI-F parity slice: Binaryen version_130 independently checks a
   // direct first leaf, exact second through fourth add trees, and a direct
