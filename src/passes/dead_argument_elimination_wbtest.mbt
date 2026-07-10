@@ -1532,9 +1532,7 @@ test "dae original dead suffix escaped result call facts share one module scan" 
   let void_type = @lib.TypeIdx::new(1U)
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
-      @lib.SubType::comp_type(
-        @lib.CompType::func([], [@lib.ValType::i32()]),
-      ),
+      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
     ),
     @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
   ])
@@ -1551,9 +1549,7 @@ test "dae original dead suffix escaped result call facts share one module scan" 
             @lib.Instruction::drop(),
             @lib.Instruction::block(
               @lib.BlockType::void_(),
-              @lib.Expr::new([
-                @lib.Instruction::call(@lib.FuncIdx::new(1U)),
-              ]),
+              @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
             ),
           ]),
         ),
