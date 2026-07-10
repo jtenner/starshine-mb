@@ -112,6 +112,8 @@ This helper file owns most of the hard boundary-rewrite plumbing that the main D
 
 So if a reader wants the exact “how do calls and callee params get rewritten safely?” surface, this is the most important helper after the main pass file.
 
+One output-shape consequence matters for Starshine residual classification: tagged Binaryen `ParamUtils::removeParameters(...)` allocates a fresh local for every removed parameter before rewriting any remaining `local.get` uses. That generic helper therefore leaves an unread replacement local even when the removed parameter has no surviving get or write. Starshine's shared removed-parameter projection instead retains a body local only for a surviving write or proven caller-side localization. When neither exists, omitting the unaddressable default-only local is a semantic and size improvement, not evidence that the boundary iteration failed.
+
 ## `src/ir/lubs.h`
 
 This file matters because it owns the least-upper-bound logic for:
