@@ -4411,6 +4411,54 @@ test "optimize-instructions folds second-slot i64 tree-bearing calls" {
 }
 
 ///|
+test "optimize-instructions folds two i64 tree-bearing call operands" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently walks both
+  // represented i64.add operand trees of a repeated annotated call. Equal trees
+  // in both slots fold, while a mismatch in either slot retains the calls.
+  // Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-next4-foldability.wat`
+  // (`i64_two_trees_equal`, `i64_two_trees_first_mismatch`, and
+  // `i64_two_trees_second_mismatch`).
+  let optimize_caller = fn(
+    right_first_const : Int64,
+    right_second_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64) (result i64) local.get 0 local.get 1 i64.add) (func (param i64) (result i64) i64.const 0 local.get 0 i64.const 1 i64.add local.get 0 i64.const 7 i64.add call $id local.get 0 i64.const " +
+      right_first_const.to_string() +
+      " i64.add local.get 0 i64.const " +
+      right_second_const.to_string() +
+      " i64.add call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected two-tree i64 idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(1L, 7L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  let different_first = optimize_caller(2L, 7L)
+  assert_true(different_first.contains("select"), msg=different_first)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(different_first, "call (Func 0)"),
+    2,
+  )
+  let different_second = optimize_caller(1L, 8L)
+  assert_true(different_second.contains("select"), msg=different_second)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(
+      different_second, "call (Func 0)",
+    ),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds tree-bearing multi-operand idempotent calls" {
   // Red-first OI-F parity slice: Binaryen version_130 walks every operand tree
   // of repeated annotated calls. An exact i32.add(local, const) first operand
