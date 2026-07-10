@@ -4267,6 +4267,42 @@ test "optimize-instructions folds immutable-global binary-tree idempotent-call s
 }
 
 ///|
+test "optimize-instructions folds multi-operand idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 walks every operand of an
+  // annotated direct call before folding a repeated equal call. Equal direct
+  // local/constant operands fold, while a mismatch in either slot remains.
+  // Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-next-foldability.wat`
+  // (`multi_equal` and `multi_mismatch`).
+  let optimize_caller = fn(right_const : Int) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32) (result i32) local.get 0 local.get 1 i32.add) (func (param i32) (result i32) local.get 0 i32.const 7 call $id i32.const 0 local.get 0 i32.const " +
+      right_const.to_string() +
+      " call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected multi-operand idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(7)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  let different_second = optimize_caller(8)
+  assert_true(different_second.contains("select"), msg=different_second)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(
+      different_second, "call (Func 0)",
+    ),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and

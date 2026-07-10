@@ -25663,6 +25663,7 @@ fn RawOiIdempotentCallStackOperandFact::proves_i64_local_const_leaf(
 priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallNoOperandAdmission
   RawOiIdempotentCallDirectLeafAdmission
+  RawOiIdempotentCallTwoDirectI32OperandsAdmission
   RawOiIdempotentCallI32EqzTreeAdmission
   RawOiIdempotentCallI32AddTreeAdmission
   RawOiIdempotentCallI64AddTreeAdmission
@@ -25675,19 +25676,6 @@ priv struct RawOiIdempotentCallOperandAdmissionFact {
 }
 
 ///|
-fn RawOiIdempotentCallOperandAdmissionFact::has_operand(
-  self : RawOiIdempotentCallOperandAdmissionFact,
-) -> Bool {
-  match self.kind {
-    RawOiIdempotentCallNoOperandAdmission => false
-    RawOiIdempotentCallDirectLeafAdmission
-    | RawOiIdempotentCallI32EqzTreeAdmission
-    | RawOiIdempotentCallI32AddTreeAdmission
-    | RawOiIdempotentCallI64AddTreeAdmission => true
-  }
-}
-
-///|
 fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
   self : RawOiIdempotentCallOperandAdmissionFact,
 ) -> Bool {
@@ -25695,7 +25683,8 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     RawOiIdempotentCallNoOperandAdmission => self.leaf_facts.length() == 0
     RawOiIdempotentCallDirectLeafAdmission
     | RawOiIdempotentCallI32EqzTreeAdmission => self.leaf_facts.length() == 1
-    RawOiIdempotentCallI32AddTreeAdmission
+    RawOiIdempotentCallTwoDirectI32OperandsAdmission
+    | RawOiIdempotentCallI32AddTreeAdmission
     | RawOiIdempotentCallI64AddTreeAdmission => self.leaf_facts.length() == 2
   }
 }
@@ -25715,12 +25704,13 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // This is a HOT-admission fact, not a raw rewrite. Binaryen v130's
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
-  // flat shapes cover direct i32 self-selects, the source-probed i32.eqz(local)
-  // operand tree, exact i32.add trees over local/constant/immutable-global
-  // leaves, exact i64.add(local, const) trees, and the i64 zero-test self-select
-  // with no operands or one repeated direct local.get/i64.const/immutable
-  // global.get operand. The raw stack-effect gate would otherwise quarantine
-  // those call results before HOT can apply the source-backed fact.
+  // flat shapes cover direct one- and two-i32-operand self-selects, the
+  // source-probed i32.eqz(local) operand tree, exact i32.add trees over
+  // local/constant/immutable-global leaves, exact i64.add(local, const) trees,
+  // and the i64 zero-test self-select with no operands or one repeated direct
+  // local.get/i64.const/immutable global.get operand. The raw stack-effect gate
+  // would otherwise quarantine those call results before HOT can apply the
+  // source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
     [
       left_lhs,
@@ -25858,6 +25848,55 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         {
           kind: RawOiIdempotentCallI32EqzTreeAdmission,
           leaf_facts: [left_fact],
+        },
+      )
+    }
+    [
+      left_first,
+      left_second,
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      right_first,
+      right_second,
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_first_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_first, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_second_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_second, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_first_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_first, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_second_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_second, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_first_fact.proves_i32_noninvalidated_leaf() ||
+        !left_second_fact.proves_i32_noninvalidated_leaf() ||
+        !right_first_fact.proves_i32_noninvalidated_leaf() ||
+        !right_second_fact.proves_i32_noninvalidated_leaf() ||
+        !left_first_fact.proves_equal(right_first_fact) ||
+        !left_second_fact.proves_equal(right_second_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallTwoDirectI32OperandsAdmission,
+          leaf_facts: [left_first_fact, left_second_fact],
         },
       )
     }
@@ -26007,17 +26046,24 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
     _ => return None
   }
   match
-    (
-      @ir.hot_module_resolve_func_type(module_ctx, call_idx),
-      operand_fact.has_operand(),
-    ) {
-    (Some(@lib.FuncType([], results)), false) if results ==
+    (@ir.hot_module_resolve_func_type(module_ctx, call_idx), operand_fact.kind) {
+    (Some(@lib.FuncType([], results)), RawOiIdempotentCallNoOperandAdmission) if results ==
       [@lib.ValType::i32()] ||
       results == [@lib.ValType::i64()] => ()
-    (Some(@lib.FuncType([param], results)), true) if (
-        param == @lib.ValType::i32() && results == [@lib.ValType::i32()]
-      ) ||
+    (
+      Some(@lib.FuncType([param], results)),
+      RawOiIdempotentCallDirectLeafAdmission
+      | RawOiIdempotentCallI32EqzTreeAdmission
+      | RawOiIdempotentCallI32AddTreeAdmission
+      | RawOiIdempotentCallI64AddTreeAdmission,
+    ) if (param == @lib.ValType::i32() && results == [@lib.ValType::i32()]) ||
       (param == @lib.ValType::i64() && results == [@lib.ValType::i64()]) => ()
+    (
+      Some(@lib.FuncType([first, second], results)),
+      RawOiIdempotentCallTwoDirectI32OperandsAdmission,
+    ) if first == @lib.ValType::i32() &&
+      second == @lib.ValType::i32() &&
+      results == [@lib.ValType::i32()] => ()
     _ => return None
   }
   if !@ir.hot_module_func_has_annotation(
