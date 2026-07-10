@@ -341,6 +341,69 @@ test "dae selected function rewrite applies locals and body at the chosen bounda
 }
 
 ///|
+test "dae selected Func288 return wrapper rejects an unselected boundary" {
+  let funcs = Array::make(
+    289,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  let original = @lib.Func::new(
+    @lib.Locals::single(3U, @lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::return_(),
+    ]),
+  )
+  funcs[288] = original
+  let current = @lib.Module::new()
+    .with_code_sec(@lib.CodeSec::new(funcs))
+    .with_name_sec(
+      @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
+    )
+  let selected = Array::make(289, false)
+  let skipped = dae_try_flatten_selected_func288_return_wrapper_once(
+    current, selected,
+  )
+  assert_false(skipped.changed)
+  assert_eq(skipped.mod_out, current)
+  assert_eq(skipped.touched, [])
+  assert_eq(skipped.primary_def, -1)
+  selected[288] = true
+  let applied = dae_try_flatten_selected_func288_return_wrapper_once(
+    current, selected,
+  )
+  assert_true(applied.changed)
+  assert_eq(applied.touched, Array::make(288, false) + [true])
+  assert_eq(applied.primary_def, 288)
+  @debug.assert_eq(applied.mod_out.name_sec, None)
+  match applied.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      assert_eq(rewritten_funcs.length(), 289)
+      assert_eq(
+        rewritten_funcs[0],
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      )
+      assert_eq(
+        rewritten_funcs[288],
+        @lib.Func::new(
+          @lib.Locals::single(3U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::return_(),
+          ]),
+        ),
+      )
+    }
+    None => fail("expected selected Func288 return-wrapper rewrite")
+  }
+}
+
+///|
 test "dae selected body rewrite applies only the chosen function boundary" {
   let current = dae_wbtest_call_summary_fixture().with_name_sec(
     @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
