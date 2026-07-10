@@ -66,6 +66,13 @@ fn hot_test_module_context_fixture() -> HotModuleContext {
     .with_type_sec(type_sec)
     .with_import_sec(import_sec)
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+      ]),
+    )
   hot_module_context_from_module(mod_)
 }
 
@@ -148,6 +155,28 @@ test "hot module context preserves exact function import identity" {
   )
   @debug.assert_eq(
     hot_module_func_import_matches(ctx, @lib.FuncIdx::new(1U), "env", "f"),
+    false,
+  )
+}
+
+///|
+test "hot module context resolves function annotations" {
+  let ctx = hot_test_module_context_fixture()
+
+  @debug.assert_eq(
+    hot_module_func_has_annotation(
+      ctx,
+      @lib.FuncIdx::new(1U),
+      "binaryen.idempotent",
+    ),
+    true,
+  )
+  @debug.assert_eq(
+    hot_module_func_has_annotation(
+      ctx,
+      @lib.FuncIdx::new(0U),
+      "binaryen.idempotent",
+    ),
     false,
   )
 }

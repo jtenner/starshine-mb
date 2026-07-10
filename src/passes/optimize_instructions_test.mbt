@@ -4013,6 +4013,39 @@ test "optimize-instructions folds i64 zero-test self-selects through consecutive
 }
 
 ///|
+test "optimize-instructions folds no-arg idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130
+  // `areConsecutiveInputsEqualAndFoldable` treats a repeated direct call marked
+  // `@binaryen.idempotent` as foldable when it has no operands. The official
+  // source is `OptimizeInstructions.cpp:2891-2947`; the focused oracle is
+  // `.tmp/oi-probes/select-idempotent-call-foldability.wat`.
+  let optimize_caller = fn(body : String) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (result i32) i32.const 1) (func (result i32) " +
+      body +
+      "))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let truthy = optimize_caller("call $id i32.const 0 call $id select")
+  assert_false(truthy.contains("select"), msg=truthy)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(truthy, "call (Func 0)"),
+    1,
+  )
+  let falsy = optimize_caller("i32.const 0 call $id call $id select")
+  assert_false(falsy.contains("select"), msg=falsy)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(falsy, "call (Func 0)"),
+    1,
+  )
+  assert_true(falsy.contains("drop"), msg=falsy)
+}
+
+///|
 test "optimize-instructions lowers one-bit false-zero selects to and" {
   // Red-first OI-F parity slice: Binaryen version_130 `optimizeSelect` uses
   // `Bits::getMaxBits` facts for the condition and both i32 arms before

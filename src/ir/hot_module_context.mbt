@@ -5,6 +5,7 @@ pub struct HotModuleContext {
   func_types : Array[FuncType]
   func_type_slots : Array[TypeIdx?]
   func_imports : Array[(@lib.Name, @lib.Name)?]
+  func_annotations : Array[Array[@lib.FuncAnnotation]]
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
@@ -77,6 +78,31 @@ fn hot_module_context_func_type_slots(
     out.push(Some(type_idx))
   }
   out
+}
+
+///|
+fn hot_module_context_func_annotations(
+  sec : @lib.FuncAnnotationSec?,
+  total_funcs : Int,
+) -> Array[Array[@lib.FuncAnnotation]] {
+  let by_func : Array[Array[@lib.FuncAnnotation]] = []
+  let mut idx = 0
+  while idx < total_funcs {
+    by_func.push([])
+    idx += 1
+  }
+  match sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
+        let slot = raw_idx.reinterpret_as_int()
+        if slot >= 0 && slot < by_func.length() {
+          by_func[slot] = annotations
+        }
+      }
+    None => ()
+  }
+  by_func
 }
 
 ///|
@@ -219,6 +245,10 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     func_types: hot_module_context_resolve_func_types(subtypes, func_type_idxs),
     func_type_slots: hot_module_context_func_type_slots(func_type_idxs),
     func_imports,
+    func_annotations: hot_module_context_func_annotations(
+      mod_.func_annotation_sec,
+      func_type_idxs.length(),
+    ),
     tables,
     mems,
     globals,
@@ -304,6 +334,25 @@ pub fn hot_module_func_import_matches(
       actual_base == @lib.Name::from_string(base_name)
     None => false
   }
+}
+
+///|
+pub fn hot_module_func_has_annotation(
+  ctx : HotModuleContext,
+  func_idx : @lib.FuncIdx,
+  name : String,
+) -> Bool {
+  let @lib.FuncIdx(raw) = func_idx
+  match ctx.func_annotations.get(raw.reinterpret_as_int()) {
+    Some(annotations) =>
+      for annotation in annotations {
+        if annotation.name == name && annotation.args.length() == 0 {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
 }
 
 ///|

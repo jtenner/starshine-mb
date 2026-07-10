@@ -25542,6 +25542,7 @@ priv struct RawOiStackCarriedEffectSkipFact {
   call_indexed_table_get_call_ref : Bool
   gc_selected_operand_forwarding : Bool
   gc_effect_localization : Bool
+  idempotent_call_self_select : Bool
 }
 
 ///|
@@ -25554,6 +25555,7 @@ fn RawOiStackCarriedEffectSkipFact::from_parts(
   call_indexed_table_get_call_ref : Bool,
   gc_selected_operand_forwarding : Bool,
   gc_effect_localization : Bool,
+  idempotent_call_self_select : Bool,
 ) -> RawOiStackCarriedEffectSkipFact {
   {
     has_blocking_effect: effect_region.has_blocking_effect,
@@ -25564,6 +25566,7 @@ fn RawOiStackCarriedEffectSkipFact::from_parts(
     call_indexed_table_get_call_ref,
     gc_selected_operand_forwarding,
     gc_effect_localization,
+    idempotent_call_self_select,
   }
 }
 
@@ -25578,7 +25581,61 @@ fn RawOiStackCarriedEffectSkipFact::proves_accepted_raw_noop(
   !self.zero_size_stack_bulk_memory &&
   !self.call_indexed_table_get_call_ref &&
   !self.gc_selected_operand_forwarding &&
-  !self.gc_effect_localization
+  !self.gc_effect_localization &&
+  !self.idempotent_call_self_select
+}
+
+///|
+priv struct RawOiIdempotentCallSelfSelectFact {
+  call_idx : @lib.FuncIdx
+  forwards_call : Bool
+}
+
+///|
+fn RawOiIdempotentCallSelfSelectFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> RawOiIdempotentCallSelfSelectFact? {
+  // This is a HOT-admission fact, not a raw rewrite. Binaryen v130's
+  // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
+  // no-operand idempotent calls in the SCCP-compatibility select forms. The raw
+  // stack-effect gate would otherwise quarantine those call results before HOT
+  // can apply the source-backed call fact.
+  let (call_idx, forwards_call) = match instrs {
+    [
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => (left_idx, true)
+    [
+      @lib.I32Const(@lib.I32(0)),
+      @lib.Call(left_idx),
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => (left_idx, false)
+    _ => return None
+  }
+  match @ir.hot_module_resolve_func_type(module_ctx, call_idx) {
+    Some(@lib.FuncType(params, results)) if params.length() == 0 &&
+      results == [@lib.ValType::i32()] => ()
+    _ => return None
+  }
+  if !@ir.hot_module_func_has_annotation(
+      module_ctx, call_idx, "binaryen.idempotent",
+    ) {
+    return None
+  }
+  Some({ call_idx, forwards_call })
+}
+
+///|
+fn RawOiIdempotentCallSelfSelectFact::proves_hot_replay(
+  self : RawOiIdempotentCallSelfSelectFact,
+) -> Bool {
+  ignore(self.call_idx)
+  ignore(self.forwards_call)
+  true
 }
 
 ///|
@@ -33229,6 +33286,11 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_binaryen_localization()
     None => false
   }
+  let idempotent_call_self_select = match
+    RawOiIdempotentCallSelfSelectFact::from_instrs(body, module_ctx) {
+    Some(fact) => fact.proves_hot_replay()
+    None => false
+  }
   let stack_carried_effect_skip = RawOiStackCarriedEffectSkipFact::from_parts(
     RawOiStackCarriedEffectRegionFact::from_instrs(body, env, module_ctx),
     simple_stack_call_binop,
@@ -33238,6 +33300,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     call_indexed_table_get_call_ref,
     gc_selected_operand_forwarding,
     gc_effect_localization,
+    idempotent_call_self_select,
   )
   if stack_carried_effect_skip.proves_accepted_raw_noop() {
     return Some({

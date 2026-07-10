@@ -19153,6 +19153,7 @@ priv enum OiConsecutiveInputEqualityProofKind {
   ConsecutiveInputStableStateScalarTree
   ConsecutiveInputStableMemoryRead
   ConsecutiveInputRightLocalTeeFallthrough
+  ConsecutiveInputIdempotentCall
 }
 
 ///|
@@ -20238,6 +20239,7 @@ fn OiConsecutiveInputEqualityProofFact::from_source_facts(
   stable_state_scalar_tree_fact : OiScalarTreeEqualityFact,
   stable_memory_read_fact : OiStableMemoryReadEqualityFact,
   right_local_tee_fact : OiRightLocalTeeFallthroughEqualityFact,
+  idempotent_call_fact : OiIdempotentCallEqualityFact,
 ) -> OiConsecutiveInputEqualityProofFact {
   // Binaryen v130 `areConsecutiveInputsEqual` accepts any one represented
   // equality source after fallthrough peeling, then checks intervening effects
@@ -20255,6 +20257,8 @@ fn OiConsecutiveInputEqualityProofFact::from_source_facts(
     ConsecutiveInputStableMemoryRead
   } else if right_local_tee_fact.proves_equal() {
     ConsecutiveInputRightLocalTeeFallthrough
+  } else if idempotent_call_fact.proves_equal() {
+    ConsecutiveInputIdempotentCall
   } else {
     ConsecutiveInputNoKnownEquality
   }
@@ -20272,7 +20276,8 @@ fn OiConsecutiveInputEqualityProofFact::proves_equal(
     | ConsecutiveInputStableStateRead
     | ConsecutiveInputStableStateScalarTree
     | ConsecutiveInputStableMemoryRead
-    | ConsecutiveInputRightLocalTeeFallthrough => true
+    | ConsecutiveInputRightLocalTeeFallthrough
+    | ConsecutiveInputIdempotentCall => true
   }
 }
 
@@ -20341,9 +20346,12 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let right_local_tee_fact = OiRightLocalTeeFallthroughEqualityFact::from_nodes(
     func, left_fallthrough_id, right_id,
   )
+  let idempotent_call_fact = OiIdempotentCallEqualityFact::from_nodes(
+    ctx, func, left_fallthrough_id, right_fallthrough_id,
+  )
   let equality_proof = OiConsecutiveInputEqualityProofFact::from_source_facts(
     tee_and_get, scalar_tree_fact, stable_state_read_fact, state_scalar_tree_fact,
-    stable_memory_read_fact, right_local_tee_fact,
+    stable_memory_read_fact, right_local_tee_fact, idempotent_call_fact,
   )
   let intervening_effect_fact = OiInterveningEffectFact::from_fallthrough_facts(
     left_fallthrough, right_fallthrough,
@@ -27330,8 +27338,102 @@ fn optimize_instructions_inverted_select_compare(
 }
 
 ///|
+priv enum OiIdempotentCallOperandKind {
+  IdempotentCallNoOperands
+  IdempotentCallUnsupportedOperands
+}
+
+///|
+priv struct OiIdempotentCallFact {
+  call_id : Int
+  func_idx : Int
+  operand_kind : OiIdempotentCallOperandKind
+}
+
+///|
+fn OiIdempotentCallFact::from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiIdempotentCallFact? {
+  // Binaryen v130 asks `Intrinsics::getCallAnnotations(...).idempotent` before
+  // treating a direct call as effect-free for consecutive-input folding. Start
+  // with the exact no-operand subset, where the source's child-effect and
+  // parent-invalidates-child checks are vacuous.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call if node.imm0 >= 0 => ()
+    _ => return None
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let func_idx = node.imm0
+  if !@ir.hot_module_func_has_annotation(
+      module_ctx,
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+      "binaryen.idempotent",
+    ) {
+    return None
+  }
+  let operand_kind = if node.child_count == 0 {
+    IdempotentCallNoOperands
+  } else {
+    IdempotentCallUnsupportedOperands
+  }
+  Some({ call_id: node_id, func_idx, operand_kind })
+}
+
+///|
+fn OiIdempotentCallFact::proves_foldable(self : OiIdempotentCallFact) -> Bool {
+  match self.operand_kind {
+    IdempotentCallNoOperands => true
+    IdempotentCallUnsupportedOperands => false
+  }
+}
+
+///|
+priv struct OiIdempotentCallEqualityFact {
+  left_fact : OiIdempotentCallFact?
+  right_fact : OiIdempotentCallFact?
+  same_call : Bool
+}
+
+///|
+fn OiIdempotentCallEqualityFact::from_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+) -> OiIdempotentCallEqualityFact {
+  let left_fact = OiIdempotentCallFact::from_node(ctx, func, left_id)
+  let right_fact = OiIdempotentCallFact::from_node(ctx, func, right_id)
+  let same_call = match (left_fact, right_fact) {
+    (Some(left), Some(right)) =>
+      left.func_idx == right.func_idx &&
+      @ir.hot_node_type(func, left.call_id) ==
+      @ir.hot_node_type(func, right.call_id) &&
+      left.proves_foldable() &&
+      right.proves_foldable()
+    _ => false
+  }
+  { left_fact, right_fact, same_call }
+}
+
+///|
+fn OiIdempotentCallEqualityFact::proves_equal(
+  self : OiIdempotentCallEqualityFact,
+) -> Bool {
+  ignore(self.left_fact)
+  ignore(self.right_fact)
+  self.same_call
+}
+
+///|
 priv enum OiConsecutiveInputFoldabilityKind {
   ConsecutiveInputFoldablePure
+  ConsecutiveInputFoldableIdempotentCall
   ConsecutiveInputNotFoldable
 }
 
@@ -27343,20 +27445,25 @@ priv struct OiConsecutiveInputFoldabilityFact {
 
 ///|
 fn OiConsecutiveInputFoldabilityFact::from_right(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   right_id : Int,
 ) -> OiConsecutiveInputFoldabilityFact {
   // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
   // the later equal input to have no unremovable effects before it can be
-  // folded into the earlier input. Start with Starshine's represented pure
-  // expression proof; idempotent-call widening remains separate source work.
+  // folded into the earlier input. An annotated no-operand direct call is the
+  // first represented exception to the ordinary pure-expression proof.
   let kind = if OiSideEffectFreeExpressionFact::proves_node_free(
       func, dead, right_id,
     ) {
     ConsecutiveInputFoldablePure
   } else {
-    ConsecutiveInputNotFoldable
+    match OiIdempotentCallFact::from_node(ctx, func, right_id) {
+      Some(fact) if fact.proves_foldable() =>
+        ConsecutiveInputFoldableIdempotentCall
+      _ => ConsecutiveInputNotFoldable
+    }
   }
   { right_id, kind }
 }
@@ -27367,7 +27474,8 @@ fn OiConsecutiveInputFoldabilityFact::proves_foldable(
 ) -> Bool {
   ignore(self.right_id)
   match self.kind {
-    ConsecutiveInputFoldablePure => true
+    ConsecutiveInputFoldablePure | ConsecutiveInputFoldableIdempotentCall =>
+      true
     ConsecutiveInputNotFoldable => false
   }
 }
@@ -27420,7 +27528,7 @@ fn OiConsecutiveSelfSelectFact::from_select(
     ctx, func, selected_id, condition_id,
   )
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
-    func, dead, condition_id,
+    ctx, func, dead, condition_id,
   )
   if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
     return None
@@ -27571,6 +27679,7 @@ fn OiI64ZeroTestSelfSelectFact::from_select(
     condition_fact.inner_id,
   )
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
+    ctx,
     func,
     dead,
     condition_fact.inner_id,

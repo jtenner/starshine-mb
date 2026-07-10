@@ -429,6 +429,8 @@ pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
 
 pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
 
+pub fn hot_module_func_has_annotation(HotModuleContext, @lib.FuncIdx, String) -> Bool
+
 pub fn hot_module_func_import_matches(HotModuleContext, @lib.FuncIdx, String, String) -> Bool
 
 pub fn hot_module_resolve_array_field(HotModuleContext, @lib.TypeIdx) -> @lib.FieldType?
@@ -1235,6 +1237,7 @@ pub struct HotModuleContext {
   func_types : Array[@lib.FuncType]
   func_type_slots : Array[@lib.TypeIdx?]
   func_imports : Array[(@lib.Name, @lib.Name)?]
+  func_annotations : Array[Array[@lib.FuncAnnotation]]
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]
