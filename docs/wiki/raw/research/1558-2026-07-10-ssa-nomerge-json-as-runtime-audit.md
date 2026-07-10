@@ -58,7 +58,7 @@ After that parser-load fix, direct runtime still failed. Prefix function-swap bi
 
 | Commit/patch | File(s) | Reason | Invariant protected | Test coverage |
 |---|---|---|---|---|
-| audit-start | `docs/ssanm_audit.md` | Start explicit audit ledger required by task | Traceable root-cause/invariant work | Documentation |
+| audit-start | `docs/wiki/raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md` | Start explicit audit ledger required by task; archived here after the direct pass closeout | Traceable root-cause/invariant work | Documentation |
 | alias-fix-1 | `src/passes/pass_manager.mbt` | Apply stack-spill alias repair after planned raw rewrites and handle monotonically freshened previous-spill aliases | Post-spill live operand reads the just-spilled alias | `ssa-nomerge retargets previous stack-spill alias to just-spilled value` |
 | alias-fix-2 | `src/passes/pass_manager.mbt` | Track current fresh aliases during planned rewrites and repair call-result locals used before a following scratch spill | Stable call-result local is not retargeted to a scratch alias | `ssa-nomerge keeps call result local after sequential scratch spills` |
 | branch-value-subfix | `src/passes/pass_manager.mbt` | Validate raw planned get decisions against the syntactic local before applying them; do not freshen raw local writes inside plain-`br` value blocks; keep default materialization away from branch-bearing value control | Branch-value locals stay canonical unless all same-source reads can be proven/freshened together; wrong get-decision/default cannot be applied to another local | `ssa-nomerge keeps freshly loaded char across result block whitespace check` |

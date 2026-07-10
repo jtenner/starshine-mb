@@ -1,10 +1,11 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-06-18
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
   - ../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
+  - ../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
@@ -74,8 +75,12 @@ Closeout evidence:
 - Dedicated GenValid aggregate lane: `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x551a --pass ssa-nomerge --generator gen-valid --gen-valid-profile ssa-nomerge-all --out-dir .tmp/pass-fuzz-ssa-nomerge-genvalid-all-final-default-fallback-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, found `0` mismatches and `0` validation/generator/command failures, with Binaryen cache `100000/0`. The composite sampled `parity=37500`, `smoke=25000`, `coverage=25000`, and `stress=12500`.
 - Debug-WASI artifact replay: `env SELF_OPT_COMPARE_TIMINGS=1 bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-ssa-nomerge-final-closeout-20260616 --starshine-bin target/native/release/build/cmd/cmd.exe --ssa-nomerge` completed and both raw and canonical Starshine/Binaryen outputs validate with `wasm-tools validate --features all`. Canonical equality remains `no`; first diff is `defined=2087 abs=2114`, classified as the retained artifact boundary `call-heavy-memory-structured-noop`, not a direct-pass closeout blocker. Starshine final wasm is smaller (`3149504` bytes vs Binaryen `3156337`); raw Starshine wasm is larger (`3495897` vs `3156337`); Starshine pass-local time is faster (`0.175ms` vs Binaryen `387.072ms`). Whole-command time remains attributed to `[WALL]001` (`5346.032ms` Starshine vs `712.493ms` Binaryen), not to a pass-local `ssa-nomerge` parity blocker.
 - Artifact boundary/hugeness classification: the six former huge anchors and three drifted old anchors now trace as narrower non-huge boundary/no-op owners in the final full artifact run; no `large-structured-local-writes` blocker remains. O4z scheduling keeps the broad `o4z-ssa-nomerge-noop` guard removed by the 2026-06-15 user-approved policy, with future exposed correctness issues treated as narrow implementation blockers rather than preset bypass reasons.
-- JSON-AS runtime support: the latest json-as whitespace SIMD artifact is fixed for direct `--ssa-nomerge` as of 2026-06-17, validates, and passes the actual `as-test` whitespace SIMD runtime suite. This is supporting artifact/runtime evidence for the direct pass only; JSON-AS optimize/O4 size parity, durable replay automation, and preset scheduling remain separate backlog items.
+- JSON-AS runtime support: the latest json-as whitespace SIMD artifact is fixed for direct `--ssa-nomerge` as of 2026-06-17, validates, and passes the actual `as-test` whitespace SIMD runtime suite. The archived [`JSON-AS runtime audit`](../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md) records the four reduced semantic-risk shapes and their focused regressions. This is supporting artifact/runtime evidence for the direct pass only; JSON-AS optimize/O4 size parity, durable replay automation, and preset scheduling remain separate backlog items.
 - Current-head freshness validation on 2026-06-18: `moon info` passed with the three pre-existing GenValid warnings; `moon fmt` passed; focused `ssa_nomerge_test.mbt` passed `488/488`; `moon test src/passes` passed `2526/2526`; full `moon test` passed `5835/5835`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager unused-function warnings; a 10000-request current-head direct sanity lane `.tmp/pass-fuzz-ssa-nomerge-current-head-20260618-10000` compared `7602/10000`, normalized `7602`, found `0` mismatches, `0` validation/property/generator failures, and `20` cached Binaryen/tool command failures.
+
+## JSON-AS runtime audit archive
+
+The prior `docs/ssanm_audit.md` execution ledger is archived as [`1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md). It preserves the evidence behind four fixed runtime hazards that ordinary validation and broad fuzzing did not expose: sequential root-stack-spill aliases, stable call-result aliases, branch-value default/get-plan mismatch, and a branch-allocation merge-read. Their durable rule is narrow: a raw rewrite may retarget a local only when its alias relation is proven, and a canonical suffix read must retain a canonical reaching write. The resulting direct artifact and `as-test` replay are evidence for `ssa-nomerge`; they do not establish JSON-AS preset size parity or general runtime coverage.
 
 Retained boundaries and non-goals:
 
