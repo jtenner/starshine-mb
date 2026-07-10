@@ -263,6 +263,83 @@ test "dae primary-selected core result application clears only the applied prima
 }
 
 ///|
+test "dae selected function rewrite applies locals and body at the chosen boundary" {
+  let current = dae_wbtest_call_summary_fixture().with_name_sec(
+    @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
+  )
+  let selected = [false, true, true]
+  let rewrite_func = fn(
+    func : @lib.Func,
+    type_sec : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    if type_sec is None {
+      return None
+    }
+    let @lib.Func(_, @lib.Expr(body)) = func
+    let rewritten_body = body.copy()
+    rewritten_body.push(@lib.Instruction::nop())
+    Some(
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new(rewritten_body),
+      ),
+    )
+  }
+  let skipped = dae_try_apply_selected_def_func_rewrite_once(
+    current, selected, 0, rewrite_func,
+  )
+  assert_false(skipped.changed)
+  assert_eq(skipped.mod_out, current)
+  assert_eq(skipped.touched, [])
+  assert_eq(skipped.primary_def, -1)
+  let applied = dae_try_apply_selected_def_func_rewrite_once(
+    current, selected, 1, rewrite_func,
+  )
+  assert_true(applied.changed)
+  assert_eq(applied.touched, [false, true, false])
+  assert_eq(applied.primary_def, 1)
+  @debug.assert_eq(applied.mod_out.name_sec, None)
+  match applied.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(
+        funcs[0],
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+      )
+      assert_eq(
+        funcs[1],
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::nop(),
+          ]),
+        ),
+      )
+      assert_eq(
+        funcs[2],
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      )
+    }
+    None => fail("expected selected function rewrite to retain the code section")
+  }
+  let unchanged = dae_try_apply_selected_def_func_rewrite_once(
+    current,
+    selected,
+    2,
+    fn(func, _) { Some(func) },
+  )
+  assert_false(unchanged.changed)
+  assert_eq(unchanged.mod_out, current)
+  assert_eq(unchanged.touched, [])
+  assert_eq(unchanged.primary_def, -1)
+}
+
+///|
 test "dae selected body rewrite applies only the chosen function boundary" {
   let current = dae_wbtest_call_summary_fixture().with_name_sec(
     @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
