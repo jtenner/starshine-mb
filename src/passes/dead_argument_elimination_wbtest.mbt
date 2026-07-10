@@ -609,6 +609,8 @@ test "dae original result boundary row shares preservation and prune facts" {
   )
   let context = dae_original_result_boundary_context(
     preservation,
+    [0, 11, 0],
+    [false, true, false],
     [0, 0, 0],
     [false, false, false],
     [false, true, false],
@@ -662,6 +664,33 @@ test "dae original result boundary row shares preservation and prune facts" {
     row.prune.dead_suffix_mutual_call,
     row.preservation.dead_suffix_mutual_call,
   )
+  assert_eq(row.escape.private_result_escaped_operand_call_count, 11)
+  assert_true(row.escape.dead_suffix_undropped_escaped_result_call)
+  assert_false(row.preservation.dead_suffix_dropped_escaped_result_call)
+  assert_eq(
+    row.escape.private_result_dead_suffix_calls_from_escaped_operand_callees,
+    row.preservation.private_result_dead_suffix_calls_from_escaped_operand_callees,
+  )
+  assert_eq(
+    row.escape.escaped_dead_suffix_call_count,
+    row.preservation.escaped_dead_suffix_call_count,
+  )
+  assert_eq(
+    row.escape.dead_suffix_result_calls_from_undropped_self_caller,
+    row.preservation.dead_suffix_result_calls_from_undropped_self_caller,
+  )
+  assert_eq(
+    row.escape.dead_suffix_result_calls_from_no_param_undropped_self_caller,
+    row.preservation.dead_suffix_result_calls_from_no_param_undropped_self_caller,
+  )
+  assert_eq(
+    row.escape.dead_suffix_calls_from_param_operand_self_result_caller,
+    row.preservation.dead_suffix_calls_from_param_operand_self_result_caller,
+  )
+  assert_eq(
+    row.escape.dead_suffix_escaped_result_operand_call_count,
+    row.preservation.dead_suffix_escaped_result_operand_call_count,
+  )
   assert_eq(row.prune.later_dead_suffix_dropped_call_count, 4)
   assert_eq(row.prune.private_result_dead_suffix_call_count, 6)
   assert_eq(row.prune.dead_suffix_dropped_calls_from_no_param_result_caller, 8)
@@ -672,6 +701,9 @@ test "dae original result boundary row shares preservation and prune facts" {
   let empty = dae_original_result_boundary_row_from_context(9, context)
   assert_eq(empty.preservation.param_count, 0)
   assert_eq(empty.prune.param_count, 0)
+  assert_eq(empty.escape.private_result_escaped_operand_call_count, 0)
+  assert_eq(empty.escape.dead_suffix_escaped_result_operand_call_count, 0)
+  assert_false(empty.escape.dead_suffix_undropped_escaped_result_call)
   assert_false(
     dae_original_result_preservation_any(
       dae_original_result_boundary_evidence_from_row(empty).preservation,
