@@ -806,6 +806,13 @@ priv struct DaeDroppedResultRepairPlan {
 }
 
 ///|
+priv struct DaeDroppedResultUnreachableCalleeRewritePlan {
+  repair : DaeDroppedResultRepairPlan
+  next_params : Array[@lib.ValType]
+  next_results : Array[@lib.ValType]
+}
+
+///|
 priv struct DaeDroppedResultCandidate {
   callee_abs : Int
   direct_call_count : Int
@@ -11536,6 +11543,66 @@ fn dae_apply_dropped_result_repair_plan(
 }
 
 ///|
+fn dae_dropped_result_unreachable_callee_rewrite_plan(
+  context : DaeDroppedResultModuleContext,
+  repair_kind : DaeDroppedResultDeadSuffixRepairKind,
+  next_params : Array[@lib.ValType],
+) -> DaeDroppedResultUnreachableCalleeRewritePlan {
+  {
+    repair: dae_dropped_result_repair_plan(
+      context.scope,
+      context.imported + context.def_idx,
+      context.def_idx,
+      repair_kind,
+      remove_dropped_call_drops=true,
+      remove_dropped_call_drops_before_repair=false,
+    ),
+    next_params: next_params.copy(),
+    next_results: [],
+  }
+}
+
+///|
+fn dae_apply_dropped_result_unreachable_callee_rewrite(
+  mod_ : @lib.Module,
+  context : DaeDroppedResultModuleContext,
+  plan : DaeDroppedResultUnreachableCalleeRewritePlan,
+) -> DaePassResult {
+  dae_apply_dropped_result_repair_plan(
+    context.funcs,
+    context.type_indices,
+    context.type_sec,
+    context.imported,
+    plan.repair,
+  )
+  context.funcs[context.def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::unreachable_()]),
+  )
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
+    context.type_sec,
+    context.type_idxs,
+    context.def_idx,
+    plan.next_params,
+    plan.next_results,
+  )
+  context.type_idxs[context.def_idx] = new_type_idx
+  let touched = Array::make(context.funcs.length(), false)
+  touched[context.def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(context.type_idxs))
+    .with_code_sec(@lib.CodeSec::new(context.funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: context.def_idx,
+  }
+}
+
+///|
 fn dae_make_tail_call_boundary_evidence(
   has_direct_tail_call : Bool,
   has_indirect_tail_call : Bool,
@@ -13100,18 +13167,12 @@ fn dae_try_remove_unobserved_unreachable_function(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let imported = context.imported
   let def_idx = context.def_idx
-  let type_indices = context.type_indices
-  let type_idxs = context.type_idxs
   let funcs = context.funcs
-  let type_sec = context.type_sec
-  let params = context.params
-  let results = context.results
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
     funcs[def_idx],
-    params,
-    results,
+    context.params,
+    context.results,
     context.result_removal_legality,
     callee_abs,
   )
@@ -13124,7 +13185,6 @@ fn dae_try_remove_unobserved_unreachable_function(
   if module_calls_anywhere == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let full_scope = context.scope
   if rewrite_evidence.blocks_result_removal {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -13137,42 +13197,12 @@ fn dae_try_remove_unobserved_unreachable_function(
     ) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let repair_plan = dae_dropped_result_repair_plan(
-    full_scope,
-    callee_abs,
-    def_idx,
+  let plan = dae_dropped_result_unreachable_callee_rewrite_plan(
+    context,
     DaeRepairDeadSuffixAllCallers,
-    remove_dropped_call_drops=true,
-    remove_dropped_call_drops_before_repair=false,
-  )
-  dae_apply_dropped_result_repair_plan(
-    funcs, type_indices, type_sec, imported, repair_plan,
-  )
-  funcs[def_idx] = @lib.Func::new(
-    @lib.Locals::empty(),
-    @lib.Expr::new([@lib.Instruction::unreachable_()]),
-  )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_,
-    type_sec,
-    type_idxs,
-    def_idx,
-    [],
     [],
   )
-  type_idxs[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .with_code_sec(@lib.CodeSec::new(funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_apply_dropped_result_unreachable_callee_rewrite(mod_, context, plan)
 }
 
 ///|
@@ -13185,18 +13215,12 @@ fn dae_try_remove_dead_self_suffix_result(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let imported = context.imported
   let def_idx = context.def_idx
-  let type_indices = context.type_indices
-  let type_idxs = context.type_idxs
   let funcs = context.funcs
-  let type_sec = context.type_sec
-  let params = context.params
-  let results = context.results
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
     funcs[def_idx],
-    params,
-    results,
+    context.params,
+    context.results,
     context.result_removal_legality,
     callee_abs,
   )
@@ -13207,46 +13231,15 @@ fn dae_try_remove_dead_self_suffix_result(
     dae_dropped_result_callee_rewrite_missing_dropped_suffix(rewrite_evidence) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let full_scope = context.scope
   if rewrite_evidence.blocks_result_removal {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let repair_plan = dae_dropped_result_repair_plan(
-    full_scope,
-    callee_abs,
-    def_idx,
+  let plan = dae_dropped_result_unreachable_callee_rewrite_plan(
+    context,
     DaeRepairDeadSuffixNoParamCallers,
-    remove_dropped_call_drops=true,
-    remove_dropped_call_drops_before_repair=false,
-  )
-  dae_apply_dropped_result_repair_plan(
-    funcs, type_indices, type_sec, imported, repair_plan,
-  )
-  funcs[def_idx] = @lib.Func::new(
-    @lib.Locals::empty(),
-    @lib.Expr::new([@lib.Instruction::unreachable_()]),
-  )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_,
-    type_sec,
-    type_idxs,
-    def_idx,
-    [],
     [],
   )
-  type_idxs[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .with_code_sec(@lib.CodeSec::new(funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_apply_dropped_result_unreachable_callee_rewrite(mod_, context, plan)
 }
 
 ///|
@@ -13259,67 +13252,30 @@ fn dae_try_remove_uncalled_results(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let imported = context.imported
   let def_idx = context.def_idx
-  let type_indices = context.type_indices
-  let type_idxs = context.type_idxs
   let funcs = context.funcs
-  let type_sec = context.type_sec
-  let params = context.params
-  let results = context.results
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
     funcs[def_idx],
-    params,
-    results,
+    context.params,
+    context.results,
     context.result_removal_legality,
     callee_abs,
   )
   if rewrite_evidence.param_count != 0 || rewrite_evidence.result_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let full_scope = context.scope
   if rewrite_evidence.blocks_result_removal {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   if !rewrite_evidence.simplified_unreachable_only {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let repair_plan = dae_dropped_result_repair_plan(
-    full_scope,
-    callee_abs,
-    def_idx,
+  let plan = dae_dropped_result_unreachable_callee_rewrite_plan(
+    context,
     DaeRepairDeadSuffixNoParamCallers,
-    remove_dropped_call_drops=true,
-    remove_dropped_call_drops_before_repair=false,
+    context.params,
   )
-  dae_apply_dropped_result_repair_plan(
-    funcs, type_indices, type_sec, imported, repair_plan,
-  )
-  funcs[def_idx] = @lib.Func::new(
-    @lib.Locals::empty(),
-    @lib.Expr::new([@lib.Instruction::unreachable_()]),
-  )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_,
-    type_sec,
-    type_idxs,
-    def_idx,
-    params,
-    [],
-  )
-  type_idxs[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .with_code_sec(@lib.CodeSec::new(funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_apply_dropped_result_unreachable_callee_rewrite(mod_, context, plan)
 }
 
 ///|
