@@ -263,6 +263,65 @@ test "dae primary-selected core result application clears only the applied prima
 }
 
 ///|
+test "dae selected body rewrite applies only the chosen function boundary" {
+  let current = dae_wbtest_call_summary_fixture().with_name_sec(
+    @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
+  )
+  let selected = [false, true, true]
+  let rewrite_body = fn(
+    body : Array[@lib.Instruction],
+    type_sec : @lib.TypeSec?,
+  ) -> Array[@lib.Instruction]? {
+    if type_sec is None {
+      return None
+    }
+    let rewritten = body.copy()
+    rewritten.push(@lib.Instruction::nop())
+    Some(rewritten)
+  }
+  let skipped = dae_try_apply_selected_def_body_rewrite_once(
+    current, selected, 0, rewrite_body,
+  )
+  assert_false(skipped.changed)
+  assert_eq(skipped.mod_out, current)
+  assert_eq(skipped.touched, [])
+  assert_eq(skipped.primary_def, -1)
+  let applied = dae_try_apply_selected_def_body_rewrite_once(
+    current, selected, 1, rewrite_body,
+  )
+  assert_true(applied.changed)
+  assert_eq(applied.touched, [false, true, false])
+  assert_eq(applied.primary_def, 1)
+  @debug.assert_eq(applied.mod_out.name_sec, None)
+  match applied.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(first_body)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(rewritten_body)) = funcs[1]
+      let @lib.Func(_, @lib.Expr(last_body)) = funcs[2]
+      assert_eq(first_body, [@lib.Instruction::call(@lib.FuncIdx::new(1U))])
+      assert_eq(rewritten_body, [
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+        @lib.Instruction::nop(),
+      ])
+      assert_eq(last_body, [])
+    }
+    None => fail("expected selected body rewrite to retain the code section")
+  }
+  let unchanged = dae_try_apply_selected_def_body_rewrite_once(
+    current,
+    selected,
+    2,
+    fn(body, _) { Some(body) },
+  )
+  assert_false(unchanged.changed)
+  assert_eq(unchanged.mod_out, current)
+  assert_eq(unchanged.touched, [])
+  assert_eq(unchanged.primary_def, -1)
+}
+
+///|
 test "dae call boundary facts expose reusable forwarding gates" {
   let facts = dae_make_call_boundary_facts(
     [false, true, false],
