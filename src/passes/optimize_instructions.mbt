@@ -28729,6 +28729,7 @@ fn optimize_instructions_try_hoist_matching_reference_select(
 priv struct OiMatchingReferenceIfHoistFact {
   kind : OiMatchingReferenceSelectShellKind
   shell_id : Int
+  instr : @lib.Instruction?
   child_type : @lib.ValType
   if_true_child : Int
   if_false_child : Int
@@ -28743,8 +28744,8 @@ fn OiMatchingReferenceIfHoistFact::from_if(
 ) -> OiMatchingReferenceIfHoistFact? {
   // Binaryen v130 instantiates the same `optimizeTernary` shallow-equal loop
   // for `If`. Unlike Select, moving a shallow shell does not reduce its
-  // execution count. Start with the direct one-root ref.is_null arm subset so
-  // rebuilding the value regions and their result type is explicit and safe.
+  // execution count. Keep the direct one-root ref.is_null and exact ref.test
+  // arm subset so rebuilding the value regions and result type stays explicit.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::If => ()
@@ -28791,14 +28792,17 @@ fn OiMatchingReferenceIfHoistFact::from_if(
   }
   match (true_fact.kind, false_fact.kind) {
     (MatchingSelectRefIsNull, MatchingSelectRefIsNull) => ()
+    (MatchingSelectRefTest, MatchingSelectRefTest) => ()
     _ => return None
   }
-  if true_fact.child_type != false_fact.child_type {
+  if true_fact.instr != false_fact.instr ||
+    true_fact.child_type != false_fact.child_type {
     return None
   }
   Some({
     kind: false_fact.kind,
     shell_id: false_fact.shell_id,
+    instr: false_fact.instr,
     child_type: false_fact.child_type,
     if_true_child: true_fact.child_id,
     if_false_child: false_fact.child_id,
@@ -28829,7 +28833,23 @@ fn OiMatchingReferenceIfHoistFact::apply(
         @ir.hot_type_intern_value(func, @lib.ValType::i32()),
         children=[inner],
       )
-    MatchingSelectRefTest => return false
+    MatchingSelectRefTest => {
+      let instr = match self.instr {
+        Some(instr) => instr
+        None => return false
+      }
+      let payload_id = @ir.hot_alloc_instr_payload(
+        func,
+        @ir.HotInstrPayload::new(instr),
+      )
+      @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, self.shell_id).op,
+        @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+        imm1=payload_id,
+        children=[inner],
+      )
+    }
   }
   // Keep the original structured node intact as a detached, label-owning node.
   // HOT's in-place replacement helper cannot change a control node into a
