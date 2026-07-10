@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
@@ -250,6 +250,19 @@ The real proof surface is the combined `dae_tnh` + `dae-gc*` family, with optimi
 
 Wrong.
 `dae2` is a separately registered experimental pass and should stay in its own dossier.
+
+## Current Starshine observability and prefix-elision proof surface
+
+The active Starshine core now routes recursive instruction observability through `DaeInstructionObservabilityEvidence` in [`src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt). The carrier separates observable effects, branch control, and conservative trap/unknown status. Existing effect-only and effect-or-branch callers project from the same evidence, while pre-unreachable prefix elision additionally checks escaping-branch legality and constant-safe numeric trap conditions.
+
+The adjacent proof surface is split deliberately:
+
+- [`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt) locks pure/effect/branch/trap classification;
+- [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt) locks public plain-DAE retention of a reachable zero-divisor trap while still removing the unused parameter and dead post-unreachable suffix;
+- `.tmp/dae-coverage-forced-portable-classification-20260710.json` exhaustively classifies all `259` current coverage residuals as constant-safe, effect-free, non-escaping pure-prefix elimination with measured size and output-performance wins;
+- the same tests keep plain `dead-argument-elimination` / `dae` distinct from the optimizing-only cleanup suffix.
+
+This local evidence does not replace the upstream owner/test map above. It documents the current Starshine safety boundary around one extra cleanup direction that Binaryen plain DAE does not perform.
 
 ## Porting takeaway
 
