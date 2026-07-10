@@ -10765,6 +10765,67 @@ test "optimize-instructions folds first+second+fifth trees in five-operand mixed
 }
 
 ///|
+test "optimize-instructions folds first+third+fourth trees in five-operand mixed i64-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks
+  // exact i32.add(local, const) trees in the first and third operands, an
+  // equal direct i64 second leaf, an exact i64.add(local, const) fourth
+  // operand, and an equal direct fifth leaf on annotated
+  // (i32, i64, i32, i64, i32) -> i64 calls in the i64 zero-test self-select.
+  // A mismatch in any logical slot retains both calls. Source:
+  // `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-five-first-three-tree-foldability.wat`
+  // (`mixed_five_first_third_fourth_tree_equal` and its five mismatch functions).
+  let optimize_caller = fn(
+    right_first_tree_const : Int,
+    right_second_const : Int64,
+    right_third_tree_const : Int,
+    right_fourth_tree_const : Int64,
+    right_fifth_const : Int,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 call $id local.get 0 i32.const " +
+      right_first_tree_const.to_string() +
+      " i32.add i64.const " +
+      right_second_const.to_string() +
+      " local.get 1 i32.const " +
+      right_third_tree_const.to_string() +
+      " i32.add local.get 2 i64.const " +
+      right_fourth_tree_const.to_string() +
+      " i64.add i32.const " +
+      right_fifth_const.to_string() +
+      " call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected first+third+fourth-tree five-operand mixed i64-result call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(3, 5L, 7, 11L, 13)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(4, 5L, 7, 11L, 13),
+      optimize_caller(3, 6L, 7, 11L, 13),
+      optimize_caller(3, 5L, 8, 11L, 13),
+      optimize_caller(3, 5L, 7, 12L, 13),
+      optimize_caller(3, 5L, 7, 11L, 14),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds direct i64-i32-i32 mixed i64-result calls" {
   // Red-first OI-F parity slice: Binaryen version_130 independently checks
   // every direct operand of an annotated (i64, i32, i32) -> i64 call before
