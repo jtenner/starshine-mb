@@ -17211,6 +17211,23 @@ fn dae_apply_selected_core_result(
 }
 
 ///|
+fn dae_apply_primary_selected_core_result(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  selected_defs : Array[Bool],
+  result : DaePassResult,
+) -> DaeCoreResultApplication {
+  let application = dae_apply_core_result(current, touched, changed, result)
+  if application.applied &&
+    application.primary_def >= 0 &&
+    application.primary_def < selected_defs.length() {
+    selected_defs[application.primary_def] = false
+  }
+  application
+}
+
+///|
 fn dae_collect_direct_callee_defs_from_caller_prefix(
   mod_ : @lib.Module,
   max_caller_def_exclusive : Int,
@@ -29334,8 +29351,8 @@ fn dae_run_core(
     let low_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, low_callee_selected_defs, low_callee_call_facts,
     )
-    let low_callee_application = dae_apply_core_result(
-      current, touched, changed, low_callee_result,
+    let low_callee_application = dae_apply_primary_selected_core_result(
+      current, touched, changed, low_callee_selected_defs, low_callee_result,
     )
     if !low_callee_application.applied {
       break
@@ -29343,10 +29360,6 @@ fn dae_run_core(
     current = low_callee_application.mod_out
     touched = low_callee_application.touched
     changed = low_callee_application.changed
-    if low_callee_application.primary_def >= 0 &&
-      low_callee_application.primary_def < low_callee_selected_defs.length() {
-      low_callee_selected_defs[low_callee_application.primary_def] = false
-    }
     trace(
       "pass[dae-optimizing]:low-callee-core iter=\{low_callee_iter} primary_def=\{low_callee_application.primary_def}",
     )
@@ -29360,8 +29373,8 @@ fn dae_run_core(
     let low_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, low_wrapper_callee_selected_defs, low_callee_call_facts,
     )
-    let low_wrapper_callee_application = dae_apply_core_result(
-      current, touched, changed, low_wrapper_callee_result,
+    let low_wrapper_callee_application = dae_apply_primary_selected_core_result(
+      current, touched, changed, low_wrapper_callee_selected_defs, low_wrapper_callee_result,
     )
     if !low_wrapper_callee_application.applied {
       break
@@ -29369,11 +29382,6 @@ fn dae_run_core(
     current = low_wrapper_callee_application.mod_out
     touched = low_wrapper_callee_application.touched
     changed = low_wrapper_callee_application.changed
-    if low_wrapper_callee_application.primary_def >= 0 &&
-      low_wrapper_callee_application.primary_def <
-      low_wrapper_callee_selected_defs.length() {
-      low_wrapper_callee_selected_defs[low_wrapper_callee_application.primary_def] = false
-    }
     trace(
       "pass[dae-optimizing]:low-wrapper-callee-core iter=\{low_wrapper_callee_iter} primary_def=\{low_wrapper_callee_application.primary_def}",
     )
