@@ -2007,6 +2007,79 @@ test "dae dropped result unreachable callee rewrite centralizes application" {
 }
 
 ///|
+test "dae dropped result module finalization preserves touched policy" {
+  let result_type = @lib.TypeIdx::new(0U)
+  let callee = @lib.FuncIdx::new(1U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(callee),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let context = match dae_dropped_result_module_context(mod_, 1) {
+    Some(context) => context
+    None => fail("expected dropped-result module context")
+  }
+  let rewritten_funcs = context.funcs.copy()
+  rewritten_funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::call(callee)]),
+  )
+  rewritten_funcs[1] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let plan = dae_dropped_result_module_finalization_plan(
+    [],
+    [],
+    DaeTouchDroppedResultChangedFuncs,
+  )
+  assert_eq(plan.next_params, [])
+  assert_eq(plan.next_results, [])
+  let result = dae_apply_dropped_result_module_finalization(
+    mod_, context, rewritten_funcs, plan,
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 1)
+  assert_eq(result.touched, [true, true])
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs, rewritten_funcs)
+    None => fail("expected finalized code section")
+  }
+  let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 1) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [])
+      assert_eq(results, [])
+    }
+    None => fail("expected finalized callee type")
+  }
+}
+
+///|
 test "dae uniform const boundary facts carry direct caller evidence" {
   let caller_type = @lib.TypeIdx::new(0U)
   let callee_type = @lib.TypeIdx::new(1U)
