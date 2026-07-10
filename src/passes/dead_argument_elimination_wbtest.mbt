@@ -325,7 +325,8 @@ test "dae selected function rewrite applies locals and body at the chosen bounda
         @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       )
     }
-    None => fail("expected selected function rewrite to retain the code section")
+    None =>
+      fail("expected selected function rewrite to retain the code section")
   }
   let unchanged = dae_try_apply_selected_def_func_rewrite_once(
     current,
