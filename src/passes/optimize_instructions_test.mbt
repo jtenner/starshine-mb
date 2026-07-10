@@ -4341,6 +4341,42 @@ test "optimize-instructions folds i64 multi-operand idempotent-call self-selects
 }
 
 ///|
+test "optimize-instructions folds tree-bearing multi-operand idempotent calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 walks every operand tree
+  // of repeated annotated calls. An exact i32.add(local, const) first operand
+  // can therefore compose with a direct constant second operand; a mismatched
+  // inner constant remains. Source: `OptimizeInstructions.cpp:2891-2947`;
+  // oracle: `.tmp/oi-probes/select-idempotent-call-next2-foldability.wat`
+  // (`mixed_tree_equal` and `mixed_tree_mismatch`).
+  let optimize_caller = fn(right_inner_const : Int) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32) (result i32) local.get 0 local.get 1 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add i32.const 7 call $id i32.const 0 local.get 0 i32.const " +
+      right_inner_const.to_string() +
+      " i32.add i32.const 7 call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected tree-bearing multi-operand idempotent-call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(1)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  let different_tree = optimize_caller(2)
+  assert_true(different_tree.contains("select"), msg=different_tree)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(different_tree, "call (Func 0)"),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds composed-tree idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 recursively walks
   // represented nontrapping operand shells, so i32.eqz(i32.add(local, const))
