@@ -1372,10 +1372,10 @@ test "dae dropped result module context centralizes section scope and legality f
   match dae_dropped_result_module_context(mod_, 1, caller_defs=Some([0])) {
     Some(context) => {
       assert_eq(context.imported, 0)
-      assert_eq(context.def_idx, 1)
+      assert_eq(context.signature.def_idx, 1)
       assert_eq(context.type_indices.length(), 2)
-      assert_eq(context.type_idxs.length(), 2)
-      assert_eq(context.funcs.length(), 2)
+      assert_eq(context.signature.type_idxs.length(), 2)
+      assert_eq(context.signature.funcs.length(), 2)
       assert_eq(context.scope.caller_defs, [0])
       assert_eq(context.params.length(), 0)
       assert_eq(context.results, [@lib.ValType::i32()])
@@ -2036,14 +2036,11 @@ test "dae module signature finalization preserves code reconstruction boundary" 
         ),
       ]),
     )
-  let context = match
-    dae_module_signature_context(mod_, 1, copy_funcs=false) {
+  let context = match dae_module_signature_context(mod_, 1, copy_funcs=false) {
     Some(context) => context
     None => fail("expected module signature context")
   }
-  let result = dae_apply_module_signature_finalization(
-    mod_, context, [], [],
-  )
+  let result = dae_apply_module_signature_finalization(mod_, context, [], [])
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)
   assert_eq(result.touched, [false, true])
@@ -2092,7 +2089,7 @@ test "dae dropped result module finalization preserves touched policy" {
     Some(context) => context
     None => fail("expected dropped-result module context")
   }
-  let rewritten_funcs = context.funcs.copy()
+  let rewritten_funcs = context.signature.funcs.copy()
   rewritten_funcs[0] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::call(callee)]),

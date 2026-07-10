@@ -926,15 +926,20 @@ priv struct DaeOriginalEscapedResultOperandCallFacts {
 }
 
 ///|
-priv struct DaeDroppedResultModuleContext {
-  imported : Int
+priv struct DaeModuleSignatureContext {
   def_idx : Int
-  type_indices : Array[@lib.TypeIdx]
-  params : Array[@lib.ValType]
-  results : Array[@lib.ValType]
   type_idxs : Array[@lib.TypeIdx]
   funcs : Array[@lib.Func]
   type_sec : @lib.TypeSec
+}
+
+///|
+priv struct DaeDroppedResultModuleContext {
+  signature : DaeModuleSignatureContext
+  imported : Int
+  type_indices : Array[@lib.TypeIdx]
+  params : Array[@lib.ValType]
+  results : Array[@lib.ValType]
   scope : DaeDroppedResultScope
   result_removal_legality : DaeDroppedResultRemovalLegalityEvidence
 }
@@ -9116,33 +9121,86 @@ fn dae_direct_gc_result_candidate_body(
 }
 
 ///|
+fn dae_module_signature_context(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  copy_funcs~ : Bool,
+) -> DaeModuleSignatureContext? {
+  match (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) => {
+      if def_idx < 0 ||
+        def_idx >= funcs.length() ||
+        def_idx >= type_idxs.length() {
+        return None
+      }
+      Some({
+        def_idx,
+        type_idxs: type_idxs.copy(),
+        funcs: if copy_funcs {
+          funcs.copy()
+        } else {
+          funcs
+        },
+        type_sec,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn dae_apply_module_signature_finalization(
+  mod_ : @lib.Module,
+  context : DaeModuleSignatureContext,
+  next_params : Array[@lib.ValType],
+  next_results : Array[@lib.ValType],
+  perf? : HotPerfSession? = None,
+  type_update_timer_name? : String = "",
+) -> DaePassResult {
+  let type_update_start_us = if type_update_timer_name.length() > 0 {
+    perf_start_timer_opt(perf, type_update_timer_name)
+  } else {
+    0UL
+  }
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
+    context.type_sec,
+    context.type_idxs,
+    context.def_idx,
+    next_params,
+    next_results,
+  )
+  if type_update_timer_name.length() > 0 {
+    perf_stop_timer_opt(perf, type_update_timer_name, type_update_start_us)
+  }
+  context.type_idxs[context.def_idx] = new_type_idx
+  let touched = Array::make(context.funcs.length(), false)
+  touched[context.def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(context.type_idxs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: context.def_idx,
+  }
+}
+
+///|
 fn dae_try_update_signature_only(
   mod_ : @lib.Module,
   def_idx : Int,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> DaePassResult {
-  let (type_idxs, funcs, type_sec) = match
-    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
-      (type_idxs.copy(), funcs, type_sec)
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_, type_sec, type_idxs, def_idx, params, results,
-  )
-  type_idxs[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  dae_apply_module_signature_finalization(mod_, context, params, results)
 }
 
 ///|
@@ -11373,18 +11431,17 @@ fn dae_dropped_result_module_context(
   } else {
     0UL
   }
-  let (type_idxs, funcs, type_sec) = match
-    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) => {
-      let copied = (type_idxs.copy(), funcs.copy(), type_sec)
+  let signature = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=true) {
+    Some(signature) => {
       if timer_prefix.length() > 0 {
         perf_stop_timer_opt(
           perf, section_copy_timer_name, section_copy_start_us,
         )
       }
-      copied
+      signature
     }
-    _ => {
+    None => {
       if timer_prefix.length() > 0 {
         perf_stop_timer_opt(
           perf, section_copy_timer_name, section_copy_start_us,
@@ -11393,11 +11450,8 @@ fn dae_dropped_result_module_context(
       return None
     }
   }
-  if def_idx < 0 || def_idx >= funcs.length() {
-    return None
-  }
   let scope = dae_dropped_result_scope_from_optional(
-    funcs.length(),
+    signature.funcs.length(),
     caller_defs,
   )
   let undropped_scan_timer_name = "\{timer_prefix}:undropped-scan"
@@ -11407,7 +11461,11 @@ fn dae_dropped_result_module_context(
     0UL
   }
   let result_removal_legality = dae_dropped_result_removal_legality_evidence(
-    funcs, scope, callee_abs, def_idx, results,
+    signature.funcs,
+    scope,
+    callee_abs,
+    def_idx,
+    results,
   )
   if timer_prefix.length() > 0 {
     perf_stop_timer_opt(
@@ -11415,14 +11473,11 @@ fn dae_dropped_result_module_context(
     )
   }
   Some({
+    signature,
     imported,
-    def_idx,
     type_indices,
     params,
     results,
-    type_idxs,
-    funcs,
-    type_sec,
     scope,
     result_removal_legality,
   })
@@ -11576,32 +11631,22 @@ fn dae_apply_dropped_result_module_finalization(
   perf? : HotPerfSession? = None,
   type_update_timer_name? : String = "",
 ) -> DaePassResult {
-  let type_update_start_us = if type_update_timer_name.length() > 0 {
-    perf_start_timer_opt(perf, type_update_timer_name)
-  } else {
-    0UL
-  }
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+  let signature_result = dae_apply_module_signature_finalization(
     mod_,
-    context.type_sec,
-    context.type_idxs,
-    context.def_idx,
+    context.signature,
     plan.next_params,
     plan.next_results,
+    perf~,
+    type_update_timer_name~,
   )
-  if type_update_timer_name.length() > 0 {
-    perf_stop_timer_opt(perf, type_update_timer_name, type_update_start_us)
-  }
-  context.type_idxs[context.def_idx] = new_type_idx
-  let touched = Array::make(rewritten_funcs.length(), false)
-  touched[context.def_idx] = true
+  let touched = signature_result.touched
   match plan.touched_policy {
     DaeTouchDroppedResultCalleeOnly => ()
     DaeTouchDroppedResultChangedFuncs => {
       let mut caller_def = 0
-      while caller_def < context.funcs.length() &&
+      while caller_def < context.signature.funcs.length() &&
             caller_def < rewritten_funcs.length() {
-        if context.funcs[caller_def] != rewritten_funcs[caller_def] {
+        if context.signature.funcs[caller_def] != rewritten_funcs[caller_def] {
           touched[caller_def] = true
         }
         caller_def += 1
@@ -11609,14 +11654,12 @@ fn dae_apply_dropped_result_module_finalization(
     }
   }
   {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(context.type_idxs))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
+    mod_out: signature_result.mod_out.with_code_sec(
+      @lib.CodeSec::new(rewritten_funcs),
+    ),
     touched,
     changed: true,
-    primary_def: context.def_idx,
+    primary_def: signature_result.primary_def,
   }
 }
 
@@ -11629,8 +11672,8 @@ fn dae_dropped_result_unreachable_callee_rewrite_plan(
   {
     repair: dae_dropped_result_repair_plan(
       context.scope,
-      context.imported + context.def_idx,
-      context.def_idx,
+      context.imported + context.signature.def_idx,
+      context.signature.def_idx,
       repair_kind,
       remove_dropped_call_drops=true,
       remove_dropped_call_drops_before_repair=false,
@@ -11650,20 +11693,20 @@ fn dae_apply_dropped_result_unreachable_callee_rewrite(
   plan : DaeDroppedResultUnreachableCalleeRewritePlan,
 ) -> DaePassResult {
   dae_apply_dropped_result_repair_plan(
-    context.funcs,
+    context.signature.funcs,
     context.type_indices,
-    context.type_sec,
+    context.signature.type_sec,
     context.imported,
     plan.repair,
   )
-  context.funcs[context.def_idx] = @lib.Func::new(
+  context.signature.funcs[context.signature.def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
   dae_apply_dropped_result_module_finalization(
     mod_,
     context,
-    context.funcs,
+    context.signature.funcs,
     plan.finalization,
   )
 }
@@ -11766,15 +11809,15 @@ fn dae_try_remove_dropped_results(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let imported = context.imported
-  let def_idx = context.def_idx
+  let def_idx = context.signature.def_idx
   let type_indices = context.type_indices
   let params = context.params
   let results = context.results
   if results.length() != 1 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let funcs = context.funcs
-  let type_sec = context.type_sec
+  let funcs = context.signature.funcs
+  let type_sec = context.signature.type_sec
   let rewrite_scope = context.scope
   if dae_dropped_result_removal_legality_blocks(context.result_removal_legality) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -13132,12 +13175,14 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   if params.length() == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let (type_idxs, funcs, type_sec) = match
-    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
-      (type_idxs.copy(), funcs.copy(), type_sec)
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let signature = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=true) {
+    Some(signature) => signature
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let funcs = signature.funcs
+  let type_sec = signature.type_sec
   let current_calls_anywhere = dae_count_module_calls_anywhere_to(
     funcs, callee_abs,
   )
@@ -13182,21 +13227,14 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_, type_sec, type_idxs, def_idx, next_params, results,
+  let signature_result = dae_apply_module_signature_finalization(
+    mod_, signature, next_params, results,
   )
-  type_idxs[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
   {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .with_code_sec(@lib.CodeSec::new(funcs))
-    .without_name_sec(),
-    touched,
+    mod_out: signature_result.mod_out.with_code_sec(@lib.CodeSec::new(funcs)),
+    touched: signature_result.touched,
     changed: true,
-    primary_def: def_idx,
+    primary_def: signature_result.primary_def,
   }
 }
 
@@ -13210,8 +13248,8 @@ fn dae_try_remove_unobserved_unreachable_function(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let def_idx = context.def_idx
-  let funcs = context.funcs
+  let def_idx = context.signature.def_idx
+  let funcs = context.signature.funcs
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
     funcs[def_idx],
     context.params,
@@ -13258,8 +13296,8 @@ fn dae_try_remove_dead_self_suffix_result(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let def_idx = context.def_idx
-  let funcs = context.funcs
+  let def_idx = context.signature.def_idx
+  let funcs = context.signature.funcs
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
     funcs[def_idx],
     context.params,
@@ -13295,8 +13333,8 @@ fn dae_try_remove_uncalled_results(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let def_idx = context.def_idx
-  let funcs = context.funcs
+  let def_idx = context.signature.def_idx
+  let funcs = context.signature.funcs
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
     funcs[def_idx],
     context.params,
