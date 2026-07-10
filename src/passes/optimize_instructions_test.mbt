@@ -4305,6 +4305,67 @@ test "optimize-instructions hoists matching integer sign extension select arm sh
 }
 
 ///|
+test "optimize-instructions hoists matching unary if arm chains" {
+  // Red-first OI-F ternary parity slice: Binaryen v130 runs the same repeated
+  // shallow-equal one-child loop for value If arms. Cover direct eqz, a
+  // repeated eqz(clz(...)) chain, and a cross-type integer-to-float shell.
+  // Oracle: `.tmp/oi-probes/if-matching-unary-hoist.wat`.
+  let eqz_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) local.get 2 if (result i32) local.get 0 i32.eqz else local.get 1 i32.eqz end))",
+  )
+  let eqz_root = @ir.hot_root_get(eqz_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eqz_func, eqz_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let eqz_if = @ir.hot_child_get(eqz_func, eqz_root, 0)
+  match @ir.hot_node_get(eqz_func, eqz_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected matching eqz If arms to hoist, got \{other}")
+  }
+
+  let chain_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) local.get 2 if (result i32) local.get 0 i32.clz i32.eqz else local.get 1 i32.clz i32.eqz end))",
+  )
+  let chain_root = @ir.hot_root_get(chain_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(chain_func, chain_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let chain_clz = @ir.hot_child_get(chain_func, chain_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(chain_func, chain_clz),
+    Some(@lib.Instruction::i32_clz()),
+  )
+  let chain_if = @ir.hot_child_get(chain_func, chain_clz, 0)
+  match @ir.hot_node_get(chain_func, chain_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected repeated matching unary If chain, got \{other}")
+  }
+
+  let convert_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result f64) local.get 2 if (result f64) local.get 0 f64.convert_i32_s else local.get 1 f64.convert_i32_s end))",
+  )
+  let convert_root = @ir.hot_root_get(convert_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(convert_func, convert_root),
+    Some(@lib.Instruction::f64_convert_i32s()),
+  )
+  let convert_if = @ir.hot_child_get(convert_func, convert_root, 0)
+  match @ir.hot_node_get(convert_func, convert_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected matching conversion If arms to hoist, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_type_results(
+      convert_func,
+      @ir.hot_node_type(convert_func, convert_if),
+    ),
+    [@lib.ValType::i32()],
+  )
+}
+
+///|
 test "optimize-instructions hoists matching ref.is_null select arm shells" {
   // Red-first OI-F ternary parity slice: Binaryen v130's generic shallow-equal
   // one-child loop hoists matching side-effect-free ref.is_null shells over a

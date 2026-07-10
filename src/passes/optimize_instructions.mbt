@@ -28557,6 +28557,124 @@ fn optimize_instructions_try_hoist_matching_unary_select(
 }
 
 ///|
+priv struct OiMatchingUnaryIfHoistFact {
+  shell_facts : Array[OiMatchingUnarySelectArmFact]
+  inner_if_type : @lib.ValType
+  if_true_child : Int
+  if_false_child : Int
+  condition_id : Int
+  root_index : Int
+}
+
+///|
+fn OiMatchingUnaryIfHoistFact::from_if(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingUnaryIfHoistFact? {
+  // Binaryen v130 instantiates `optimizeTernary` for If as well as Select and
+  // repeatedly moves matching one-child shells. Reuse the exact scalar shell
+  // pair facts, but keep the first safe HOT writeback at a direct function root.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  let mut root_index = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    if @ir.hot_root_get(func, idx) == node_id {
+      root_index = idx
+      break
+    }
+  }
+  if root_index < 0 {
+    return None
+  }
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return None
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return None
+  }
+  let mut if_true_child = @ir.hot_region_get(func, then_region, 0)
+  let mut if_false_child = @ir.hot_region_get(func, else_region, 0)
+  let mut inner_if_type = match @ir.hot_type_results(func, node.ty) {
+    [result] => result
+    _ => return None
+  }
+  let shell_facts : Array[OiMatchingUnarySelectArmFact] = []
+  let mut scanning = true
+  while scanning {
+    match
+      OiMatchingUnarySelectArmPairFact::from_arms(
+        func, if_true_child, if_false_child,
+      ) {
+      Some(pair_fact) =>
+        if pair_fact.shell_fact.result_type != inner_if_type {
+          scanning = false
+        } else {
+          inner_if_type = pair_fact.shell_fact.child_type
+          if_true_child = pair_fact.if_true_child
+          if_false_child = pair_fact.if_false_child
+          shell_facts.push(pair_fact.shell_fact)
+        }
+      None => scanning = false
+    }
+  }
+  if shell_facts.length() == 0 {
+    return None
+  }
+  Some({
+    shell_facts,
+    inner_if_type,
+    if_true_child,
+    if_false_child,
+    condition_id: @ir.hot_child_get(func, node_id, 0),
+    root_index,
+  })
+}
+
+///|
+fn OiMatchingUnaryIfHoistFact::apply(
+  self : OiMatchingUnaryIfHoistFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let mut replacement = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(self.inner_if_type),
+    self.condition_id,
+    [self.if_true_child],
+    else_body=Some([self.if_false_child]),
+  )
+  let mut remaining = self.shell_facts.length()
+  while remaining > 0 {
+    remaining = remaining - 1
+    let shell_fact = self.shell_facts[remaining]
+    let outer = @ir.hot_build_unary(func, shell_fact.result_type, replacement)
+    @ir.hot_node_exact_instr_set(func, outer, shell_fact.instr)
+    replacement = outer
+  }
+  @ir.hot_root_set(func, self.root_index, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_hoist_matching_unary_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match OiMatchingUnaryIfHoistFact::from_if(func, node_id) {
+    Some(fact) => fact.apply(ctx, func)
+    None => false
+  }
+}
+
+///|
 priv enum OiMatchingReferenceSelectShellKind {
   MatchingSelectRefIsNull
   MatchingSelectRefTest
@@ -40480,6 +40598,7 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
+      optimize_instructions_try_hoist_matching_unary_if(ctx, func, node_id) ||
       optimize_instructions_try_hoist_matching_reference_if(ctx, func, node_id) ||
       optimize_instructions_try_sink_same_global_set_if(
         ctx, func, dead, node_id,
