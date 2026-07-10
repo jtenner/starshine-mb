@@ -4230,6 +4230,43 @@ test "optimize-instructions folds binary-tree idempotent-call self-selects" {
 }
 
 ///|
+test "optimize-instructions folds immutable-global binary-tree idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 accepts an immutable
+  // global read below a nontrapping add operand shell, but the same mutable read
+  // is invalidated by the first annotated call and must keep both evaluations.
+  // Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-scalar-tree-foldability.wat`
+  // (`immutable_global_tree` and `mutable_global_tree`).
+  let optimize_global = fn(mutable : Bool) raise {
+    let global_type = if mutable { "(mut i32)" } else { "i32" }
+    let wat = "(module (global $g " +
+      global_type +
+      " (i32.const 7)) (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (result i32) global.get $g i32.const 1 i32.add call $id i32.const 0 global.get $g i32.const 1 i32.add call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected global binary-tree idempotent-call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let immutable = optimize_global(false)
+  assert_false(immutable.contains("select"), msg=immutable)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(immutable, "call (Func 0)"),
+    1,
+  )
+  let mutable = optimize_global(true)
+  assert_true(mutable.contains("select"), msg=mutable)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(mutable, "call (Func 0)"),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and
