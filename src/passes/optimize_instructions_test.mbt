@@ -2939,6 +2939,44 @@ test "optimize-instructions folds i32 eqz block constants in boolean context" {
 }
 
 ///|
+test "optimize-instructions folds i32 eqz local tee constants in boolean context" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // looks through a direct local.tee via `Properties::getFallthrough`, then
+  // preserves the complete tee evaluation under a drop before the i32 truth
+  // value. Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-local-tee.wat`.
+  let assert_fold = fn(tail : Int, expected : Int) raise {
+    let func = optimize_instructions_test_run_hot(
+      "(module (func (param i32) (result i32) (if (result i32) (i32.eqz (local.tee 0 (i32.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
+    )
+    let condition = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    match @ir.hot_node_get(func, condition).op {
+      @ir.HotOp::Block => ()
+      other => fail("expected folded i32 tee condition block, got \{other}")
+    }
+    let body = @ir.hot_region_body_ref(func, condition)
+    @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+    let dropped = @ir.hot_region_get(func, body, 0)
+    match @ir.hot_node_get(func, dropped).op {
+      @ir.HotOp::Drop => ()
+      other => fail("expected original i32 tee evaluation drop, got \{other}")
+    }
+    let tee = @ir.hot_child_get(func, dropped, 0)
+    match @ir.hot_node_get(func, tee).op {
+      @ir.HotOp::LocalTee =>
+        @debug.assert_eq(@ir.hot_node_get(func, tee).imm0, 0)
+      other => fail("expected dropped i32 local.tee, got \{other}")
+    }
+    let result = @ir.hot_region_get(func, body, 1)
+    @debug.assert_eq(
+      @ir.hot_const_get(func, @ir.hot_node_get(func, result).imm0),
+      @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+    )
+  }
+  assert_fold(0, 1)
+  assert_fold(9, 0)
+}
+
+///|
 test "optimize-instructions folds i64 eqz block constants in boolean context" {
   // Red-first OI-F behavior-parity follow-up: Binaryen v130 applies the same
   // `getFallthrough` constant fold to i64.eqz operands and emits an i32 truth

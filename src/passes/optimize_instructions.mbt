@@ -38509,6 +38509,63 @@ priv struct OiBooleanForwardReplacementFact {
 }
 
 ///|
+priv enum OiBooleanEqzFallthroughValueKind {
+  BooleanEqzFallthroughBlockTail
+  BooleanEqzFallthroughLocalTeeChild
+}
+
+///|
+priv struct OiBooleanEqzFallthroughValueFact {
+  kind : OiBooleanEqzFallthroughValueKind
+  value_id : Int
+}
+
+///|
+fn OiBooleanEqzFallthroughValueFact::from_operand(
+  func : @ir.HotFunc,
+  operand_id : Int,
+  expected_type : @lib.ValType,
+) -> OiBooleanEqzFallthroughValueFact? {
+  // Binaryen v130 `Properties::getImmediateFallthrough` looks through unnamed
+  // nonempty blocks and direct local.tee values. Keep the represented wrapper
+  // and selected value together so boolean eqz folding does not grow another
+  // opcode whitelist.
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
+    [result] if result == expected_type => ()
+    _ => return None
+  }
+  let operand = @ir.hot_node_get(func, operand_id)
+  match operand.op {
+    @ir.HotOp::Block => {
+      let body_ref = @ir.hot_region_body_ref(func, operand_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count == 0 {
+        return None
+      }
+      Some({
+        kind: BooleanEqzFallthroughBlockTail,
+        value_id: @ir.hot_region_get(func, body_ref, root_count - 1),
+      })
+    }
+    @ir.HotOp::LocalTee if operand.child_count == 1 =>
+      Some({
+        kind: BooleanEqzFallthroughLocalTeeChild,
+        value_id: @ir.hot_child_get(func, operand_id, 0),
+      })
+    _ => None
+  }
+}
+
+///|
+fn OiBooleanEqzFallthroughValueFact::proves_supported_wrapper(
+  self : OiBooleanEqzFallthroughValueFact,
+) -> Bool {
+  match self.kind {
+    BooleanEqzFallthroughBlockTail | BooleanEqzFallthroughLocalTeeChild => true
+  }
+}
+
+///|
 priv struct OiBooleanEqzFallthroughConstFact {
   operand_id : Int
   folded_value : Int
@@ -38521,9 +38578,9 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
   node_id : Int,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
-  // i32.eqz operand before folding a constant fallthrough. Start with the
-  // represented nonempty single-i32-result block subset and preserve the whole
-  // operand evaluation, matching `getDroppedChildrenAndAppend`.
+  // i32.eqz operand before folding a constant fallthrough. Represent nonempty
+  // single-i32-result block tails and direct local.tee children, preserving the
+  // whole operand evaluation to match `getDroppedChildrenAndAppend`.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()
@@ -38533,22 +38590,17 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
   if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return None
   }
-  match @ir.hot_node_get(func, operand_id).op {
-    @ir.HotOp::Block => ()
+  let fallthrough = match
+    OiBooleanEqzFallthroughValueFact::from_operand(
+      func,
+      operand_id,
+      @lib.ValType::i32(),
+    ) {
+    Some(fact) if fact.proves_supported_wrapper() => fact
     _ => return None
   }
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
-    [result] if result == @lib.ValType::i32() => ()
-    _ => return None
-  }
-  let body_ref = @ir.hot_region_body_ref(func, operand_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count == 0 {
-    return None
-  }
-  let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
   let folded_value = match
-    optimize_instructions_i32_const(func, dead, tail_id) {
+    optimize_instructions_i32_const(func, dead, fallthrough.value_id) {
     Some(@lib.I32(0)) => 1
     Some(@lib.I32(_)) => 0
     None => return None
