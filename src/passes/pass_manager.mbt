@@ -25589,6 +25589,7 @@ fn RawOiStackCarriedEffectSkipFact::proves_accepted_raw_noop(
 priv enum RawOiIdempotentCallStackOperandKind {
   RawOiIdempotentCallLocalOperand
   RawOiIdempotentCallI32ConstOperand
+  RawOiIdempotentCallI64ConstOperand
   RawOiIdempotentCallImmutableGlobalOperand
 }
 
@@ -25606,6 +25607,7 @@ fn RawOiIdempotentCallStackOperandFact::from_instr(
   let kind = match instr {
     @lib.LocalGet(_) => RawOiIdempotentCallLocalOperand
     @lib.I32Const(_) => RawOiIdempotentCallI32ConstOperand
+    @lib.I64Const(_) => RawOiIdempotentCallI64ConstOperand
     @lib.GlobalGet(global_idx) =>
       match @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
         Some(@lib.GlobalType(_, false)) =>
@@ -25625,6 +25627,7 @@ fn RawOiIdempotentCallStackOperandFact::proves_equal(
   let same_kind = match (self.kind, other.kind) {
     (RawOiIdempotentCallLocalOperand, RawOiIdempotentCallLocalOperand)
     | (RawOiIdempotentCallI32ConstOperand, RawOiIdempotentCallI32ConstOperand)
+    | (RawOiIdempotentCallI64ConstOperand, RawOiIdempotentCallI64ConstOperand)
     | (
       RawOiIdempotentCallImmutableGlobalOperand,
       RawOiIdempotentCallImmutableGlobalOperand,
@@ -25650,10 +25653,44 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
   // flat shapes cover direct i32 self-selects plus the i64 zero-test self-select
-  // with no operands, and one repeated i32 local.get, i32.const, or immutable
-  // global.get operand; the raw stack-effect gate would otherwise quarantine
-  // those call results before HOT can apply the source-backed fact.
+  // with no operands or one repeated direct local.get/i64.const operand, and one
+  // repeated i32 local.get, i32.const, or immutable global.get operand. The raw
+  // stack-effect gate would otherwise quarantine those call results before HOT
+  // can apply the source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_operand,
+      @lib.Call(left_idx),
+      right_operand,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_operand, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_operand, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      match left_fact.kind {
+        RawOiIdempotentCallLocalOperand | RawOiIdempotentCallI64ConstOperand =>
+          ()
+        _ => return None
+      }
+      if !left_fact.proves_equal(right_fact) {
+        return None
+      }
+      (left_idx, true, Some(left_fact))
+    }
     [
       @lib.I64Const(@lib.I64(0L)),
       @lib.Call(left_idx),
@@ -25732,9 +25769,10 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   match (@ir.hot_module_resolve_func_type(module_ctx, call_idx), operand_fact) {
     (Some(@lib.FuncType([], results)), None) if results == [@lib.ValType::i32()] ||
       results == [@lib.ValType::i64()] => ()
-    (Some(@lib.FuncType([param], results)), Some(_)) if param ==
-      @lib.ValType::i32() &&
-      results == [@lib.ValType::i32()] => ()
+    (Some(@lib.FuncType([param], results)), Some(_)) if (
+        param == @lib.ValType::i32() && results == [@lib.ValType::i32()]
+      ) ||
+      (param == @lib.ValType::i64() && results == [@lib.ValType::i64()]) => ()
     _ => return None
   }
   if !@ir.hot_module_func_has_annotation(

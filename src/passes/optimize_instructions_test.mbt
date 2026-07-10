@@ -4065,6 +4065,54 @@ test "optimize-instructions folds no-arg i64 idempotent-call self-selects" {
 }
 
 ///|
+test "optimize-instructions folds local and const i64 idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 accepts equal direct i64
+  // local.get and i64.const call operands under the annotated-call child-effect
+  // checks. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-i64-foldability.wat`.
+  let optimize_caller = fn(body : String, params : String) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i64) (result i64) local.get 0) (func " +
+      params +
+      " (result i64) " +
+      body +
+      "))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected i64 operand idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let local_arg = optimize_caller(
+    "i64.const 0 local.get 0 call $id local.get 0 call $id i64.eqz select", "(param i64)",
+  )
+  assert_false(local_arg.contains("select"), msg=local_arg)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(local_arg, "call (Func 0)"),
+    1,
+  )
+  let const_ = optimize_caller(
+    "i64.const 0 i64.const 9 call $id i64.const 9 call $id i64.eqz select", "",
+  )
+  assert_false(const_.contains("select"), msg=const_)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(const_, "call (Func 0)"),
+    1,
+  )
+  let different_locals = optimize_caller(
+    "i64.const 0 local.get 0 call $id local.get 1 call $id i64.eqz select", "(param i64 i64)",
+  )
+  assert_true(different_locals.contains("select"), msg=different_locals)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(
+      different_locals, "call (Func 0)",
+    ),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and
