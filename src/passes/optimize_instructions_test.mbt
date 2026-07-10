@@ -3120,6 +3120,51 @@ test "optimize-instructions folds eqz loop-body constants in boolean context" {
 }
 
 ///|
+test "optimize-instructions folds i32 eqz one-sided if constants in boolean context" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130
+  // `Properties::getImmediateFallthrough` selects the live arm of an i32 if
+  // when the sibling arm is unreachable, then `optimizeBoolean` folds its
+  // constant while preserving the complete original if under a drop. Oracle:
+  // `.tmp/oi-probes/boolean-eqz-fallthrough-next.wat`.
+  let assert_fold = fn(then_live : Bool, tail : Int, expected : Int) raise {
+    let operand = if then_live {
+      "(if (result i32) (local.get 0) (then (i32.const \{tail})) (else (unreachable)))"
+    } else {
+      "(if (result i32) (local.get 0) (then (unreachable)) (else (i32.const \{tail})))"
+    }
+    let func = optimize_instructions_test_run_hot(
+      "(module (func (param i32) (result i32) (if (result i32) (i32.eqz \{operand}) (then (i32.const 11)) (else (i32.const 22)))))",
+    )
+    let condition = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    match @ir.hot_node_get(func, condition).op {
+      @ir.HotOp::Block => ()
+      other =>
+        fail("expected folded i32 one-sided-if truth block, got \{other}")
+    }
+    let body = @ir.hot_region_body_ref(func, condition)
+    @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+    let dropped = @ir.hot_region_get(func, body, 0)
+    match @ir.hot_node_get(func, dropped).op {
+      @ir.HotOp::Drop => ()
+      other => fail("expected original i32 if evaluation drop, got \{other}")
+    }
+    match @ir.hot_node_get(func, @ir.hot_child_get(func, dropped, 0)).op {
+      @ir.HotOp::If => ()
+      other => fail("expected dropped original i32 if, got \{other}")
+    }
+    let result = @ir.hot_region_get(func, body, 1)
+    @debug.assert_eq(
+      @ir.hot_const_get(func, @ir.hot_node_get(func, result).imm0),
+      @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+    )
+  }
+  assert_fold(true, 0, 1)
+  assert_fold(true, 9, 0)
+  assert_fold(false, 0, 1)
+  assert_fold(false, 9, 0)
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to

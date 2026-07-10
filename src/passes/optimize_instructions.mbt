@@ -38514,6 +38514,8 @@ priv enum OiBooleanEqzFallthroughValueKind {
   BooleanEqzFallthroughLocalTeeChild
   BooleanEqzFallthroughSingleRootLoopBody
   BooleanEqzFallthroughPrefixedLoopBodyTail
+  BooleanEqzFallthroughIfThenArmTail
+  BooleanEqzFallthroughIfElseArmTail
 }
 
 ///|
@@ -38529,9 +38531,10 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
   expected_type : @lib.ValType,
 ) -> OiBooleanEqzFallthroughValueFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` looks through unnamed
-  // nonempty blocks, direct local.tee values, and loop bodies. Keep the
-  // represented wrapper and selected value together so boolean eqz folding
-  // does not grow another opcode whitelist.
+  // nonempty blocks, direct local.tee values, loop bodies, and the live arm of
+  // an if whose sibling arm is unreachable. Keep the represented wrapper and
+  // selected value together so boolean eqz folding does not grow another
+  // opcode whitelist.
   match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
     [result] if result == expected_type => ()
     _ => return None
@@ -38569,6 +38572,32 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
         value_id: @ir.hot_region_get(func, body_ref, root_count - 1),
       })
     }
+    @ir.HotOp::If => {
+      let else_ref = match @ir.hot_region_else_ref(func, operand_id) {
+        Some(region) => region
+        None => return None
+      }
+      let one_sided = OiIfOneSidedFallthroughRegionFact::from_regions(
+        func,
+        @ir.hot_region_then_ref(func, operand_id),
+        else_ref,
+      )
+      let fallthrough_region = match one_sided.proven_fallthrough_region() {
+        Some(region) => region
+        None => return None
+      }
+      let value_id = match
+        optimize_instructions_region_tail_id(func, fallthrough_region) {
+        Some(tail_id) => tail_id
+        None => return None
+      }
+      let kind = match one_sided.kind {
+        IfThenStopsElseFallsThroughRegion => BooleanEqzFallthroughIfElseArmTail
+        IfElseStopsThenFallsThroughRegion => BooleanEqzFallthroughIfThenArmTail
+        IfNoOneSidedFallthroughRegion => return None
+      }
+      Some({ kind, value_id })
+    }
     _ => None
   }
 }
@@ -38581,7 +38610,9 @@ fn OiBooleanEqzFallthroughValueFact::proves_supported_wrapper(
     BooleanEqzFallthroughBlockTail
     | BooleanEqzFallthroughLocalTeeChild
     | BooleanEqzFallthroughSingleRootLoopBody
-    | BooleanEqzFallthroughPrefixedLoopBodyTail => true
+    | BooleanEqzFallthroughPrefixedLoopBodyTail
+    | BooleanEqzFallthroughIfThenArmTail
+    | BooleanEqzFallthroughIfElseArmTail => true
   }
 }
 
@@ -38599,7 +38630,9 @@ fn OiBooleanEqzFallthroughValueFact::operand_preservation(
     BooleanEqzFallthroughSingleRootLoopBody => BooleanEqzErasePureSingleRootLoop
     BooleanEqzFallthroughBlockTail
     | BooleanEqzFallthroughLocalTeeChild
-    | BooleanEqzFallthroughPrefixedLoopBodyTail => BooleanEqzDropOriginalOperand
+    | BooleanEqzFallthroughPrefixedLoopBodyTail
+    | BooleanEqzFallthroughIfThenArmTail
+    | BooleanEqzFallthroughIfElseArmTail => BooleanEqzDropOriginalOperand
   }
 }
 
@@ -38618,9 +38651,10 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
   // i32.eqz operand before folding a constant fallthrough. Represent nonempty
-  // single-i32-result block tails, direct local.tee children, and loop-body
-  // tails, preserving or erasing the operand according to the selected source-
-  // backed wrapper outcome from `getDroppedChildrenAndAppend`.
+  // single-i32-result block tails, direct local.tee children, loop-body tails,
+  // and one-sided-if live-arm tails, preserving or erasing the operand according
+  // to the selected source-backed wrapper outcome from
+  // `getDroppedChildrenAndAppend`.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()
@@ -38675,7 +38709,12 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
       operand_id,
       @lib.ValType::i64(),
     ) {
-    Some(fact) if fact.proves_supported_wrapper() => fact
+    Some(fact) if fact.proves_supported_wrapper() =>
+      match fact.kind {
+        BooleanEqzFallthroughIfThenArmTail
+        | BooleanEqzFallthroughIfElseArmTail => return None
+        _ => fact
+      }
     _ => return None
   }
   let folded_value = match
