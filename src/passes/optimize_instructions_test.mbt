@@ -5250,6 +5250,55 @@ test "optimize-instructions folds first and third i64 trees in three-operand cal
 }
 
 ///|
+test "optimize-instructions folds second and third i64 trees in three-operand calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently walks exact
+  // i64.add(local, const) trees in the second and third operands after a direct
+  // first leaf on an annotated (i64, i64, i64) -> i64 call. A mismatch in
+  // either tree or the direct slot retains both calls. Source:
+  // `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-next8-foldability.wat`
+  // (`three_i64_second_third_trees_equal` and its three mismatch functions).
+  let optimize_caller = fn(
+    right_first_const : Int64,
+    right_second_tree_const : Int64,
+    right_third_tree_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i64) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.add) (func (param i64) (result i64) i64.const 0 i64.const 3 local.get 0 i64.const 7 i64.add local.get 0 i64.const 9 i64.add call $id i64.const " +
+      right_first_const.to_string() +
+      " local.get 0 i64.const " +
+      right_second_tree_const.to_string() +
+      " i64.add local.get 0 i64.const " +
+      right_third_tree_const.to_string() +
+      " i64.add call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected second-third-tree three-i64 call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(3L, 7L, 9L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(4L, 7L, 9L),
+      optimize_caller(3L, 8L, 9L),
+      optimize_caller(3L, 7L, 10L),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds tree-bearing multi-operand idempotent calls" {
   // Red-first OI-F parity slice: Binaryen version_130 walks every operand tree
   // of repeated annotated calls. An exact i32.add(local, const) first operand
