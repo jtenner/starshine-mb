@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/node/2026-07-10-node-wasi-runner-api-recheck.md
   - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md
   - ../../../node/internal/wasi-runner.js
@@ -29,7 +30,7 @@ related:
 
 Use this page when a wiki claim, test, release step, Node package change, or runtime error mentions **WASI**, **`wasi_snapshot_preview1`**, **WASI Preview 1**, **WASI Preview 2 / WASI 0.2**, or a Starshine `*-wasi.wasm` artifact.
 
-The current source bridges are [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md) and [`../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md). They rechecked Node's current `node:wasi` API docs, the WebAssembly/WASI repository, the WASI proposal/API catalog and roadmap, Component Model documentation, the Preview 1 WITX source, and current Starshine runner/build/test evidence.
+The current Node-runner bridge is [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md); it extends rather than replaces the earlier Preview 1/0.2/0.3 boundary bridges [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md) and [`../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md). Together they check Node's current `node:wasi` API, the WebAssembly/WASI repository, the WASI proposal/API catalog and roadmap, Component Model documentation, the Preview 1 WITX source, and current Starshine runner/build/test evidence.
 
 Durable status:
 
@@ -72,12 +73,30 @@ _start ? wasi.start(instance) : wasi.initialize(instance)
 
 | Layer | Current behavior | Code / docs |
 | --- | --- | --- |
-| Published package runner | Loads a wasm path, constructs `new WASI({ version: "preview1", args, env, preopens, stdout, stderr })`, wires `wasi_snapshot_preview1`, and runs `_start` or initializes. | [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) |
-| Script-side runner | Mirrors the package runner for self-optimized artifact and spec-suite workflows. | [`scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs) |
+| Published package runner | Loads a wasm path, constructs `new WASI({ version: "preview1", args, env, preopens, stdout, stderr })`, manually merges `wasi_snapshot_preview1: wasi.wasiImport` with local host namespaces, then runs `_start` or initializes. It does not currently use Node's `getImportObject()` helper or thread-oriented `finalizeBindings(...)`. | [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) |
+| Script-side runner | Mirrors the package runner's manual Preview 1 import composition, `_start`/reactor split, and current no-thread-finalization behavior for self-optimized artifact and spec-suite workflows. | [`scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs) |
 | Package build artifact | Builds `src/cmd` for wasm release and copies the output to `node/internal/starshine.wasm-wasi.wasm`. | [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`node/package.json`](../../../node/package.json) |
 | Package smoke test | Starts the optimized WASI artifact through the package runner. | [`node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs) |
 | Self-opt gates | Validate artifacts with `wasm-tools --features all`, then run the artifact under the runner for `--help` and selected/full WAST spec workloads. | [`validation-gates.md`](validation-gates.md), [`scripts/lib/self-opt-task.ts`](../../../scripts/lib/self-opt-task.ts), [`scripts/lib/run-self-optimized-spec-suite.mjs`](../../../scripts/lib/run-self-optimized-spec-suite.mjs) |
 | MoonBit imports | Some wasm-targeted code imports Preview 1 functions such as `proc_exit`, while JavaScript runner code also supplies Starshine/MoonBit-specific filesystem/time shims. | [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`src/spec_runner/imports.mbt`](../../../src/spec_runner/imports.mbt), [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) |
+
+## Node API construction and thread boundary
+
+Node's current `node:wasi` API exposes `wasi.getImportObject()` as a structured accessor in addition to the Preview-1-compatible `wasi.wasiImport` property. Starshine deliberately uses the latter today because it builds one composite host object with local `spectest`, MoonBit filesystem/time, and console namespaces. This is a local composition choice, **not** evidence that Node lacks `getImportObject()`.
+
+```text
+Node WASI import object          Starshine runner import object
+-----------------------          ---------------------------------
+wasi.getImportObject()     +-->  wasi_snapshot_preview1: wasi.wasiImport
+                                     spectest: ...
+                                     __moonbit_fs_unstable: ...
+                                     __moonbit_time_unstable: ...
+                                     console: ...
+```
+
+A future cleanup may start from `getImportObject()` and merge the same local namespaces, but it must preserve both runner copies, the unknown-module boundary, `_start` versus reactor behavior, and smoke coverage. It is not a documentation-only equivalence claim.
+
+The same Node API documents `wasi.finalizeBindings(instance)` for thread-aware WASI lifecycle. Neither current Starshine runner detects shared-memory/threaded modules nor calls that method. Therefore the current `_start` smoke test is **not** evidence for WASI threads, `wasi_thread_start`, worker lifecycle, or a secure sandbox. Adding thread support needs its own shared-memory, host-binding timing, worker, diagnostic, package-API, and Node-test design; it is separate from Core validation and from Component Model/WASI 0.2/0.3 work.
 
 ## Import modules and failure classification
 
@@ -90,7 +109,9 @@ The runner intentionally accepts only the import modules it wires:
 | `__moonbit_fs_unstable` | Starshine/MoonBit filesystem/string/byte-array adapter helpers. | Local host ABI, not standardized WASI. |
 | `__moonbit_time_unstable` | Starshine/MoonBit time helpers backed by JavaScript time APIs. | Local host ABI, not standardized WASI. |
 | `console` | JavaScript logging helper. | Package/runtime convenience, not WASI. |
-| Any other module | The runner throws `Missing import module: ...`. | Host-linking/runner gap, not a Core validator result. |
+| Any other module | The runner throws `Missing import module: ...` before instantiation. | Deliberate host-linking/runner boundary, not a Core validator result. |
+
+The preflight is deliberately **module-namespace** level only: a module named `wasi_snapshot_preview1` passes that check, but a missing field in that namespace remains an ordinary `WebAssembly.instantiate(...)` linking failure. Do not misreport that field-level failure as an unknown-module rejection unless the runner first gains a member-level preflight.
 
 This distinction matters for bug triage. If a wasm module validates as a Core module but imports a Preview 2 component interface or some unsupported host module, Starshine's Core validator has not contradicted the runner. The failure is at the host import/instantiation boundary.
 
@@ -137,7 +158,7 @@ When a change touches the WASI runner, `*-wasi.wasm` artifacts, or release packa
 
 ## Sources
 
-- Current source bridges: [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md)
+- Current Node API/runner recheck: [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md); earlier Preview 1/0.2/0.3 bridges: [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md)
 - Package and script runners: [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - Package build/test: [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)
 - Self-opt validation: [`validation-gates.md`](validation-gates.md), [`../../../scripts/lib/self-opt-task.ts`](../../../scripts/lib/self-opt-task.ts), [`../../../scripts/lib/run-self-optimized-spec-suite.mjs`](../../../scripts/lib/run-self-optimized-spec-suite.mjs)
