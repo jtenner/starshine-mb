@@ -14,9 +14,9 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing_ignore-implicit-traps.wast
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing_into_if.wast
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing_tnh.wast
-  - ../../../src/passes/code_pushing.mbt
-  - ../../../src/passes/code_pushing_test.mbt
-  - ../../../src/passes/optimize.mbt
+  - ../../../../src/passes/code_pushing.mbt
+  - ../../../../src/passes/code_pushing_test.mbt
+  - ../../../../src/passes/optimize.mbt
 supersedes:
   - ./2026-05-05-code-pushing-current-main-recheck.md
 ---

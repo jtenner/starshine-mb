@@ -15,9 +15,9 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_tnh.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-gc.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-eh.wast
-  - ../../../src/passes/code_pushing.mbt
-  - ../../../src/passes/code_pushing_test.mbt
-  - ../../../src/passes/optimize.mbt
+  - ../../../../src/passes/code_pushing.mbt
+  - ../../../../src/passes/code_pushing_test.mbt
+  - ../../../../src/passes/optimize.mbt
 ---
 
 # Binaryen `code-pushing` current-main recheck
