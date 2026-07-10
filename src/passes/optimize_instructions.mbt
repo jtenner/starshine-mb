@@ -27343,6 +27343,7 @@ priv enum OiIdempotentCallOperandTreeKind {
   IdempotentCallOperandTreeLocalConstLeaf
   IdempotentCallOperandTreeImmutableGlobalLeaf
   IdempotentCallOperandTreeI32EqzShell
+  IdempotentCallOperandTreeI32EqShell
   IdempotentCallOperandTreeI32AddShell
   IdempotentCallOperandTreeI64AddShell
 }
@@ -27369,8 +27370,8 @@ fn OiIdempotentCallOperandTreeFact::from_node(
   // every operand subtree, rejects unremovable child effects, and then asks a
   // shallow call analyzer whether the call can invalidate those effects. Keep
   // that proof separate from structural equality: direct local/constant leaves,
-  // immutable-global reads, and the source-probed nontrapping i32.eqz plus
-  // i32/i64.add shells are the represented recursive subset.
+  // immutable-global reads, and the source-probed nontrapping i32.eqz, i32.eq,
+  // plus i32/i64.add shells are the represented recursive subset.
   if depth > 16 {
     return OiIdempotentCallOperandTreeFact::empty()
   }
@@ -27411,6 +27412,25 @@ fn OiIdempotentCallOperandTreeFact::from_node(
       {
         kind: IdempotentCallOperandTreeI32EqzShell,
         children_foldable: child_fact.proves_foldable(),
+      }
+    }
+    Some(@lib.Instruction::I32Eq) if node.child_count == 2 => {
+      let left_fact = OiIdempotentCallOperandTreeFact::from_node(
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        depth=depth + 1,
+      )
+      let right_fact = OiIdempotentCallOperandTreeFact::from_node(
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, 1),
+        depth=depth + 1,
+      )
+      {
+        kind: IdempotentCallOperandTreeI32EqShell,
+        children_foldable: left_fact.proves_foldable() &&
+        right_fact.proves_foldable(),
       }
     }
     Some(@lib.Instruction::I32Add) if node.child_count == 2 => {
@@ -27463,6 +27483,7 @@ fn OiIdempotentCallOperandTreeFact::proves_foldable(
     IdempotentCallOperandTreeLocalConstLeaf
     | IdempotentCallOperandTreeImmutableGlobalLeaf => true
     IdempotentCallOperandTreeI32EqzShell
+    | IdempotentCallOperandTreeI32EqShell
     | IdempotentCallOperandTreeI32AddShell
     | IdempotentCallOperandTreeI64AddShell => self.children_foldable
     IdempotentCallOperandTreeUnsupported => false

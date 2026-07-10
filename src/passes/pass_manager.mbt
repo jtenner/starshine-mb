@@ -25665,6 +25665,8 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallDirectLeafAdmission
   RawOiIdempotentCallTwoDirectI32OperandsAdmission
   RawOiIdempotentCallI32EqzTreeAdmission
+  RawOiIdempotentCallI32EqzAddSourceAdmission
+  RawOiIdempotentCallI32EqTreeAdmission
   RawOiIdempotentCallI32AddTreeAdmission
   RawOiIdempotentCallI64AddTreeAdmission
 }
@@ -25684,6 +25686,8 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     RawOiIdempotentCallDirectLeafAdmission
     | RawOiIdempotentCallI32EqzTreeAdmission => self.leaf_facts.length() == 1
     RawOiIdempotentCallTwoDirectI32OperandsAdmission
+    | RawOiIdempotentCallI32EqzAddSourceAdmission
+    | RawOiIdempotentCallI32EqTreeAdmission
     | RawOiIdempotentCallI32AddTreeAdmission
     | RawOiIdempotentCallI64AddTreeAdmission => self.leaf_facts.length() == 2
   }
@@ -25704,14 +25708,115 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // This is a HOT-admission fact, not a raw rewrite. Binaryen v130's
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
-  // flat shapes cover direct one- and two-i32-operand self-selects, the
-  // source-probed i32.eqz(local) operand tree, exact i32.add trees over
+  // flat shapes cover direct one- and two-i32-operand self-selects, direct
+  // i32.eqz(local), the canonical i32.eq(local, const) reached from the probed
+  // i32.eqz(i32.add(local, const)) input, exact i32.add trees over
   // local/constant/immutable-global leaves, exact i64.add(local, const) trees,
   // and the i64 zero-test self-select with no operands or one repeated direct
   // local.get/i64.const/immutable global.get operand. The raw stack-effect gate
   // would otherwise quarantine those call results before HOT can apply the
   // source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
+    [
+      left_lhs,
+      left_rhs,
+      @lib.I32Add,
+      @lib.I32Eqz,
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      right_lhs,
+      right_rhs,
+      @lib.I32Add,
+      @lib.I32Eqz,
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_lhs_fact.proves_equal(right_lhs_fact) ||
+        !left_rhs_fact.proves_equal(right_rhs_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallI32EqzAddSourceAdmission,
+          leaf_facts: [left_lhs_fact, left_rhs_fact],
+        },
+      )
+    }
+    [
+      left_lhs,
+      left_rhs,
+      @lib.I32Eq,
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      right_lhs,
+      right_rhs,
+      @lib.I32Eq,
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_lhs_fact.proves_equal(right_lhs_fact) ||
+        !left_rhs_fact.proves_equal(right_rhs_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallI32EqTreeAdmission,
+          leaf_facts: [left_lhs_fact, left_rhs_fact],
+        },
+      )
+    }
     [
       left_lhs,
       left_rhs,
@@ -26054,6 +26159,8 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       Some(@lib.FuncType([param], results)),
       RawOiIdempotentCallDirectLeafAdmission
       | RawOiIdempotentCallI32EqzTreeAdmission
+      | RawOiIdempotentCallI32EqzAddSourceAdmission
+      | RawOiIdempotentCallI32EqTreeAdmission
       | RawOiIdempotentCallI32AddTreeAdmission
       | RawOiIdempotentCallI64AddTreeAdmission,
     ) if (param == @lib.ValType::i32() && results == [@lib.ValType::i32()]) ||
