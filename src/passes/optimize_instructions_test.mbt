@@ -4329,6 +4329,30 @@ test "optimize-instructions hoists matching ref.is_null select arm shells" {
 }
 
 ///|
+test "optimize-instructions hoists matching ref.is_null if arm shells" {
+  // Red-first OI-F ternary parity slice: Binaryen v130's generic shallow-equal
+  // one-child loop also hoists matching ref.is_null shells over a value if.
+  // Oracle: `.tmp/oi-probes/select-matching-ref-shell-hoist.wat`.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param $a externref) (param $b externref) (param $cond i32) (result i32) (if (result i32) (local.get $cond) (then (ref.is_null (local.get $a))) (else (ref.is_null (local.get $b))))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::RefIsNull => ()
+    other =>
+      fail("expected matching ref.is_null if shells to hoist, got \{other}")
+  }
+  let inner = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, inner).op {
+    @ir.HotOp::If => ()
+    other => fail("expected reference child if after hoist, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_type_results(func, @ir.hot_node_type(func, inner)), [
+    @lib.ValType::externref(),
+  ])
+}
+
+///|
 test "optimize-instructions hoists matching ref.test select arm shells" {
   // Red-first OI-F ternary parity slice: Binaryen v130's same generic
   // shallow-equal one-child loop hoists matching side-effect-free ref.test

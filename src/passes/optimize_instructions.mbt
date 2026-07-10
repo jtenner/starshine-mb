@@ -28726,6 +28726,133 @@ fn optimize_instructions_try_hoist_matching_reference_select(
 }
 
 ///|
+priv struct OiMatchingReferenceIfHoistFact {
+  kind : OiMatchingReferenceSelectShellKind
+  shell_id : Int
+  child_type : @lib.ValType
+  if_true_child : Int
+  if_false_child : Int
+  condition_id : Int
+  root_index : Int
+}
+
+///|
+fn OiMatchingReferenceIfHoistFact::from_if(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiMatchingReferenceIfHoistFact? {
+  // Binaryen v130 instantiates the same `optimizeTernary` shallow-equal loop
+  // for `If`. Unlike Select, moving a shallow shell does not reduce its
+  // execution count. Start with the direct one-root ref.is_null arm subset so
+  // rebuilding the value regions and their result type is explicit and safe.
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  let mut root_index = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    if @ir.hot_root_get(func, idx) == node_id {
+      root_index = idx
+      break
+    }
+  }
+  if root_index < 0 {
+    return None
+  }
+  match @ir.hot_type_results(func, node.ty) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return None
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return None
+  }
+  let true_fact = match
+    OiMatchingReferenceSelectArmFact::from_node(
+      func,
+      @ir.hot_region_get(func, then_region, 0),
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  let false_fact = match
+    OiMatchingReferenceSelectArmFact::from_node(
+      func,
+      @ir.hot_region_get(func, else_region, 0),
+    ) {
+    Some(fact) => fact
+    None => return None
+  }
+  match (true_fact.kind, false_fact.kind) {
+    (MatchingSelectRefIsNull, MatchingSelectRefIsNull) => ()
+    _ => return None
+  }
+  if true_fact.child_type != false_fact.child_type {
+    return None
+  }
+  Some({
+    kind: false_fact.kind,
+    shell_id: false_fact.shell_id,
+    child_type: false_fact.child_type,
+    if_true_child: true_fact.child_id,
+    if_false_child: false_fact.child_id,
+    condition_id: @ir.hot_child_get(func, node_id, 0),
+    root_index,
+  })
+}
+
+///|
+fn OiMatchingReferenceIfHoistFact::apply(
+  self : OiMatchingReferenceIfHoistFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  _node_id : Int,
+) -> Bool {
+  let inner = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(self.child_type),
+    self.condition_id,
+    [self.if_true_child],
+    else_body=Some([self.if_false_child]),
+  )
+  let replacement = match self.kind {
+    MatchingSelectRefIsNull =>
+      @ir.hot_build_node(
+        func,
+        @ir.hot_node_get(func, self.shell_id).op,
+        @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+        children=[inner],
+      )
+    MatchingSelectRefTest => return false
+  }
+  // Keep the original structured node intact as a detached, label-owning node.
+  // HOT's in-place replacement helper cannot change a control node into a
+  // shallow shell without orphaning its label, so this first safe slice is
+  // deliberately bounded to direct function roots.
+  @ir.hot_root_set(func, self.root_index, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_hoist_matching_reference_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match OiMatchingReferenceIfHoistFact::from_if(func, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
 priv enum OiI32BooleanSelectArmKind {
   I32BooleanSelectTrueFalse
   I32BooleanSelectFalseTrue
@@ -40333,6 +40460,7 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
+      optimize_instructions_try_hoist_matching_reference_if(ctx, func, node_id) ||
       optimize_instructions_try_sink_same_global_set_if(
         ctx, func, dead, node_id,
       ) ||
