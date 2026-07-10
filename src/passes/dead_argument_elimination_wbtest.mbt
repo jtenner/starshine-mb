@@ -2007,6 +2007,58 @@ test "dae dropped result unreachable callee rewrite centralizes application" {
 }
 
 ///|
+test "dae module signature finalization preserves code reconstruction boundary" {
+  let result_type = @lib.TypeIdx::new(0U)
+  let callee = @lib.FuncIdx::new(1U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(callee),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let context = match
+    dae_module_signature_context(mod_, 1, copy_funcs=false) {
+    Some(context) => context
+    None => fail("expected module signature context")
+  }
+  let result = dae_apply_module_signature_finalization(
+    mod_, context, [], [],
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 1)
+  assert_eq(result.touched, [false, true])
+  assert_eq(result.mod_out.code_sec, mod_.code_sec)
+  let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 1) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [])
+      assert_eq(results, [])
+    }
+    None => fail("expected finalized callee type")
+  }
+}
+
+///|
 test "dae dropped result module finalization preserves touched policy" {
   let result_type = @lib.TypeIdx::new(0U)
   let callee = @lib.FuncIdx::new(1U)
