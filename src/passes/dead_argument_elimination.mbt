@@ -974,6 +974,12 @@ priv struct DaeOriginalResultPreservationEvidence {
 }
 
 ///|
+priv struct DaeOriginalResultCleanupPreservationEvidence {
+  mixed_self_suffix : Bool
+  result_side_chain_cleanup_preservation : Bool
+}
+
+///|
 priv struct DaeOriginalNoParamDroppedCallerGuardEvidence {
   param_count : Int
   call_count : Int
@@ -1140,6 +1146,7 @@ priv struct DaeOriginalResultRemovalPruneEvidence {
 ///|
 priv struct DaeOriginalResultBoundaryEvidence {
   preservation : DaeOriginalResultPreservationEvidence
+  cleanup_preservation : DaeOriginalResultCleanupPreservationEvidence
   prune : DaeOriginalResultRemovalPruneEvidence
 }
 
@@ -16046,12 +16053,35 @@ fn dae_original_result_preservation_evidence_from_row(
 }
 
 ///|
+fn dae_original_result_cleanup_preservation_evidence(
+  row : DaeOriginalResultRemovalPruneRow,
+  preservation : DaeOriginalResultPreservationEvidence,
+) -> DaeOriginalResultCleanupPreservationEvidence {
+  {
+    mixed_self_suffix: dae_should_preserve_mixed_self_suffix_from_row(row),
+    result_side_chain_cleanup_preservation: preservation.result_side_chain_cleanup_preservation,
+  }
+}
+
+///|
+fn dae_original_result_cleanup_preservation_any(
+  evidence : DaeOriginalResultCleanupPreservationEvidence,
+) -> Bool {
+  evidence.mixed_self_suffix || evidence.result_side_chain_cleanup_preservation
+}
+
+///|
 fn dae_original_result_boundary_evidence_from_row(
   row : DaeOriginalResultBoundaryRow,
 ) -> DaeOriginalResultBoundaryEvidence {
+  let preservation = dae_original_result_preservation_evidence_from_row(
+    row.preservation,
+  )
   {
-    preservation: dae_original_result_preservation_evidence_from_row(
-      row.preservation,
+    preservation,
+    cleanup_preservation: dae_original_result_cleanup_preservation_evidence(
+      row.prune,
+      preservation,
     ),
     prune: dae_original_result_removal_prune_evidence_from_row(row.prune),
   }
@@ -16278,22 +16308,20 @@ fn dae_run_core_once(
     let original_result_preservation_row = original_result_boundary_row.preservation
     let original_result_removal_prune_row = original_result_boundary_row.prune
     let original_result_preservation_for_def = original_result_boundary_for_def.preservation
+    let original_result_cleanup_preservation_for_def = original_result_boundary_for_def.cleanup_preservation
     let original_result_removal_prune_for_def = original_result_boundary_for_def.prune
     let original_result_escape_row = original_result_boundary_row.escape
-    let original_mixed_self_suffix_for_unobserved = dae_should_preserve_mixed_self_suffix_from_row(
-      original_result_removal_prune_row,
-    )
     let original_escaped_block_self_result_for_unobserved = original_result_preservation_for_def.escaped_block_self_result
     let original_same_self_result_operand_for_unobserved = dae_should_preserve_same_self_result_operand_from_row(
       original_result_removal_prune_row,
     )
-    let original_result_side_chain_cleanup_preservation_for_unobserved = original_result_preservation_for_def.result_side_chain_cleanup_preservation
     if boundary_candidate.direct_call_count == self_calls &&
       !skip_original_large_result_cleanup &&
-      !original_mixed_self_suffix_for_unobserved &&
+      !dae_original_result_cleanup_preservation_any(
+        original_result_cleanup_preservation_for_def,
+      ) &&
       !original_escaped_block_self_result_for_unobserved &&
       !original_same_self_result_operand_for_unobserved &&
-      !original_result_side_chain_cleanup_preservation_for_unobserved &&
       (
         original_result_escape_row.dead_suffix_result_calls_from_undropped_self_caller ==
         0 ||
@@ -16352,9 +16380,6 @@ fn dae_run_core_once(
         0
       }
       let original_dead_suffix_other_call = original_result_side_call_row.dead_suffix_other_call
-      let original_mixed_self_suffix = dae_should_preserve_mixed_self_suffix_from_row(
-        original_result_removal_prune_row,
-      )
       let original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers = if def_idx <
         original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers.length() {
         original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers[def_idx]
@@ -16376,7 +16401,6 @@ fn dae_run_core_once(
           original_result_preservation_row,
         ),
       )
-      let original_result_side_chain_cleanup_preservation = original_result_preservation_for_def.result_side_chain_cleanup_preservation
       let allow_unreachable_only_param_cleanup = (
           original_result_escape_row.dead_suffix_undropped_escaped_result_call &&
           original_result_escape_row.escaped_dead_suffix_call_count == 0
@@ -16384,7 +16408,7 @@ fn dae_run_core_once(
         original_dead_suffix_side_call_evidence.void_side_cleanup_preservation ||
         original_dead_suffix_side_call_evidence.result_side_chain_preservation ||
         original_dead_suffix_side_call_evidence.same_self_result_operand_preservation ||
-        original_result_side_chain_cleanup_preservation ||
+        original_result_cleanup_preservation_for_def.result_side_chain_cleanup_preservation ||
         original_escaped_block_self_result ||
         original_dropped_only_result_side_caller_prune
       let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
@@ -16416,9 +16440,10 @@ fn dae_run_core_once(
         ) &&
         (
           has_undropped_self_suffix ||
-          (originally_had_params && original_mixed_self_suffix) ||
+          dae_original_result_cleanup_preservation_any(
+            original_result_cleanup_preservation_for_def,
+          ) ||
           original_dead_suffix_side_call_evidence.same_self_result_operand_preservation ||
-          original_result_side_chain_cleanup_preservation ||
           original_escaped_block_self_result ||
           original_dead_suffix_side_call_evidence.result_side_chain_preservation ||
           (

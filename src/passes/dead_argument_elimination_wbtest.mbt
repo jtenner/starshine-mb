@@ -1208,7 +1208,7 @@ test "dae original parameterized self side-chain guard centralizes indexed facts
 test "dae original result cleanup preservation centralizes shared core decisions" {
   let row : DaeOriginalResultRemovalPruneRow = {
     param_count: 1,
-    call_count: 2,
+    call_count: 1,
     active_nonself_call_count: 0,
     active_parameterized_nonself_call_count: 0,
     active_parameterized_result_nonself_call_count: 0,
@@ -1242,8 +1242,7 @@ test "dae original result cleanup preservation centralizes shared core decisions
     result_side_chain_cleanup_preservation: true,
   }
   let evidence = dae_original_result_cleanup_preservation_evidence(
-    row,
-    preservation,
+    row, preservation,
   )
   assert_true(evidence.mixed_self_suffix)
   assert_true(evidence.result_side_chain_cleanup_preservation)
