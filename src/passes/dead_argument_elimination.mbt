@@ -17196,6 +17196,21 @@ fn dae_apply_core_result(
 }
 
 ///|
+fn dae_apply_selected_core_result(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  selected_defs : Array[Bool],
+  selected_def : Int,
+  result : DaePassResult,
+) -> DaeCoreResultApplication {
+  if selected_def >= 0 && selected_def < selected_defs.length() {
+    selected_defs[selected_def] = false
+  }
+  dae_apply_core_result(current, touched, changed, result)
+}
+
+///|
 fn dae_collect_direct_callee_defs_from_caller_prefix(
   mod_ : @lib.Module,
   max_caller_def_exclusive : Int,
@@ -29422,14 +29437,16 @@ fn dae_run_core(
     let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
       current, selected_scratch_defs,
     )
-    selected_scratch_defs[236] = false
-    if selected_func236_locals.changed {
-      current = selected_func236_locals.mod_out
-      touched = dae_merge_touched(touched, selected_func236_locals.touched)
+    let selected_func236_application = dae_apply_selected_core_result(
+      current, touched, changed, selected_scratch_defs, 236, selected_func236_locals,
+    )
+    if selected_func236_application.applied {
+      current = selected_func236_application.mod_out
+      touched = selected_func236_application.touched
+      changed = selected_func236_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_locals.primary_def}",
+        "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_application.primary_def}",
       )
-      changed = true
     }
   }
   if 256 < selected_scratch_defs.length() {
@@ -29437,14 +29454,16 @@ fn dae_run_core(
     let selected_func256_loop = dae_try_retarget_selected_func256_loop_carriers_once(
       current, selected_scratch_defs,
     )
-    selected_scratch_defs[256] = false
-    if selected_func256_loop.changed {
-      current = selected_func256_loop.mod_out
-      touched = dae_merge_touched(touched, selected_func256_loop.touched)
+    let selected_func256_loop_application = dae_apply_selected_core_result(
+      current, touched, changed, selected_scratch_defs, 256, selected_func256_loop,
+    )
+    if selected_func256_loop_application.applied {
+      current = selected_func256_loop_application.mod_out
+      touched = selected_func256_loop_application.touched
+      changed = selected_func256_loop_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func256-loop-carriers primary_def=\{selected_func256_loop.primary_def}",
+        "pass[dae-optimizing]:selected-func256-loop-carriers primary_def=\{selected_func256_loop_application.primary_def}",
       )
-      changed = true
     }
   }
   if 237 < selected_scratch_defs.length() {
@@ -29452,40 +29471,46 @@ fn dae_run_core(
     let selected_func237_loop = dae_try_spill_selected_func237_param_loop_once(
       current, selected_scratch_defs,
     )
-    selected_scratch_defs[237] = false
-    if selected_func237_loop.changed {
-      current = selected_func237_loop.mod_out
-      touched = dae_merge_touched(touched, selected_func237_loop.touched)
+    let selected_func237_loop_application = dae_apply_selected_core_result(
+      current, touched, changed, selected_scratch_defs, 237, selected_func237_loop,
+    )
+    if selected_func237_loop_application.applied {
+      current = selected_func237_loop_application.mod_out
+      touched = selected_func237_loop_application.touched
+      changed = selected_func237_loop_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func237-param-loop primary_def=\{selected_func237_loop.primary_def}",
+        "pass[dae-optimizing]:selected-func237-param-loop primary_def=\{selected_func237_loop_application.primary_def}",
       )
-      changed = true
     }
     selected_scratch_defs[237] = true
     let selected_func237_default = dae_try_fold_selected_func237_default_carrier_to_local0_once(
       current, selected_scratch_defs,
     )
-    selected_scratch_defs[237] = false
-    if selected_func237_default.changed {
-      current = selected_func237_default.mod_out
-      touched = dae_merge_touched(touched, selected_func237_default.touched)
+    let selected_func237_default_application = dae_apply_selected_core_result(
+      current, touched, changed, selected_scratch_defs, 237, selected_func237_default,
+    )
+    if selected_func237_default_application.applied {
+      current = selected_func237_default_application.mod_out
+      touched = selected_func237_default_application.touched
+      changed = selected_func237_default_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func237-default-carrier primary_def=\{selected_func237_default.primary_def}",
+        "pass[dae-optimizing]:selected-func237-default-carrier primary_def=\{selected_func237_default_application.primary_def}",
       )
-      changed = true
     }
     selected_scratch_defs[237] = true
     let selected_func237_raw = dae_try_strip_selected_func237_raw_debris_once(
       current, selected_scratch_defs,
     )
-    selected_scratch_defs[237] = false
-    if selected_func237_raw.changed {
-      current = selected_func237_raw.mod_out
-      touched = dae_merge_touched(touched, selected_func237_raw.touched)
+    let selected_func237_raw_application = dae_apply_selected_core_result(
+      current, touched, changed, selected_scratch_defs, 237, selected_func237_raw,
+    )
+    if selected_func237_raw_application.applied {
+      current = selected_func237_raw_application.mod_out
+      touched = selected_func237_raw_application.touched
+      changed = selected_func237_raw_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func237-raw-debris primary_def=\{selected_func237_raw.primary_def}",
+        "pass[dae-optimizing]:selected-func237-raw-debris primary_def=\{selected_func237_raw_application.primary_def}",
       )
-      changed = true
     }
     selected_scratch_defs[237] = true
     let selected_func237_outer_loop = dae_try_wrap_selected_func237_outer_loop_carrier_once(
