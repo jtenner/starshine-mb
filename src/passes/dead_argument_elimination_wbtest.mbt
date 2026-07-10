@@ -5238,6 +5238,70 @@ test "dae callsite value slices expose reusable repair disposition" {
 }
 
 ///|
+test "dae callsite localization application replaces hard removed operands with typed scratch writes" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  match
+    dae_rewrite_callsite_with_localization_at(
+      body,
+      3,
+      [true, false],
+      [@lib.ValType::i32(), @lib.ValType::i32()],
+      0,
+      3,
+      @lib.Module::new(),
+      [],
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.new_call_idx, 4)
+      assert_eq(evidence.localization_count, 1)
+      assert_eq(evidence.localized_params, [true, false])
+      assert_eq(evidence.scratch_local_types, [@lib.ValType::i32()])
+      assert_eq(evidence.instrs, [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_load(memarg),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ])
+    }
+    None => fail("expected effectful removed operand localization")
+  }
+  let scratch_heap_type = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let non_null_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, scratch_heap_type),
+  )
+  let nullable_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, scratch_heap_type),
+  )
+  assert_eq(dae_localization_scratch_type(non_null_ref), Some(nullable_ref))
+  match
+    dae_rewrite_callsite_with_localization_at(
+      [
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ],
+      2,
+      [true, false],
+      [@lib.ValType::i32(), @lib.ValType::i32()],
+      0,
+      3,
+      @lib.Module::new(),
+      [],
+    ) {
+    Some(_) =>
+      fail("escaping removed operands must reject scratch localization")
+    None => ()
+  }
+}
+
+///|
 test "dae callsite removal plan centralizes keep replay and drop repair" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let body = [

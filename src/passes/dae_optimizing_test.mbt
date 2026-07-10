@@ -11214,6 +11214,91 @@ test "dae-optimizing preserves side effects from removed actual operands" {
 }
 
 ///|
+test "plain DAE localizes hard removed direct-call operands into typed scratch locals" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $side (result i32)
+    #|    i32.const 1
+    #|    global.set $g
+    #|    i32.const 7)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    block (result i32)
+    #|      call $side
+    #|    end
+    #|    i32.const 13
+    #|    call $f)
+    #|  (func $other (result i32)
+    #|    block (result i32)
+    #|      call $side
+    #|    end
+    #|    i32.const 14
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  let callee = optimized.pretty_print_defined_func(1U)
+  let caller = optimized.pretty_print_defined_func(2U)
+  let other = optimized.pretty_print_defined_func(3U)
+  assert_true(callee.contains("[1] I32 (local)"), msg=callee)
+  assert_true(caller.contains("local.set"), msg=caller)
+  assert_true(other.contains("local.set"), msg=other)
+  assert_false(caller.contains("drop"), msg=caller)
+  assert_false(other.contains("drop"), msg=other)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_true(caller.contains("i32.const I32(13)"), msg=caller)
+  assert_true(other.contains("i32.const I32(14)"), msg=other)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected localized plain DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "plain DAE localizes hard removed return_call operands into typed scratch locals" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $side (result i32)
+    #|    i32.const 1
+    #|    global.set $g
+    #|    i32.const 7)
+    #|  (func $entry (export "run") (result i32)
+    #|    block (result i32)
+    #|      call $side
+    #|    end
+    #|    i32.const 13
+    #|    return_call $f)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func $other (result i32)
+    #|    block (result i32)
+    #|      call $side
+    #|    end
+    #|    i32.const 14
+    #|    return_call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+  let entry = optimized.pretty_print_defined_func(1U)
+  let callee = optimized.pretty_print_defined_func(2U)
+  let other = optimized.pretty_print_defined_func(3U)
+  assert_true(callee.contains("[1] I32 (local)"), msg=callee)
+  assert_true(entry.contains("local.set"), msg=entry)
+  assert_true(other.contains("local.set"), msg=other)
+  assert_false(entry.contains("drop"), msg=entry)
+  assert_false(other.contains("drop"), msg=other)
+  assert_true(entry.contains("return_call"), msg=entry)
+  assert_true(other.contains("return_call"), msg=other)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected localized return_call DAE output to validate, got \{err}")
+  }
+}
+
+///|
 test "dae-optimizing drops value-producing if operands removed from calls" {
   let source =
     #|(module

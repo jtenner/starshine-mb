@@ -638,6 +638,23 @@ priv struct DaeRewriteResult {
 }
 
 ///|
+priv struct DaeLocalizedCallsiteRewriteEvidence {
+  instrs : Array[@lib.Instruction]
+  new_call_idx : Int
+  scratch_local_types : Array[@lib.ValType]
+  localized_params : Array[Bool]
+  localization_count : Int
+}
+
+///|
+priv struct DaeCallsiteLocalizationContext {
+  first_scratch_local : Int
+  param_types : Array[@lib.ValType]
+  scratch_local_types : Array[@lib.ValType]
+  localized_params : Array[Bool]
+}
+
+///|
 priv struct DaeLocalUse {
   gets : Array[Bool]
   writes : Array[Bool]
@@ -3875,15 +3892,22 @@ fn dae_build_local_map(
   body_local_count : Int,
   remove : Array[Bool],
   local_use : DaeLocalUse,
+  preserve_removed_params? : Array[Bool]? = None,
 ) -> Array[Int] {
   let local_map = Array::make(param_count + body_local_count, -1)
   let mut next_param = 0
   let mut removed_local_count = 0
   for idx = 0; idx < param_count; idx = idx + 1 {
     if remove[idx] {
-      if local_use.writes[idx] {
-        // The incoming value is dead, but writes to the old param slot still need
-        // a valid local target until the nested cleanup removes them.
+      let preserve_from_evidence = match preserve_removed_params {
+        Some(preserve) if idx < preserve.length() => preserve[idx]
+        _ => false
+      }
+      let preserve_removed_param = local_use.writes[idx] ||
+        preserve_from_evidence
+      if preserve_removed_param {
+        // Writes and caller-side localization both preserve the removed param's
+        // former slot as a body local until later cleanup owns its deletion.
         local_map[idx] = -1 - removed_local_count
         removed_local_count += 1
       }
@@ -4064,113 +4088,117 @@ fn dae_callsite_single_instruction_actual(
 }
 
 ///|
-fn dae_collect_callsite_suffix_shapes(
+fn dae_localized_callsite_rewrite_evidence_is_consistent(
+  evidence : DaeLocalizedCallsiteRewriteEvidence,
+) -> Bool {
+  evidence.new_call_idx >= 0 &&
+  evidence.new_call_idx < evidence.instrs.length() &&
+  evidence.localization_count == evidence.scratch_local_types.length() &&
+  evidence.localization_count == dae_count_touched(evidence.localized_params) &&
+  evidence.scratch_local_types.all(fn(vt) { @lib.has_default(vt) })
+}
+
+///|
+fn dae_localization_scratch_type(param_type : @lib.ValType) -> @lib.ValType? {
+  if @lib.has_default(param_type) {
+    return Some(param_type)
+  }
+  match param_type {
+    @lib.RefTypeValType(ref_type) =>
+      Some(@lib.ValType::ref_type(ref_type.make_nullable()))
+    _ => None
+  }
+}
+
+///|
+fn dae_rewrite_callsite_with_localization_at(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
-  arg_count : Int,
+  remove : Array[Bool],
+  param_types : Array[@lib.ValType],
   entry_stack_values : Int,
+  first_scratch_local : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> Array[DaeCallShape?] {
-  let shapes : Array[DaeCallShape?] = Array::make(arg_count, None)
-  let mut cursor = call_idx
-  let mut ambient_remaining = entry_stack_values
-  let mut arg_idx = arg_count - 1
-  while arg_idx >= 0 {
-    match
-      dae_find_value_slice(
-        instrs, cursor, ambient_remaining, mod_, func_type_indices,
-      ) {
-      Some((shape, _, next_ambient_remaining)) => {
-        let widened_shape = dae_try_extend_callsite_shape_with_dead_zero_if_gap(
-          instrs, shape, mod_,
-        )
-        shapes[arg_idx] = Some(widened_shape)
-        cursor = widened_shape.start
-        ambient_remaining = next_ambient_remaining
-      }
-      None => break
-    }
-    arg_idx -= 1
+) -> DaeLocalizedCallsiteRewriteEvidence? {
+  if remove.length() != param_types.length() || first_scratch_local < 0 {
+    return None
   }
-  shapes
-}
-
-///|
-fn dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
-  mod_ : @lib.Module,
-  instrs : Array[@lib.Instruction],
-  imported : Int,
-  selected_defs : Array[Bool],
-) -> Unit {
+  let callsite = match
+    dae_callsite_value_slice_evidence(
+      instrs,
+      call_idx,
+      remove.length(),
+      entry_stack_values,
+      mod_,
+      func_type_indices,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  let out : Array[@lib.Instruction] = []
+  let scratch_local_types : Array[@lib.ValType] = []
+  let localized_params = Array::make(remove.length(), false)
   let mut idx = 0
-  while idx < instrs.length() {
-    match instrs[idx] {
-      @lib.Call(func_idx) if idx >= 5 =>
-        match
-          (
-            instrs[idx - 5],
-            instrs[idx - 4],
-            instrs[idx - 3],
-            instrs[idx - 2],
-            instrs[idx - 1],
-          ) {
-          (
-            @lib.GlobalGet(global_idx),
-            @lib.If(_, _, Some(_)),
-            @lib.I32Const(@lib.I32(0)),
-            @lib.If(dead_block_type, _, None),
-            @lib.I32Const(_),
-          ) if dead_block_type == @lib.BlockType::void_() &&
-            dae_defined_i32_global_const_value(mod_, global_idx) is Some(_) => {
-            let callee_def = dae_func_idx_slot(func_idx) - imported
-            if callee_def >= 0 && callee_def < selected_defs.length() {
-              selected_defs[callee_def] = true
-            }
-          }
-          _ => ()
-        }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
-          mod_, body, imported, selected_defs,
-        )
-      @lib.If(_, then_body, Some(else_body)) => {
-        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
-          mod_, then_body, imported, selected_defs,
-        )
-        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
-          mod_, else_body, imported, selected_defs,
-        )
-      }
-      @lib.If(_, then_body, None) =>
-        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
-          mod_, then_body, imported, selected_defs,
-        )
-      _ => ()
-    }
+  while idx < callsite.cursor {
+    out.push(instrs[idx])
     idx += 1
   }
-}
-
-///|
-fn dae_collect_immutable_global_dead_zero_if_callee_defs(
-  mod_ : @lib.Module,
-) -> Array[Bool] {
-  let imported = dae_imported_func_count(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return []
-  }
-  let selected_defs = Array::make(funcs.length(), false)
-  for func in funcs {
-    let @lib.Func(_, @lib.Expr(body)) = func
-    dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
-      mod_, body, imported, selected_defs,
+  let mut p = 0
+  while p < remove.length() {
+    let disposition = callsite.slices[p].disposition
+    let rewrite_disposition = dae_operand_rewrite_disposition(
+      disposition,
+      localization_available=remove[p],
+      has_escaping_branch=disposition.has_branch,
     )
+    let plan = dae_operand_removal_plan(rewrite_disposition, !remove[p])
+    if !dae_operand_removal_plan_is_consistent(rewrite_disposition, plan) ||
+      plan.rejects_direct_removal {
+      return None
+    }
+    if plan.requires_localization_retry {
+      let mut operand_idx = plan.start
+      while operand_idx < plan.end {
+        out.push(instrs[operand_idx])
+        operand_idx += 1
+      }
+      let scratch_idx = first_scratch_local + scratch_local_types.length()
+      out.push(
+        @lib.Instruction::local_set(
+          @lib.LocalIdx::new(scratch_idx.reinterpret_as_uint()),
+        ),
+      )
+      let scratch_type = match dae_localization_scratch_type(param_types[p]) {
+        Some(scratch_type) => scratch_type
+        None => return None
+      }
+      scratch_local_types.push(scratch_type)
+      localized_params[p] = true
+    } else {
+      dae_append_operand_with_removal_plan(out, instrs, plan)
+    }
+    p += 1
   }
-  selected_defs
+  let new_call_idx = out.length()
+  out.push(instrs[call_idx])
+  idx = call_idx + 1
+  while idx < instrs.length() {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  let evidence = {
+    instrs: out,
+    new_call_idx,
+    scratch_local_types,
+    localized_params,
+    localization_count: scratch_local_types.length(),
+  }
+  if dae_localized_callsite_rewrite_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -4478,6 +4506,7 @@ fn dae_rewrite_calls_instr(
   remove : Array[Bool],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  localization? : DaeCallsiteLocalizationContext? = None,
 ) -> (@lib.Instruction, Int, Bool) {
   let children = match dae_nested_control_children_evidence(instr, mod_) {
     Some(evidence) => evidence
@@ -4498,6 +4527,7 @@ fn dae_rewrite_calls_instr(
     entry_stack_values,
     mod_,
     func_type_indices,
+    localization~,
   )
   if !primary_result.ok {
     return (instr, primary_result.calls_rewritten, false)
@@ -4506,7 +4536,13 @@ fn dae_rewrite_calls_instr(
   let rewritten_secondary = match children.secondary_body {
     Some(body) => {
       let secondary_result = dae_rewrite_calls_instrs(
-        body, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
+        body,
+        callee_abs,
+        remove,
+        entry_stack_values,
+        mod_,
+        func_type_indices,
+        localization~,
       )
       calls += secondary_result.calls_rewritten
       if !secondary_result.ok {
@@ -4536,6 +4572,7 @@ fn dae_rewrite_calls_instrs(
   entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  localization? : DaeCallsiteLocalizationContext? = None,
 ) -> DaeRewriteResult {
   let current = instrs.copy()
   let mut idx = 0
@@ -4551,9 +4588,40 @@ fn dae_rewrite_calls_instrs(
         DaeTargetDirectOrReturnCall,
       ) {
       Some(_) => {
-        let (rewritten, new_call_idx, ok) = dae_rewrite_callsite_at(
-          current, idx, remove, entry_stack_values, mod_, func_type_indices,
-        )
+        let (rewritten, new_call_idx, ok) = match localization {
+          Some(context) => {
+            let first_scratch_local = context.first_scratch_local +
+              context.scratch_local_types.length()
+            match
+              dae_rewrite_callsite_with_localization_at(
+                current,
+                idx,
+                remove,
+                context.param_types,
+                entry_stack_values,
+                first_scratch_local,
+                mod_,
+                func_type_indices,
+              ) {
+              Some(evidence) => {
+                context.scratch_local_types.append(evidence.scratch_local_types)
+                let mut p = 0
+                while p < evidence.localized_params.length() &&
+                      p < context.localized_params.length() {
+                  context.localized_params[p] = context.localized_params[p] ||
+                    evidence.localized_params[p]
+                  p += 1
+                }
+                (evidence.instrs, evidence.new_call_idx, true)
+              }
+              None => ([], -1, false)
+            }
+          }
+          None =>
+            dae_rewrite_callsite_at(
+              current, idx, remove, entry_stack_values, mod_, func_type_indices,
+            )
+        }
         if !ok {
           return { instrs: [], calls_rewritten: calls, ok: false }
         }
@@ -4569,6 +4637,7 @@ fn dae_rewrite_calls_instrs(
           remove,
           mod_,
           func_type_indices,
+          localization~,
         )
         if !ok {
           return {
@@ -10581,21 +10650,43 @@ fn dae_try_rewrite_candidate(
   }
   let rewritten_funcs = funcs.copy()
   let touched = Array::make(funcs.length(), false)
+  let localized_params = Array::make(params.length(), false)
   let mut rewritten_calls = 0
   let mut caller_idx = 0
   while caller_idx < direct_caller_defs.length() {
     let caller_def = direct_caller_defs[caller_idx]
     if caller_def >= 0 && caller_def < funcs.length() {
       let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
+      let caller_abs = imported + caller_def
+      let caller_params = match
+        dae_resolve_func_type(mod_, type_indices, caller_abs) {
+        Some(@lib.FuncType(caller_params, _)) => caller_params
+        None =>
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+      let localization = {
+        first_scratch_local: caller_params.length() + locals.length(),
+        param_types: params,
+        scratch_local_types: [],
+        localized_params,
+      }
       let result = dae_rewrite_calls_instrs(
-        body, callee_abs, remove, 0, mod_, type_indices,
+        body,
+        callee_abs,
+        remove,
+        0,
+        mod_,
+        type_indices,
+        localization=Some(localization),
       )
       if !result.ok {
         return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
       }
       if result.calls_rewritten > 0 {
+        let rewritten_locals = locals.copy()
+        rewritten_locals.append_types(localization.scratch_local_types)
         rewritten_funcs[caller_def] = @lib.Func::new(
-          locals,
+          rewritten_locals,
           @lib.Expr::new(result.instrs),
         )
         touched[caller_def] = true
@@ -10608,12 +10699,26 @@ fn dae_try_rewrite_candidate(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let kept_params : Array[@lib.ValType] = []
-  let removed_written_types : Array[@lib.ValType] = []
+  let removed_local_types : Array[@lib.ValType] = []
   let mut p = 0
   while p < params.length() {
     if remove[p] {
-      if local_use.writes[p] {
-        removed_written_types.push(params[p])
+      if local_use.writes[p] || localized_params[p] {
+        let removed_local_type = if localized_params[p] {
+          match dae_localization_scratch_type(params[p]) {
+            Some(local_type) => local_type
+            None =>
+              return {
+                mod_out: mod_,
+                touched: [],
+                changed: false,
+                primary_def: -1,
+              }
+          }
+        } else {
+          params[p]
+        }
+        removed_local_types.push(removed_local_type)
       }
     } else {
       kept_params.push(params[p])
@@ -10627,12 +10732,13 @@ fn dae_try_rewrite_candidate(
     body_local_count,
     remove,
     local_use,
+    preserve_removed_params=Some(localized_params),
   )
   let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
   let body_with_rewritten_locals = dae_rewrite_locals_instrs(
     body_with_consts, local_map,
   )
-  let new_locals = @lib.Locals::from_types(removed_written_types)
+  let new_locals = @lib.Locals::from_types(removed_local_types)
   new_locals.append(old_locals)
   let rewritten_total_locals = kept_params.length() + new_locals.length()
   let rewritten_written_locals = dae_collect_written_locals(
