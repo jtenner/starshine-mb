@@ -27340,14 +27340,21 @@ fn optimize_instructions_inverted_select_compare(
 ///|
 priv enum OiIdempotentCallOperandKind {
   IdempotentCallNoOperands
+  IdempotentCallPureLocalConstOperands
   IdempotentCallUnsupportedOperands
+}
+
+///|
+priv struct OiIdempotentCallOperandFact {
+  kind : OiIdempotentCallOperandKind
+  operand_ids : Array[Int]
 }
 
 ///|
 priv struct OiIdempotentCallFact {
   call_id : Int
   func_idx : Int
-  operand_kind : OiIdempotentCallOperandKind
+  operand_fact : OiIdempotentCallOperandFact
 }
 
 ///|
@@ -27357,9 +27364,10 @@ fn OiIdempotentCallFact::from_node(
   node_id : Int,
 ) -> OiIdempotentCallFact? {
   // Binaryen v130 asks `Intrinsics::getCallAnnotations(...).idempotent` before
-  // treating a direct call as effect-free for consecutive-input folding. Start
-  // with the exact no-operand subset, where the source's child-effect and
-  // parent-invalidates-child checks are vacuous.
+  // treating a direct call as effect-free for consecutive-input folding. The
+  // represented operand fact now includes no operands plus direct local.get and
+  // scalar constants, whose child-effect and parent-invalidates-child checks are
+  // vacuous.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Call if node.imm0 >= 0 => ()
@@ -27377,20 +27385,62 @@ fn OiIdempotentCallFact::from_node(
     ) {
     return None
   }
-  let operand_kind = if node.child_count == 0 {
+  let operand_ids : Array[Int] = []
+  let mut all_local_const = true
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let operand_id = @ir.hot_child_get(func, node_id, slot)
+    operand_ids.push(operand_id)
+    match @ir.hot_node_get(func, operand_id).op {
+      @ir.HotOp::LocalGet | @ir.HotOp::Const => ()
+      _ => all_local_const = false
+    }
+  }
+  let kind = if node.child_count == 0 {
     IdempotentCallNoOperands
+  } else if all_local_const {
+    IdempotentCallPureLocalConstOperands
   } else {
     IdempotentCallUnsupportedOperands
   }
-  Some({ call_id: node_id, func_idx, operand_kind })
+  Some({ call_id: node_id, func_idx, operand_fact: { kind, operand_ids } })
+}
+
+///|
+fn OiIdempotentCallOperandFact::proves_foldable(
+  self : OiIdempotentCallOperandFact,
+) -> Bool {
+  match self.kind {
+    IdempotentCallNoOperands | IdempotentCallPureLocalConstOperands => true
+    IdempotentCallUnsupportedOperands => false
+  }
+}
+
+///|
+fn OiIdempotentCallOperandFact::proves_equal(
+  self : OiIdempotentCallOperandFact,
+  func : @ir.HotFunc,
+  other : OiIdempotentCallOperandFact,
+) -> Bool {
+  if !self.proves_foldable() ||
+    !other.proves_foldable() ||
+    self.operand_ids.length() != other.operand_ids.length() {
+    return false
+  }
+  for slot = 0; slot < self.operand_ids.length(); slot = slot + 1 {
+    if !OiScalarTreeEqualityFact::from_nodes(
+        func,
+        self.operand_ids[slot],
+        other.operand_ids[slot],
+      ).proves_pure_equal() {
+      return false
+    }
+  }
+  true
 }
 
 ///|
 fn OiIdempotentCallFact::proves_foldable(self : OiIdempotentCallFact) -> Bool {
-  match self.operand_kind {
-    IdempotentCallNoOperands => true
-    IdempotentCallUnsupportedOperands => false
-  }
+  self.operand_fact.proves_foldable()
 }
 
 ///|
@@ -27415,7 +27465,8 @@ fn OiIdempotentCallEqualityFact::from_nodes(
       @ir.hot_node_type(func, left.call_id) ==
       @ir.hot_node_type(func, right.call_id) &&
       left.proves_foldable() &&
-      right.proves_foldable()
+      right.proves_foldable() &&
+      left.operand_fact.proves_equal(func, right.operand_fact)
     _ => false
   }
   { left_fact, right_fact, same_call }
@@ -27452,8 +27503,9 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
 ) -> OiConsecutiveInputFoldabilityFact {
   // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
   // the later equal input to have no unremovable effects before it can be
-  // folded into the earlier input. An annotated no-operand direct call is the
-  // first represented exception to the ordinary pure-expression proof.
+  // folded into the earlier input. Annotated direct calls with no operands or
+  // direct local/constant operands are the represented exceptions to the
+  // ordinary pure-expression proof.
   let kind = if OiSideEffectFreeExpressionFact::proves_node_free(
       func, dead, right_id,
     ) {

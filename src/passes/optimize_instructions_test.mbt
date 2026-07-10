@@ -4046,6 +4046,56 @@ test "optimize-instructions folds no-arg idempotent-call self-selects" {
 }
 
 ///|
+test "optimize-instructions folds local and const idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
+  // operand effects before folding the later equal call. Direct local.get and
+  // scalar-constant operands have no unremovable effects and cannot be
+  // invalidated by the call shell. Source: `OptimizeInstructions.cpp:2891-2947`;
+  // oracle: `.tmp/oi-probes/select-idempotent-call-foldability.wat`.
+  let optimize_caller = fn(body : String, params : String) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func " +
+      params +
+      " (result i32) " +
+      body +
+      "))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected operand idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let local_arg = optimize_caller(
+    "local.get 0 call $id i32.const 0 local.get 0 call $id select", "(param i32)",
+  )
+  assert_false(local_arg.contains("select"), msg=local_arg)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(local_arg, "call (Func 0)"),
+    1,
+  )
+  let const_ = optimize_caller(
+    "i32.const 0 i32.const 9 call $id i32.const 9 call $id select", "",
+  )
+  assert_false(const_.contains("select"), msg=const_)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(const_, "call (Func 0)"),
+    1,
+  )
+  assert_true(const_.contains("drop"), msg=const_)
+  let different_locals = optimize_caller(
+    "local.get 0 call $id i32.const 0 local.get 1 call $id select", "(param i32 i32)",
+  )
+  assert_true(different_locals.contains("select"), msg=different_locals)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(
+      different_locals, "call (Func 0)",
+    ),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions lowers one-bit false-zero selects to and" {
   // Red-first OI-F parity slice: Binaryen version_130 `optimizeSelect` uses
   // `Bits::getMaxBits` facts for the condition and both i32 arms before
