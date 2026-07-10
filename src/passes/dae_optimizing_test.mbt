@@ -144,6 +144,38 @@ fn dae_test_instrs_reference_local(
 }
 
 ///|
+fn dae_test_count_local_set_instr(
+  instr : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+) -> Int {
+  match instr {
+    @lib.LocalSet(idx) if idx == target_local => 1
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_test_count_local_set_instrs(body, target_local)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_test_count_local_set_instrs(then_body, target_local) +
+      dae_test_count_local_set_instrs(else_body, target_local)
+    @lib.If(_, then_body, None) =>
+      dae_test_count_local_set_instrs(then_body, target_local)
+    _ => 0
+  }
+}
+
+///|
+fn dae_test_count_local_set_instrs(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += dae_test_count_local_set_instr(instr, target_local)
+  }
+  count
+}
+
+///|
 fn dae_test_count_select_instr(instr : @lib.Instruction) -> Int {
   match instr {
     @lib.Select(_) => 1
@@ -11294,6 +11326,48 @@ test "plain DAE localizes hard removed direct-call operands into typed scratch l
     Ok(_) => ()
     Err(err) =>
       fail("expected localized plain DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "plain DAE reuses one typed scratch local across sequential and nested localized calls" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $side (result i32)
+    #|    i32.const 1
+    #|    global.set $g
+    #|    i32.const 7)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    block (result i32)
+    #|      call $side
+    #|    end
+    #|    i32.const 13
+    #|    call $f
+    #|    drop
+    #|    block (result i32)
+    #|      block (result i32)
+    #|        call $side
+    #|      end
+    #|      i32.const 14
+    #|      call $f
+    #|    end))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(optimized, 2)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32()]),
+  )
+  let scratch = @lib.LocalIdx::new(0U)
+  @debug.assert_eq(dae_test_count_local_set_instrs(body, scratch), 2)
+  assert_false(dae_test_instrs_reference_local(body, @lib.LocalIdx::new(1U)))
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scratch-reusing plain DAE output to validate, got \{err}")
   }
 }
 

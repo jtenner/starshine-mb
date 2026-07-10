@@ -6176,6 +6176,36 @@ test "dae callsite rewrite application centralizes replay and localization" {
 }
 
 ///|
+test "dae localization scratch pool reuses exact defaultable types" {
+  let scratch_heap_type = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let nullable_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, scratch_heap_type),
+  )
+  let scratch_local_types = [@lib.ValType::i32(), @lib.ValType::f64()]
+  assert_eq(
+    dae_localization_scratch_slot(
+      5, scratch_local_types, @lib.ValType::i32(),
+    ),
+    5,
+  )
+  assert_eq(scratch_local_types.length(), 2)
+  assert_eq(
+    dae_localization_scratch_slot(5, scratch_local_types, nullable_ref),
+    7,
+  )
+  assert_eq(scratch_local_types, [
+    @lib.ValType::i32(),
+    @lib.ValType::f64(),
+    nullable_ref,
+  ])
+  assert_eq(
+    dae_localization_scratch_slot(5, scratch_local_types, nullable_ref),
+    7,
+  )
+  assert_eq(scratch_local_types.length(), 3)
+}
+
+///|
 test "dae removed-param local projection distinguishes elided written and localized slots" {
   let dead = dae_removed_param_local_projection_evidence(
     @lib.ValType::i32(),
