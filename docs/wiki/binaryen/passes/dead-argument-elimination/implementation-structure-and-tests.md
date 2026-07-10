@@ -264,6 +264,20 @@ The adjacent proof surface is split deliberately:
 
 This local evidence does not replace the upstream owner/test map above. It documents the current Starshine safety boundary around one extra cleanup direction that Binaryen plain DAE does not perform.
 
+## Current Starshine original-result boundary proof surface
+
+The main Starshine core now groups original result-preservation and result-removal pruning through `DaeOriginalResultBoundaryContext`, `DaeOriginalResultBoundaryRow`, and `DaeOriginalResultBoundaryEvidence`. Shared original parameter, call, self-call, escape, and dead-suffix facts are indexed once into `DaeOriginalResultPreservationRow`; the prune row is derived from that row plus prune-only facts instead of performing a second parallel-array indexing pass.
+
+The resulting per-definition projection has multiple production consumers:
+
+- unobserved-unreachable cleanup;
+- zero-call dead-suffix and result-side cleanup;
+- zero-parameter dropped-result removal;
+- current-parameter argument-side result repair;
+- parameterized self-side-chain preservation.
+
+[`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt) locks equality of every shared preservation/prune field and out-of-range fail-closed defaults. Fresh direct and optimizing compare lanes retain the exact pre-refactor counts, so this is evidence-ownership consolidation rather than a hidden legality or scheduling change.
+
 ## Porting takeaway
 
 For the exact current local registry, request-rejection, and future shared-core plan, read [`./starshine-strategy.md`](./starshine-strategy.md).
