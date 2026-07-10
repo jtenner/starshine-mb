@@ -1977,8 +1977,8 @@ test "dae dropped result unreachable callee rewrite centralizes application" {
     DaeRepairDeadSuffixNoParamCallers,
     [],
   )
-  assert_eq(plan.next_params, [])
-  assert_eq(plan.next_results, [])
+  assert_eq(plan.finalization.next_params, [])
+  assert_eq(plan.finalization.next_results, [])
   assert_true(dae_dropped_result_repair_plan_removes_call_drops(plan.repair))
   let result = dae_apply_dropped_result_unreachable_callee_rewrite(
     mod_, context, plan,

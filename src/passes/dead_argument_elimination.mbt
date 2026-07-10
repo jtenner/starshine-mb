@@ -806,10 +806,22 @@ priv struct DaeDroppedResultRepairPlan {
 }
 
 ///|
-priv struct DaeDroppedResultUnreachableCalleeRewritePlan {
-  repair : DaeDroppedResultRepairPlan
+priv enum DaeDroppedResultTouchedPolicy {
+  DaeTouchDroppedResultCalleeOnly
+  DaeTouchDroppedResultChangedFuncs
+}
+
+///|
+priv struct DaeDroppedResultModuleFinalizationPlan {
   next_params : Array[@lib.ValType]
   next_results : Array[@lib.ValType]
+  touched_policy : DaeDroppedResultTouchedPolicy
+}
+
+///|
+priv struct DaeDroppedResultUnreachableCalleeRewritePlan {
+  repair : DaeDroppedResultRepairPlan
+  finalization : DaeDroppedResultModuleFinalizationPlan
 }
 
 ///|
@@ -11543,6 +11555,72 @@ fn dae_apply_dropped_result_repair_plan(
 }
 
 ///|
+fn dae_dropped_result_module_finalization_plan(
+  next_params : Array[@lib.ValType],
+  next_results : Array[@lib.ValType],
+  touched_policy : DaeDroppedResultTouchedPolicy,
+) -> DaeDroppedResultModuleFinalizationPlan {
+  {
+    next_params: next_params.copy(),
+    next_results: next_results.copy(),
+    touched_policy,
+  }
+}
+
+///|
+fn dae_apply_dropped_result_module_finalization(
+  mod_ : @lib.Module,
+  context : DaeDroppedResultModuleContext,
+  rewritten_funcs : Array[@lib.Func],
+  plan : DaeDroppedResultModuleFinalizationPlan,
+  perf? : HotPerfSession? = None,
+  type_update_timer_name? : String = "",
+) -> DaePassResult {
+  let type_update_start_us = if type_update_timer_name.length() > 0 {
+    perf_start_timer_opt(perf, type_update_timer_name)
+  } else {
+    0UL
+  }
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
+    context.type_sec,
+    context.type_idxs,
+    context.def_idx,
+    plan.next_params,
+    plan.next_results,
+  )
+  if type_update_timer_name.length() > 0 {
+    perf_stop_timer_opt(perf, type_update_timer_name, type_update_start_us)
+  }
+  context.type_idxs[context.def_idx] = new_type_idx
+  let touched = Array::make(rewritten_funcs.length(), false)
+  touched[context.def_idx] = true
+  match plan.touched_policy {
+    DaeTouchDroppedResultCalleeOnly => ()
+    DaeTouchDroppedResultChangedFuncs => {
+      let mut caller_def = 0
+      while caller_def < context.funcs.length() &&
+            caller_def < rewritten_funcs.length() {
+        if context.funcs[caller_def] != rewritten_funcs[caller_def] {
+          touched[caller_def] = true
+        }
+        caller_def += 1
+      }
+    }
+  }
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(context.type_idxs))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: context.def_idx,
+  }
+}
+
+///|
 fn dae_dropped_result_unreachable_callee_rewrite_plan(
   context : DaeDroppedResultModuleContext,
   repair_kind : DaeDroppedResultDeadSuffixRepairKind,
@@ -11557,8 +11635,11 @@ fn dae_dropped_result_unreachable_callee_rewrite_plan(
       remove_dropped_call_drops=true,
       remove_dropped_call_drops_before_repair=false,
     ),
-    next_params: next_params.copy(),
-    next_results: [],
+    finalization: dae_dropped_result_module_finalization_plan(
+      next_params,
+      [],
+      DaeTouchDroppedResultCalleeOnly,
+    ),
   }
 }
 
@@ -11579,27 +11660,12 @@ fn dae_apply_dropped_result_unreachable_callee_rewrite(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+  dae_apply_dropped_result_module_finalization(
     mod_,
-    context.type_sec,
-    context.type_idxs,
-    context.def_idx,
-    plan.next_params,
-    plan.next_results,
+    context,
+    context.funcs,
+    plan.finalization,
   )
-  context.type_idxs[context.def_idx] = new_type_idx
-  let touched = Array::make(context.funcs.length(), false)
-  touched[context.def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(context.type_idxs))
-    .with_code_sec(@lib.CodeSec::new(context.funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: context.def_idx,
-  }
 }
 
 ///|
@@ -11707,7 +11773,6 @@ fn dae_try_remove_dropped_results(
   if results.length() != 1 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let type_idxs = context.type_idxs
   let funcs = context.funcs
   let type_sec = context.type_sec
   let rewrite_scope = context.scope
@@ -11770,41 +11835,19 @@ fn dae_try_remove_dropped_results(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:callee-rewrite",
     callee_rewrite_start_us,
   )
-  let type_update_start_us = perf_start_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-update",
-  )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_,
-    type_sec,
-    type_idxs,
-    def_idx,
+  let finalization_plan = dae_dropped_result_module_finalization_plan(
     params,
     [],
+    DaeTouchDroppedResultChangedFuncs,
   )
-  perf_stop_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-update",
-    type_update_start_us,
+  dae_apply_dropped_result_module_finalization(
+    mod_,
+    context,
+    rewritten_funcs,
+    finalization_plan,
+    perf~,
+    type_update_timer_name="detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-update",
   )
-  type_idxs[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  let mut caller_def = 0
-  while caller_def < funcs.length() {
-    if funcs[caller_def] != rewritten_funcs[caller_def] {
-      touched[caller_def] = true
-    }
-    caller_def += 1
-  }
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
 }
 
 ///|
