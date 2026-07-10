@@ -3209,6 +3209,113 @@ test "optimize-instructions folds i64 eqz one-sided if constants in boolean cont
 }
 
 ///|
+test "optimize-instructions folds recursive eqz fallthrough wrapper chains" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `getFallthrough`
+  // repeatedly applies `getImmediateFallthrough`, then preserves only the
+  // original operand effects required by `getDroppedChildrenAndAppend`.
+  // Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-next.wat`.
+  let pure_block = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (if (result i32) (i32.eqz (block (result i32) (i32.const 0))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let pure_block_condition = @ir.hot_child_get(
+    pure_block,
+    @ir.hot_root_get(pure_block, 0),
+    0,
+  )
+  match @ir.hot_node_get(pure_block, pure_block_condition).op {
+    @ir.HotOp::Const =>
+      @debug.assert_eq(
+        @ir.hot_const_get(
+          pure_block,
+          @ir.hot_node_get(pure_block, pure_block_condition).imm0,
+        ),
+        @ir.HotConstPayload::i32_const(@lib.I32(1)),
+      )
+    other => fail("expected pure single-root block to erase, got \{other}")
+  }
+
+  let pure_i32 = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (if (result i32) (i32.eqz (block (result i32) (loop (result i32) (i32.const 0)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let pure_i32_condition = @ir.hot_child_get(
+    pure_i32,
+    @ir.hot_root_get(pure_i32, 0),
+    0,
+  )
+  match @ir.hot_node_get(pure_i32, pure_i32_condition).op {
+    @ir.HotOp::Const =>
+      @debug.assert_eq(
+        @ir.hot_const_get(
+          pure_i32,
+          @ir.hot_node_get(pure_i32, pure_i32_condition).imm0,
+        ),
+        @ir.HotConstPayload::i32_const(@lib.I32(1)),
+      )
+    other => fail("expected pure nested i32 wrappers to erase, got \{other}")
+  }
+
+  let pure_i64 = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (if (result i32) (i64.eqz (loop (result i64) (block (result i64) (i64.const 9)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let pure_i64_condition = @ir.hot_child_get(
+    pure_i64,
+    @ir.hot_root_get(pure_i64, 0),
+    0,
+  )
+  match @ir.hot_node_get(pure_i64, pure_i64_condition).op {
+    @ir.HotOp::Const =>
+      @debug.assert_eq(
+        @ir.hot_const_get(
+          pure_i64,
+          @ir.hot_node_get(pure_i64, pure_i64_condition).imm0,
+        ),
+        @ir.HotConstPayload::i32_const(@lib.I32(0)),
+      )
+    other => fail("expected pure nested i64 wrappers to erase, got \{other}")
+  }
+
+  let tee = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (if (result i32) (i32.eqz (local.tee 0 (loop (result i32) (i32.const 0)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let tee_condition = @ir.hot_child_get(tee, @ir.hot_root_get(tee, 0), 0)
+  match @ir.hot_node_get(tee, tee_condition).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected nested tee preservation block, got \{other}")
+  }
+  let tee_body = @ir.hot_region_body_ref(tee, tee_condition)
+  @debug.assert_eq(@ir.hot_region_root_count(tee, tee_body), 2)
+  let tee_drop = @ir.hot_region_get(tee, tee_body, 0)
+  match @ir.hot_node_get(tee, tee_drop).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected nested tee evaluation drop, got \{other}")
+  }
+  match @ir.hot_node_get(tee, @ir.hot_child_get(tee, tee_drop, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    other => fail("expected dropped outer local.tee, got \{other}")
+  }
+
+  let effectful = optimize_instructions_test_run_hot(
+    "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) (if (result i32) (i32.eqz (block (result i32) (global.set 0 (local.get 0)) (loop (result i32) (i32.const 0)))) (then (i32.const 11)) (else (i32.const 22)))))",
+  )
+  let effectful_condition = @ir.hot_child_get(
+    effectful,
+    @ir.hot_root_get(effectful, 0),
+    0,
+  )
+  match @ir.hot_node_get(effectful, effectful_condition).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected effectful nested preservation block, got \{other}")
+  }
+  let effectful_body = @ir.hot_region_body_ref(effectful, effectful_condition)
+  @debug.assert_eq(@ir.hot_region_root_count(effectful, effectful_body), 2)
+  let effectful_drop = @ir.hot_region_get(effectful, effectful_body, 0)
+  match @ir.hot_node_get(effectful, effectful_drop).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected effectful nested operand drop, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to
