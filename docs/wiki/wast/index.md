@@ -91,7 +91,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 - [`control-flow-authoring.md`](control-flow-authoring.md) — `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, label-depth lowering, `br_if` fallthrough payloads, `br_table` default/target equivalence, and WAST shapes for stack-polymorphic unreachable code; specialized tail-call, finished/Core-3.0 exception/`try_table`, and reference-branch semantics route to focused sibling pages, while validator bottom-value mechanics live in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md) — `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select portability caveats.
-- [`tail-call-authoring.md`](tail-call-authoring.md) — `return_call`, `return_call_indirect`, and `return_call_ref` across text, core, binary, validation, CFG, and generator layers, including the `return_call_ref` split from ordinary non-tail `call_ref`.
+- [`tail-call-authoring.md`](tail-call-authoring.md) — `return_call`, `return_call_indirect`, and `return_call_ref` across text, core, binary, validation, CFG, and generator layers; refreshed against the current Core 3.0 component-date bridge, including the `return_call_ref` split from ordinary non-tail `call_ref`.
 
 ### Memory, tables, data, and elements
 

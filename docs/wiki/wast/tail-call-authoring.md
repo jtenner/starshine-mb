@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
   - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
@@ -47,7 +48,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The current-source refresh is [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md), which rechecked the official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 against Starshine's WAST/core/binary/validator/CFG surfaces. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is now routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), with the older detailed stack-shape note preserved at [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the older CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The current-source refresh is [`../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md`](../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md). It rechecked the official Core 3.0 instruction pages and found no tail-call syntax, binary, validation, or execution drift from the earlier source map. The date is component-specific: syntax, text, validation, and execution pages are dated 2026-07-10, while binary instructions is dated 2026-07-09. Say “current Core 3.0 pages” or cite the particular page; do not imply every Core page has one shared date. The prior detailed capture [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md) remains historical source-map evidence. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is now routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), with the older detailed stack-shape note preserved at [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the older CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Layer Model
 
@@ -85,7 +86,7 @@ This is why a malformed `return_call_indirect` fixture can fail before the unrea
 
 - **Return result matching is exact locally.** The current Starshine helper [`require_return_results(...)`](../../../src/validate/typecheck.mbt) compares the callee result list with the current function return list using exact `ValType` equality before marking the continuation unreachable. Do not use a tail-call fixture that relies on reference-result widening or other future subtyping-sensitive return matching as evidence until the validator has a focused widening change and tests.
 - **Indirect tail calls are still table32-shaped locally.** The official selected-table address type should drive the dynamic table element index. Starshine's [`typecheck_return_call_indirect(...)`](../../../src/validate/typecheck.mbt) currently expects an `i32` index, so table64 tail-call-indirect fixtures are validation-gap evidence, not ordinary pass or WAST authoring evidence. This is the same address-width family documented for ordinary `call_indirect` in [`table-instruction-authoring.md`](table-instruction-authoring.md).
-- **Proposal-era wording is rationale only.** The historical tail-call proposal explains why tail calls are return-position transfers, but the current Core 3.0 pages dated 2026-06-03 are the live source for syntax, binary opcodes, validation, and execution.
+- **Proposal-era wording is rationale only.** The historical tail-call proposal explains why tail calls are return-position transfers, but the current Core 3.0 pages are the live source for syntax, binary opcodes, validation, and execution. Their document dates are component-specific; see the current source bridge rather than copying a single date across all pages.
 
 ## Concrete WAST Shapes
 
@@ -187,7 +188,8 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 
 ## Source Map
 
-- Current official Core 3.0 and Starshine source refresh: [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md)
+- Current official Core 3.0 component-date and no-semantic-drift refresh: [`../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md`](../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md)
+- Earlier detailed Core 3.0 and Starshine source refresh: [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md)
 - Focused typed-function-reference boundary refresh: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
 - Focused reference-call source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Original primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md)
