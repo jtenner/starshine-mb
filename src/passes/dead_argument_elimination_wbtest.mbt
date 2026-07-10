@@ -36,6 +36,94 @@ fn dae_wbtest_call_summary_fixture() -> @lib.Module {
 }
 
 ///|
+fn dae_original_result_removal_prune_row(
+  def_idx : Int,
+  original_param_counts : Array[Int],
+  original_call_counts : Array[Int],
+  original_active_nonself_call_counts : Array[Int],
+  original_active_parameterized_nonself_call_counts : Array[Int],
+  original_active_parameterized_result_nonself_call_counts : Array[Int],
+  original_nonself_undropped_call_counts : Array[Int],
+  original_self_call_counts : Array[Int],
+  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_dead_suffix_undropped_self_calls : Array[Bool],
+  original_dead_suffix_dropped_self_calls : Array[Bool],
+  original_dead_suffix_block_undropped_self_calls : Array[Bool],
+  original_dead_suffix_same_self_result_operand_calls : Array[Bool],
+  original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
+  original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
+  original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
+  original_later_dead_suffix_dropped_call_counts : Array[Int],
+  original_dead_suffix_mutual_calls : Array[Bool],
+  original_private_result_dead_suffix_call_counts : Array[Int],
+  original_dead_suffix_result_other_calls : Array[Bool],
+  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int],
+  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int],
+) -> DaeOriginalResultRemovalPruneRow {
+  {
+    param_count: dae_original_int_fact_at(original_param_counts, def_idx),
+    call_count: dae_original_int_fact_at(original_call_counts, def_idx),
+    active_nonself_call_count: dae_original_int_fact_at(
+      original_active_nonself_call_counts, def_idx,
+    ),
+    active_parameterized_nonself_call_count: dae_original_int_fact_at(
+      original_active_parameterized_nonself_call_counts, def_idx,
+    ),
+    active_parameterized_result_nonself_call_count: dae_original_int_fact_at(
+      original_active_parameterized_result_nonself_call_counts, def_idx,
+    ),
+    nonself_undropped_call_count: dae_original_int_fact_at(
+      original_nonself_undropped_call_counts, def_idx,
+    ),
+    self_call_count: dae_original_int_fact_at(
+      original_self_call_counts, def_idx,
+    ),
+    escaped_dead_suffix_call_count: dae_original_int_fact_at(
+      original_escaped_dead_suffix_call_counts, def_idx,
+    ),
+    dead_suffix_undropped_self_call: dae_original_bool_fact_at(
+      original_dead_suffix_undropped_self_calls, def_idx,
+    ),
+    dead_suffix_dropped_self_call: dae_original_bool_fact_at(
+      original_dead_suffix_dropped_self_calls, def_idx,
+    ),
+    dead_suffix_block_undropped_self_call: dae_original_bool_fact_at(
+      original_dead_suffix_block_undropped_self_calls, def_idx,
+    ),
+    dead_suffix_same_self_result_operand_call: dae_original_bool_fact_at(
+      original_dead_suffix_same_self_result_operand_calls, def_idx,
+    ),
+    dead_suffix_dropped_self_call_full_param_forward: dae_original_bool_fact_at(
+      original_dead_suffix_dropped_self_call_full_param_forwards, def_idx,
+    ),
+    dead_suffix_dropped_escaped_result_call: dae_original_bool_fact_at(
+      original_dead_suffix_dropped_escaped_result_calls, def_idx,
+    ),
+    dead_suffix_dropped_earlier_result_call: dae_original_bool_fact_at(
+      original_dead_suffix_dropped_earlier_result_calls, def_idx,
+    ),
+    later_dead_suffix_dropped_call_count: dae_original_int_fact_at(
+      original_later_dead_suffix_dropped_call_counts, def_idx,
+    ),
+    dead_suffix_mutual_call: dae_original_bool_fact_at(
+      original_dead_suffix_mutual_calls, def_idx,
+    ),
+    private_result_dead_suffix_call_count: dae_original_int_fact_at(
+      original_private_result_dead_suffix_call_counts, def_idx,
+    ),
+    dead_suffix_result_other_call: dae_original_bool_fact_at(
+      original_dead_suffix_result_other_calls, def_idx,
+    ),
+    dead_suffix_dropped_calls_from_no_param_result_caller: dae_original_int_fact_at(
+      original_dead_suffix_dropped_calls_from_no_param_result_callers, def_idx,
+    ),
+    dead_suffix_mixed_dropped_undropped_call_count: dae_original_int_fact_at(
+      original_dead_suffix_mixed_dropped_undropped_call_counts, def_idx,
+    ),
+  }
+}
+
+///|
 test "dae call boundary facts expose reusable forwarding gates" {
   let facts = dae_make_call_boundary_facts(
     [false, true, false],
@@ -576,10 +664,7 @@ test "dae original result boundary row shares preservation and prune facts" {
   )
   assert_eq(row.prune.later_dead_suffix_dropped_call_count, 4)
   assert_eq(row.prune.private_result_dead_suffix_call_count, 6)
-  assert_eq(
-    row.prune.dead_suffix_dropped_calls_from_no_param_result_caller,
-    8,
-  )
+  assert_eq(row.prune.dead_suffix_dropped_calls_from_no_param_result_caller, 8)
   assert_eq(row.prune.dead_suffix_mixed_dropped_undropped_call_count, 9)
   let evidence = dae_original_result_boundary_evidence_from_row(row)
   assert_true(evidence.preservation.same_self_result_operand)
@@ -1026,8 +1111,8 @@ test "dae original parameterized self side-chain guard centralizes indexed facts
     [0, 0],
     [0, 0],
   )
-  let evidence = dae_original_parameterized_undropped_self_side_chain_evidence_from_context(
-    1, context,
+  let evidence = dae_original_parameterized_undropped_self_side_chain_evidence_from_row(
+    dae_original_result_preservation_row_from_context(1, context),
   )
   assert_eq(evidence.param_count, 1)
   assert_eq(evidence.call_count, 3)
@@ -1041,8 +1126,8 @@ test "dae original parameterized self side-chain guard centralizes indexed facts
       evidence,
     ),
   )
-  let out_of_range = dae_original_parameterized_undropped_self_side_chain_evidence_from_context(
-    4, context,
+  let out_of_range = dae_original_parameterized_undropped_self_side_chain_evidence_from_row(
+    dae_original_result_preservation_row_from_context(4, context),
   )
   assert_eq(out_of_range.param_count, 0)
   assert_eq(out_of_range.call_count, 0)

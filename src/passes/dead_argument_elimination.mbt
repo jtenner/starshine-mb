@@ -980,6 +980,18 @@ priv struct DaeOriginalResultPreservationContext {
 }
 
 ///|
+priv struct DaeOriginalResultBoundaryContext {
+  preservation : DaeOriginalResultPreservationContext
+  original_active_parameterized_result_nonself_call_counts : Array[Int]
+  original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool]
+  original_dead_suffix_dropped_earlier_result_calls : Array[Bool]
+  original_later_dead_suffix_dropped_call_counts : Array[Int]
+  original_private_result_dead_suffix_call_counts : Array[Int]
+  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int]
+  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int]
+}
+
+///|
 priv struct DaeOriginalResultPreservationRow {
   param_count : Int
   call_count : Int
@@ -1002,6 +1014,12 @@ priv struct DaeOriginalResultPreservationRow {
   dead_suffix_calls_from_param_operand_self_result_caller : Int
   dead_suffix_escaped_result_operand_call_count : Int
   dead_suffix_dropped_calls_from_parameterized_self_caller : Int
+}
+
+///|
+priv struct DaeOriginalResultBoundaryRow {
+  preservation : DaeOriginalResultPreservationRow
+  prune : DaeOriginalResultRemovalPruneRow
 }
 
 ///|
@@ -1038,6 +1056,12 @@ priv struct DaeOriginalResultRemovalPruneEvidence {
   dropped_only_no_param_result_side_caller : Bool
   params_absent_result_cleanup_prune : Bool
   uncalled_after_param_cleanup_prune : Bool
+}
+
+///|
+priv struct DaeOriginalResultBoundaryEvidence {
+  preservation : DaeOriginalResultPreservationEvidence
+  prune : DaeOriginalResultRemovalPruneEvidence
 }
 
 ///|
@@ -15200,90 +15224,38 @@ fn dae_collect_original_dead_suffix_mutual_calls(
 }
 
 ///|
-fn dae_original_result_removal_prune_row(
-  def_idx : Int,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_active_parameterized_result_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
-  original_escaped_dead_suffix_call_counts : Array[Int],
-  original_dead_suffix_undropped_self_calls : Array[Bool],
-  original_dead_suffix_dropped_self_calls : Array[Bool],
-  original_dead_suffix_block_undropped_self_calls : Array[Bool],
-  original_dead_suffix_same_self_result_operand_calls : Array[Bool],
-  original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
-  original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
-  original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
-  original_later_dead_suffix_dropped_call_counts : Array[Int],
-  original_dead_suffix_mutual_calls : Array[Bool],
-  original_private_result_dead_suffix_call_counts : Array[Int],
-  original_dead_suffix_result_other_calls : Array[Bool],
-  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int],
-  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int],
+fn dae_original_result_removal_prune_row_from_preservation_row(
+  preservation : DaeOriginalResultPreservationRow,
+  active_parameterized_result_nonself_call_count : Int,
+  dead_suffix_dropped_self_call_full_param_forward : Bool,
+  dead_suffix_dropped_earlier_result_call : Bool,
+  later_dead_suffix_dropped_call_count : Int,
+  private_result_dead_suffix_call_count : Int,
+  dead_suffix_dropped_calls_from_no_param_result_caller : Int,
+  dead_suffix_mixed_dropped_undropped_call_count : Int,
 ) -> DaeOriginalResultRemovalPruneRow {
   {
-    param_count: dae_original_int_fact_at(original_param_counts, def_idx),
-    call_count: dae_original_int_fact_at(original_call_counts, def_idx),
-    active_nonself_call_count: dae_original_int_fact_at(
-      original_active_nonself_call_counts, def_idx,
-    ),
-    active_parameterized_nonself_call_count: dae_original_int_fact_at(
-      original_active_parameterized_nonself_call_counts, def_idx,
-    ),
-    active_parameterized_result_nonself_call_count: dae_original_int_fact_at(
-      original_active_parameterized_result_nonself_call_counts, def_idx,
-    ),
-    nonself_undropped_call_count: dae_original_int_fact_at(
-      original_nonself_undropped_call_counts, def_idx,
-    ),
-    self_call_count: dae_original_int_fact_at(
-      original_self_call_counts, def_idx,
-    ),
-    escaped_dead_suffix_call_count: dae_original_int_fact_at(
-      original_escaped_dead_suffix_call_counts, def_idx,
-    ),
-    dead_suffix_undropped_self_call: dae_original_bool_fact_at(
-      original_dead_suffix_undropped_self_calls, def_idx,
-    ),
-    dead_suffix_dropped_self_call: dae_original_bool_fact_at(
-      original_dead_suffix_dropped_self_calls, def_idx,
-    ),
-    dead_suffix_block_undropped_self_call: dae_original_bool_fact_at(
-      original_dead_suffix_block_undropped_self_calls, def_idx,
-    ),
-    dead_suffix_same_self_result_operand_call: dae_original_bool_fact_at(
-      original_dead_suffix_same_self_result_operand_calls, def_idx,
-    ),
-    dead_suffix_dropped_self_call_full_param_forward: dae_original_bool_fact_at(
-      original_dead_suffix_dropped_self_call_full_param_forwards, def_idx,
-    ),
-    dead_suffix_dropped_escaped_result_call: dae_original_bool_fact_at(
-      original_dead_suffix_dropped_escaped_result_calls, def_idx,
-    ),
-    dead_suffix_dropped_earlier_result_call: dae_original_bool_fact_at(
-      original_dead_suffix_dropped_earlier_result_calls, def_idx,
-    ),
-    later_dead_suffix_dropped_call_count: dae_original_int_fact_at(
-      original_later_dead_suffix_dropped_call_counts, def_idx,
-    ),
-    dead_suffix_mutual_call: dae_original_bool_fact_at(
-      original_dead_suffix_mutual_calls, def_idx,
-    ),
-    private_result_dead_suffix_call_count: dae_original_int_fact_at(
-      original_private_result_dead_suffix_call_counts, def_idx,
-    ),
-    dead_suffix_result_other_call: dae_original_bool_fact_at(
-      original_dead_suffix_result_other_calls, def_idx,
-    ),
-    dead_suffix_dropped_calls_from_no_param_result_caller: dae_original_int_fact_at(
-      original_dead_suffix_dropped_calls_from_no_param_result_callers, def_idx,
-    ),
-    dead_suffix_mixed_dropped_undropped_call_count: dae_original_int_fact_at(
-      original_dead_suffix_mixed_dropped_undropped_call_counts, def_idx,
-    ),
+    param_count: preservation.param_count,
+    call_count: preservation.call_count,
+    active_nonself_call_count: preservation.active_nonself_call_count,
+    active_parameterized_nonself_call_count: preservation.active_parameterized_nonself_call_count,
+    active_parameterized_result_nonself_call_count,
+    nonself_undropped_call_count: preservation.nonself_undropped_call_count,
+    self_call_count: preservation.self_call_count,
+    escaped_dead_suffix_call_count: preservation.escaped_dead_suffix_call_count,
+    dead_suffix_undropped_self_call: preservation.dead_suffix_undropped_self_call,
+    dead_suffix_dropped_self_call: preservation.dead_suffix_dropped_self_call,
+    dead_suffix_block_undropped_self_call: preservation.dead_suffix_block_undropped_self_call,
+    dead_suffix_same_self_result_operand_call: preservation.dead_suffix_same_self_result_operand_call,
+    dead_suffix_dropped_self_call_full_param_forward,
+    dead_suffix_dropped_escaped_result_call: preservation.dead_suffix_dropped_escaped_result_call,
+    dead_suffix_dropped_earlier_result_call,
+    later_dead_suffix_dropped_call_count,
+    dead_suffix_mutual_call: preservation.dead_suffix_mutual_call,
+    private_result_dead_suffix_call_count,
+    dead_suffix_result_other_call: preservation.dead_suffix_result_other_call,
+    dead_suffix_dropped_calls_from_no_param_result_caller,
+    dead_suffix_mixed_dropped_undropped_call_count,
   }
 }
 
@@ -15509,16 +15481,6 @@ fn dae_original_bool_fact_at(values : Array[Bool], idx : Int) -> Bool {
 }
 
 ///|
-fn dae_original_parameterized_undropped_self_side_chain_evidence_from_context(
-  def_idx : Int,
-  context : DaeOriginalResultPreservationContext,
-) -> DaeOriginalParameterizedUndroppedSelfSideChainEvidence {
-  dae_original_parameterized_undropped_self_side_chain_evidence_from_row(
-    dae_original_result_preservation_row_from_context(def_idx, context),
-  )
-}
-
-///|
 fn dae_should_preserve_parameterized_undropped_self_side_chain_evidence(
   evidence : DaeOriginalParameterizedUndroppedSelfSideChainEvidence,
 ) -> Bool {
@@ -15678,6 +15640,29 @@ fn dae_original_result_preservation_context(
 }
 
 ///|
+fn dae_original_result_boundary_context(
+  preservation : DaeOriginalResultPreservationContext,
+  original_active_parameterized_result_nonself_call_counts : Array[Int],
+  original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
+  original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
+  original_later_dead_suffix_dropped_call_counts : Array[Int],
+  original_private_result_dead_suffix_call_counts : Array[Int],
+  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int],
+  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int],
+) -> DaeOriginalResultBoundaryContext {
+  {
+    preservation,
+    original_active_parameterized_result_nonself_call_counts,
+    original_dead_suffix_dropped_self_call_full_param_forwards,
+    original_dead_suffix_dropped_earlier_result_calls,
+    original_later_dead_suffix_dropped_call_counts,
+    original_private_result_dead_suffix_call_counts,
+    original_dead_suffix_dropped_calls_from_no_param_result_callers,
+    original_dead_suffix_mixed_dropped_undropped_call_counts,
+  }
+}
+
+///|
 fn dae_original_result_preservation_row_from_context(
   def_idx : Int,
   context : DaeOriginalResultPreservationContext,
@@ -15763,6 +15748,51 @@ fn dae_original_result_preservation_row_from_context(
     dead_suffix_dropped_calls_from_parameterized_self_caller: dae_original_int_fact_at(
       context.original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       def_idx,
+    ),
+  }
+}
+
+///|
+fn dae_original_result_boundary_row_from_context(
+  def_idx : Int,
+  context : DaeOriginalResultBoundaryContext,
+) -> DaeOriginalResultBoundaryRow {
+  let preservation = dae_original_result_preservation_row_from_context(
+    def_idx,
+    context.preservation,
+  )
+  {
+    preservation,
+    prune: dae_original_result_removal_prune_row_from_preservation_row(
+      preservation,
+      dae_original_int_fact_at(
+        context.original_active_parameterized_result_nonself_call_counts,
+        def_idx,
+      ),
+      dae_original_bool_fact_at(
+        context.original_dead_suffix_dropped_self_call_full_param_forwards,
+        def_idx,
+      ),
+      dae_original_bool_fact_at(
+        context.original_dead_suffix_dropped_earlier_result_calls,
+        def_idx,
+      ),
+      dae_original_int_fact_at(
+        context.original_later_dead_suffix_dropped_call_counts,
+        def_idx,
+      ),
+      dae_original_int_fact_at(
+        context.original_private_result_dead_suffix_call_counts,
+        def_idx,
+      ),
+      dae_original_int_fact_at(
+        context.original_dead_suffix_dropped_calls_from_no_param_result_callers,
+        def_idx,
+      ),
+      dae_original_int_fact_at(
+        context.original_dead_suffix_mixed_dropped_undropped_call_counts,
+        def_idx,
+      ),
     ),
   }
 }
@@ -15860,6 +15890,18 @@ fn dae_original_result_preservation_evidence_from_row(
     dropped_escaped_result_under_self_caller,
     parameterized_undropped_self_side_chain,
     result_side_chain_cleanup_preservation,
+  }
+}
+
+///|
+fn dae_original_result_boundary_evidence_from_row(
+  row : DaeOriginalResultBoundaryRow,
+) -> DaeOriginalResultBoundaryEvidence {
+  {
+    preservation: dae_original_result_preservation_evidence_from_row(
+      row.preservation,
+    ),
+    prune: dae_original_result_removal_prune_evidence_from_row(row.prune),
   }
 }
 
@@ -16031,6 +16073,12 @@ fn dae_run_core_once(
     original_dead_suffix_mutual_calls, original_dead_suffix_calls_from_param_operand_self_result_callers,
     original_dead_suffix_escaped_result_operand_call_counts, original_dead_suffix_dropped_calls_from_parameterized_self_callers,
   )
+  let original_result_boundary_context = dae_original_result_boundary_context(
+    original_result_preservation_context, original_active_parameterized_result_nonself_call_counts,
+    original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_dropped_earlier_result_calls,
+    original_later_dead_suffix_dropped_call_counts, original_private_result_dead_suffix_call_counts,
+    original_dead_suffix_dropped_calls_from_no_param_result_callers, original_dead_suffix_mixed_dropped_undropped_call_counts,
+  )
   let scan_limit = if max_def_exclusive >= 0 && max_def_exclusive < defined {
     max_def_exclusive
   } else {
@@ -16064,24 +16112,16 @@ fn dae_run_core_once(
     let skip_original_large_result_cleanup = dae_should_skip_original_large_result_unreachable_cleanup(
       original_large_unreachable_prefixes, def_idx, mod_, type_indices, callee_abs,
     )
-    let original_result_removal_prune_row = dae_original_result_removal_prune_row(
-      def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts, original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts, original_self_call_counts, original_escaped_dead_suffix_call_counts,
-      original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_block_undropped_self_calls, original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_dropped_escaped_result_calls,
-      original_dead_suffix_dropped_earlier_result_calls, original_later_dead_suffix_dropped_call_counts,
-      original_dead_suffix_mutual_calls, original_private_result_dead_suffix_call_counts,
-      original_dead_suffix_result_other_calls, original_dead_suffix_dropped_calls_from_no_param_result_callers,
-      original_dead_suffix_mixed_dropped_undropped_call_counts,
+    let original_result_boundary_row = dae_original_result_boundary_row_from_context(
+      def_idx, original_result_boundary_context,
     )
-    let original_result_preservation_for_def = dae_original_result_preservation_evidence_from_context(
-      def_idx, original_result_preservation_context,
+    let original_result_boundary_for_def = dae_original_result_boundary_evidence_from_row(
+      original_result_boundary_row,
     )
-    let original_result_removal_prune_for_def = dae_original_result_removal_prune_evidence_from_row(
-      original_result_removal_prune_row,
-    )
+    let original_result_preservation_row = original_result_boundary_row.preservation
+    let original_result_removal_prune_row = original_result_boundary_row.prune
+    let original_result_preservation_for_def = original_result_boundary_for_def.preservation
+    let original_result_removal_prune_for_def = original_result_boundary_for_def.prune
     let original_escaped_dead_suffix_calls_for_unobserved = if def_idx <
       original_escaped_dead_suffix_call_counts.length() {
       original_escaped_dead_suffix_call_counts[def_idx]
@@ -16306,8 +16346,8 @@ fn dae_run_core_once(
         original_dead_suffix_undropped_escaped_result_calls.length() &&
         original_dead_suffix_undropped_escaped_result_calls[def_idx]
       let original_parameterized_undropped_self_side_chain = dae_should_preserve_parameterized_undropped_self_side_chain_evidence(
-        dae_original_parameterized_undropped_self_side_chain_evidence_from_context(
-          def_idx, original_result_preservation_context,
+        dae_original_parameterized_undropped_self_side_chain_evidence_from_row(
+          original_result_preservation_row,
         ),
       )
       let original_result_side_chain_cleanup_preservation = original_result_preservation_for_def.result_side_chain_cleanup_preservation
@@ -16578,9 +16618,7 @@ fn dae_run_core_once(
       }
     }
     if params.length() == 0 {
-      let preserve_original_result = dae_original_result_preservation_evidence_from_context(
-        def_idx, original_result_preservation_context,
-      )
+      let preserve_original_result = original_result_preservation_for_def
       if original_result_removal_prune_for_def.dropped_self_result_with_void_side_callers &&
         !skip_original_large_result_cleanup {
         let dropped_result = dae_try_remove_dropped_results(
@@ -16667,9 +16705,7 @@ fn dae_run_core_once(
       }
       p += 1
     }
-    let preserve_current_result = dae_original_result_preservation_evidence_from_context(
-      def_idx, original_result_preservation_context,
-    )
+    let preserve_current_result = original_result_preservation_for_def
     if any {
       let result = dae_try_rewrite_candidate(
         mod_,
