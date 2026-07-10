@@ -96,8 +96,8 @@ Future direct-pass validation should remain isolated from default preset work:
 4. `moon fmt`
 5. `moon test`
 6. `moon build --target native --release src/cmd`
-7. `bun scripts/pass-fuzz-compare.ts --pass untee --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-untee-genvalid-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`
-8. `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass untee --out-dir .tmp/pass-fuzz-untee --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`
+7. `bun scripts/pass-fuzz-compare.ts --pass untee --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-untee-genvalid-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe`
+8. `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass untee --out-dir .tmp/pass-fuzz-untee --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe`
 9. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --untee`
 
 If any compare mismatch appears, classify it separately as:

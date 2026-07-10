@@ -140,7 +140,7 @@ Add separate tests for:
 Run isolated oracle comparison before late-tail replay:
 
 - `moon build --target native --release src/cmd`
-- `bun scripts/pass-fuzz-compare.ts --pass simplify-globals ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`
+- `bun scripts/pass-fuzz-compare.ts --pass simplify-globals ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe`
 - reduced fixtures from Binaryen's `simplify-globals-*` lit family;
 - targeted debug-artifact runs once the boundary harness accepts the pass.
 

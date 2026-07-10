@@ -156,10 +156,10 @@ Use the pass-targeted harness when available. Build the native CLI once and keep
 
 ```text
 moon build --target native --release src/cmd
-bun fuzz compare-pass --pass inlining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun fuzz compare-pass --pass inlining ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-`bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` is an implementation-equivalent direct entrypoint if needed for local tooling compatibility.
+`bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` is an implementation-equivalent direct entrypoint if needed for local tooling compatibility.
 
 Keep exact normalization expectations separate for plain `inlining` and `inlining-optimizing` because the latter intentionally runs additional cleanup.
 

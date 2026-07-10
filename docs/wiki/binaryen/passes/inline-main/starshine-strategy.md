@@ -109,7 +109,7 @@ Final parity should use the pass-targeted compare harness with the canonical ups
 
 ```text
 moon build --target native --release src/cmd
-bun fuzz compare-pass --pass inline-main ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun fuzz compare-pass --pass inline-main ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Use the living pass implementation rules in [`../../../../../AGENTS.md`](../../../../../AGENTS.md) and keep any future active backlog slice in `agent-todo.md` until implemented.

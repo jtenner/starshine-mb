@@ -183,7 +183,7 @@ When it lands, test both:
 4. `moon test` after each slice.
 5. Pass-targeted oracle comparison once the pass has a visible transform:
    - `moon build --target native --release src/cmd`
-   - `bun fuzz compare-pass --pass signature-refining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` after the harness can invoke the local pass name.
+   - `bun fuzz compare-pass --pass signature-refining ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` after the harness can invoke the local pass name.
 6. A 10,000-case pass-targeted fuzz run before marking the pass implemented.
 7. Preset scheduling only after the closed-world GC/type cluster policy is explicit; do not add it to the current open-world no-DWARF preset by accident.
 
