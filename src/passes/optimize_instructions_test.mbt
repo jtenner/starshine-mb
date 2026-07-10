@@ -8810,6 +8810,56 @@ test "optimize-instructions folds all three trees in i64-i32-i32 mixed i32-resul
 }
 
 ///|
+test "optimize-instructions folds direct i32-i64-i64 mixed i32-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks
+  // every direct operand of an annotated (i32, i64, i64) -> i32 call before
+  // folding the equal consecutive self-select. A mismatch in any slot retains
+  // both calls. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-next46-foldability.wat`
+  // (`mixed_i32_i64_i64_i32_direct_equal` and its mismatch functions).
+  let optimize_caller = fn(
+    right_first_const : Int,
+    right_second_const : Int64,
+    right_third_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.wrap_i64 i32.add) (func (result i32) i32.const 5 i64.const 7 i64.const 9 call $id i32.const 0 i32.const " +
+      right_first_const.to_string() +
+      " i64.const " +
+      right_second_const.to_string() +
+      " i64.const " +
+      right_third_const.to_string() +
+      " call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected direct i32-i64-i64 mixed i32-result call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(5, 7L, 9L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(6, 7L, 9L),
+      optimize_caller(5, 8L, 9L),
+      optimize_caller(5, 7L, 10L),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds direct i64-i32-i32 mixed i64-result calls" {
   // Red-first OI-F parity slice: Binaryen version_130 independently checks
   // every direct operand of an annotated (i64, i32, i32) -> i64 call before
