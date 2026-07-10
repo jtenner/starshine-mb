@@ -661,7 +661,15 @@ priv struct DaeRewriteResult {
 }
 
 ///|
-priv struct DaeLocalizedCallsiteRewriteEvidence {
+priv struct DaeCallsiteRewritePlan {
+  callsite : DaeCallsiteValueSliceEvidence
+  operand_plans : Array[DaeOperandRemovalPlan]
+  scratch_local_types_by_param : Array[@lib.ValType?]
+  localized_params : Array[Bool]
+}
+
+///|
+priv struct DaeCallsiteRewriteApplicationEvidence {
   instrs : Array[@lib.Instruction]
   new_call_idx : Int
   scratch_local_types : Array[@lib.ValType]
@@ -4217,8 +4225,8 @@ fn dae_callsite_single_instruction_actual(
 }
 
 ///|
-fn dae_localized_callsite_rewrite_evidence_is_consistent(
-  evidence : DaeLocalizedCallsiteRewriteEvidence,
+fn dae_callsite_rewrite_application_evidence_is_consistent(
+  evidence : DaeCallsiteRewriteApplicationEvidence,
 ) -> Bool {
   evidence.new_call_idx >= 0 &&
   evidence.new_call_idx < evidence.instrs.length() &&
@@ -4264,6 +4272,194 @@ fn dae_removed_param_local_projection_evidence(
 }
 
 ///|
+fn dae_callsite_rewrite_plan_is_consistent(
+  plan : DaeCallsiteRewritePlan,
+) -> Bool {
+  let callsite = plan.callsite
+  if !dae_callsite_value_slice_evidence_is_consistent(
+      callsite,
+      callsite.call_idx,
+      callsite.arg_count,
+      callsite.entry_stack_values,
+    ) ||
+    plan.operand_plans.length() != callsite.arg_count ||
+    plan.scratch_local_types_by_param.length() != callsite.arg_count ||
+    plan.localized_params.length() != callsite.arg_count {
+    return false
+  }
+  let mut cursor = callsite.cursor
+  let mut p = 0
+  while p < callsite.arg_count {
+    let operand_plan = plan.operand_plans[p]
+    let slice = callsite.slices[p]
+    if operand_plan.start != slice.start ||
+      operand_plan.end != slice.end ||
+      operand_plan.start != cursor ||
+      operand_plan.end > callsite.call_idx {
+      return false
+    }
+    cursor = operand_plan.end
+    match plan.scratch_local_types_by_param[p] {
+      Some(scratch_type) =>
+        if !operand_plan.requires_localization_retry ||
+          operand_plan.rejects_direct_removal ||
+          !plan.localized_params[p] ||
+          !@lib.has_default(scratch_type) {
+          return false
+        }
+      None =>
+        if operand_plan.requires_localization_retry ||
+          operand_plan.rejects_direct_removal ||
+          plan.localized_params[p] {
+          return false
+        }
+    }
+    p += 1
+  }
+  cursor == callsite.call_idx
+}
+
+///|
+fn dae_callsite_rewrite_plan(
+  callsite : DaeCallsiteValueSliceEvidence,
+  remove : Array[Bool],
+  localization_param_types : Array[@lib.ValType]?,
+) -> DaeCallsiteRewritePlan? {
+  if remove.length() != callsite.arg_count {
+    return None
+  }
+  match localization_param_types {
+    Some(param_types) if param_types.length() != callsite.arg_count =>
+      return None
+    _ => ()
+  }
+  let operand_plans : Array[DaeOperandRemovalPlan] = []
+  let scratch_local_types_by_param : Array[@lib.ValType?] = []
+  let localized_params = Array::make(callsite.arg_count, false)
+  let mut p = 0
+  while p < callsite.arg_count {
+    let (operand_plan, scratch_type) = match localization_param_types {
+      Some(param_types) => {
+        let disposition = callsite.slices[p].disposition
+        let rewrite_disposition = dae_operand_rewrite_disposition(
+          disposition,
+          localization_available=remove[p],
+          has_escaping_branch=disposition.has_branch,
+        )
+        let operand_plan = dae_operand_removal_plan(
+          rewrite_disposition,
+          !remove[p],
+        )
+        if !dae_operand_removal_plan_is_consistent(
+            rewrite_disposition, operand_plan,
+          ) {
+          return None
+        }
+        let scratch_type = if operand_plan.requires_localization_retry {
+          match dae_localization_scratch_type(param_types[p]) {
+            Some(scratch_type) => Some(scratch_type)
+            None => return None
+          }
+        } else {
+          None
+        }
+        (operand_plan, scratch_type)
+      }
+      None => {
+        let operand_plan = match
+          dae_callsite_operand_removal_plan(callsite, p, remove[p]) {
+          Some(operand_plan) => operand_plan
+          None => return None
+        }
+        (operand_plan, None)
+      }
+    }
+    if operand_plan.rejects_direct_removal {
+      return None
+    }
+    localized_params[p] = scratch_type.is_some()
+    operand_plans.push(operand_plan)
+    scratch_local_types_by_param.push(scratch_type)
+    p += 1
+  }
+  let plan = {
+    callsite,
+    operand_plans,
+    scratch_local_types_by_param,
+    localized_params,
+  }
+  if dae_callsite_rewrite_plan_is_consistent(plan) {
+    Some(plan)
+  } else {
+    None
+  }
+}
+
+///|
+fn dae_apply_callsite_rewrite_plan(
+  instrs : Array[@lib.Instruction],
+  plan : DaeCallsiteRewritePlan,
+  first_scratch_local : Int,
+) -> DaeCallsiteRewriteApplicationEvidence? {
+  if first_scratch_local < 0 ||
+    !dae_callsite_rewrite_plan_is_consistent(plan) ||
+    plan.callsite.call_idx < 0 ||
+    plan.callsite.call_idx >= instrs.length() ||
+    plan.callsite.cursor < 0 ||
+    plan.callsite.cursor > plan.callsite.call_idx {
+    return None
+  }
+  let out : Array[@lib.Instruction] = []
+  let scratch_local_types : Array[@lib.ValType] = []
+  let mut idx = 0
+  while idx < plan.callsite.cursor {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  let mut p = 0
+  while p < plan.callsite.arg_count {
+    let operand_plan = plan.operand_plans[p]
+    match plan.scratch_local_types_by_param[p] {
+      Some(scratch_type) => {
+        let mut operand_idx = operand_plan.start
+        while operand_idx < operand_plan.end {
+          out.push(instrs[operand_idx])
+          operand_idx += 1
+        }
+        let scratch_idx = first_scratch_local + scratch_local_types.length()
+        out.push(
+          @lib.Instruction::local_set(
+            @lib.LocalIdx::new(scratch_idx.reinterpret_as_uint()),
+          ),
+        )
+        scratch_local_types.push(scratch_type)
+      }
+      None => dae_append_operand_with_removal_plan(out, instrs, operand_plan)
+    }
+    p += 1
+  }
+  let new_call_idx = out.length()
+  out.push(instrs[plan.callsite.call_idx])
+  idx = plan.callsite.call_idx + 1
+  while idx < instrs.length() {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  let evidence = {
+    instrs: out,
+    new_call_idx,
+    scratch_local_types,
+    localized_params: plan.localized_params,
+    localization_count: scratch_local_types.length(),
+  }
+  if dae_callsite_rewrite_application_evidence_is_consistent(evidence) {
+    Some(evidence)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_rewrite_callsite_with_localization_at(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
@@ -4273,7 +4469,7 @@ fn dae_rewrite_callsite_with_localization_at(
   first_scratch_local : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> DaeLocalizedCallsiteRewriteEvidence? {
+) -> DaeCallsiteRewriteApplicationEvidence? {
   if remove.length() != param_types.length() || first_scratch_local < 0 {
     return None
   }
@@ -4289,69 +4485,12 @@ fn dae_rewrite_callsite_with_localization_at(
     Some(evidence) => evidence
     None => return None
   }
-  let out : Array[@lib.Instruction] = []
-  let scratch_local_types : Array[@lib.ValType] = []
-  let localized_params = Array::make(remove.length(), false)
-  let mut idx = 0
-  while idx < callsite.cursor {
-    out.push(instrs[idx])
-    idx += 1
+  let plan = match
+    dae_callsite_rewrite_plan(callsite, remove, Some(param_types)) {
+    Some(plan) => plan
+    None => return None
   }
-  let mut p = 0
-  while p < remove.length() {
-    let disposition = callsite.slices[p].disposition
-    let rewrite_disposition = dae_operand_rewrite_disposition(
-      disposition,
-      localization_available=remove[p],
-      has_escaping_branch=disposition.has_branch,
-    )
-    let plan = dae_operand_removal_plan(rewrite_disposition, !remove[p])
-    if !dae_operand_removal_plan_is_consistent(rewrite_disposition, plan) ||
-      plan.rejects_direct_removal {
-      return None
-    }
-    if plan.requires_localization_retry {
-      let mut operand_idx = plan.start
-      while operand_idx < plan.end {
-        out.push(instrs[operand_idx])
-        operand_idx += 1
-      }
-      let scratch_idx = first_scratch_local + scratch_local_types.length()
-      out.push(
-        @lib.Instruction::local_set(
-          @lib.LocalIdx::new(scratch_idx.reinterpret_as_uint()),
-        ),
-      )
-      let scratch_type = match dae_localization_scratch_type(param_types[p]) {
-        Some(scratch_type) => scratch_type
-        None => return None
-      }
-      scratch_local_types.push(scratch_type)
-      localized_params[p] = true
-    } else {
-      dae_append_operand_with_removal_plan(out, instrs, plan)
-    }
-    p += 1
-  }
-  let new_call_idx = out.length()
-  out.push(instrs[call_idx])
-  idx = call_idx + 1
-  while idx < instrs.length() {
-    out.push(instrs[idx])
-    idx += 1
-  }
-  let evidence = {
-    instrs: out,
-    new_call_idx,
-    scratch_local_types,
-    localized_params,
-    localization_count: scratch_local_types.length(),
-  }
-  if dae_localized_callsite_rewrite_evidence_is_consistent(evidence) {
-    Some(evidence)
-  } else {
-    None
-  }
+  dae_apply_callsite_rewrite_plan(instrs, plan, first_scratch_local)
 }
 
 ///|
@@ -4430,29 +4569,14 @@ fn dae_rewrite_callsite_at(
       (partial_shapes, partial_cursor, first_resolved)
     }
   }
-  let out : Array[@lib.Instruction] = []
-  let mut idx = 0
-  while idx < evidence.cursor {
-    out.push(instrs[idx])
-    idx += 1
+  let plan = match dae_callsite_rewrite_plan(evidence, remove, None) {
+    Some(plan) => plan
+    None => return ([], -1, false)
   }
-  let mut p = first_shape_idx
-  while p < remove.length() {
-    let plan = match dae_callsite_operand_removal_plan(evidence, p, remove[p]) {
-      Some(plan) => plan
-      None => return ([], -1, false)
-    }
-    dae_append_operand_with_removal_plan(out, instrs, plan)
-    p += 1
+  match dae_apply_callsite_rewrite_plan(instrs, plan, 0) {
+    Some(application) => (application.instrs, application.new_call_idx, true)
+    None => ([], -1, false)
   }
-  let new_call_idx = out.length()
-  out.push(instrs[call_idx])
-  idx = call_idx + 1
-  while idx < instrs.length() {
-    out.push(instrs[idx])
-    idx += 1
-  }
-  (out, new_call_idx, true)
 }
 
 ///|
