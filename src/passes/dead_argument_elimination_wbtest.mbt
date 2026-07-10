@@ -6115,6 +6115,67 @@ test "dae callsite localization application replaces hard removed operands with 
 }
 
 ///|
+test "dae callsite rewrite application centralizes replay and localization" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  let evidence = match
+    dae_callsite_value_slice_evidence(body, 3, 2, 0, @lib.Module::new(), []) {
+    Some(evidence) => evidence
+    None => fail("expected callsite value-slice evidence")
+  }
+  let replay_plan = match
+    dae_callsite_rewrite_plan(evidence, [true, false], None) {
+    Some(plan) => plan
+    None => fail("expected effect-preserving replay plan")
+  }
+  let replay = match dae_apply_callsite_rewrite_plan(body, replay_plan, 0) {
+    Some(application) => application
+    None => fail("expected shared replay application")
+  }
+  assert_eq(replay.localization_count, 0)
+  assert_eq(replay.scratch_local_types, [])
+  assert_eq(replay.localized_params, [false, false])
+  assert_eq(replay.new_call_idx, 4)
+  assert_eq(replay.instrs, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  let localized_plan = match
+    dae_callsite_rewrite_plan(
+      evidence,
+      [true, false],
+      Some([@lib.ValType::i32(), @lib.ValType::i32()]),
+    ) {
+    Some(plan) => plan
+    None => fail("expected typed localization plan")
+  }
+  let localized = match
+    dae_apply_callsite_rewrite_plan(body, localized_plan, 3) {
+    Some(application) => application
+    None => fail("expected shared localization application")
+  }
+  assert_eq(localized.localization_count, 1)
+  assert_eq(localized.scratch_local_types, [@lib.ValType::i32()])
+  assert_eq(localized.localized_params, [true, false])
+  assert_eq(localized.new_call_idx, 4)
+  assert_eq(localized.instrs, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+}
+
+///|
 test "dae removed-param local projection distinguishes elided written and localized slots" {
   let dead = dae_removed_param_local_projection_evidence(
     @lib.ValType::i32(),
