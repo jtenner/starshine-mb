@@ -27345,6 +27345,7 @@ priv enum OiIdempotentCallOperandTreeKind {
   IdempotentCallOperandTreeI32EqzShell
   IdempotentCallOperandTreeI32EqShell
   IdempotentCallOperandTreeI32AddShell
+  IdempotentCallOperandTreeI32MulShell
   IdempotentCallOperandTreeI64AddShell
 }
 
@@ -27371,7 +27372,7 @@ fn OiIdempotentCallOperandTreeFact::from_node(
   // shallow call analyzer whether the call can invalidate those effects. Keep
   // that proof separate from structural equality: direct local/constant leaves,
   // immutable-global reads, and the source-probed nontrapping i32.eqz, i32.eq,
-  // plus i32/i64.add shells are the represented recursive subset.
+  // i32.add, i32.mul, and i64.add shells are the represented recursive subset.
   if depth > 16 {
     return OiIdempotentCallOperandTreeFact::empty()
   }
@@ -27452,6 +27453,25 @@ fn OiIdempotentCallOperandTreeFact::from_node(
         right_fact.proves_foldable(),
       }
     }
+    Some(@lib.Instruction::I32Mul) if node.child_count == 2 => {
+      let left_fact = OiIdempotentCallOperandTreeFact::from_node(
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        depth=depth + 1,
+      )
+      let right_fact = OiIdempotentCallOperandTreeFact::from_node(
+        ctx,
+        func,
+        @ir.hot_child_get(func, node_id, 1),
+        depth=depth + 1,
+      )
+      {
+        kind: IdempotentCallOperandTreeI32MulShell,
+        children_foldable: left_fact.proves_foldable() &&
+        right_fact.proves_foldable(),
+      }
+    }
     Some(@lib.Instruction::I64Add) if node.child_count == 2 => {
       let left_fact = OiIdempotentCallOperandTreeFact::from_node(
         ctx,
@@ -27485,6 +27505,7 @@ fn OiIdempotentCallOperandTreeFact::proves_foldable(
     IdempotentCallOperandTreeI32EqzShell
     | IdempotentCallOperandTreeI32EqShell
     | IdempotentCallOperandTreeI32AddShell
+    | IdempotentCallOperandTreeI32MulShell
     | IdempotentCallOperandTreeI64AddShell => self.children_foldable
     IdempotentCallOperandTreeUnsupported => false
   }
