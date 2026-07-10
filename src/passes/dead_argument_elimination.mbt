@@ -16,10 +16,11 @@ priv struct DaeCallShape {
 }
 
 ///|
-priv enum DaeOperandRemovalAction {
-  DaeDropOperandWithoutRepair
-  DaeReplayOperandForRemoval
-  DaeRejectBranchingOperandRemoval
+priv enum DaeOperandRewriteAction {
+  DaeDropOperandDirectly
+  DaePreserveOperandEffectsAndDropValue
+  DaeLocalizeOperandAndRetry
+  DaeRejectEscapingOperandRewrite
 }
 
 ///|
@@ -30,7 +31,14 @@ priv struct DaeOperandDisposition {
   preserve_effects_on_removal : Bool
   has_branch : Bool
   has_effect_or_branch : Bool
-  removal_action : DaeOperandRemovalAction
+}
+
+///|
+priv struct DaeOperandRewriteDisposition {
+  operand : DaeOperandDisposition
+  localization_available : Bool
+  has_escaping_branch : Bool
+  action : DaeOperandRewriteAction
 }
 
 ///|
@@ -40,6 +48,7 @@ priv struct DaeOperandRemovalPlan {
   keep_operand : Bool
   replay_operand : Bool
   append_drop : Bool
+  requires_localization_retry : Bool
   rejects_direct_removal : Bool
 }
 
@@ -282,7 +291,6 @@ priv struct DaeStackSliceLocalizationPolicy {
   expected_final_stack_values : Int
   depth : Int
   instr_allowed : (@lib.Instruction) -> Bool
-  keep_operand : Bool
 }
 
 ///|
@@ -294,7 +302,6 @@ priv struct DaeStackSliceLocalizationRequest {
   expected_final_stack_values : Int
   depth : Int
   instr_allowed : (@lib.Instruction) -> Bool
-  keep_operand : Bool
 }
 
 ///|
@@ -312,7 +319,7 @@ priv struct DaeStackSliceLocalizationEvidence {
   no_escape_branch : DaeEscapingBranchEvidence
   copied_slice : DaeNoEscapeSliceEvidence
   disposition : DaeOperandDisposition
-  removal_plan : DaeOperandRemovalPlan
+  rewrite_disposition : DaeOperandRewriteDisposition
 }
 
 ///|
@@ -2406,68 +2413,148 @@ fn dae_instr_is_trivially_droppable(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn dae_operand_removal_action(
-  droppable_without_repair : Bool,
-  has_branch : Bool,
-) -> DaeOperandRemovalAction {
-  if droppable_without_repair {
-    DaeDropOperandWithoutRepair
-  } else if has_branch {
-    DaeRejectBranchingOperandRemoval
+fn dae_operand_rewrite_action(
+  disposition : DaeOperandDisposition,
+  localization_available : Bool,
+  has_escaping_branch : Bool,
+) -> DaeOperandRewriteAction {
+  if disposition.droppable_without_repair {
+    DaeDropOperandDirectly
+  } else if has_escaping_branch {
+    DaeRejectEscapingOperandRewrite
+  } else if localization_available {
+    DaeLocalizeOperandAndRetry
   } else {
-    DaeReplayOperandForRemoval
+    DaePreserveOperandEffectsAndDropValue
   }
 }
 
 ///|
-fn dae_operand_disposition_drops_without_repair(
-  disposition : DaeOperandDisposition,
+fn dae_operand_rewrite_disposition(
+  operand : DaeOperandDisposition,
+  localization_available~ : Bool,
+  has_escaping_branch~ : Bool,
+) -> DaeOperandRewriteDisposition {
+  {
+    operand,
+    localization_available,
+    has_escaping_branch,
+    action: dae_operand_rewrite_action(
+      operand, localization_available, has_escaping_branch,
+    ),
+  }
+}
+
+///|
+fn dae_operand_rewrite_drops_directly(
+  disposition : DaeOperandRewriteDisposition,
 ) -> Bool {
-  match disposition.removal_action {
-    DaeDropOperandWithoutRepair => true
+  match disposition.action {
+    DaeDropOperandDirectly => true
     _ => false
   }
 }
 
 ///|
-fn dae_operand_disposition_needs_repair_on_removal(
-  disposition : DaeOperandDisposition,
+fn dae_operand_rewrite_preserves_effects_and_drops_value(
+  disposition : DaeOperandRewriteDisposition,
 ) -> Bool {
-  match disposition.removal_action {
-    DaeReplayOperandForRemoval => true
+  match disposition.action {
+    DaePreserveOperandEffectsAndDropValue => true
     _ => false
   }
 }
 
 ///|
-fn dae_operand_disposition_rejects_direct_removal(
-  disposition : DaeOperandDisposition,
+fn dae_operand_rewrite_localizes_and_retries(
+  disposition : DaeOperandRewriteDisposition,
 ) -> Bool {
-  match disposition.removal_action {
-    DaeRejectBranchingOperandRemoval => true
+  match disposition.action {
+    DaeLocalizeOperandAndRetry => true
+    _ => false
+  }
+}
+
+///|
+fn dae_operand_rewrite_rejects_escaping_branch(
+  disposition : DaeOperandRewriteDisposition,
+) -> Bool {
+  match disposition.action {
+    DaeRejectEscapingOperandRewrite => true
+    _ => false
+  }
+}
+
+///|
+fn dae_operand_rewrite_disposition_is_consistent(
+  disposition : DaeOperandRewriteDisposition,
+) -> Bool {
+  let operand = disposition.operand
+  if operand.start < 0 ||
+    operand.end < operand.start ||
+    operand.preserve_effects_on_removal == operand.droppable_without_repair ||
+    (disposition.has_escaping_branch && !operand.has_branch) {
+    return false
+  }
+  match
+    (
+      disposition.action,
+      dae_operand_rewrite_action(
+        operand,
+        disposition.localization_available,
+        disposition.has_escaping_branch,
+      ),
+    ) {
+    (DaeDropOperandDirectly, DaeDropOperandDirectly)
+    | (
+      DaePreserveOperandEffectsAndDropValue,
+      DaePreserveOperandEffectsAndDropValue,
+    )
+    | (DaeLocalizeOperandAndRetry, DaeLocalizeOperandAndRetry)
+    | (DaeRejectEscapingOperandRewrite, DaeRejectEscapingOperandRewrite) => true
     _ => false
   }
 }
 
 ///|
 fn dae_operand_removal_plan(
-  disposition : DaeOperandDisposition,
+  disposition : DaeOperandRewriteDisposition,
   keep : Bool,
 ) -> DaeOperandRemovalPlan {
-  let needs_repair = dae_operand_disposition_needs_repair_on_removal(
+  let preserve_effects = dae_operand_rewrite_preserves_effects_and_drops_value(
     disposition,
   )
+  let requires_localization_retry = !keep &&
+    dae_operand_rewrite_localizes_and_retries(disposition)
   let rejects_direct_removal = !keep &&
-    dae_operand_disposition_rejects_direct_removal(disposition)
-  let replay_operand = keep || needs_repair || rejects_direct_removal
+    dae_operand_rewrite_rejects_escaping_branch(disposition)
+  let replay_operand = keep || preserve_effects || rejects_direct_removal
   {
-    start: disposition.start,
-    end: disposition.end,
+    start: disposition.operand.start,
+    end: disposition.operand.end,
     keep_operand: keep,
     replay_operand,
     append_drop: !keep && replay_operand,
+    requires_localization_retry,
     rejects_direct_removal,
   }
+}
+
+///|
+fn dae_operand_removal_plan_is_consistent(
+  disposition : DaeOperandRewriteDisposition,
+  plan : DaeOperandRemovalPlan,
+) -> Bool {
+  if !dae_operand_rewrite_disposition_is_consistent(disposition) ||
+    plan.start != disposition.operand.start ||
+    plan.end != disposition.operand.end {
+    return false
+  }
+  let expected = dae_operand_removal_plan(disposition, plan.keep_operand)
+  plan.replay_operand == expected.replay_operand &&
+  plan.append_drop == expected.append_drop &&
+  plan.requires_localization_retry == expected.requires_localization_retry &&
+  plan.rejects_direct_removal == expected.rejects_direct_removal
 }
 
 ///|
@@ -2477,6 +2564,7 @@ fn dae_operand_removal_plan_drops_without_repair(
   !plan.keep_operand &&
   !plan.replay_operand &&
   !plan.append_drop &&
+  !plan.requires_localization_retry &&
   !plan.rejects_direct_removal
 }
 
@@ -2513,9 +2601,6 @@ fn dae_operand_disposition_from_range(
     preserve_effects_on_removal: !droppable_without_repair,
     has_branch,
     has_effect_or_branch,
-    removal_action: dae_operand_removal_action(
-      droppable_without_repair, has_branch,
-    ),
   })
 }
 
@@ -2535,7 +2620,6 @@ fn dae_operand_disposition_from_call_shape(
         preserve_effects_on_removal: !shape.pure,
         has_branch: false,
         has_effect_or_branch: !shape.pure,
-        removal_action: dae_operand_removal_action(shape.pure, false),
       }
   }
   {
@@ -2545,7 +2629,6 @@ fn dae_operand_disposition_from_call_shape(
     preserve_effects_on_removal: !shape.pure,
     has_branch: base.has_branch,
     has_effect_or_branch: base.has_effect_or_branch,
-    removal_action: dae_operand_removal_action(shape.pure, base.has_branch),
   }
 }
 
@@ -2576,7 +2659,14 @@ fn dae_slice_is_trivially_droppable(
   match dae_operand_disposition_from_range(instrs, start, end) {
     Some(disposition) =>
       dae_operand_removal_plan_drops_without_repair(
-        dae_operand_removal_plan(disposition, false),
+        dae_operand_removal_plan(
+          dae_operand_rewrite_disposition(
+            disposition,
+            localization_available=false,
+            has_escaping_branch=disposition.has_branch,
+          ),
+          false,
+        ),
       )
     None => false
   }
@@ -2702,7 +2792,6 @@ fn dae_value_slice_from_range(
         preserve_effects_on_removal: false,
         has_branch: false,
         has_effect_or_branch: false,
-        removal_action: DaeDropOperandWithoutRepair,
       }
   }
   dae_value_slice_from_operand_disposition_with_purity(
@@ -2798,8 +2887,14 @@ fn dae_value_slice_disposition_is_consistent(slice : DaeValueSlice) -> Bool {
     slice.has_effect_or_branch != slice.disposition.has_effect_or_branch {
     return false
   }
-  if slice.disposition.preserve_effects_on_removal ==
-    dae_operand_disposition_drops_without_repair(slice.disposition) {
+  let direct_rewrite = dae_operand_rewrite_disposition(
+    slice.disposition,
+    localization_available=false,
+    has_escaping_branch=slice.disposition.has_branch,
+  )
+  if !dae_operand_rewrite_disposition_is_consistent(direct_rewrite) ||
+    slice.disposition.preserve_effects_on_removal ==
+    dae_operand_rewrite_drops_directly(direct_rewrite) {
     return false
   }
   if slice.pure && slice.has_effect_or_branch {
@@ -3830,7 +3925,6 @@ fn dae_collect_callsite_value_slices(
     preserve_effects_on_removal: true,
     has_branch: false,
     has_effect_or_branch: false,
-    removal_action: DaeReplayOperandForRemoval,
   }
   let slices = Array::make(
     arg_count,
@@ -3919,9 +4013,18 @@ fn dae_callsite_operand_removal_plan(
   if param_idx < 0 || param_idx >= evidence.slices.length() {
     return None
   }
-  Some(
-    dae_operand_removal_plan(evidence.slices[param_idx].disposition, !remove),
+  let disposition = evidence.slices[param_idx].disposition
+  let rewrite_disposition = dae_operand_rewrite_disposition(
+    disposition,
+    localization_available=false,
+    has_escaping_branch=disposition.has_branch,
   )
+  let plan = dae_operand_removal_plan(rewrite_disposition, !remove)
+  if dae_operand_removal_plan_is_consistent(rewrite_disposition, plan) {
+    Some(plan)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -19879,8 +19982,15 @@ fn dae_stack_slice_localization_evidence_is_consistent(
   evidence.copied_slice.branch.end == evidence.no_escape_branch.end &&
   evidence.disposition.start == evidence.no_escape_branch.start &&
   evidence.disposition.end == evidence.no_escape_branch.end &&
-  evidence.removal_plan.start == evidence.no_escape_branch.start &&
-  evidence.removal_plan.end == evidence.no_escape_branch.end
+  evidence.rewrite_disposition.operand.start == evidence.no_escape_branch.start &&
+  evidence.rewrite_disposition.operand.end == evidence.no_escape_branch.end &&
+  evidence.rewrite_disposition.localization_available &&
+  !evidence.rewrite_disposition.has_escaping_branch &&
+  dae_operand_rewrite_disposition_is_consistent(evidence.rewrite_disposition) &&
+  (
+    dae_operand_rewrite_drops_directly(evidence.rewrite_disposition) ||
+    dae_operand_rewrite_localizes_and_retries(evidence.rewrite_disposition)
+  )
 }
 
 ///|
@@ -19889,21 +19999,14 @@ fn dae_stack_slice_localization_policy(
   expected_final_stack_values : Int,
   depth : Int,
   instr_allowed : (@lib.Instruction) -> Bool,
-  keep_operand : Bool,
 ) -> DaeStackSliceLocalizationPolicy {
-  {
-    initial_stack_values,
-    expected_final_stack_values,
-    depth,
-    instr_allowed,
-    keep_operand,
-  }
+  { initial_stack_values, expected_final_stack_values, depth, instr_allowed }
 }
 
 ///|
 fn dae_select_condition_localization_policy() -> DaeStackSliceLocalizationPolicy {
   dae_stack_slice_localization_policy(
-    0, 1, 0, dae_select_condition_stack_slice_instr_allowed, true,
+    0, 1, 0, dae_select_condition_stack_slice_instr_allowed,
   )
 }
 
@@ -19912,7 +20015,7 @@ fn dae_parametric_typeidx_prefix_localization_policy(
   param_count : Int,
 ) -> DaeStackSliceLocalizationPolicy {
   dae_stack_slice_localization_policy(
-    param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed, true,
+    param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed,
   )
 }
 
@@ -19925,7 +20028,6 @@ fn dae_stack_slice_localization_request(
   expected_final_stack_values : Int,
   depth : Int,
   instr_allowed : (@lib.Instruction) -> Bool,
-  keep_operand : Bool,
 ) -> DaeStackSliceLocalizationRequest {
   {
     body,
@@ -19935,7 +20037,6 @@ fn dae_stack_slice_localization_request(
     expected_final_stack_values,
     depth,
     instr_allowed,
-    keep_operand,
   }
 }
 
@@ -19954,7 +20055,6 @@ fn dae_stack_slice_localization_request_from_policy(
     policy.expected_final_stack_values,
     policy.depth,
     policy.instr_allowed,
-    policy.keep_operand,
   )
 }
 
@@ -20037,7 +20137,11 @@ fn dae_stack_slice_localization_evidence_from_request(
     no_escape_branch,
     copied_slice,
     disposition,
-    removal_plan: dae_operand_removal_plan(disposition, request.keep_operand),
+    rewrite_disposition: dae_operand_rewrite_disposition(
+      disposition,
+      localization_available=true,
+      has_escaping_branch=false,
+    ),
   }
   if dae_stack_slice_localization_evidence_is_consistent(evidence) {
     Some(evidence)

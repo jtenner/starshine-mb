@@ -3756,30 +3756,112 @@ test "dae operand disposition centralizes removed operand repair" {
   assert_false(call_disp.droppable_without_repair)
   assert_true(call_disp.preserve_effects_on_removal)
   assert_true(call_disp.has_effect_or_branch)
-  assert_true(dae_operand_disposition_drops_without_repair(pure_disp))
-  assert_true(dae_operand_disposition_needs_repair_on_removal(call_disp))
+  let pure_rewrite = dae_operand_rewrite_disposition(
+    pure_disp,
+    localization_available=false,
+    has_escaping_branch=false,
+  )
+  let call_rewrite = dae_operand_rewrite_disposition(
+    call_disp,
+    localization_available=false,
+    has_escaping_branch=false,
+  )
+  assert_true(dae_operand_rewrite_drops_directly(pure_rewrite))
+  assert_true(
+    dae_operand_rewrite_preserves_effects_and_drops_value(call_rewrite),
+  )
   let branch_body = [@lib.Instruction::br(@lib.LabelIdx::new(0U))]
   let branch_disp = match
     dae_operand_disposition_from_range(branch_body, 0, 1) {
     Some(disposition) => disposition
     None => fail("expected branch operand disposition")
   }
-  assert_true(dae_operand_disposition_rejects_direct_removal(branch_disp))
-  assert_false(dae_operand_disposition_needs_repair_on_removal(branch_disp))
+  let branch_rewrite = dae_operand_rewrite_disposition(
+    branch_disp,
+    localization_available=false,
+    has_escaping_branch=true,
+  )
+  assert_true(dae_operand_rewrite_rejects_escaping_branch(branch_rewrite))
+  assert_false(
+    dae_operand_rewrite_preserves_effects_and_drops_value(branch_rewrite),
+  )
   let dropped : Array[@lib.Instruction] = []
   dae_append_operand_with_removal_plan(
     dropped,
     body,
-    dae_operand_removal_plan(call_disp, false),
+    dae_operand_removal_plan(call_rewrite, false),
   )
   assert_eq(dropped, [body[2], @lib.Instruction::drop()])
   let kept : Array[@lib.Instruction] = []
   dae_append_operand_with_removal_plan(
     kept,
     body,
-    dae_operand_removal_plan(pure_disp, true),
+    dae_operand_removal_plan(pure_rewrite, true),
   )
   assert_eq(kept, [body[0], body[1]])
+}
+
+///|
+test "dae operand rewrite disposition separates removal localization and rejection" {
+  let pure_body = [@lib.Instruction::i32_const(@lib.I32(7))]
+  let pure = match dae_operand_disposition_from_range(pure_body, 0, 1) {
+    Some(disposition) => disposition
+    None => fail("expected pure operand disposition")
+  }
+  let direct_drop = dae_operand_rewrite_disposition(
+    pure,
+    localization_available=false,
+    has_escaping_branch=false,
+  )
+  assert_true(dae_operand_rewrite_drops_directly(direct_drop))
+  assert_true(dae_operand_rewrite_disposition_is_consistent(direct_drop))
+
+  let effectful_body = [@lib.Instruction::call(@lib.FuncIdx::new(0U))]
+  let effectful = match
+    dae_operand_disposition_from_range(effectful_body, 0, 1) {
+    Some(disposition) => disposition
+    None => fail("expected effectful operand disposition")
+  }
+  let preserve = dae_operand_rewrite_disposition(
+    effectful,
+    localization_available=false,
+    has_escaping_branch=false,
+  )
+  assert_true(dae_operand_rewrite_preserves_effects_and_drops_value(preserve))
+  let preserve_plan = dae_operand_removal_plan(preserve, false)
+  assert_true(dae_operand_removal_plan_is_consistent(preserve, preserve_plan))
+  assert_true(preserve_plan.replay_operand)
+  assert_true(preserve_plan.append_drop)
+
+  let localize = dae_operand_rewrite_disposition(
+    effectful,
+    localization_available=true,
+    has_escaping_branch=false,
+  )
+  assert_true(dae_operand_rewrite_localizes_and_retries(localize))
+  assert_true(dae_operand_rewrite_disposition_is_consistent(localize))
+  let localize_plan = dae_operand_removal_plan(localize, false)
+  assert_true(dae_operand_removal_plan_is_consistent(localize, localize_plan))
+  assert_true(localize_plan.requires_localization_retry)
+  assert_false(localize_plan.replay_operand)
+  assert_false(localize_plan.append_drop)
+
+  let branch_body = [@lib.Instruction::br(@lib.LabelIdx::new(0U))]
+  let branch = match dae_operand_disposition_from_range(branch_body, 0, 1) {
+    Some(disposition) => disposition
+    None => fail("expected branching operand disposition")
+  }
+  let reject = dae_operand_rewrite_disposition(
+    branch,
+    localization_available=true,
+    has_escaping_branch=true,
+  )
+  assert_true(dae_operand_rewrite_rejects_escaping_branch(reject))
+  assert_true(dae_operand_rewrite_disposition_is_consistent(reject))
+  let reject_plan = dae_operand_removal_plan(reject, false)
+  assert_true(dae_operand_removal_plan_is_consistent(reject, reject_plan))
+  assert_true(reject_plan.rejects_direct_removal)
+  assert_false(reject_plan.requires_localization_retry)
 }
 
 ///|
@@ -4312,7 +4394,7 @@ test "dae multi result carrier chain evidence centralizes fallthrough and return
 }
 
 ///|
-test "dae stack slice localization evidence carries transition escape and repair facts" {
+test "dae stack slice localization evidence carries transition escape and rewrite disposition" {
   let mod_ = @lib.Module::new()
   let body = [@lib.Instruction::i32_const(@lib.I32(7))]
   let request = dae_stack_slice_localization_request(
@@ -4323,7 +4405,6 @@ test "dae stack slice localization evidence carries transition escape and repair
     1,
     0,
     fn(instr) { !dae_instr_has_branch(instr) },
-    false,
   )
   match dae_stack_slice_localization_evidence_from_request(mod_, [], request) {
     Some(evidence) => {
@@ -4340,10 +4421,15 @@ test "dae stack slice localization evidence carries transition escape and repair
       assert_eq(evidence.copied_slice.instrs.length(), body.length())
       assert_eq(evidence.disposition.start, 0)
       assert_eq(evidence.disposition.end, body.length())
-      assert_eq(evidence.removal_plan.start, 0)
-      assert_eq(evidence.removal_plan.end, body.length())
+      assert_eq(evidence.rewrite_disposition.operand.start, 0)
+      assert_eq(evidence.rewrite_disposition.operand.end, body.length())
       assert_true(
-        dae_operand_removal_plan_drops_without_repair(evidence.removal_plan),
+        dae_operand_rewrite_drops_directly(evidence.rewrite_disposition),
+      )
+      assert_true(
+        dae_operand_rewrite_disposition_is_consistent(
+          evidence.rewrite_disposition,
+        ),
       )
     }
     None => fail("expected request-backed localization evidence")
@@ -4356,7 +4442,6 @@ test "dae stack slice localization evidence carries transition escape and repair
     0,
     0,
     fn(instr) { !dae_instr_has_branch(instr) },
-    false,
   )
   match
     dae_stack_slice_localization_evidence_from_request(
@@ -4375,7 +4460,6 @@ test "dae stack slice localization evidence carries transition escape and repair
     0,
     0,
     fn(_) { true },
-    false,
   )
   match
     dae_stack_slice_localization_evidence_from_request(
@@ -4394,7 +4478,6 @@ test "dae stack slice localization evidence carries transition escape and repair
     0,
     0,
     dae_parametric_typeidx_stack_slice_instr_allowed,
-    true,
   )
   match
     dae_stack_slice_localization_evidence_from_request(
@@ -4405,7 +4488,9 @@ test "dae stack slice localization evidence carries transition escape and repair
     Some(evidence) => {
       assert_eq(evidence.transition.simulation.initial_stack_values, 2)
       assert_eq(evidence.transition.simulation.final_stack_values, 0)
-      assert_true(evidence.removal_plan.keep_operand)
+      assert_true(
+        dae_operand_rewrite_localizes_and_retries(evidence.rewrite_disposition),
+      )
     }
     None => fail("expected parametric request-backed localization evidence")
   }
@@ -4423,7 +4508,9 @@ test "dae stack slice localization evidence carries transition escape and repair
       assert_eq(evidence.transition.simulation.initial_stack_values, 0)
       assert_eq(evidence.transition.simulation.final_stack_values, 1)
       assert_eq(evidence.no_escape_branch.depth, 0)
-      assert_true(evidence.removal_plan.keep_operand)
+      assert_true(
+        dae_operand_rewrite_drops_directly(evidence.rewrite_disposition),
+      )
     }
     None => fail("expected select policy localization evidence")
   }
@@ -4450,7 +4537,9 @@ test "dae stack slice localization evidence carries transition escape and repair
     Some(evidence) => {
       assert_eq(evidence.transition.simulation.initial_stack_values, 2)
       assert_eq(evidence.transition.simulation.final_stack_values, 0)
-      assert_true(evidence.removal_plan.keep_operand)
+      assert_true(
+        dae_operand_rewrite_localizes_and_retries(evidence.rewrite_disposition),
+      )
     }
     None => fail("expected parametric policy localization evidence")
   }
@@ -4521,7 +4610,9 @@ test "dae select condition localization evidence unifies singleton and stack sli
         Some(slice) => {
           assert_eq(slice.transition.simulation.final_stack_values, 1)
           assert_eq(slice.copied_slice.instrs.length(), 3)
-          assert_true(slice.removal_plan.keep_operand)
+          assert_true(
+            dae_operand_rewrite_localizes_and_retries(slice.rewrite_disposition),
+          )
         }
         None => fail("expected multi-instruction stack-slice evidence")
       }
@@ -4690,13 +4781,21 @@ test "dae callsite value evidence centralizes cursor and operand dispositions" {
       assert_eq(evidence.slices[1].start, 1)
       assert_eq(evidence.slices[1].end, 2)
       assert_true(
-        dae_operand_disposition_drops_without_repair(
-          evidence.slices[0].disposition,
+        dae_operand_rewrite_drops_directly(
+          dae_operand_rewrite_disposition(
+            evidence.slices[0].disposition,
+            localization_available=false,
+            has_escaping_branch=false,
+          ),
         ),
       )
       assert_true(
-        dae_operand_disposition_drops_without_repair(
-          evidence.slices[1].disposition,
+        dae_operand_rewrite_drops_directly(
+          dae_operand_rewrite_disposition(
+            evidence.slices[1].disposition,
+            localization_available=false,
+            has_escaping_branch=false,
+          ),
         ),
       )
       assert_true(dae_value_slice_disposition_is_consistent(evidence.slices[0]))
@@ -5089,7 +5188,14 @@ test "dae callsite value slices expose reusable repair disposition" {
   dae_append_operand_with_removal_plan(
     repaired,
     body,
-    dae_operand_removal_plan(slices[0].disposition, false),
+    dae_operand_removal_plan(
+      dae_operand_rewrite_disposition(
+        slices[0].disposition,
+        localization_available=false,
+        has_escaping_branch=false,
+      ),
+      false,
+    ),
   )
   assert_eq(repaired, [
     @lib.Instruction::i32_const(@lib.I32(0)),
