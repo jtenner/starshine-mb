@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
@@ -57,12 +58,14 @@ The high-value local rule is a two-layer split:
 official Wasm GC instruction family
   -> Starshine core/binary/validator/generator support
   -> narrower current Starshine WAST text support
-  -> still-narrower Starshine constant-expression allow-list for initializers
+  -> separate Starshine constant-expression allow-list for initializers
+     (includes Core `array.new`, `array.new_default`, and `array.new_fixed`,
+     but still diverges for other local forms)
 ```
 
 Starshine can model, encode, decode, validate, and generate the broad Core GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving Core `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first. Descriptor-specific allocation and cast/test semantics now route through [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md), shared heap-type / aggregate-atomic proposal status routes through [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md), and active More Array Constructors proposal names `array.new_array` / `array.new_memory` / `array.new_table` route through [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md). This page remains focused on the ordinary aggregate instruction layer and the current local WAST surface.
 
-The 2026-05-20 focused refresh in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) and the 2026-06-04 current refresh in [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md) add a second caveat for initializer contexts: current official WebAssembly 3.0 treats `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine's reviewed [`validate_const_instr(...)`](../../../src/validate/validate.mbt) still admits struct constructors and local descriptor constructors only. Ordinary core/binary `array.new*` tests are therefore not evidence that Starshine accepts array constructors in global/table/element/data initializer constant expressions; use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for that allow-list contract.
+The historical 2026-05-20 and 2026-06-04 raw captures recorded a pre-widening initializer gap. That claim is superseded by the [`2026-07-10 reconciliation`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md): current [`validate_const_instr(...)`](../../../src/validate/validate.mbt) accepts `array.new`, `array.new_default`, and `array.new_fixed` after resolving the array type, and focused core-AST tests cover table-initializer and element-payload shapes. This remains separate from the WAST gap: ordinary core/binary tests do not prove the high-level parser accepts `array.*` text. It is also narrow: data-/element-segment constructors (`array.new_data` / `array.new_elem`) are not constant expressions. Use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for the current allow-list contract.
 
 ## Beginner Mental Model
 

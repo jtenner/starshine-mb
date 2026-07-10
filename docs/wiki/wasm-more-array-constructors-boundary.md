@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
+  - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
   - raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - raw/wasm/2026-06-04-constant-expression-current-refresh.md
@@ -54,9 +55,9 @@ Beginner model: Starshine already knows about ordinary GC arrays in its in-memor
 
 | Family | Status | Starshine layer today | Fixture guidance |
 | --- | --- | --- | --- |
-| `array.new` | Core WebAssembly GC | Core/binary/validator/generator support; no high-level WAST text; not admitted by Starshine's current constant-expression allow-list. | Use core builders, binary bytes, or generator fixtures. Do not use WAST text unless the WAST layer is widened first. |
-| `array.new_default` | Core WebAssembly GC | Same local layer split as `array.new`; requires a defaultable element type. | Use core/binary/generated fixtures; route initializer claims through [`validate/constant-expressions.md`](validate/constant-expressions.md). |
-| `array.new_fixed` | Core WebAssembly GC | Same local layer split as `array.new`; immediate length controls how many element values are consumed. | Use core/binary/generated fixtures; do not infer proposal support. |
+| `array.new` | Core WebAssembly GC | Core/binary/validator/generator support; no high-level WAST text; accepted in Starshine constant expressions when its type index resolves to an array and operands typecheck. | Use core builders, binary bytes, or generator fixtures. Do not use WAST text unless the WAST layer is widened first. |
+| `array.new_default` | Core WebAssembly GC | Same local layer split as `array.new`; its initializer use still requires a defaultable array element type. | Use core/binary/generated fixtures; route initializer claims through [`validate/constant-expressions.md`](validate/constant-expressions.md). |
+| `array.new_fixed` | Core WebAssembly GC | Same local layer split as `array.new`; immediate length controls how many element values are consumed, including in supported core constant-expression contexts. | Use core/binary/generated fixtures; do not infer proposal support. |
 | `array.new_data` / `array.init_data` | Core WebAssembly GC with data-index dependencies | Core/binary/validator support; no WAST text; data-index existence typechecks, but Starshine's pre-code missing-data-count scanner currently covers only `memory.init` / `data.drop`. | Pair with [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md) and data-segment docs. |
 | `array.new_elem` / `array.init_elem` | Core WebAssembly GC with element-index dependencies | Core/binary/validator support; no WAST text; element segment type must match the array element reference type. | Pair with [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md) and `ref.func` declaration rules where element payloads create function refs. |
 | `array.new_array` | More Array Constructors proposal | No current Starshine instruction variant, WAST keyword, binary arm, validator case, or generator row. | Treat as active-proposal no-support until a dedicated implementation slice lands. |
@@ -71,7 +72,7 @@ Beginner model: Starshine already knows about ordinary GC arrays in its in-memor
 | WAST text | No ordinary `array.*` aggregate WAST text is currently exposed. That absence covers both Core arrays and More Array Constructors. | [`src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md) |
 | Binary codec | Current Core GC array opcodes roundtrip through the local `0xFB` aggregate lane. Proposal constructor opcodes are not decoded or encoded. | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md) |
 | Validation | Current Core array constructors/access/mutation/init are typechecked for type indices, packed signedness, mutability, data/element indices, and stack shapes. Proposal constructors have no validator cases. | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md) |
-| Constant expressions | Current Core 3.0 admits `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine does not currently admit those array constructors in `validate_const_instr(...)`. More Array Constructors does not change that local allow-list. | [`validate/constant-expressions.md`](validate/constant-expressions.md), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) |
+| Constant expressions | Current Core 3.0 admits `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, and Starshine's current `validate_const_instr(...)` accepts the same three core forms after resolving the array type; normal typechecking still enforces operands and result type. More Array Constructors does not add the active-proposal constructors to that allow-list. | [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) |
 | Generator/fuzz | `gen_valid` can exercise current Core GC aggregate arrays through local feature/profile decisions. There is no More Array Constructors proposal gate or coverage row. | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) |
 
 ## Why The Names Are Easy To Confuse

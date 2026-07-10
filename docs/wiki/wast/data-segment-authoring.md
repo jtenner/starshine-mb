@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
@@ -156,7 +157,7 @@ If Starshine adds the abbreviation later, update this page and [`resource-declar
 
 A data segment can be valid even when the module has no code that consumes data indices. Data-count is a separate binary section whose count must match the number of data segments when present. Current official WebAssembly 3.0 also requires data-count before code when any data index occurs in the code section. `memory.init` and `data.drop` are the common bulk-memory examples; `array.new_data` and `array.init_data` are the GC aggregate data-index users that make the rule broader than the bulk-memory note. The focused validator guide is [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md).
 
-Starshine core/binary/validator surfaces support all four data-index instruction families (`MemoryInit`, `DataDrop`, `ArrayNewData`, and `ArrayInitData`), but the current high-level WAST text path only exposes `memory.init` and `data.drop`. Official `array.*` WAST keywords are not local text syntax yet, and current Starshine constant expressions do not admit official array constructor forms. Route aggregate fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and initializer eligibility through [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
+Starshine core/binary/validator surfaces support all four data-index instruction families (`MemoryInit`, `DataDrop`, `ArrayNewData`, and `ArrayInitData`), but the current high-level WAST text path only exposes `memory.init` and `data.drop`. Official `array.*` WAST keywords are not local text syntax yet. Separately, Starshine's core constant-expression gate now accepts the Core `array.new`, `array.new_default`, and `array.new_fixed` subset; that does **not** admit data-indexed `array.new_data` / `array.init_data` forms as constant expressions or add WAST text support. Route aggregate fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and initializer eligibility through [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 
 Starshine keeps the current data-count checks separate in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt):
 
