@@ -9,7 +9,7 @@ This slice keeps `[DAE003-C]` open but closes two of the focused negative-test g
 
 ## Evidence
 
-Added focused tests in [`../../../src/passes/dae_optimizing_test.mbt`](../../../src/passes/dae_optimizing_test.mbt):
+Added focused tests in [`../../../../src/passes/dae_optimizing_test.mbt`](../../../../src/passes/dae_optimizing_test.mbt):
 
 - `dae-optimizing rejects non-adjacent local-tee constant actual carrier`
 - `dae-optimizing rejects non-adjacent local-set carrier with multiple writes`
