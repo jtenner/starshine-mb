@@ -1205,6 +1205,57 @@ test "dae original parameterized self side-chain guard centralizes indexed facts
 }
 
 ///|
+test "dae original result cleanup preservation centralizes shared core decisions" {
+  let row : DaeOriginalResultRemovalPruneRow = {
+    param_count: 1,
+    call_count: 2,
+    active_nonself_call_count: 0,
+    active_parameterized_nonself_call_count: 0,
+    active_parameterized_result_nonself_call_count: 0,
+    nonself_undropped_call_count: 0,
+    self_call_count: 1,
+    escaped_dead_suffix_call_count: 0,
+    dead_suffix_undropped_self_call: true,
+    dead_suffix_dropped_self_call: true,
+    dead_suffix_block_undropped_self_call: false,
+    dead_suffix_same_self_result_operand_call: false,
+    dead_suffix_dropped_self_call_full_param_forward: false,
+    dead_suffix_dropped_escaped_result_call: false,
+    dead_suffix_dropped_earlier_result_call: false,
+    later_dead_suffix_dropped_call_count: 0,
+    dead_suffix_mutual_call: false,
+    private_result_dead_suffix_call_count: 0,
+    dead_suffix_result_other_call: false,
+    dead_suffix_dropped_calls_from_no_param_result_caller: 0,
+    dead_suffix_mixed_dropped_undropped_call_count: 0,
+  }
+  let preservation : DaeOriginalResultPreservationEvidence = {
+    same_self_result_operand: false,
+    result_from_undropped_self_caller: false,
+    escaped_result_operand_chain: false,
+    mixed_self_result: true,
+    escaped_block_self_result: false,
+    param_operand_self_result_side_callee: false,
+    undropped_self_result_from_no_param_dropped_caller: true,
+    dropped_escaped_result_under_self_caller: false,
+    parameterized_undropped_self_side_chain: false,
+    result_side_chain_cleanup_preservation: true,
+  }
+  let evidence = dae_original_result_cleanup_preservation_evidence(
+    row,
+    preservation,
+  )
+  assert_true(evidence.mixed_self_suffix)
+  assert_true(evidence.result_side_chain_cleanup_preservation)
+  assert_true(dae_original_result_cleanup_preservation_any(evidence))
+  let clear : DaeOriginalResultCleanupPreservationEvidence = {
+    mixed_self_suffix: false,
+    result_side_chain_cleanup_preservation: false,
+  }
+  assert_false(dae_original_result_cleanup_preservation_any(clear))
+}
+
+///|
 test "dae original result preservation repair gate reuses shared evidence" {
   let clear = {
     same_self_result_operand: false,
