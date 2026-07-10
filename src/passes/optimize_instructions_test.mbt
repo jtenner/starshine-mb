@@ -4181,6 +4181,55 @@ test "optimize-instructions folds unary-tree idempotent-call self-selects" {
 }
 
 ///|
+test "optimize-instructions folds binary-tree idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 accepts equal nontrapping
+  // integer-add operand trees over direct local/constant leaves under the same
+  // recursive child-effect and parent-invalidation checks. Source:
+  // `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-scalar-tree-foldability.wat`
+  // (`i32_binary` and `i64_binary`).
+  let optimize_i32 = fn(right_const : Int) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add call $id i32.const 0 local.get 0 i32.const " +
+      right_const.to_string() +
+      " i32.add call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected i32 binary-tree idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let i32_equal = optimize_i32(1)
+  assert_false(i32_equal.contains("select"), msg=i32_equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(i32_equal, "call (Func 0)"),
+    1,
+  )
+  let i32_different_const = optimize_i32(2)
+  assert_true(i32_different_const.contains("select"), msg=i32_different_const)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(
+      i32_different_const, "call (Func 0)",
+    ),
+    2,
+  )
+  let i64_wat = "(module (@binaryen.idempotent) (func $id (param i64) (result i64) local.get 0) (func (param i64) (result i64) i64.const 0 local.get 0 i64.const 1 i64.add call $id local.get 0 i64.const 1 i64.add call $id i64.eqz select))"
+  let i64_optimized = match
+    pass_test_run_pipeline(i64_wat, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected i64 binary-tree idempotent-call OI success, got \{err}")
+  }
+  let i64_equal = i64_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(i64_equal.contains("select"), msg=i64_equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(i64_equal, "call (Func 0)"),
+    1,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and

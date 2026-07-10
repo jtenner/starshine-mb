@@ -25638,16 +25638,38 @@ fn RawOiIdempotentCallStackOperandFact::proves_equal(
 }
 
 ///|
+fn RawOiIdempotentCallStackOperandFact::proves_i32_local_const_leaf(
+  self : RawOiIdempotentCallStackOperandFact,
+) -> Bool {
+  match self.kind {
+    RawOiIdempotentCallLocalOperand | RawOiIdempotentCallI32ConstOperand => true
+    _ => false
+  }
+}
+
+///|
+fn RawOiIdempotentCallStackOperandFact::proves_i64_local_const_leaf(
+  self : RawOiIdempotentCallStackOperandFact,
+) -> Bool {
+  match self.kind {
+    RawOiIdempotentCallLocalOperand | RawOiIdempotentCallI64ConstOperand => true
+    _ => false
+  }
+}
+
+///|
 priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallNoOperandAdmission
   RawOiIdempotentCallDirectLeafAdmission
   RawOiIdempotentCallI32EqzTreeAdmission
+  RawOiIdempotentCallI32AddTreeAdmission
+  RawOiIdempotentCallI64AddTreeAdmission
 }
 
 ///|
 priv struct RawOiIdempotentCallOperandAdmissionFact {
   kind : RawOiIdempotentCallOperandAdmissionKind
-  leaf_fact : RawOiIdempotentCallStackOperandFact?
+  leaf_facts : Array[RawOiIdempotentCallStackOperandFact]
 }
 
 ///|
@@ -25657,7 +25679,9 @@ fn RawOiIdempotentCallOperandAdmissionFact::has_operand(
   match self.kind {
     RawOiIdempotentCallNoOperandAdmission => false
     RawOiIdempotentCallDirectLeafAdmission
-    | RawOiIdempotentCallI32EqzTreeAdmission => true
+    | RawOiIdempotentCallI32EqzTreeAdmission
+    | RawOiIdempotentCallI32AddTreeAdmission
+    | RawOiIdempotentCallI64AddTreeAdmission => true
   }
 }
 
@@ -25665,11 +25689,12 @@ fn RawOiIdempotentCallOperandAdmissionFact::has_operand(
 fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
   self : RawOiIdempotentCallOperandAdmissionFact,
 ) -> Bool {
-  match (self.kind, self.leaf_fact) {
-    (RawOiIdempotentCallNoOperandAdmission, None) => true
-    (RawOiIdempotentCallDirectLeafAdmission, Some(_))
-    | (RawOiIdempotentCallI32EqzTreeAdmission, Some(_)) => true
-    _ => false
+  match self.kind {
+    RawOiIdempotentCallNoOperandAdmission => self.leaf_facts.length() == 0
+    RawOiIdempotentCallDirectLeafAdmission
+    | RawOiIdempotentCallI32EqzTreeAdmission => self.leaf_facts.length() == 1
+    RawOiIdempotentCallI32AddTreeAdmission
+    | RawOiIdempotentCallI64AddTreeAdmission => self.leaf_facts.length() == 2
   }
 }
 
@@ -25689,11 +25714,110 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
   // flat shapes cover direct i32 self-selects, the source-probed i32.eqz(local)
-  // operand tree, and the i64 zero-test self-select with no operands or one
-  // repeated direct local.get/i64.const/immutable global.get operand. The raw
-  // stack-effect gate would otherwise quarantine those call results before HOT
-  // can apply the source-backed fact.
+  // operand tree, exact i32/i64.add(local, const) trees, and the i64 zero-test
+  // self-select with no operands or one repeated direct local.get/i64.const/
+  // immutable global.get operand. The raw stack-effect gate would otherwise
+  // quarantine those call results before HOT can apply the source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
+    [
+      left_lhs,
+      left_rhs,
+      @lib.I32Add,
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      right_lhs,
+      right_rhs,
+      @lib.I32Add,
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_lhs_fact.proves_i32_local_const_leaf() ||
+        !left_rhs_fact.proves_i32_local_const_leaf() ||
+        !right_lhs_fact.proves_i32_local_const_leaf() ||
+        !right_rhs_fact.proves_i32_local_const_leaf() ||
+        !left_lhs_fact.proves_equal(right_lhs_fact) ||
+        !left_rhs_fact.proves_equal(right_rhs_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallI32AddTreeAdmission,
+          leaf_facts: [left_lhs_fact, left_rhs_fact],
+        },
+      )
+    }
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_lhs,
+      left_rhs,
+      @lib.I64Add,
+      @lib.Call(left_idx),
+      right_lhs,
+      right_rhs,
+      @lib.I64Add,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx => {
+      let left_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_lhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_rhs, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_lhs_fact.proves_i64_local_const_leaf() ||
+        !left_rhs_fact.proves_i64_local_const_leaf() ||
+        !right_lhs_fact.proves_i64_local_const_leaf() ||
+        !right_rhs_fact.proves_i64_local_const_leaf() ||
+        !left_lhs_fact.proves_equal(right_lhs_fact) ||
+        !left_rhs_fact.proves_equal(right_rhs_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallI64AddTreeAdmission,
+          leaf_facts: [left_lhs_fact, left_rhs_fact],
+        },
+      )
+    }
     [
       left_operand,
       @lib.I32Eqz,
@@ -25730,7 +25854,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         true,
         {
           kind: RawOiIdempotentCallI32EqzTreeAdmission,
-          leaf_fact: Some(left_fact),
+          leaf_facts: [left_fact],
         },
       )
     }
@@ -25771,7 +25895,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         true,
         {
           kind: RawOiIdempotentCallDirectLeafAdmission,
-          leaf_fact: Some(left_fact),
+          leaf_facts: [left_fact],
         },
       )
     }
@@ -25785,7 +25909,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       (
         left_idx,
         true,
-        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_fact: None },
+        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_facts: [] },
       )
     [
       @lib.Call(left_idx),
@@ -25796,7 +25920,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       (
         left_idx,
         true,
-        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_fact: None },
+        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_facts: [] },
       )
     [
       @lib.I32Const(@lib.I32(0)),
@@ -25807,7 +25931,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       (
         left_idx,
         false,
-        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_fact: None },
+        { kind: RawOiIdempotentCallNoOperandAdmission, leaf_facts: [] },
       )
     [
       left_operand,
@@ -25839,7 +25963,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         true,
         {
           kind: RawOiIdempotentCallDirectLeafAdmission,
-          leaf_fact: Some(left_fact),
+          leaf_facts: [left_fact],
         },
       )
     }
@@ -25873,7 +25997,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         false,
         {
           kind: RawOiIdempotentCallDirectLeafAdmission,
-          leaf_fact: Some(left_fact),
+          leaf_facts: [left_fact],
         },
       )
     }
