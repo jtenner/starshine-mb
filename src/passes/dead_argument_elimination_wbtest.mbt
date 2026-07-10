@@ -3166,6 +3166,95 @@ test "dae parametric typeidx arm evidence reuses control result GC carrier" {
 }
 
 ///|
+test "dae typeidx control rewrite plan centralizes type installation and reconstruction" {
+  let params = [@lib.ValType::i32()]
+  let results = [@lib.ValType::i64(), @lib.ValType::f32()]
+  let body = [@lib.Instruction::drop()]
+  let else_body = [@lib.Instruction::nop()]
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+    ),
+  ])
+  let block_plan = match
+    dae_typeidx_control_rewrite_plan(0, params, results, body, None) {
+    Some(plan) => plan
+    None => fail("expected block typeidx rewrite plan")
+  }
+  assert_eq(block_plan.control_kind, 0)
+  assert_eq(block_plan.params, params)
+  assert_eq(block_plan.results, results)
+  assert_eq(block_plan.body, body)
+  match block_plan.else_body {
+    Some(_) => fail("block plan must not retain an else body")
+    None => ()
+  }
+  let block_application = match
+    dae_apply_typeidx_control_rewrite(type_sec, block_plan) {
+    Some(application) => application
+    None => fail("expected block typeidx rewrite application")
+  }
+  assert_eq(block_application.type_sec, type_sec)
+  assert_eq(block_application.block_type_idx, @lib.TypeIdx::new(0U))
+  assert_eq(
+    block_application.rewritten,
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(body),
+    ),
+  )
+  let loop_plan = match
+    dae_typeidx_control_rewrite_plan(1, params, results, body, None) {
+    Some(plan) => plan
+    None => fail("expected loop typeidx rewrite plan")
+  }
+  let loop_application = match
+    dae_apply_typeidx_control_rewrite(type_sec, loop_plan) {
+    Some(application) => application
+    None => fail("expected loop typeidx rewrite application")
+  }
+  assert_eq(
+    loop_application.rewritten,
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(body),
+    ),
+  )
+  let if_plan = match
+    dae_typeidx_control_rewrite_plan(
+      2,
+      params,
+      results,
+      body,
+      Some(else_body),
+    ) {
+    Some(plan) => plan
+    None => fail("expected if typeidx rewrite plan")
+  }
+  let if_application = match
+    dae_apply_typeidx_control_rewrite(type_sec, if_plan) {
+    Some(application) => application
+    None => fail("expected if typeidx rewrite application")
+  }
+  assert_eq(
+    if_application.rewritten,
+    @lib.Instruction::if_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      body,
+      Some(else_body),
+    ),
+  )
+  match dae_typeidx_control_rewrite_plan(2, params, results, body, None) {
+    Some(_) => fail("if plan without an else body must reject")
+    None => ()
+  }
+  match dae_typeidx_control_rewrite_plan(3, params, results, body, None) {
+    Some(_) => fail("unknown control kind must reject")
+    None => ()
+  }
+}
+
+///|
 test "dae single-body control rewrite evidence centralizes reconstruction" {
   let original_body = [@lib.Instruction::nop()]
   let rewritten_body = [@lib.Instruction::drop()]
