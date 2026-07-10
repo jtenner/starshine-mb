@@ -27341,6 +27341,7 @@ fn optimize_instructions_inverted_select_compare(
 priv enum OiIdempotentCallOperandKind {
   IdempotentCallNoOperands
   IdempotentCallPureLocalConstOperands
+  IdempotentCallPureImmutableGlobalOperands
   IdempotentCallUnsupportedOperands
 }
 
@@ -27365,9 +27366,9 @@ fn OiIdempotentCallFact::from_node(
 ) -> OiIdempotentCallFact? {
   // Binaryen v130 asks `Intrinsics::getCallAnnotations(...).idempotent` before
   // treating a direct call as effect-free for consecutive-input folding. The
-  // represented operand fact now includes no operands plus direct local.get and
-  // scalar constants, whose child-effect and parent-invalidates-child checks are
-  // vacuous.
+  // represented operand fact includes no operands, direct local.get/scalar
+  // constants, and immutable global.get leaves. The latter are state reads, but
+  // the annotated call shell cannot invalidate an immutable global.
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Call if node.imm0 >= 0 => ()
@@ -27387,18 +27388,36 @@ fn OiIdempotentCallFact::from_node(
   }
   let operand_ids : Array[Int] = []
   let mut all_local_const = true
+  let mut all_supported = true
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let operand_id = @ir.hot_child_get(func, node_id, slot)
     operand_ids.push(operand_id)
     match @ir.hot_node_get(func, operand_id).op {
       @ir.HotOp::LocalGet | @ir.HotOp::Const => ()
-      _ => all_local_const = false
+      @ir.HotOp::GlobalGet => {
+        all_local_const = false
+        let operand = @ir.hot_node_get(func, operand_id)
+        match
+          @ir.hot_module_resolve_global_type(
+            module_ctx,
+            @lib.GlobalIdx::new(operand.imm0.reinterpret_as_uint()),
+          ) {
+          Some(@lib.GlobalType(_, false)) => ()
+          _ => all_supported = false
+        }
+      }
+      _ => {
+        all_local_const = false
+        all_supported = false
+      }
     }
   }
   let kind = if node.child_count == 0 {
     IdempotentCallNoOperands
   } else if all_local_const {
     IdempotentCallPureLocalConstOperands
+  } else if all_supported {
+    IdempotentCallPureImmutableGlobalOperands
   } else {
     IdempotentCallUnsupportedOperands
   }
@@ -27410,7 +27429,9 @@ fn OiIdempotentCallOperandFact::proves_foldable(
   self : OiIdempotentCallOperandFact,
 ) -> Bool {
   match self.kind {
-    IdempotentCallNoOperands | IdempotentCallPureLocalConstOperands => true
+    IdempotentCallNoOperands
+    | IdempotentCallPureLocalConstOperands
+    | IdempotentCallPureImmutableGlobalOperands => true
     IdempotentCallUnsupportedOperands => false
   }
 }
@@ -27503,9 +27524,9 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
 ) -> OiConsecutiveInputFoldabilityFact {
   // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
   // the later equal input to have no unremovable effects before it can be
-  // folded into the earlier input. Annotated direct calls with no operands or
-  // direct local/constant operands are the represented exceptions to the
-  // ordinary pure-expression proof.
+  // folded into the earlier input. Annotated direct calls with no operands,
+  // direct local/constant operands, or immutable-global operands are the
+  // represented exceptions to the ordinary pure-expression proof.
   let kind = if OiSideEffectFreeExpressionFact::proves_node_free(
       func, dead, right_id,
     ) {

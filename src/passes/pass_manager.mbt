@@ -25589,6 +25589,7 @@ fn RawOiStackCarriedEffectSkipFact::proves_accepted_raw_noop(
 priv enum RawOiIdempotentCallStackOperandKind {
   RawOiIdempotentCallLocalOperand
   RawOiIdempotentCallI32ConstOperand
+  RawOiIdempotentCallImmutableGlobalOperand
 }
 
 ///|
@@ -25600,10 +25601,17 @@ priv struct RawOiIdempotentCallStackOperandFact {
 ///|
 fn RawOiIdempotentCallStackOperandFact::from_instr(
   instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
 ) -> RawOiIdempotentCallStackOperandFact? {
   let kind = match instr {
     @lib.LocalGet(_) => RawOiIdempotentCallLocalOperand
     @lib.I32Const(_) => RawOiIdempotentCallI32ConstOperand
+    @lib.GlobalGet(global_idx) =>
+      match @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
+        Some(@lib.GlobalType(_, false)) =>
+          RawOiIdempotentCallImmutableGlobalOperand
+        _ => return None
+      }
     _ => return None
   }
   Some({ kind, instr })
@@ -25616,8 +25624,11 @@ fn RawOiIdempotentCallStackOperandFact::proves_equal(
 ) -> Bool {
   let same_kind = match (self.kind, other.kind) {
     (RawOiIdempotentCallLocalOperand, RawOiIdempotentCallLocalOperand)
-    | (RawOiIdempotentCallI32ConstOperand, RawOiIdempotentCallI32ConstOperand) =>
-      true
+    | (RawOiIdempotentCallI32ConstOperand, RawOiIdempotentCallI32ConstOperand)
+    | (
+      RawOiIdempotentCallImmutableGlobalOperand,
+      RawOiIdempotentCallImmutableGlobalOperand,
+    ) => true
     _ => false
   }
   same_kind && self.instr == other.instr
@@ -25638,9 +25649,9 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // This is a HOT-admission fact, not a raw rewrite. Binaryen v130's
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
-  // flat shapes cover no operands plus one repeated local.get or i32.const
-  // operand; the raw stack-effect gate would otherwise quarantine those call
-  // results before HOT can apply the source-backed call fact.
+  // flat shapes cover no operands plus one repeated local.get, i32.const, or
+  // immutable global.get operand; the raw stack-effect gate would otherwise
+  // quarantine those call results before HOT can apply the source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
     [
       @lib.Call(left_idx),
@@ -25663,12 +25674,16 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       @lib.Select(_),
     ] if left_idx == right_idx => {
       let left_fact = match
-        RawOiIdempotentCallStackOperandFact::from_instr(left_operand) {
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_operand, module_ctx,
+        ) {
         Some(fact) => fact
         None => return None
       }
       let right_fact = match
-        RawOiIdempotentCallStackOperandFact::from_instr(right_operand) {
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_operand, module_ctx,
+        ) {
         Some(fact) => fact
         None => return None
       }
@@ -25686,12 +25701,16 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       @lib.Select(_),
     ] if left_idx == right_idx => {
       let left_fact = match
-        RawOiIdempotentCallStackOperandFact::from_instr(left_operand) {
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_operand, module_ctx,
+        ) {
         Some(fact) => fact
         None => return None
       }
       let right_fact = match
-        RawOiIdempotentCallStackOperandFact::from_instr(right_operand) {
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_operand, module_ctx,
+        ) {
         Some(fact) => fact
         None => return None
       }
