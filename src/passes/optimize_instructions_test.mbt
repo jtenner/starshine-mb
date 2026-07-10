@@ -7541,6 +7541,57 @@ test "optimize-instructions folds second+third trees in alternate-order mixed i6
 }
 
 ///|
+test "optimize-instructions folds all three trees in alternate-order mixed i64-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks
+  // exact i64.add(local, const), i32.add(local, const), and
+  // i64.add(local, const) trees in all three operands of an annotated
+  // (i64, i32, i64) -> i64 call in the i64 zero-test self-select. A mismatch
+  // in any tree retains both calls. Source: `OptimizeInstructions.cpp:2891-2947`;
+  // oracle: `.tmp/oi-probes/select-idempotent-call-next30-foldability.wat`
+  // (`mixed_i64_order_all_three_tree_equal` and its three mismatches).
+  let optimize_caller = fn(
+    right_first_tree_const : Int64,
+    right_second_tree_const : Int,
+    right_third_tree_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 9 i64.add call $id local.get 0 i64.const " +
+      right_first_tree_const.to_string() +
+      " i64.add local.get 1 i32.const " +
+      right_second_tree_const.to_string() +
+      " i32.add local.get 2 i64.const " +
+      right_third_tree_const.to_string() +
+      " i64.add call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected all-three-tree alternate-order mixed i64-result call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(5L, 7, 9L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(6L, 7, 9L),
+      optimize_caller(5L, 8, 9L),
+      optimize_caller(5L, 7, 10L),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds first tree in mixed i32-result calls" {
   // Red-first OI-F parity slice: Binaryen version_130 independently checks an
   // exact i64.add(local, const) first operand plus direct i32 and i64 leaves on
