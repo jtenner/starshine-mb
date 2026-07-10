@@ -17269,6 +17269,39 @@ fn dae_try_apply_selected_def_func_rewrite_once(
 }
 
 ///|
+fn dae_try_apply_first_selected_func_rewrite_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  rewrite_func : (@lib.Func, Int, @lib.TypeSec?) -> @lib.Func?,
+) -> DaePassResult {
+  let defined = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < defined && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let selected_def = def_idx
+      let rewrite_selected = fn(
+        func : @lib.Func,
+        type_sec : @lib.TypeSec?,
+      ) -> @lib.Func? {
+        rewrite_func(func, selected_def, type_sec)
+      }
+      let result = dae_try_apply_selected_def_func_rewrite_once(
+        mod_, selected_defs, selected_def, rewrite_selected,
+      )
+      if result.changed {
+        return result
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_try_apply_selected_def_body_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -27253,37 +27286,21 @@ fn dae_try_remove_selected_nops_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < selected_defs.length() {
-    if selected_defs[def_idx] {
-      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-      let (rewritten_body, body_changed) = dae_remove_nops_instrs(body)
-      if body_changed {
-        let rewritten_funcs = funcs.copy()
-        rewritten_funcs[def_idx] = @lib.Func::new(
-          locals,
-          @lib.Expr::new(rewritten_body),
-        )
-        let touched = Array::make(funcs.length(), false)
-        touched[def_idx] = true
-        return {
-          mod_out: mod_
-          .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-          .without_name_sec(),
-          touched,
-          changed: true,
-          primary_def: def_idx,
-        }
-      }
+  let rewrite_func = fn(
+    func : @lib.Func,
+    _ : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    let (rewritten_body, body_changed) = dae_remove_nops_instrs(body)
+    if !body_changed {
+      return None
     }
-    def_idx += 1
+    Some(@lib.Func::new(locals, @lib.Expr::new(rewritten_body)))
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
 }
 
 ///|
@@ -27398,39 +27415,26 @@ fn dae_try_rewrite_selected_func408_pair_if_carrier_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < selected_defs.length() {
-    if selected_defs[def_idx] {
-      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-      match dae_try_rewrite_func408_pair_if_carrier_body_once(body) {
-        Some(rewritten_body) => {
-          let rewritten_funcs = funcs.copy()
-          rewritten_funcs[def_idx] = @lib.Func::new(
+  let rewrite_func = fn(
+    func : @lib.Func,
+    _ : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    match dae_try_rewrite_func408_pair_if_carrier_body_once(body) {
+      Some(rewritten_body) =>
+        Some(
+          @lib.Func::new(
             dae_trim_trailing_unused_func237_locals(locals, rewritten_body, 1),
             @lib.Expr::new(rewritten_body),
-          )
-          let touched = Array::make(funcs.length(), false)
-          touched[def_idx] = true
-          return {
-            mod_out: mod_
-            .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-            .without_name_sec(),
-            touched,
-            changed: true,
-            primary_def: def_idx,
-          }
-        }
-        None => ()
-      }
+          ),
+        )
+      None => None
     }
-    def_idx += 1
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
 }
 
 ///|
@@ -27440,50 +27444,34 @@ fn dae_try_inline_selected_i32_const_local_sets_once(
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < selected_defs.length() {
-    if selected_defs[def_idx] {
-      let callee_abs = imported + def_idx
-      let param_count = match
-        dae_resolve_func_type(mod_, type_indices, callee_abs) {
-        Some(@lib.FuncType(params, _)) => params.length()
-        None => -1
-      }
-      if param_count >= 0 {
-        let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-        match
-          dae_try_inline_i32_const_local_set_instrs_once(body, param_count) {
-          Some(rewritten_body) => {
-            let rewritten_funcs = funcs.copy()
-            rewritten_funcs[def_idx] = @lib.Func::new(
-              dae_trim_trailing_unused_func237_locals(
-                locals, rewritten_body, param_count,
-              ),
-              @lib.Expr::new(rewritten_body),
-            )
-            let touched = Array::make(funcs.length(), false)
-            touched[def_idx] = true
-            return {
-              mod_out: mod_
-              .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-              .without_name_sec(),
-              touched,
-              changed: true,
-              primary_def: def_idx,
-            }
-          }
-          None => ()
-        }
-      }
+  let rewrite_func = fn(
+    func : @lib.Func,
+    def_idx : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let callee_abs = imported + def_idx
+    let param_count = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => return None
     }
-    def_idx += 1
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    match dae_try_inline_i32_const_local_set_instrs_once(body, param_count) {
+      Some(rewritten_body) =>
+        Some(
+          @lib.Func::new(
+            dae_trim_trailing_unused_func237_locals(
+              locals, rewritten_body, param_count,
+            ),
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+      None => None
+    }
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
 }
 
 ///|
@@ -27493,67 +27481,53 @@ fn dae_try_inline_selected_terminal_call_local_sets_once(
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < selected_defs.length() {
-    if selected_defs[def_idx] {
-      let callee_abs = imported + def_idx
-      let param_count = match
-        dae_resolve_func_type(mod_, type_indices, callee_abs) {
-        Some(@lib.FuncType(params, _)) => params.length()
-        None => -1
-      }
-      if param_count >= 0 {
-        let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-        if body.length() > 0 {
-          match body[body.length() - 1] {
-            @lib.Call(target_idx) => {
-              let target_abs = dae_func_idx_slot(target_idx)
-              let arg_count = match
-                dae_resolve_func_type(mod_, type_indices, target_abs) {
-                Some(@lib.FuncType(params, _)) => params.length()
-                None => -1
-              }
-              if arg_count > 0 {
-                match
-                  dae_try_inline_terminal_call_local_sets_body_once(
-                    body, arg_count, param_count,
-                  ) {
-                  Some(rewritten_body) => {
-                    let rewritten_funcs = funcs.copy()
-                    rewritten_funcs[def_idx] = @lib.Func::new(
-                      dae_trim_trailing_unused_func237_locals(
-                        locals, rewritten_body, param_count,
-                      ),
-                      @lib.Expr::new(rewritten_body),
-                    )
-                    let touched = Array::make(funcs.length(), false)
-                    touched[def_idx] = true
-                    return {
-                      mod_out: mod_
-                      .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-                      .without_name_sec(),
-                      touched,
-                      changed: true,
-                      primary_def: def_idx,
-                    }
-                  }
-                  None => ()
-                }
-              }
-            }
-            _ => ()
-          }
-        }
-      }
+  let rewrite_func = fn(
+    func : @lib.Func,
+    def_idx : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let callee_abs = imported + def_idx
+    let param_count = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => return None
     }
-    def_idx += 1
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    if body.length() == 0 {
+      return None
+    }
+    let target_idx = match body[body.length() - 1] {
+      @lib.Call(target_idx) => target_idx
+      _ => return None
+    }
+    let target_abs = dae_func_idx_slot(target_idx)
+    let arg_count = match
+      dae_resolve_func_type(mod_, type_indices, target_abs) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => return None
+    }
+    if arg_count <= 0 {
+      return None
+    }
+    match
+      dae_try_inline_terminal_call_local_sets_body_once(
+        body, arg_count, param_count,
+      ) {
+      Some(rewritten_body) =>
+        Some(
+          @lib.Func::new(
+            dae_trim_trailing_unused_func237_locals(
+              locals, rewritten_body, param_count,
+            ),
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+      None => None
+    }
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
 }
 
 ///|
