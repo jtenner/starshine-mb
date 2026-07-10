@@ -2823,6 +2823,40 @@ test "optimize-instructions masks signed remainders in boolean context" {
 }
 
 ///|
+test "optimize-instructions folds i32 eqz block constants in boolean context" {
+  // Red-first OI-F behavior-parity slice: Binaryen v130 `optimizeBoolean`
+  // asks `getFallthrough` for an i32.eqz operand and replaces a constant block
+  // tail with the truth value while preserving the original block evaluation as
+  // a drop. Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-const.wat`.
+  let assert_fold = fn(tail : Int, expected : Int) raise {
+    let func = optimize_instructions_test_run_hot(
+      "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) (if (result i32) (i32.eqz (block (result i32) (global.set 0 (local.get 0)) (i32.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
+    )
+    let condition = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+    match @ir.hot_node_get(func, condition).op {
+      @ir.HotOp::Block => ()
+      other => fail("expected folded i32 eqz condition block, got \{other}")
+    }
+    let body = @ir.hot_region_body_ref(func, condition)
+    @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+    match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+      @ir.HotOp::Drop => ()
+      other =>
+        fail(
+          "expected original i32 block evaluation to be dropped, got \{other}",
+        )
+    }
+    let result = @ir.hot_region_get(func, body, 1)
+    @debug.assert_eq(
+      @ir.hot_const_get(func, @ir.hot_node_get(func, result).imm0),
+      @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+    )
+  }
+  assert_fold(0, 1)
+  assert_fold(9, 0)
+}
+
+///|
 test "optimize-instructions applies De Morgan to and of eqz operands" {
   // Red-first OI-F boolean parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to

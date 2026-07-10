@@ -38497,6 +38497,7 @@ fn optimize_instructions_try_rewrite_compare_eqz(
 ///|
 priv enum OiBooleanContextLeafRewriteKind {
   BooleanContextLeafNoRewrite
+  BooleanContextLeafFoldI32EqzFallthroughConst
   BooleanContextLeafForwardI32NeZero
   BooleanContextLeafForwardI32ZeroMinus
   BooleanContextLeafMaskI32SignedRemainder
@@ -38505,6 +38506,54 @@ priv enum OiBooleanContextLeafRewriteKind {
 ///|
 priv struct OiBooleanForwardReplacementFact {
   replacement_id : Int
+}
+
+///|
+priv struct OiBooleanEqzFallthroughConstFact {
+  operand_id : Int
+  folded_value : Int
+}
+
+///|
+fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiBooleanEqzFallthroughConstFact? {
+  // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
+  // i32.eqz operand before folding a constant fallthrough. Start with the
+  // represented nonempty single-i32-result block subset and preserve the whole
+  // operand evaluation, matching `getDroppedChildrenAndAppend`.
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
+      ()
+    _ => return None
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
+    [result] if result == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, operand_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 {
+    return None
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  let folded_value = match
+    optimize_instructions_i32_const(func, dead, tail_id) {
+    Some(@lib.I32(0)) => 1
+    Some(@lib.I32(_)) => 0
+    None => return None
+  }
+  Some({ operand_id, folded_value })
 }
 
 ///|
@@ -38543,6 +38592,7 @@ fn OiBooleanSignedRemainderMaskFact::from_operands(
 priv struct OiBooleanContextLeafRewriteFact {
   kind : OiBooleanContextLeafRewriteKind
   node_id : Int
+  eqz_fallthrough_const_fact : OiBooleanEqzFallthroughConstFact?
   forward_fact : OiBooleanForwardReplacementFact?
   remainder_mask_fact : OiBooleanSignedRemainderMaskFact?
 }
@@ -38560,11 +38610,25 @@ fn OiBooleanContextLeafRewriteFact::from_node(
   let no_rewrite = {
     kind: BooleanContextLeafNoRewrite,
     node_id,
+    eqz_fallthrough_const_fact: None,
     forward_fact: None,
     remainder_mask_fact: None,
   }
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) ||
-    @ir.hot_child_count(func, node_id) != 2 {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return no_rewrite
+  }
+  match OiBooleanEqzFallthroughConstFact::from_i32_eqz(func, dead, node_id) {
+    Some(eqz_fallthrough_const_fact) =>
+      return {
+        kind: BooleanContextLeafFoldI32EqzFallthroughConst,
+        node_id,
+        eqz_fallthrough_const_fact: Some(eqz_fallthrough_const_fact),
+        forward_fact: None,
+        remainder_mask_fact: None,
+      }
+    None => ()
+  }
+  if @ir.hot_child_count(func, node_id) != 2 {
     return no_rewrite
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
@@ -38576,6 +38640,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
           {
             kind: BooleanContextLeafForwardI32NeZero,
             node_id,
+            eqz_fallthrough_const_fact: None,
             forward_fact: Some({ replacement_id: lhs_id }),
             remainder_mask_fact: None,
           }
@@ -38587,6 +38652,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
           {
             kind: BooleanContextLeafForwardI32ZeroMinus,
             node_id,
+            eqz_fallthrough_const_fact: None,
             forward_fact: Some({ replacement_id: rhs_id }),
             remainder_mask_fact: None,
           }
@@ -38601,6 +38667,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
           {
             kind: BooleanContextLeafMaskI32SignedRemainder,
             node_id,
+            eqz_fallthrough_const_fact: None,
             forward_fact: None,
             remainder_mask_fact: Some(mask_fact),
           }
@@ -38616,6 +38683,21 @@ fn OiBooleanContextLeafRewriteFact::apply_selected_rewrite(
   func : @ir.HotFunc,
 ) -> Int? {
   match self.kind {
+    BooleanContextLeafFoldI32EqzFallthroughConst =>
+      match self.eqz_fallthrough_const_fact {
+        Some(fact) if self.node_id >= 0 && fact.operand_id >= 0 =>
+          Some(
+            @ir.hot_build_block(
+              func,
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [
+                @ir.hot_build_drop(func, fact.operand_id),
+                @ir.hot_build_const_i32(func, @lib.I32(fact.folded_value)),
+              ],
+            ),
+          )
+        _ => None
+      }
     BooleanContextLeafForwardI32NeZero
     | BooleanContextLeafForwardI32ZeroMinus =>
       match self.forward_fact {
