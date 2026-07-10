@@ -15,6 +15,8 @@ sources:
   - ../../../scripts/test/task-family-commands.ts
   - ../../../src/fuzz/main.mbt
   - ../../../src/validate/gen_valid.mbt
+  - ../../../AGENTS.md
+  - ../../README.md
 related:
   - ./fuzz-runner.md
   - ./validation-gates.md
@@ -47,7 +49,7 @@ Beginner mental model:
 8. compare normalized WAT text;
 9. persist enough artifacts to replay every non-match or command failure.
 
-This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. Raw binary or raw text drift is acceptable when the normalized comparison is green and the pass dossier explains any intentional representation differences. The normalization fixture matrix in [`../../../scripts/test/pass-fuzz-normalization-fixtures.ts`](../../../scripts/test/pass-fuzz-normalization-fixtures.ts) locks representative equality/inequality expectations for debug stripping, default locals, NaN payload text, transparent block wrappers, local-name stripping, custom sections, and section-order drift.
+This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. A normalized match is evidence for the compared surface, not proof of every observable behavior or of raw-byte/name/custom-section parity. A normalized mismatch is a harness **status**, not a verdict: a maintainer must classify it using the evidence rules below. The normalization fixture matrix in [`../../../scripts/test/pass-fuzz-normalization-fixtures.ts`](../../../scripts/test/pass-fuzz-normalization-fixtures.ts) locks representative equality/inequality expectations for debug stripping, default locals, NaN payload text, transparent block wrappers, local-name stripping, custom sections, and section-order drift.
 
 ## Command Shape
 
@@ -137,7 +139,7 @@ The compare result is only as strong as the normalization layer below. Treat eac
 | Starshine output validation | `wasm-tools validate --features all starshine.raw.wasm`. | Ensures Starshine did not produce invalid wasm before any canonical comparison. | Validation success is necessary but not sufficient for semantic parity; a later mismatch still needs agent classification. Validation failure is a Starshine correctness blocker. |
 | Binaryen oracle execution | `wasm-opt input.wasm --all-features <binaryen-pass-flags>`. | Uses Binaryen as the pass-local oracle for the requested canonical pass flags. | Binaryen command/parser failures are tool/oracle failures until replayed and classified. Alias mismatches or unsupported pass surfaces can invalidate the comparison setup. |
 | Binary canonicalization | `wasm-opt --all-features --strip-debug -o <canonical.wasm>` on both raw outputs. | Removes debug names/custom debug payloads and rewrites each output through the same Binaryen binary writer. | This intentionally ignores name/debug/custom-section placement and raw encoder layout. Do not use it to prove byte-for-byte, custom-section placement, or debug-info preservation parity. |
-| Text printing | `wasm-opt --all-features --strip-debug -S -o <wat>` on both canonical wasm files. | Compares a stable text projection after Binaryen's own canonical binary normalization. | Text equality is the harness green condition. Text drift can still be representation-only, size-only, unknown, or a true semantic mismatch; inspect before labeling it. |
+| Text printing | `wasm-opt --all-features --strip-debug -S -o <wat>` on both canonical wasm files. | Compares a stable text projection after Binaryen's own canonical binary normalization. | Text equality is the harness green condition. A WAT difference is a symptom, not a classification: use replay evidence to label it as a Starshine win, parity gap, size loss, unknown/risk, tool failure, validation failure, or true semantic mismatch. |
 | Compare normalizers | `--normalize drop-consts`, `--normalize unreachable-control-debris`, `--normalize ssa-local-allocation-debris`, and `--normalize local-cleanup-debris` may be applied to the canonicalized outputs before comparison. | Covers documented DAE-style cleanup noise and other explicitly inspected debris families that should not count as raw mismatches, including narrow pure dropped numeric/const debris, unreachable/control debris, local-allocation debris, and unused local/nop/empty-const-if cleanup. Equality reached only after these normalizers increments `cleanupNormalizedMatchCount` and records a `cleanup-normalized-match` status. | Keep the normalizers opt-in and pass-specific; do not use them to hide missing side effects, signature differences, trapping behavior, or other unexplained drift. |
 | Debug/name stripping | `--strip-debug` is applied during canonicalization and printing. | Function/local/label names, name-section payloads, and debug metadata do not affect compare-pass matches. | Passes that intentionally preserve, delete, or repair names need separate focused tests; compare-pass does not sign off that surface. |
 | Default-local and wrapper shape normalization | Binaryen's canonical printer may elide explicit default initializers, simplify harmless wrapper syntax, or choose a different printed expression shape. | Avoids failing on common canonical WAT presentation differences. | This is not a blanket semantic equivalence rule. Local declaration count, block result typing, and wrapper differences that affect validation, control flow, traps, exports, starts, tables, memories, or globals remain real risks; see [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) before treating equal traps or trap-shaped rewrites as semantic proof. |
@@ -146,6 +148,22 @@ The compare result is only as strong as the normalization layer below. Treat eac
 | Optional property normalization | Idempotence/composition checks canonicalize their Starshine outputs before comparing WAT. | Separates Starshine self-consistency failures from Binaryen oracle mismatches. | A property failure is evidence about the requested property only; report it separately from Binaryen semantic mismatch counts. |
 
 Reporting rule: a normalized match is good pass-oracle evidence for the compared semantic surface, but it does not sign off raw bytes, debug/name preservation, custom-section placement, diagnostic locations, runtime import behavior, or unexercised proposals. A normalized mismatch is only a symptom; classify it with replay evidence, transform contracts, and pass-specific semantic reasoning.
+
+### Maintainer Classification (Not Harness Output)
+
+The harness emits technical statuses such as `mismatch`, `validation-failure`, and `command-failure`. It does **not** decide whether a mismatch is acceptable. Record one of these agent judgments in the pass dossier, research note, or promoted corpus metadata:
+
+| Agent judgment | When it is justified | Required evidence / disposition |
+| --- | --- | --- |
+| **Starshine-win** | The output differs but preserves the relevant semantics and has a documented concrete benefit, such as smaller canonical output, fewer effective operations without an important size regression, stronger validation, or materially better pass-local performance. | Cite the transform contract, inspected/reduced repro, semantic reasoning, and measured delta. Keep the evidence replayable; reopen if the win disappears. |
+| **Parity gap** | The output differs and no measured Starshine benefit justifies retaining the drift. This is the default for unexplained or neutral representation differences. | Keep it open for alignment or document it as a release blocker/boundary; do not call it safe merely because both outputs validate. |
+| **Size-losing** | Starshine's output is larger or otherwise regresses a relevant measured metric. | Treat as a parity/performance follow-up unless a stronger documented correctness benefit overrides it. |
+| **Unknown/risky** | Evidence is incomplete, the transformed behavior is hard to model, or a proposal/runtime/trap boundary remains unresolved. | Quarantine or investigate; do not use it as signoff evidence. |
+| **Tool/Binaryen failure** | The input, oracle, canonicalizer, or auxiliary tool failed before a trustworthy pass comparison. | Preserve the tool/version/command/failure class and replay on a fixed or supported tool before assigning Starshine blame. |
+| **Validation failure** | Starshine produced invalid output or violated a required validation boundary. | Correctness blocker; do not downgrade it to a representation difference. |
+| **True semantic mismatch** | A reduced/inspected case, runtime disagreement, or semantic proof shows different observable behavior. | Correctness blocker; retain a repro and fix or explicitly stop supporting the surface. |
+
+A case may move between categories as evidence improves. In particular, a valid output, a smaller output, a normalizer hit, or equal smoke traps alone is insufficient to establish a Starshine win.
 
 ## Pass Flag Mapping
 
@@ -188,7 +206,7 @@ The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-cove
 | Status | Meaning | Report as |
 | --- | --- | --- |
 | `match` | Starshine and Binaryen normalized WAT matched. | Green comparison evidence. |
-| `mismatch` | Both outputs were produced and normalized, but WAT differed. | Needs pass-owner classification: semantic-safe representation drift, size-only drift, risky/unknown, or true mismatch. |
+| `mismatch` | Both outputs were produced and normalized, but WAT differed. | Harness symptom only. The pass owner must make and record an agent judgment from the taxonomy above; absent a proven Starshine win, keep it as a parity gap. |
 | `validation-failure` | Starshine produced invalid wasm. | Correctness blocker for Starshine. |
 | `generator-failure` | The input generator failed or produced bytes that failed independent validation. | Tool/generator issue unless inspection says otherwise. |
 | `command-failure` | Starshine, Binaryen, or canonicalization command failed. | Classify by `failureClass`; replay before claiming pass semantics. |
@@ -217,7 +235,7 @@ For a direct pass signoff:
 3. Build `src/cmd` once with `moon build --target native --release src/cmd`.
 4. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`, explicit `--jobs auto`, and explicit `--starshine-bin _build/native/release/build/cmd/cmd.exe`.
 5. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.
-6. Classify any mismatch in the pass dossier with evidence. Do not call a mismatch semantically safe merely because both outputs validate.
+6. Record the harness status **and** an agent classification for every residual in the pass dossier. A Starshine win needs a transform contract, inspected/reduced repro or equivalent semantic reasoning, and a measured benefit; otherwise keep the drift as a parity gap. Do not use validation success, smaller bytes alone, normalizer use, or equal smoke traps as semantic proof.
 7. For DAE / generator-debris lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so cleanup-normalized matches are counted separately from exact normalized matches.
 8. Preserve the run directory locally and cite durable aggregate facts in the affected pass page, tracker, or research note.
 

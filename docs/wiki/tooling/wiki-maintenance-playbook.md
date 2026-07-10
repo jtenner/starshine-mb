@@ -104,7 +104,7 @@ Make only high-confidence repairs during the health pass. If a conflict requires
 - **Replacing history with a clean story.** Keep contradictions and supersession visible.
 - **Citing a local artifact as durable proof.** Promote the summary into a raw note first.
 - **Updating a page without index/log bookkeeping.** This makes future agents rediscover the same work.
-- **Treating Binaryen parity as byte-for-byte identity.** For pass pages, distinguish semantic parity, normalized representation drift, size wins/losses, validation failures, and tool failures.
+- **Treating Binaryen parity as byte-for-byte identity—or a valid mismatch as automatically safe.** For pass pages, separate harness status from agent judgment. Use `Starshine-win`, `parity gap`, `size-losing`, `unknown/risky`, `tool/Binaryen failure`, `validation failure`, or `true semantic mismatch`; a Starshine win needs semantic reasoning and a measured benefit, not only validation or smaller bytes. See [`pass-fuzz-compare.md`](pass-fuzz-compare.md).
 - **Forgetting local/spec gaps.** Starshine may intentionally lag or lead an official/proposal surface; teach the split instead of implying one side is absent.
 
 ## Signoff For Wiki-Only Changes
