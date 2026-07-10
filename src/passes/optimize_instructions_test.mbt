@@ -5020,6 +5020,57 @@ test "optimize-instructions folds four-operand i32 idempotent calls" {
 }
 
 ///|
+test "optimize-instructions folds four-operand i64 idempotent calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 checks every operand of
+  // repeated annotated direct (i64, i64, i64, i64) -> i64 calls in the i64
+  // zero-test self-select. The equal pair folds, while an independent mismatch
+  // in any slot retains both calls. Source: `OptimizeInstructions.cpp:2891-2947`;
+  // oracle: `.tmp/oi-probes/select-idempotent-call-next9-foldability.wat`
+  // (`four_i64_direct_equal` and its four mismatch functions).
+  let optimize_caller = fn(
+    right_first_local : Int,
+    right_second_const : Int64,
+    right_third_const : Int64,
+    right_fourth_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i64 i64) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.add local.get 3 i64.add) (func (param i64 i64) (result i64) i64.const 0 local.get 0 i64.const 7 i64.const 9 i64.const 11 call $id local.get " +
+      right_first_local.to_string() +
+      " i64.const " +
+      right_second_const.to_string() +
+      " i64.const " +
+      right_third_const.to_string() +
+      " i64.const " +
+      right_fourth_const.to_string() +
+      " call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected four-i64 call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(0, 7L, 9L, 11L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(1, 7L, 9L, 11L),
+      optimize_caller(0, 8L, 9L, 11L),
+      optimize_caller(0, 7L, 10L, 11L),
+      optimize_caller(0, 7L, 9L, 12L),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds three-operand i64 idempotent calls" {
   // Red-first OI-F parity slice: Binaryen version_130 checks every parameter of
   // repeated annotated direct (i64, i64, i64) -> i64 calls. A mismatch in
