@@ -26090,6 +26090,7 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallDirectI64AndSecondI64AddAndDirectI32ToI64OperandsAdmission
   RawOiIdempotentCallFirstI64AddAndDirectI64I32ToI64OperandsAdmission
   RawOiIdempotentCallDirectI64I64I32ToI64OperandsAdmission
+  RawOiIdempotentCallFirstI32AddAndDirectI32I64ToI32OperandsAdmission
   RawOiIdempotentCallDirectI32I32I64ToI32OperandsAdmission
   RawOiIdempotentCallI32I32I64AddToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndSecondI32AddAndDirectI64ToI64OperandAdmission
@@ -26284,6 +26285,7 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     | RawOiIdempotentCallFirstI64AddAndDirectI64I32ToI64OperandsAdmission
     | RawOiIdempotentCallDirectI64AndSecondI32AddAndDirectI32ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI64AddAndDirectI32I32ToI64OperandsAdmission
+    | RawOiIdempotentCallFirstI32AddAndDirectI32I64ToI32OperandsAdmission
     | RawOiIdempotentCallDirectI32I32AndI64AddToI64OperandsAdmission
     | RawOiIdempotentCallDirectI32AndSecondI32AddAndDirectI64ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndDirectI32I64ToI64OperandsAdmission
@@ -31100,6 +31102,100 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         {
           kind: RawOiIdempotentCallDirectI64I32I64OperandsAdmission,
           leaf_facts: [left_first_fact, left_second_fact, left_third_fact],
+        },
+      )
+    }
+    [
+      left_first_lhs,
+      left_first_rhs,
+      @lib.I32Add,
+      left_second,
+      left_third,
+      @lib.Call(left_idx),
+      @lib.I32Const(@lib.I32(0)),
+      right_first_lhs,
+      right_first_rhs,
+      @lib.I32Add,
+      right_second,
+      right_third,
+      @lib.Call(right_idx),
+      @lib.Select(_),
+    ] if left_idx == right_idx &&
+      RawOiIdempotentCallI32I32I64ToI32SignatureFact::from_func(
+        module_ctx, left_idx,
+      ).proves_match() => {
+      let left_first_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_first_lhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_first_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          left_first_rhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_second_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_second, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let left_third_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(left_third, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_first_lhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_first_lhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_first_rhs_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_first_rhs, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_second_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(
+          right_second, module_ctx,
+        ) {
+        Some(fact) => fact
+        None => return None
+      }
+      let right_third_fact = match
+        RawOiIdempotentCallStackOperandFact::from_instr(right_third, module_ctx) {
+        Some(fact) => fact
+        None => return None
+      }
+      if !left_first_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_first_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !left_second_fact.proves_i32_noninvalidated_leaf() ||
+        !left_third_fact.proves_i64_noninvalidated_leaf() ||
+        !right_first_lhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_first_rhs_fact.proves_i32_noninvalidated_leaf() ||
+        !right_second_fact.proves_i32_noninvalidated_leaf() ||
+        !right_third_fact.proves_i64_noninvalidated_leaf() ||
+        !left_first_lhs_fact.proves_equal(right_first_lhs_fact) ||
+        !left_first_rhs_fact.proves_equal(right_first_rhs_fact) ||
+        !left_second_fact.proves_equal(right_second_fact) ||
+        !left_third_fact.proves_equal(right_third_fact) {
+        return None
+      }
+      (
+        left_idx,
+        true,
+        {
+          kind: RawOiIdempotentCallFirstI32AddAndDirectI32I64ToI32OperandsAdmission,
+          leaf_facts: [
+            left_first_lhs_fact, left_first_rhs_fact, left_second_fact, left_third_fact,
+          ],
         },
       )
     }
@@ -39708,7 +39804,8 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
       results == [@lib.ValType::i32()] => ()
     (
       Some(@lib.FuncType([first, second, third], results)),
-      RawOiIdempotentCallDirectI32I32I64ToI32OperandsAdmission,
+      RawOiIdempotentCallFirstI32AddAndDirectI32I64ToI32OperandsAdmission
+      | RawOiIdempotentCallDirectI32I32I64ToI32OperandsAdmission,
     ) if first == @lib.ValType::i32() &&
       second == @lib.ValType::i32() &&
       third == @lib.ValType::i64() &&
