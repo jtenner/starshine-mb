@@ -3130,6 +3130,39 @@ test "dae body rewrite fixpoint evidence centralizes bounded convergence" {
 }
 
 ///|
+test "dae body rewrite fixpoint projection replaces scanner-local convergence loops" {
+  let start_body = [@lib.Instruction::i32_const(@lib.I32(0))]
+  let rewrite_until_two = fn(
+    body : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    match body {
+      [@lib.I32Const(@lib.I32(value))] if value < 2 =>
+        Some([@lib.Instruction::i32_const(@lib.I32(value + 1))])
+      _ => None
+    }
+  }
+  assert_eq(
+    dae_apply_body_rewrite_until_stable_or_original(
+      start_body, rewrite_until_two, 8,
+    ),
+    [@lib.Instruction::i32_const(@lib.I32(2))],
+  )
+  let stable_body = [@lib.Instruction::i32_const(@lib.I32(2))]
+  assert_eq(
+    dae_apply_body_rewrite_until_stable_or_original(
+      stable_body, rewrite_until_two, 8,
+    ),
+    stable_body,
+  )
+  assert_eq(
+    dae_apply_body_rewrite_until_stable_or_original(
+      start_body, rewrite_until_two, 1,
+    ),
+    [@lib.Instruction::i32_const(@lib.I32(1))],
+  )
+}
+
+///|
 test "dae result rewrite application evidence centralizes masked slot repairs" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),

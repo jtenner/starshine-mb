@@ -7567,6 +7567,18 @@ fn dae_apply_body_rewrite_until_stable(
 }
 
 ///|
+fn dae_apply_body_rewrite_until_stable_or_original(
+  body : Array[@lib.Instruction],
+  rewrite_once : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
+  max_iters : Int,
+) -> Array[@lib.Instruction] {
+  match dae_apply_body_rewrite_until_stable(body, rewrite_once, max_iters) {
+    Some((rewritten, _)) => rewritten
+    None => body
+  }
+}
+
+///|
 fn dae_result_rewrite_application_is_consistent(
   application : DaeResultRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
@@ -23085,17 +23097,12 @@ fn dae_fold_func237_immediate_local_copies(
   body : Array[@lib.Instruction],
   param_count : Int,
 ) -> Array[@lib.Instruction] {
-  let mut current = body
-  let mut remaining = 32
-  while remaining > 0 {
-    match
-      dae_try_fold_func237_immediate_local_copy_body_once(current, param_count) {
-      Some(rewritten) => current = rewritten
-      None => break
-    }
-    remaining -= 1
+  let rewrite_once = fn(
+    current : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_immediate_local_copy_body_once(current, param_count)
   }
-  current
+  dae_apply_body_rewrite_until_stable_or_original(body, rewrite_once, 32)
 }
 
 ///|
@@ -23256,16 +23263,12 @@ fn dae_fold_func237_used_temp_copies(
   body : Array[@lib.Instruction],
   param_count : Int,
 ) -> Array[@lib.Instruction] {
-  let mut current = body
-  let mut remaining = 64
-  while remaining > 0 {
-    match dae_try_fold_func237_used_temp_copy_body_once(current, param_count) {
-      Some(rewritten) => current = rewritten
-      None => break
-    }
-    remaining -= 1
+  let rewrite_once = fn(
+    current : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_used_temp_copy_body_once(current, param_count)
   }
-  current
+  dae_apply_body_rewrite_until_stable_or_original(body, rewrite_once, 64)
 }
 
 ///|
@@ -23483,17 +23486,12 @@ fn dae_fold_func237_store_carrier_copies(
   body : Array[@lib.Instruction],
   param_count : Int,
 ) -> Array[@lib.Instruction] {
-  let mut current = body
-  let mut remaining = 8
-  while remaining > 0 {
-    match
-      dae_try_fold_func237_store_carrier_copy_body_once(current, param_count) {
-      Some(rewritten) => current = rewritten
-      None => break
-    }
-    remaining -= 1
+  let rewrite_once = fn(
+    current : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_fold_func237_store_carrier_copy_body_once(current, param_count)
   }
-  current
+  dae_apply_body_rewrite_until_stable_or_original(body, rewrite_once, 8)
 }
 
 ///|
@@ -24467,26 +24465,16 @@ fn dae_try_rewrite_func256_mapped_loop_conditions(
   body : Array[@lib.Instruction],
   carrier_local : @lib.LocalIdx,
 ) -> Array[@lib.Instruction]? {
-  let mut current = body
-  let mut changed = false
-  let mut remaining = 4
-  while remaining > 0 {
-    match
-      dae_try_rewrite_func256_mapped_loop_condition_body_once(
-        current, carrier_local,
-      ) {
-      Some(rewritten) => {
-        current = rewritten
-        changed = true
-      }
-      None => break
-    }
-    remaining -= 1
+  let rewrite_once = fn(
+    current : Array[@lib.Instruction],
+  ) -> Array[@lib.Instruction]? {
+    dae_try_rewrite_func256_mapped_loop_condition_body_once(
+      current, carrier_local,
+    )
   }
-  if changed {
-    Some(current)
-  } else {
-    None
+  match dae_apply_body_rewrite_until_stable(body, rewrite_once, 4) {
+    Some((rewritten, _)) => Some(rewritten)
+    None => None
   }
 }
 
