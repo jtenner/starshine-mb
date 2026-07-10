@@ -2172,15 +2172,18 @@ test "dae dropped result module finalization preserves touched policy" {
       @lib.Instruction::drop(),
     ]),
   )
-  let plan = dae_dropped_result_module_finalization_plan(
+  let plan = dae_module_code_finalization_plan(
     [],
     [],
-    DaeTouchDroppedResultChangedFuncs,
+    DaeTouchModuleCodeChangedFuncs,
   )
   assert_eq(plan.next_params, [])
   assert_eq(plan.next_results, [])
-  let result = dae_apply_dropped_result_module_finalization(
-    mod_, context, rewritten_funcs, plan,
+  let result = dae_apply_module_code_finalization(
+    mod_,
+    context.signature,
+    rewritten_funcs,
+    plan,
   )
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)

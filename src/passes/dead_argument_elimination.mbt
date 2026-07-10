@@ -806,22 +806,22 @@ priv struct DaeDroppedResultRepairPlan {
 }
 
 ///|
-priv enum DaeDroppedResultTouchedPolicy {
-  DaeTouchDroppedResultCalleeOnly
-  DaeTouchDroppedResultChangedFuncs
+priv enum DaeModuleCodeTouchedPolicy {
+  DaeTouchModuleCodeCalleeOnly
+  DaeTouchModuleCodeChangedFuncs
 }
 
 ///|
-priv struct DaeDroppedResultModuleFinalizationPlan {
+priv struct DaeModuleCodeFinalizationPlan {
   next_params : Array[@lib.ValType]
   next_results : Array[@lib.ValType]
-  touched_policy : DaeDroppedResultTouchedPolicy
+  touched_policy : DaeModuleCodeTouchedPolicy
 }
 
 ///|
 priv struct DaeDroppedResultUnreachableCalleeRewritePlan {
   repair : DaeDroppedResultRepairPlan
-  finalization : DaeDroppedResultModuleFinalizationPlan
+  finalization : DaeModuleCodeFinalizationPlan
 }
 
 ///|
@@ -10782,24 +10782,31 @@ fn dae_try_refine_direct_gc_types(
     Some(type_sec) => mod_.with_type_sec(type_sec)
     None => mod_
   }
-  let result = dae_try_update_signature_only(
-    update_mod, def_idx, next_params, next_results,
-  )
-  if result.changed && (result_body_changed || caller_body_changed) {
+  if result_body_changed || caller_body_changed {
     if result_body_changed {
       rewritten_funcs[def_idx] = @lib.Func::new(
         locals,
         @lib.Expr::new(next_body),
       )
     }
-    {
-      mod_out: result.mod_out.with_code_sec(@lib.CodeSec::new(rewritten_funcs)),
-      touched: result.touched,
-      changed: true,
-      primary_def: result.primary_def,
+    let context = match
+      dae_module_signature_context(update_mod, def_idx, copy_funcs=false) {
+      Some(context) => context
+      None =>
+        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
     }
+    let plan = dae_module_code_finalization_plan(
+      next_params,
+      next_results,
+      DaeTouchModuleCodeCalleeOnly,
+    )
+    dae_apply_module_code_finalization(
+      update_mod, context, rewritten_funcs, plan,
+    )
   } else {
-    result
+    dae_try_update_signature_only(
+      update_mod, def_idx, next_params, next_results,
+    )
   }
 }
 
@@ -11610,11 +11617,11 @@ fn dae_apply_dropped_result_repair_plan(
 }
 
 ///|
-fn dae_dropped_result_module_finalization_plan(
+fn dae_module_code_finalization_plan(
   next_params : Array[@lib.ValType],
   next_results : Array[@lib.ValType],
-  touched_policy : DaeDroppedResultTouchedPolicy,
-) -> DaeDroppedResultModuleFinalizationPlan {
+  touched_policy : DaeModuleCodeTouchedPolicy,
+) -> DaeModuleCodeFinalizationPlan {
   {
     next_params: next_params.copy(),
     next_results: next_results.copy(),
@@ -11623,17 +11630,17 @@ fn dae_dropped_result_module_finalization_plan(
 }
 
 ///|
-fn dae_apply_dropped_result_module_finalization(
+fn dae_apply_module_code_finalization(
   mod_ : @lib.Module,
-  context : DaeDroppedResultModuleContext,
+  context : DaeModuleSignatureContext,
   rewritten_funcs : Array[@lib.Func],
-  plan : DaeDroppedResultModuleFinalizationPlan,
+  plan : DaeModuleCodeFinalizationPlan,
   perf? : HotPerfSession? = None,
   type_update_timer_name? : String = "",
 ) -> DaePassResult {
   let signature_result = dae_apply_module_signature_finalization(
     mod_,
-    context.signature,
+    context,
     plan.next_params,
     plan.next_results,
     perf~,
@@ -11641,12 +11648,12 @@ fn dae_apply_dropped_result_module_finalization(
   )
   let touched = signature_result.touched
   match plan.touched_policy {
-    DaeTouchDroppedResultCalleeOnly => ()
-    DaeTouchDroppedResultChangedFuncs => {
+    DaeTouchModuleCodeCalleeOnly => ()
+    DaeTouchModuleCodeChangedFuncs => {
       let mut caller_def = 0
-      while caller_def < context.signature.funcs.length() &&
+      while caller_def < context.funcs.length() &&
             caller_def < rewritten_funcs.length() {
-        if context.signature.funcs[caller_def] != rewritten_funcs[caller_def] {
+        if context.funcs[caller_def] != rewritten_funcs[caller_def] {
           touched[caller_def] = true
         }
         caller_def += 1
@@ -11678,10 +11685,10 @@ fn dae_dropped_result_unreachable_callee_rewrite_plan(
       remove_dropped_call_drops=true,
       remove_dropped_call_drops_before_repair=false,
     ),
-    finalization: dae_dropped_result_module_finalization_plan(
+    finalization: dae_module_code_finalization_plan(
       next_params,
       [],
-      DaeTouchDroppedResultCalleeOnly,
+      DaeTouchModuleCodeCalleeOnly,
     ),
   }
 }
@@ -11703,9 +11710,9 @@ fn dae_apply_dropped_result_unreachable_callee_rewrite(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  dae_apply_dropped_result_module_finalization(
+  dae_apply_module_code_finalization(
     mod_,
-    context,
+    context.signature,
     context.signature.funcs,
     plan.finalization,
   )
@@ -11878,14 +11885,14 @@ fn dae_try_remove_dropped_results(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:callee-rewrite",
     callee_rewrite_start_us,
   )
-  let finalization_plan = dae_dropped_result_module_finalization_plan(
+  let finalization_plan = dae_module_code_finalization_plan(
     params,
     [],
-    DaeTouchDroppedResultChangedFuncs,
+    DaeTouchModuleCodeChangedFuncs,
   )
-  dae_apply_dropped_result_module_finalization(
+  dae_apply_module_code_finalization(
     mod_,
-    context,
+    context.signature,
     rewritten_funcs,
     finalization_plan,
     perf~,
@@ -13227,15 +13234,12 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let signature_result = dae_apply_module_signature_finalization(
-    mod_, signature, next_params, results,
+  let plan = dae_module_code_finalization_plan(
+    next_params,
+    results,
+    DaeTouchModuleCodeCalleeOnly,
   )
-  {
-    mod_out: signature_result.mod_out.with_code_sec(@lib.CodeSec::new(funcs)),
-    touched: signature_result.touched,
-    changed: true,
-    primary_def: signature_result.primary_def,
-  }
+  dae_apply_module_code_finalization(mod_, signature, funcs, plan)
 }
 
 ///|
