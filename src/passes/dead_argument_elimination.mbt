@@ -994,6 +994,8 @@ priv struct DaeOriginalResultPreservationContext {
 ///|
 priv struct DaeOriginalResultBoundaryContext {
   preservation : DaeOriginalResultPreservationContext
+  original_private_result_escaped_operand_call_counts : Array[Int]
+  original_dead_suffix_undropped_escaped_result_calls : Array[Bool]
   original_active_parameterized_result_nonself_call_counts : Array[Int]
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool]
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool]
@@ -1031,7 +1033,20 @@ priv struct DaeOriginalResultPreservationRow {
 ///|
 priv struct DaeOriginalResultBoundaryRow {
   preservation : DaeOriginalResultPreservationRow
+  escape : DaeOriginalResultEscapeRow
   prune : DaeOriginalResultRemovalPruneRow
+}
+
+///|
+priv struct DaeOriginalResultEscapeRow {
+  private_result_escaped_operand_call_count : Int
+  dead_suffix_undropped_escaped_result_call : Bool
+  private_result_dead_suffix_calls_from_escaped_operand_callees : Int
+  escaped_dead_suffix_call_count : Int
+  dead_suffix_result_calls_from_undropped_self_caller : Int
+  dead_suffix_result_calls_from_no_param_undropped_self_caller : Int
+  dead_suffix_calls_from_param_operand_self_result_caller : Int
+  dead_suffix_escaped_result_operand_call_count : Int
 }
 
 ///|
@@ -15597,6 +15612,8 @@ fn dae_original_result_preservation_context(
 ///|
 fn dae_original_result_boundary_context(
   preservation : DaeOriginalResultPreservationContext,
+  original_private_result_escaped_operand_call_counts : Array[Int],
+  original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
   original_active_parameterized_result_nonself_call_counts : Array[Int],
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
@@ -15607,6 +15624,8 @@ fn dae_original_result_boundary_context(
 ) -> DaeOriginalResultBoundaryContext {
   {
     preservation,
+    original_private_result_escaped_operand_call_counts,
+    original_dead_suffix_undropped_escaped_result_calls,
     original_active_parameterized_result_nonself_call_counts,
     original_dead_suffix_dropped_self_call_full_param_forwards,
     original_dead_suffix_dropped_earlier_result_calls,
@@ -15718,6 +15737,22 @@ fn dae_original_result_boundary_row_from_context(
   )
   {
     preservation,
+    escape: {
+      private_result_escaped_operand_call_count: dae_original_int_fact_at(
+        context.original_private_result_escaped_operand_call_counts,
+        def_idx,
+      ),
+      dead_suffix_undropped_escaped_result_call: dae_original_bool_fact_at(
+        context.original_dead_suffix_undropped_escaped_result_calls,
+        def_idx,
+      ),
+      private_result_dead_suffix_calls_from_escaped_operand_callees: preservation.private_result_dead_suffix_calls_from_escaped_operand_callees,
+      escaped_dead_suffix_call_count: preservation.escaped_dead_suffix_call_count,
+      dead_suffix_result_calls_from_undropped_self_caller: preservation.dead_suffix_result_calls_from_undropped_self_caller,
+      dead_suffix_result_calls_from_no_param_undropped_self_caller: preservation.dead_suffix_result_calls_from_no_param_undropped_self_caller,
+      dead_suffix_calls_from_param_operand_self_result_caller: preservation.dead_suffix_calls_from_param_operand_self_result_caller,
+      dead_suffix_escaped_result_operand_call_count: preservation.dead_suffix_escaped_result_operand_call_count,
+    },
     prune: dae_original_result_removal_prune_row_from_preservation_row(
       preservation,
       dae_original_int_fact_at(
@@ -16031,7 +16066,8 @@ fn dae_run_core_once(
     original_dead_suffix_escaped_result_operand_call_counts, original_dead_suffix_dropped_calls_from_parameterized_self_callers,
   )
   let original_result_boundary_context = dae_original_result_boundary_context(
-    original_result_preservation_context, original_active_parameterized_result_nonself_call_counts,
+    original_result_preservation_context, original_private_result_escaped_operand_call_counts,
+    original_dead_suffix_undropped_escaped_result_calls, original_active_parameterized_result_nonself_call_counts,
     original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_dropped_earlier_result_calls,
     original_later_dead_suffix_dropped_call_counts, original_private_result_dead_suffix_call_counts,
     original_dead_suffix_dropped_calls_from_no_param_result_callers, original_dead_suffix_mixed_dropped_undropped_call_counts,
@@ -16079,55 +16115,11 @@ fn dae_run_core_once(
     let original_result_removal_prune_row = original_result_boundary_row.prune
     let original_result_preservation_for_def = original_result_boundary_for_def.preservation
     let original_result_removal_prune_for_def = original_result_boundary_for_def.prune
-    let original_escaped_dead_suffix_calls_for_unobserved = if def_idx <
-      original_escaped_dead_suffix_call_counts.length() {
-      original_escaped_dead_suffix_call_counts[def_idx]
-    } else {
-      0
-    }
-    let original_private_result_escaped_operand_calls_for_unobserved = if def_idx <
-      original_private_result_escaped_operand_call_counts.length() {
-      original_private_result_escaped_operand_call_counts[def_idx]
-    } else {
-      0
-    }
-    let original_dead_suffix_escaped_result_operand_calls_for_unobserved = if def_idx <
-      original_dead_suffix_escaped_result_operand_call_counts.length() {
-      original_dead_suffix_escaped_result_operand_call_counts[def_idx]
-    } else {
-      0
-    }
-    let original_private_result_dead_suffix_calls_from_escaped_operand_callees_for_unobserved = if def_idx <
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() {
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx]
-    } else {
-      0
-    }
+    let original_result_escape_row = original_result_boundary_row.escape
     let original_mixed_self_suffix_for_unobserved = dae_should_preserve_mixed_self_suffix_from_row(
       original_result_removal_prune_row,
     )
-    let original_dead_suffix_undropped_escaped_result_call_for_unobserved = def_idx <
-      original_dead_suffix_undropped_escaped_result_calls.length() &&
-      original_dead_suffix_undropped_escaped_result_calls[def_idx]
     let original_escaped_block_self_result_for_unobserved = original_result_preservation_for_def.escaped_block_self_result
-    let original_dead_suffix_result_calls_from_undropped_self_callers_for_unobserved = if def_idx <
-      original_dead_suffix_result_calls_from_undropped_self_callers.length() {
-      original_dead_suffix_result_calls_from_undropped_self_callers[def_idx]
-    } else {
-      0
-    }
-    let original_dead_suffix_result_calls_from_no_param_undropped_self_callers_for_unobserved = if def_idx <
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers.length() {
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers[def_idx]
-    } else {
-      0
-    }
-    let original_dead_suffix_calls_from_param_operand_self_result_callers_for_unobserved = if def_idx <
-      original_dead_suffix_calls_from_param_operand_self_result_callers.length() {
-      original_dead_suffix_calls_from_param_operand_self_result_callers[def_idx]
-    } else {
-      0
-    }
     let original_same_self_result_operand_for_unobserved = dae_should_preserve_same_self_result_operand_from_row(
       original_result_removal_prune_row,
     )
@@ -16139,19 +16131,20 @@ fn dae_run_core_once(
       !original_same_self_result_operand_for_unobserved &&
       !original_result_side_chain_cleanup_preservation_for_unobserved &&
       (
-        original_dead_suffix_result_calls_from_undropped_self_callers_for_unobserved ==
+        original_result_escape_row.dead_suffix_result_calls_from_undropped_self_caller ==
         0 ||
-        original_dead_suffix_result_calls_from_no_param_undropped_self_callers_for_unobserved >
+        original_result_escape_row.dead_suffix_result_calls_from_no_param_undropped_self_caller >
         0
       ) &&
-      original_dead_suffix_calls_from_param_operand_self_result_callers_for_unobserved ==
+      original_result_escape_row.dead_suffix_calls_from_param_operand_self_result_caller ==
       0 &&
-      original_dead_suffix_escaped_result_operand_calls_for_unobserved == 0 &&
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees_for_unobserved ==
+      original_result_escape_row.dead_suffix_escaped_result_operand_call_count ==
       0 &&
-      original_private_result_escaped_operand_calls_for_unobserved == 0 &&
-      !(original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
-      original_escaped_dead_suffix_calls_for_unobserved == 0) {
+      original_result_escape_row.private_result_dead_suffix_calls_from_escaped_operand_callees ==
+      0 &&
+      original_result_escape_row.private_result_escaped_operand_call_count == 0 &&
+      !(original_result_escape_row.dead_suffix_undropped_escaped_result_call &&
+      original_result_escape_row.escaped_dead_suffix_call_count == 0) {
       let unobserved = dae_try_remove_unobserved_unreachable_function(
         mod_, callee_abs,
       )
@@ -16220,30 +16213,6 @@ fn dae_run_core_once(
       } else {
         0
       }
-      let original_private_result_escaped_operand_calls = if def_idx <
-        original_private_result_escaped_operand_call_counts.length() {
-        original_private_result_escaped_operand_call_counts[def_idx]
-      } else {
-        0
-      }
-      let original_dead_suffix_escaped_result_operand_calls = if def_idx <
-        original_dead_suffix_escaped_result_operand_call_counts.length() {
-        original_dead_suffix_escaped_result_operand_call_counts[def_idx]
-      } else {
-        0
-      }
-      let original_private_result_dead_suffix_calls_from_escaped_operand_callees = if def_idx <
-        original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() {
-        original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx]
-      } else {
-        0
-      }
-      let original_escaped_dead_suffix_calls = if def_idx <
-        original_escaped_dead_suffix_call_counts.length() {
-        original_escaped_dead_suffix_call_counts[def_idx]
-      } else {
-        0
-      }
       let original_escaped_undropped_dead_suffix_calls = if def_idx <
         original_escaped_undropped_dead_suffix_call_counts.length() {
         original_escaped_undropped_dead_suffix_call_counts[def_idx]
@@ -16256,27 +16225,9 @@ fn dae_run_core_once(
       let original_mixed_self_suffix = dae_should_preserve_mixed_self_suffix_from_row(
         original_result_removal_prune_row,
       )
-      let original_dead_suffix_result_calls_from_undropped_self_callers = if def_idx <
-        original_dead_suffix_result_calls_from_undropped_self_callers.length() {
-        original_dead_suffix_result_calls_from_undropped_self_callers[def_idx]
-      } else {
-        0
-      }
-      let original_dead_suffix_result_calls_from_no_param_undropped_self_callers = if def_idx <
-        original_dead_suffix_result_calls_from_no_param_undropped_self_callers.length() {
-        original_dead_suffix_result_calls_from_no_param_undropped_self_callers[def_idx]
-      } else {
-        0
-      }
       let original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers = if def_idx <
         original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers.length() {
         original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers[def_idx]
-      } else {
-        0
-      }
-      let original_dead_suffix_calls_from_param_operand_self_result_callers = if def_idx <
-        original_dead_suffix_calls_from_param_operand_self_result_callers.length() {
-        original_dead_suffix_calls_from_param_operand_self_result_callers[def_idx]
       } else {
         0
       }
@@ -16299,9 +16250,6 @@ fn dae_run_core_once(
       )
       let original_dead_suffix_undropped_self_call = original_dead_suffix_side_call_evidence.dead_suffix_undropped_self_call
       let original_dead_suffix_mutual_call = original_dead_suffix_side_call_evidence.dead_suffix_mutual_call
-      let original_dead_suffix_undropped_escaped_result_call = def_idx <
-        original_dead_suffix_undropped_escaped_result_calls.length() &&
-        original_dead_suffix_undropped_escaped_result_calls[def_idx]
       let original_parameterized_undropped_self_side_chain = dae_should_preserve_parameterized_undropped_self_side_chain_evidence(
         dae_original_parameterized_undropped_self_side_chain_evidence_from_row(
           original_result_preservation_row,
@@ -16309,8 +16257,8 @@ fn dae_run_core_once(
       )
       let original_result_side_chain_cleanup_preservation = original_result_preservation_for_def.result_side_chain_cleanup_preservation
       let allow_unreachable_only_param_cleanup = (
-          original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
-          original_escaped_dead_suffix_calls_for_unobserved == 0
+          original_result_escape_row.dead_suffix_undropped_escaped_result_call &&
+          original_result_escape_row.escaped_dead_suffix_call_count == 0
         ) ||
         original_dead_suffix_side_call_evidence.void_side_cleanup_preservation ||
         original_dead_suffix_side_call_evidence.result_side_chain_preservation ||
@@ -16356,40 +16304,44 @@ fn dae_run_core_once(
             originally_had_params &&
             original_self_calls == 0 &&
             original_private_result_dead_suffix_calls > 0 &&
-            original_dead_suffix_result_calls_from_no_param_undropped_self_callers ==
+            original_result_escape_row.dead_suffix_result_calls_from_no_param_undropped_self_caller ==
             0 &&
-            original_escaped_dead_suffix_calls == 0
+            original_result_escape_row.escaped_dead_suffix_call_count == 0
           ) ||
           (
             originally_had_params &&
             original_self_calls == 0 &&
-            original_dead_suffix_escaped_result_operand_calls > 0
+            original_result_escape_row.dead_suffix_escaped_result_operand_call_count >
+            0
           ) ||
           (
             !originally_had_params &&
-            original_private_result_dead_suffix_calls_from_escaped_operand_callees >
+            original_result_escape_row.private_result_dead_suffix_calls_from_escaped_operand_callees >
             0
           ) ||
           (
             originally_had_params &&
             original_self_calls == 0 &&
-            original_dead_suffix_result_calls_from_undropped_self_callers > 0 &&
-            original_dead_suffix_result_calls_from_no_param_undropped_self_callers ==
+            original_result_escape_row.dead_suffix_result_calls_from_undropped_self_caller >
             0 &&
-            original_escaped_dead_suffix_calls == 0 &&
+            original_result_escape_row.dead_suffix_result_calls_from_no_param_undropped_self_caller ==
+            0 &&
+            original_result_escape_row.escaped_dead_suffix_call_count == 0 &&
             original_active_nonself_calls > 0
           ) ||
-          original_dead_suffix_calls_from_param_operand_self_result_callers > 0 ||
+          original_result_escape_row.dead_suffix_calls_from_param_operand_self_result_caller >
+          0 ||
           (
             originally_had_params &&
             original_self_calls == 0 &&
-            original_private_result_escaped_operand_calls > 0
+            original_result_escape_row.private_result_escaped_operand_call_count >
+            0
           ) ||
           (
             originally_had_params &&
             original_self_calls == 0 &&
-            original_dead_suffix_undropped_escaped_result_call &&
-            original_escaped_dead_suffix_calls == 0 &&
+            original_result_escape_row.dead_suffix_undropped_escaped_result_call &&
+            original_result_escape_row.escaped_dead_suffix_call_count == 0 &&
             original_call_count > 0 &&
             original_nonself_undropped_calls == 0
           ) ||
@@ -16402,14 +16354,14 @@ fn dae_run_core_once(
             original_call_count > original_self_calls &&
             original_active_nonself_calls > 0 &&
             original_active_parameterized_result_nonself_calls > 0 &&
-            original_escaped_dead_suffix_calls == 0 &&
+            original_result_escape_row.escaped_dead_suffix_call_count == 0 &&
             !original_dead_suffix_mutual_call
           ) ||
           (
             originally_had_params &&
             original_self_calls == 0 &&
             original_dead_suffix_result_other_call &&
-            original_escaped_dead_suffix_calls == 0 &&
+            original_result_escape_row.escaped_dead_suffix_call_count == 0 &&
             !original_dead_suffix_mutual_call &&
             (
               original_active_nonself_calls > 0 ||
@@ -16419,7 +16371,7 @@ fn dae_run_core_once(
           original_dead_suffix_side_call_evidence.void_side_cleanup_preservation ||
           (
             originally_had_params &&
-            original_dead_suffix_result_calls_from_no_param_undropped_self_callers ==
+            original_result_escape_row.dead_suffix_result_calls_from_no_param_undropped_self_caller ==
             0 &&
             (
               original_call_count == original_self_calls ||
@@ -16445,7 +16397,7 @@ fn dae_run_core_once(
           (
             !originally_had_params &&
             original_nonself_undropped_calls > 0 &&
-            original_escaped_dead_suffix_calls == 0 &&
+            original_result_escape_row.escaped_dead_suffix_call_count == 0 &&
             original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers ==
             0
           ) ||
