@@ -495,6 +495,106 @@ test "dae original result preservation row centralizes indexed guard facts" {
 }
 
 ///|
+test "dae original result boundary row shares preservation and prune facts" {
+  let preservation = dae_original_result_preservation_context(
+    [0, 1, 0],
+    [0, 3, 1],
+    [0, 2, 0],
+    [0, 1, 0],
+    [0, 1, 0],
+    [0, 2, 0],
+    [0, 0, 4],
+    [0, 0, 0],
+    [false, true, false],
+    [false, true, false],
+    [false, true, false],
+    [0, 0, 0],
+    [0, 0, 0],
+    [false, true, false],
+    [false, true, false],
+    [false, true, false],
+    [false, false, false],
+    [false, false, false],
+    [0, 5, 0],
+    [0, 7, 0],
+    [0, 0, 0],
+  )
+  let context = dae_original_result_boundary_context(
+    preservation,
+    [0, 0, 0],
+    [false, false, false],
+    [false, true, false],
+    [0, 4, 0],
+    [0, 6, 0],
+    [0, 8, 0],
+    [0, 9, 0],
+  )
+  let row = dae_original_result_boundary_row_from_context(1, context)
+  assert_eq(row.preservation.param_count, 1)
+  assert_eq(row.prune.param_count, row.preservation.param_count)
+  assert_eq(row.prune.call_count, row.preservation.call_count)
+  assert_eq(
+    row.prune.active_nonself_call_count,
+    row.preservation.active_nonself_call_count,
+  )
+  assert_eq(
+    row.prune.active_parameterized_nonself_call_count,
+    row.preservation.active_parameterized_nonself_call_count,
+  )
+  assert_eq(
+    row.prune.nonself_undropped_call_count,
+    row.preservation.nonself_undropped_call_count,
+  )
+  assert_eq(row.prune.self_call_count, row.preservation.self_call_count)
+  assert_eq(
+    row.prune.escaped_dead_suffix_call_count,
+    row.preservation.escaped_dead_suffix_call_count,
+  )
+  assert_eq(
+    row.prune.dead_suffix_undropped_self_call,
+    row.preservation.dead_suffix_undropped_self_call,
+  )
+  assert_eq(
+    row.prune.dead_suffix_dropped_self_call,
+    row.preservation.dead_suffix_dropped_self_call,
+  )
+  assert_eq(
+    row.prune.dead_suffix_block_undropped_self_call,
+    row.preservation.dead_suffix_block_undropped_self_call,
+  )
+  assert_eq(
+    row.prune.dead_suffix_same_self_result_operand_call,
+    row.preservation.dead_suffix_same_self_result_operand_call,
+  )
+  assert_eq(
+    row.prune.dead_suffix_dropped_escaped_result_call,
+    row.preservation.dead_suffix_dropped_escaped_result_call,
+  )
+  assert_eq(
+    row.prune.dead_suffix_mutual_call,
+    row.preservation.dead_suffix_mutual_call,
+  )
+  assert_eq(row.prune.later_dead_suffix_dropped_call_count, 4)
+  assert_eq(row.prune.private_result_dead_suffix_call_count, 6)
+  assert_eq(
+    row.prune.dead_suffix_dropped_calls_from_no_param_result_caller,
+    8,
+  )
+  assert_eq(row.prune.dead_suffix_mixed_dropped_undropped_call_count, 9)
+  let evidence = dae_original_result_boundary_evidence_from_row(row)
+  assert_true(evidence.preservation.same_self_result_operand)
+  assert_false(evidence.prune.dropped_self_result_with_void_side_callers)
+  let empty = dae_original_result_boundary_row_from_context(9, context)
+  assert_eq(empty.preservation.param_count, 0)
+  assert_eq(empty.prune.param_count, 0)
+  assert_false(
+    dae_original_result_preservation_any(
+      dae_original_result_boundary_evidence_from_row(empty).preservation,
+    ),
+  )
+}
+
+///|
 test "dae original result removal prune row centralizes indexed guard facts" {
   let later_row = dae_original_result_removal_prune_row(
     1,
