@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-10
 sources:
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
+  - ../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
@@ -39,7 +40,7 @@ The current answer is:
 
 - the newest public Binaryen release baseline is `version_130`, confirmed on 2026-06-04 by the official GitHub release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted `main` changelog;
 - the 2026-06-05 BrOn assertion/security recheck confirms `version_130` is after Binaryen commit `1251efb`, the April 2026 fix for a reachable assertion while parsing malformed `br_on*` / descriptor-branch operands;
-- the live `main` changelog is the drift watch for anything beyond `version_130`;
+- the live `main` changelog and current primary-source refreshes are the drift watch for anything beyond `version_130`; the 2026-07-10 `memory-packing` imported-overlap change is the current concrete example;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
 That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as [`mark-js-called`](passes/mark-js-called/index.md), [`remove-exports`](passes/remove-exports/index.md), Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier. Wide Arithmetic remains Binaryen/tool release evidence here; route Starshine support claims and proposal opcode caveats through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md).
@@ -57,7 +58,7 @@ That `v130` baseline is substantive, not just a renumbering. The changelog inclu
 | Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
 | Oracle/security boundary | `docs/wiki/raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md` | Current-source bridge for the `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
 | Durable local evidence | `docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md` plus research note 0704 | The repo-captured, immutable summary of the latest release-horizon read. |
-| Live trunk drift watch | Official GitHub `main` changelog | Whether trunk has moved past the newest tag in a way that matters to the docs. |
+| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past the newest tag in a way that matters to the docs. The 2026-07-10 `memory-packing` imported-overlap refresh is the current example. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Superseded correction | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
 | Historical bridge | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | Earlier `version_130` bridge; superseded by the stronger 2026-06-04 recheck. |
@@ -78,7 +79,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 The 2026-06-04 recheck supersedes the earlier `version_125` correction. Direct official sources and Chromium corroboration now agree that `version_130` is the newest public tag. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
 
-The key wiki-maintenance consequence is that `version_130` is the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main or `version_130` reread.
+The key wiki-maintenance consequence is that `version_130` is the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main or `version_130` reread. Conversely, a fresh current-main reread can expose a post-release change without changing the stable oracle: [`memory-packing`](passes/memory-packing/index.md) now records the merged imported-memory overlap exception separately from its `version_130` evidence.
 
 ## BrOn Assertion And Oracle-Failure Boundary
 
@@ -107,6 +108,7 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 - Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Historical 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
 - BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
+- Current-main `memory-packing` drift bridge: [`../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
 - Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
 - Chromium refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>

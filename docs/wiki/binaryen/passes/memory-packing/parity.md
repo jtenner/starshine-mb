@@ -1,11 +1,12 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-07
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
+  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
@@ -30,7 +31,7 @@ related:
 - Current Starshine still does not model every Binaryen option and validity guard, but it now covers the core active and passive segment-user rewrite families: conservative dead passive cleanup, passive zero-range splitting, `memory.init` replacement with `memory.fill`, split-passive `data.drop` expansion, active segment-op cleanup, lowered active/split-passive `memory.init` operand side-effect preservation, data-name repair, `__llvm*` no-split handling, sorted active-overlap checking, active-only scan elision, and a fast path for common one-kept-range active segments.
 - The saved generated-artifact `-O4z` slot `3` is already green, which shows the local subset is useful and exercised by that artifact.
 - The 2026-05-07 saved dead-passive normalization family from `.tmp/recheck-memory-packing/` is now retired on current head.
-- That saved green slot is **not** proof that Starshine already covers every option-surface corner; focused tests now cover imported-memory `zeroFilledMemory`, TNH trap elision, GC data-user conservatism, segment-count limiting, split-name suffixes, constant out-of-range passive source traps, and operand side-effect/trap preservation for lowered active/split-passive `memory.init` paths.
+- That saved green slot is **not** proof that Starshine already covers every option-surface corner; focused tests cover imported-memory `zeroFilledMemory`, TNH trap elision, GC data-user conservatism, segment-count limiting, split-name suffixes, constant out-of-range passive source traps, and operand side-effect/trap preservation for lowered active/split-passive `memory.init` paths. They do **not** cover the new current-main imported-memory overlap path.
 
 ## Current in-tree status
 
@@ -72,9 +73,9 @@ The current Starshine subset covers:
 
 The 2026-06-07 gap audit originally kept one main documented Binaryen gap around lowered `memory.init` operand side effects plus narrower option/validity gaps found by static inspection. The operand side-effect gap is now covered for the local rewrite surface: lowered active and split-passive constant-source/size `memory.init` rewrites evaluate and drop the original destination/source/size operands before the replacement `nop` or `unreachable`. A later closeout fixture also collapses trap-only destination debris to a single explicit trap when the destination operand is already an unconditional `unreachable` with only `drop`/`nop` debris.
 
-The earlier option-surface concern is now source-confirmed closed for the current local Binaryen oracle: local `wasm-opt --version` reports `version_130`, upstream `version_130` and `main` `MemoryPacking.cpp` were byte-identical on 2026-06-07, and the only `getPassOptions()` reads in that source are `zeroFilledMemory` for imported-memory eligibility and `trapsNeverHappen` for active trap preservation. Starshine wires both through the hot pipeline.
+The earlier option-surface conclusion was correct for the 2026-06-07 snapshot: local `wasm-opt --version` reported `version_130`, and the then-reviewed `main` source was byte-identical. It is no longer a current-main claim. Merged PR #8882 changed `MemoryPacking.cpp` on 2026-07-10 without adding a new pass option: when `zeroFilledMemory` is true and the sole memory is imported, Binaryen can handle a provably-in-allocation overlap by neutralizing earlier bytes trampled by later active segments before ordinary packing. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
-No broad source-confirmed `MemoryPacking.cpp` behavior family remains open in this dossier. Current closeout evidence still records six normalized-output differences in the 100000-case direct lane; all are agent-classified as semantic-safe representation or Starshine-local cleanup drift, not true `memory-packing` semantic mismatches. Reopen this audit if a future source refresh adds another pass option, if a normalized drift is shown to affect observable memory/segment behavior, or if generator coverage exposes a true semantic mismatch.
+This creates one concrete current-main parity gap: Starshine still rejects every active overlap in `mp_can_optimize(...)`, including imported zero-filled in-allocation cases. Do not classify that as a semantic failure in existing release-anchored evidence, and do not copy the upstream exception without the full source-order, checked bounds, and memory64 proof. Current closeout evidence still records six normalized-output differences in the 100000-case direct lane; those retain their recorded agent classifications. Reopen the audit if a new lane exposes observable behavior in the released contract, or when implementing the new trunk path.
 
 ## Current evidence
 
@@ -150,7 +151,7 @@ A later 2026-06-07 side-effect preservation slice added focused TDD for active o
 Source/option refresh:
 
 - Local oracle: `wasm-opt --version` -> `wasm-opt version 130 (version_130)`.
-- Online source check: `https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/MemoryPacking.cpp` and `https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/MemoryPacking.cpp` were byte-identical on 2026-06-07. The only `getPassOptions()` references were `zeroFilledMemory` and `trapsNeverHappen`; this closed the previously documented option-surface uncertainty.
+- Online source check: `version_130` and `main` were byte-identical on 2026-06-07. That is historical only: current `main` changed on 2026-07-10 through PR #8882's imported-memory overlap path, while the released `version_130` oracle remains unchanged. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 Validation and artifact replay:
 
@@ -177,7 +178,7 @@ For now, treat `memory-packing` as behavior-closed for the v0.1.0 direct-pass au
 
 - **green on the saved generated artifact** (`.tmp/memory-packing-slot03-closeout-20260607-final`, canonical wasm and normalized WAT equal)
 - **green on true semantic behavior in the final 100000-case direct lane**, with six remaining normalized-output differences classified by inspection rather than treated as pass semantic failures
-- **source-confirmed against Binaryen `version_130` / current `main` for option-surface parity**, with only `zeroFilledMemory` and `trapsNeverHappen` used by `MemoryPacking.cpp` and both wired locally
+- **source-confirmed against Binaryen `version_130` for the reviewed option surface**, with `zeroFilledMemory` and `trapsNeverHappen` wired locally; current-main imported-overlap parity remains open
 
 The six final-lane differences are narrow:
 
@@ -197,5 +198,6 @@ Keep these as reopening watchpoints only if future evidence shows observability;
 - Saved generated-artifact slot and Binaryen debug-log facts are copied into the committed O4z audit note [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md); any older `.artifacts` path is a local replay identifier, not a durable source link.
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
 - Binaryen `version_130` pass source used for the 2026-06-07 gap audit: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MemoryPacking.cpp>
+- Current-main imported-overlap source refresh: [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
 - Implementation: [`../../../../../src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
 - Focused tests: [`../../../../../src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)

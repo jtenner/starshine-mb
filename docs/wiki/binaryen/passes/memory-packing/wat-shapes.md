@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
+  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -265,7 +266,7 @@ After, conceptually:
 
 The passive segment can be removed because no real read remains.
 
-## Negative family 1: overlapping active segments
+## Conditional family 1: overlapping active segments
 
 Before:
 
@@ -275,11 +276,13 @@ Before:
 (data (i32.const 1024) "\00")
 ```
 
-Why this blocks optimization:
+For released Binaryen `version_129` / `version_130`, this blocks optimization:
 
-- the second active segment deliberately overwrites the first
-- the zero byte is semantically observable as a later startup write
-- Binaryen therefore gives up on the module-level optimization
+- the second active segment deliberately overwrites the first;
+- the zero byte is semantically observable as a later startup write; and
+- the pass therefore gives up on the module-level optimization.
+
+Current Binaryen `main` has one imported-memory exception. If `zeroFilledMemory` is enabled, the sole memory is imported, and the overlapping segments are provably within its declared initial allocation, Binaryen zeroes the earlier trampled payload in its working data before applying ordinary packing. This does **not** say overlap is generally safe; it preserves the source-order overwrite explicitly. Starshine still takes the released-style bailout for every overlap. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 ## Negative family 2: dynamic active offset when multiple active segments exist
 
@@ -435,6 +438,18 @@ But Binaryen treats that offset as the large unsigned byte position `2147483648`
 Why this matters:
 
 - sign-extending it would produce the wrong trap decision and wrong rewrite
+
+## Negative family 3b: imported overlap outside allocation
+
+Conceptually:
+
+```wat
+(import "env" "memory" (memory 1))
+(data (i32.const 65536) "x")
+(data (i32.const 65536) "\00")
+```
+
+Even with `--zero-filled-memory`, the current-main exception needs a checked in-allocation proof. A segment at or beyond the declared initial allocation is not eligible for that exception because startup trapping/host-memory assumptions must remain observable.
 
 ## Decision-shape note: active and passive thresholds differ
 

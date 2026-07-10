@@ -1,10 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
+  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
@@ -90,7 +91,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 - Preserving trap behavior is mandatory unless `trapsNeverHappen` is allowed.
 - GC awareness exists here already, but mostly as a conservative boundary:
   - `array.new_data` and `array.init_data` users inhibit splitting today
-- Current `main` matches the released `version_129` semantics here; the only visible drift is comment typo fixes.
+- `version_129` / `version_130` remain the released oracle, but current `main` has a 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. This is current-main drift, not a retroactive change to release-based Starshine signoff; see [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 ## Biggest beginner correction
 
@@ -145,16 +146,17 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-22 direct source comparison found **no teaching-relevant semantic post-`version_129` drift** in this pass.
+The 2026-04-22 direct comparison is retained as historical provenance, but its no-drift conclusion is now stale for `main`:
 
-- The reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**.
-- `MemoryPacking.cpp` still matched the released semantics on the reviewed `main` spot-check surfaces.
-- The dedicated lit files used for this dossier still matched the released contract on the reviewed surfaces.
+- the reviewed Binaryen `version_129` release page showed publish date **2026-04-01**;
+- `version_130` remains the public release baseline used by existing local evidence;
+- current `main` gained a narrow imported-memory overlapping-active-segment path in merged PR #8882 on 2026-07-10.
 
 So the durable rule is:
 
-- treat Binaryen `version_129` as the released oracle for this dossier
-- keep the current-main note explicit only to say that the semantics still match
+- treat the reviewed release tag as the oracle for release-anchored Starshine signoff;
+- treat PR #8882 as a current-main parity watchpoint, not proof that arbitrary overlap is optimizable; and
+- keep the exact imported/zero-filled/in-allocation/source-order conditions explicit whenever this folder discusses overlap.
 
 ## Current maintenance rule
 

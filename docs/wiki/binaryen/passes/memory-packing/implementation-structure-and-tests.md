@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-07-10
 sources:
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
+  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
@@ -78,7 +79,9 @@ Important source-backed blockers include:
 - multiple memories,
 - imported memory without `zeroFilledMemory`,
 - multiple active segments with dynamic offsets,
-- overlapping active segments.
+- overlapping active segments—except for the current-main imported-memory exception.
+
+The released `version_129` / `version_130` rule is an unconditional overlap bailout. Current Binaryen `main` adds one constrained path: `zeroFilledMemory`, one imported memory, and a checked proof that the overlapping active segments are within the declared initial allocation. It then zeroes earlier bytes trampled by later segments before ordinary range analysis. This is a source-order rewrite, not a relaxed overlap predicate; see [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 Beginner takeaway:
 
@@ -190,7 +193,7 @@ This is the last phase that makes the earlier planning observable in module code
 
 ## `DisjointSpans`
 
-Used to prove active-segment non-overlap during the whole-module legality phase.
+Used to discover active-segment overlap during the whole-module legality phase. In released sources an overlap is a bailout. In current `main`, the imported-memory exception uses the discovered overlap together with `zeroOutTrampledData(...)` and an in-allocation proof; it does not discard the ordering information.
 
 ## `ModuleUtils::ParallelFunctionAnalysis`
 
@@ -256,6 +259,8 @@ This file proves the imported-memory gate in memory32 mode:
 
 - imported memory is only optimizable when the pass is told it starts zero-filled.
 
+Current-main PR #8882 adds a nearby imported-memory overlap fixture/contract: zero-filled imported memory may take the new path only when the overlapping segments are provably within allocation and their source-order trampling is handled. That current-main evidence is not yet a `version_130` release claim.
+
 ## `memory-packing_zero-filled-memory64.wast`
 
 This is the same imported-memory story, but under memory64.
@@ -301,5 +306,4 @@ That phase structure is the most important thing this page pins down.
 
 ## Freshness note
 
-A narrow 2026-04-22 spot check against the reviewed `main` source surfaces did not reveal a teaching-relevant drift from the `version_129` owner/test story summarized here.
-Use the raw primary-source manifest for the exact release/source/test URLs reviewed in this run.
+The 2026-04-22 no-drift check remains useful historical provenance, but current `main` is no longer identical on this owner surface. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10; `version_130` remains the release baseline. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
