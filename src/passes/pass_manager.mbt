@@ -25653,10 +25653,10 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
   // `areConsecutiveInputsEqualAndFoldable` can erase the second of two matching
   // idempotent calls in the SCCP-compatibility select forms. The represented
   // flat shapes cover direct i32 self-selects plus the i64 zero-test self-select
-  // with no operands or one repeated direct local.get/i64.const operand, and one
-  // repeated i32 local.get, i32.const, or immutable global.get operand. The raw
-  // stack-effect gate would otherwise quarantine those call results before HOT
-  // can apply the source-backed fact.
+  // with no operands or one repeated direct local.get/i64.const/immutable
+  // global.get operand, and one repeated i32 local.get/i32.const/immutable
+  // global.get operand. The raw stack-effect gate would otherwise quarantine
+  // those call results before HOT can apply the source-backed fact.
   let (call_idx, forwards_call, operand_fact) = match instrs {
     [
       @lib.I64Const(@lib.I64(0L)),
@@ -25682,8 +25682,9 @@ fn RawOiIdempotentCallSelfSelectFact::from_instrs(
         None => return None
       }
       match left_fact.kind {
-        RawOiIdempotentCallLocalOperand | RawOiIdempotentCallI64ConstOperand =>
-          ()
+        RawOiIdempotentCallLocalOperand
+        | RawOiIdempotentCallI64ConstOperand
+        | RawOiIdempotentCallImmutableGlobalOperand => ()
         _ => return None
       }
       if !left_fact.proves_equal(right_fact) {

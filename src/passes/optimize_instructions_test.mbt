@@ -4113,6 +4113,40 @@ test "optimize-instructions folds local and const i64 idempotent-call self-selec
 }
 
 ///|
+test "optimize-instructions folds immutable-global i64 idempotent-call self-selects" {
+  // Red-first OI-F parity slice: Binaryen version_130 accepts an immutable i64
+  // global.get operand because the annotated call cannot invalidate that read,
+  // but retains the mutable-global counterpart. Source:
+  // `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-i64-foldability.wat`.
+  let optimize_global = fn(mutable : Bool) raise {
+    let global_type = if mutable { "(mut i64)" } else { "i64" }
+    let wat = "(module (global $g " +
+      global_type +
+      " (i64.const 7)) (@binaryen.idempotent) (func $id (param i64) (result i64) local.get 0) (func (result i64) i64.const 0 global.get $g call $id global.get $g call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected i64 global idempotent-call OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let immutable = optimize_global(false)
+  assert_false(immutable.contains("select"), msg=immutable)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(immutable, "call (Func 0)"),
+    1,
+  )
+  let mutable = optimize_global(true)
+  assert_true(mutable.contains("select"), msg=mutable)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(mutable, "call (Func 0)"),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds local and const idempotent-call self-selects" {
   // Red-first OI-F parity slice: Binaryen version_130 checks idempotent-call
   // operand effects before folding the later equal call. Direct local.get and
