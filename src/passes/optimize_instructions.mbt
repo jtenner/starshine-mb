@@ -38509,6 +38509,108 @@ priv struct OiBooleanForwardReplacementFact {
 }
 
 ///|
+priv enum OiBooleanTryExpressionThrowKind {
+  BooleanTryExpressionProvenNonThrowing
+}
+
+///|
+priv struct OiBooleanTryExpressionThrowFact {
+  kind : OiBooleanTryExpressionThrowKind
+}
+
+///|
+fn OiBooleanTryExpressionThrowFact::proves_nonthrowing(
+  self : OiBooleanTryExpressionThrowFact,
+) -> Bool {
+  match self.kind {
+    BooleanTryExpressionProvenNonThrowing => true
+  }
+}
+
+///|
+fn OiBooleanTryExpressionThrowFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  states : Array[Int],
+  depth : Int,
+) -> OiBooleanTryExpressionThrowFact? {
+  // Binaryen v130 admits a Try fallthrough only when
+  // `EffectAnalyzer(..., try.body).throws()` is false. Prove that narrow
+  // property recursively over ordinary HOT expression children instead of
+  // treating the direct node flag as a subtree summary. Structured controls
+  // remain fail-closed until their owned regions are audited explicitly.
+  if depth >= 64 || node_id < 0 || node_id >= states.length() {
+    return None
+  }
+  match states[node_id] {
+    2 => return Some({ kind: BooleanTryExpressionProvenNonThrowing })
+    1 => return None
+    _ => states[node_id] = 1
+  }
+  if @ir.hot_node_may_throw_exception(func, node_id) ||
+    @ir.hot_is_control_node(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    match
+      OiBooleanTryExpressionThrowFact::from_node(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        states,
+        depth + 1,
+      ) {
+      Some(fact) if fact.proves_nonthrowing() => ()
+      _ => return None
+    }
+  }
+  states[node_id] = 2
+  Some({ kind: BooleanTryExpressionProvenNonThrowing })
+}
+
+///|
+priv enum OiBooleanTryBodyThrowKind {
+  BooleanTrySingleRootBodyProvenNonThrowing
+}
+
+///|
+priv struct OiBooleanTryBodyThrowFact {
+  kind : OiBooleanTryBodyThrowKind
+  value_id : Int
+}
+
+///|
+fn OiBooleanTryBodyThrowFact::proves_single_root_nonthrowing(
+  self : OiBooleanTryBodyThrowFact,
+) -> Bool {
+  match self.kind {
+    BooleanTrySingleRootBodyProvenNonThrowing => true
+  }
+}
+
+///|
+fn OiBooleanTryBodyThrowFact::from_try_operand(
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> OiBooleanTryBodyThrowFact? {
+  match @ir.hot_node_get(func, try_id).op {
+    @ir.HotOp::Try => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return None
+  }
+  let value_id = @ir.hot_region_get(func, body_ref, 0)
+  let states = Array::make(@ir.hot_node_count(func), 0)
+  match OiBooleanTryExpressionThrowFact::from_node(func, value_id, states, 0) {
+    Some(fact) if fact.proves_nonthrowing() =>
+      Some({ kind: BooleanTrySingleRootBodyProvenNonThrowing, value_id })
+    _ => None
+  }
+}
+
+///|
 priv enum OiBooleanEqzFallthroughValueKind {
   BooleanEqzFallthroughSingleRootBlockTail
   BooleanEqzFallthroughPrefixedBlockTail
@@ -38517,6 +38619,7 @@ priv enum OiBooleanEqzFallthroughValueKind {
   BooleanEqzFallthroughPrefixedLoopBodyTail
   BooleanEqzFallthroughIfThenArmTail
   BooleanEqzFallthroughIfElseArmTail
+  BooleanEqzFallthroughSingleRootTryBody
 }
 
 ///|
@@ -38532,10 +38635,10 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
   expected_type : @lib.ValType,
 ) -> OiBooleanEqzFallthroughValueFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` looks through unnamed
-  // nonempty blocks, direct local.tee values, loop bodies, and the live arm of
-  // an if whose sibling arm is unreachable. Keep the represented wrapper and
-  // selected value together so boolean eqz folding does not grow another
-  // opcode whitelist.
+  // nonempty blocks, direct local.tee values, loop bodies, the live arm of an
+  // if whose sibling arm is unreachable, and proven-nonthrowing try bodies.
+  // Keep the represented wrapper and selected value together so boolean eqz
+  // folding does not grow another opcode whitelist.
   match @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
     [result] if result == expected_type => ()
     _ => return None
@@ -38603,6 +38706,20 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
       }
       Some({ kind, value_id })
     }
+    @ir.HotOp::Try => {
+      // Keep the i64 sibling staged for its own red-first parity slice.
+      if expected_type == @lib.ValType::i64() {
+        return None
+      }
+      match OiBooleanTryBodyThrowFact::from_try_operand(func, operand_id) {
+        Some(fact) if fact.proves_single_root_nonthrowing() =>
+          Some({
+            kind: BooleanEqzFallthroughSingleRootTryBody,
+            value_id: fact.value_id,
+          })
+        _ => None
+      }
+    }
     _ => None
   }
 }
@@ -38618,7 +38735,8 @@ fn OiBooleanEqzFallthroughValueFact::proves_supported_wrapper(
     | BooleanEqzFallthroughSingleRootLoopBody
     | BooleanEqzFallthroughPrefixedLoopBodyTail
     | BooleanEqzFallthroughIfThenArmTail
-    | BooleanEqzFallthroughIfElseArmTail => true
+    | BooleanEqzFallthroughIfElseArmTail
+    | BooleanEqzFallthroughSingleRootTryBody => true
   }
 }
 
@@ -38634,7 +38752,8 @@ fn OiBooleanEqzFallthroughValueFact::operand_preservation(
 ) -> OiBooleanEqzOperandPreservationKind {
   match self.kind {
     BooleanEqzFallthroughSingleRootBlockTail
-    | BooleanEqzFallthroughSingleRootLoopBody => BooleanEqzErasePureWrapperChain
+    | BooleanEqzFallthroughSingleRootLoopBody
+    | BooleanEqzFallthroughSingleRootTryBody => BooleanEqzErasePureWrapperChain
     BooleanEqzFallthroughPrefixedBlockTail
     | BooleanEqzFallthroughLocalTeeChild
     | BooleanEqzFallthroughPrefixedLoopBodyTail
@@ -38708,9 +38827,9 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
   // i32.eqz operand before folding a constant fallthrough. Represent nonempty
   // single-i32-result block tails, direct local.tee children, loop-body tails,
-  // and one-sided-if live-arm tails, preserving or erasing the operand according
-  // to the selected source-backed wrapper outcome from
-  // `getDroppedChildrenAndAppend`.
+  // one-sided-if live-arm tails, and proven-nonthrowing single-root try bodies,
+  // preserving or erasing the operand according to the selected source-backed
+  // wrapper outcome from `getDroppedChildrenAndAppend`.
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       ()
