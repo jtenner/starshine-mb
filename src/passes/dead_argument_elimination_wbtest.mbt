@@ -5302,6 +5302,41 @@ test "dae callsite localization application replaces hard removed operands with 
 }
 
 ///|
+test "dae removed-param local projection distinguishes elided written and localized slots" {
+  let dead = dae_removed_param_local_projection_evidence(
+    @lib.ValType::i32(),
+    written=false,
+    localized=false,
+  )
+  assert_true(dead.valid)
+  assert_false(dead.preserve_as_body_local)
+  assert_eq(dead.body_local_type, None)
+  let written = dae_removed_param_local_projection_evidence(
+    @lib.ValType::i32(),
+    written=true,
+    localized=false,
+  )
+  assert_true(written.valid)
+  assert_true(written.preserve_as_body_local)
+  assert_eq(written.body_local_type, Some(@lib.ValType::i32()))
+  let scratch_heap_type = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let non_null_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, scratch_heap_type),
+  )
+  let nullable_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, scratch_heap_type),
+  )
+  let localized = dae_removed_param_local_projection_evidence(
+    non_null_ref,
+    written=false,
+    localized=true,
+  )
+  assert_true(localized.valid)
+  assert_true(localized.preserve_as_body_local)
+  assert_eq(localized.body_local_type, Some(nullable_ref))
+}
+
+///|
 test "dae callsite removal plan centralizes keep replay and drop repair" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let body = [

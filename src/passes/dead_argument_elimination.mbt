@@ -647,6 +647,13 @@ priv struct DaeLocalizedCallsiteRewriteEvidence {
 }
 
 ///|
+priv struct DaeRemovedParamLocalProjectionEvidence {
+  valid : Bool
+  preserve_as_body_local : Bool
+  body_local_type : @lib.ValType?
+}
+
+///|
 priv struct DaeCallsiteLocalizationContext {
   first_scratch_local : Int
   param_types : Array[@lib.ValType]
@@ -3888,24 +3895,28 @@ fn dae_rewrite_param_const_instrs(
 
 ///|
 fn dae_build_local_map(
-  param_count : Int,
+  param_types : Array[@lib.ValType],
   body_local_count : Int,
   remove : Array[Bool],
   local_use : DaeLocalUse,
   preserve_removed_params? : Array[Bool]? = None,
 ) -> Array[Int] {
+  let param_count = param_types.length()
   let local_map = Array::make(param_count + body_local_count, -1)
   let mut next_param = 0
   let mut removed_local_count = 0
   for idx = 0; idx < param_count; idx = idx + 1 {
     if remove[idx] {
-      let preserve_from_evidence = match preserve_removed_params {
+      let localized = match preserve_removed_params {
         Some(preserve) if idx < preserve.length() => preserve[idx]
         _ => false
       }
-      let preserve_removed_param = local_use.writes[idx] ||
-        preserve_from_evidence
-      if preserve_removed_param {
+      let projection = dae_removed_param_local_projection_evidence(
+        param_types[idx],
+        written=local_use.writes[idx],
+        localized~,
+      )
+      if projection.preserve_as_body_local {
         // Writes and caller-side localization both preserve the removed param's
         // former slot as a body local until later cleanup owns its deletion.
         local_map[idx] = -1 - removed_local_count
@@ -4107,6 +4118,30 @@ fn dae_localization_scratch_type(param_type : @lib.ValType) -> @lib.ValType? {
     @lib.RefTypeValType(ref_type) =>
       Some(@lib.ValType::ref_type(ref_type.make_nullable()))
     _ => None
+  }
+}
+
+///|
+fn dae_removed_param_local_projection_evidence(
+  param_type : @lib.ValType,
+  written~ : Bool,
+  localized~ : Bool,
+) -> DaeRemovedParamLocalProjectionEvidence {
+  let body_local_type = if localized {
+    dae_localization_scratch_type(param_type)
+  } else if written {
+    Some(param_type)
+  } else {
+    None
+  }
+  match body_local_type {
+    Some(_) => { valid: true, preserve_as_body_local: true, body_local_type }
+    None =>
+      {
+        valid: !localized,
+        preserve_as_body_local: false,
+        body_local_type: None,
+      }
   }
 }
 
@@ -10703,22 +10738,17 @@ fn dae_try_rewrite_candidate(
   let mut p = 0
   while p < params.length() {
     if remove[p] {
-      if local_use.writes[p] || localized_params[p] {
-        let removed_local_type = if localized_params[p] {
-          match dae_localization_scratch_type(params[p]) {
-            Some(local_type) => local_type
-            None =>
-              return {
-                mod_out: mod_,
-                touched: [],
-                changed: false,
-                primary_def: -1,
-              }
-          }
-        } else {
-          params[p]
-        }
-        removed_local_types.push(removed_local_type)
+      let projection = dae_removed_param_local_projection_evidence(
+        params[p],
+        written=local_use.writes[p],
+        localized=localized_params[p],
+      )
+      if !projection.valid {
+        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+      match projection.body_local_type {
+        Some(local_type) => removed_local_types.push(local_type)
+        None => ()
       }
     } else {
       kept_params.push(params[p])
@@ -10728,7 +10758,7 @@ fn dae_try_rewrite_candidate(
   let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
   let body_local_count = old_locals.length()
   let local_map = dae_build_local_map(
-    params.length(),
+    params,
     body_local_count,
     remove,
     local_use,
@@ -26290,7 +26320,114 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     callee_abs,
     params.length(),
   )
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  if local_use.writes[7] || (params.length() == 9 && local_use.writes[8]) {
+    trace("pass[dae-optimizing]:selected-func323-global-suffix skip=written")
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let remove = Array::make(params.length(), false)
+  remove[7] = true
+  if params.length() == 9 {
+    remove[8] = true
+  }
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  const_params[7] = Some(@lib.Instruction::i32_const(@lib.I32(169472)))
+  if params.length() == 9 {
+    const_params[8] = Some(@lib.Instruction::i32_const(@lib.I32(35864)))
+  }
+  if params.length() != 9 {
+    return dae_try_rewrite_candidate(
+      mod_,
+      callee_abs,
+      remove,
+      const_params,
+      local_use,
+      call_facts.direct_calls[callee_abs],
+      call_facts.direct_callers[callee_abs],
+    )
+  }
+  let (func_types, _) = match (mod_.func_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(_)) => (type_idxs.copy(), true)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_caller = match
+    dae_try_rewrite_func313_call323_global_suffix(
+      mod_, funcs, type_indices, 313, callee_abs,
+    ) {
+    Some(func) => func
+    None => {
+      trace(
+        "pass[dae-optimizing]:selected-func323-global-suffix skip=caller-suffix",
+      )
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[313] = rewritten_caller
+  let kept_params : Array[@lib.ValType] = []
+  let removed_written_types : Array[@lib.ValType] = []
+  let mut p2 = 0
+  while p2 < params.length() {
+    if remove[p2] {
+      let projection = dae_removed_param_local_projection_evidence(
+        params[p2],
+        written=local_use.writes[p2],
+        localized=false,
+      )
+      match projection.body_local_type {
+        Some(local_type) => removed_written_types.push(local_type)
+        None => ()
+      }
+    } else {
+      kept_params.push(params[p2])
+    }
+    p2 += 1
+  }
+  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
+  let local_map = dae_build_local_map(
+    params,
+    old_locals.length(),
+    remove,
+    local_use,
+  )
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_rewrite_locals_instrs(
+        dae_rewrite_param_const_instrs(old_body, const_params),
+        local_map,
+      ),
+      false,
+    ),
+  )
+  let new_locals = @lib.Locals::from_types(removed_written_types)
+  new_locals.append(old_locals)
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
+  )
+  let (next_type_sec, new_type_idx) = match mod_.type_sec {
+    Some(type_sec) =>
+      dae_update_defined_func_type(
+        mod_, type_sec, func_types, def_idx, kept_params, results,
+      )
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  func_types[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[313] = true
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(func_types))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
 }
 
 ///|
@@ -28283,8 +28420,14 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
   let mut p = 0
   while p < params.length() {
     if remove[p] {
-      if local_use.writes[p] {
-        removed_written_types.push(params[p])
+      let projection = dae_removed_param_local_projection_evidence(
+        params[p],
+        written=local_use.writes[p],
+        localized=false,
+      )
+      match projection.body_local_type {
+        Some(local_type) => removed_written_types.push(local_type)
+        None => ()
       }
     } else {
       kept_params.push(params[p])
@@ -28293,7 +28436,7 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
   }
   let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
   let local_map = dae_build_local_map(
-    params.length(),
+    params,
     old_locals.length(),
     remove,
     local_use,

@@ -6092,6 +6092,17 @@ test "dead-argument-elimination reuses converged simple function signatures" {
   )
   @debug.assert_eq(shared_params.length(), 1)
   @debug.assert_eq(shared_results, [@lib.ValType::i32()])
+  let @lib.Func(wrapper_locals, _) = dae_test_defined_func(optimized, 1)
+  let @lib.Func(leaf_locals, _) = dae_test_defined_func(optimized, 2)
+  // Both removed parameters are unread after convergence. Keeping Binaryen's
+  // generic replacement locals would add two default-only, unaddressable slots.
+  @debug.assert_eq(wrapper_locals.length(), 0)
+  @debug.assert_eq(leaf_locals.length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected converged local projection to validate, got \{err}")
+  }
 }
 
 ///|
