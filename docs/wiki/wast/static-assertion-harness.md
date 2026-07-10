@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-10
 sources:
+  - ../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
@@ -27,7 +28,7 @@ related:
 
 ## Overview
 
-WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The source snapshots in [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) record the current upstream reference-interpreter script model, the separate Core embedding/instantiation boundary, and Starshine's local static implementation and skip policy.
+WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The current lifecycle recheck [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md), plus the earlier snapshots [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) record the upstream reference-interpreter script model, the separate Core embedding/instantiation boundary, and Starshine's local static implementation and skip policy.
 
 Starshine currently implements a **static** spec-harness subset:
 
@@ -50,6 +51,22 @@ That distinction is intentional. Starshine can use official spec files and spec-
 | `assert_invalid` | The module is syntactically well-formed but validation must reject it. | Requires compile/lower/decode success, then requires `validate_module(...)` failure. | [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt) |
 | `assert_unlinkable` | The module validates, but should fail when linked/instantiated. | Requires compile/lower/decode success and validation success; reports `ValidBeforeLink` because no linker/import resolver is run. | [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt) |
 | Runtime assertions/actions | Execute exports, compare values, traps, exhaustion, or registration/import side effects. | Counted as skipped by the static harness, command by command; `register` is parser/printer evidence only in this path. | [`spec_is_runtime_only_command(...)`](../../../src/wast/spec_harness.mbt) |
+
+## Script Lifecycle Grammar Boundary
+
+Official spec scripts can also declare reusable module definitions and instantiate them:
+
+```wasm
+(module definition $M (memory 1))
+(module instance $I $M)
+(register "m" $I)
+```
+
+Those are **not** ordinary Core module declarations. They model script-level lifecycle state: a definition environment, generative instantiation, then registration. Starshine currently has no `WastCommand` variant or parser branch for the `definition` and `instance` forms. [`parse_module_command(...)`](../../../src/wast/parser.mbt) accepts only an optional `$id` followed by `binary`, `quote`, or ordinary module fields; [`parse_command(...)`](../../../src/wast/parser.mbt) has no alternate lifecycle command arm.
+
+Therefore a vendored upstream file such as [`tests/spec/instance.wast`](../../../tests/spec/instance.wast), or the `module definition` boundary cases in [`tests/spec/memory.wast`](../../../tests/spec/memory.wast) and [`tests/spec/table.wast`](../../../tests/spec/table.wast), is currently a **whole-file `Skipped(...)`** case when this grammar is reached. The parser cannot construct the script AST, so this is not the command-scoped runtime-only skip described below, not a Core-module validation result, and not evidence that later static assertions ran. The current source reconciliation is [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md).
+
+For current module-only coverage, extract an ordinary `(module ...)` fixture and state that it does not test definition/instance lifecycle behavior. A future implementation needs a definition/instance representation, a registration environment, instantiation and import-matching semantics, and an execution/linking policy; it must be designed alongside [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), not treated as a small extension of `ValidBeforeLink`.
 
 ## Static Assertion Stage Model
 
@@ -128,6 +145,7 @@ The practical rule for maintainers is: **do not fork assertion semantics between
 ## Current Boundaries And Caveats
 
 - **No runtime execution yet.** `assert_return`, `assert_trap`, `assert_exception`, `assert_exhaustion`, `invoke`, `get`, and `register` are parsed for script compatibility but are not semantic evidence in Starshine's current static harness. When a separate runtime lane does execute trap-shaped cases, use [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) for the trap-versus-validation-versus-host-error vocabulary.
+- **No definition/instance lifecycle grammar yet.** Official `(module definition ...)` and `(module instance ...)` forms fail before command dispatch, yielding a whole-file known-unsupported skip rather than command-level runtime skips; see the preceding lifecycle boundary.
 - **No diagnostic-text parity promise.** Upstream test assertions carry expected error strings. Starshine currently checks kind and stage, not exact upstream diagnostic text.
 - **Skips are visible debt, not hidden passes.** Runtime-only scripts, unsupported parser/lowerer gaps, and narrow `tests/spec` mismatches all report `Skipped(...)` with a reason. Preserve those counts in summaries.
 - **`assert_malformed` is broad locally.** The current static evaluator accepts either parse/lower/decode rejection or validation rejection for malformed assertions. If Starshine wants stricter upstream category fidelity, split that as a deliberate validator/spec-harness change.
@@ -143,10 +161,11 @@ When touching WAST script support or static assertions:
 3. If stage semantics change, update [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and this page.
 4. For broad confidence, run the `spec_runner` on selected `tests/spec/*.wast` files and the `validate-invalid-text` / `validate-invalid-spec-seed` fuzz suites through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
 5. If the `valid-multi-module-linking` suite or `link_*` JSON counters change, update this page, [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), and [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) so readers know whether the suite still means static link-shaped scripts or now performs real import resolution.
+6. If parser support for `module definition` or `module instance` lands, update the parser/printer/arbitrary script surface, distinguish parse support from actual instantiation/linking, add focused lifecycle fixtures, and retire the whole-file skip wording here only after the script reaches an explicit, tested evaluation policy.
 
 ## Sources
 
-- Primary-source snapshots: [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
+- Primary-source snapshots: [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md), [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Parser and AST: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt)
 - Static evaluator and tests: [`../../../src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt)
 - CLI wrapper: [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt)
