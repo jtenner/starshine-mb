@@ -4459,6 +4459,41 @@ test "optimize-instructions folds two i64 tree-bearing call operands" {
 }
 
 ///|
+test "optimize-instructions folds mixed-signature tree-bearing calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 walks every operand tree
+  // without requiring a homogeneous parameter signature. An exact
+  // i32.add(local, const) first operand can compose with a direct i64 second
+  // operand for an annotated (i32, i64) -> i64 call; a mismatched inner i32
+  // constant remains. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-next4-foldability.wat`
+  // (`mixed_tree_direct_equal` and `mixed_tree_direct_mismatch`).
+  let optimize_caller = fn(right_inner_const : Int) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64) (result i64) local.get 0 i64.extend_i32_s local.get 1 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 1 i32.add local.get 1 call $id local.get 0 i32.const " +
+      right_inner_const.to_string() +
+      " i32.add local.get 1 call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected mixed-signature tree-bearing OI success, got \{err}")
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(1)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  let different_tree = optimize_caller(2)
+  assert_true(different_tree.contains("select"), msg=different_tree)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(different_tree, "call (Func 0)"),
+    2,
+  )
+}
+
+///|
 test "optimize-instructions folds tree-bearing multi-operand idempotent calls" {
   // Red-first OI-F parity slice: Binaryen version_130 walks every operand tree
   // of repeated annotated calls. An exact i32.add(local, const) first operand
