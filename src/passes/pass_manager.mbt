@@ -25556,6 +25556,7 @@ priv enum RawOiRootKind {
   ArrayWrite
   ArrayLen
   I32Const
+  If
   Select
   MemorySize
   BulkMemory
@@ -25686,6 +25687,7 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.ArraySet(_) => RawOiRootKind::ArrayWrite
     @lib.ArrayLen => RawOiRootKind::ArrayLen
     @lib.I32Const(_) => RawOiRootKind::I32Const
+    @lib.If(_, _, _) => RawOiRootKind::If
     @lib.Select(_) => RawOiRootKind::Select
     @lib.MemorySize(_) => RawOiRootKind::MemorySize
     @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) => RawOiRootKind::BulkMemory
@@ -25915,6 +25917,7 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ArrayWrite, ArrayWrite)
     | (ArrayLen, ArrayLen)
     | (I32Const, I32Const)
+    | (If, If)
     | (Select, Select)
     | (MemorySize, MemorySize)
     | (BulkMemory, BulkMemory)
@@ -29559,14 +29562,15 @@ fn RawOiDroppedConstBranchIfFact::append_rewrite(
 }
 
 ///|
-fn RawOiDroppedConstBranchIfFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDroppedConstBranchIfFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDroppedConstBranchIfFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::If) {
     return None
   }
-  match (instrs[start], instrs[start + 1]) {
+  match (region.roots[start].instr, region.roots[start + 1].instr) {
     (condition, @lib.If(block_type, then_body, Some(else_body))) if block_type ==
       @lib.BlockType::void_() =>
       match
@@ -32941,7 +32945,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiDroppedConstBranchIfFact::from_instrs(instrs, i) {
+    match RawOiDroppedConstBranchIfFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true

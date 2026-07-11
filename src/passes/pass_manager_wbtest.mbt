@@ -323,6 +323,38 @@ test "optimize-instructions drop-store masks consume indexed region roots" {
 }
 
 ///|
+test "optimize-instructions dropped branch if rewrites consume indexed if roots" {
+  let condition = @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+  let region = RawOiInstructionRegionFact::from_instrs([
+    condition,
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::i32_const(@lib.I32(1)), @lib.Instruction::drop()],
+      Some([@lib.Instruction::i32_const(@lib.I32(2)), @lib.Instruction::drop()]),
+    ),
+  ])
+  match RawOiDroppedConstBranchIfFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_dropped_branch_rewrite())
+      @debug.assert_eq(fact.end, 2)
+      assert_true(region.has_root_at(1, RawOiRootKind::If))
+    }
+    None => fail("expected indexed dropped-branch if rewrite")
+  }
+  let mismatched = RawOiInstructionRegionFact::from_instrs([
+    condition,
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::i32_const(@lib.I32(1)), @lib.Instruction::drop()],
+      Some([@lib.Instruction::i64_const(@lib.I64(2L)), @lib.Instruction::drop()]),
+    ),
+  ])
+  assert_true(
+    RawOiDroppedConstBranchIfFact::from_region(mismatched, 0).is_none(),
+  )
+}
+
+///|
 test "optimize-instructions scalar numeric rewrites consume indexed terminal roots" {
   let region = RawOiInstructionRegionFact::from_instrs([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
