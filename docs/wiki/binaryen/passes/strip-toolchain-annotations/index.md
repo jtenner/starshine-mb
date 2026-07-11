@@ -115,6 +115,7 @@ For a future Starshine port, add tests in this order:
 - [`wat-shapes.md`](wat-shapes.md) - before/after annotation-shape catalog.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - future Starshine first slice, validation ladder, and full-parity blockers.
+- [`fuzzing.md`](fuzzing.md) - planned-only compare-pass status: the current harness and registry both reject the pass, plus the four gates and future fixture requirements for a real parity lane.
 
 ## Sources
 
