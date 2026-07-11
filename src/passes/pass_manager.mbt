@@ -25574,11 +25574,101 @@ priv enum RawOiRootKind {
 }
 
 ///|
+// Reusable root-level control/effect classification for raw region routing.
+// This only rejects candidates; family facts and HOT still own exact type,
+// ordering, trap, removability, and invalidation proof.
+priv struct RawOiRootFlowFact {
+  has_nested_control : Bool
+  has_branch : Bool
+  has_call : Bool
+  has_function_exit : Bool
+  has_throw_or_trap : Bool
+}
+
+///|
+fn RawOiRootFlowFact::from_instr(instr : @lib.Instruction) -> RawOiRootFlowFact {
+  match instr {
+    @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _) =>
+      {
+        has_nested_control: true,
+        has_branch: false,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+    @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _) =>
+      {
+        has_nested_control: false,
+        has_branch: true,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: true,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+    @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Return =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: true,
+        has_function_exit: true,
+        has_throw_or_trap: false,
+      }
+    @lib.Throw(_) | @lib.ThrowRef | @lib.Unreachable =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: true,
+      }
+    _ =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+  }
+}
+
+///|
+fn RawOiRootFlowFact::blocks_branch_free_value_region(
+  self : RawOiRootFlowFact,
+) -> Bool {
+  self.has_nested_control ||
+  self.has_branch ||
+  self.has_call ||
+  self.has_function_exit ||
+  self.has_throw_or_trap
+}
+
+///|
 priv struct RawOiTopLevelRootFact {
   position : Int
   kind : RawOiRootKind
   instr : @lib.Instruction
   is_pure_stack_operand : Bool
+  flow : RawOiRootFlowFact
 }
 
 ///|
@@ -25618,6 +25708,7 @@ fn RawOiTopLevelRootFact::from_instr(
     is_pure_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
       instr,
     ),
+    flow: RawOiRootFlowFact::from_instr(instr),
   }
 }
 
@@ -25634,6 +25725,14 @@ fn RawOiInstructionRegionFact::from_instrs(
     RawOiTopLevelRootFact::from_instr(position, instr)
   })
   { roots, }
+}
+
+///|
+fn RawOiInstructionRegionFact::from_expr(
+  expr : @lib.Expr,
+) -> RawOiInstructionRegionFact {
+  let @lib.Expr(instrs) = expr
+  RawOiInstructionRegionFact::from_instrs(instrs)
 }
 
 ///|
@@ -30662,38 +30761,16 @@ priv struct RawOiDescriptorCallArgBlockBodyFact {
 }
 
 ///|
-fn RawOiDescriptorCallArgBlockBodyFact::from_instrs(
-  body : Array[@lib.Instruction],
+fn RawOiDescriptorCallArgBlockBodyFact::from_region(
+  region : RawOiInstructionRegionFact,
 ) -> RawOiDescriptorCallArgBlockBodyFact {
-  if body.is_empty() {
+  if region.roots.is_empty() {
     return { has_value: false, branch_free: false, blocking_boundary_count: 0 }
   }
   let mut blocking_boundary_count = 0
-  for instr in body {
-    match instr {
-      @lib.Block(_, _)
-      | @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _)
-      | @lib.Call(_)
-      | @lib.CallIndirect(_, _)
-      | @lib.CallRef(_)
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_)
-      | @lib.Return
-      | @lib.Throw(_)
-      | @lib.ThrowRef
-      | @lib.Unreachable =>
-        blocking_boundary_count = blocking_boundary_count + 1
-      _ => ()
+  for root in region.roots {
+    if root.flow.blocks_branch_free_value_region() {
+      blocking_boundary_count = blocking_boundary_count + 1
     }
   }
   {
@@ -30738,8 +30815,10 @@ fn RawOiDescriptorCallArgFact::from_branch_free_effectful_block_instr(
   start : Int,
 ) -> RawOiDescriptorCallArgFact? {
   match instr {
-    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-      let body_fact = RawOiDescriptorCallArgBlockBodyFact::from_instrs(body)
+    @lib.Block(@lib.ValTypeBlockType(_), body) => {
+      let body_fact = RawOiDescriptorCallArgBlockBodyFact::from_region(
+        RawOiInstructionRegionFact::from_expr(body),
+      )
       if body_fact.proves_binaryen_branch_free_operand() {
         Some({
           kind: DescriptorArgBranchFreeEffectfulBlock,

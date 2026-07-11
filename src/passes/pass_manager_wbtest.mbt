@@ -219,6 +219,26 @@ test "optimize-instructions raw function index owns stack value transfer facts" 
 }
 
 ///|
+test "optimize-instructions descriptor block arguments consume indexed flow facts" {
+  let safe_region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+  ])
+  assert_true(
+    RawOiDescriptorCallArgBlockBodyFact::from_region(safe_region).proves_binaryen_branch_free_operand(),
+  )
+  let blocked_region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  assert_false(
+    RawOiDescriptorCallArgBlockBodyFact::from_region(blocked_region).proves_binaryen_branch_free_operand(),
+  )
+  assert_true(blocked_region.roots[1].flow.has_call)
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([
