@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
@@ -24,7 +25,7 @@ related:
 
 ## Overview
 
-`mark-js-called` is Binaryen's configureAll-driven pass for adding the `@binaryen.js.called` toolchain annotation to functions. It should be read as an annotation-synthesis pass, not as generic JS-interface legalization, export pruning, or ordinary call-graph optimization. The release-horizon page now treats `version_130` as the current public Binaryen baseline, and the behavior refresh in [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md) confirms that the released `version_130` source and current `main` source still have the same small contract.
+`mark-js-called` is Binaryen's configureAll-driven pass for adding the `@binaryen.js.called` toolchain annotation to functions. It should be read as an annotation-synthesis pass, not as generic JS-interface legalization, export pruning, or ordinary call-graph optimization. The release-horizon page treats `version_130` as the reviewed public Binaryen baseline. The 2026-07-11 source recheck in [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md) found no behavior-bearing drift between the reviewed `version_130` and current-`main` owner/fixture contract; the 2026-06-04 capture remains historical provenance.
 
 For a beginner: WebAssembly function bodies are not the only facts an optimizer tracks. Binaryen also carries function annotations. `@binaryen.js.called` marks a function as observable from a JavaScript-call boundary, which can matter to later passes that would otherwise treat the function as internally callable only. The pass does not itself call JavaScript or change a function signature; it writes metadata.
 
@@ -35,7 +36,7 @@ For an implementer: keep this page separate from [`strip-toolchain-annotations`]
 | Surface | Status |
 | --- | --- |
 | Upstream release horizon | Present in Binaryen `version_130`; see the source read in [`../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md). |
-| Upstream owner/test files | `src/passes/MarkJSCalled.cpp` and `test/lit/passes/mark-js-called.wast` in Binaryen `version_130` and still materially unchanged on current `main` as of [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md). |
+| Upstream owner/test files | `src/passes/MarkJSCalled.cpp` and `test/lit/passes/mark-js-called.wast` in reviewed `version_130`; the 2026-07-11 current-`main` owner/fixture/registration recheck found no behavior-bearing drift. See [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md). |
 | Starshine registry | Not registered on 2026-06-04; focused `src/` searches found no `mark-js-called` or `MarkJSCalled` pass spelling. |
 | Starshine prerequisite representation | Present: `FuncAnnotation`, `FuncAnnotationAssoc`, `FuncAnnotationSec`, and `Module.func_annotation_sec` in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt). |
 | Starshine text support | Present for the annotation itself: WAST parse/lower tests cover `(@binaryen.js.called)` on function imports and definitions in [`src/wast/parser.mbt`](../../../../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt), and [`src/wast/module_wast_tests.mbt`](../../../../../src/wast/module_wast_tests.mbt). |
@@ -82,7 +83,8 @@ The important caveat is that a Starshine fixture containing an existing `(@binar
 
 ## Sources
 
-- Behavior refresh: [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
+- Current-main recheck: [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Historical behavior refresh: [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Focused source manifest: [`../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md)
 - Tracker-expansion note: [`../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Local annotation representation: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

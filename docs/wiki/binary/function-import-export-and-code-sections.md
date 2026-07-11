@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
+  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
@@ -217,7 +218,8 @@ Existing pass dossiers that depend on this checklist include:
 - Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - Compact Import Section proposal boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md), [`../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
-- Binaryen `remove-exports` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
+- Binaryen `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Historical Binaryen behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Binaryen `remove-imports` source read: [`../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Function/code primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
 - Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)

@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
@@ -40,7 +41,7 @@ The current answer is:
 
 - the newest public Binaryen release baseline is `version_130`, confirmed on 2026-06-04 by the official GitHub release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted `main` changelog;
 - the 2026-06-05 BrOn assertion/security recheck confirms `version_130` is after Binaryen commit `1251efb`, the April 2026 fix for a reachable assertion while parsing malformed `br_on*` / descriptor-branch operands;
-- the live `main` changelog and current primary-source refreshes are the drift watch for anything beyond `version_130`; the 2026-07-10 `memory-packing` imported-overlap change is the current concrete example;
+- the live `main` changelog and current primary-source refreshes are the drift watch for anything beyond `version_130`; the 2026-07-10 `memory-packing` imported-overlap change and the 2026-07-11 `mark-js-called` / `remove-exports` no-drift recheck are current concrete examples;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
 That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as [`mark-js-called`](passes/mark-js-called/index.md), [`remove-exports`](passes/remove-exports/index.md), Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier. Wide Arithmetic remains Binaryen/tool release evidence here; route Starshine support claims and proposal opcode caveats through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md).
@@ -58,7 +59,7 @@ That `v130` baseline is substantive, not just a renumbering. The changelog inclu
 | Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
 | Oracle/security boundary | `docs/wiki/raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md` | Current-source bridge for the `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
 | Durable local evidence | `docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md` plus research note 0704 | The repo-captured, immutable summary of the latest release-horizon read. |
-| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past the newest tag in a way that matters to the docs. The 2026-07-10 `memory-packing` imported-overlap refresh is the current example. |
+| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past the newest tag in a way that matters to the docs. The 2026-07-10 `memory-packing` drift and the 2026-07-11 `mark-js-called` / `remove-exports` no-drift recheck are current examples. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Superseded correction | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
 | Historical bridge | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | Earlier `version_130` bridge; superseded by the stronger 2026-06-04 recheck. |
@@ -73,7 +74,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 2. **If the question is "did trunk drift after the latest tag?"** use the official `main` changelog first, then the Chromium mirror as corroboration.
 3. **If the question is "what does this pass actually do?"** use the pass-specific dossier and its raw research notes, not the release-horizon page.
 4. **If the question is "what should I update in the wiki when a new release lands?"** update this page, the top-level catalog, the pass catalog/tracker pages, and any dossier that explicitly names the newest public tag.
-5. **If a release note names a pass not yet tracked locally,** record it first as an upstream release-horizon fact, then create a dedicated tracker/dossier only after a pass-specific source read. The 2026-06-04 `mark-js-called` / `remove-exports` update is the current example of that handoff: the first source read proved owner/test existence, and the later behavior refresh proved the configureAll-driven annotation and wildcard export-filter contracts.
+5. **If a release note names a pass not yet tracked locally,** record it first as an upstream release-horizon fact, then create a dedicated tracker/dossier only after a pass-specific source read. `mark-js-called` / `remove-exports` remain the example: the 2026-06-04 reads proved owner/test existence and behavior, while the 2026-07-11 recheck renewed their current-main contract without converting either into a local pass.
 
 ## Current state
 
@@ -104,7 +105,8 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 
 - Current release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Immutable source capture for 0704: [`../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md)
-- Pass-specific v130 behavior/source reads for `mark-js-called` / `remove-exports`: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md), [`../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
+- Pass-specific `mark-js-called` / `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Historical v130 behavior/source reads for `mark-js-called` / `remove-exports`: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md), [`../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Historical 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
 - BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)

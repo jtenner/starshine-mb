@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
@@ -26,7 +27,7 @@ related:
 
 ## Overview
 
-`remove-exports` is Binaryen's parameterized export-section filter. The 2026-06-04 source read confirms that `RemoveExports.cpp` plus `test/lit/passes/remove-exports.wast` exist in the `version_130` tag, and the behavior refresh in [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md) confirms that current `main` still has the same small contract: match export names by user-supplied patterns and remove the matching export entries.
+`remove-exports` is Binaryen's parameterized export-section filter. The 2026-07-11 source recheck in [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md) confirms that reviewed `version_130` and current `main` retain the same small contract: match export names by user-supplied patterns and remove the matching export entries. The 2026-06-04 read remains historical provenance.
 
 For a beginner: an export is how a WebAssembly module exposes a function, table, memory, global, or tag to the host. Removing an export can make the binary smaller or more private, but it changes the module's public ABI. That makes this pass more like an ABI-shaping or packaging pass than an ordinary internal optimizer.
 
@@ -37,7 +38,7 @@ For an implementer: do not confuse `remove-exports` with [`remove-unused-module-
 | Surface | Status |
 | --- | --- |
 | Upstream release horizon | Present in Binaryen `version_130`; see the source read in [`../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md). |
-| Upstream owner/test files | `src/passes/RemoveExports.cpp` and `test/lit/passes/remove-exports.wast` in Binaryen `version_130` and still materially unchanged on current `main` as of [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md). |
+| Upstream owner/test files | `src/passes/RemoveExports.cpp` and `test/lit/passes/remove-exports.wast` in reviewed `version_130`; the 2026-07-11 current-`main` owner/fixture/registration recheck found no behavior-bearing drift. See [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md). |
 | Starshine registry | Not registered on 2026-06-04; focused `src/` searches found no `remove-exports` or `RemoveExports` pass spelling. |
 | Starshine prerequisite representation | Present: `Export`, `ExportSec`, and `Module.export_sec` in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt). |
 | Starshine codec/text prerequisites | The normal binary encode/decode and WAST parse/lower paths already know exports; a future pass should reuse those surfaces instead of inventing a pass-local export model. |
@@ -80,7 +81,8 @@ With `--remove-exports=__*`, the `__helper` function and memory definitions rema
 
 ## Sources
 
-- Behavior refresh: [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
+- Current-main recheck: [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Historical behavior refresh: [`../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Focused source manifest: [`../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md)
 - Tracker-expansion note: [`../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Local export representation: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

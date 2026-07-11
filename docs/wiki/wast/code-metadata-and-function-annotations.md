@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-11
 sources:
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
+  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
@@ -105,7 +106,7 @@ Binaryen uses branch-hint examples in pass tests, and pass dossiers may describe
 
 ### Binaryen `js.called` markers
 
-Starshine can parse, print, and lower existing `(@binaryen.js.called)` function/import annotations through the same `FuncAnnotationSec` lane as other function annotations. That is metadata support, not implementation of Binaryen's [`mark-js-called`](../binaryen/passes/mark-js-called/index.md) pass. The current Binaryen pass scans configureAll intrinsic calls and synthesizes `js.called` annotations for referred functions; it does not merely preserve annotations that already appear in WAST. Keep this distinction visible when using `(@binaryen.js.called)` fixtures: a parser/lowerer fixture proves annotation carriage, while a future pass fixture must prove configureAll-driven marking.
+Starshine can parse, print, and lower existing `(@binaryen.js.called)` function/import annotations through the same `FuncAnnotationSec` lane as other function annotations. That is metadata support, not implementation of Binaryen's [`mark-js-called`](../binaryen/passes/mark-js-called/index.md) pass. The 2026-07-11 Binaryen current-`main` recheck confirms that the pass still first looks for `configureAll`, then synthesizes `js.called` annotations for referred functions; it does not merely preserve annotations already appearing in WAST. Keep this distinction visible when using `(@binaryen.js.called)` fixtures: a parser/lowerer fixture proves annotation carriage, while a future pass fixture must prove configureAll-driven marking outside the separately handled start-function intrinsic path.
 
 ### No-inline markers
 
@@ -170,7 +171,8 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 
 - Current code-metadata / branch-hint status refresh: [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md)
 - Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
-- Binaryen `mark-js-called` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
+- Binaryen `mark-js-called` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Historical Binaryen behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)
 - WAST identifier/name baseline: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
