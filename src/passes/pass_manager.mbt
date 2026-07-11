@@ -30243,13 +30243,14 @@ fn RawOiScalarNumericRewriteFact::from_region(
 }
 
 ///|
-// Remaining raw traversal audit: the ten descriptor `from_instrs` definitions
-// below form one representation bridge cluster (recursive descriptor prefixes,
-// direct/local exact success and miss, exactification, and balanced operands).
-// They reconstruct stack/control expressions that are not yet available as HOT
-// value graphs. Preserve exact descriptor type/exactness, trap, effect, source-
-// order, and operand-cardinality proof; migrate only with a shared typed
-// descriptor-value overlay, never another shape-specific whole-body scanner.
+// Remaining raw traversal audit: seven descriptor `from_instrs` definitions
+// below form one representation bridge cluster (direct/local exact success and
+// miss, exactification, and balanced operands). Descriptor block-prefix control
+// reconstruction has moved to one reusable prefix value graph per body. The
+// remaining bridges reconstruct stack expressions that are not yet available
+// as HOT value graphs. Preserve exact descriptor type/exactness, trap, effect,
+// source order, and operand-cardinality proof; migrate only with shared typed
+// descriptor-value overlays, never another shape-specific whole-body scanner.
 //
 // Source-backed raw descriptor prefix facts for the Binaryen v130
 // optimizeKnownCastResult descriptor-child-localization case. Binaryen uses
@@ -30297,33 +30298,41 @@ priv struct RawOiDescriptorPrefixInstrFact {
 }
 
 ///|
-fn RawOiDescriptorPrefixBodyFact::from_instrs_until(
+// Reusable prefix graph for one descriptor value body. Each instruction is
+// classified once for the current immutable raw revision; consumers can query
+// any prefix boundary without replaying the body scan. Recursive block/if
+// values build the same graph for their own nested revision.
+priv struct RawOiDescriptorPrefixValueGraphFact {
+  body_len : Int
+  prefixes : Array[RawOiDescriptorPrefixBodyFact]
+}
+
+///|
+fn RawOiDescriptorPrefixValueGraphFact::from_body(
   instrs : Array[@lib.Instruction],
   depth : Int,
-  end : Int,
-) -> RawOiDescriptorPrefixBodyFact {
+) -> RawOiDescriptorPrefixValueGraphFact {
+  let prefixes : Array[RawOiDescriptorPrefixBodyFact] = [
+    { depth, end: 0, can_hoist: true, has_blocking_boundary: false },
+  ]
   let mut can_hoist = true
   let mut has_blocking_boundary = false
-  for idx = 0; idx < end; idx = idx + 1 {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let fact = RawOiDescriptorPrefixInstrFact::from_instr(instrs[idx], depth)
     can_hoist = can_hoist && fact.can_hoist
     has_blocking_boundary = has_blocking_boundary ||
       fact.has_blocking_boundary ||
       (fact.has_nested_control && !fact.can_hoist && !fact.is_plain_instruction)
+    prefixes.push({ depth, end: idx + 1, can_hoist, has_blocking_boundary })
   }
-  { depth, end, can_hoist, has_blocking_boundary }
+  { body_len: instrs.length(), prefixes }
 }
 
 ///|
-fn RawOiDescriptorPrefixBodyFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  depth : Int,
+fn RawOiDescriptorPrefixValueGraphFact::whole_body(
+  self : RawOiDescriptorPrefixValueGraphFact,
 ) -> RawOiDescriptorPrefixBodyFact {
-  RawOiDescriptorPrefixBodyFact::from_instrs_until(
-    instrs,
-    depth,
-    instrs.length(),
-  )
+  self.prefixes[self.body_len]
 }
 
 ///|
@@ -30379,17 +30388,18 @@ fn RawOiDescriptorPrefixInstrFact::from_instr(
   match instr {
     @lib.Block(_, @lib.Expr(body)) =>
       RawOiDescriptorPrefixInstrFact::nested(
-        RawOiDescriptorPrefixBodyFact::from_instrs(body, depth + 1),
+        RawOiDescriptorPrefixValueGraphFact::from_body(body, depth + 1).whole_body(),
       )
     @lib.If(_, then_body, else_body) => {
-      let then_fact = RawOiDescriptorPrefixBodyFact::from_instrs(
+      let then_fact = RawOiDescriptorPrefixValueGraphFact::from_body(
         then_body,
         depth + 1,
-      )
+      ).whole_body()
       let else_fact = match else_body {
         Some(body) =>
-          RawOiDescriptorPrefixBodyFact::from_instrs(body, depth + 1)
-        None => RawOiDescriptorPrefixBodyFact::from_instrs([], depth + 1)
+          RawOiDescriptorPrefixValueGraphFact::from_body(body, depth + 1).whole_body()
+        None =>
+          RawOiDescriptorPrefixValueGraphFact::from_body([], depth + 1).whole_body()
       }
       {
         can_hoist: then_fact.can_hoist && else_fact.can_hoist,
@@ -30444,16 +30454,14 @@ priv struct RawOiDescriptorBlockPrefixHoistFact {
 }
 
 ///|
-fn RawOiDescriptorBlockPrefixHoistFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorPrefixValueGraphFact::prefix_hoist(
+  self : RawOiDescriptorPrefixValueGraphFact,
   prefix_len : Int,
 ) -> RawOiDescriptorBlockPrefixHoistFact? {
-  if prefix_len < 0 || prefix_len > instrs.length() {
+  if prefix_len < 0 || prefix_len > self.body_len {
     return None
   }
-  let body = RawOiDescriptorPrefixBodyFact::from_instrs_until(
-    instrs, 0, prefix_len,
-  )
+  let body = self.prefixes[prefix_len]
   if body.can_hoist {
     Some({ prefix_len, body })
   } else {
@@ -32856,13 +32864,12 @@ fn RawOiBottomNullDescriptorOperandFact::from_block_body(
   if descriptor_body.length() < 2 {
     return None
   }
+  let prefix_graph = RawOiDescriptorPrefixValueGraphFact::from_body(
+    descriptor_body, 0,
+  )
   match descriptor_body[descriptor_body.length() - 1] {
     @lib.Unreachable =>
-      match
-        RawOiDescriptorBlockPrefixHoistFact::from_instrs(
-          descriptor_body,
-          descriptor_body.length() - 1,
-        ) {
+      match prefix_graph.prefix_hoist(descriptor_body.length() - 1) {
         Some(fact) if fact.proves_binaryen_descriptor_prefix_hoist() =>
           return Some({
             preserves_operand_as_drop: false,
@@ -32877,10 +32884,7 @@ fn RawOiBottomNullDescriptorOperandFact::from_block_body(
   let prefix_len = descriptor_body.length() - 2
   match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
     (@lib.RefNull(_), @lib.RefAsNonNull) =>
-      match
-        RawOiDescriptorBlockPrefixHoistFact::from_instrs(
-          descriptor_body, prefix_len,
-        ) {
+      match prefix_graph.prefix_hoist(prefix_len) {
         Some(fact) if fact.proves_binaryen_descriptor_prefix_hoist() =>
           Some({
             preserves_operand_as_drop: false,

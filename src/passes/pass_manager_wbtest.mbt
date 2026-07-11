@@ -46,6 +46,42 @@ test "optimize-instructions reports raw admission and HOT setup phase timings" {
 }
 
 ///|
+test "descriptor prefix value graph answers repeated hoist queries without rescanning" {
+  let graph = RawOiDescriptorPrefixValueGraphFact::from_body(
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+      @lib.Instruction::ref_as_non_null(),
+    ],
+    0,
+  )
+  match graph.prefix_hoist(1) {
+    Some(fact) => {
+      @debug.assert_eq(fact.prefix_len, 1)
+      assert_true(fact.proves_binaryen_descriptor_prefix_hoist())
+    }
+    None => fail("expected first descriptor prefix to hoist")
+  }
+  match graph.prefix_hoist(3) {
+    Some(fact) => {
+      @debug.assert_eq(fact.prefix_len, 3)
+      assert_true(fact.proves_binaryen_descriptor_prefix_hoist())
+    }
+    None => fail("expected full descriptor prefix to hoist")
+  }
+  let blocked = RawOiDescriptorPrefixValueGraphFact::from_body(
+    [
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ],
+    0,
+  )
+  assert_true(blocked.prefix_hoist(1) is None)
+}
+
+///|
 test "optimize-instructions raw function index collects call and select anchors once" {
   let repeated = @lib.FuncIdx::new(3U)
   let other = @lib.FuncIdx::new(9U)
