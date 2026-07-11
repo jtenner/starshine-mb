@@ -200,6 +200,25 @@ test "optimize-instructions same-flat memory-copy walker uses per-body region vi
 }
 
 ///|
+test "optimize-instructions raw function index owns stack value transfer facts" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::i32_add(),
+  ])
+  let transfers = RawOiFunctionStackValueTransferFacts::from_index(
+    index,
+    @validate.Env::new(),
+  )
+  assert_true(transfers.complete)
+  @debug.assert_eq(transfers.steps.length(), 3)
+  @debug.assert_eq(transfers.steps[0].stack_depth_after, 1)
+  @debug.assert_eq(transfers.steps[1].stack_depth_after, 2)
+  @debug.assert_eq(transfers.steps[2].stack_depth_after, 1)
+  assert_true(transfers.steps.all(fn(step) { step.reachable }))
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([

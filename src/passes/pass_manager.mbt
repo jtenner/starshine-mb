@@ -26013,75 +26013,109 @@ fn RawOiStackCarriedEffectUseFact::is_stack_carried(
 }
 
 ///|
-fn RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
-  instrs : Array[@lib.Instruction],
-  env : @validate.Env,
-  module_ctx : @ir.HotModuleContext,
-) -> RawOiStackCarriedEffectRegionFact {
-  let prefix : Array[@lib.Instruction] = []
-  let mut barrier_index = 0
-  for instr in instrs {
-    prefix.push(instr)
-    match RawOiStackEffectBarrierFact::from_instr(instr, module_ctx) {
-      Some(barrier) => {
-        let init_state = @validate.make_state(env, [])
-        match
-          @validate.Typecheck::typecheck(
-            @lib.Expr::new(prefix.copy()),
-            init_state,
-          ) {
-          Ok(state) =>
-            match
-              RawOiStackCarriedEffectUseFact::from_barrier_state(
-                barrier_index,
-                barrier,
-                state.reachable,
-                state.stack.length(),
-              ) {
-              Some(fact) =>
-                if fact.is_stack_carried() {
-                  return { has_blocking_effect: true }
-                }
-              None => ()
-            }
-          Err(_) => ()
-        }
-      }
-      None => ()
-    }
-    barrier_index = barrier_index + 1
-  }
-  { has_blocking_effect: false }
+priv struct RawOiStackValueTransferStepFact {
+  position : Int
+  typechecked : Bool
+  reachable : Bool
+  stack_depth_after : Int
 }
 
 ///|
-fn RawOiStackCarriedEffectRegionFact::from_instrs(
+// Module-independent validation-stack transfer overlay for the indexed top-level
+// region. Build it once for the immutable function snapshot; effect families may
+// discover candidate barriers from indexed roots, but must consume these exact
+// validator-derived reachability and stack-depth facts for admission.
+priv struct RawOiFunctionStackValueTransferFacts {
+  steps : Array[RawOiStackValueTransferStepFact]
+  complete : Bool
+}
+
+///|
+fn RawOiFunctionStackValueTransferFacts::from_prefix_index(
   index : RawOiFunctionRevisionFactIndex,
-  instrs : Array[@lib.Instruction],
   env : @validate.Env,
+) -> RawOiFunctionStackValueTransferFacts {
+  let prefix : Array[@lib.Instruction] = []
+  let steps : Array[RawOiStackValueTransferStepFact] = []
+  let mut complete = true
+  for root in index.top_level_roots {
+    prefix.push(root.instr)
+    let init_state = @validate.make_state(env, [])
+    match
+      @validate.Typecheck::typecheck(@lib.Expr::new(prefix.copy()), init_state) {
+      Ok(state) =>
+        steps.push({
+          position: root.position,
+          typechecked: true,
+          reachable: state.reachable,
+          stack_depth_after: state.stack.length(),
+        })
+      Err(_) => {
+        complete = false
+        steps.push({
+          position: root.position,
+          typechecked: false,
+          reachable: false,
+          stack_depth_after: 0,
+        })
+      }
+    }
+  }
+  { steps, complete }
+}
+
+///|
+fn RawOiFunctionStackValueTransferFacts::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  env : @validate.Env,
+) -> RawOiFunctionStackValueTransferFacts {
+  let steps : Array[RawOiStackValueTransferStepFact] = []
+  let mut state = @validate.make_state(env, [])
+  for root in index.top_level_roots {
+    let next_state = match @validate.Typecheck::typecheck(root.instr, state) {
+      Ok(next_state) => next_state
+      Err(_) =>
+        return RawOiFunctionStackValueTransferFacts::from_prefix_index(
+          index, env,
+        )
+    }
+    steps.push({
+      position: root.position,
+      typechecked: true,
+      reachable: next_state.reachable,
+      stack_depth_after: next_state.stack.length(),
+    })
+    state = next_state
+  }
+  { steps, complete: true }
+}
+
+///|
+fn RawOiStackCarriedEffectRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  transfers : RawOiFunctionStackValueTransferFacts,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackCarriedEffectRegionFact {
+  ignore(transfers.complete)
   if RawOiLocalLoadCallAddressRegionFact::from_index(index).has_blocking_use {
     return { has_blocking_effect: true }
   }
-  let mut state = @validate.make_state(env, [])
-  let mut barrier_index = 0
-  for instr in instrs {
-    let next_state = match @validate.Typecheck::typecheck(instr, state) {
-      Ok(next_state) => next_state
-      Err(_) =>
-        return RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
-          instrs, env, module_ctx,
-        )
+  for root in index.top_level_roots {
+    if root.position < 0 || root.position >= transfers.steps.length() {
+      continue
     }
-    match RawOiStackEffectBarrierFact::from_instr(instr, module_ctx) {
+    let transfer = transfers.steps[root.position]
+    if !transfer.typechecked || transfer.position != root.position {
+      continue
+    }
+    match RawOiStackEffectBarrierFact::from_instr(root.instr, module_ctx) {
       Some(barrier) =>
         match
           RawOiStackCarriedEffectUseFact::from_barrier_state(
-            barrier_index,
+            root.position,
             barrier,
-            next_state.reachable,
-            next_state.stack.length(),
+            transfer.reachable,
+            transfer.stack_depth_after,
           ) {
           Some(fact) =>
             if fact.is_stack_carried() {
@@ -26091,8 +26125,6 @@ fn RawOiStackCarriedEffectRegionFact::from_instrs(
         }
       None => ()
     }
-    state = next_state
-    barrier_index = barrier_index + 1
   }
   { has_blocking_effect: false }
 }
@@ -33630,9 +33662,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_hot_replay()
     None => false
   }
+  let stack_value_transfers = RawOiFunctionStackValueTransferFacts::from_index(
+    oi_index, env,
+  )
   let stack_carried_effect_skip = RawOiStackCarriedEffectSkipFact::from_parts(
-    RawOiStackCarriedEffectRegionFact::from_instrs(
-      oi_index, body, env, module_ctx,
+    RawOiStackCarriedEffectRegionFact::from_index(
+      oi_index, stack_value_transfers, module_ctx,
     ),
     simple_stack_call_binop,
     tiny_stack_bulk_memory,
