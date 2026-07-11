@@ -24,6 +24,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../minify-imports-and-exports/index.md
   - ../duplicate-import-elimination/index.md
 ---
@@ -128,6 +129,7 @@ For a future Starshine port, use [`starshine-port-readiness-and-validation.md`](
 - [`wat-shapes.md`](wat-shapes.md) - concrete before/after shapes and negatives.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - safe future implementation slices and oracle lanes for the plain pass.
+- [`fuzzing.md`](fuzzing.md) - planned-only compare-pass status: current unknown registry and harness rejection, import/map fixture requirements, and future admission gates.
 
 ## Sources
 

@@ -22,6 +22,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../minify-imports/index.md
   - ../duplicate-import-elimination/index.md
   - ../reorder-functions/index.md
@@ -147,6 +148,7 @@ For a future Starshine port, add tests in this order:
 - [`wat-shapes.md`](wat-shapes.md) - concrete before/after module shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - implementation-order and validation bridge for a future Starshine port.
+- [`fuzzing.md`](fuzzing.md) - planned-only compare-pass status: current unknown registry and harness rejection, declaration/map fixture requirements, and future admission gates.
 
 ## Sources
 
