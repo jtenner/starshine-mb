@@ -26443,6 +26443,7 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallSecondI64AddAndThirdI32AddAndSixthI64AddAndDirectI32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallSecondI64AddAndFourthI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission
   RawOiIdempotentCallSecondI64AddAndFourthI64AddAndSixthI64AddAndDirectI32I32I32ToI64OperandsAdmission
+  RawOiIdempotentCallSecondI64AddAndFifthI32AddAndSixthI64AddAndDirectI32I64I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
@@ -26701,7 +26702,8 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFifthI32AddAndDirectI32I64I64ToI64OperandsAdmission
     | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndSixthI64AddAndDirectI32I64I32ToI64OperandsAdmission
     | RawOiIdempotentCallSecondI64AddAndFourthI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission
-    | RawOiIdempotentCallSecondI64AddAndFourthI64AddAndSixthI64AddAndDirectI32I32I32ToI64OperandsAdmission =>
+    | RawOiIdempotentCallSecondI64AddAndFourthI64AddAndSixthI64AddAndDirectI32I32I32ToI64OperandsAdmission
+    | RawOiIdempotentCallSecondI64AddAndFifthI32AddAndSixthI64AddAndDirectI32I64I64ToI64OperandsAdmission =>
       self.leaf_facts.length() == 9
     RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
@@ -32615,6 +32617,50 @@ fn RawOiIdempotentCallSelfSelectFact::from_six_operand_i64_three_tree_instrs(
           right_fourth_rhs, right_fifth, right_sixth_lhs, right_sixth_rhs,
         ],
         [true, false, false, true, false, false, true, false, false],
+      )
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_first,
+      left_second_lhs,
+      left_second_rhs,
+      @lib.I64Add,
+      left_third,
+      left_fourth,
+      left_fifth_lhs,
+      left_fifth_rhs,
+      @lib.I32Add,
+      left_sixth_lhs,
+      left_sixth_rhs,
+      @lib.I64Add,
+      @lib.Call(left_idx),
+      right_first,
+      right_second_lhs,
+      right_second_rhs,
+      @lib.I64Add,
+      right_third,
+      right_fourth,
+      right_fifth_lhs,
+      right_fifth_rhs,
+      @lib.I32Add,
+      right_sixth_lhs,
+      right_sixth_rhs,
+      @lib.I64Add,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        RawOiIdempotentCallSecondI64AddAndFifthI32AddAndSixthI64AddAndDirectI32I64I64ToI64OperandsAdmission,
+        [
+          left_first, left_second_lhs, left_second_rhs, left_third, left_fourth,
+          left_fifth_lhs, left_fifth_rhs, left_sixth_lhs, left_sixth_rhs,
+        ],
+        [
+          right_first, right_second_lhs, right_second_rhs, right_third, right_fourth,
+          right_fifth_lhs, right_fifth_rhs, right_sixth_lhs, right_sixth_rhs,
+        ],
+        [true, false, false, true, false, true, true, false, false],
       )
     _ => return None
   }
@@ -69667,6 +69713,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_candidate(
       | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndSixthI64AddAndDirectI32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallSecondI64AddAndFourthI64AddAndFifthI32AddAndDirectI32I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallSecondI64AddAndFourthI64AddAndSixthI64AddAndDirectI32I32I32ToI64OperandsAdmission
+      | RawOiIdempotentCallSecondI64AddAndFifthI32AddAndSixthI64AddAndDirectI32I64I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
