@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -48,7 +49,7 @@ Binaryen `version_129` and current `main` use one small owner class for two publ
 - `requiresNonNullableLocalFixups()` is false;
 - `modifiesBinaryenIR()` is true through the base `Pass` default, not a local override in the checked owner file.
 
-That means the Starshine implementation should be taught as **module/output metadata work**, not a HOT instruction peephole. The 2026-05-05 current-main recheck preserved that upstream contract.
+That means the Starshine implementation should be taught as **module/output metadata work**, not a HOT instruction peephole. The 2026-07-11 current-main recheck preserved that upstream contract and confirms the pass is still explicit-only upstream.
 
 ## Exact local code surfaces
 
@@ -110,6 +111,8 @@ Open questions:
 - Should metadata stripping be available only as an explicit pass, or also as an output option?
 
 ## Binaryen oracle lanes
+
+There is **no runnable Starshine `compare-pass` lane today**: neither sibling is in the active registry or the harness allowlist. Use the commands below only after both admission points and a local transform exist. Until then, direct Binaryen before/after fixtures are source-oracle evidence, not Starshine parity evidence.
 
 For parity checks, compare Binaryen output with and without:
 

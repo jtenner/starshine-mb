@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -30,7 +31,7 @@ related:
 
 ## Current local status
 
-Starshine currently has **no `strip-target-features` implementation**. This page is therefore a status and future-port map, not a description of a shipped transform. The 2026-05-05 current-main recheck preserved that status.
+Starshine currently has **no `strip-target-features` implementation**. This page is therefore a status and future-port map, not a description of a shipped transform. The 2026-07-11 reread confirms that neither sibling has entered the local registry or compare-pass allowlist.
 
 The exact local status is:
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -23,7 +24,7 @@ related:
 
 # `strip-target-features` output and module shapes
 
-This pass is unusual for the pass wiki: the important before/after shape is module/output metadata, not a WAT instruction rewrite. The snippets below are schematic. They teach the shape of the transformation rather than exact byte encoding. The 2026-05-05 current-main recheck preserved these shapes.
+This pass is unusual for the pass wiki: the important before/after shape is module/output metadata, not a WAT instruction rewrite. The snippets below are schematic. They teach the shape of the transformation rather than exact byte encoding. The 2026-07-11 current-main recheck again preserved these shapes and confirmed that the pass remains explicit-only rather than a default optimization slot.
 
 ## 1. Target-features metadata is omitted from output
 

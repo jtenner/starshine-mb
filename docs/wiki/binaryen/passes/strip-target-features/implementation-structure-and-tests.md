@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
@@ -33,7 +34,7 @@ This is the whole owner for Binaryen `version_129` and current `main`. It is int
 - runs by assigning `module->hasFeaturesSection = !isStripped`;
 - exposes `createStripTargetFeaturesPass()` as the stripping constructor and `createEmitTargetFeaturesPass()` as the emitting constructor.
 
-There is no walker, no child localizer, no refinalization, no effect analysis, and no helper rewrite. The 2026-05-05 current-main recheck preserved that tiny owner shape.
+There is no walker, no child localizer, no refinalization, no effect analysis, and no helper rewrite. The 2026-07-11 current-main recheck again preserved that tiny owner shape and found neither public name in the inspected default scheduler.
 
 The 2026-04-26 source correction is important: older wiki text said this pass reported `modifiesBinaryenIR() == false` and toggled `runner->options.emitTargetFeatures`. That was wrong for the checked official tag and current head. The 2026-04-27 recheck keeps the correction but refines the wording: the pass reports mutation through the inherited base default, not through a local `modifiesBinaryenIR()` override.
 
@@ -91,4 +92,4 @@ When reviewing future drift, check these questions in order:
 5. Does `passes.h` still expose both constructors?
 6. If tests moved, do they still prove whole-section presence/omission without semantic program changes?
 
-If any answer changes, update this page, [`binaryen-strategy.md`](binaryen-strategy.md), and [`starshine-strategy.md`](starshine-strategy.md) together.
+If any answer changes, update this page, [`binaryen-strategy.md`](binaryen-strategy.md), and [`starshine-strategy.md`](starshine-strategy.md) together. Also recheck whether the pass has entered a default scheduler before describing it as explicit-only.

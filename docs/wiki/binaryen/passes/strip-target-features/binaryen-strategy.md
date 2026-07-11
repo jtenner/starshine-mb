@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -34,7 +35,7 @@ Binaryen's `strip-target-features` is a tiny module-metadata pass. The owner fil
 - `run(Module*)` does not inspect functions or expressions;
 - `run(...)` assigns the module metadata flag from the mode: stripping makes `module->hasFeaturesSection = false`, while emitting makes it true.
 
-This corrects the older 2026-04-25 dossier, which incorrectly described the pass as setting `runner->options.emitTargetFeatures = false` and leaving Binaryen IR unmodified. It also refines the 2026-04-26 correction: the checked owner file does not need its own explicit `modifiesBinaryenIR()` override because the base pass default already reports mutation. The 2026-05-05 current-main recheck preserved that contract.
+This corrects the older 2026-04-25 dossier, which incorrectly described the pass as setting `runner->options.emitTargetFeatures = false` and leaving Binaryen IR unmodified. It also refines the 2026-04-26 correction: the checked owner file does not need its own explicit `modifiesBinaryenIR()` override because the base pass default already reports mutation. The 2026-07-11 current-main recheck again found no behavior-bearing drift in the reviewed owner, public registration, or default-scheduler surface.
 
 ## Why the pass is module metadata, not instruction rewriting
 
@@ -82,4 +83,4 @@ Do not teach `strip-target-features` as any of these:
 
 ## Main caveat
 
-The corrected source-level contract is clear for `version_129` and current `main`. The 2026-07-10 recheck now also records the current linking-convention payload boundary, but it does **not** make Starshine a parser or validator for that payload. Treat the 2026-07-10 note as the current Core/linking/Binaryen freshness layer, keep the 2026-04-26 module-state correction, and treat the 2026-04-25 `emitTargetFeatures` wording plus the too-literal 2026-04-26 “owner file returns true” wording as superseded.
+The corrected source-level contract is clear for `version_129` and the 2026-07-11 current-main reread. The 2026-07-10 recheck also records the current linking-convention payload boundary, but it does **not** make Starshine a parser or validator for that payload. Treat the 2026-07-10 note as the current Core/linking/Binaryen freshness layer, keep the 2026-04-26 module-state correction, and treat the 2026-04-25 `emitTargetFeatures` wording plus the too-literal 2026-04-26 “owner file returns true” wording as superseded.
