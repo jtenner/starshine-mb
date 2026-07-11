@@ -81,6 +81,8 @@ The important caveat is that a Starshine fixture containing an existing `(@binar
 4. Add tests that prove existing `(@binaryen.js.called)` annotations survive, configureAll-referred functions receive exactly the expected annotation, unrelated annotations such as `binaryen.idempotent` and `metadata.code.inline` are preserved, non-referred functions remain unmarked, and imports/defs keep correct function indices.
 5. Compare against Binaryen `--mark-js-called` once the pass is accepted locally.
 
+Current [`fuzzing.md`](fuzzing.md) is deliberately **planned-only**: `mark-js-called` is absent from both the current compare-pass admission list and Starshine's active registry, so a rejected command cannot be parity evidence.
+
 ## Sources
 
 - Current-main recheck: [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)

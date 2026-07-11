@@ -79,6 +79,8 @@ With `--remove-exports=__*`, the `__helper` function and memory definitions rema
 4. Add tests for function/table/memory/global/tag export removal as applicable, nonmatching exports, comma/newline pattern lists, preservation of start and active segment effects, name-section and command-diagnostic consistency, and validation after roundtrip.
 5. Only after explicit-pass parity is understood, decide whether any preset should ever include the pass; default optimization should not silently drop a module's host API without a documented policy.
 
+Current [`fuzzing.md`](fuzzing.md) is deliberately **planned-only**: `remove-exports` is absent from both the current compare-pass admission list and Starshine's active registry, so a rejected command cannot be parity evidence.
+
 ## Sources
 
 - Current-main recheck: [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
