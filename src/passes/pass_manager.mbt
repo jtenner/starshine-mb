@@ -25548,6 +25548,7 @@ priv enum RawOiRootKind {
   ReturnCallRef
   TableGet
   CommutativeIntegerBinop
+  ScalarNumericTerminal
   StructConstructor
   StructRead
   ArrayConstructor
@@ -25699,6 +25700,29 @@ fn RawOiTopLevelRootFact::from_instr(
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
         instr,
       ) => RawOiRootKind::CommutativeIntegerBinop
+    @lib.I32Sub
+    | @lib.I64Sub
+    | @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I32LtS
+    | @lib.I32LeS
+    | @lib.I32GtS
+    | @lib.I32GeS
+    | @lib.I64LtS
+    | @lib.I64LeS
+    | @lib.I64GtS
+    | @lib.I64GeS
+    | @lib.I32DivS
+    | @lib.I32RemS
+    | @lib.I32ShrS
+    | @lib.I64DivS
+    | @lib.I64RemS
+    | @lib.I64ShrS
+    | @lib.F32Sub
+    | @lib.F64Sub
+    | @lib.I32WrapI64 => RawOiRootKind::ScalarNumericTerminal
     _ => RawOiRootKind::Other
   }
   {
@@ -25878,6 +25902,8 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
 ) -> Bool {
   match (actual, expected) {
     (DirectCall, DirectCall)
+    | (CommutativeIntegerBinop, ScalarNumericTerminal)
+    | (ScalarNumericTerminal, ScalarNumericTerminal)
     | (CallRef, CallRef)
     | (ReturnCallRef, ReturnCallRef)
     | (TableGet, TableGet)
@@ -29693,19 +29719,20 @@ fn RawOiScalarNumericRewriteFact::append_rewrite(
 
 ///|
 fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 4 >= instrs.length() {
+  if start + 4 >= region.roots.length() ||
+    !region.has_root_at(start + 4, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
   match
     (
-      instrs[start],
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
     ) {
     (
       @lib.F64Const(@lib.F64(div_lhs_raw)),
@@ -29748,18 +29775,19 @@ fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
 
 ///|
 fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
   match
     RawOiI64ExtendLocalCommuteFact::from_parts(
-      instrs[start],
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
     ) {
     Some(commute) =>
       Some({
@@ -29780,14 +29808,17 @@ fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
 }
 
 ///|
-fn RawOiScalarNumericRewriteFact::from_three_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiScalarNumericRewriteFact::from_three_roots(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start + 2, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  let instrs = region.roots
+  match
+    (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (value, @lib.I32Const(@lib.I32(0)), @lib.I32Add)
     | (value, @lib.I32Const(@lib.I32(0)), @lib.I32Sub)
     | (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add)
@@ -29809,7 +29840,8 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
       })
     _ => ()
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (@lib.I32Const(@lib.I32(lhs_raw)), @lib.I32Const(@lib.I32(rhs_raw)), instr) => {
       match RawOiOrderedConstEqNeFact::from_i32(lhs_raw, rhs_raw, instr) {
         Some(eq_ne) =>
@@ -29894,7 +29926,8 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
     }
     _ => ()
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !RawOiScalarConstAtomFact::from_instr(
         lhs,
       ).is_i32_const =>
@@ -30081,14 +30114,15 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
 }
 
 ///|
-fn RawOiScalarNumericRewriteFact::from_two_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiScalarNumericRewriteFact::from_two_roots(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
-  match (instrs[start], instrs[start + 1]) {
+  match (region.roots[start].instr, region.roots[start + 1].instr) {
     (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) => {
       let wrap = RawOiWrapI64ConstFact::from_raw(raw)
       if !wrap.proves_binaryen_wrap_const() {
@@ -30113,24 +30147,24 @@ fn RawOiScalarNumericRewriteFact::from_two_instrs(
 }
 
 ///|
-fn RawOiScalarNumericRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiScalarNumericRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  match RawOiScalarNumericRewriteFact::from_f64_div2_sub(instrs, start) {
+  match RawOiScalarNumericRewriteFact::from_f64_div2_sub(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
-    RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(instrs, start) {
+    RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiScalarNumericRewriteFact::from_three_instrs(instrs, start) {
+  match RawOiScalarNumericRewriteFact::from_three_roots(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiScalarNumericRewriteFact::from_two_instrs(instrs, start)
+  RawOiScalarNumericRewriteFact::from_two_roots(region, start)
 }
 
 ///|
@@ -32943,7 +32977,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiScalarNumericRewriteFact::from_instrs(instrs, i) {
+    match RawOiScalarNumericRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true

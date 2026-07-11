@@ -323,6 +323,29 @@ test "optimize-instructions drop-store masks consume indexed region roots" {
 }
 
 ///|
+test "optimize-instructions scalar numeric rewrites consume indexed terminal roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_mul(),
+  ])
+  match RawOiScalarNumericRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_numeric_rewrite())
+      @debug.assert_eq(fact.end, 3)
+      assert_true(region.has_root_at(2, RawOiRootKind::ScalarNumericTerminal))
+    }
+    None => fail("expected indexed scalar numeric rewrite")
+  }
+  let boundary = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(3)),
+    @lib.Instruction::i32_mul(),
+  ])
+  assert_true(RawOiScalarNumericRewriteFact::from_region(boundary, 0).is_none())
+}
+
+///|
 test "optimize-instructions memory offset folds consume indexed region roots" {
   let region = RawOiInstructionRegionFact::from_instrs([
     @lib.Instruction::i32_const(@lib.I32(8)),
