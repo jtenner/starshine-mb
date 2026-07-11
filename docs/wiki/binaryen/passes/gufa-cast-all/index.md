@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
@@ -64,6 +65,7 @@ So the pass is best read as:
 - If cast insertion changes the function, Binaryen refinalizes again before the outer EH nested-pop repair path finishes.
 - `gufa-cast-all` does **not** run the nested `dce` + `vacuum` cleanup owned by [`../gufa-optimizing/index.md`](../gufa-optimizing/index.md).
 - Starshine currently rejects the name: command parsing admits only active hot/module/preset pass names, and lower-level expansion rejects boundary-only names as not implemented.
+- [`./fuzzing.md`](./fuzzing.md) is planned-only: the boundary-only name is absent from the compare-pass allowlist, so a former 10,000-case command would stop at harness admission rather than provide parity evidence.
 
 ## Page map
 

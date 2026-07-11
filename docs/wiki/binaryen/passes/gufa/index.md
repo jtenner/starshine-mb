@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -67,6 +68,7 @@ So the pass is best read as:
 - `gufa-optimizing` is the same analysis plus nested `dce` and `vacuum` reruns on changed functions.
 - `gufa-cast-all` is the same analysis plus explicit cast insertion where the oracle knows a narrower type.
 - Current Starshine has reusable low-level ref/global/HOT/validation surfaces, but no `ContentOracle`-equivalent whole-program analysis and no `src/passes/gufa*.mbt` owner.
+- [`./fuzzing.md`](./fuzzing.md) is planned-only: `gufa` is boundary-only and absent from the compare-pass allowlist, so its former copyable 10,000-case command would fail before comparison rather than provide parity evidence.
 
 ## Page map
 
