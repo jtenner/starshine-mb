@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
   - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
@@ -39,13 +40,13 @@ Binaryen implements `code-folding` as a function-parallel pass in `src/passes/Co
 
 | Surface | Role | Why it matters |
 | --- | --- | --- |
-| Binaryen `src/passes/CodeFolding.cpp` | Main implementation | Owns candidate collection, expression-exit folding, function-ending tail folding, profitability, helper-block creation, and per-function fixpoint iteration. |
+| Binaryen `src/passes/CodeFolding.cpp` | Main implementation | Owns candidate collection, expression-exit folding, function-ending tail folding, profitability, helper-block creation, per-function fixpoint iteration, and the terminating-tail exiting-target/body-target cost controls. |
 | Binaryen `src/passes/pass.cpp` | Pass registration and scheduler placement | Creates the public `code-folding` pass and places it in the late function-cleanup sequence used by optimization presets. |
 | Binaryen `src/passes/passes.h` | Pass-constructor declaration | Keeps `code-folding` as a public pass constructor rather than a private helper. |
 | Binaryen `src/passes/opt-utils.h` | Neighboring optimize helper context | Shows how late cleanup helpers compose around inlining and repeated optimization clusters. |
 | Binaryen `test/lit/passes/code-folding.wast` | Dedicated behavior proof | Exercises the positive, negative, and movement-safety shapes that should seed any Starshine port tests. |
 
-Primary current-main URLs are captured in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md). The tagged `version_129` source anchor remains [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md). The implementation-readiness recheck and Starshine test ladder now live in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Primary current-main URLs are captured in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md). The later [`2026-07-11 performance recheck`](../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md) documents the `version_130`/current owner’s per-iteration exiting-target cache and lazy shared body-target set; it does not revise the transform's semantic contract. The tagged `version_129` source anchor remains [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md). The implementation-readiness recheck and Starshine test ladder now live in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Binaryen implementation structure
 
@@ -88,7 +89,7 @@ It searches for profitable common suffixes among tails that already end a functi
 - `return_call*`
 - `unreachable`
 
-When it commits, Binaryen builds helper label structure near the end of the function body and rewrites the selected old tails to branch to the shared suffix. See [`./terminating-tails.md`](./terminating-tails.md) for the detailed mental model.
+When it commits, Binaryen builds helper label structure near the end of the function body and rewrites the selected old tails to branch to the shared suffix. Its recursive candidate search caches exiting-target summaries only for the current walk iteration and shares a lazy body-target set only within one recursive search, so those performance aids cannot survive mutation. See [`./terminating-tails.md`](./terminating-tails.md) for the detailed mental model.
 
 ### 5. EH repair and fixpoint iteration
 

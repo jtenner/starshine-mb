@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
@@ -21,7 +22,7 @@ related:
 
 # Binaryen `code-folding` terminating tails
 
-The 2026-05-05 current-main bridge rechecked the same owner and dedicated lit-test surfaces and did not find teaching-relevant drift in this subsystem. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file and test-family map.
+The 2026-05-05 current-main bridge rechecked the owner and dedicated lit-test surfaces and found no semantic teaching drift. The later [`2026-07-11 primary-source recheck`](../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md) adds the release/current search-cost structure that the earlier prose omitted. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file and test-family map.
 
 This page focuses on the part of `code-folding` that is easiest to misunderstand:
 
@@ -102,6 +103,15 @@ Important beginner takeaway:
 - the pass searches from the tail inward
 - it is trying to find a profitable shared suffix, not a profitable whole-region duplicate
 
+### Cost controls do not weaken legality
+
+This subset search can revisit many overlapping tails. Current `version_130` and `main` keep it bounded in two scoped ways:
+
+- **candidate-root cache:** each queried next item gets one exiting-target summary per fixpoint iteration; nested cached roots are reused rather than walked again;
+- **lazy body-target set:** once a recursive call needs movement/profitability checking, it computes the function body's branch targets once and passes that set to deeper calls.
+
+Both summaries are discarded before the next walk iteration after a rewrite. They only avoid repeated analysis. `ExpressionAnalyzer::equal(...)`, branch-target scope, EH constraints, and profitability remain independent requirements.
+
 ## Why external break targets are a hard bailout
 
 For the next candidate item at depth `num`, Binaryen creates an `EffectAnalyzer` and checks:
@@ -122,7 +132,7 @@ The `break-target-outside-of-return-merged-code` and `careful-of-the-switch` tes
 
 At each depth, Binaryen hashes the candidate item with `ExpressionAnalyzer::hash(...)` and then confirms actual equality with `ExpressionAnalyzer::equal(...)`.
 
-The implementation is careful to iterate hash groups in deterministic order.
+The implementation is careful to iterate hash groups in deterministic original-tail order: it uses hashing to bucket candidates but visits each digest through the original tail sequence, then confirms equality.
 
 That matters because the pass is heuristic and subset-based:
 
