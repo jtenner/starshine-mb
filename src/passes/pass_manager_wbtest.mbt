@@ -145,6 +145,27 @@ test "optimize-instructions raw function index routes const-offset load-call byp
 }
 
 ///|
+test "optimize-instructions raw function index routes stack bulk-memory regions" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
+  ])
+  match
+    RawOiStackBulkMemoryRegionFact::from_index(
+      index,
+      @ir.hot_module_context_from_module(@lib.Module::new()),
+    ) {
+    Some(fact) => {
+      @debug.assert_eq(fact.operation_count, 1)
+      assert_true(fact.proves_trap_relaxed_zero_size_drop_region())
+    }
+    None => fail("expected indexed stack bulk-memory region")
+  }
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([

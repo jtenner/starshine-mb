@@ -25226,16 +25226,16 @@ priv struct RawOiBulkStackOperandFact {
 }
 
 ///|
-fn RawOiBulkStackOperandFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBulkStackOperandFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiBulkStackOperandFact? {
-  if start >= instrs.length() {
+  if start >= region.roots.length() {
     return None
   }
   if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-      instrs[start],
+      region.roots[start].instr,
       module_ctx,
     ) ==
     0 {
@@ -25246,16 +25246,18 @@ fn RawOiBulkStackOperandFact::from_instrs(
       stack_argument_count: 0,
     })
   }
-  match RawOiBulkStackOperandAtomFact::from_instr(instrs[start]) {
+  match RawOiBulkStackOperandAtomFact::from_instr(region.roots[start].instr) {
     Some(_) => ()
     None => return None
   }
   let mut call_pos = start + 1
-  while call_pos < instrs.length() &&
-        RawOiBulkStackOperandAtomFact::from_instr(instrs[call_pos - 1])
+  while call_pos < region.roots.length() &&
+        RawOiBulkStackOperandAtomFact::from_instr(
+          region.roots[call_pos - 1].instr,
+        )
         is Some(_) {
     if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-        instrs[call_pos],
+        region.roots[call_pos].instr,
         module_ctx,
       ) ==
       call_pos - start {
@@ -25326,26 +25328,29 @@ priv struct RawOiStackBulkMemoryFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiStackBulkMemoryFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryFact? {
   let dest = match
-    RawOiBulkStackOperandFact::from_instrs(instrs, start, module_ctx) {
+    RawOiBulkStackOperandFact::from_region(region, start, module_ctx) {
     Some(fact) => fact
     None => return None
   }
   let source_or_value = match
-    RawOiBulkStackOperandFact::from_instrs(instrs, dest.end, module_ctx) {
+    RawOiBulkStackOperandFact::from_region(region, dest.end, module_ctx) {
     Some(fact) => fact
     None => return None
   }
-  if source_or_value.end + 1 >= instrs.length() {
+  if source_or_value.end + 1 >= region.roots.length() {
     return None
   }
-  let size = RawOiBulkSizeFact::from_instr(instrs[source_or_value.end])
-  let (is_memory_copy, is_memory_fill) = match instrs[source_or_value.end + 1] {
+  let size = RawOiBulkSizeFact::from_instr(
+    region.roots[source_or_value.end].instr,
+  )
+  let (is_memory_copy, is_memory_fill) = match
+    region.roots[source_or_value.end + 1].instr {
     @lib.MemoryCopy(_, _) => (true, false)
     @lib.MemoryFill(_) => (false, true)
     _ => return None
@@ -25396,11 +25401,12 @@ priv struct RawOiStackBulkMemoryRegionFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiStackBulkMemoryRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryRegionFact? {
-  if instrs.length() == 0 {
+  let region = index.regions[0]
+  if region.roots.length() == 0 {
     return None
   }
   let mut i = 0
@@ -25408,9 +25414,9 @@ fn RawOiStackBulkMemoryRegionFact::from_instrs(
   let mut all_tiny_rewrites = true
   let mut all_trap_relaxed_zero_size_drops = true
   let mut saw_stack_carried_call_operand = false
-  while i < instrs.length() {
+  while i < region.roots.length() {
     let fact = match
-      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
+      RawOiStackBulkMemoryFact::from_region(region, i, module_ctx) {
       Some(fact) => fact
       None => return None
     }
@@ -33558,8 +33564,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
     None => false
   }
-  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_instrs(
-    body, module_ctx,
+  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_index(
+    oi_index, module_ctx,
   )
   let tiny_stack_bulk_memory = match stack_bulk_region {
     Some(fact) => fact.proves_binaryen_tiny_rewrite_region()
