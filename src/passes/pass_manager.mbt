@@ -24654,15 +24654,24 @@ priv struct RawOiLocalLoadCallAddressUseFact {
 }
 
 ///|
-fn RawOiLocalLoadCallAddressUseFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiLocalLoadCallAddressUseFact::from_region_at(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiLocalLoadCallAddressUseFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::LocalGet) ||
+    !region.has_root_at(start + 1, RawOiRootKind::PlainLoad) ||
+    !region.has_root_at(start + 2, RawOiRootKind::LocalGet) ||
+    !region.has_call_like_root_at(start + 3) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (@lib.LocalGet(base0), load, @lib.LocalGet(base1), call) =>
       if base0 == base1 &&
         run_hot_pipeline_optimize_instructions_instr_is_plain_load(load) &&
@@ -24689,41 +24698,18 @@ fn RawOiLocalLoadCallAddressUseFact::has_stack_carried_address(
 }
 
 ///|
-fn RawOiLocalLoadCallAddressRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiLocalLoadCallAddressRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
 ) -> RawOiLocalLoadCallAddressRegionFact {
-  for i = 0; i + 3 < instrs.length(); i = i + 1 {
-    match RawOiLocalLoadCallAddressUseFact::from_instrs(instrs, i) {
-      Some(fact) =>
-        if fact.has_stack_carried_address() {
-          return { has_blocking_use: true }
-        }
-      None => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if RawOiLocalLoadCallAddressRegionFact::from_instrs(body).has_blocking_use {
-          return { has_blocking_use: true }
-        }
-      @lib.If(_, then_body, else_body) => {
-        if RawOiLocalLoadCallAddressRegionFact::from_instrs(then_body).has_blocking_use {
-          return { has_blocking_use: true }
-        }
-        match else_body {
-          Some(else_body) =>
-            if RawOiLocalLoadCallAddressRegionFact::from_instrs(else_body).has_blocking_use {
-              return { has_blocking_use: true }
-            }
-          None => ()
-        }
+  for region in index.regions {
+    for i = 0; i + 3 < region.roots.length(); i = i + 1 {
+      match RawOiLocalLoadCallAddressUseFact::from_region_at(region, i) {
+        Some(fact) =>
+          if fact.has_stack_carried_address() {
+            return { has_blocking_use: true }
+          }
+        None => ()
       }
-      @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if RawOiLocalLoadCallAddressRegionFact::from_instrs(body).has_blocking_use {
-          return { has_blocking_use: true }
-        }
-      _ => ()
     }
   }
   { has_blocking_use: false }
@@ -25566,6 +25552,9 @@ priv enum RawOiRootKind {
   ArrayWrite
   ArrayLen
   I32Const
+  LocalGet
+  PlainLoad
+  CallLike
   Other
 }
 
@@ -25584,6 +25573,7 @@ fn RawOiTopLevelRootFact::from_instr(
 ) -> RawOiTopLevelRootFact {
   let kind = match instr {
     @lib.Call(_) => RawOiRootKind::DirectCall
+    @lib.CallIndirect(_, _) => RawOiRootKind::CallLike
     @lib.CallRef(_) => RawOiRootKind::CallRef
     @lib.ReturnCallRef(_) => RawOiRootKind::ReturnCallRef
     @lib.TableGet(_) => RawOiRootKind::TableGet
@@ -25595,6 +25585,9 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.ArraySet(_) => RawOiRootKind::ArrayWrite
     @lib.ArrayLen => RawOiRootKind::ArrayLen
     @lib.I32Const(_) => RawOiRootKind::I32Const
+    @lib.LocalGet(_) => RawOiRootKind::LocalGet
+    instr if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) =>
+      RawOiRootKind::PlainLoad
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
         instr,
       ) => RawOiRootKind::CommutativeIntegerBinop
@@ -25608,6 +25601,46 @@ fn RawOiTopLevelRootFact::from_instr(
       instr,
     ),
   }
+}
+
+///|
+priv struct RawOiInstructionRegionFact {
+  roots : Array[RawOiTopLevelRootFact]
+}
+
+///|
+fn RawOiInstructionRegionFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+) -> RawOiInstructionRegionFact {
+  let roots = instrs.mapi(fn(position, instr) {
+    RawOiTopLevelRootFact::from_instr(position, instr)
+  })
+  { roots, }
+}
+
+///|
+fn RawOiInstructionRegionFact::has_root_at(
+  self : RawOiInstructionRegionFact,
+  position : Int,
+  kind : RawOiRootKind,
+) -> Bool {
+  position >= 0 &&
+  position < self.roots.length() &&
+  self.roots[position].position == position &&
+  RawOiFunctionRevisionFactIndex::root_kind_matches(
+    self.roots[position].kind,
+    kind,
+  )
+}
+
+///|
+fn RawOiInstructionRegionFact::has_call_like_root_at(
+  self : RawOiInstructionRegionFact,
+  position : Int,
+) -> Bool {
+  self.has_root_at(position, RawOiRootKind::DirectCall) ||
+  self.has_root_at(position, RawOiRootKind::CallLike) ||
+  self.has_root_at(position, RawOiRootKind::CallRef)
 }
 
 ///|
@@ -25627,6 +25660,7 @@ priv struct RawOiFunctionRevisionFactIndex {
   lowered_stats : OptimizeInstructionsLoweredStats
   top_level_roots : Array[RawOiTopLevelRootFact]
   top_level_pure_stack_prefix_count : Int
+  regions : Array[RawOiInstructionRegionFact]
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
 }
@@ -25637,6 +25671,7 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   lowered_stats : OptimizeInstructionsLoweredStats,
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
+  regions : Array[RawOiInstructionRegionFact],
 ) -> Int {
   let mut count = 1
   run_hot_pipeline_optimize_instructions_record_stats_instr(
@@ -25651,16 +25686,16 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        body, lowered_stats, call_sites, select_anchors,
+        body, lowered_stats, call_sites, select_anchors, regions,
       )
     @lib.If(_, then_body, else_body) => {
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        then_body, lowered_stats, call_sites, select_anchors,
+        then_body, lowered_stats, call_sites, select_anchors, regions,
       )
       match else_body {
         Some(body) =>
           count += RawOiFunctionRevisionFactIndex::collect_body(
-            body, lowered_stats, call_sites, select_anchors,
+            body, lowered_stats, call_sites, select_anchors, regions,
           )
         None => ()
       }
@@ -25676,11 +25711,13 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
   lowered_stats : OptimizeInstructionsLoweredStats,
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
+  regions : Array[RawOiInstructionRegionFact],
 ) -> Int {
+  regions.push(RawOiInstructionRegionFact::from_instrs(instrs))
   let mut count = 0
   for instr in instrs {
     count += RawOiFunctionRevisionFactIndex::collect_instr(
-      instr, lowered_stats, call_sites, select_anchors,
+      instr, lowered_stats, call_sites, select_anchors, regions,
     )
   }
   count
@@ -25691,28 +25728,27 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
   instrs : Array[@lib.Instruction],
 ) -> RawOiFunctionRevisionFactIndex {
   let lowered_stats = OptimizeInstructionsLoweredStats::new()
-  let top_level_roots : Array[RawOiTopLevelRootFact] = []
-  let mut top_level_pure_stack_prefix_count = 0
-  let mut prefix_is_pure = true
-  for i = 0; i < instrs.length(); i = i + 1 {
-    let root = RawOiTopLevelRootFact::from_instr(i, instrs[i])
-    top_level_roots.push(root)
-    if prefix_is_pure && root.is_pure_stack_operand {
-      top_level_pure_stack_prefix_count += 1
-    } else {
-      prefix_is_pure = false
-    }
-  }
   let call_sites : Array[RawOiCallSiteFact] = []
   let select_anchors : Array[RawOiSelectAnchorFact] = []
+  let regions : Array[RawOiInstructionRegionFact] = []
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
-    instrs, lowered_stats, call_sites, select_anchors,
+    instrs, lowered_stats, call_sites, select_anchors, regions,
   )
+  let top_level_roots = regions[0].roots
+  let mut top_level_pure_stack_prefix_count = 0
+  for root in top_level_roots {
+    if root.is_pure_stack_operand {
+      top_level_pure_stack_prefix_count += 1
+    } else {
+      break
+    }
+  }
   {
     instruction_count,
     lowered_stats,
     top_level_roots,
     top_level_pure_stack_prefix_count,
+    regions,
     call_sites,
     select_anchors,
   }
@@ -25736,6 +25772,9 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ArrayWrite, ArrayWrite)
     | (ArrayLen, ArrayLen)
     | (I32Const, I32Const)
+    | (LocalGet, LocalGet)
+    | (PlainLoad, PlainLoad)
+    | (CallLike, CallLike)
     | (Other, Other) => true
     _ => false
   }
@@ -25996,11 +26035,12 @@ fn RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
 
 ///|
 fn RawOiStackCarriedEffectRegionFact::from_instrs(
+  index : RawOiFunctionRevisionFactIndex,
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackCarriedEffectRegionFact {
-  if RawOiLocalLoadCallAddressRegionFact::from_instrs(instrs).has_blocking_use {
+  if RawOiLocalLoadCallAddressRegionFact::from_index(index).has_blocking_use {
     return { has_blocking_effect: true }
   }
   let mut state = @validate.make_state(env, [])
@@ -33602,7 +33642,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     None => false
   }
   let stack_carried_effect_skip = RawOiStackCarriedEffectSkipFact::from_parts(
-    RawOiStackCarriedEffectRegionFact::from_instrs(body, env, module_ctx),
+    RawOiStackCarriedEffectRegionFact::from_instrs(
+      oi_index, body, env, module_ctx,
+    ),
     simple_stack_call_binop,
     tiny_stack_bulk_memory,
     localtee_same_address_memory_copy,

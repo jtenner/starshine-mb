@@ -54,6 +54,25 @@ test "optimize-instructions raw function index records reusable top-level roots"
 }
 
 ///|
+test "optimize-instructions raw function index records nested local-load-call candidates" {
+  let base = @lib.LocalIdx::new(2U)
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(base),
+        @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::local_get(base),
+        @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+      ]),
+    ),
+  ])
+  @debug.assert_eq(index.regions.length(), 2)
+  let fact = RawOiLocalLoadCallAddressRegionFact::from_index(index)
+  assert_true(fact.has_blocking_use)
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([
