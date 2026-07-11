@@ -25,6 +25,10 @@ priv struct OptimizeInstructionsLocalFacts {
   sign_ext_state_by_local : Array[OiSignExtLocalStateFact]
   i32_unsigned_max_state_by_local : Array[OiI32UnsignedMaxLocalStateFact]
   i64_unsigned_max_state_by_local : Array[OiI64UnsignedMaxLocalStateFact]
+  i32_max_by_node : Array[Int?]
+  i64_max_by_node : Array[Int64?]
+  i32_max_ready : @bitset.BitSet
+  i64_max_ready : @bitset.BitSet
   mut sign_ext_ready : Bool
   mut unsigned_max_ready : Bool
 }
@@ -171,6 +175,7 @@ priv struct OiLocalAssignmentFact {
 ///|
 fn OptimizeInstructionsLocalFacts::new(
   local_count : Int,
+  node_count : Int,
 ) -> OptimizeInstructionsLocalFacts {
   {
     sign_ext_state_by_local: Array::make(
@@ -185,6 +190,10 @@ fn OptimizeInstructionsLocalFacts::new(
       local_count,
       OiI64UnsignedMaxLocalStateFact::unknown(),
     ),
+    i32_max_by_node: Array::make(node_count, None),
+    i64_max_by_node: Array::make(node_count, None),
+    i32_max_ready: @bitset.BitSet::new(node_count),
+    i64_max_ready: @bitset.BitSet::new(node_count),
     sign_ext_ready: false,
     unsigned_max_ready: false,
   }
@@ -8513,7 +8522,7 @@ fn OptimizeInstructionsScratch::new(
     cross_seen_stamps: Array::make(node_count, -1),
     loop_input_nodes: @bitset.BitSet::new(node_count),
     if_condition_nodes: @bitset.BitSet::new(node_count),
-    local_facts: OptimizeInstructionsLocalFacts::new(local_count),
+    local_facts: OptimizeInstructionsLocalFacts::new(local_count, node_count),
     loop_input_nodes_ready: false,
     if_condition_nodes_ready: false,
     next_cross_seen_stamp: 0,
@@ -11229,12 +11238,36 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> Int? {
-  match OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
-    Some(fact) => {
-      ignore(fact.value_id)
-      fact.max_value
+  match local_facts {
+    Some(facts) if node_id >= 0 && node_id < facts.i32_max_by_node.length() => {
+      if facts.i32_max_ready[node_id] {
+        return facts.i32_max_by_node[node_id]
+      }
+      // Mark before recursive fallthrough queries so malformed or cyclic HOT
+      // graphs fail closed instead of recursing. OI rewrites preserve values,
+      // so this revision-local upper bound remains sound after child rewrites;
+      // an unknown pre-rewrite result intentionally stays unknown.
+      facts.i32_max_ready[node_id] = true
+      let max_value = match
+        OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        Some(fact) => {
+          ignore(fact.value_id)
+          fact.max_value
+        }
+        None => None
+      }
+      facts.i32_max_by_node[node_id] = max_value
+      max_value
     }
-    None => None
+    _ =>
+      match
+        OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        Some(fact) => {
+          ignore(fact.value_id)
+          fact.max_value
+        }
+        None => None
+      }
   }
 }
 
@@ -11245,12 +11278,32 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> Int64? {
-  match OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
-    Some(fact) => {
-      ignore(fact.value_id)
-      fact.max_value
+  match local_facts {
+    Some(facts) if node_id >= 0 && node_id < facts.i64_max_by_node.length() => {
+      if facts.i64_max_ready[node_id] {
+        return facts.i64_max_by_node[node_id]
+      }
+      facts.i64_max_ready[node_id] = true
+      let max_value = match
+        OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        Some(fact) => {
+          ignore(fact.value_id)
+          fact.max_value
+        }
+        None => None
+      }
+      facts.i64_max_by_node[node_id] = max_value
+      max_value
     }
-    None => None
+    _ =>
+      match
+        OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        Some(fact) => {
+          ignore(fact.value_id)
+          fact.max_value
+        }
+        None => None
+      }
   }
 }
 
