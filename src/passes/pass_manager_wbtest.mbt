@@ -257,6 +257,42 @@ test "optimize-instructions bulk lowering consumes indexed region roots" {
 }
 
 ///|
+test "optimize-instructions select rewrites consume indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::select(),
+  ])
+  match RawOiSelectRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_select_rewrite())
+      @debug.assert_eq(fact.end, 4)
+      assert_true(region.has_root_at(3, RawOiRootKind::Select))
+    }
+    None => fail("expected indexed select rewrite")
+  }
+}
+
+///|
+test "optimize-instructions memory-size boolean rewrites consume indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_ne(),
+    @lib.Instruction::if_(@lib.BlockType::void_(), [], None),
+  ])
+  match RawOiMemorySizeNonzeroIfFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_boolean_context_rewrite())
+      @debug.assert_eq(fact.end, 4)
+      assert_true(region.has_root_at(0, RawOiRootKind::MemorySize))
+    }
+    None => fail("expected indexed memory-size boolean rewrite")
+  }
+}
+
+///|
 test "optimize-instructions drop-store masks consume indexed region roots" {
   let memarg = @lib.MemArg::new(0U, None, 0UL)
   let region = RawOiInstructionRegionFact::from_instrs([

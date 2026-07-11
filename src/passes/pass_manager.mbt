@@ -29321,19 +29321,20 @@ fn RawOiSelectRewriteFact::append_rewrite(
 
 ///|
 fn RawOiSelectRewriteFact::from_const_eqz_condition(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  if start + 4 >= instrs.length() {
+  if start + 4 >= region.roots.length() ||
+    !region.has_root_at(start + 4, RawOiRootKind::Select) {
     return None
   }
   match
     (
-      instrs[start],
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
     ) {
     (
       true_value,
@@ -29361,14 +29362,20 @@ fn RawOiSelectRewriteFact::from_const_eqz_condition(
 
 ///|
 fn RawOiSelectRewriteFact::from_const_condition(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::Select) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (true_value, false_value, @lib.I32Const(@lib.I32(cond)), @lib.Select(_)) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
         true_value,
       ) &&
@@ -29389,14 +29396,20 @@ fn RawOiSelectRewriteFact::from_const_condition(
 
 ///|
 fn RawOiSelectRewriteFact::from_identical_pure_arms(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::Select) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (true_value, false_value, condition, @lib.Select(_)) if true_value ==
       false_value &&
       run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
@@ -29415,19 +29428,19 @@ fn RawOiSelectRewriteFact::from_identical_pure_arms(
 }
 
 ///|
-fn RawOiSelectRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiSelectRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  match RawOiSelectRewriteFact::from_const_eqz_condition(instrs, start) {
+  match RawOiSelectRewriteFact::from_const_eqz_condition(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiSelectRewriteFact::from_const_condition(instrs, start) {
+  match RawOiSelectRewriteFact::from_const_condition(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiSelectRewriteFact::from_identical_pure_arms(instrs, start)
+  RawOiSelectRewriteFact::from_identical_pure_arms(region, start)
 }
 
 ///|
@@ -29613,20 +29626,26 @@ fn RawOiMemorySizeNonzeroIfFact::append_rewrite(
 }
 
 ///|
-fn RawOiMemorySizeNonzeroIfFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemorySizeNonzeroIfFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemorySizeNonzeroIfFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::MemorySize) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
       0 =>
       Some({
         end: start + 4,
-        memory_size: instrs[start],
+        memory_size: region.roots[start].instr,
         zero_condition: true,
         compare_is_ne: true,
         if_instr,
@@ -32912,7 +32931,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiSelectRewriteFact::from_instrs(instrs, i) {
+    match RawOiSelectRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -32921,7 +32940,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiMemorySizeNonzeroIfFact::from_instrs(instrs, i) {
+    match RawOiMemorySizeNonzeroIfFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten, module_ctx)
         changed = true
