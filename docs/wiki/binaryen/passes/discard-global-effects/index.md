@@ -24,6 +24,7 @@ related:
   - ./metadata-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../global-effects/index.md
 ---
 
@@ -98,6 +99,7 @@ For Starshine work:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) maps the owner files, pass-runner invalidation hook, indirect consumer tests, and no-standalone-WAT-diff caveat.
 - [`./starshine-strategy.md`](./starshine-strategy.md) maps the current local non-implementation, exact code locations, and future port decision.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) adds the missing future cleanup bridge: cache-vs-metadata split, local code map, and validation ladder for the still-unregistered sibling.
+- [`./fuzzing.md`](./fuzzing.md) records why a current `compare-pass` lane is planned-only and why future cleanup signoff requires metadata-observer and producer/cleanup/consumer composition tests rather than unchanged WAT alone.
 
 ## Sources
 
@@ -107,4 +109,5 @@ For Starshine work:
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
+- [`./fuzzing.md`](./fuzzing.md)
 - [`../global-effects/index.md`](../global-effects/index.md)

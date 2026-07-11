@@ -21,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../global-effects/index.md
   - ../global-effects/starshine-port-readiness-and-validation.md
 ---
@@ -87,7 +88,8 @@ A useful future test suite should include:
 - modules with no summaries are unchanged,
 - effect-sensitive consumers no longer use cleared facts,
 - effect-adding passes cannot leave stale summaries behind,
-- printed WAT equality is not treated as proof of correctness.
+- printed WAT equality is not treated as proof of correctness; the cleanup's primary oracle is metadata presence/absence, not text output.
+- a future compare-pass lane stays secondary to metadata-observer and producer/cleanup/consumer composition evidence; see [`./fuzzing.md`](./fuzzing.md).
 
 ## Cross-links for the pass dossier
 
@@ -98,6 +100,7 @@ Read this page with:
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) for the upstream cleanup algorithm and lifecycle contract
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file / pass-runner / consumer test map
 - [`./starshine-strategy.md`](./starshine-strategy.md) for the current local non-implementation and code-map details
+- [`./fuzzing.md`](./fuzzing.md) for current harness admission and the metadata-first future signoff boundary
 - [`../global-effects/index.md`](../global-effects/index.md) for the producer-side `generate-global-effects` dossier
 - [`../global-effects/starshine-port-readiness-and-validation.md`](../global-effects/starshine-port-readiness-and-validation.md) for the producer-side local implementation ladder
 
