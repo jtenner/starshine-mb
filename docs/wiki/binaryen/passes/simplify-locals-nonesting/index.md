@@ -1,14 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
   - ../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md
   - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
-  - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../simplify-locals/index.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
@@ -25,6 +26,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../simplify-locals/index.md
   - ../simplify-locals-notee/index.md
   - ../simplify-locals-notee-nostructure/index.md
@@ -128,6 +130,8 @@ A dedicated folder was still justified because:
   Current Starshine status and future-port map: removed local alias, upstream spelling gap, CLI/request rejection, no owner/backlog slice, active full-`simplify-locals` reuse surface, and the policy-mode boundaries a faithful port must preserve.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge: spelling-policy first step, no-rewrite skeleton, flat-copy first slice, disabled tee/structure/nesting negatives, late-cleanup follow-up, and Binaryen `--simplify-locals-nonesting` oracle ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  Planned-only compare-pass status: exact upstream/local spelling split, current removed-registry and harness-admission barriers, flatness-aware profile requirements, and the targeted signoff matrix.
 
 ## Current maintenance rule
 
@@ -136,6 +140,7 @@ A dedicated folder was still justified because:
 - Keep the alias split explicit:
   - upstream Binaryen: `simplify-locals-nonesting`
   - local registry: `simplify-locals-no-nesting`
+- Keep [`fuzzing.md`](fuzzing.md) planned-only until an active local pass, harness admission, explicit Binaryen alias, and flatness-aware meaningful generator lane all exist.
 - Keep the biggest correction explicit:
   - this variant is stricter than `simplify-locals-notee-nostructure` because it also forbids new nesting.
 
