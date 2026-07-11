@@ -131,6 +131,8 @@ What it actually is in `version_129`:
   - Current Starshine status and future-port map: boundary-only local registry entry, no `gto` alias, no owner file, active request rejection, preset omission, reusable GC/type/parser/validator/binary surfaces, and the module/type-graph infrastructure a faithful port would need.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Future-port bridge for the exact local code map, validation ladder, and Binaryen oracle lanes a real module/type-graph implementation would need.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Planned-only parity-fuzzing status: the boundary-only local spelling and absent harness flag make a 10,000-case command invalid today; the page records the required closed-world private-struct fixture families for future admission.
 
 ## Current maintenance rule
 

@@ -141,6 +141,8 @@ What it actually is in `version_129`:
   - Current Starshine status and port map: boundary-only registry entries for the parent `constant-field-propagation` name and the `constant-field-null-test-folding` sibling, active request rejection, preset omission, missing owner file/backlog slice, and the exact local GC/type/struct/descriptor code surfaces a future closed-world module pass would need to reuse.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Implementation-readiness bridge for a future port: exact first-slice gates, validation ordering, and sibling layering rules.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Planned-only parity-fuzzing status: parent and sibling are boundary-only and the harness admits neither local nor Binaryen CFP spellings; the page records the whole-module write/copy/type fixture obligations for a future lane.
 
 ## Current maintenance rule
 

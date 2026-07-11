@@ -132,6 +132,8 @@ What it actually is in `version_129`:
   - Current Starshine status and future-port map: boundary-only registry entry, active request rejection, active-preset omission, no owner file, no active backlog slice, local `TypeIdx` / `FuncType` / `CallRef` / validator / binary surfaces, and the reason a faithful port must be module/type-graph work rather than a HOT peephole.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Implementation-readiness bridge for a future Starshine port: registry-honesty tests, no-rewrite analyzer, narrow direct-call param refinement, shared-heap-type fanout, body-fixup/result/`call_ref`/`call.without.effects` follow-up slices, and validation ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Planned-only parity-fuzzing status: both the boundary-only registry entry and absent harness flag reject a command before comparison; the page lists the four admission gates plus nominal-signature fixture obligations for a future lane.
 
 ## Current maintenance rule
 

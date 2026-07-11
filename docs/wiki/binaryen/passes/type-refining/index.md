@@ -126,6 +126,8 @@ What it actually is in `version_129`:
   - Current Starshine status and port map: boundary-only registry entry, honest request rejection, no owner file, no active backlog slice, local type/validation/binary surfaces, and the open `type-refining-gufa` naming question.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Implementation-readiness bridge: no-rewrite analyzer first, narrow closed-world private-struct first mutation, shape-to-validation ladder, exact local code surfaces, Binaryen oracle lanes, and health guardrails.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Planned-only parity-fuzzing status: `type-refining` remains boundary-only and the harness flag is absent; the page requires normal-versus-GUFA scope, type-fixup, and closed-world fixture evidence before future comparison.
 
 ## Current maintenance rule
 
