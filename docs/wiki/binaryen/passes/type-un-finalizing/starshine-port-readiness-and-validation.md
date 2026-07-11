@@ -49,7 +49,7 @@ Today Starshine must keep doing all of the following:
 
 ## Upstream behavior the port must match
 
-Binaryen current-main still matches the `version_129` dossier contract:
+The Binaryen current-main source reviewed on **2026-04-27** matched the `version_129` dossier contract on the owner, registration, and dedicated-test surfaces:
 
 1. Return immediately when GC is disabled.
 2. Collect private heap types.

@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
+  - ../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
@@ -36,6 +37,7 @@ related:
   - ../wast/function-call-and-module-authoring.md
   - ../binaryen/passes/reorder-functions/index.md
   - ../binaryen/passes/remove-exports/index.md
+  - ../binaryen/passes/remove-imports/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../binaryen/passes/duplicate-function-elimination/index.md
 ---
@@ -196,6 +198,7 @@ Existing pass dossiers that depend on this checklist include:
 
 - [`duplicate-function-elimination`](../binaryen/passes/duplicate-function-elimination/index.md), which merges defined functions and rewrites `FuncIdx` users;
 - [`remove-exports`](../binaryen/passes/remove-exports/index.md), which filters the public export list but deliberately keeps the target definitions and index spaces intact;
+- [`remove-imports`](../binaryen/passes/remove-imports/index.md), which can remove imported functions after rewriting their direct calls and therefore must repair the imported-function prefix plus every affected `FuncIdx` carrier;
 - [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md), which removes unrooted imports/definitions and repairs module index spaces;
 - [`reorder-functions`](../binaryen/passes/reorder-functions/index.md), whose future Starshine port is harder than Binaryen's declaration-list sort because Starshine stores numeric `FuncIdx` references;
 - [`reorder-functions-by-name`](../binaryen/passes/reorder-functions-by-name/index.md), which shares the same future remap requirement.
@@ -215,6 +218,7 @@ Existing pass dossiers that depend on this checklist include:
 - Compact Import Section proposal boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md), [`../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Binaryen `remove-exports` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
+- Binaryen `remove-imports` source read: [`../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Function/code primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
 - Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
 - Broader primary-source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)

@@ -88,6 +88,17 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-statu
 
 `bun scripts/pass-fuzz-compare.ts ...` is the same underlying implementation. `bun fuzz compare-pass` reaches it through [`scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), which treats compare-pass as a sibling command rather than a `src/fuzz` suite.
 
+## Pass Eligibility Preflight
+
+Run a long compare lane only when its pass is executable at **both** sides of the harness:
+
+1. **Harness admission.** `bun fuzz compare-pass --list-passes` reports only names in `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts). An absent name is rejected during argument parsing, before input generation or Binaryen execution.
+2. **Starshine admission.** The same flag must reach an active Starshine dispatcher. A registry entry in [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) can intentionally be `BoundaryOnly`; such a request terminates with a boundary-only error rather than exercising a transform.
+3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag. Use `binaryenPassFlags` in `result.json` to verify aliases; local aliases that pass through unchanged can otherwise make an invalid comparison setup.
+4. **Surface admission.** The selected generator/profile must create modules on which the pass can act, and the run must set a meaningful `--min-compared` threshold. A green process with zero compared cases is not parity signoff.
+
+A pass that fails any of these checks has a **planned fuzzing profile**, not a runnable smoke lane. Its wiki page should document the status test and future command template, but must not label parser rejection, command failure, or zero comparisons as Binaryen-parity evidence. This is especially important for boundary-only registry entries: a Binaryen pass can be real while Starshine deliberately has no active implementation yet.
+
 Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
 
 ## Input Generators
