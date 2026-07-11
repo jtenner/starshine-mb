@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
@@ -321,6 +322,7 @@ A future Starshine port should preserve these WAT-level expectations:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)

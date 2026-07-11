@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
@@ -94,7 +95,7 @@ So this pass is best taught as:
 - Dead-end CFG blocks are patched with explicit `return` or `unreachable` before rendering.
 - Rendering always allocates an `i32` helper local for the generic `RelooperBuilder` label variable.
 - If a result-typed function renders to an apparent `none` body, the pass appends `unreachable` and then runs `ReFinalize`.
-- A 2026-05-05 current-main recheck did not surface teaching-relevant drift in the opened `ReReloop.cpp` and `flatten_rereloop.wast` surfaces.
+- The 2026-07-11 `version_130` / current-main recheck found no behavior-bearing drift in the reviewed owner, registration/scheduler, generic-helper, flatness, or focused-fixture surfaces; it supersedes the 2026-05-05 freshness citation while retaining it as history.
 - Current Starshine tracks only the local `re-reloop` spelling as a removed pass name, parses the explicit `--re-reloop` CLI flag, rejects it before writing output, hides it from help, and has no owner file or active backlog slice.
 
 ## What this pass sounds like versus what it actually does
@@ -138,6 +139,7 @@ What it actually is in reviewed `version_129` sources:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)

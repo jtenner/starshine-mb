@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
@@ -50,7 +51,7 @@ This page keeps those layers separate.
 | `src/ir/flat.h` | Formal precondition | `rereloop` depends on Binaryen Flat IR, not just vaguely “simpler code.” |
 | `test/lit/passes/flatten_rereloop.wast` | Main dedicated lit surface | The real source-backed shape contract lives here: skip-empty ladders, branch-table regrouping, mergeable exits, helper locals, and unreachable/result repair. |
 | `test/lit/passes/opt_flatten.wast` | Secondary integration surface | Confirms `flatten -> rereloop` also behaves on a smaller optimize-oriented example. |
-| current `main` `src/passes/ReReloop.cpp` and `flatten_rereloop.wast` | Narrow freshness spot check | The reviewed current-main surfaces match `version_129` on the checked files, and the 2026-05-05 recheck keeps that result current. |
+| released `version_130` plus current `main` owner/helper/fixture surfaces | Current release/freshness bridge | The 2026-07-11 recheck found no behavior-bearing drift on the reviewed contract; it supersedes the older 2026-05-05 freshness bridge. |
 
 ## `ReReloop.cpp` is the pass-local contract
 
@@ -157,18 +158,18 @@ That is enough to teach the main visible contract, but it also means the source 
 
 ## Freshness check
 
-The 2026-05-05 raw source manifest in [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md) refreshed the official release provenance and the current-`main` spot-check URLs for this dossier.
+The 2026-07-11 raw source manifest in [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md) refreshed the official `version_130` release provenance and reviewed current-`main` source URLs for this dossier.
 
 I compared:
 
-- `version_129` `src/passes/ReReloop.cpp`
+- `version_130` `src/passes/ReReloop.cpp`
 - current `main` `src/passes/ReReloop.cpp`
-- `version_129` `test/lit/passes/flatten_rereloop.wast`
-- current `main` `test/lit/passes/flatten_rereloop.wast`
+- `version_130` / current `main` `pass.cpp`, `Relooper.h`, and `flat.h`
+- `version_130` / current `main` `flatten_rereloop.wast` and `opt_flatten.wast`
 
 Durable result:
 
-- no drift was observed on those reviewed surfaces
+- no behavior-bearing drift was identified on those reviewed surfaces
 
 So the tagged release is still a reliable oracle for the documented contract here.
 
@@ -185,6 +186,7 @@ That three-layer reading is the real implementation structure.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)

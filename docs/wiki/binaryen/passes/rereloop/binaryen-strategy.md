@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
@@ -45,7 +46,7 @@ So the best mental model is:
 
 ## Public surface and scheduler meaning
 
-The 2026-05-05 raw source manifest in [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md) anchors this page to the official `version_129` release and the reopened current-`main` spot-check surfaces.
+The 2026-07-11 raw source manifest in [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md) anchors this page to the official `version_130` release and reviewed current-`main` surfaces. It supersedes the 2026-05-05 freshness bridge without erasing its historical provenance.
 
 Current-main source anchors worth reading first:
 
@@ -359,6 +360,7 @@ That is the real Binaryen strategy for `rereloop`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)

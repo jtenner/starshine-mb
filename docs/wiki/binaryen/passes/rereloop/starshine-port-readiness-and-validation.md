@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
@@ -43,8 +44,7 @@ For the exact upstream algorithm and source/test map, read:
 
 ## Current readiness status
 
-Starshine still treats `re-reloop` as **removed**.
-There is no owner file, no dispatcher case, and no active backlog slice yet.
+Starshine still treats `re-reloop` as **removed**. The 2026-07-11 `version_130` / current-main recheck leaves the reviewed upstream contract unchanged, while local registry, CLI, command, harness, and backlog inspection still show no owner file, dispatcher case, admitted comparison spelling, or active backlog slice.
 
 That is the honest state to keep until the missing neighbors exist and the first real transform lands.
 
