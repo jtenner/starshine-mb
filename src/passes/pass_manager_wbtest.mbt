@@ -345,6 +345,21 @@ test "optimize-instructions memory offset folds consume indexed region roots" {
 }
 
 ///|
+test "optimize-instructions module revision facts reuse indexed direct-call roots" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  let facts = RawOiModuleFunctionRevisionFacts::from_index(
+    index,
+    @ir.hot_module_context_from_module(@lib.Module::new()),
+  )
+  assert_true(facts.is_constructor_operand_at(0))
+  assert_false(facts.is_constructor_operand_at(1))
+  assert_true(facts.range_has_direct_call(0, 2))
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([

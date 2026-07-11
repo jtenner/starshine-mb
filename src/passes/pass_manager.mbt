@@ -24818,10 +24818,10 @@ priv struct RawOiGcSelectedOperandForwardingFact {
 }
 
 ///|
-fn RawOiGcSelectedOperandForwardingFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
-  call_values : RawOiFunctionCallValueFacts,
+fn RawOiGcSelectedOperandForwardingFact::from_facts(
+  facts : RawOiModuleFunctionRevisionFacts,
 ) -> RawOiGcSelectedOperandForwardingFact? {
+  let index = facts.index
   let len = index.top_level_roots.length()
   if len < 3 {
     return None
@@ -24831,15 +24831,12 @@ fn RawOiGcSelectedOperandForwardingFact::from_index(
     match (index.instr_at(len - 2), index.instr_at(len - 1)) {
       (Some(@lib.StructNew(new_type)), Some(@lib.StructGet(get_type, _))) if new_type ==
         get_type &&
-        call_values.range_all_constructor_operands(0, len - 2) =>
+        facts.range_all_constructor_operands(0, len - 2) =>
         return Some({
           is_struct_get_after_new: true,
           is_array_get_after_fixed_new: false,
           operand_count: len - 2,
-          saw_effectful_operand_call: call_values.range_has_direct_call(
-            0,
-            len - 2,
-          ),
+          saw_effectful_operand_call: facts.range_has_direct_call(0, len - 2),
         })
       _ => ()
     }
@@ -24860,17 +24857,14 @@ fn RawOiGcSelectedOperandForwardingFact::from_index(
       let fixed_len = raw_len.reinterpret_as_int()
       if fixed_len < 0 ||
         fixed_len != len - 3 ||
-        !call_values.range_all_constructor_operands(0, len - 3) {
+        !facts.range_all_constructor_operands(0, len - 3) {
         return None
       }
       Some({
         is_struct_get_after_new: false,
         is_array_get_after_fixed_new: true,
         operand_count: fixed_len,
-        saw_effectful_operand_call: call_values.range_has_direct_call(
-          0,
-          len - 3,
-        ),
+        saw_effectful_operand_call: facts.range_has_direct_call(0, len - 3),
       })
     }
     _ => None
@@ -24902,10 +24896,10 @@ priv struct RawOiGcEffectLocalizationFact {
 }
 
 ///|
-fn RawOiGcEffectLocalizationFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
-  call_values : RawOiFunctionCallValueFacts,
+fn RawOiGcEffectLocalizationFact::from_facts(
+  facts : RawOiModuleFunctionRevisionFacts,
 ) -> RawOiGcEffectLocalizationFact? {
+  let index = facts.index
   let len = index.top_level_roots.length()
   if len < 4 {
     return None
@@ -24918,7 +24912,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
         return None
       }
       ignore(new_type)
-      if !call_values.is_constructor_operand_at(0) {
+      if !facts.is_constructor_operand_at(0) {
         return None
       }
       match instrs[1] {
@@ -24949,7 +24943,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
           if len != 5 {
             return None
           }
-          if !call_values.is_constructor_operand_at(0) {
+          if !facts.is_constructor_operand_at(0) {
             return None
           }
           match instrs[1] {
@@ -24981,14 +24975,14 @@ fn RawOiGcEffectLocalizationFact::from_index(
               if fixed_len < 0 || len != fixed_len + 4 {
                 return None
               }
-              if !call_values.range_all_constructor_operands(0, fixed_len) {
+              if !facts.range_all_constructor_operands(0, fixed_len) {
                 return None
               }
-              saw_call = call_values.range_has_direct_call(0, fixed_len)
+              saw_call = facts.range_has_direct_call(0, fixed_len)
               match instrs[len - 2] {
                 @lib.Call(_) => saw_call = true
                 _ =>
-                  if !call_values.is_constructor_operand_at(len - 2) {
+                  if !facts.is_constructor_operand_at(len - 2) {
                     return None
                   }
               }
@@ -25033,7 +25027,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
               if len != 6 {
                 return None
               }
-              if !call_values.is_constructor_operand_at(0) {
+              if !facts.is_constructor_operand_at(0) {
                 return None
               }
               match instrs[1] {
@@ -25046,10 +25040,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
               }
               match instrs[4] {
                 @lib.Call(_) => saw_call = true
-                _ =>
-                  if !call_values.is_constructor_operand_at(4) {
-                    return None
-                  }
+                _ => if !facts.is_constructor_operand_at(4) { return None }
               }
               Some({
                 is_array_len_after_new: false,
@@ -25956,56 +25947,50 @@ fn RawOiFunctionRevisionFactIndex::top_level_instrs(
 }
 
 ///|
-priv struct RawOiTopLevelCallValueFact {
-  position : Int
-  is_constructor_stack_operand : Bool
-  is_direct_call : Bool
+// Module-enriched companion to one immutable raw function revision. Module
+// signature resolution is computed once into the constructor-operand bitset;
+// root kinds and instructions remain owned by the underlying revision index.
+priv struct RawOiModuleFunctionRevisionFacts {
+  index : RawOiFunctionRevisionFactIndex
+  constructor_operand_positions : @bitset.BitSet
 }
 
 ///|
-priv struct RawOiFunctionCallValueFacts {
-  top_level : Array[RawOiTopLevelCallValueFact]
-}
-
-///|
-fn RawOiFunctionCallValueFacts::from_index(
+fn RawOiModuleFunctionRevisionFacts::from_index(
   index : RawOiFunctionRevisionFactIndex,
   module_ctx : @ir.HotModuleContext,
-) -> RawOiFunctionCallValueFacts {
-  let top_level = index.top_level_roots.map(fn(root) {
-    {
-      position: root.position,
-      is_constructor_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+) -> RawOiModuleFunctionRevisionFacts {
+  let constructor_operand_positions = @bitset.BitSet::new(
+    index.top_level_roots.length(),
+  )
+  for root in index.top_level_roots {
+    if run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
         root.instr,
         module_ctx,
-      ),
-      is_direct_call: match root.instr {
-        @lib.Call(_) => true
-        _ => false
-      },
+      ) {
+      constructor_operand_positions[root.position] = true
     }
-  })
-  { top_level, }
+  }
+  { index, constructor_operand_positions }
 }
 
 ///|
-fn RawOiFunctionCallValueFacts::is_constructor_operand_at(
-  self : RawOiFunctionCallValueFacts,
+fn RawOiModuleFunctionRevisionFacts::is_constructor_operand_at(
+  self : RawOiModuleFunctionRevisionFacts,
   position : Int,
 ) -> Bool {
   position >= 0 &&
-  position < self.top_level.length() &&
-  self.top_level[position].position == position &&
-  self.top_level[position].is_constructor_stack_operand
+  position < self.constructor_operand_positions.length() &&
+  self.constructor_operand_positions[position]
 }
 
 ///|
-fn RawOiFunctionCallValueFacts::range_all_constructor_operands(
-  self : RawOiFunctionCallValueFacts,
+fn RawOiModuleFunctionRevisionFacts::range_all_constructor_operands(
+  self : RawOiModuleFunctionRevisionFacts,
   start : Int,
   end : Int,
 ) -> Bool {
-  if start < 0 || end < start || end > self.top_level.length() {
+  if start < 0 || end < start || end > self.index.top_level_roots.length() {
     return false
   }
   for i = start; i < end; i = i + 1 {
@@ -26017,16 +26002,16 @@ fn RawOiFunctionCallValueFacts::range_all_constructor_operands(
 }
 
 ///|
-fn RawOiFunctionCallValueFacts::range_has_direct_call(
-  self : RawOiFunctionCallValueFacts,
+fn RawOiModuleFunctionRevisionFacts::range_has_direct_call(
+  self : RawOiModuleFunctionRevisionFacts,
   start : Int,
   end : Int,
 ) -> Bool {
-  if start < 0 || end < start || end > self.top_level.length() {
+  if start < 0 || end < start || end > self.index.top_level_roots.length() {
     return false
   }
   for i = start; i < end; i = i + 1 {
-    if self.top_level[i].is_direct_call {
+    if self.index.has_top_level_root_at(i, RawOiRootKind::DirectCall) {
       return true
     }
   }
@@ -33707,6 +33692,10 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
+  // Normal raw admission owns one immutable index for the original body
+  // revision. Earlier raw rewrites may produce `skipped_func`, but every gate
+  // below intentionally classifies the unmodified input snapshot whose HOT
+  // lift/admission decision is being made.
   let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
   if effectful_sibling_changed &&
     RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
@@ -33788,16 +33777,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_binaryen_call_ref_directization()
     None => false
   }
-  let call_values = RawOiFunctionCallValueFacts::from_index(
+  let module_revision_facts = RawOiModuleFunctionRevisionFacts::from_index(
     oi_index, module_ctx,
   )
   let gc_selected_operand_forwarding = match
-    RawOiGcSelectedOperandForwardingFact::from_index(oi_index, call_values) {
+    RawOiGcSelectedOperandForwardingFact::from_facts(module_revision_facts) {
     Some(fact) => fact.proves_binaryen_forwarding()
     None => false
   }
   let gc_effect_localization = match
-    RawOiGcEffectLocalizationFact::from_index(oi_index, call_values) {
+    RawOiGcEffectLocalizationFact::from_facts(module_revision_facts) {
     Some(fact) => fact.proves_binaryen_localization()
     None => false
   }
@@ -56050,6 +56039,11 @@ fn run_hot_pipeline_func(
         let (rewritten_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           body, module_ctx,
         )
+        // This is the mutually exclusive hot-lift-error fallback. It cannot
+        // reuse the normal raw-admission index because that path returned None
+        // before lift and its locals are out of scope here. Build one explicit
+        // immutable index for the same original body revision solely to prove
+        // whether the fallback rewrite included the bottom-null family.
         let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
         if changed &&
           RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
