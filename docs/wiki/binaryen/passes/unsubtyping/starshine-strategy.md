@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
@@ -35,7 +36,7 @@ related:
 # Starshine Strategy For `unsubtyping`
 
 Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md).
-The 2026-05-05 current-main recheck did not change the boundary-only status; the missing implementation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The 2026-07-11 current-main recheck does not change Starshine's boundary-only status, but it corrects the upstream contract: explicit Binaryen `unsubtyping` now supports open-world invocation through a mode-aware public-type boundary. The missing implementation ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
@@ -47,7 +48,7 @@ The current Starshine strategy is deliberately limited:
 
 - preserve the local pass spelling `unsubtyping` in the registry as a known boundary-only name
 - reject active requests honestly instead of silently no-oping
-- keep the upstream closed-world scheduler role visible in the wiki
+- distinguish Binaryen's closed-world default scheduler role from its current explicit open-world pass admission
 - keep its absence from the canonical open-world no-DWARF path explicit
 - keep the missing dedicated backlog slice explicit
 - document why a future port is type-section/module-owned work, not a HOT peephole
@@ -107,7 +108,7 @@ A faithful Starshine port would need to reason over:
 - refinalization after the graph changes
 
 Those requirements cross package boundaries that current HOT expression passes do not own.
-The right future landing shape is a module pass or a shared closed-world type-graph engine, not a small `HotFunc` rewrite.
+The right future landing shape is a module pass or a shared world-policy-aware type-graph engine, not a small `HotFunc` rewrite.
 
 ## What Starshine currently does for the pass name
 
@@ -138,9 +139,9 @@ Treat that as a local status breadcrumb, not an implementation plan.
 
 A faithful port should preserve the source-backed contract from the rest of this folder:
 
-- require or explicitly model closed-world mode before rewriting subtype relations
+- model the requested world/visibility policy before rewriting subtype relations; current Binaryen no longer rejects every open-world request
 - skip modules without the relevant GC/type surface
-- freeze public heap types and public boundary relations
+- freeze the public heap types and public boundary relations selected by that policy
 - seed required relations from validation, JS boundaries, descriptors, and cast-like operations
 - distinguish ordinary casts from exact casts
 - preserve guaranteed-success casts without over-preserving guaranteed-fail or uninhabited success cases
@@ -232,5 +233,5 @@ So the right mental model today is:
 - **no transform yet**
 - **clear boundary-only registry behavior**
 - **source-backed Binaryen `unsubtyping` contract**
-- **future closed-world type-graph infrastructure still required**
+- **future world-policy-aware type-graph infrastructure still required**
 - **no open-world no-DWARF parity obligation today**

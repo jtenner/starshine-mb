@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
@@ -20,7 +21,7 @@ related:
 # `unsubtyping` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `unsubtyping`.
-Use it with the reviewed source manifest in [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md), and the port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use it with the relation/cast source manifest in [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), the later current-main world-policy correction in [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md), the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md), and the port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 

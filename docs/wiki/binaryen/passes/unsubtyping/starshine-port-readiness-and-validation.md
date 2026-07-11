@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
@@ -58,7 +59,7 @@ Binaryen's `unsubtyping` is a module-wide type-graph rewrite.
 A faithful Starshine port therefore needs module-level work:
 
 1. collect validation-driven subtype and descriptor requirements;
-2. preserve public heap types and other public boundaries;
+2. model the requested world/visibility policy and preserve its selected public heap types and boundaries;
 3. model JS boundary flow and descriptor exposure narrowly;
 4. preserve ordinary and exact cast observability correctly;
 5. keep descriptor-square completion in the fixed point;
@@ -96,7 +97,7 @@ Minimum data-model requirements:
 
 - one module-wide relation graph over private heap types;
 - separate subtype and descriptor edge sets;
-- public-boundary freezing;
+- explicit world/visibility policy plus public-boundary freezing;
 - JS boundary exposure markers;
 - cast-observability markers for ordinary and exact casts;
 - trap-preservation markers for nullable descriptor allocations;
@@ -154,7 +155,7 @@ For Starshine fuzzing, compare the combined cleanup path rather than expecting a
 
 ## Main risks
 
-- **Over-removing public or JS-visible relations:** the pass must freeze the right boundaries.
+- **Over-removing public or JS-visible relations:** the pass must apply the requested world/visibility policy and freeze the right boundaries.
 - **Missing descriptor-square closure:** relation removal can become unsound if descriptors and supertypes are pruned independently.
 - **Trap preservation regressions:** nullable descriptor allocations are not just dead data.
 - **Stale relation metadata:** later mutating passes can invalidate the graph.
@@ -167,7 +168,7 @@ A first local implementation is worth calling `unsubtyping` only when it has:
 - a module/type-graph owner file;
 - registry and dispatcher support;
 - a closure planner with separate subtype and descriptor facts;
-- public-boundary, JS-boundary, and exact-cast guards;
+- world-policy-aware public-boundary, JS-boundary, and exact-cast guards;
 - descriptor-allocation repair and refinalization;
 - planner-only tests for direct, transitive, descriptor, JS, and cast cases;
 - rewrite tests for the simple private-type family;
@@ -183,7 +184,8 @@ Until then, keep the boundary-only status described in [`./starshine-strategy.md
 - Descriptor and JS boundaries: [`./descriptor-squares-casts-and-js-boundaries.md`](./descriptor-squares-casts-and-js-boundaries.md)
 - Shape catalog: [`./wat-shapes.md`](./wat-shapes.md)
 - Current Starshine status: [`./starshine-strategy.md`](./starshine-strategy.md)
-- Raw source manifest: [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md)
+- Current open-world source manifest: [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md)
+- Earlier source manifest: [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md)
 - Research follow-up: [`../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md)
 - Legacy raw source manifest: [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md)
 - Legacy research follow-up: [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)

@@ -24611,17 +24611,11 @@ priv struct RawOiConstOffsetLoadThenCallFact {
 }
 
 ///|
-fn RawOiConstOffsetLoadThenCallFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
+fn RawOiConstOffsetLoadThenCallFact::from_instrs(
+  instrs : Array[@lib.Instruction],
 ) -> RawOiConstOffsetLoadThenCallFact? {
-  if index.top_level_roots.length() != 4 ||
-    !index.has_top_level_root_at(0, RawOiRootKind::I32Const) ||
-    !index.has_top_level_root_at(1, RawOiRootKind::PlainLoad) ||
-    !index.has_top_level_root_at(3, RawOiRootKind::DirectCall) {
-    return None
-  }
-  match (index.instr_at(1), index.instr_at(2)) {
-    (Some(load), Some(@lib.Drop)) => {
+  match instrs {
+    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] => {
       let load_has_nonzero_offset = run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
         load,
       )
@@ -25226,16 +25220,16 @@ priv struct RawOiBulkStackOperandFact {
 }
 
 ///|
-fn RawOiBulkStackOperandFact::from_region(
-  region : RawOiInstructionRegionFact,
+fn RawOiBulkStackOperandFact::from_instrs(
+  instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiBulkStackOperandFact? {
-  if start >= region.roots.length() {
+  if start >= instrs.length() {
     return None
   }
   if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-      region.roots[start].instr,
+      instrs[start],
       module_ctx,
     ) ==
     0 {
@@ -25246,18 +25240,16 @@ fn RawOiBulkStackOperandFact::from_region(
       stack_argument_count: 0,
     })
   }
-  match RawOiBulkStackOperandAtomFact::from_instr(region.roots[start].instr) {
+  match RawOiBulkStackOperandAtomFact::from_instr(instrs[start]) {
     Some(_) => ()
     None => return None
   }
   let mut call_pos = start + 1
-  while call_pos < region.roots.length() &&
-        RawOiBulkStackOperandAtomFact::from_instr(
-          region.roots[call_pos - 1].instr,
-        )
+  while call_pos < instrs.length() &&
+        RawOiBulkStackOperandAtomFact::from_instr(instrs[call_pos - 1])
         is Some(_) {
     if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-        region.roots[call_pos].instr,
+        instrs[call_pos],
         module_ctx,
       ) ==
       call_pos - start {
@@ -25328,29 +25320,26 @@ priv struct RawOiStackBulkMemoryFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryFact::from_region(
-  region : RawOiInstructionRegionFact,
+fn RawOiStackBulkMemoryFact::from_instrs(
+  instrs : Array[@lib.Instruction],
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryFact? {
   let dest = match
-    RawOiBulkStackOperandFact::from_region(region, start, module_ctx) {
+    RawOiBulkStackOperandFact::from_instrs(instrs, start, module_ctx) {
     Some(fact) => fact
     None => return None
   }
   let source_or_value = match
-    RawOiBulkStackOperandFact::from_region(region, dest.end, module_ctx) {
+    RawOiBulkStackOperandFact::from_instrs(instrs, dest.end, module_ctx) {
     Some(fact) => fact
     None => return None
   }
-  if source_or_value.end + 1 >= region.roots.length() {
+  if source_or_value.end + 1 >= instrs.length() {
     return None
   }
-  let size = RawOiBulkSizeFact::from_instr(
-    region.roots[source_or_value.end].instr,
-  )
-  let (is_memory_copy, is_memory_fill) = match
-    region.roots[source_or_value.end + 1].instr {
+  let size = RawOiBulkSizeFact::from_instr(instrs[source_or_value.end])
+  let (is_memory_copy, is_memory_fill) = match instrs[source_or_value.end + 1] {
     @lib.MemoryCopy(_, _) => (true, false)
     @lib.MemoryFill(_) => (false, true)
     _ => return None
@@ -25401,12 +25390,11 @@ priv struct RawOiStackBulkMemoryRegionFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryRegionFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
+fn RawOiStackBulkMemoryRegionFact::from_instrs(
+  instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryRegionFact? {
-  let region = index.regions[0]
-  if region.roots.length() == 0 {
+  if instrs.length() == 0 {
     return None
   }
   let mut i = 0
@@ -25414,9 +25402,9 @@ fn RawOiStackBulkMemoryRegionFact::from_index(
   let mut all_tiny_rewrites = true
   let mut all_trap_relaxed_zero_size_drops = true
   let mut saw_stack_carried_call_operand = false
-  while i < region.roots.length() {
+  while i < instrs.length() {
     let fact = match
-      RawOiStackBulkMemoryFact::from_region(region, i, module_ctx) {
+      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
       Some(fact) => fact
       None => return None
     }
@@ -33564,8 +33552,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
     None => false
   }
-  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_index(
-    oi_index, module_ctx,
+  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_instrs(
+    body, module_ctx,
   )
   let tiny_stack_bulk_memory = match stack_bulk_region {
     Some(fact) => fact.proves_binaryen_tiny_rewrite_region()
@@ -33650,7 +33638,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   let const_offset_load_then_call = match
-    RawOiConstOffsetLoadThenCallFact::from_index(oi_index) {
+    RawOiConstOffsetLoadThenCallFact::from_instrs(body) {
     Some(fact) => fact.proves_binaryen_offset_fold_bypass()
     None => false
   }

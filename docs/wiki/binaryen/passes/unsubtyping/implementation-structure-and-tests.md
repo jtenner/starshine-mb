@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
@@ -22,7 +23,7 @@ related:
 This page exists because `Unsubtyping.cpp` is not a self-contained algorithm.
 If you read only that one file, you will miss where several of the real rules come from.
 The reviewed primary-source manifest for this file map is [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md); the exact current Starshine status lives in [`./starshine-strategy.md`](./starshine-strategy.md).
-The 2026-05-05 current-main recheck reviewed the same owner and lit surfaces and found no teaching-relevant drift, so the file map below remains the source-correct reading.
+The 2026-07-11 current-main recheck found a material admission change: explicit open-world runs are now supported through a mode-aware public-type boundary. The file map below remains the source-correct algorithm map; see [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md) for the version boundary.
 
 ## File map
 
@@ -44,6 +45,7 @@ The 2026-05-05 current-main recheck reviewed the same owner and lit surfaces and
 | `test/lit/passes/unsubtyping-desc-tnh.wast` | `trapsNeverHappen` descriptor-fixup differences |
 | `test/lit/passes/unsubtyping-jsinterop.wast` | JS-boundary flow, `any`-boundary cast, JS prototype keepalive, and `extern.convert_any` coverage |
 | `test/lit/passes/unsubtyping-stack-switching.wast` | Continuation, `cont.bind`, `suspend`, and `resume` coverage |
+| `test/lit/passes/unsubtyping-open-world.wast` | Current-main explicit-open-world admission plus mode-selected public-type freeze boundaries |
 
 ## Important test-harness warning
 
@@ -76,8 +78,8 @@ The core flow in `version_129` is compact but layered.
 
 This pass method does six big things:
 
-1. enforce GC + closed-world gates
-2. seed required subtype/descriptor edges from public types, JS boundaries, and the IR
+1. enforce the GC gate and derive the mode-selected public-type boundary
+2. seed required subtype/descriptor edges from those public types, JS boundaries, and the IR
 3. iterate to a fixed point over those requirements in `TypeTree`
 4. fix descriptor-bearing allocations before type rewrite
 5. rewrite private declared supertype/descriptor edges through `GlobalTypeRewriter`
@@ -249,6 +251,10 @@ It shows that:
 
 A future port that ignores stack-switching would therefore be incomplete.
 
+## 8. `unsubtyping-open-world.wast`
+
+This current-main fixture separates scheduling from admission. It proves that an explicit `--unsubtyping` request can run without `--closed-world`, while the requested `WorldMode` still freezes the appropriate public heap-type families. It is a visibility-policy suite; it does not replace the broader cast, descriptor, JS, or continuation suites.
+
 ## The tests teach four misconceptions to avoid
 
 ### Misconception 1: the pass just edits declaration edges
@@ -292,7 +298,7 @@ That is a narrow freshness note, not a proof that every helper file is identical
 A future Starshine port would need to mirror at least these file-level responsibilities:
 
 - a boundary-only module pass entry point, not a HOT pass
-- a hard GC + `--closed-world` gate
+- a hard GC gate plus a mode-aware public-type visibility policy
 - public-type freezing
 - broad validation-constraint discovery across the shared subtype-expression surface
 - exact-cast versus ordinary-cast distinction
@@ -309,7 +315,7 @@ Any port that implements only “drop declaration edges that look unused” with
 
 For `unsubtyping`, the real implementation structure is:
 
-- **one closed-world module pass + shared validation-constraint walker + shared JS-boundary helpers + shared type rewriter + a lit roster that proves descriptor, cast, and continuation corner cases**
+- **one world-policy-aware module pass + shared validation-constraint walker + shared JS-boundary helpers + shared type rewriter + a lit roster that proves descriptor, cast, continuation, and open-world visibility corner cases**
 
 That is exactly why this pass is easy to underestimate.
 

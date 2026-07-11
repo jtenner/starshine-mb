@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
@@ -50,7 +51,7 @@ A better beginner summary is:
 - and refinalizes afterward because the changed type graph can sharpen or invalidate surrounding operations.
 
 So this is not generic type merging.
-It is **closed-world subtype/descriptor graph minimization**.
+It is **world-policy-aware subtype/descriptor graph minimization**: current Binaryen can run it explicitly in open world, but freezes the public heap-type surface selected by that mode.
 
 ## Why this pass matters
 
@@ -60,7 +61,7 @@ It is **closed-world subtype/descriptor graph minimization**.
 - `agent-todo.md` still has **no dedicated `unsubtyping` slice**, so a stable wiki home matters even more here.
 - The official implementation hides several teaching traps that deserve an explicit dossier:
   - the pass is about **descriptors** as well as ordinary subtype edges
-  - the pass body itself hard-requires `--closed-world`
+  - current Binaryen distinguishes default closed-world scheduling from explicit open-world pass admission
   - ordinary casts only keep subtype edges when actual flowing inhabitants make cast success observable
   - exact casts are a narrower special case
   - JS boundary flow can keep subtype edges and descriptors alive
@@ -69,12 +70,10 @@ It is **closed-world subtype/descriptor graph minimization**.
 
 ## Most important durable takeaways
 
-- The 2026-05-05 current-main recheck added an immutable freshness-layer manifest at [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), and the folder now also has the missing port-readiness bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The 2026-07-11 recheck added [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md): after `version_130`, explicit upstream `unsubtyping` became open-world-admitted. It now freezes the mode-selected public heap-type surface rather than failing every open-world request. The older May capture remains historical provenance.
 - `unsubtyping` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
-- The default scheduler places it only in the **closed-world GC/type cluster** after `gsi` and optional `abstract-type-refining`.
-- The pass body itself checks:
-  - GC features enabled
-  - `--closed-world` enabled, or else it throws a fatal error
+- The default scheduler still places it in the **closed-world GC/type cluster** after `gsi` and optional `abstract-type-refining`; that scheduler policy is separate from explicit pass admission.
+- Current `main` checks GC features, then derives frozen public types with the requested `WorldMode`. The `version_130` open-world fatal gate is historical, not current behavior.
 - The pass minimizes **descriptor** relations too, not only declared supertype edges.
 - The actual algorithm is a **fixed point** over:
   - validation constraints
@@ -85,7 +84,7 @@ It is **closed-world subtype/descriptor graph minimization**.
 - Exact casts impose a smaller relation surface than ordinary casts.
 - Public types are frozen.
 - Descriptor-bearing allocations may need explicit fixups or synthetic globals when descriptor edges disappear.
-- The 2026-05-05 current-main recheck found no teaching-relevant drift in the reviewed owner, registration, and lit surfaces beyond the existing `version_129` dossier claims.
+- The 2026-05-05 no-drift claim is historical. The 2026-07-11 recheck found material post-`version_130` open-world admission and public-visibility-policy drift; the source-backed relation algorithm remains otherwise the same on the reviewed surfaces.
 
 ## Beginner warning: what the name hides
 
@@ -109,8 +108,8 @@ What it sounds like:
 
 What it actually is in `version_129`:
 
-- a closed-world GC module pass with:
-  - public-type freezing
+- a GC module pass with:
+  - world-policy-aware public-type freezing
   - IR-wide subtype-constraint discovery
   - ordinary-vs-exact cast distinction
   - descriptor-square completion
@@ -138,8 +137,9 @@ What it actually is in `version_129`:
 
 - Treat this folder as the canonical home for future `unsubtyping` research in this repo.
 - Keep this dossier clearly labeled as an **upstream-only boundary-only** pass for Starshine today.
-- Keep the page honest about scheduler scope:
-  - it belongs to Binaryen's closed-world GC/type cluster
+- Keep the page honest about scheduler and admission scope:
+  - the default Binaryen pipeline places it in the closed-world GC/type cluster
+  - an explicit current-main request may run in open world with mode-aware public-type freezing
   - it does **not** belong to the repo's current open-world no-DWARF optimize path
 - Keep the combo-test rule explicit:
   - many official lit files run `--unsubtyping --remove-unused-types`
@@ -148,6 +148,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md)
 - [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)

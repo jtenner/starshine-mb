@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
@@ -52,18 +53,18 @@ The shipped lit surface is also part of the contract:
 - `test/lit/passes/unsubtyping-jsinterop.wast`
 - `test/lit/passes/unsubtyping-stack-switching.wast`
 
-The 2026-05-05 current-main recheck of `Unsubtyping.cpp`, `pass.cpp`, and the dedicated lit files found no teaching-relevant drift on the reviewed surfaces. The older freshness note still stands: this is a closed-world GC/type relation-pruning rewrite, not a generic type optimizer.
+The 2026-07-11 current-main recheck found material drift after `version_130`: explicit `unsubtyping` no longer fails in open world. Current `main` uses the requested `WorldMode` to find the frozen public heap-type surface; the fixed-point rewrite remains a GC/type relation-pruning pass, not a generic type optimizer. See [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md).
 
 ## High-level intent
 
-Binaryen uses `unsubtyping` to compute the **minimal remaining subtype and descriptor graph** needed by the already-optimized closed-world module.
+Binaryen uses `unsubtyping` to compute the **minimal remaining subtype and descriptor graph** permitted by the already-optimized module's selected world/visibility policy.
 
 That sounds abstract, but the real contract is concrete.
 The pass only stays correct because it preserves all of these at once:
 
 1. only GC-enabled modules are eligible
-2. only closed-world runs are eligible
-3. public types remain frozen
+2. the requested world mode determines which public heap types remain frozen
+3. those mode-selected public types remain frozen
 4. initial requirements come from validation, descriptors, JS boundaries, and public edges
 5. ordinary casts keep relations only when actual flowing inhabitants make cast success observable
 6. exact casts are handled as a smaller special case
@@ -110,19 +111,21 @@ When Binaryen runs in closed world, the neighborhood grows:
 
 That means `unsubtyping` is the **late relation-pruning step in the closed-world GC/type cluster**, not an early type-inference pass.
 
-## Phase 0: hard GC + closed-world gates
+## Phase 0: hard GC gate plus a mode-aware public boundary
 
-`Unsubtyping::run(Module* wasm)` begins by returning immediately when:
+`Unsubtyping::run(Module* wasm)` still returns immediately when:
 
 - `!wasm->features.hasGC()`
 
-and then throws a fatal error when:
+In `version_130`, it then failed when `worldMode == WorldMode::Open`. Current `main` has removed that fatal gate. Instead, its public-type analysis calls `ModuleUtils::getPublicHeapTypes(wasm, getPassOptions().worldMode)` before the relation fixed point.
 
-- `!getPassOptions().closedWorld`
+This makes the current rule precise:
 
-This is one of the most important differences from some neighboring closed-world passes.
-`unsubtyping` does not merely *tend* to run in closed world.
-The pass body itself insists on it.
+- default scheduling can remain closed-world-only;
+- an explicit pass invocation can run in open world; and
+- the rewrite must freeze the public heap-type surface selected by the requested world mode.
+
+Open world is therefore not a license to rewrite every type. The new `unsubtyping-open-world.wast` fixture covers private-only optimization and several distinct public-type freeze boundaries.
 
 ## Phase 1: seed the worklist with directly required relations
 
@@ -135,9 +138,9 @@ and a `TypeTree` that stores the minimized graph discovered so far.
 
 The first half of the algorithm is finding the **initial** edges that must survive even before fixed-point propagation begins.
 
-### 1A. Public types
+### 1A. Public types and world mode
 
-`analyzePublicTypes(...)` uses `ModuleUtils::getPublicHeapTypes(...)`.
+`analyzePublicTypes(...)` uses `ModuleUtils::getPublicHeapTypes(wasm, getPassOptions().worldMode)`.
 
 For every public type, it preserves:
 
@@ -489,7 +492,7 @@ The changed type graph can force shared finalization logic to legalize or sharpe
 
 Binaryen `unsubtyping` in `version_129` does **not** do any of these:
 
-- it does not run in open world
+- it does not treat open world as permission to mutate the public heap-type surface; current `main` derives that frozen surface from `WorldMode`
 - it does not refine field payload types or signature bodies the way earlier cluster passes do
 - it does not optimize public types
 - it does not do generic structural type merging
@@ -506,7 +509,7 @@ What it sounds like:
 
 What it actually is in `version_129`:
 
-- a closed-world subtype/descriptor minimization pass with validation-driven seeding, cast-driven fixed-point propagation, descriptor-square completion, JS-boundary keepalive rules, allocation trap preservation, private-type rewriting, and final shared type repair.
+- a world-policy-aware subtype/descriptor minimization pass with validation-driven seeding, cast-driven fixed-point propagation, descriptor-square completion, JS-boundary keepalive rules, allocation trap preservation, private-type rewriting, and final shared type repair.
 
 That is the behavior a future Starshine port would need to preserve.
 
