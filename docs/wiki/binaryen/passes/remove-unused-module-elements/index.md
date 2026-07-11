@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
@@ -19,6 +20,7 @@ related:
   - ./wat-shapes.md
   - ./implementation-structure-and-tests.md
   - ./roots-reference-only-and-nullification.md
+  - ./indirect-call-trap-preservation.md
   - ./retention-and-index-rewrites.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
@@ -76,6 +78,7 @@ That is much closer to the official source than “remove dead functions.”
   4. remove unused function types before later non-function cleanup
   5. either delete, keep, or weaken declarations while rewriting all surviving users
   6. preserve `ref.func` declaration validity after function compaction, including active-to-declarative elem weakening when the active parent table is otherwise dead
+  7. preserve a mutable indirect-call table's non-null wrong-type entries when changing them could turn a type-mismatch trap into a null-entry trap
 - The helper surface matters a lot:
   - `ModuleUtils`
   - `ElementUtils`
@@ -113,6 +116,8 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
   - Exact upstream file map, helper dependency story, official lit families, and the narrow source-trust rule for this dossier.
 - [`./roots-reference-only-and-nullification.md`](./roots-reference-only-and-nullification.md)
   - Focused guide to the hardest part of the pass: strong roots versus reference-only roots, active-segment parent retention, and when Binaryen weakens a declaration instead of deleting it.
+- [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md)
+  - Why a table entry with the wrong function type is not interchangeable with a null entry, how Binaryen's default RUME policy preserves that trap distinction, and Starshine's current conservative table-to-active-element mapping.
 - [`./retention-and-index-rewrites.md`](./retention-and-index-rewrites.md)
   - Current in-tree Starshine rewrite surface for surviving func/global/table/memory/tag/elem/data/name/annotation indices, plus the local dead-type-cleanup path that now runs after pruning.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
@@ -127,13 +132,14 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
   - `binaryen-strategy.md` for the overall upstream algorithm
   - `implementation-structure-and-tests.md` for file/test mapping
   - `roots-reference-only-and-nullification.md` for the most easily misunderstood semantic core
-- If a future thread finds real current-main drift, record it explicitly instead of silently rewriting the `version_129`-anchored explanation.
+- Keep `version_129` as the tagged algorithm anchor and use the 2026-07-11 current-main recheck for the `call_indirect` wrong-type-trap rule; record future source drift explicitly instead of silently rewriting either layer.
 - If new Starshine work changes the local retention or remap surface, update both:
   - [`./retention-and-index-rewrites.md`](./retention-and-index-rewrites.md)
   - [`./parity.md`](./parity.md)
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md)
 - [`../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md`](../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)

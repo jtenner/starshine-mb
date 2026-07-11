@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -24,7 +25,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current algorithm oracle for this pass.
+Use Binaryen `version_129` as the tagged algorithm anchor for this pass. The 2026-07-11 current-main reread refreshes the under-documented `call_indirect` trap-preservation rule without claiming that every current-main implementation detail is new relative to that tag.
 
 Primary files:
 
@@ -193,6 +194,12 @@ The retained rule is closer to:
 
 That nuance is a major source-backed reason this pass needs a real shape catalog.
 
+### Indirect-call tables add a trap-preservation constraint
+
+An active element can matter even when it seems to contain no direct-call root. A mutable table reached by `call_indirect` can hold a **wrong-type non-null** function entry. Replacing that entry with null by deleting its active initializer changes the trap reason from type mismatch to null entry.
+
+Current Binaryen RUME keeps the relevant element state unless `trapsNeverHappen` explicitly permits trap-changing optimization. This is not generic table stickiness; it is a correctness constraint on indirect-call table state. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+
 ## Phase 6: removal order is part of the strategy
 
 The removal phase is not “delete everything dead in one sweep.”
@@ -275,11 +282,15 @@ What it actually is:
 
 That is the behavior a future Starshine parity port must preserve.
 
+## Current-main freshness boundary
+
+The 2026-07-11 reread found the public full and non-function names, queue/`usedReferenced` model, and indirect-call trap rule present on the inspected current-main owner, registration, and fixtures. It is a focused source check, not a claim of exhaustive current-main equivalence or an unreviewed upstream history diff.
+
 ## Bottom line
 
 Binaryen `remove-unused-module-elements` is a graph-and-rewrite pass whose central design idea is:
 
-- **not every surviving mention is the same kind of liveness**
+- **not every surviving mention is the same kind of liveness, and not every trap-producing table state is interchangeable**
 
 Once that idea is understood, the rest of the file makes much more sense:
 

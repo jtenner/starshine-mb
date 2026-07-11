@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -40,7 +41,7 @@ This page is that file-and-test map.
 
 | File | Why it matters | Durable lesson |
 | --- | --- | --- |
-| `src/passes/RemoveUnusedModuleElements.cpp` | Core implementation | The pass is a whole-module graph-and-rewrite algorithm with `used` / `usedReferenced` state and a real sibling non-function mode. |
+| `src/passes/RemoveUnusedModuleElements.cpp` | Core implementation | The pass is a whole-module graph-and-rewrite algorithm with `used` / `usedReferenced` state, a real sibling non-function mode, and default `call_indirect` wrong-type-trap preservation. |
 | `src/passes/pass.cpp` | Registration and scheduler placement | Binaryen publicly exposes both `remove-unused-module-elements` and `remove-unused-nonfunction-module-elements`, and the full pass appears multiple times in the optimize pipeline. |
 | `src/ir/module-utils.h` | Module traversal helpers | Roots do not come only from function bodies; module code and defined-function iteration are official parts of the algorithm. |
 | `src/ir/element-utils.h` | Elem-content function rooting | Live elem segments can keep functions alive through their payloads. |
@@ -124,6 +125,8 @@ The pass is graph-heavy, but not in the same way as a function CFG pass.
 The optimize-pipeline placement is also visible there.
 That matters because the public meaning of RUME includes repeated runs, not a one-shot “final cleanup” interpretation.
 
+The 2026-07-11 current-main reread also confirms that the two public names remain distinct registration modes of the same owner-family; it did not treat a spelling alias as an implementation shortcut.
+
 ## Official lit families and what they prove
 
 The official test surface is more instructive than the pass name.
@@ -157,6 +160,10 @@ It demonstrates the official importance of:
 
 If a future explanation of RUME never mentions those, it is probably too shallow.
 
+### Trap-sensitive indirect-call extension
+
+The current owner adds a constraint that should be read with the reference fixture: a wrong-type non-null table entry and a null table entry are not interchangeable at an indirect call. The owner retains relevant mutable-table active elements by default so cleanup does not change that trap distinction; `trapsNeverHappen` is the explicit boundary for more aggressive removal. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+
 ## `remove-unused-module-elements-eh-old.wast`
 
 This file proves that tags and old EH edges are part of the official retained surface.
@@ -184,14 +191,13 @@ They are teaching files for the deeper rules:
 
 ## Narrow source-trust rule for this dossier
 
-This dossier is anchored on `version_129`.
-The main file, scheduler registration, and the big helper surfaces above were the authoritative sources for this refresh.
+This dossier keeps `version_129` as its tagged algorithm anchor. The 2026-07-11 raw manifest is a narrow current-main freshness layer for the owner, public registration, fixtures, and indirect-call trap rule.
 
-The campaign work here did **not** try to prove a whole-repo current-main equivalence claim.
-So the safe maintenance rule is:
+The campaign work here did **not** try to prove a whole-repo current-main equivalence claim. So the safe maintenance rule is:
 
-- keep `version_129` as the explicit release oracle
-- record any later current-main drift only in a future deliberate follow-up
+- keep `version_129` as the explicit release oracle;
+- use the current-main manifest for the documented indirect-call rule; and
+- record other later source drift only in a deliberate follow-up.
 
 ## Most important implementation takeaway
 

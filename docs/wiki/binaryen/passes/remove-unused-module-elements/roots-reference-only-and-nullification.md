@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/element-utils.h
@@ -93,6 +94,12 @@ But zero-byte active data can become a no-op and stop retaining the memory.
 
 That is why the pass is more precise than “active segment mentions parent, so parent is live.”
 
+## `call_indirect` can retain a table initializer to preserve a trap
+
+There is one different reason an otherwise uninteresting active element can survive: a mutable table used by `call_indirect` may have a non-null entry whose function type is wrong for the call. Deleting that initializer can turn a wrong-type trap into a null-entry trap.
+
+Binaryen's default RUME policy preserves this distinction. Only `trapsNeverHappen` is allowed to opt into the more aggressive outcome. Do not collapse this rule into either strong direct-call liveness or reference-only reachability; it is a trap-semantics constraint. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+
 ## Why `call_ref` matters so much here
 
 `call_ref` is one of the easiest places to underestimate the pass.
@@ -174,6 +181,10 @@ It also follows flat tables, elem contents, and heap-type structure.
 ### Mistake 4: assuming reference-only means delete later
 
 For non-function elements, reference-only can instead mean nullify or otherwise weaken.
+
+### Mistake 5: treating wrong-type and null indirect-call entries as equivalent traps
+
+They are different observable table states. Default cleanup must preserve the distinction unless a documented traps-never-happen policy says otherwise.
 
 ## Bottom line
 

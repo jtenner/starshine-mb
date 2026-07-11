@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
@@ -74,6 +75,7 @@ This is where current Starshine makes the key policy decisions about:
 - start-function rooting, including the Binaryen-style no-op start-section drop; validator-level start metadata and imported-empty-signature rules live in [`../../../validate/start-section.md`](../../../validate/start-section.md)
 - export rooting across all module-element kinds
 - active imported-table / imported-memory parent retention for semantically meaningful elem/data initializers
+- default conservative retention of every active elem mapped to a used table, including tables reached by `call_indirect` / `return_call_indirect`
 - whether extraction mode should keep or suppress that imported-parent policy
 
 If a future mismatch looks like a keep-versus-drop decision, start here before looking at the remap code.
@@ -95,6 +97,7 @@ This cluster is the current local equivalent of the upstream `Analyzer` fixed po
 It is where Starshine walks:
 
 - direct calls and `ref.func`
+- `call_indirect` / `return_call_indirect` table users, whose active elements are conservatively retained
 - global/table/memory/tag users
 - elem/data segment user ops
 - active segment parents
@@ -162,6 +165,7 @@ The extraction helper is not the public pass itself, but it matters for maintain
 ## Current local boundaries
 
 - this is a direct module rewrite, not a lifted per-function HOT pass
+- Binaryen's default current-main owner preserves mutable indirect-call table elements when removing one could change a wrong-type trap into a null-entry trap. Starshine is conservatively aligned by retaining every active elem on a used table, but it has no `trapsNeverHappen` policy or focused wrong-type-trap fixture; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 - any future HOT-IR-adjacent work would still need a module reconciliation phase at the end
 - the boundary-only sibling `remove-unused-non-function-elements` is **not** the same thing as the active implemented pass; keep that split explicit in docs
 
@@ -197,5 +201,6 @@ When you need to validate or review current Starshine behavior, read the code in
 5. `src/passes/remove_unused_module_elements.mbt:2293-2647`
 6. `src/passes/remove_unused_module_elements.mbt:2097-2291`
 7. `src/passes/remove_unused_module_elements_test.mbt:779-1447`
+8. [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md) before changing table or elem retention
 
 That path gives the cleanest local explanation from registry -> dispatcher -> root policy -> liveness engine -> remap engine -> type cleanup -> proof tests.

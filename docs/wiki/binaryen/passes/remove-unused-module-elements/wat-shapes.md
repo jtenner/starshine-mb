@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-module-elements_all-features.wast
@@ -275,6 +276,23 @@ A function that looks unused in direct code can still stay relevant if:
 
 That is why naive “no direct calls means dead function” logic will drift from Binaryen.
 
+## 15. Wrong-type `call_indirect` table entries are not removable as null-equivalents
+
+```wat
+(module
+  (type $want (func (result i32)))
+  (type $other (func (result i64)))
+  (table $t 1 funcref)
+  (func $wrong (type $other) (i64.const 7))
+  (elem (table $t) (i32.const 0) func $wrong)
+  (func (export "run") (result i32)
+    (i32.const 0)
+    (call_indirect (table $t) (type $want)))
+)
+```
+
+The entry is non-null but wrong for `$want`. Deleting its initializer turns the indirect-call state into a null entry instead. Binaryen's default RUME policy preserves the active element when needed to retain that distinction; only the explicit `trapsNeverHappen` assumption permits a trap-changing cleanup. This is separate from ordinary direct-call liveness and is detailed in [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+
 ## Practical reading rules
 
 - Prefer reading RUME shapes as **module graphs**, not as isolated instructions.
@@ -283,7 +301,8 @@ That is why naive “no direct calls means dead function” logic will drift fro
   2. is it strongly used by code or segment-user ops?
   3. is it only still referenced through `ref.func`, `call_ref`, flat tables, elem contents, or heap types?
   4. is an active segment actually meaningful, or a semantic no-op?
-  5. after removal, which surviving indices still need rewriting?
+  5. could an indirect call distinguish a wrong-type non-null entry from a null entry?
+  6. after removal, which surviving indices still need rewriting?
 
 ## Bottom line
 
