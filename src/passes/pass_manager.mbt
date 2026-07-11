@@ -28545,22 +28545,23 @@ fn RawOiDropStoreMaskRewriteFact::append_rewrite(
 
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDropStoreMaskRewriteFact? {
-  let address = match RawOiI32ConstAddAddressFact::from_instrs(instrs, start) {
+  let address = match RawOiI32ConstAddAddressFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
-  if address.end + 3 >= instrs.length() {
+  if address.end + 3 >= region.roots.length() ||
+    !region.has_root_at(address.end + 3, RawOiRootKind::MemoryStore) {
     return None
   }
   let mask = match
     RawOiNarrowStoreMaskFact::from_parts(
-      instrs[address.end],
-      instrs[address.end + 1],
-      instrs[address.end + 2],
-      instrs[address.end + 3],
+      region.roots[address.end].instr,
+      region.roots[address.end + 1].instr,
+      region.roots[address.end + 2].instr,
+      region.roots[address.end + 3].instr,
     ) {
     Some(fact) if fact.proves_binaryen_i32_narrow_store_mask() => fact
     _ => return None
@@ -28570,25 +28571,26 @@ fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
     folded_const_add_address: true,
     address: address.value,
     value: mask.value,
-    store: instrs[address.end + 3],
+    store: region.roots[address.end + 3].instr,
     mask,
   })
 }
 
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_plain_address(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDropStoreMaskRewriteFact? {
-  if start + 4 >= instrs.length() {
+  if start + 4 >= region.roots.length() ||
+    !region.has_root_at(start + 4, RawOiRootKind::MemoryStore) {
     return None
   }
   let mask = match
     RawOiNarrowStoreMaskFact::from_parts(
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
     ) {
     Some(fact) if fact.proves_binaryen_i32_narrow_store_mask() => fact
     _ => return None
@@ -28596,23 +28598,23 @@ fn RawOiDropStoreMaskRewriteFact::from_plain_address(
   Some({
     end: start + 5,
     folded_const_add_address: false,
-    address: instrs[start],
+    address: region.roots[start].instr,
     value: mask.value,
-    store: instrs[start + 4],
+    store: region.roots[start + 4].instr,
     mask,
   })
 }
 
 ///|
-fn RawOiDropStoreMaskRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDropStoreMaskRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDropStoreMaskRewriteFact? {
-  match RawOiDropStoreMaskRewriteFact::from_const_add_address(instrs, start) {
+  match RawOiDropStoreMaskRewriteFact::from_const_add_address(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiDropStoreMaskRewriteFact::from_plain_address(instrs, start)
+  RawOiDropStoreMaskRewriteFact::from_plain_address(region, start)
 }
 
 ///|
@@ -28894,14 +28896,13 @@ priv struct RawOiI32ConstAddAddressFact {
 }
 
 ///|
-fn RawOiI32ConstAddAddressFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  start : Int,
+fn RawOiI32ConstAddAddressFact::from_parts(
+  first : @lib.Instruction,
+  second : @lib.Instruction,
+  add : @lib.Instruction,
+  end : Int,
 ) -> RawOiI32ConstAddAddressFact? {
-  if start + 2 >= instrs.length() {
-    return None
-  }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match (first, second, add) {
     (
       @lib.I32Const(@lib.I32(lhs_raw)),
       @lib.I32Const(@lib.I32(rhs_raw)),
@@ -28910,10 +28911,44 @@ fn RawOiI32ConstAddAddressFact::from_instrs(
       let folded = @lib.I32(
         (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
       )
-      Some({ end: start + 3, value: @lib.Instruction::i32_const(folded) })
+      Some({ end, value: @lib.Instruction::i32_const(folded) })
     }
     _ => None
   }
+}
+
+///|
+fn RawOiI32ConstAddAddressFact::from_region(
+  region : RawOiInstructionRegionFact,
+  start : Int,
+) -> RawOiI32ConstAddAddressFact? {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 1, RawOiRootKind::I32Const) {
+    return None
+  }
+  RawOiI32ConstAddAddressFact::from_parts(
+    region.roots[start].instr,
+    region.roots[start + 1].instr,
+    region.roots[start + 2].instr,
+    start + 3,
+  )
+}
+
+///|
+fn RawOiI32ConstAddAddressFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiI32ConstAddAddressFact? {
+  if start + 2 >= instrs.length() {
+    return None
+  }
+  RawOiI32ConstAddAddressFact::from_parts(
+    instrs[start],
+    instrs[start + 1],
+    instrs[start + 2],
+    start + 3,
+  )
 }
 
 ///|
@@ -32890,7 +32925,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiDropStoreMaskRewriteFact::from_instrs(instrs, i) {
+    match RawOiDropStoreMaskRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
