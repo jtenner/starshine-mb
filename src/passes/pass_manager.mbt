@@ -33653,6 +33653,10 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  let raw_descriptor_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-descriptor-bridges",
+  )
   let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
     body, module_ctx,
   )
@@ -33700,6 +33704,11 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       same_flat_pure_scalar_memory_copy_body, module_ctx,
     )
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-descriptor-bridges",
+    raw_descriptor_start_us,
+  )
   let skipped_func = if exact_success_changed ||
     exactification_changed ||
     exact_miss_changed ||
@@ -33760,7 +33769,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   // revision. Earlier raw rewrites may produce `skipped_func`, but every gate
   // below intentionally classifies the unmodified input snapshot whose HOT
   // lift/admission decision is being made.
+  let raw_index_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-revision-index",
+  )
   let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-revision-index",
+    raw_index_start_us,
+  )
   if effectful_sibling_changed &&
     RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
     return Some({

@@ -1,4 +1,37 @@
 ///|
+test "optimize-instructions raw admission reports descriptor and revision-index phase timings" {
+  let trace : Array[String] = []
+  let perf = HotPerfSession::new(
+    trace=fn(line) { trace.push(line) },
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let input = "(module (func (export \"main\") (param i32) (result i32) local.get 0 i32.const 1 i32.add))"
+  match
+    pass_test_run_pipeline(
+      input,
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions timing probe success, got \{err}")
+  }
+  let text = trace.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:raw-descriptor-bridges",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:raw-revision-index",
+    ),
+    msg=text,
+  )
+}
+
+///|
 test "optimize-instructions raw function index collects call and select anchors once" {
   let repeated = @lib.FuncIdx::new(3U)
   let other = @lib.FuncIdx::new(9U)
