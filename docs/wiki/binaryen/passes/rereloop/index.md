@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
@@ -10,6 +10,8 @@ sources:
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -119,6 +121,8 @@ What it actually is in reviewed `version_129` sources:
   Focused guide to the easiest part to misread: the pass-local CFG builder, label-target handling, helper-label-local semantics, and the unsupported boundaries.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive restructuring families, the visible helper-block boilerplate, and the hard bailout cases.
+- [`./fuzzing.md`](./fuzzing.md)
+  Planned-only compare-pass status: the upstream `rereloop` versus local `re-reloop` spelling split, both current harness/removed-registry admission barriers, required explicit Binaryen alias mapping, flat-input profile requirements, and the targeted future signoff matrix.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: removed-registry `re-reloop` tracking, CLI parse and command rejection coverage, help-output hiding, Batch 2 breadcrumb, no owner file, no active backlog slice, and the flat-IR CFG/rendering proof a faithful port would need.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
@@ -130,6 +134,7 @@ What it actually is in reviewed `version_129` sources:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
 - Keep the split from [`../flatten/index.md`](../flatten/index.md) explicit: `flatten` creates the required flat IR, but `rereloop` is the later CFG-to-structured rebuild step.
 - Keep the split from default no-DWARF parity work explicit too: this pass may matter to future aggressive `-O4` parity work, but it is not in today's canonical `-O` / `-Os` queue.
+- Keep [`./fuzzing.md`](./fuzzing.md) planned-only until the local spelling has harness admission, active dispatch, explicit Binaryen alias mapping, and a flat-input profile that produces meaningful compared cases.
 
 ## Sources
 
@@ -139,6 +144,8 @@ What it actually is in reviewed `version_129` sources:
 - [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+- [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
