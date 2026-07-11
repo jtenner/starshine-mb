@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-13
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
@@ -60,9 +61,9 @@ Current facts:
 
 That means an explicit local `--ssa` request is no longer boundary-only, but it is still intentionally partial. This status prevents silent aliasing to `ssa-nomerge` while allowing the official non-merge lit families to execute under the public full-SSA name.
 
-## Why Starshine still has relevant SSA code
+## Why the active partial pass still needs broader SSA machinery
 
-The absence of a public `ssa` pass does not mean the repo lacks SSA machinery.
+An active partial public `ssa` pass does not mean the repo already has Binaryen-compatible full-SSA mutation.
 
 Starshine's local HOT pipeline has an SSA overlay model used by the active sibling and by other analyses:
 
@@ -83,7 +84,7 @@ Starshine's local HOT pipeline has an SSA overlay model used by the active sibli
 - `src/ir/analysis_cache.mbt`
   - stores `HotLocalSsa` in the per-function analysis cache.
 
-So the local infrastructure is real and important. The missing piece is a public pass whose contract matches Binaryen full `ssa`.
+So the local infrastructure is real and important. The missing piece is the **merge-owning part** of a public pass whose contract matches Binaryen full `ssa`: merge locals, incoming tees, parameter prepends, and broader control-flow handling.
 
 For first-slice implementation order and validation, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That page keeps registry honesty, source classification, merge-local rewriting, and sibling-stability tests together.
 
@@ -128,6 +129,8 @@ Use this map when following along in-tree:
   - `[O4Z-AUDIT-SSA]` tracks both active `ssa-nomerge` parity slices and separate full-`ssa` sibling slices; `[SSA-FULL]001` was the boundary-only registry decision, `[SSA-FULL]002A` was the merge planner, `[SSA-FULL]002B` activates direct non-merge rewrites, and `[SSA-FULL]002C` through `[SSA-FULL]002E` still own merge-local materialization, entry-source handling, loops, and closeout signoff.
 
 ## Current behavior versus Binaryen full `ssa`
+
+`ssa` is active for the left table's non-merge rows, but it is not currently compare-pass-admitted: [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) allows `--ssa-nomerge` and omits `--ssa`. A generic `compare-pass --pass ssa` request is therefore an admission failure, not a parity result. See [`./fuzzing.md`](./fuzzing.md).
 
 | Topic | Binaryen full `ssa` | Current Starshine |
 | --- | --- | --- |

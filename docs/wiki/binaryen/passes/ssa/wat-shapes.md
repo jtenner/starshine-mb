@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
@@ -24,7 +25,7 @@ related:
 
 # `ssa` WAT shapes
 
-This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed primary-source manifest [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md) and the 2026-04-26 current-main port-readiness recheck [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md).
+This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed tagged-source manifests and the scoped 2026-07-11 current-main/local-admission recheck [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
 
 The most important rule to remember is:
 
@@ -245,7 +246,7 @@ That is the main sibling difference this folder exists to keep visible.
 
 ## Starshine shape caveat
 
-Current Starshine does not expose full `ssa`, so these are Binaryen shapes, not local output guarantees. Starshine's active sibling uses HOT SSA destruction and predecessor copies; see [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and [`../ssa-nomerge/starshine-hot-ir-strategy.md`](../ssa-nomerge/starshine-hot-ir-strategy.md).
+Current Starshine exposes `ssa` only for direct **non-merge** families. Its tests cover repeated parameter overwrites and legal default exact-reference replacement; a multi-source merge remains intentionally unchanged. Therefore Shapes 1–3 can guide active local-subset fixtures, while Shapes 4–6 remain Binaryen oracle shapes rather than current local-output guarantees. Starshine's `ssa-nomerge` sibling uses HOT SSA destruction and predecessor copies, which must not be mistaken for full-`ssa` merge-local behavior. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and the planned-only [`./fuzzing.md`](./fuzzing.md).
 
 ## Practical rules a future reader should keep
 

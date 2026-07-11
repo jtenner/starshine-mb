@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
@@ -29,7 +30,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass. The committed raw source manifest is [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md). The 2026-04-26 port-readiness bridge [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md) rechecked current `main` and found no teaching-level drift.
+Use Binaryen `version_129` / `version_130` as the released source oracle for this pass. The committed raw source manifests preserve the tagged contract. The 2026-07-11 recheck reread current `main`'s owner, registration, and direct lit surface: the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence; see [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
 
 Primary files:
 
@@ -254,7 +255,7 @@ Keep these non-goals explicit:
 
 ## Starshine mapping note
 
-Current Starshine does not expose this full `ssa` pass. The local active sibling is `ssa-nomerge`, and its implementation uses Starshine's HOT SSA overlay/destruction machinery rather than this exact Binaryen merge-local + incoming-`tee` rewrite. See [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future-port sequencing.
+Starshine **does** expose `ssa`, but only as an active partial direct pass: `src/passes/ssa.mbt` delegates non-merge families to the local no-merge rewrite and returns unchanged when LocalGraph finds a merge read. It does not yet implement Binaryen's public merge-local + incoming-`tee` + parameter-prepend contract. The active sibling `ssa-nomerge` remains the preset pass and uses Starshine's HOT SSA overlay/destruction machinery. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and the planned-only [`./fuzzing.md`](./fuzzing.md) admission boundary.
 
 ## Bottom line
 

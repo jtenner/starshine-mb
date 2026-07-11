@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
@@ -30,7 +31,7 @@ related:
 
 # `ssa` implementation structure and tests
 
-This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. For immutable tagged provenance URLs and anchors, start with [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md); for the current-main port-readiness recheck, use [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md).
+This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. For immutable tagged provenance URLs and anchors, start with [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md); for the scoped current-main and local-admission refresh, use [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
 
 ## Upstream file map
 
@@ -172,18 +173,11 @@ Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code lo
 - `src/passes/ssa_nomerge.mbt` remains the no-merge sibling owner; full `ssa` may reuse its non-merge rewrite path, but merge-local materialization belongs to `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]`, not `SSANM`.
 - No local owner currently implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract for public merge families; those are the open `[SSA-FULL-002C]` through `[SSA-FULL-003]` slices.
 
-## Current-main freshness note
+## Current-main freshness and admission note
 
-A narrow 2026-04-21 exactness check found:
+The 2026-07-11 recheck reread current `main`'s `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared `SSAify(bool allowMerges)` owner, full-SSA merge-local path, and `ssa-nomerge`-only default scheduling remain present. It is a scoped source reading, **not** a full current-main-versus-`version_130` diff; the tagged manifests remain the released-oracle provenance.
 
-- `SSAify.cpp` on current upstream `main` matched `version_129`
-- `test/lit/passes/ssa.wast` on current upstream `main` matched `version_129`
-
-The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift. A 2026-04-26 port-readiness recheck reopened the same owner/registration/helper/test surfaces plus local Starshine SSA surfaces and also found no teaching-level upstream drift. This is not a full trunk-equivalence audit.
-
-So the durable reading is:
-
-- `version_129` remains the released source oracle for this dossier
+The same review reconciles local status: `src/passes/ssa.mbt`, `ssa_test.mbt`, registry coverage, and CLI adapter coverage prove an active direct non-merge subset, while `scripts/lib/pass-fuzz-compare-task.ts` does not admit `--ssa`. The latter is a harness boundary, not evidence that the active direct pass is unavailable or that it matches Binaryen merge behavior.
 
 ## Easy misunderstandings this file map clears up
 

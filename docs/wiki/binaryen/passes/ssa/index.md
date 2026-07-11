@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-13
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
@@ -125,15 +126,18 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
   - Current Starshine status and port map: active partial local `ssa` registry entry, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations the remaining merge-local slices must bridge.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Future implementation bridge: registry honesty, source classifier requirements, merge-local rewrite order, `ssa-nomerge` sibling-stability checks, and validation ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Current compare-pass admission boundary: `ssa` is locally active-partial but absent from the harness allowlist, so this is planned-only rather than a runnable parity command.
 
-## Freshness note
+## Freshness and admission note
 
-A 2026-04-21 exactness check found `SSAify.cpp` and `test/lit/passes/ssa.wast` on current upstream `main` matched `version_129`. The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift. The 2026-04-26 port-readiness recheck also found no teaching-level drift across `SSAify.cpp`, registration, helper, and lit surfaces; this is not a full trunk-equivalence audit.
+The 2026-07-11 current-main recheck reread `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared full-SSA/no-merge algorithm and the default-pipeline split remain as documented: full `ssa` owns merge-local materialization, while only `ssa-nomerge` occupies the early default function slot. This is a dated source reading, not a byte-for-byte current-main versus `version_130` comparison; [`2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md) records its precise scope.
 
-So this folder should keep treating Binaryen `version_129` as the released semantic oracle without an active trunk-drift caveat.
+The same recheck corrects the local status: Starshine exposes `ssa` as an **active partial** direct pass for non-merge families, but the compare-pass harness does not admit `--ssa`. Thus a rejected `compare-pass --pass ssa` request proves only harness admission, not pass parity. Keep `version_129` / `version_130` as the released upstream oracle provenance, and use the living Starshine pages for the active-subset boundary.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md)
 - [`../../../raw/research/0402-2026-04-26-ssa-port-readiness.md`](../../../raw/research/0402-2026-04-26-ssa-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md)

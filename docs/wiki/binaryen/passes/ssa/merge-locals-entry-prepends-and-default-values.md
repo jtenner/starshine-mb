@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
@@ -40,7 +41,7 @@ This page explains the single easiest thing to miss when moving from `ssa-nomerg
 
 ## The source-backed core rule
 
-In `SSAify.cpp`, when a `local.get` has more than one reaching set and `allowMerges` is true, Binaryen does the source-backed work captured in [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md):
+In `SSAify.cpp`, when a `local.get` has more than one reaching set and `allowMerges` is true, Binaryen does the source-backed work captured in the tagged manifests and reconfirmed on the reviewed 2026-07-11 current-main surface ([`2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md)): 
 
 1. allocates a fresh merge local
 2. retargets that get to the merge local
@@ -203,7 +204,7 @@ That distinction should stay visible so the dossier is confident without pretend
 
 ## Starshine status caveat
 
-Current Starshine's active `ssa-nomerge` path can lower HOT overlay phis through predecessor copies, but that is not this Binaryen full-`ssa` merge-local contract. Local follow-along lives in [`./starshine-strategy.md`](./starshine-strategy.md); future-port sequencing and validation live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Starshine now exposes an active partial direct `ssa` pass for non-merge families, but it returns merge reads unchanged. Its active `ssa-nomerge` sibling can lower HOT overlay phis through predecessor copies; neither fact implements this Binaryen full-`ssa` merge-local contract. Local status lives in [`./starshine-strategy.md`](./starshine-strategy.md), future mutation sequencing in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and current harness non-admission in [`./fuzzing.md`](./fuzzing.md).
 
 ## Why `ssa-nomerge` is smaller
 
