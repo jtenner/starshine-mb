@@ -50,6 +50,7 @@ The prior arity/placement-matrix strategy is superseded. Do not add another exac
   - Tasks: prioritize the hottest/repeated raw scanner families; group transforms by semantic anchors such as select, call/call_ref, binary/compare, memory, and GC roots; migrate one behavior family at a time with red-first parity tests; remove each old traversal when its indexed replacement lands.
   - Invariants: root-kind dispatch is only candidate discovery; every rewrite still consumes source-backed semantic proof facts. Do not turn opcode lookup into an unsafe rewrite whitelist.
   - Exit criteria: no newly introduced whole-body OI scanner; a materially smaller raw orchestrator; repeated statistics, signature, annotation, type, equality, and effect questions served by reusable facts.
+  - Status: started. The shared index now records typed top-level root kinds and a reusable pure-stack prefix value fact. The simple stack-call/commutative-binop and call-indexed `table.get` + `call_ref` bypass families query those facts, then rerun their exact signature/opcode proof; both old `from_instrs` definitions and dispatcher calls are deleted. This slice removes two scanner definitions and two direct body scanner calls without widening behavior.
 
 - [OI-INDEX]005 - Remove legacy spaghetti and sign off maintainable OI parity
   - Goal: finish deleting superseded scanner, whitelist, arity-matrix, admission-enum, and precedence code while completing remaining Binaryen behavior families through general rules.

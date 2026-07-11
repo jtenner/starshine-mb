@@ -26,6 +26,24 @@ test "optimize-instructions raw function index collects call and select anchors 
 }
 
 ///|
+test "optimize-instructions raw function index records reusable top-level roots" {
+  let callee = @lib.FuncIdx::new(4U)
+  let type_idx = @lib.TypeIdx::new(2U)
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(callee),
+    @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+    @lib.Instruction::call_ref(type_idx),
+  ])
+  @debug.assert_eq(index.top_level_roots.length(), 4)
+  @debug.assert_eq(index.top_level_pure_stack_prefix_count, 1)
+  assert_true(index.has_top_level_root_at(1, RawOiRootKind::DirectCall))
+  assert_true(index.has_top_level_root_at(2, RawOiRootKind::TableGet))
+  assert_true(index.has_top_level_root_at(3, RawOiRootKind::CallRef))
+  assert_false(index.has_top_level_root_at(0, RawOiRootKind::CallRef))
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([

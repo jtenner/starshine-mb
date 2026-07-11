@@ -25140,25 +25140,28 @@ priv struct RawOiSimpleStackCallBinopFact {
 }
 
 ///|
-fn RawOiSimpleStackCallBinopFact::from_instrs(
+fn RawOiSimpleStackCallBinopFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiSimpleStackCallBinopFact? {
-  match instrs {
-    [lhs, call, binop] =>
-      Some({
-        operand_is_pure_stack_value: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-          lhs,
-        ),
-        call_has_no_params_one_result: run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
-          call, module_ctx,
-        ),
-        binop_is_commutative_integer: run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
-          binop,
-        ),
-      })
-    _ => None
+  if instrs.length() != 3 ||
+    !index.has_top_level_root_at(1, RawOiRootKind::DirectCall) ||
+    !index.has_top_level_root_at(2, RawOiRootKind::CommutativeIntegerBinop) {
+    return None
   }
+  Some({
+    operand_is_pure_stack_value: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+      instrs[0],
+    ),
+    call_has_no_params_one_result: run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+      instrs[1],
+      module_ctx,
+    ),
+    binop_is_commutative_integer: run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
+      instrs[2],
+    ),
+  })
 }
 
 ///|
@@ -25182,44 +25185,35 @@ priv struct RawOiCallIndexedTableGetCallRefFact {
 }
 
 ///|
-fn RawOiCallIndexedTableGetCallRefFact::from_instrs(
+fn RawOiCallIndexedTableGetCallRefFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiCallIndexedTableGetCallRefFact? {
   if instrs.length() < 3 {
     return None
   }
-  let index_call = instrs[instrs.length() - 3]
-  let table_get = instrs[instrs.length() - 2]
-  let ref_call = instrs[instrs.length() - 1]
-  let index_call_has_no_params_one_result = run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
-    index_call, module_ctx,
-  )
-  let is_table_get_target = match table_get {
-    @lib.TableGet(_) => true
-    _ => false
-  }
-  let is_call_ref = match ref_call {
-    @lib.CallRef(_) | @lib.ReturnCallRef(_) => true
-    _ => false
-  }
-  if !index_call_has_no_params_one_result ||
-    !is_table_get_target ||
-    !is_call_ref {
+  let call_pos = instrs.length() - 3
+  let table_get_pos = instrs.length() - 2
+  let call_ref_pos = instrs.length() - 1
+  if index.top_level_pure_stack_prefix_count != call_pos ||
+    !index.has_top_level_root_at(call_pos, RawOiRootKind::DirectCall) ||
+    !index.has_top_level_root_at(table_get_pos, RawOiRootKind::TableGet) ||
+    !index.has_top_level_call_ref_root_at(call_ref_pos) {
     return None
   }
-  for i = 0; i < instrs.length() - 3; i = i + 1 {
-    if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-        instrs[i],
-      ) {
-      return None
-    }
+  let index_call_has_no_params_one_result = run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+    instrs[call_pos],
+    module_ctx,
+  )
+  if !index_call_has_no_params_one_result {
+    return None
   }
   Some({
-    pure_prefix_count: instrs.length() - 3,
+    pure_prefix_count: call_pos,
     index_call_has_no_params_one_result,
-    is_table_get_target,
-    is_call_ref,
+    is_table_get_target: true,
+    is_call_ref: true,
   })
 }
 
@@ -25597,6 +25591,47 @@ fn RawOiStackCarriedEffectSkipFact::proves_accepted_raw_noop(
 // recursive walk records semantic anchors, while HOT remains responsible for
 // exact type, equality, effect, removability, ordering, trap, and invalidation
 // proof. Rebuild this index whenever the raw body snapshot changes.
+priv enum RawOiRootKind {
+  DirectCall
+  CallRef
+  ReturnCallRef
+  TableGet
+  CommutativeIntegerBinop
+  Other
+}
+
+///|
+priv struct RawOiTopLevelRootFact {
+  position : Int
+  kind : RawOiRootKind
+  is_pure_stack_operand : Bool
+}
+
+///|
+fn RawOiTopLevelRootFact::from_instr(
+  position : Int,
+  instr : @lib.Instruction,
+) -> RawOiTopLevelRootFact {
+  let kind = match instr {
+    @lib.Call(_) => RawOiRootKind::DirectCall
+    @lib.CallRef(_) => RawOiRootKind::CallRef
+    @lib.ReturnCallRef(_) => RawOiRootKind::ReturnCallRef
+    @lib.TableGet(_) => RawOiRootKind::TableGet
+    instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
+        instr,
+      ) => RawOiRootKind::CommutativeIntegerBinop
+    _ => RawOiRootKind::Other
+  }
+  {
+    position,
+    kind,
+    is_pure_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+      instr,
+    ),
+  }
+}
+
+///|
 priv struct RawOiCallSiteFact {
   call_idx : @lib.FuncIdx
   call_ordinal : Int
@@ -25611,6 +25646,8 @@ priv struct RawOiSelectAnchorFact {
 priv struct RawOiFunctionRevisionFactIndex {
   instruction_count : Int
   lowered_stats : OptimizeInstructionsLoweredStats
+  top_level_roots : Array[RawOiTopLevelRootFact]
+  top_level_pure_stack_prefix_count : Int
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
 }
@@ -25675,12 +25712,70 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
   instrs : Array[@lib.Instruction],
 ) -> RawOiFunctionRevisionFactIndex {
   let lowered_stats = OptimizeInstructionsLoweredStats::new()
+  let top_level_roots : Array[RawOiTopLevelRootFact] = []
+  let mut top_level_pure_stack_prefix_count = 0
+  let mut prefix_is_pure = true
+  for i = 0; i < instrs.length(); i = i + 1 {
+    let root = RawOiTopLevelRootFact::from_instr(i, instrs[i])
+    top_level_roots.push(root)
+    if prefix_is_pure && root.is_pure_stack_operand {
+      top_level_pure_stack_prefix_count += 1
+    } else {
+      prefix_is_pure = false
+    }
+  }
   let call_sites : Array[RawOiCallSiteFact] = []
   let select_anchors : Array[RawOiSelectAnchorFact] = []
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
     instrs, lowered_stats, call_sites, select_anchors,
   )
-  { instruction_count, lowered_stats, call_sites, select_anchors }
+  {
+    instruction_count,
+    lowered_stats,
+    top_level_roots,
+    top_level_pure_stack_prefix_count,
+    call_sites,
+    select_anchors,
+  }
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::root_kind_matches(
+  actual : RawOiRootKind,
+  expected : RawOiRootKind,
+) -> Bool {
+  match (actual, expected) {
+    (DirectCall, DirectCall)
+    | (CallRef, CallRef)
+    | (ReturnCallRef, ReturnCallRef)
+    | (TableGet, TableGet)
+    | (CommutativeIntegerBinop, CommutativeIntegerBinop)
+    | (Other, Other) => true
+    _ => false
+  }
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_top_level_root_at(
+  self : RawOiFunctionRevisionFactIndex,
+  position : Int,
+  kind : RawOiRootKind,
+) -> Bool {
+  if position < 0 || position >= self.top_level_roots.length() {
+    return false
+  }
+  let root = self.top_level_roots[position]
+  root.position == position &&
+  RawOiFunctionRevisionFactIndex::root_kind_matches(root.kind, kind)
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_top_level_call_ref_root_at(
+  self : RawOiFunctionRevisionFactIndex,
+  position : Int,
+) -> Bool {
+  self.has_top_level_root_at(position, RawOiRootKind::CallRef) ||
+  self.has_top_level_root_at(position, RawOiRootKind::ReturnCallRef)
 }
 
 ///|
@@ -33396,12 +33491,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     mod_, func_idx, module_ctx, locals,
   )
   let simple_stack_call_binop = match
-    RawOiSimpleStackCallBinopFact::from_instrs(body, module_ctx) {
+    RawOiSimpleStackCallBinopFact::from_index(oi_index, body, module_ctx) {
     Some(fact) => fact.proves_binaryen_stack_localization()
     None => false
   }
   let call_indexed_table_get_call_ref = match
-    RawOiCallIndexedTableGetCallRefFact::from_instrs(body, module_ctx) {
+    RawOiCallIndexedTableGetCallRefFact::from_index(oi_index, body, module_ctx) {
     Some(fact) => fact.proves_binaryen_call_ref_directization()
     None => false
   }
