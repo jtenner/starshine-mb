@@ -469,6 +469,69 @@ test "optimize-instructions raw function index rebuilds from a changed snapshot"
 }
 
 ///|
+test "optimize-instructions raw function index owns recursive local use counts" {
+  let target = @lib.LocalIdx::new(3U)
+  let other = @lib.LocalIdx::new(8U)
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(other),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+  @debug.assert_eq(index.local_get_count(target), 2)
+  @debug.assert_eq(index.local_get_count(other), 1)
+  @debug.assert_eq(index.local_get_count(@lib.LocalIdx::new(99U)), 0)
+}
+
+///|
+test "optimize-instructions call_ref overlay combines current root with original recursive uses" {
+  let target = @lib.FuncIdx::new(7U)
+  let type_idx = @lib.TypeIdx::new(3U)
+  let target_local = @lib.LocalIdx::new(2U)
+  let original = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::ref_func(target)]),
+    ),
+    @lib.Instruction::local_set(target_local),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::call_ref(type_idx),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(target_local),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  let overlay : RawOiCurrentRootRevisionOverlay = {
+    current: @lib.Instruction::ref_func(target),
+    region: RawOiInstructionRegionFact::from_instrs(original),
+    function_index: RawOiFunctionRevisionFactIndex::from_instrs(original),
+    start: 0,
+  }
+  match RawOiCallRefDirectizeRewriteFact::from_overlay(overlay) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_call_ref_directization())
+      @debug.assert_eq(fact.local_fallthrough_get_count, 2)
+      assert_true(fact.preserves_local_fallthrough_binding)
+      @debug.assert_eq(fact.rewrite, [
+        @lib.Instruction::ref_func(target),
+        @lib.Instruction::local_set(target_local),
+        @lib.Instruction::call(target),
+      ])
+    }
+    None => fail("expected mixed-revision call_ref overlay fact")
+  }
+}
+
+///|
 test "optimize-instructions ref-null trap repair consumes indexed region roots" {
   let heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let region = RawOiInstructionRegionFact::from_instrs([
