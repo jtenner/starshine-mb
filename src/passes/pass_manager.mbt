@@ -24611,11 +24611,17 @@ priv struct RawOiConstOffsetLoadThenCallFact {
 }
 
 ///|
-fn RawOiConstOffsetLoadThenCallFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiConstOffsetLoadThenCallFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
 ) -> RawOiConstOffsetLoadThenCallFact? {
-  match instrs {
-    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] => {
+  if index.top_level_roots.length() != 4 ||
+    !index.has_top_level_root_at(0, RawOiRootKind::I32Const) ||
+    !index.has_top_level_root_at(1, RawOiRootKind::PlainLoad) ||
+    !index.has_top_level_root_at(3, RawOiRootKind::DirectCall) {
+    return None
+  }
+  match (index.instr_at(1), index.instr_at(2)) {
+    (Some(load), Some(@lib.Drop)) => {
       let load_has_nonzero_offset = run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
         load,
       )
@@ -25220,16 +25226,16 @@ priv struct RawOiBulkStackOperandFact {
 }
 
 ///|
-fn RawOiBulkStackOperandFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBulkStackOperandFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiBulkStackOperandFact? {
-  if start >= instrs.length() {
+  if start >= region.roots.length() {
     return None
   }
   if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-      instrs[start],
+      region.roots[start].instr,
       module_ctx,
     ) ==
     0 {
@@ -25240,16 +25246,18 @@ fn RawOiBulkStackOperandFact::from_instrs(
       stack_argument_count: 0,
     })
   }
-  match RawOiBulkStackOperandAtomFact::from_instr(instrs[start]) {
+  match RawOiBulkStackOperandAtomFact::from_instr(region.roots[start].instr) {
     Some(_) => ()
     None => return None
   }
   let mut call_pos = start + 1
-  while call_pos < instrs.length() &&
-        RawOiBulkStackOperandAtomFact::from_instr(instrs[call_pos - 1])
+  while call_pos < region.roots.length() &&
+        RawOiBulkStackOperandAtomFact::from_instr(
+          region.roots[call_pos - 1].instr,
+        )
         is Some(_) {
     if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-        instrs[call_pos],
+        region.roots[call_pos].instr,
         module_ctx,
       ) ==
       call_pos - start {
@@ -25320,26 +25328,29 @@ priv struct RawOiStackBulkMemoryFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiStackBulkMemoryFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryFact? {
   let dest = match
-    RawOiBulkStackOperandFact::from_instrs(instrs, start, module_ctx) {
+    RawOiBulkStackOperandFact::from_region(region, start, module_ctx) {
     Some(fact) => fact
     None => return None
   }
   let source_or_value = match
-    RawOiBulkStackOperandFact::from_instrs(instrs, dest.end, module_ctx) {
+    RawOiBulkStackOperandFact::from_region(region, dest.end, module_ctx) {
     Some(fact) => fact
     None => return None
   }
-  if source_or_value.end + 1 >= instrs.length() {
+  if source_or_value.end + 1 >= region.roots.length() {
     return None
   }
-  let size = RawOiBulkSizeFact::from_instr(instrs[source_or_value.end])
-  let (is_memory_copy, is_memory_fill) = match instrs[source_or_value.end + 1] {
+  let size = RawOiBulkSizeFact::from_instr(
+    region.roots[source_or_value.end].instr,
+  )
+  let (is_memory_copy, is_memory_fill) = match
+    region.roots[source_or_value.end + 1].instr {
     @lib.MemoryCopy(_, _) => (true, false)
     @lib.MemoryFill(_) => (false, true)
     _ => return None
@@ -25390,11 +25401,12 @@ priv struct RawOiStackBulkMemoryRegionFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiStackBulkMemoryRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryRegionFact? {
-  if instrs.length() == 0 {
+  let region = index.regions[0]
+  if region.roots.length() == 0 {
     return None
   }
   let mut i = 0
@@ -25402,9 +25414,9 @@ fn RawOiStackBulkMemoryRegionFact::from_instrs(
   let mut all_tiny_rewrites = true
   let mut all_trap_relaxed_zero_size_drops = true
   let mut saw_stack_carried_call_operand = false
-  while i < instrs.length() {
+  while i < region.roots.length() {
     let fact = match
-      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
+      RawOiStackBulkMemoryFact::from_region(region, i, module_ctx) {
       Some(fact) => fact
       None => return None
     }
@@ -33116,8 +33128,8 @@ fn RawOiFlatPureScalarBudgetFact::exceeded_stack(
 }
 
 ///|
-fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiFlatPureScalarAddressFact::candidates_from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   allow_fallthrough_local_tee : Bool,
 ) -> Array[RawOiFlatPureScalarAddressFact] {
@@ -33125,11 +33137,12 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   let facts : Array[RawOiFlatPureScalarAddressFact] = []
   let stack : Array[RawOiFlatPureScalarStackValueFact] = []
   let mut idx = start
-  while idx < instrs.length() && budget.allows_instr(start, idx) {
-    match RawOiFlatPureScalarLeafFact::from_instr(instrs[idx]) {
+  while idx < region.roots.length() && budget.allows_instr(start, idx) {
+    let instr = region.roots[idx].instr
+    match RawOiFlatPureScalarLeafFact::from_instr(instr) {
       Some(fact) => stack.push(RawOiFlatPureScalarStackValueFact::leaf(fact))
       None =>
-        match instrs[idx] {
+        match instr {
           @lib.LocalTee(_) => {
             // Binaryen v130 `Properties::getImmediateFallthrough` with
             // `AllowTeeBrIf` exposes a direct right `local.tee`'s value as the
@@ -33152,7 +33165,7 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
             })
           }
           _ =>
-            match RawOiFlatPureScalarUnaryOpFact::from_instr(instrs[idx]) {
+            match RawOiFlatPureScalarUnaryOpFact::from_instr(instr) {
               Some(fact) => {
                 if stack.length() < 1 {
                   break
@@ -33163,7 +33176,7 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
                 )
               }
               None =>
-                match RawOiFlatPureScalarBinaryOpFact::from_instr(instrs[idx]) {
+                match RawOiFlatPureScalarBinaryOpFact::from_instr(instr) {
                   Some(fact) => {
                     if stack.length() < 2 {
                       break
@@ -33215,10 +33228,10 @@ fn RawOiFlatPureScalarAddressFact::proves_equal(
 fn RawOiFlatPureScalarAddressFact::append_dropped_operand(
   self : RawOiFlatPureScalarAddressFact,
   out : Array[@lib.Instruction],
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
 ) -> Unit {
   for idx = self.start; idx < self.end; idx = idx + 1 {
-    out.push(instrs[idx])
+    out.push(region.roots[idx].instr)
   }
   out.push(@lib.Instruction::drop())
 }
@@ -33233,7 +33246,7 @@ priv struct RawOiSameFlatPureScalarMemoryCopyFact {
 
 ///|
 fn RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   dst_fact : RawOiFlatPureScalarAddressFact,
   src_fact : RawOiFlatPureScalarAddressFact,
 ) -> RawOiSameFlatPureScalarMemoryCopyFact? {
@@ -33246,15 +33259,15 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
   }
   let size_instr_idx = src_fact.end
   let copy_instr_idx = src_fact.end + 1
-  if copy_instr_idx >= instrs.length() {
+  if copy_instr_idx >= region.roots.length() {
     return None
   }
   if !run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-      instrs[size_instr_idx],
+      region.roots[size_instr_idx].instr,
     ) {
     return None
   }
-  match instrs[copy_instr_idx] {
+  match region.roots[copy_instr_idx].instr {
     @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem =>
       Some({ dst_fact, src_fact, size_instr_idx, copy_instr_idx })
     _ => None
@@ -33272,11 +33285,11 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::proves_same_memory_copy_drop(
 fn RawOiSameFlatPureScalarMemoryCopyFact::append_replacement(
   self : RawOiSameFlatPureScalarMemoryCopyFact,
   out : Array[@lib.Instruction],
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
 ) -> Int {
-  self.dst_fact.append_dropped_operand(out, instrs)
-  self.src_fact.append_dropped_operand(out, instrs)
-  out.push(instrs[self.size_instr_idx])
+  self.dst_fact.append_dropped_operand(out, region)
+  self.src_fact.append_dropped_operand(out, region)
+  out.push(region.roots[self.size_instr_idx].instr)
   out.push(@lib.Instruction::drop())
   self.copy_instr_idx + 1
 }
@@ -33293,21 +33306,21 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(body)
       (
         @lib.Instruction::block(block_type, @lib.Expr::new(fact.rewritten)),
         fact.changed,
       )
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(body)
       (
         @lib.Instruction::loop_(block_type, @lib.Expr::new(fact.rewritten)),
         fact.changed,
       )
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(body)
       (
         @lib.Instruction::try_table(
           block_type,
@@ -33318,12 +33331,12 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
       )
     }
     @lib.If(block_type, then_body, else_body) => {
-      let then_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+      let then_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
         then_body,
       )
       let (next_else, else_changed) = match else_body {
         Some(body) => {
-          let else_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+          let else_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
             body,
           )
           (Some(else_fact.rewritten), else_fact.changed)
@@ -33340,27 +33353,28 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
 }
 
 ///|
-fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
   instrs : Array[@lib.Instruction],
 ) -> RawOiSameFlatPureScalarMemoryCopyRegionFact {
-  // Accepted raw OI-G traversal fact over `RawOiFlatPureScalarAddressFact` and
-  // `RawOiSameFlatPureScalarMemoryCopyFact`. The region loop owns recursion and
-  // emission only after a named same-address memory.copy fact proves the drop;
-  // no inline opcode/equality windows should be added here.
+  // Accepted raw OI-G mutation bridge over one immutable region view per body.
+  // Indexed roots discover bounded scalar-address candidates; exact equality,
+  // memory identity, size removability, and trap-relaxed admission remain in the
+  // named address/copy facts. No second admission traversal is constructed.
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
-  while i < instrs.length() {
+  while i < region.roots.length() {
     let mut matched = false
-    let dst_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-      instrs, i, false,
+    let dst_facts = RawOiFlatPureScalarAddressFact::candidates_from_region(
+      region, i, false,
     )
     for dst_fact in dst_facts {
       if matched {
         break
       }
-      let src_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-        instrs,
+      let src_facts = RawOiFlatPureScalarAddressFact::candidates_from_region(
+        region,
         dst_fact.end,
         true,
       )
@@ -33370,10 +33384,10 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
         }
         match
           RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
-            instrs, dst_fact, src_fact,
+            region, dst_fact, src_fact,
           ) {
           Some(copy_fact) if copy_fact.proves_same_memory_copy_drop() => {
-            i = copy_fact.append_replacement(out, instrs)
+            i = copy_fact.append_replacement(out, region)
             changed = true
             matched = true
           }
@@ -33385,7 +33399,7 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
       continue
     }
     let (rewritten, instr_changed) = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
-      instrs[i],
+      region.roots[i].instr,
     )
     out.push(rewritten)
     changed = changed || instr_changed
@@ -33447,7 +33461,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     same_flat_pure_scalar_memory_copy_body,
     same_flat_pure_scalar_memory_copy_changed,
   ) = if options.traps_never_happen || options.ignore_implicit_traps {
-    let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+    let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
       effectful_sibling_body,
     )
     (fact.rewritten, fact.changed)
@@ -33552,8 +33566,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
     None => false
   }
-  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_instrs(
-    body, module_ctx,
+  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_index(
+    oi_index, module_ctx,
   )
   let tiny_stack_bulk_memory = match stack_bulk_region {
     Some(fact) => fact.proves_binaryen_tiny_rewrite_region()
@@ -33638,7 +33652,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   let const_offset_load_then_call = match
-    RawOiConstOffsetLoadThenCallFact::from_instrs(body) {
+    RawOiConstOffsetLoadThenCallFact::from_index(oi_index) {
     Some(fact) => fact.proves_binaryen_offset_fold_bypass()
     None => false
   }
