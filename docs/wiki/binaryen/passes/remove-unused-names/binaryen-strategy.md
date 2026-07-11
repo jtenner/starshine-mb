@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
@@ -25,7 +26,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_130` as the current tagged source oracle for this pass. The 2026-07-11 focused current-main reread found no behavior-bearing drift in the reviewed owner, generic helper, caller-sentinel, scheduler, or dedicated-fixture surfaces; use `version_129` only as historical provenance for the older research notes.
 
 Primary files:
 
@@ -48,17 +49,7 @@ The new implementation/test-map page also keeps one subtle test-surface limitati
 - the block / loop / cleanup-cluster behavior is directly lit-backed
 - the delegate-caller sentinel story is source-confirmed mainly from `visitTry(...)`, `operateOnScopeNameUses(...)`, and `DELEGATE_CALLER_TARGET`, not from a dedicated standalone lit filename
 
-I also did a narrow 2026-04-20 freshness check against current GitHub `main` for:
-
-- `RemoveUnusedNames.cpp`
-- `remove-unused-names.wast`
-- `remove-unused-names.txt`
-
-Durable result:
-
-- those core surfaces still match `version_129` exactly
-
-So the wiki should keep treating `version_129` as the semantic oracle here without an active core-trunk-drift warning.
+The 2026-07-11 source manifest reread the owner, `pass.cpp`, generic `branch-utils.h` target helpers, `DELEGATE_CALLER_TARGET`, and the dedicated fixture pair against `version_130` and current `main`. No behavior-bearing drift appeared on those reviewed surfaces. The result preserves the semantic oracle below while adding two explicit limits: it is not an exhaustive audit of neighboring combo fixtures, and it does not prove that Starshine's narrower HOT subset covers every generic Binaryen label-clear behavior.
 
 ## High-level intent
 
@@ -345,6 +336,10 @@ These non-goals are important to keep explicit:
 - no trap reasoning
 - no type repair beyond the very local same-type checks in the source
 - no broad structural cleanup without help from other passes
+
+## Current-source caveat
+
+The 2026-07-11 reread is a freshness layer, not a replacement for the source-backed mechanics on this page. It confirms the current owner/helper/scheduler/fixture contract; it does not convert historical `version_129` research into a claim that all unreviewed current-main test families are identical. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
 
 ## Bottom line
 

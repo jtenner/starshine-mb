@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
   - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
   - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
@@ -91,7 +92,7 @@ That makes this pass relevant to both the canonical scheduler docs and the artif
 - Loop demotion is narrower than it sounds.
   - It only happens when the loop label is dead **and** the body type matches the loop type.
 - `try` / delegate handling has a special caller-target cleanup rule.
-- A narrow 2026-04-21 freshness check found no current-main drift in the core pass file or the dedicated base test pair relative to `version_129`.
+- The 2026-07-11 `version_130` / current-main source recheck found no behavior-bearing drift in the core owner, generic scope-target helpers, caller-delegate sentinel, public scheduling, or dedicated base fixture.
 
 ## Biggest beginner correction
 
@@ -134,14 +135,15 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-21 direct source comparison found **no semantic post-`version_129` drift** in the core official surfaces used for this dossier.
+The 2026-07-11 primary-source reread found **no behavior-bearing drift between `version_130` and current `main`** in the reviewed core surfaces:
 
-- `src/passes/RemoveUnusedNames.cpp` is identical on current `main`
-- `test/passes/remove-unused-names.wast` is identical on current `main`
-- `test/passes/remove-unused-names.txt` is identical on current `main`
+- `src/passes/RemoveUnusedNames.cpp`
+- `src/passes/pass.cpp` registration and three no-DWARF scheduler placements
+- `src/ir/branch-utils.h` generic scope-name use/retarget helper boundary
+- `src/shared-constants.h` caller-delegate sentinel
+- the dedicated `remove-unused-names.wast` / `.txt` fixture pair
 
-That is a deliberately narrow statement.
-It does not claim that every nearby combo test is unchanged, only that the core pass file and dedicated base test pair still match.
+That is deliberately narrow. It does not claim that every neighboring cleanup-combination fixture is unchanged, nor that current Starshine's narrower structural subset implements every Binaryen label-clear behavior. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
 
 ## Current maintenance rule
 
@@ -157,6 +159,7 @@ It does not claim that every nearby combo test is unchanged, only that the core 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md)
 - [`../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
 - [`../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md`](../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md)
 - [`../../../../../src/passes/remove_unused_names.mbt`](../../../../../src/passes/remove_unused_names.mbt)

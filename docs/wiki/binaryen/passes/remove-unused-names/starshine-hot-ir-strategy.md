@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
   - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
   - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
@@ -25,7 +26,7 @@ related:
 
 # Starshine `remove-unused-names` HOT-IR strategy
 
-This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `RemoveUnusedNames.cpp` contract.
+This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `RemoveUnusedNames.cpp` contract. The 2026-07-11 `version_130` / current-main reread preserves the upstream owner/helper/scheduler/fixture boundary; it does not enlarge the local subset.
 
 ## Current local surface
 
@@ -207,6 +208,10 @@ The local visitor has structural work to do on:
 For `If`, `Try`, and `TryTable`, recursion exists so nested block/loop candidates can still be rewritten inside those regions. As of the 2026-06-07 O4z RUN implementation slice, same-type block peeling also retargets branch-like uses of labels owned by the removed wrapper chain to the surviving wrapper label before splicing the child body upward. That retargeting covers plain branches, conditional branches, `br_table` arm/default targets, `br_on_*` targets, delegates, and `try_table` catch targets through shared HOT mutation helpers.
 
 The local pass still does **not** implement the upstream `handleBreakTarget(...)` / `visitTry(...)` style of clearing labels on every named scope that remains structurally present.
+
+## Current upstream freshness boundary
+
+The current Binaryen owner still tracks exact generic scope-name users and can clear labels on structurally retained scopes; Starshine still does not. The 2026-07-11 source reread found no behavior-bearing upstream drift that would narrow this documented parity gap. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
 
 ## Biggest local-vs-upstream difference
 

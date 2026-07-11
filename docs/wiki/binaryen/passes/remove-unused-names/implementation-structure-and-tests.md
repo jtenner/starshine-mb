@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
@@ -33,7 +34,7 @@ related:
 
 # Upstream implementation structure and test map for `remove-unused-names`
 
-This page is the compact file/test map for the real Binaryen `version_129` `remove-unused-names` contract.
+This page is the compact file/test map for the real Binaryen `remove-unused-names` contract. Use `version_130` as the current tagged oracle; the 2026-07-11 current-main reread found no behavior-bearing drift in the owner, generic helper, caller-sentinel, scheduler, or dedicated fixture surfaces.
 
 ## Main implementation file
 
@@ -209,6 +210,10 @@ So the safest teaching split is:
 - delegate behavior is source-confirmed from `visitTry(...)`, `operateOnScopeNameUses(...)`, and `DELEGATE_CALLER_TARGET` cleanup, but not isolated by a dedicated named lit file
 
 That absence should stay explicit in the living docs.
+
+## Freshness boundary
+
+The 2026-07-11 source manifest confirms that the owner and dedicated fixture map below remains current through Binaryen `main`. It deliberately does not claim that every neighboring cleanup-combination fixture was re-diffed. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
 
 ## Practical reading order for future Starshine parity work
 

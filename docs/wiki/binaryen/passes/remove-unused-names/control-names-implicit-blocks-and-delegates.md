@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
@@ -219,6 +220,10 @@ then a future port should preserve the real contract in semantic form:
 - retarget equivalent parent/child scopes when safe
 - keep delegate-to-caller special
 - separate direct rewrites from downstream implicit-structure cleanup
+
+## Freshness boundary
+
+The 2026-07-11 `version_130` / current-main reread preserved the owner, generic target-helper, caller-delegate sentinel, scheduler, and dedicated-fixture contract summarized here. It is a narrow source check, not an assertion that every cleanup-combination fixture is unchanged. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
 
 ## Bottom line
 
