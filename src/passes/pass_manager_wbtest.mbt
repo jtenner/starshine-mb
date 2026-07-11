@@ -14,6 +14,10 @@ test "optimize-instructions raw function index collects call and select anchors 
     @lib.Instruction::select(),
   ])
   @debug.assert_eq(index.instruction_count, 5)
+  @debug.assert_eq(index.lowered_stats.instrs, 5)
+  @debug.assert_eq(index.lowered_stats.blocks, 1)
+  @debug.assert_eq(index.lowered_stats.calls, 3)
+  @debug.assert_eq(index.lowered_stats.ifs, 0)
   @debug.assert_eq(index.call_sites.length(), 3)
   @debug.assert_eq(index.select_anchors.length(), 1)
   assert_true(index.has_repeated_call(repeated))
@@ -37,6 +41,9 @@ test "optimize-instructions raw function index rebuilds from a changed snapshot"
   assert_true(after.has_repeated_call(target))
   assert_true(after.has_select_anchor())
   assert_true(after.instruction_count > before.instruction_count)
+  assert_true(after.lowered_stats.instrs > before.lowered_stats.instrs)
+  @debug.assert_eq(before.lowered_stats.calls, 1)
+  @debug.assert_eq(after.lowered_stats.calls, 2)
 }
 
 ///|

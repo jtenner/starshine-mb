@@ -24180,34 +24180,19 @@ fn OptimizeInstructionsLoweredStats::new() -> OptimizeInstructionsLoweredStats {
 }
 
 ///|
-fn run_hot_pipeline_optimize_instructions_collect_stats_instr(
+fn run_hot_pipeline_optimize_instructions_record_stats_instr(
   instr : @lib.Instruction,
   stats : OptimizeInstructionsLoweredStats,
 ) -> Unit {
   stats.instrs += 1
   match instr {
-    @lib.Instruction::Block(_, @lib.Expr(body)) => {
+    @lib.Instruction::Block(_, _) | @lib.Instruction::TryTable(_, _, _) =>
       stats.blocks += 1
-      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
-    }
-    @lib.Instruction::Loop(_, @lib.Expr(body)) => {
+    @lib.Instruction::Loop(_, _) => {
       stats.blocks += 1
       stats.loops += 1
-      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
     }
-    @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => {
-      stats.blocks += 1
-      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
-    }
-    @lib.Instruction::If(_, then_, Some(else_)) => {
-      stats.ifs += 1
-      run_hot_pipeline_optimize_instructions_collect_stats_body(then_, stats)
-      run_hot_pipeline_optimize_instructions_collect_stats_body(else_, stats)
-    }
-    @lib.Instruction::If(_, then_, None) => {
-      stats.ifs += 1
-      run_hot_pipeline_optimize_instructions_collect_stats_body(then_, stats)
-    }
+    @lib.Instruction::If(_, _, _) => stats.ifs += 1
     @lib.Instruction::Br(_)
     | @lib.Instruction::BrIf(_)
     | @lib.Instruction::BrTable(_, _) => stats.branches += 1
@@ -24219,6 +24204,27 @@ fn run_hot_pipeline_optimize_instructions_collect_stats_instr(
       stats.loads += 1
     @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
       stats.local_writes += 1
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_collect_stats_instr(
+  instr : @lib.Instruction,
+  stats : OptimizeInstructionsLoweredStats,
+) -> Unit {
+  run_hot_pipeline_optimize_instructions_record_stats_instr(instr, stats)
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body))
+    | @lib.Instruction::Loop(_, @lib.Expr(body))
+    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+    @lib.Instruction::If(_, then_, Some(else_)) => {
+      run_hot_pipeline_optimize_instructions_collect_stats_body(then_, stats)
+      run_hot_pipeline_optimize_instructions_collect_stats_body(else_, stats)
+    }
+    @lib.Instruction::If(_, then_, None) =>
+      run_hot_pipeline_optimize_instructions_collect_stats_body(then_, stats)
     _ => ()
   }
 }
@@ -25604,6 +25610,7 @@ priv struct RawOiSelectAnchorFact {
 ///|
 priv struct RawOiFunctionRevisionFactIndex {
   instruction_count : Int
+  lowered_stats : OptimizeInstructionsLoweredStats
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
 }
@@ -25611,10 +25618,14 @@ priv struct RawOiFunctionRevisionFactIndex {
 ///|
 fn RawOiFunctionRevisionFactIndex::collect_instr(
   instr : @lib.Instruction,
+  lowered_stats : OptimizeInstructionsLoweredStats,
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
 ) -> Int {
   let mut count = 1
+  run_hot_pipeline_optimize_instructions_record_stats_instr(
+    instr, lowered_stats,
+  )
   match instr {
     @lib.Call(call_idx) =>
       call_sites.push({ call_idx, call_ordinal: call_sites.length() })
@@ -25624,16 +25635,16 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        body, call_sites, select_anchors,
+        body, lowered_stats, call_sites, select_anchors,
       )
     @lib.If(_, then_body, else_body) => {
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        then_body, call_sites, select_anchors,
+        then_body, lowered_stats, call_sites, select_anchors,
       )
       match else_body {
         Some(body) =>
           count += RawOiFunctionRevisionFactIndex::collect_body(
-            body, call_sites, select_anchors,
+            body, lowered_stats, call_sites, select_anchors,
           )
         None => ()
       }
@@ -25646,13 +25657,14 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
 ///|
 fn RawOiFunctionRevisionFactIndex::collect_body(
   instrs : Array[@lib.Instruction],
+  lowered_stats : OptimizeInstructionsLoweredStats,
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
 ) -> Int {
   let mut count = 0
   for instr in instrs {
     count += RawOiFunctionRevisionFactIndex::collect_instr(
-      instr, call_sites, select_anchors,
+      instr, lowered_stats, call_sites, select_anchors,
     )
   }
   count
@@ -25662,12 +25674,13 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
 fn RawOiFunctionRevisionFactIndex::from_instrs(
   instrs : Array[@lib.Instruction],
 ) -> RawOiFunctionRevisionFactIndex {
+  let lowered_stats = OptimizeInstructionsLoweredStats::new()
   let call_sites : Array[RawOiCallSiteFact] = []
   let select_anchors : Array[RawOiSelectAnchorFact] = []
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
-    instrs, call_sites, select_anchors,
+    instrs, lowered_stats, call_sites, select_anchors,
   )
-  { instruction_count, call_sites, select_anchors }
+  { instruction_count, lowered_stats, call_sites, select_anchors }
 }
 
 ///|
@@ -33320,8 +33333,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let stats = OptimizeInstructionsLoweredStats::new()
-  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
+  let stats = oi_index.lowered_stats
   match RawOiCoarseNoopSkipFact::from_large_local(locals.length(), stats) {
     Some(fact) if fact.proves_accepted_raw_boundary() =>
       return Some({
@@ -33402,7 +33415,6 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_binaryen_localization()
     None => false
   }
-  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
   let idempotent_call_self_select = match
     RawOiIdempotentCallSelfSelectFact::from_index(oi_index, module_ctx) {
     Some(fact) => fact.proves_hot_replay()
