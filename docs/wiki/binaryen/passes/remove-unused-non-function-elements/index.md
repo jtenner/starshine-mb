@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
@@ -39,7 +40,7 @@ related:
 - `remove-unused-nonfunction-module-elements` is a real public Binaryen pass.
 - Starshine now exposes the upstream-compatible module pass spelling `remove-unused-nonfunction-module-elements`; the older local dashed name remains a historical dossier label, not the active CLI spelling.
 - It is implemented in Starshine's active optimizer as a sibling mode on the existing RUME machinery; the current local status and validation evidence are mapped in [`./starshine-strategy.md`](./starshine-strategy.md), including the 2026-05-06 refreshed direct parity run in [`../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md`](../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md).
-- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md); the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md); the 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md); the 2026-05-06 line-anchor refresh is [`../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md).
+- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md); the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md); the 2026-05-05 current-main sibling recheck is [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md); the shared-engine 2026-07-11 current-main recheck is [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md); and the 2026-05-06 line-anchor refresh is [`../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `remove-unused-non-function-elements` slice**; the implemented slice reused the existing full-RUME code path directly.
@@ -79,6 +80,7 @@ So this pass is best taught as:
 - The sibling split is one constructor toggle: `rootAllFunctions = true`.
 - The pass roots **defined** functions, not every function declaration of every kind.
 - Because of that, unused imported functions can still disappear.
+- Defined-function rooting does not override the shared table-initialization rule: a live indirect call can require an active element segment to remain so default cleanup does not replace a possible wrong-type trap with a null-entry trap. See [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md).
 - The pass still uses the ordinary RUME roots for:
   - exports
   - start
@@ -104,7 +106,7 @@ So this pass is best taught as:
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation and validation bridge: policy-first sequencing, required differential tests, Binaryen oracle spelling, and signoff ladder.
 - [`./fuzzing.md`](./fuzzing.md)
-  Runnable compare-pass guide: canonical upstream-compatible pass spelling, fresh-native build prerequisite, ordinary GenValid signoff command, mismatch classification, and the separate external-generator boundary.
+  Runnable compare-pass guide: canonical upstream-compatible pass spelling, fresh-native build prerequisite, ordinary GenValid signoff command, mismatch classification, the inherited wrong-type-versus-null indirect-call fixture gap, and the separate external-generator boundary.
 
 ## Current maintenance rule
 
@@ -122,6 +124,7 @@ So this pass is best taught as:
 ## Sources
 
 - [`../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md`](../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md)
+- [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md)
 - [`../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md)

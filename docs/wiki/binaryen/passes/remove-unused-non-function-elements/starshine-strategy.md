@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
@@ -108,7 +109,7 @@ Binaryen's source-backed strategy for the sibling is tiny but semantically impor
 
 Current Starshine implements those items through `rume_collect_liveness_with_import_parent_policy(..., keep_all_funcs=true)` and `rume_run_nonfunction_module_pass(...)`.
 
-The implementation deliberately reuses the existing RUME traversal and rewrite stages. Focused tests prove that dead defined functions stay, dead imported functions can still disappear, no-op start metadata can be dropped while the function body remains, active startup-visible segments with global offsets or trapping out-of-bounds offsets are retained, and empty in-bounds active element segments can still be removed.
+The implementation deliberately reuses the existing RUME traversal and rewrite stages. Focused tests prove that dead defined functions stay, dead imported functions can still disappear, no-op start metadata can be dropped while the function body remains, active startup-visible segments with global offsets or trapping out-of-bounds offsets are retained, and empty in-bounds active element segments can still be removed. The 2026-07-11 shared-engine recheck adds a separate coverage obligation: a live indirect call must not lose an active initializer if that would turn a possible wrong-type trap into a null-entry trap. Starshine's current all-active-elements-on-used-table policy is conservative for this shape, but it has no focused fixture yet; see [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md).
 
 ## What Starshine must not do
 
@@ -136,7 +137,8 @@ The implemented Starshine port added tests before and during implementation:
 4. **function types still compact**: type-section cleanup remains active.
 5. **no-op start metadata is separate**: a no-op start declaration can disappear while the start function body survives; pair this with the shared start-section validator contract in [`../../../validate/start-section.md`](../../../validate/start-section.md).
 6. **full RUME stays stricter**: the existing `remove-unused-module-elements` behavior still deletes dead defined helpers, proving the sibling policy did not leak into full RUME.
-7. **Binaryen parity**: compare the direct pass against `wasm-opt --remove-unused-nonfunction-module-elements`.
+7. **Indirect-call trap boundary**: add a default-mode wrong-type-versus-null `call_indirect` fixture that proves the active element and its table/function references remain; test any future local traps-never-happen mode separately.
+8. **Binaryen parity**: compare the direct pass against `wasm-opt --remove-unused-nonfunction-module-elements`.
 
 ## Current uncertainty
 

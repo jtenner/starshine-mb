@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -60,12 +61,12 @@ mismatches against these contract boundaries:
 - defined function bodies remain rooted;
 - unused imported functions may disappear;
 - dead non-function declarations still prune;
-- active segments and startup traps retain observable parents; and
+- active segments and startup traps retain observable parents;
+- a live `call_indirect` cannot lose an active wrong-type table initializer and silently become a null-entry trap; and
 - index/type/start-section rewrites remain valid after pruning.
 
 The focused local regressions are in
-[`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt);
-the implementation route is
+[`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt); the suite still needs a direct wrong-type-versus-null `call_indirect` active-element fixture before table cleanup becomes more aggressive. The current implementation route is
 [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 through the registry and dispatcher named above. See
 [`module-shapes.md`](./module-shapes.md) for concrete before/after modules.
@@ -85,7 +86,4 @@ command failures separately from comparable optimizer results.
 
 ## Maintenance boundary
 
-No new upstream raw capture was needed for this correction: the stale command was
-an invocation-interface error, settled by the current local registry, dispatcher,
-harness allowlist, and focused pass tests. The existing Binaryen raw manifests in
-this dossier remain the primary-source evidence for the transform itself.
+No new raw capture was needed for this runnable-lane refresh: the active spelling is settled by the current local registry, dispatcher, harness allowlist, and focused pass tests. The shared-engine [`2026-07-11 current-main recheck`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md) is the primary-source evidence for the inherited indirect-call trap boundary; older sibling manifests remain the source evidence for the root-all-defined-functions policy.

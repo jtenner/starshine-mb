@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
@@ -26,7 +27,7 @@ related:
 # `remove-unused-nonfunction-module-elements` module-shape catalog
 
 This pass is not mainly about inner expression rewrites.
-The 2026-04-24 raw source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md); the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md); the 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). Future local test sequencing for these shapes is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The 2026-04-24 raw source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md); the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md); the 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). Future local test sequencing for these shapes is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The sibling also inherits the 2026-07-11 shared-engine table-trap boundary in [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md).
 
 It is about **whole-module retention and cleanup**.
 So the most honest examples are module-shape examples, not tiny isolated arithmetic snippets.
@@ -340,6 +341,35 @@ Under `trapsNeverHappen`, some of those segments can disappear.
 
 This is inherited shared-engine behavior, not a special sibling rule.
 
+## Preserved family 3: wrong-type `call_indirect` initializer stays by default
+
+### Before
+
+```wat
+(module
+  (type $want (func (result i32)))
+  (type $other (func (result i64)))
+  (table $t 1 funcref)
+  (func $wrong (type $other) (i64.const 7))
+  (elem (table $t) (i32.const 0) func $wrong)
+  (func $run (export "run") (result i32)
+    (i32.const 0)
+    (call_indirect (table $t) (type $want)))
+)
+```
+
+### After
+
+Under default semantics, the active element that creates `$wrong` at index `0` must remain if removing it would produce a null entry instead. Under `trapsNeverHappen`, Binaryen may use a more aggressive cleanup policy.
+
+### Why
+
+The sibling roots `$run` because it is defined, but its `call_indirect` still observes table initialization. A non-null wrong-type entry and a null entry are distinct trapping states.
+
+### Durable lesson
+
+“Keep defined functions” does not mean “drop their table setup.” This is a shared RUME trap-preservation rule, not a direct-function-reachability rule. See [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md).
+
 ## Negative family 1: do not expect dead defined functions to vanish
 
 If your goal is to actually remove dead helper bodies, use full `remove-unused-module-elements`, not this sibling.
@@ -354,7 +384,7 @@ Type compaction is still part of the ordinary shared cleanup story.
 
 ## Starshine-specific caveat
 
-Current Starshine implements both full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md), which may delete dead defined functions, and the sibling `remove-unused-nonfunction-module-elements`, which keeps defined functions rooted. The shapes on this page are active regression expectations; see [`./starshine-strategy.md`](./starshine-strategy.md) for current status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for implementation/test evidence.
+Current Starshine implements both full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md), which may delete dead defined functions, and the sibling `remove-unused-nonfunction-module-elements`, which keeps defined functions rooted. The shapes on this page are active regression expectations except for the wrong-type-versus-null indirect-call family, which is a documented local coverage gap: current local retention is conservative, but the focused test is still missing. See [`./starshine-strategy.md`](./starshine-strategy.md) for current status, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the required fixture, and [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md) for the shared rule.
 
 ## Bottom line
 

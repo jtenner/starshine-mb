@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
@@ -29,7 +30,8 @@ related:
 
 This page is anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md), the 2026-04-26 port-readiness recheck [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md), and the 2026-05-05 current-main recheck [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). The local implementation ladder for this exact defined-vs-imported boundary is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-This is the easiest part of the sibling to misread.
+This is the easiest part of the sibling to misread. It explains the special **function-root** policy only; it does not replace shared RUME constraints such as preserving trap-sensitive table initialization for `call_indirect`. The 2026-07-11 current-main shared-engine reread is [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md).
+
 The pass name suggests one thing:
 
 - remove unused non-function module elements
@@ -104,9 +106,13 @@ In practice that means:
 
 That is the biggest surprise many readers will miss if the docs say only “non-function elements.”
 
-## Why function types still shrink
+## Defined-function roots do not erase table-trap obligations
 
-The sibling still shares the same post-reachability module cleanup surface.
+A defined function can contain a reachable `call_indirect` even though every defined function is force-rooted. Its table's active initializer still matters when it can supply a non-null function of the wrong type: deleting that initializer may change the observed failure from a type mismatch to a null entry.
+
+Therefore the sibling inherits Binaryen's default trap-preservation rule. `trapsNeverHappen` is the only documented upstream boundary that permits the more aggressive result. This is neither an extra function root nor proof that every element segment is live; it is a narrow observable-table-state constraint. See [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md) for a concrete WAT example and the current Starshine mapping.
+
+## Why function types still shrink
 So even though dead defined functions remain, Binaryen can still remove:
 
 - duplicate function types
@@ -170,6 +176,10 @@ The module can still shrink around the surviving defined functions.
 
 The shared start cleanup still runs, then the sibling keeps the body.
 
+### Example 5: wrong-type table entry is not interchangeable with null
+
+A live indirect call may require an active element segment to remain even when no direct call names its function. The reason is trap preservation, not a broad “keep all table contents” rule.
+
 ## Easy mistakes to avoid
 
 ### Mistake 1: “This is the pass that never touches function things.”
@@ -182,7 +192,11 @@ It still changes imported functions, start metadata, and function types.
 Wrong.
 That is exactly the boundary the sibling introduces.
 
-### Mistake 3: “The sibling does not need the ordinary RUME analyzer anymore.”
+### Mistake 3: “The sibling makes element segments irrelevant because every defined function is live.”
+
+Wrong. A defined function's indirect call can still observe table initialization and its trap behavior.
+
+### Mistake 4: “The sibling does not need the ordinary RUME analyzer anymore.”
 
 Wrong.
 The root policy changes, but the cleanup logic remains shared.

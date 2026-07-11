@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
@@ -49,7 +50,7 @@ The exact current code anchors are in [`./starshine-strategy.md`](./starshine-st
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `remove-unused-nonfunction-module-elements` as an active module pass beside full RUME, with the registry entry at `:153-155` and the module-pass slot at `:271-275`.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) accepts the module-pass category at `:1972-1975` and keeps help listing filtered to hot passes and presets at `:2962-2965`.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches active module passes at `:8929-8932` and now has cases for both `remove-unused-module-elements` and this sibling.
-- [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) owns the local full-RUME liveness queue, section rewrite, type cleanup, public `rume_run_module_pass(...)`, and sibling `rume_run_nonfunction_module_pass(...)` entry point.
+- [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) owns the local full-RUME liveness queue, section rewrite, type cleanup, public `rume_run_module_pass(...)`, and sibling `rume_run_nonfunction_module_pass(...)` entry point. Its current table-to-active-element map conservatively retains every active element on a used table; that covers the inherited wrong-type-versus-null `call_indirect` trap boundary but is broader than Binaryen and has no local `trapsNeverHappen` mode. See [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md).
 
 ## Binaryen contract to preserve
 
@@ -86,11 +87,9 @@ Implementation shape:
 
 This shape keeps the sibling from drifting into a copied RUME fork.
 
-## Implemented focused tests
+## Focused test coverage and remaining fixture
 
-Focused tests live beside full RUME tests in [`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt).
-
-Covered positive and negative families:
+Focused tests live beside full RUME tests in [`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt). Items 1 through 7 are current coverage; item 8 is a required shared-engine fixture that remains missing:
 
 1. **Dead defined helper survives**
    - Input: an unexported, uncalled defined helper.
@@ -113,6 +112,9 @@ Covered positive and negative families:
    - Sibling expectation: the start declaration can be dropped while the defined start function body remains.
 7. **Full RUME non-regression**
    - Re-run an existing full-RUME dead-helper case to prove ordinary `remove-unused-module-elements` did not inherit sibling rooting.
+8. **Indirect-call trap preservation**
+   - Add a defined-function `call_indirect` against a table initialized with a non-null incompatible function, then assert the default-mode active element remains so the call does not change into a null-entry trap.
+   - Treat this as shared RUME coverage; test any future `trapsNeverHappen` policy separately and do not reuse default-mode parity evidence.
 
 The shape catalog in [`./module-shapes.md`](./module-shapes.md) has beginner-friendly examples for these families.
 
@@ -123,7 +125,7 @@ Use a staged validation ladder rather than jumping straight to broad fuzzing.
 1. **Registry honesty**
    - `src/passes/registry_test.mbt` now proves `remove-unused-nonfunction-module-elements` is an active module pass.
 2. **Focused unit tests**
-   - Cover the seven families above.
+   - Keep the seven implemented families green and add the required indirect-call trap fixture above.
    - Include one paired full-RUME-vs-sibling differential test.
 3. **Binaryen oracle fixtures**
    - Compare local output against upstream `wasm-opt --remove-unused-nonfunction-module-elements` for the dedicated all-features fixture captured in the primary-source manifest.
@@ -149,6 +151,7 @@ The older local dashed spelling remains only as a historical dossier label. Do n
 - **Changing full RUME behavior.** The ordinary `rume_run_module_pass(...)` path must keep its current stricter behavior.
 - **Copying the rewrite engine.** A copied implementation would likely miss remaps for imports, exports, start, data count, annotations, element/data segments, and function types.
 - **Skipping inherited startup semantics.** Imported-parent active segments and startup-trapping initializers are inherited full-RUME obligations.
+- **Treating trap outcomes as interchangeable.** A wrong-type indirect-call entry and a null entry both trap but are different table states; default cleanup must preserve the distinction.
 
 ## Exit criteria status
 
@@ -160,4 +163,5 @@ The Starshine implementation has refreshed direct-pass signoff as of 2026-05-06 
 - non-function cleanup and type compaction remain active through the shared RUME rewrite;
 - Binaryen oracle comparison uses `--remove-unused-nonfunction-module-elements`;
 - docs, tracker, and pass index have been updated from boundary-only status to implemented status;
-- the refreshed mixed-generator direct lane reached 6581 normalized matches, 0 semantic mismatches, and only known Binaryen empty-recursion-group command failures.
+- the refreshed mixed-generator direct lane reached 6581 normalized matches, 0 semantic mismatches, and only known Binaryen empty-recursion-group command failures; and
+- the inherited wrong-type-versus-null indirect-call fixture remains an explicit coverage gap rather than an unmeasured claim of exact Binaryen output parity.

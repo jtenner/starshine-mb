@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
@@ -48,7 +49,7 @@ The 2026-05-06 line-anchor refresh tightened the current-main pointers without c
 | `src/passes/pass.cpp` | Public registration surface | Binaryen publishes `remove-unused-nonfunction-module-elements` as its own real pass, not a hidden internal mode; the current-main registration split sits at `:3014-3024`. |
 | `src/passes/passes.h` | Public constructor declaration surface | The sibling has its own factory symbol and is part of Binaryen's ordinary pass roster. |
 | `test/passes/remove-unused-nonfunction-module-elements_all-features.wast` | Dedicated upstream regression file for this exact sibling | The sibling is source-backed as a separate public contract, and its real behavior is “keep defined functions, still clean other module structure.” The current-main refresh keeps that fixture as the sibling proof surface. |
-| shared `remove-unused-module-elements*` lit files | Shared engine coverage | Startup-trap, table, `configureAll`, and refs behavior still matter because the sibling reuses the same engine. |
+| shared `remove-unused-module-elements*` lit files | Shared engine coverage | Startup-trap, table, `configureAll`, and refs behavior still matter because the sibling reuses the same engine; current-main table coverage includes preserving a possible wrong-type `call_indirect` trap instead of silently changing it to a null-entry trap. |
 
 ## The implementation file is the contract
 
@@ -170,6 +171,10 @@ This file keeps table and element-content behavior visible, which still matters 
 This file keeps the `trapsNeverHappen` startup retention rule visible.
 That shared rule still applies unchanged to the sibling.
 
+### Indirect-call table trap coverage
+
+The current shared owner also retains relevant active table initializers when a live `call_indirect` could otherwise change from a wrong-type non-null entry to a null entry. This is a shared-engine correctness condition even when the sibling roots all defined functions. The 2026-07-11 raw reread records the source boundary; the local focused fixture is still missing, so link it explicitly to [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md) rather than treating the table lit family as generic coverage.
+
 ## The most important file-reading lesson
 
 For this pass family, the honest reading order is:
@@ -178,7 +183,7 @@ For this pass family, the honest reading order is:
 2. confirm the two public registrations in `pass.cpp`
 3. confirm the public factory declarations in `passes.h`
 4. inspect the dedicated sibling all-features test
-5. use the shared RUME lit family for the deeper shared-engine semantics
+5. use the shared RUME lit family for startup, table, and `trapsNeverHappen` semantics, including the wrong-type-versus-null indirect-call boundary
 
 That order preserves the difference between:
 

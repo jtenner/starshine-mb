@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
@@ -31,8 +32,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the canonical contract oracle for this sibling pass.
-The 2026-05-05 current-main recheck found no teaching-relevant drift on the reviewed surfaces, so the `version_129` reading remains the right durable anchor.
+Use Binaryen `version_129` as the tagged contract anchor for this sibling pass. The 2026-05-05 sibling reread found no teaching-relevant drift in the sibling toggle itself. The shared-engine 2026-07-11 current-main reread additionally makes one inherited correctness constraint explicit: default cleanup must not turn a possible wrong-type `call_indirect` trap into a null-entry trap by removing the responsible active element initializer. That current source rule applies to this sibling too; rooting defined functions changes the initial function roots, not shared table semantics.
 
 Primary source files:
 
@@ -42,6 +42,7 @@ Primary source files:
 - `src/ir/module-utils.h`
 - the shipped `remove-unused-nonfunction-module-elements_all-features.wast` fixture
 - the shared `remove-unused-module-elements*` lit files that prove inherited behavior
+- the 2026-07-11 shared-engine recheck for the current indirect-call trap-preservation boundary
 
 ## Current-main line anchors
 
@@ -116,6 +117,12 @@ The sibling adds one extra root class:
 That is why dead helper bodies survive, but dead imported functions may still disappear.
 Binaryen deliberately does **not** force imported functions live through the sibling policy.
 
+## Inherited `call_indirect` trap boundary
+
+The sibling's function-root policy does **not** make element initialization irrelevant. If a reachable `call_indirect` can observe a non-null table entry with an incompatible function type, deleting the active element that installed it can turn a wrong-type trap into a null-entry trap. Under ordinary semantics those are different observable states.
+
+Current Binaryen RUME keeps the relevant table initialization unless `trapsNeverHappen` allows trap-changing cleanup. The current source does not treat every element as a normal call-graph root; this is a narrow table/trap constraint. Read [`../remove-unused-module-elements/indirect-call-trap-preservation.md`](../remove-unused-module-elements/indirect-call-trap-preservation.md) for the executable WAT shape and current Starshine's deliberately coarser retention policy.
+
 ## What the sibling still removes
 
 The pass still removes or weakens ordinary dead module structure, including:
@@ -158,7 +165,8 @@ The source-backed validation split is:
 
 1. the dedicated sibling fixture proves the public sibling mode
 2. the shared `remove-unused-module-elements*` fixtures prove inherited RUME behavior
-3. the local Starshine port should compare against `--remove-unused-nonfunction-module-elements`, not against full RUME, except when the sibling split itself is the test subject
+3. add a wrong-type-versus-null `call_indirect` active-element fixture before making local table cleanup more aggressive; this is shared-engine coverage, not a defined-function-rooting test
+4. the local Starshine port should compare against `--remove-unused-nonfunction-module-elements`, not against full RUME, except when the sibling split itself is the test subject
 
 ## Bottom line
 
@@ -167,5 +175,5 @@ Binaryen's contract is small but exact:
 - same shared module-element pruner as full RUME
 - one `rootAllFunctions` mode bit
 - root all defined functions
-- keep ordinary reachability and rewrite behavior intact
+- keep ordinary reachability, table-trap, and rewrite behavior intact
 - still allow dead imported functions and dead non-function module structure to disappear
