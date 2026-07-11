@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
   - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
@@ -23,6 +24,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../strip-toolchain-annotations/index.md
   - ../remove-relaxed-simd/index.md
   - ../late-pipeline-dispatch.md
@@ -34,7 +36,7 @@ related:
 
 `strip-target-features` is a public Binaryen pass that removes the module-level target-features metadata from later output. It is **not** a code optimizer and **not** a feature-lowering pass.
 
-The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-05-05 current-main recheck preserved the same contract. The 2026-07-10 primary-source recheck in [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) adds the missing payload boundary: `target_features` is a WebAssembly linking-convention custom section whose prefixed feature names are linker compatibility metadata, while Core custom sections remain non-semantic. An opaque-section first Starshine slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression—not feature lowering, Core-validation repair, or a faithful first-class Binaryen representation.
+The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-07-11 current-main recheck again found no behavior-bearing drift in the reviewed owner, registration, or default-scheduler surface. The 2026-07-10 primary-source recheck in [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) adds the missing payload boundary: `target_features` is a WebAssembly linking-convention custom section whose prefixed feature names are linker compatibility metadata, while Core custom sections remain non-semantic. An opaque-section first Starshine slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression—not feature lowering, Core-validation repair, or a faithful first-class Binaryen representation.
 
 It is currently **upstream-only** in Starshine:
 
@@ -113,9 +115,11 @@ For a future Starshine port, add tests in this order:
 - [`wat-shapes.md`](wat-shapes.md) - before/after output metadata shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - safe first slices, validation ladder, and exact local code surfaces.
+- [`fuzzing.md`](fuzzing.md) - planned-only comparison status: the current unknown registry name and absent harness flag make a `compare-pass` command invalid; it also lists the future metadata-fixture admission gates.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md)
 - [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
 - [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
 - [`../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md)
