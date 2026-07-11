@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
@@ -29,7 +30,7 @@ related:
 
 Starshine does **not** currently implement or register `discard-global-effects`.
 
-The 2026-05-05 current-main recheck did not change that status.
+The 2026-07-11 current-main/local-source recheck did not change that status. It also sharpens the upstream comparison: Binaryen's public cleanup resets persistent per-function `Function.effects` summaries, while Starshine currently has only revision-keyed function-local HOT cache entries.
 
 This is different from [`../global-effects/starshine-strategy.md`](../global-effects/starshine-strategy.md): Starshine has a boundary-only `global-effects` compatibility name for the producer-side concept, but no public cleanup sibling name.
 
@@ -37,10 +38,10 @@ This is different from [`../global-effects/starshine-strategy.md`](../global-eff
 
 Current relevant local surfaces:
 
-- [`../../../../../src/passes/optimize.mbt:127-134`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/optimize.mbt:129-133`](../../../../../src/passes/optimize.mbt)
   - lists boundary-only names including `global-effects`, but not `discard-global-effects`.
-- [`../../../../../src/passes/optimize.mbt:518-524`](../../../../../src/passes/optimize.mbt)
-  - rejects boundary-only or removed pass names during pass expansion; an unregistered `discard-global-effects` request remains an unknown pass rather than the producer's boundary-only path.
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+  - owns pass expansion and the boundary-only/unknown-name rejection paths; an unregistered `discard-global-effects` request remains an unknown pass rather than the producer's boundary-only path.
 - [`../../../../../src/ir/effects.mbt:5-32`](../../../../../src/ir/effects.mbt)
   - defines Starshine's function-local HOT effect-mask bits.
 - [`../../../../../src/ir/effects.mbt:131-279`](../../../../../src/ir/effects.mbt)
@@ -53,7 +54,7 @@ Current relevant local surfaces:
   - rebuilds cached effects when the HOT revision changes.
 - [`../../../../../src/passes/pass_common.mbt:318-324`](../../../../../src/passes/pass_common.mbt)
   - provides `pass_require_effects(...)` for local passes that need HOT effect information.
-- [`../../../../../src/passes/pass_manager.mbt:9017-9019`](../../../../../src/passes/pass_manager.mbt)
+- [`../../../../../src/passes/pass_manager.mbt:102826-102830`](../../../../../src/passes/pass_manager.mbt)
   - invalidates the local analysis cache when a hot function revision changes after a pass.
 
 ## Why no local pass is needed yet
@@ -69,7 +70,7 @@ Current Starshine effect summaries are different:
 
 That means Starshine's current invalidation analogue is revision-keyed cache rebuilding, not a public `discard-global-effects` no-op.
 
-So a public `discard-global-effects` pass would have nothing Binaryen-equivalent to clear today.
+So a public `discard-global-effects` pass would have nothing Binaryen-equivalent to clear today. In particular, do not manufacture parity by clearing `HotAnalysisCache.effects` through a public pass: that cache is already invalidated/rebuilt by the HOT revision protocol and is not a persistent interprocedural summary visible across unrelated module passes.
 
 ## Future port strategy
 
@@ -98,3 +99,7 @@ Do not validate this pass only by printed WAT equality. Equality is expected eve
 ## Current recommendation
 
 Keep `discard-global-effects` as upstream-only wiki research until Starshine has persistent global-effect summaries. Cross-link it from `global-effects` so future implementers see the lifecycle requirement before designing the producer.
+
+## Source refresh
+
+The focused current-main reconciliation is [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md). It rechecks the upstream owner, public registration, `addsEffects()` lifecycle, and exact local cache boundary; no executable behavior changed.

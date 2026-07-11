@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
@@ -72,19 +73,21 @@ Those behaviors belong to other passes.
 
 The pass must be broad rather than clever. Clearing all function summaries is safer than trying to prove which summaries survived an arbitrary transform.
 
-The important invariant is:
+The important observed invariant is:
 
 ```text
-after discard-global-effects, no later pass can observe an old global-effects summary
+after discard-global-effects, no later pass can observe an old Function.effects summary
 ```
+
+Do not widen that claim without evidence. The current implementation resets the per-function field; the producer also owns module-level indirect-call analysis state, but the public cleanup loop is not source proof that it resets that separate state.
 
 ## Current-main status
 
-A 2026-05-05 focused recheck of Binaryen `main` found no teaching-relevant drift for the cleanup sibling itself. Current `main` still registers the pass and keeps the same high-level summary-clearing contract, including the pass-runner invalidation path for effect-adding passes.
+A 2026-07-11 focused recheck of Binaryen `main` found no behavior-bearing drift for the cleanup sibling itself. Current `main` still publicly registers the pass, resets `Function.effects` for every function, and keeps the pass-runner invalidation path for effect-adding passes. The recheck also preserves the default-pipeline boundary: Binaryen still does not silently make producer/cleanup a standard phase merely because the metadata exists.
 
 The sibling producer `generate-global-effects` still has the known implementation-shape drift in current `main` versus `version_129`: it now uses an SCC/call-graph propagation structure. That drift is documented in [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md), but it does not change `discard-global-effects`' cleanup contract.
 
-The 2026-05-05 recheck therefore only refreshes the cleanup sibling's teaching freshness; it does not alter the pass model.
+The 2026-07-11 recheck supersedes the older freshness claim; it does not alter the pass model, but it makes the `Function.effects` field boundary explicit.
 
 ## Testing and validation implications
 
@@ -112,6 +115,7 @@ See [`../global-effects/binaryen-strategy.md`](../global-effects/binaryen-strate
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)

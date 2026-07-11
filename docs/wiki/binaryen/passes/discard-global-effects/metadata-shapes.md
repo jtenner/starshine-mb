@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
@@ -25,7 +26,7 @@ related:
 
 This page is the shape catalog for [`./index.md`](./index.md).
 
-Unlike ordinary pass shape pages, these examples use **metadata shapes** rather than instruction-only WAT shapes, because the reviewed Binaryen pass clears function effect summaries instead of rewriting Wasm bodies. The 2026-05-05 current-main recheck and line-anchor refresh keep that shape unchanged.
+Unlike ordinary pass shape pages, these examples use **metadata shapes** rather than instruction-only WAT shapes, because the reviewed Binaryen pass clears `Function.effects` summaries instead of rewriting Wasm bodies. The 2026-07-11 current-main recheck keeps that exact per-function shape unchanged; it does not establish that the cleanup pass clears every producer-side module cache such as `module->indirectCallEffects`.
 
 ## Shape 1: no stored summaries
 

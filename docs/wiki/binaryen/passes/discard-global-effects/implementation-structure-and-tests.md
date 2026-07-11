@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
@@ -32,18 +33,21 @@ related:
 | `src/passes/GlobalEffects.cpp` | Owner file for both `GenerateGlobalEffects` and `DiscardGlobalEffects`; the cleanup pass iterates module functions and resets each stored `effects` summary | This is the direct algorithm oracle. |
 | `src/passes/pass.cpp` | Public registration for `discard-global-effects` beside `generate-global-effects`, plus the pass-runner lifecycle hook that discards global effects before a pass that may add effects | This proves the cleanup is both user-visible and part of Binaryen's internal metadata invalidation story. |
 | `src/passes/pass.h` | Pass capability surface, especially `addsEffects()` | This explains how Binaryen knows a later pass can make old global-effect summaries stale. |
-| `src/wasm.h` | `Function` owns the optional effect-summary metadata | This proves the transformed state is function metadata, not WAT syntax. |
+| `src/wasm.h` | `Function` owns the optional `effects` summary metadata | This proves the observed cleanup mutation is function metadata, not WAT syntax. |
 | `src/ir/effects.h` | Later `EffectAnalyzer` calls can consult a callee's stored summary | This proves stale metadata would change later optimizer decisions. |
 | Binaryen Optimizer Cookbook | Maintainer-authored rule that effect-adding passes must say so because earlier global-effect analysis then has to be discarded | This is independent process evidence for the source-level lifecycle. |
 | `test/lit/passes/vacuum-global-effects.wast` | Producer/consumer behavior where generated summaries let `vacuum` remove more | This indirectly proves why clearing stale summaries matters. |
 | `test/lit/passes/global-effects_simplify-locals.wast` | Producer/consumer behavior where generated summaries affect `simplify-locals` | This gives a second consumer family without pretending `discard-global-effects` has its own WAT diff. |
 
-## Current-main source anchors
+## Current-main semantic anchors
 
-- `GlobalEffects.cpp#L1520-L1530` - summary reset helper that clears or refreshes per-function stored effects
-- `GlobalEffects.cpp#L1555-L1562` - `DiscardGlobalEffects::run` loops over module functions and clears each `effects` field
-- `pass.cpp#L2475-L2479` - public registration for `discard-global-effects`
-- `pass.cpp#L3692-L3698` - lifecycle placement note that keeps the cleanup sibling tied to the function-pass scheduler
+Use the current-main raw-source capture rather than brittle line numbers:
+
+- `GlobalEffects.cpp`: `DiscardGlobalEffects::run(Module*)` loops over module functions and resets each `Function::effects` field.
+- `pass.cpp`: public registration retains `discard-global-effects`; `PassRunner::handleAfterEffects(...)` owns the `addsEffects()` invalidation path.
+- The default-pipeline TODO remains the scheduling boundary: producer/cleanup are not silently standard default-pipeline phases merely because the metadata exists.
+
+See [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md) for the rechecked source URLs and scope.
 
 ## `GlobalEffects.cpp`
 
@@ -75,6 +79,8 @@ The practical rule is:
 ```text
 old Function.effects summaries must not survive an effect-adding transform
 ```
+
+The 2026-07-11 recheck keeps this exact field boundary explicit: `DiscardGlobalEffects::run` clears `Function.effects`; it is not, by that fact alone, proof that every producer-owned module-level cache (for example `module->indirectCallEffects`) is cleared too.
 
 ## `pass.h`
 
@@ -132,6 +138,7 @@ A faithful local pass only becomes meaningful after a persistent interprocedural
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)
