@@ -25555,6 +25555,8 @@ priv enum RawOiRootKind {
   LocalGet
   LocalTee
   PlainLoad
+  RefNull
+  RefCastDescEq
   CallLike
   Other
 }
@@ -25588,6 +25590,8 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.I32Const(_) => RawOiRootKind::I32Const
     @lib.LocalGet(_) => RawOiRootKind::LocalGet
     @lib.LocalTee(_) => RawOiRootKind::LocalTee
+    @lib.RefNull(_) => RawOiRootKind::RefNull
+    @lib.RefCastDescEq(_, _, _) => RawOiRootKind::RefCastDescEq
     instr if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) =>
       RawOiRootKind::PlainLoad
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
@@ -25777,6 +25781,8 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (LocalGet, LocalGet)
     | (LocalTee, LocalTee)
     | (PlainLoad, PlainLoad)
+    | (RefNull, RefNull)
+    | (RefCastDescEq, RefCastDescEq)
     | (CallLike, CallLike)
     | (Other, Other) => true
     _ => false
@@ -32618,14 +32624,21 @@ priv struct RawOiBottomNullDescriptorCastFact {
 }
 
 ///|
-fn RawOiBottomNullDescriptorCastFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBottomNullDescriptorCastFact::from_region_at(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBottomNullDescriptorCastFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::RefNull) ||
+    !region.has_root_at(start + 2, RawOiRootKind::RefCastDescEq) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+    ) {
     (@lib.RefNull(_), descriptor, @lib.RefCastDescEq(nullable, exact, target)) =>
       match RawOiBottomNullDescriptorOperandFact::from_instr(descriptor) {
         Some(operand) if operand.is_represented_fold_operand() =>
@@ -32674,16 +32687,15 @@ priv struct RawOiBottomNullDescriptorCastRegionFact {
 }
 
 ///|
-fn RawOiBottomNullDescriptorCastRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBottomNullDescriptorCastRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
 ) -> RawOiBottomNullDescriptorCastRegionFact {
-  let mut i = 0
-  while i < instrs.length() {
-    match RawOiBottomNullDescriptorCastFact::from_instrs(instrs, i) {
+  let region = index.regions[0]
+  for i = 0; i < region.roots.length(); i = i + 1 {
+    match RawOiBottomNullDescriptorCastFact::from_region_at(region, i) {
       Some(_) => return { has_fold: true }
       None => ()
     }
-    i = i + 1
   }
   { has_fold: false }
 }
@@ -32700,10 +32712,11 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    match RawOiBottomNullDescriptorCastFact::from_instrs(instrs, i) {
+    match RawOiBottomNullDescriptorCastFact::from_region_at(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -33504,8 +33517,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
+  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
   if effectful_sibling_changed &&
-    RawOiBottomNullDescriptorCastRegionFact::from_instrs(body).has_fold {
+    RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
     return Some({
       reason: "descriptor-bottom-null-fold",
       func: skipped_func,
@@ -33513,7 +33527,6 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
   let stats = oi_index.lowered_stats
   match RawOiCoarseNoopSkipFact::from_large_local(locals.length(), stats) {
     Some(fact) if fact.proves_accepted_raw_boundary() =>
@@ -55844,8 +55857,9 @@ fn run_hot_pipeline_func(
         let (rewritten_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           body, module_ctx,
         )
+        let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
         if changed &&
-          RawOiBottomNullDescriptorCastRegionFact::from_instrs(body).has_fold {
+          RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
           return Ok({
             reason: "descriptor-bottom-null-fold",
             func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),

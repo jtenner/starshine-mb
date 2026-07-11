@@ -109,6 +109,19 @@ test "optimize-instructions raw function index routes nested localtee memory haz
 }
 
 ///|
+test "optimize-instructions raw function index routes bottom-null descriptor candidates" {
+  let heap = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::ref_cast_desc_eq_type(@lib.RefType::new(false, heap)),
+  ])
+  assert_true(
+    RawOiBottomNullDescriptorCastRegionFact::from_index(index).has_fold,
+  )
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([
