@@ -239,6 +239,24 @@ test "optimize-instructions descriptor block arguments consume indexed flow fact
 }
 
 ///|
+test "optimize-instructions bulk lowering consumes indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
+  ])
+  match RawOiBulkLoweringRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_bulk_lowering())
+      @debug.assert_eq(fact.end, 4)
+      assert_true(region.has_root_at(3, RawOiRootKind::BulkMemory))
+    }
+    None => fail("expected indexed bulk lowering rewrite")
+  }
+}
+
+///|
 test "optimize-instructions drop-store masks consume indexed region roots" {
   let memarg = @lib.MemArg::new(0U, None, 0UL)
   let region = RawOiInstructionRegionFact::from_instrs([

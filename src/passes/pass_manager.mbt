@@ -25564,6 +25564,9 @@ priv enum RawOiRootKind {
   ArrayWrite
   ArrayLen
   I32Const
+  Select
+  MemorySize
+  BulkMemory
   LocalGet
   LocalTee
   PlainLoad
@@ -25691,6 +25694,9 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.ArraySet(_) => RawOiRootKind::ArrayWrite
     @lib.ArrayLen => RawOiRootKind::ArrayLen
     @lib.I32Const(_) => RawOiRootKind::I32Const
+    @lib.Select(_) => RawOiRootKind::Select
+    @lib.MemorySize(_) => RawOiRootKind::MemorySize
+    @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) => RawOiRootKind::BulkMemory
     @lib.LocalGet(_) => RawOiRootKind::LocalGet
     @lib.LocalTee(_) => RawOiRootKind::LocalTee
     @lib.RefNull(_) => RawOiRootKind::RefNull
@@ -25892,6 +25898,9 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ArrayWrite, ArrayWrite)
     | (ArrayLen, ArrayLen)
     | (I32Const, I32Const)
+    | (Select, Select)
+    | (MemorySize, MemorySize)
+    | (BulkMemory, BulkMemory)
     | (LocalGet, LocalGet)
     | (LocalTee, LocalTee)
     | (PlainLoad, PlainLoad)
@@ -28812,15 +28821,24 @@ priv struct RawOiI32ConstSelectOperandFact {
 }
 
 ///|
-fn RawOiI32ConstSelectOperandFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiI32ConstSelectOperandFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiI32ConstSelectOperandFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 1, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 2, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 3, RawOiRootKind::Select) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (
       @lib.I32Const(@lib.I32(true_raw)),
       @lib.I32Const(@lib.I32(false_raw)),
@@ -28845,42 +28863,38 @@ priv struct RawOiMemorySizePageAddressFact {
 }
 
 ///|
-fn RawOiMemorySizePageAddressFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemorySizePageAddressFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemorySizePageAddressFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::MemorySize) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  let first = region.roots[start].instr
+  let second = region.roots[start + 1].instr
+  let third = region.roots[start + 2].instr
+  match (first, second, third) {
     (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(15)), @lib.I32Shl) =>
-      Some({
-        end: start + 3,
-        mem,
-        rewrite: [instrs[start], instrs[start + 1], instrs[start + 2]],
-      })
+      Some({ end: start + 3, mem, rewrite: [first, second, third] })
     (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(32768)), @lib.I32Mul) =>
       Some({
         end: start + 3,
         mem,
         rewrite: [
-          instrs[start],
+          first,
           @lib.Instruction::i32_const(@lib.I32(15)),
           @lib.Instruction::i32_shl(),
         ],
       })
     (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(15L)), @lib.I64Shl) =>
-      Some({
-        end: start + 3,
-        mem,
-        rewrite: [instrs[start], instrs[start + 1], instrs[start + 2]],
-      })
+      Some({ end: start + 3, mem, rewrite: [first, second, third] })
     (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(32768L)), @lib.I64Mul) =>
       Some({
         end: start + 3,
         mem,
         rewrite: [
-          instrs[start],
+          first,
           @lib.Instruction::i64_const(@lib.I64(15L)),
           @lib.Instruction::i64_shl(),
         ],
@@ -28931,22 +28945,6 @@ fn RawOiI32ConstAddAddressFact::from_region(
     region.roots[start].instr,
     region.roots[start + 1].instr,
     region.roots[start + 2].instr,
-    start + 3,
-  )
-}
-
-///|
-fn RawOiI32ConstAddAddressFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  start : Int,
-) -> RawOiI32ConstAddAddressFact? {
-  if start + 2 >= instrs.length() {
-    return None
-  }
-  RawOiI32ConstAddAddressFact::from_parts(
-    instrs[start],
-    instrs[start + 1],
-    instrs[start + 2],
     start + 3,
   )
 }
@@ -29084,20 +29082,20 @@ fn RawOiBulkLoweringRewriteFact::fill_from_parts(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  let dest = match RawOiI32ConstSelectOperandFact::from_instrs(instrs, start) {
+  let dest = match RawOiI32ConstSelectOperandFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
   let source_or_value = match
-    RawOiI32ConstSelectOperandFact::from_instrs(instrs, dest.end) {
+    RawOiI32ConstSelectOperandFact::from_region(region, dest.end) {
     Some(fact) => fact
     None => return None
   }
   let size_operand = match
-    RawOiI32ConstSelectOperandFact::from_instrs(instrs, source_or_value.end) {
+    RawOiI32ConstSelectOperandFact::from_region(region, source_or_value.end) {
     Some(fact) => fact
     None => return None
   }
@@ -29105,10 +29103,11 @@ fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
     Some(fact) => fact.size
     None => return None
   }
-  if size_operand.end >= instrs.length() {
+  if size_operand.end >= region.roots.length() ||
+    !region.has_root_at(size_operand.end, RawOiRootKind::BulkMemory) {
     return None
   }
-  match instrs[size_operand.end] {
+  match region.roots[size_operand.end].instr {
     @lib.MemoryCopy(dst_mem, src_mem) =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
         size_operand.end + 1,
@@ -29138,26 +29137,28 @@ fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  let dest = match RawOiMemorySizePageAddressFact::from_instrs(instrs, start) {
+  let dest = match RawOiMemorySizePageAddressFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
   let source = match
-    RawOiMemorySizePageAddressFact::from_instrs(instrs, dest.end) {
+    RawOiMemorySizePageAddressFact::from_region(region, dest.end) {
     Some(fact) => fact
     None => return None
   }
-  if source.end + 1 >= instrs.length() {
+  if source.end + 1 >= region.roots.length() ||
+    !region.has_root_at(source.end + 1, RawOiRootKind::BulkMemory) {
     return None
   }
-  let size = match RawOiBulkConstSizeFact::from_instr(instrs[source.end]) {
+  let size = match
+    RawOiBulkConstSizeFact::from_instr(region.roots[source.end].instr) {
     Some(fact) => fact.size
     None => return None
   }
-  match instrs[source.end + 1] {
+  match region.roots[source.end + 1].instr {
     @lib.MemoryCopy(dst_mem, src_mem) if dest.mem == dst_mem &&
       source.mem == src_mem =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
@@ -29178,22 +29179,24 @@ fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::BulkMemory) {
     return None
   }
-  let size = match RawOiBulkConstSizeFact::from_instr(instrs[start + 2]) {
+  let size = match
+    RawOiBulkConstSizeFact::from_instr(region.roots[start + 2].instr) {
     Some(fact) => fact.size
     None => return None
   }
-  match instrs[start + 3] {
+  match region.roots[start + 3].instr {
     @lib.MemoryCopy(dst_mem, src_mem) =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
         start + 4,
-        [instrs[start]],
-        [instrs[start + 1]],
+        [region.roots[start].instr],
+        [region.roots[start + 1].instr],
         size,
         src_mem,
         dst_mem,
@@ -29205,8 +29208,8 @@ fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
     @lib.MemoryFill(mem) =>
       RawOiBulkLoweringRewriteFact::fill_from_parts(
         start + 4,
-        [instrs[start]],
-        instrs[start + 1],
+        [region.roots[start].instr],
+        region.roots[start + 1].instr,
         size,
         mem,
         false,
@@ -29218,26 +29221,28 @@ fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  let dest = match RawOiI32ConstAddAddressFact::from_instrs(instrs, start) {
+  let dest = match RawOiI32ConstAddAddressFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
   let source = match
-    RawOiI32ConstAddAddressFact::from_instrs(instrs, dest.end) {
+    RawOiI32ConstAddAddressFact::from_region(region, dest.end) {
     Some(fact) => fact
     None => return None
   }
-  if source.end + 1 >= instrs.length() {
+  if source.end + 1 >= region.roots.length() ||
+    !region.has_root_at(source.end + 1, RawOiRootKind::BulkMemory) {
     return None
   }
-  let size = match RawOiBulkConstSizeFact::from_instr(instrs[source.end]) {
+  let size = match
+    RawOiBulkConstSizeFact::from_instr(region.roots[source.end].instr) {
     Some(fact) => fact.size
     None => return None
   }
-  match instrs[source.end + 1] {
+  match region.roots[source.end + 1].instr {
     @lib.MemoryCopy(dst_mem, src_mem) =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
         source.end + 2,
@@ -29256,25 +29261,25 @@ fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
 }
 
 ///|
-fn RawOiBulkLoweringRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBulkLoweringRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
   match
-    RawOiBulkLoweringRewriteFact::from_const_select_operands(instrs, start) {
+    RawOiBulkLoweringRewriteFact::from_const_select_operands(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
-    RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(instrs, start) {
+    RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiBulkLoweringRewriteFact::from_plain_static_size(instrs, start) {
+  match RawOiBulkLoweringRewriteFact::from_plain_static_size(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(instrs, start)
+  RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(region, start)
 }
 
 ///|
@@ -32889,7 +32894,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiBulkLoweringRewriteFact::from_instrs(instrs, i) {
+    match RawOiBulkLoweringRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
