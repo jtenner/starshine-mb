@@ -1,5 +1,5 @@
 ///|
-test "optimize-instructions raw admission reports descriptor and revision-index phase timings" {
+test "optimize-instructions reports raw admission and HOT setup phase timings" {
   let trace : Array[String] = []
   let perf = HotPerfSession::new(
     trace=fn(line) { trace.push(line) },
@@ -27,6 +27,20 @@ test "optimize-instructions raw admission reports descriptor and revision-index 
     text.contains(
       "perf:timer name=detail:optimize-instructions:raw-revision-index",
     ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:unsupported-preflight",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:optimize-instructions:scratch-init"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:optimize-instructions:free-node-init"),
     msg=text,
   )
 }

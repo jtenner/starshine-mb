@@ -41103,22 +41103,52 @@ fn optimize_instructions_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  if OiUnsupportedAggregateAtomicReceiverFact::from_func(func).requires_fail_closed_skip() {
+  let unsupported_preflight_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:unsupported-preflight",
+  )
+  let requires_fail_closed_skip = OiUnsupportedAggregateAtomicReceiverFact::from_func(
+    func,
+  ).requires_fail_closed_skip()
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:unsupported-preflight",
+    unsupported_preflight_start_us,
+  )
+  if requires_fail_closed_skip {
     return HotPassResult::unchanged()
   }
   let mut changed = false
   let node_count = @ir.hot_node_count(func)
+  let scratch_init_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:scratch-init",
+  )
   let seen = @bitset.BitSet::new(node_count)
   let dead = @bitset.BitSet::new(node_count)
   let scratch = OptimizeInstructionsScratch::new(
     node_count,
     @ir.hot_local_count(func),
   )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:scratch-init",
+    scratch_init_start_us,
+  )
+  let free_node_init_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:free-node-init",
+  )
   for free_id in func.free_nodes {
     if free_id >= 0 && free_id < dead.length() {
       dead[free_id] = true
     }
   }
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:optimize-instructions:free-node-init",
+    free_node_init_start_us,
+  )
   let sign_ext_start_us = perf_start_timer_opt(
     ctx.perf,
     "detail:optimize-instructions:collect-sign-ext-facts",

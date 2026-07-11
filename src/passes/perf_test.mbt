@@ -3570,6 +3570,28 @@ test "perf session records hot allocation deltas dumps and checkpoints" {
 }
 
 ///|
+test "perf pass-level timing omits detail timers without hiding pass timers" {
+  let lines : Array[String] = []
+  let perf = HotPerfSession::new(
+    trace=fn(line) { lines.push(line) },
+    trace_detail_timings=false,
+    trace_checkpoints=false,
+    trace_counters=false,
+  )
+  let detail_start = perf_start_timer(
+    perf, "detail:optimize-instructions:scratch-init",
+  )
+  perf_stop_timer(
+    perf, "detail:optimize-instructions:scratch-init", detail_start,
+  )
+  let pass_start = perf_start_timer(perf, "pass:optimize-instructions")
+  perf_stop_timer(perf, "pass:optimize-instructions", pass_start)
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("detail:optimize-instructions:scratch-init"))
+  assert_true(text.contains("perf:timer name=pass:optimize-instructions"))
+}
+
+///|
 test "pass require cfg records a single cfg build and optional cfg dump" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
