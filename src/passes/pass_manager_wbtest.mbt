@@ -436,6 +436,35 @@ test "optimize-instructions raw function index rebuilds from a changed snapshot"
 }
 
 ///|
+test "optimize-instructions ref-null trap repair consumes indexed region roots" {
+  let heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::ref_null(heap),
+    @lib.Instruction::ref_as_non_null(),
+  ])
+  match
+    RawOiRefNullTrapRewriteFact::from_region(region.roots[0].instr, region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_ref_null_trap_repair())
+      @debug.assert_eq(fact.end, 2)
+      assert_true(region.has_root_at(0, RawOiRootKind::RefNull))
+    }
+    None => fail("expected indexed ref-null trap repair")
+  }
+  let boundary = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::ref_null(heap),
+    @lib.Instruction::drop(),
+  ])
+  assert_true(
+    RawOiRefNullTrapRewriteFact::from_region(
+      boundary.roots[0].instr,
+      boundary,
+      0,
+    ).is_none(),
+  )
+}
+
+///|
 test "optimize-instructions raw directizes adjacent ref.func call_ref before skip" {
   // OI-H grouped-sweep follow-up: profile-backed `oi-call-ref-target-wrapper`
   // classified a large size-losing raw-gate gap. The raw skip path may still

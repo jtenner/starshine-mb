@@ -26732,6 +26732,13 @@ fn RawOiCallRefDirectizeRewriteFact::from_direct_target(
 }
 
 ///|
+// Explicit remaining OI-H raw traversal bridge. Unlike ref-null repair, this
+// family compares the first root after recursive child rewriting (`current`)
+// while its local-fallthrough proof counts uses in the original root function
+// body. Replacing this entry point requires a revision overlay that carries both
+// post-child current-root identity and recursive root-local use counts; routing
+// only from the immutable pre-rewrite region would be stale. Keep this aggregate
+// source-backed and do not add new target shapes here.
 fn RawOiCallRefDirectizeRewriteFact::from_instrs(
   current : @lib.Instruction,
   instrs : Array[@lib.Instruction],
@@ -26817,13 +26824,13 @@ fn RawOiRefNullTrapRewriteFact::append_rewrite(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() {
     return None
   }
-  match instrs[start + 1] {
+  match region.roots[start + 1].instr {
     @lib.Instruction::Drop if pass_raw_dropped_block_has_unreachable_tail(
         current,
       ) =>
@@ -26849,13 +26856,13 @@ fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() {
     return None
   }
-  match (current, instrs[start + 1]) {
+  match (current, region.roots[start + 1].instr) {
     (@lib.Instruction::RefNull(_), @lib.Instruction::RefAsNonNull) =>
       Some({
         end: start + 2,
@@ -26879,25 +26886,25 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 10 >= instrs.length() {
+  if start + 10 >= region.roots.length() {
     return None
   }
   match
     (
       current,
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
-      instrs[start + 5],
-      instrs[start + 6],
-      instrs[start + 7],
-      instrs[start + 8],
-      instrs[start + 9],
-      instrs[start + 10],
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
+      region.roots[start + 5].instr,
+      region.roots[start + 6].instr,
+      region.roots[start + 7].instr,
+      region.roots[start + 8].instr,
+      region.roots[start + 9].instr,
+      region.roots[start + 10].instr,
     ) {
     (
       @lib.Instruction::RefNull(_),
@@ -26929,17 +26936,17 @@ fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
         preserved_local: Some(set_local),
         rewrite: [
           current,
-          instrs[start + 1],
-          instrs[start + 2],
-          instrs[start + 3],
-          instrs[start + 4],
-          instrs[start + 5],
+          region.roots[start + 1].instr,
+          region.roots[start + 2].instr,
+          region.roots[start + 3].instr,
+          region.roots[start + 4].instr,
+          region.roots[start + 5].instr,
           @lib.Instruction::drop(),
           @lib.Instruction::i32_const(
             @lib.I32(if test_nullable { 1 } else { 0 }),
           ),
           @lib.Instruction::drop(),
-          instrs[start + 8],
+          region.roots[start + 8].instr,
           @lib.Instruction::drop(),
         ],
       })
@@ -26950,13 +26957,14 @@ fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() {
     return None
   }
-  match (current, instrs[start + 1], instrs[start + 2]) {
+  match
+    (current, region.roots[start + 1].instr, region.roots[start + 2].instr) {
     (
       @lib.Instruction::RefNull(_),
       @lib.Instruction::RefTest(nullable, false, _),
@@ -26987,13 +26995,14 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() {
     return None
   }
-  match (current, instrs[start + 1], instrs[start + 2]) {
+  match
+    (current, region.roots[start + 1].instr, region.roots[start + 2].instr) {
     (
       @lib.Instruction::RefNull(_),
       @lib.Instruction::RefCast(nullable, exact, target_heap),
@@ -27030,45 +27039,53 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
 }
 
 ///|
-fn RawOiRefNullTrapRewriteFact::from_instrs(
+fn RawOiRefNullTrapRewriteFact::from_region(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
+  if start < 0 ||
+    start >= region.roots.length() ||
+    !(region.has_root_at(start, RawOiRootKind::RefNull) ||
+    region.roots[start].flow.has_nested_control) {
+    return None
+  }
   match
     RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
-      current, instrs, start,
+      current, region, start,
     ) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
     RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
-      current, instrs, start,
+      current, region, start,
     ) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
     RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
-      current, instrs, start,
+      current, region, start,
     ) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
-    RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(current, instrs, start) {
+    RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(current, region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(current, instrs, start)
+  RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(current, region, start)
 }
 
 ///|
-// Accepted raw OI-H bridge boundary. This traversal only rebuilds nested
-// control bodies and dispatches to source-backed flat raw facts:
-// `RawOiRefNullTrapRewriteFact` for represented null/ref repair windows and
-// `RawOiCallRefDirectizeRewriteFact` for represented call_ref directization.
+// Accepted raw OI-H bridge boundary. This traversal builds one immutable region
+// view per body for represented null/ref repair, then rebuilds nested control
+// bodies and dispatches call_ref directization through its explicit mixed-
+// revision bridge. `RawOiRefNullTrapRewriteFact` consumes region roots; the
+// retained `RawOiCallRefDirectizeRewriteFact::from_instrs` entry point compares
+// post-child `current` against original root-local use facts.
 // Reopen if this function starts matching target/operand spellings directly,
 // bypasses those facts, or a reduced mismatch needs broader Binaryen
 // `visitCallRef` / `trapOnNull` facts rather than another bridge case.
@@ -27077,6 +27094,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   root_instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
@@ -27085,7 +27103,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
       root_instrs,
     )
     changed = changed || child_changed
-    match RawOiRefNullTrapRewriteFact::from_instrs(current, instrs, i) {
+    match RawOiRefNullTrapRewriteFact::from_region(current, region, i) {
       Some(fact) => {
         fact.append_rewrite(out)
         changed = true
@@ -30172,6 +30190,14 @@ fn RawOiScalarNumericRewriteFact::from_region(
 }
 
 ///|
+// Remaining raw traversal audit: the ten descriptor `from_instrs` definitions
+// below form one representation bridge cluster (recursive descriptor prefixes,
+// direct/local exact success and miss, exactification, and balanced operands).
+// They reconstruct stack/control expressions that are not yet available as HOT
+// value graphs. Preserve exact descriptor type/exactness, trap, effect, source-
+// order, and operand-cardinality proof; migrate only with a shared typed
+// descriptor-value overlay, never another shape-specific whole-body scanner.
+//
 // Source-backed raw descriptor prefix facts for the Binaryen v130
 // optimizeKnownCastResult descriptor-child-localization case. Binaryen uses
 // ChildLocalizer to preserve descriptor operand effects before replacing a
@@ -54333,6 +54359,10 @@ fn RawOiEscapingRefGetDescFlattenFact::append_rewrite(
 // ref.get_desc; ref.cast_desc_eq`; the lowered raw bridge removes that wrapper
 // only for the represented payload/control shapes and carries the complete
 // rewrite payload here so the body traversal is not its own window scanner.
+// Explicit final descriptor traversal bridge. Escaping ref.get_desc flattening
+// rewrites label depths while reconstructing raw control children; migrate only
+// after a reusable label-aware descriptor value/effect overlay can preserve
+// branch targets, traps, nullable types, and source order.
 fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
   instrs : Array[@lib.Instruction],
   start : Int,
