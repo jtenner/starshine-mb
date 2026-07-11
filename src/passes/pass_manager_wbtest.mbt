@@ -41,6 +41,16 @@ test "optimize-instructions raw function index records reusable top-level roots"
   assert_true(index.has_top_level_root_at(2, RawOiRootKind::TableGet))
   assert_true(index.has_top_level_root_at(3, RawOiRootKind::CallRef))
   assert_false(index.has_top_level_root_at(0, RawOiRootKind::CallRef))
+  let gc_index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(1U), @lib.U32(1U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::array_get(@lib.TypeIdx::new(1U)),
+  ])
+  assert_true(
+    gc_index.has_top_level_root_at(0, RawOiRootKind::ArrayConstructor),
+  )
+  assert_true(gc_index.has_top_level_root_at(1, RawOiRootKind::I32Const))
+  assert_true(gc_index.has_top_level_root_at(2, RawOiRootKind::ArrayRead))
 }
 
 ///|

@@ -24826,78 +24826,62 @@ priv struct RawOiGcSelectedOperandForwardingFact {
 }
 
 ///|
-fn RawOiGcSelectedOperandForwardingFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext,
+fn RawOiGcSelectedOperandForwardingFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  call_values : RawOiFunctionCallValueFacts,
 ) -> RawOiGcSelectedOperandForwardingFact? {
-  if instrs.length() < 3 {
+  let len = index.top_level_roots.length()
+  if len < 3 {
     return None
   }
-  match (instrs[instrs.length() - 2], instrs[instrs.length() - 1]) {
-    (@lib.StructNew(new_type), @lib.StructGet(get_type, _)) if new_type ==
-      get_type => {
-      let mut saw_call = false
-      for i = 0; i < instrs.length() - 2; i = i + 1 {
-        match instrs[i] {
-          @lib.Call(_) => saw_call = true
-          _ => ()
-        }
-        if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-            instrs[i],
-            module_ctx,
-          ) {
-          return None
-        }
-      }
-      Some({
-        is_struct_get_after_new: true,
-        is_array_get_after_fixed_new: false,
-        operand_count: instrs.length() - 2,
-        saw_effectful_operand_call: saw_call,
-      })
+  if index.has_top_level_root_at(len - 2, RawOiRootKind::StructConstructor) &&
+    index.has_top_level_root_at(len - 1, RawOiRootKind::StructRead) {
+    match (index.instr_at(len - 2), index.instr_at(len - 1)) {
+      (Some(@lib.StructNew(new_type)), Some(@lib.StructGet(get_type, _))) if new_type ==
+        get_type &&
+        call_values.range_all_constructor_operands(0, len - 2) =>
+        return Some({
+          is_struct_get_after_new: true,
+          is_array_get_after_fixed_new: false,
+          operand_count: len - 2,
+          saw_effectful_operand_call: call_values.range_has_direct_call(
+            0,
+            len - 2,
+          ),
+        })
+      _ => ()
     }
-    _ => {
-      if instrs.length() < 4 {
+  }
+  if len < 4 ||
+    !index.has_top_level_root_at(len - 3, RawOiRootKind::ArrayConstructor) ||
+    !index.has_top_level_root_at(len - 2, RawOiRootKind::I32Const) ||
+    !index.has_top_level_root_at(len - 1, RawOiRootKind::ArrayRead) {
+    return None
+  }
+  match
+    (index.instr_at(len - 3), index.instr_at(len - 2), index.instr_at(len - 1)) {
+    (
+      Some(@lib.ArrayNewFixed(new_type, @lib.U32(raw_len))),
+      Some(@lib.I32Const(_)),
+      Some(@lib.ArrayGet(get_type)),
+    ) if new_type == get_type => {
+      let fixed_len = raw_len.reinterpret_as_int()
+      if fixed_len < 0 ||
+        fixed_len != len - 3 ||
+        !call_values.range_all_constructor_operands(0, len - 3) {
         return None
       }
-      match
-        (
-          instrs[instrs.length() - 3],
-          instrs[instrs.length() - 2],
-          instrs[instrs.length() - 1],
-        ) {
-        (
-          @lib.ArrayNewFixed(new_type, @lib.U32(raw_len)),
-          @lib.I32Const(_),
-          @lib.ArrayGet(get_type),
-        ) if new_type == get_type => {
-          let len = raw_len.reinterpret_as_int()
-          if len < 0 || len != instrs.length() - 3 {
-            return None
-          }
-          let mut saw_call = false
-          for i = 0; i < instrs.length() - 3; i = i + 1 {
-            match instrs[i] {
-              @lib.Call(_) => saw_call = true
-              _ => ()
-            }
-            if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-                instrs[i],
-                module_ctx,
-              ) {
-              return None
-            }
-          }
-          Some({
-            is_struct_get_after_new: false,
-            is_array_get_after_fixed_new: true,
-            operand_count: len,
-            saw_effectful_operand_call: saw_call,
-          })
-        }
-        _ => None
-      }
+      Some({
+        is_struct_get_after_new: false,
+        is_array_get_after_fixed_new: true,
+        operand_count: fixed_len,
+        saw_effectful_operand_call: call_values.range_has_direct_call(
+          0,
+          len - 3,
+        ),
+      })
     }
+    _ => None
   }
 }
 
@@ -24926,14 +24910,15 @@ priv struct RawOiGcEffectLocalizationFact {
 }
 
 ///|
-fn RawOiGcEffectLocalizationFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext,
+fn RawOiGcEffectLocalizationFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  call_values : RawOiFunctionCallValueFacts,
 ) -> RawOiGcEffectLocalizationFact? {
-  let len = instrs.length()
+  let len = index.top_level_roots.length()
   if len < 4 {
     return None
   }
+  let instrs = index.top_level_instrs()
   let mut saw_call = false
   match (instrs[len - 2], instrs[len - 1]) {
     (@lib.ArrayNew(new_type), @lib.ArrayLen) => {
@@ -24941,10 +24926,7 @@ fn RawOiGcEffectLocalizationFact::from_instrs(
         return None
       }
       ignore(new_type)
-      if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-          instrs[0],
-          module_ctx,
-        ) {
+      if !call_values.is_constructor_operand_at(0) {
         return None
       }
       match instrs[1] {
@@ -24975,10 +24957,7 @@ fn RawOiGcEffectLocalizationFact::from_instrs(
           if len != 5 {
             return None
           }
-          if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-              instrs[0],
-              module_ctx,
-            ) {
+          if !call_values.is_constructor_operand_at(0) {
             return None
           }
           match instrs[1] {
@@ -25010,25 +24989,14 @@ fn RawOiGcEffectLocalizationFact::from_instrs(
               if fixed_len < 0 || len != fixed_len + 4 {
                 return None
               }
-              for i = 0; i < fixed_len; i = i + 1 {
-                match instrs[i] {
-                  @lib.Call(_) => saw_call = true
-                  _ => ()
-                }
-                if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-                    instrs[i],
-                    module_ctx,
-                  ) {
-                  return None
-                }
+              if !call_values.range_all_constructor_operands(0, fixed_len) {
+                return None
               }
+              saw_call = call_values.range_has_direct_call(0, fixed_len)
               match instrs[len - 2] {
                 @lib.Call(_) => saw_call = true
                 _ =>
-                  if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-                      instrs[len - 2],
-                      module_ctx,
-                    ) {
+                  if !call_values.is_constructor_operand_at(len - 2) {
                     return None
                   }
               }
@@ -25073,10 +25041,7 @@ fn RawOiGcEffectLocalizationFact::from_instrs(
               if len != 6 {
                 return None
               }
-              if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-                  instrs[0],
-                  module_ctx,
-                ) {
+              if !call_values.is_constructor_operand_at(0) {
                 return None
               }
               match instrs[1] {
@@ -25090,10 +25055,7 @@ fn RawOiGcEffectLocalizationFact::from_instrs(
               match instrs[4] {
                 @lib.Call(_) => saw_call = true
                 _ =>
-                  if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
-                      instrs[4],
-                      module_ctx,
-                    ) {
+                  if !call_values.is_constructor_operand_at(4) {
                     return None
                   }
               }
@@ -25597,6 +25559,13 @@ priv enum RawOiRootKind {
   ReturnCallRef
   TableGet
   CommutativeIntegerBinop
+  StructConstructor
+  StructRead
+  ArrayConstructor
+  ArrayRead
+  ArrayWrite
+  ArrayLen
+  I32Const
   Other
 }
 
@@ -25604,6 +25573,7 @@ priv enum RawOiRootKind {
 priv struct RawOiTopLevelRootFact {
   position : Int
   kind : RawOiRootKind
+  instr : @lib.Instruction
   is_pure_stack_operand : Bool
 }
 
@@ -25617,6 +25587,14 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.CallRef(_) => RawOiRootKind::CallRef
     @lib.ReturnCallRef(_) => RawOiRootKind::ReturnCallRef
     @lib.TableGet(_) => RawOiRootKind::TableGet
+    @lib.StructNew(_) => RawOiRootKind::StructConstructor
+    @lib.StructGet(_, _) => RawOiRootKind::StructRead
+    @lib.ArrayNew(_) | @lib.ArrayNewFixed(_, _) | @lib.ArrayNewDefault(_) =>
+      RawOiRootKind::ArrayConstructor
+    @lib.ArrayGet(_) => RawOiRootKind::ArrayRead
+    @lib.ArraySet(_) => RawOiRootKind::ArrayWrite
+    @lib.ArrayLen => RawOiRootKind::ArrayLen
+    @lib.I32Const(_) => RawOiRootKind::I32Const
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
         instr,
       ) => RawOiRootKind::CommutativeIntegerBinop
@@ -25625,6 +25603,7 @@ fn RawOiTopLevelRootFact::from_instr(
   {
     position,
     kind,
+    instr,
     is_pure_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
       instr,
     ),
@@ -25750,6 +25729,13 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ReturnCallRef, ReturnCallRef)
     | (TableGet, TableGet)
     | (CommutativeIntegerBinop, CommutativeIntegerBinop)
+    | (StructConstructor, StructConstructor)
+    | (StructRead, StructRead)
+    | (ArrayConstructor, ArrayConstructor)
+    | (ArrayRead, ArrayRead)
+    | (ArrayWrite, ArrayWrite)
+    | (ArrayLen, ArrayLen)
+    | (I32Const, I32Const)
     | (Other, Other) => true
     _ => false
   }
@@ -25776,6 +25762,103 @@ fn RawOiFunctionRevisionFactIndex::has_top_level_call_ref_root_at(
 ) -> Bool {
   self.has_top_level_root_at(position, RawOiRootKind::CallRef) ||
   self.has_top_level_root_at(position, RawOiRootKind::ReturnCallRef)
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::instr_at(
+  self : RawOiFunctionRevisionFactIndex,
+  position : Int,
+) -> @lib.Instruction? {
+  if position < 0 || position >= self.top_level_roots.length() {
+    None
+  } else {
+    Some(self.top_level_roots[position].instr)
+  }
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::top_level_instrs(
+  self : RawOiFunctionRevisionFactIndex,
+) -> Array[@lib.Instruction] {
+  self.top_level_roots.map(fn(root) { root.instr })
+}
+
+///|
+priv struct RawOiTopLevelCallValueFact {
+  position : Int
+  is_constructor_stack_operand : Bool
+  is_direct_call : Bool
+}
+
+///|
+priv struct RawOiFunctionCallValueFacts {
+  top_level : Array[RawOiTopLevelCallValueFact]
+}
+
+///|
+fn RawOiFunctionCallValueFacts::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  module_ctx : @ir.HotModuleContext,
+) -> RawOiFunctionCallValueFacts {
+  let top_level = index.top_level_roots.map(fn(root) {
+    {
+      position: root.position,
+      is_constructor_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+        root.instr,
+        module_ctx,
+      ),
+      is_direct_call: match root.instr {
+        @lib.Call(_) => true
+        _ => false
+      },
+    }
+  })
+  { top_level, }
+}
+
+///|
+fn RawOiFunctionCallValueFacts::is_constructor_operand_at(
+  self : RawOiFunctionCallValueFacts,
+  position : Int,
+) -> Bool {
+  position >= 0 &&
+  position < self.top_level.length() &&
+  self.top_level[position].position == position &&
+  self.top_level[position].is_constructor_stack_operand
+}
+
+///|
+fn RawOiFunctionCallValueFacts::range_all_constructor_operands(
+  self : RawOiFunctionCallValueFacts,
+  start : Int,
+  end : Int,
+) -> Bool {
+  if start < 0 || end < start || end > self.top_level.length() {
+    return false
+  }
+  for i = start; i < end; i = i + 1 {
+    if !self.is_constructor_operand_at(i) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn RawOiFunctionCallValueFacts::range_has_direct_call(
+  self : RawOiFunctionCallValueFacts,
+  start : Int,
+  end : Int,
+) -> Bool {
+  if start < 0 || end < start || end > self.top_level.length() {
+    return false
+  }
+  for i = start; i < end; i = i + 1 {
+    if self.top_level[i].is_direct_call {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -33500,13 +33583,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_binaryen_call_ref_directization()
     None => false
   }
+  let call_values = RawOiFunctionCallValueFacts::from_index(
+    oi_index, module_ctx,
+  )
   let gc_selected_operand_forwarding = match
-    RawOiGcSelectedOperandForwardingFact::from_instrs(body, module_ctx) {
+    RawOiGcSelectedOperandForwardingFact::from_index(oi_index, call_values) {
     Some(fact) => fact.proves_binaryen_forwarding()
     None => false
   }
   let gc_effect_localization = match
-    RawOiGcEffectLocalizationFact::from_instrs(body, module_ctx) {
+    RawOiGcEffectLocalizationFact::from_index(oi_index, call_values) {
     Some(fact) => fact.proves_binaryen_localization()
     None => false
   }
