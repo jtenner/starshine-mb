@@ -9,6 +9,8 @@ sources:
   - ../../../../../src/validate/validate.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
 related:
+  - ./direct-call-stubbing-and-element-retention.md
+  - ./implementation-structure-and-tests.md
   - ../../../binary/function-import-export-and-code-sections.md
   - ../duplicate-import-elimination/index.md
   - ../remove-unused-module-elements/index.md
@@ -53,6 +55,8 @@ A simplified function-import shape is:
 
 Because `$trace` has no result, the reviewed Binaryen walker changes its direct calls to `nop` and may then remove `$trace` from the imported-function prefix if no element segment refers to it. For a resultful import it instead emits Binaryen's default literal for the call type. The exact post-pass binary shape depends on Binaryen's named module representation and later cleanup, but the semantic warning is fixed: **the host call is gone**.
 
+For the two independently ordered actions, concrete WAT shapes, the narrow element-retention proof, and a future targeted test matrix, read [`direct-call-stubbing-and-element-retention.md`](direct-call-stubbing-and-element-retention.md). For owner-file evidence, the local representation map, and the absence of a dedicated upstream fixture, read [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md).
+
 The following distinctions prevent common mistakes:
 
 | Similar-looking operation | Why it is different |
@@ -92,4 +96,6 @@ Do not create a compare-pass smoke lane yet: the local dispatcher and harness do
 - Starshine import/index model: [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md), [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt), [`../../../../../src/lib/module.mbt`](../../../../../src/lib/module.mbt)
 - Starshine validation and WAST lowering prerequisites: [`../../../../../src/validate/validate.mbt`](../../../../../src/validate/validate.mbt), [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt)
 - Fuzzing/admission boundary: [`fuzzing.md`](fuzzing.md), [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)
+- Direct-call/element-retention guide: [`direct-call-stubbing-and-element-retention.md`](direct-call-stubbing-and-element-retention.md)
+- Upstream/local implementation and test map: [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md)
 - Related pass boundaries: [`../duplicate-import-elimination/index.md`](../duplicate-import-elimination/index.md), [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md), [`../remove-exports/index.md`](../remove-exports/index.md), [`../minify-imports/index.md`](../minify-imports/index.md)
