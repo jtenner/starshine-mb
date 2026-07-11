@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -27,13 +28,13 @@ related:
 
 ## Current decision
 
-Keep `type-generalizing` boundary-only until there is an explicit decision to support a developer/experimental pass. The 2026-05-06 current-main recheck did not alter that decision.
+Keep `type-generalizing` boundary-only until there is an explicit decision to support a developer/experimental pass. The 2026-07-11 `version_130` / current-main recheck did not alter that decision and corrects the older unsupported `ContentOracle` prerequisite.
 
 Reasons:
 
 - upstream Binaryen registers `experimental-type-generalizing` as a hidden test pass;
 - upstream labels it not yet sound;
-- the implementation depends on CFG/backward dataflow plus oracle-like type facts;
+- the implementation depends on CFG/backward dataflow plus typed-IR/declaration transfer rules;
 - several instruction families remain unsupported/TODO in upstream;
 - Starshine currently has no owner file, dispatcher case, or backlog slice.
 
@@ -44,13 +45,12 @@ A future port should not mutate modules until these prerequisites are available 
 1. **CFG and joins:** function CFG with enough structure to propagate requirements backward across joins.
 2. **Value-stack requirements:** representation for stack-position type requirements, not only locals.
 3. **Local requirement lattice:** conservative joins for reference/heap types and exact top/bottom behavior.
-4. **Oracle or subset:** either a `ContentOracle` analogue or a deliberately narrower first slice that excludes oracle-dependent shapes.
-5. **Instruction transfer table:** explicit handlers for locals, calls, `call_ref`, globals, tables, ref ops, struct ops, array ops, and conversions.
-6. **Unsupported-family policy:** EH, tuple, string, continuation, atomic GC, and source-TODO families must skip or reject with tests.
-7. **Local declaration rewrite:** safe mutation of non-param local declarations while preserving params and scalar locals.
-8. **Use repair:** update every affected `local.get` / `local.tee` result type.
-9. **Validation/refinalization:** run local validation after mutation and preserve a way to repair expression metadata.
-10. **Binaryen oracle lane:** know how to invoke or fixture the hidden `experimental-type-generalizing` pass.
+4. **Instruction transfer table:** explicit handlers for locals, calls, `call_ref`, globals, tables, ref ops, struct ops, array ops, and conversions, using declared types and heap-type relationships rather than an oracle.
+5. **Unsupported-family policy:** EH, tuple, string, continuation, atomic GC, and source-TODO families must skip or reject with tests.
+6. **Local declaration rewrite:** safe mutation of non-param local declarations while preserving params and scalar locals.
+7. **Use repair:** update every affected `local.get` / `local.tee` result type.
+8. **Validation/refinalization:** run local validation after mutation and preserve a way to repair expression metadata.
+9. **Binaryen oracle lane:** know how to invoke or fixture the hidden `experimental-type-generalizing` pass.
 
 ## Recommended slice order
 
@@ -92,7 +92,7 @@ Acceptance:
 
 ### Slice 3: call_ref and table/global constraints
 
-Add transfer rules for direct call, `call_ref`, globals, and tables. Keep GC aggregates and oracle-dependent precision guarded if no local oracle exists yet.
+Add transfer rules for direct call, `call_ref`, globals, and tables. Keep GC aggregates guarded until declared heap-type relationships and field/element constraints are modeled precisely.
 
 Acceptance:
 
@@ -100,9 +100,9 @@ Acceptance:
 - `call_ref` tests cover bottom target and declared-supertype cases where Starshine can parse/validate them;
 - global/table declaration constraints feed requirements correctly.
 
-### Slice 4: GC aggregate and oracle-dependent families
+### Slice 4: GC aggregate families
 
-Only after the previous slices are stable, add struct/array/ref operation transfer rules and any needed oracle facts.
+Only after the previous slices are stable, add struct/array/ref operation transfer rules using declared heap-type supertypes and field/element types.
 
 Acceptance:
 

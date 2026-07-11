@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -23,7 +24,7 @@ supersedes:
 
 ## Why this page exists
 
-The hard part of Binaryen `experimental-type-generalizing` is not a single WAT rewrite. It is the proof that a local declaration can become more general while every use still accepts the new type. A 2026-05-06 current-main recheck left that contract unchanged on the reviewed surfaces.
+The hard part of Binaryen `experimental-type-generalizing` is not a single WAT rewrite. It is the proof that a local declaration can become more general while every use still accepts the new type. The 2026-07-11 `version_130` / current-main recheck keeps that contract and corrects the older unsupported `ContentOracle` claim.
 
 The 2026-04-24 page `local-flow-type-floor-and-boundaries.md` framed the pass as local-set/local-tee evidence plus a drop-plus-zero `local.get` workaround. That model is superseded. The source-correct model is backward type-requirement analysis over a function CFG.
 
@@ -57,11 +58,16 @@ Entry and exit prevent the analysis from floating everything to top:
 
 This is why the pass changes local declarations but not function signatures.
 
-## `ContentOracle` role
+## No `ContentOracle` role
 
-Some type requirements depend on possible runtime contents, not only the static instruction syntax. The owner file uses `ContentOracle`-style facts for families such as calls, globals, tables, refs, and GC aggregate operations.
+The reviewed `version_130` and current-main owner file contains no `ContentOracle` dependency or other interprocedural content analysis. Requirements come from static typed-IR facts:
 
-This does not make the pass a broad `gufa` clone. The output is still local declaration and local get/tee type repair. But the analysis is oracle-assisted, and the old “no oracle” model is wrong.
+- direct calls read callee parameter types;
+- globals and tables use their declared types while the pass explicitly does not generalize those declarations;
+- `call_ref` walks declared signature supertypes;
+- struct and array operations walk declared heap-type supertypes plus field/element types.
+
+This is still not a broad `gufa` clone. Its output remains local declaration and local get/tee type repair, and its analysis stays intra-function.
 
 ## Important transfer families
 
@@ -113,7 +119,7 @@ Avoid these common mistakes:
 - **Mistake:** “`local.get` is replaced by drop-plus-zero.”  
   **Correction:** source retags local get/tee result types after declaration changes.
 - **Mistake:** “No `call_ref` / GC surface.”  
-  **Correction:** `call_ref`, struct, and array families are explicit transfer surfaces.
+  **Correction:** `call_ref`, struct, and array families are explicit transfer surfaces derived from their declared typed-IR relationships.
 - **Mistake:** “Hidden test pass means safe but undocumented.”  
   **Correction:** upstream labels it not yet sound; unsupported families are correctness hazards.
 

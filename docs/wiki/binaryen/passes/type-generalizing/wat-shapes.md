@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -25,7 +26,7 @@ supersedes:
 
 ## How to read this page
 
-These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. A 2026-05-06 current-main recheck left the shape families unchanged on the reviewed surfaces. The durable idea is:
+These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. The 2026-07-11 `version_130` / current-main recheck keeps the shape families but corrects the older unsupported `ContentOracle` claim. The durable idea is:
 
 - uses impose type requirements;
 - the solver propagates requirements backward through a CFG;
@@ -302,5 +303,5 @@ Upstream explicitly labels the pass not yet sound and has unsupported-family mar
 
 1. The pass generalizes local declarations, not heap type declarations.
 2. Uses constrain definitions through a backward CFG analysis.
-3. `ContentOracle`, `call_ref`, struct, and array surfaces are real.
+3. `call_ref`, struct, and array are real direct transfer surfaces; no `ContentOracle` is involved.
 4. Upstream says the pass is not yet sound, so future ports need narrow guarded slices.

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -25,7 +26,7 @@ supersedes:
 
 ## Why this page exists
 
-This page maps the corrected source contract to concrete Binaryen files. A 2026-05-06 current-main recheck kept the same reviewed surface contract, and the map still intentionally calls out the 2026-04-24 miscorrection so future readers do not reintroduce either stale model.
+This page maps the corrected source contract to concrete Binaryen files. The 2026-07-11 `version_130` / current-main recheck preserves the CFG/local-rewrite contract but corrects a later stale addition: this owner does not use `ContentOracle`.
 
 ## Main upstream files
 
@@ -45,7 +46,7 @@ This is the owner file. It defines the experimental function pass and owns:
 - requirement lattice/state for locals and value-stack positions;
 - dependency tracking between locals and basic blocks;
 - backward monotone transfer over instructions;
-- `ContentOracle`-assisted type reasoning;
+- static typed-IR and declaration-based type reasoning;
 - direct-call and `call_ref` requirement propagation;
 - global, table, reference, struct, array, and conversion constraints;
 - explicit unsupported/TODO families;
@@ -79,7 +80,7 @@ The owner file depends on Binaryen infrastructure rather than a separate pass-sp
 - function CFG construction;
 - monotone CFG analysis;
 - type lattice operations;
-- `ContentOracle` facts;
+- declared signatures, global/table types, and heap-type relationships;
 - nested pass execution for `dce`;
 - `ReFinalize` after type repair.
 
@@ -111,7 +112,7 @@ This is the official shape catalog. It covers:
 
 | File | What it proves |
 | --- | --- |
-| `TypeGeneralizing.cpp` | algorithm, CFG/dataflow state, oracle use, transfer rules, local rewrite, refinalization, unsupported families |
+| `TypeGeneralizing.cpp` | algorithm, CFG/dataflow state, typed-IR/declaration transfer rules, local rewrite, refinalization, unsupported families |
 | `pass.cpp` | hidden/test registration, upstream spelling, not-yet-sound warning |
 | `type-generalizing.wast` | official positive and no-op module/function shapes |
 
@@ -119,7 +120,7 @@ This is the official shape catalog. It covers:
 
 | Superseded claim | Corrected file-map fact |
 | --- | --- |
-| No `ContentOracle` | Owner file uses oracle-style contents facts |
+| `ContentOracle` is required | Neither reviewed owner includes or references it; static typed-IR and declaration facts drive the transfer rules |
 | No `call_ref` surface | Owner file and lit test include `call_ref` constraints |
 | No `struct.get` / `struct.set` surface | Owner file and lit test include GC struct/array families |
 | `local.get` rewrite is drop-plus-zero | Owner file rewrites local declarations, then retags `local.get` / `local.tee` result types |
@@ -151,7 +152,7 @@ Teaches: call signatures are use constraints. `call_ref` is a real part of the p
 
 Best sources: owner transfer rules plus lit families.
 
-Teaches: `ContentOracle` and typed instruction semantics decide how far local declarations may be generalized.
+Teaches: typed instruction semantics plus declared signatures and heap-type relationships decide how far local declarations may be generalized.
 
 ### Unsupported families
 

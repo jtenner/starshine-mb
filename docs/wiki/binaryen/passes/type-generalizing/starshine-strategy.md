@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -38,7 +39,7 @@ Starshine does **not** implement `type-generalizing` today.
 
 The current local truth is:
 
-A 2026-05-06 current-main recheck did not change the reviewed upstream contract.
+The 2026-07-11 `version_130` / current-main recheck preserves the CFG/local-rewrite contract but corrects the older unsupported `ContentOracle` claim.
 
 - `src/passes/optimize.mbt` lists `type-generalizing` in `pass_registry_boundary_only_names()`.
 - The registry category is `BoundaryOnly`, not `HotPass` and not `ModulePass`.
@@ -48,7 +49,7 @@ A 2026-05-06 current-main recheck did not change the reviewed upstream contract.
 - No `src/passes/type_generalizing.mbt` owner file exists.
 - No active `agent-todo.md` slice currently tracks a `type-generalizing` implementation.
 
-So the correct Starshine strategy is a **boundary/status and future-port map**, not a code guide for an existing pass. A 2026-05-06 current-main recheck did not change that status; it only tightened the local code anchors below.
+So the correct Starshine strategy is a **boundary/status and future-port map**, not a code guide for an existing pass. The current recheck does not change local status; it clarifies that a future port needs typed-IR/declaration transfer rules, not a `ContentOracle` analogue.
 
 ## Exact local code locations
 
@@ -77,7 +78,7 @@ A faithful Starshine implementation would need to model:
 - local declaration rewrite safety;
 - call and `call_ref` signature constraints;
 - global/table/ref/struct/array instruction constraints;
-- oracle-like facts for possible runtime contents, or an explicitly narrower first slice;
+- typed-IR and declaration-based transfer rules for calls, globals, tables, refs, structs, and arrays;
 - DCE-before-analysis or equivalent unreachable-code handling;
 - local get/tee type repair and final validation/refinalization.
 
@@ -100,7 +101,7 @@ Because Starshine has no implementation, current validation is status validation
 - direct requests for `type-generalizing` must fail as boundary-only;
 - presets must not expand to it;
 - no wiki page should imply a local owner file or active dispatcher exists;
-- future docs should cite the 2026-04-27 corrective manifest and the 2026-05-06 current-main recheck for mechanics.
+- future docs should cite the 2026-07-11 `version_130` / current-main recheck for mechanics.
 
 ## Relationship to neighboring Starshine code
 
@@ -112,17 +113,13 @@ Because Starshine has no implementation, current validation is status validation
 ## Uncertainties and caveats
 
 - Binaryen itself labels the pass not yet sound. Starshine may choose to keep the local name boundary-only indefinitely.
-- A faithful port may require infrastructure that is broader than a normal pass port: CFG, stack requirements, oracle facts, local declaration rewriting, and local-use type repair.
+- A faithful port may require infrastructure that is broader than a normal pass port: CFG, stack requirements, typed-IR/declaration transfer rules, local declaration rewriting, and local-use type repair.
 - The safest first implementation slice is analysis-only; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Source chain
 
-1. [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)
-2. [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
-3. [`../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
-4. [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
-5. [`../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md)
-6. [`../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md`](../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md)
-7. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-6. [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md)
-7. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+1. [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
+2. [`./binaryen-strategy.md`](./binaryen-strategy.md)
+3. [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md)
+4. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+5. Historical correction: [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)

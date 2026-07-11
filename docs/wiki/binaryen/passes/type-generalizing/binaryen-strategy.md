@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -28,8 +29,9 @@ supersedes:
 
 ## Source rule
 
-Use the 2026-04-27 source correction as the corrected oracle for this folder, and the 2026-05-06 current-main recheck as the freshness layer:
+Use the 2026-07-11 `version_130` / current-main source recheck as the corrected oracle for this folder. It supersedes the older captures' unsupported `ContentOracle` claim while retaining their CFG/local-rewrite findings:
 
+- [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)
 - [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
@@ -49,13 +51,13 @@ Specific current-main locations that teach the contract:
 - [`type-generalizing.wast#L3803-L3919`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-generalizing.wast#L3803-L3919) for the `call_ref` parameter/result/impossible families.
 - [`type-generalizing.wast#L3961-L4017`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-generalizing.wast#L3961-L4017) for struct constructor and struct-read coverage.
 
-A 2026-05-06 current-main recheck on the same reviewed surfaces found no teaching-relevant drift.
+The 2026-07-11 recheck found no behavior-bearing divergence between the inspected `version_130` and current-main owner, registration, and fixture surfaces.
 
 The 2026-04-24 raw manifest is superseded for mechanics. It is still useful only as audit history for how the dossier got corrected twice.
 
 ## The pass in one sentence
 
-Binaryen `experimental-type-generalizing` is a hidden, not-yet-sound function pass that runs nested DCE, solves a backward CFG type-requirement problem using local and value-stack requirements plus `ContentOracle` facts, then generalizes non-param reference locals and retags affected `local.get` / `local.tee` expressions with refinalization.
+Binaryen `experimental-type-generalizing` is a hidden, not-yet-sound function pass that runs nested DCE and solves a backward CFG type-requirement problem using local and value-stack requirements derived from typed IR and module declarations, then generalizes non-param reference locals and retags affected `local.get` / `local.tee` expressions with refinalization.
 
 ## Visibility and scheduler status
 
@@ -107,7 +109,7 @@ The transfer function walks instructions backward and updates the requirement st
 - `struct.new`, `struct.get`, `struct.set`, descriptor operations, and array operations;
 - conversion and reinterpret operations that constrain scalar types.
 
-The pass uses `ContentOracle` where runtime contents matter, so the old “no oracle surface” claim is wrong.
+The pass does **not** use `ContentOracle` or another interprocedural content analysis. Where runtime-looking operations matter, it derives constraints from the typed instruction plus static declarations: call signatures, global/table types, and heap-type supertypes with struct fields or array elements.
 
 ### 5. Join and reanalyze to a fixed point
 
@@ -130,7 +132,7 @@ Input:
 - typed Binaryen functions;
 - Binaryen CFGs;
 - local declarations and expression result types;
-- module-level type information and oracle facts.
+- module-level declared types and heap-type relationships.
 
 Output:
 

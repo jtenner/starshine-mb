@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
@@ -52,20 +53,19 @@ This folder is therefore a **source-correct strategy and future-port dossier**, 
 
 ## 2026-04-27 correction
 
-The 2026-04-24 folder overcorrected an older stale note. It claimed `experimental-type-generalizing` was a tiny local-set/local-tee retagging pass with no `ContentOracle`, no `call_ref`, no GC instruction surface, no nested cleanup, and no refinalization.
+The 2026-04-24 folder wrongly reduced this pass to local-set/local-tee evidence and missed its CFG, `call_ref`, GC, nested-`dce`, and refinalization surfaces. The later correction restored those surfaces but introduced a second error: it claimed that the pass uses `ContentOracle`.
 
-A fresh primary-source recheck found the opposite: official Binaryen `version_129` and current `main` `TypeGeneralizing.cpp` implement a hidden experimental function pass with:
+The 2026-07-11 `version_130` and current-main source recheck resolves both errors. `TypeGeneralizing.cpp` is a hidden experimental function pass with:
 
 - nested `dce` before analysis;
-- a function CFG;
-- backward monotone dataflow over local type requirements and value-stack type requirements;
-- `ContentOracle`-assisted reasoning for call, global, table, ref, struct, and array shapes;
-- explicit `call_ref`, `struct.get`, `struct.set`, and many array/ref operation transfer rules;
+- a function CFG and backward monotone dataflow over local and value-stack type requirements;
+- direct typed-IR transfer rules for calls, globals, tables, refs, structs, and arrays;
+- explicit `call_ref`, `struct.get`, `struct.set`, and many array/ref transfer rules;
 - local declaration generalization plus `local.get` / `local.tee` result retagging;
 - `ReFinalize` when local get/tee expression types changed;
 - many explicit unsupported or TODO families, which explains the hidden not-yet-sound registration.
 
-Treat [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md), [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md), [`../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md), and [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md) as the current source anchors. A 2026-05-06 current-main recheck found no teaching-relevant drift on the reviewed surfaces. The 2026-04-24 files remain audit history, but are superseded for mechanics.
+It does **not** include or use `ContentOracle`: the pass reads static signatures, declared global/table types, and declared heap-type supertype/field/element information directly. Treat [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md) as the current source anchor. The older captures remain audit history, but their `ContentOracle` claims are superseded.
 
 ## Beginner summary
 
@@ -85,8 +85,8 @@ Input:
 
 - one Binaryen function body at a time;
 - Binaryen's CFG for that function;
-- local declarations, expression result types, and typed instruction semantics;
-- `ContentOracle` facts about possible runtime contents.
+- local declarations and expression result types;
+- typed instruction semantics plus declared function, global, table, and heap-type information.
 
 Output:
 
@@ -127,7 +127,7 @@ For Starshine today:
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md) - Source-correct upstream strategy: nested DCE, CFG, backward type requirements, oracle-backed transfer rules, local rewrite, and refinalization.
+- [`./binaryen-strategy.md`](./binaryen-strategy.md) - Source-correct upstream strategy: nested DCE, CFG, backward type requirements from typed IR/declarations, local rewrite, and refinalization.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Official source and lit-test map, including the superseded 2026-04-24 claims.
 - [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md) - Focused guide to the hard part: requirements, joins, call_ref/GC constraints, and not-yet-supported families.
 - [`./wat-shapes.md`](./wat-shapes.md) - Beginner-to-advanced shape catalog with before/after sketches and caveats.
@@ -136,6 +136,7 @@ For Starshine today:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)
 - [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
