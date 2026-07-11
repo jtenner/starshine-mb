@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../../../../src/lib/types.mbt
@@ -84,11 +84,12 @@ The safe first step is **not** mutation: add a registry-honesty decision and an 
 - imported-prefix `FuncIdx` repairs across calls, `ref.func`, exports, starts, elements, names, and annotations; and
 - binary/WAST roundtrip plus validation after rewrite.
 
-Do not create a compare-pass smoke lane yet: the local dispatcher and harness do not admit this pass. Once a real local pass exists, use the pass-eligibility preflight in [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md) before treating any green process as parity evidence.
+Do not create a compare-pass smoke lane yet: the local dispatcher and harness do not admit this pass. [`fuzzing.md`](fuzzing.md) records the planned-only status, why a generic generator cannot prove host-call disposability, and the required admission/policy gates. Once a real local pass exists, use the pass-eligibility preflight in [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md) before treating any green process as parity evidence.
 
 ## Sources
 
 - Upstream owner/element-helper/registration source read: [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Starshine import/index model: [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md), [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt), [`../../../../../src/lib/module.mbt`](../../../../../src/lib/module.mbt)
 - Starshine validation and WAST lowering prerequisites: [`../../../../../src/validate/validate.mbt`](../../../../../src/validate/validate.mbt), [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt)
+- Fuzzing/admission boundary: [`fuzzing.md`](fuzzing.md), [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)
 - Related pass boundaries: [`../duplicate-import-elimination/index.md`](../duplicate-import-elimination/index.md), [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md), [`../remove-exports/index.md`](../remove-exports/index.md), [`../minify-imports/index.md`](../minify-imports/index.md)
