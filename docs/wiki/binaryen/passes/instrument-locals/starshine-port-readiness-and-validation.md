@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md
@@ -132,6 +133,7 @@ Start with fixtures modeled on [`./wat-shapes.md`](./wat-shapes.md):
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md)
 - [`../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md`](../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md)

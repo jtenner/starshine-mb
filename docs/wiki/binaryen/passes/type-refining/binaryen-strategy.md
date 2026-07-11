@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
   - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
@@ -37,13 +38,9 @@ Primary files:
 - `test/lit/passes/type-refining-gufa-exact.wast`
 - `test/lit/passes/type-refining-gufa-rmw.wast`
 
-I also did a narrow current-`main` check on the same surfaces.
-Durable result:
+The 2026-07-11 current-`main` recheck preserves the reviewed `version_129` gates, phase split, repair structure, registration, and dedicated lit surface. It records one material interface drift: the owner now rejects `WorldMode::Open` rather than reading an old boolean-only `closedWorld` option, and it threads the same `worldMode` through public-type classification and `GlobalTypeRewriter`. This is still a closed-world semantic requirement, not a claim that all non-open modes have identical visibility/rewrite permissions; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
 
-- the checked `main` pass file still matches the reviewed `version_129` logic on the important gates, phase split, and fixup structure
-- the checked pass registration and dedicated lit families still match on the reviewed surfaces
-
-So this dossier treats `version_129` as the normative algorithm oracle.
+So this dossier treats `version_129` as the normative algorithm oracle while treating current `main` as the API/policy drift watch.
 
 ## High-level intent
 
@@ -100,12 +97,12 @@ It is not a late cleanup and not part of the open-world parity queue this repo u
 
 The default pipeline only adds `type-refining` when `optimizeLevel >= 2`.
 
-But `TypeRefining::run(Module* module)` itself checks only:
+But current `TypeRefining::run(Module* module)` itself checks only:
 
 - `module->features.hasGC()`
-- `getPassOptions().closedWorld`
+- `getPassOptions().worldMode != WorldMode::Open`
 
-So if a user invokes `--type-refining` directly, the pass does not inspect `optimizeLevel` itself.
+So if a user invokes `--type-refining` directly, the pass does not inspect `optimizeLevel` itself. The CLI-level `--closed-world` wording remains the user-facing semantic requirement, while current source carries the richer policy as `WorldMode`.
 That optimize-level condition belongs to the default scheduler, not to the core algorithm.
 
 ## Phase 0: strict early pass-body gates
@@ -113,10 +110,9 @@ That optimize-level condition belongs to the default scheduler, not to the core 
 `TypeRefining::run(Module* module)` begins by:
 
 - returning immediately on `!module->features.hasGC()`
-- `Fatal()`ing if `!getPassOptions().closedWorld`
+- `Fatal()`ing when `getPassOptions().worldMode == WorldMode::Open`
 
-This is a real semantic boundary.
-The pass is not trying to be “mostly okay” in open world.
+This preserves the real semantic boundary: the pass is not trying to be “mostly okay” in ordinary open world. The richer world-mode policy must also be passed to public-type classification and the global type rewriter.
 
 ## Phase 1: shared back end, two different inference front ends
 
@@ -452,6 +448,7 @@ That is the real strategy a future strict-parity port must preserve.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md)
 - [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)

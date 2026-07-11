@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
@@ -45,7 +46,7 @@ This dossier is unusual because the important file map is split across **histori
 
 | File | Why it matters | What it proves |
 | --- | --- | --- |
-| `version_130/src/passes/pass.cpp` plus current `main/src/passes/pass.cpp` spot check | Current public pass roster | There is no current `remove-unused` or `remove-unused-functions` registration; the 2026-06-02 recheck still shows the modern names only |
+| `version_130/src/passes/pass.cpp` plus current `main/src/passes/pass.cpp` and `wasm-opt.test` refresh | Current public pass roster | There is no current `remove-unused` or `remove-unused-functions` registration; the 2026-07-11 review again shows the modern names only on the reviewed registration/help surfaces |
 | `version_125/src/passes/passes.h` | Older factory-roster spot check | There is no `createRemoveUnusedFunctionsPass()` in the checked modern factory surface |
 | `version_130/test/lit/help/wasm-opt.test` | Current CLI oracle | Help output lists the modern remove-unused family names, but not `remove-unused` |
 | `version_129/test/lit/help/wasm-metadce.test` | Secondary help oracle | Same absence on another tool surface |
@@ -130,6 +131,7 @@ The implementation/test map says the local wiki should teach `remove-unused` as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)

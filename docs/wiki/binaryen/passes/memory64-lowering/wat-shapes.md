@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
@@ -23,7 +24,7 @@ related:
 
 # `memory64-lowering` WAT shape catalog
 
-This page shows the important before/after families for Binaryen's `memory64-lowering` and `table64-lowering` passes.
+This page shows the important before/after families for Binaryen's combined `Memory64Lowering` transform, published under the two alias spellings `memory64-lowering` and `table64-lowering`.
 The examples are schematic but match the source-backed rewrite rules captured in the raw manifest. For future Starshine implementation order and validation lanes, see [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 ## 1. Memory declaration lowering
@@ -240,7 +241,7 @@ After:
 (table 0 10 funcref)
 ```
 
-This shape belongs to the sibling public pass `table64-lowering`, not the memory-only pass name.
+This is a table family within the same combined upstream transform. Both public aliases process it; `table64-lowering` is not a table-only mode.
 
 ## 11. Table get/set index repair
 
@@ -297,7 +298,7 @@ After:
 (elem (i32.const 3) func $f)
 ```
 
-This is the table sibling of active data offset repair. Keep it separate from static memory-access `offset=` immediates; the reviewed source lowers active offset expressions to the new address type rather than documenting a high-active-offset `unreachable` special case.
+This is the table counterpart of active data offset repair within the same combined transform. Keep it separate from static memory-access `offset=` immediates; the reviewed source lowers active offset expressions to the new address type rather than documenting a high-active-offset `unreachable` special case.
 
 ## 14. Table fill width split
 
@@ -354,6 +355,7 @@ That detail is important for mixed table32/table64 cases.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
@@ -363,4 +365,3 @@ That detail is important for mixed table32/table64 cases.
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>
-- Binaryen `table64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/table64-lowering.wast>

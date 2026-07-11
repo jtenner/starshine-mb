@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
@@ -35,7 +36,7 @@ related:
 
 `remove-unused` is a **boundary-only registry name** in Starshine, not an active pass implementation.
 
-The current local strategy is documentation and request hygiene, and the 2026-06-02 `version_130` / current-main spelling recheck did not change that:
+The current local strategy is documentation and request hygiene. The 2026-07-11 current-main/admission recheck confirms both the upstream spelling absence and the local boundary-only/harness-rejection state, so it does not change that:
 
 - keep the name known so old plans and user requests produce an intentional diagnostic;
 - reject active execution before dispatch;
@@ -52,7 +53,7 @@ For a decision-oriented checklist, use [`./starshine-port-readiness-and-validati
 
 The relevant surfaces are:
 
-- `pass_registry_boundary_only_names()` includes `"remove-unused"` in the boundary-only array at `src/passes/optimize.mbt:127`-`139`.
+- `pass_registry_boundary_only_names()` includes `"remove-unused"` in the boundary-only array at `src/passes/optimize.mbt:133`-`138`.
 - `pass_registry_entries()` appends each boundary-only name as `pass_registry_entry_boundary_only(name)`.
 - `run_hot_pipeline_expand_passes(...)` rejects a requested boundary-only name with the error shape:
   - `pass flag <name> is boundary-only and is not implemented in the hot pipeline`
@@ -63,7 +64,7 @@ That means a request such as `--remove-unused` is recognized but intentionally n
 
 [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) contains the active module-pass dispatcher.
 
-Its `run_hot_pipeline_apply_module_pass(...)` cases at `src/passes/pass_manager.mbt:8655`-`8685` include the modern implemented replacement-family passes:
+Its `run_hot_pipeline_apply_module_pass(...)` cases at `src/passes/pass_manager.mbt:102614`-`102619` include the modern implemented replacement-family passes:
 
 - `"remove-unused-module-elements" => rume_run_module_pass(mod_)`
 - `"remove-unused-nonfunction-module-elements" => rume_run_nonfunction_module_pass(mod_)`
@@ -161,6 +162,7 @@ The local alias relation is an inference, not a proved rename record. No reviewe
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)

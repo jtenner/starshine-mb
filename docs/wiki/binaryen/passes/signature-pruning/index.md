@@ -24,6 +24,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../tracker.md
   - ../index.md
   - ../type-refining/index.md
@@ -131,6 +132,8 @@ What it actually is in `version_129`:
   - Exact Starshine status and future-port map: boundary-only registry entry, active request rejection, active-preset omission, no owner file, no active backlog slice, and the local type/call/validation/binary surfaces a future heap-type-level signature rewrite would need.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - First-slice and validation bridge for a future Starshine port: keep the current boundary-only behavior until a closed-world module pass can rewrite nominal function heap types, direct calls, callee locals, and later `call_ref` families coherently.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Current planned-only comparison status: the boundary-only registry entry and absent harness flag make a 10,000-case `compare-pass` command invalid today; the page lists the four future admission gates and the closed-world fixture obligations.
 
 ## Current maintenance rule
 

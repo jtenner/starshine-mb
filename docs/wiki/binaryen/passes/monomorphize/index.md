@@ -121,6 +121,8 @@ So this pass is best taught as:
   Current Starshine status and future port map: exact boundary-only registry / request-guard locations, existing `monomorphize_min_benefit` option plumbing, missing owner-file/backlog-slice status, and the neighboring whole-module pass landing zone.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge for a future Starshine port: registry-honesty checks, no-rewrite analyzer, scalar-literal clone first slice, dropped-result follow-up, context-movement sequencing, `monomorphize-always` sharing, and Binaryen oracle lanes.
+- [`./fuzzing.md`](./fuzzing.md)
+  Planned-only compare-pass status and the call-context, clone-repair, dropped-result, and usefulness-gate fixture requirements for future parity work.
 
 ## Current maintenance rule
 

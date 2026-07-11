@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
@@ -29,7 +30,7 @@ This is the easiest part of the local registry name to misread.
 
 `remove-unused` is **not** a current public Binaryen pass spelling.
 
-The most useful source-backed interpretation, refreshed against immutable 2026-04-25, 2026-04-27, 2026-05-06, and 2026-06-02 raw-source manifests plus current `main` / release-horizon spot checks, is:
+The most useful source-backed interpretation, refreshed against immutable 2026-04-25, 2026-04-27, 2026-05-06, 2026-06-02, and 2026-07-11 raw-source manifests plus current `main` / release-horizon spot checks, is:
 
 - historical upstream pass: `remove-unused-functions`
 - modern upstream replacement: `remove-unused-module-elements`
@@ -122,6 +123,7 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)

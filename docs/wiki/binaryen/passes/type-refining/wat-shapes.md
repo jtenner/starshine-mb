@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
   - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
@@ -16,7 +17,7 @@ related:
 
 # `type-refining` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `type-refining`.
+This page is the beginner-friendly shape catalog for Binaryen `type-refining`. The 2026-07-11 current-main recheck preserves these shape families; its only material addition is the policy-carrying `WorldMode` interface around public-type classification and global type rewriting, not a new WAT transform family. See [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
 
 ## Read this page with one mental model
 

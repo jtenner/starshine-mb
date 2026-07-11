@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
@@ -57,7 +58,7 @@ A safer first slice is a **no-rewrite analyzer** that reports the same candidate
 
 | Analyzer result | What it should prove | Why it matters |
 | --- | --- | --- |
-| GC/world gate | module has GC features and an explicit closed-world mode | Binaryen hard-gates on both; Starshine has no implicit open-world equivalent |
+| GC/world gate | module has GC features and an explicit non-open world/visibility policy | Current Binaryen rejects `WorldMode::Open`; Starshine has no corresponding policy surface yet |
 | private struct candidate | heap type is private and not ABI-visible | public types must stay frozen |
 | array bailout | array types are ignored | Binaryen still marks arrays as TODO for this pass |
 | direct write evidence | `struct.new`, `struct.new_default`, and `struct.set` values can be classified per field | normal `type-refining` is write/default/copy-driven |
@@ -73,7 +74,7 @@ It should have tests that assert both positive candidate summaries and explicit 
 
 After the analyzer is trustworthy, the smallest useful mutating slice should be deliberately narrow:
 
-1. Keep the pass disabled outside explicit closed-world mode.
+1. Keep the pass disabled in ordinary open world; define one explicit world/visibility policy before admitting any mutating mode.
 2. Support only private struct types.
 3. Support only fields whose candidate type comes from direct `struct.new`, `struct.new_default`, and direct `struct.set` evidence.
 4. Ignore arrays completely.
@@ -96,7 +97,7 @@ When text WAT cannot express a case locally because `struct.set` parsing/lowerin
 | Fixture family | Expected local behavior | Source-backed page |
 | --- | --- | --- |
 | no-GC module | unchanged / rejected according to pass API | [`./binaryen-strategy.md`](./binaryen-strategy.md) |
-| open-world module | unchanged / rejected according to explicit closed-world API | [`./binaryen-strategy.md`](./binaryen-strategy.md) |
+| ordinary open-world module | unchanged / rejected according to the explicit world/visibility policy | [`./binaryen-strategy.md`](./binaryen-strategy.md) |
 | private struct, field always written with child subtype | field narrows when hierarchy remains legal | [`./wat-shapes.md`](./wat-shapes.md) |
 | private struct, `struct.new_default` nullable ref field | nullable-bottom/default evidence is modeled without keeping the old wide type unnecessarily | [`./normal-vs-gufa-and-fixups.md`](./normal-vs-gufa-and-fixups.md) |
 | public/exported heap type | declaration stays unchanged | [`./wat-shapes.md`](./wat-shapes.md) |

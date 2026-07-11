@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
@@ -20,6 +21,10 @@ related:
 
 This page covers the most non-obvious part of Binaryen `string-lowering`: how literal payloads survive after defining string globals stop being real `StringConst` initializers.
 For Starshine implementation sequencing, especially the split between default JSON, magic imports, and assert mode, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
+## Current-source status
+
+The 2026-07-11 official Binaryen `main` reread confirms that the default JSON path, magic-import fallback, assert-mode failure, and `string-lowering.wast` proof split described here remain current. Its only behavior-bearing finding is elsewhere in the pass: singleton public tag payload types now receive the same `string`-to-`extern` repair as affected function signatures. That type-repair expansion does not change this page's JSON/import-mode contract; see [`./binaryen-strategy.md`](./binaryen-strategy.md) for the type boundary and [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md) for source provenance.
 
 ## The problem this page answers
 
@@ -120,6 +125,7 @@ If someone asks "how does Binaryen keep the actual string data after lowering?",
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)

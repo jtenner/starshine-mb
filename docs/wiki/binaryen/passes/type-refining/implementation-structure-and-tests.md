@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
   - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
@@ -167,18 +168,7 @@ Those are part of the algorithm, not optional polish.
 
 ## Freshness note
 
-I did a narrow current-`main` check on:
-
-- `src/passes/TypeRefining.cpp`
-- `src/passes/pass.cpp`
-- `test/lit/passes/type-refining.wast`
-- `test/lit/passes/type-refining-gufa.wast`
-- `test/lit/passes/type-refining-gufa-exact.wast`
-- `test/lit/passes/type-refining-gufa-rmw.wast`
-
-Durable result:
-
-- the checked core pass structure and dedicated lit surfaces still match `version_129` on the important reviewed surfaces
+The 2026-07-11 current-`main` recheck reread the owner, registration/scheduler, and four dedicated lit files. The core pass and fixture contract still match `version_129` on the reviewed surfaces. The material drift is interface-level: `TypeRefining` now rejects `WorldMode::Open` and carries the same `worldMode` into public-type classification plus `GlobalTypeRewriter`. This preserves the closed-world semantic requirement while making policy consistency an explicit future-port invariant; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
 
 That is a narrow freshness note, not a proof that every neighboring helper file is identical.
 
@@ -210,6 +200,7 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md)
 - [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)

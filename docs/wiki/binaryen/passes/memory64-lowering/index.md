@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -33,9 +34,9 @@ related:
 
 ## Purpose
 
-`memory64-lowering` is Binaryen's wasm64-to-wasm32 index-width conversion pass for linear memory.
-Its sibling `table64-lowering` applies the same idea to table indexes.
-Both siblings matter to Starshine because Starshine already models memory/table limit widths, validates memory64 modules, and optimizes memory-heavy code, but it does **not** currently implement an index-width lowering pass. A 2026-04-26 port-readiness bridge now turns that status into a concrete first-slice and validation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+`memory64-lowering` is Binaryen's wasm64-to-wasm32 index-width conversion pass. `table64-lowering` is a second public spelling for the **same combined transform**, not a table-only mode: invoking either name lowers applicable memory64 and table64 declarations and use sites.
+
+This distinction matters to Starshine. The repository already models memory/table limit widths and validates several memory64 surfaces, but it does **not** currently implement an index-width lowering pass. A future port may stage memory support before table support because local table typing is incomplete, but it must not present that sequencing as two independently scoped Binaryen passes. [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) records the local ladder.
 
 The beginner version:
 
@@ -96,10 +97,7 @@ The output module has:
 
 ## Validation strategy
 
-For Binaryen parity research, use the official lit files:
-
-- `test/lit/passes/memory64-lowering.wast`
-- `test/lit/passes/table64-lowering.wast`
+For Binaryen parity research, use the one official fixture, `test/lit/passes/memory64-lowering.wast`. Its two RUN lines invoke both public aliases and its expected output covers both memory and table shapes; do not invent a separate `table64-lowering.wast` lane.
 
 For a future Starshine port, add tests in this order:
 
@@ -128,6 +126,7 @@ The future Starshine sequencing is spelled out in [`starshine-port-readiness-and
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md) - current `version_130` / main alias and fixture correction.
 - [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)

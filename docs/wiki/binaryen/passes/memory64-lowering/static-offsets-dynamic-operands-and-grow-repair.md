@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -27,7 +28,7 @@ related:
 
 # `memory64-lowering` static offsets, dynamic operands, and grow repair
 
-This page is the corrected guide to the easiest part of `memory64-lowering` / `table64-lowering` to overgeneralize: which “large constants” are known traps, which ones are just expression operands that get wrapped, and why grow repair is about the lowered grow result.
+This page is the corrected guide to the easiest part of Binaryen's one `Memory64Lowering` transform to overgeneralize. The public spellings `memory64-lowering` and `table64-lowering` are aliases, while the memory/table examples below remain distinct operand families.
 
 Read this with the raw primary-source correction in [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md). Future Starshine implementation checkpoints for these shapes are now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). For WAST fixture authoring, pair this page with [`../../../wast/memory-argument-authoring.md`](../../../wast/memory-argument-authoring.md) so text-byte `align=`, static `offset=`, dynamic stack addresses, and the current WAST nonzero-memory-index gap stay explicit.
 
@@ -136,6 +137,7 @@ A future Starshine port should add at least these tests before calling the out-o
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
@@ -147,7 +149,6 @@ A future Starshine port should add at least these tests before calling the out-o
 - [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast>
-- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/table64-lowering.wast>
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
 - [`../../../../../src/binary/encode.mbt`](../../../../../src/binary/encode.mbt)

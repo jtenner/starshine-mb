@@ -32,7 +32,7 @@ For an implementer, its output is a protocol. Printing similar WAT is not enough
 | --- | --- |
 | Upstream identity | Binaryen registers `createPrintBoundaryPass()` as public `print-boundary`. |
 | Upstream behavior | The owner emits one object with `imports` and `exports` arrays. Records carry names, `kind`, and a structured or scalar `type`; the module is not mutated. |
-| Current-main drift | `main` adds a recursive signature-reference depth cutoff, covered by its focused fixture. This prevents unbounded diagnostic recursion; it does not alter Wasm validation or runtime semantics. |
+| Current-main drift | `main` expands only the outermost signature reference into `{params, results}` and renders nested references as terminal type strings. The focused fixture proves that one-hop policy prevents unbounded diagnostic recursion; it does not alter Wasm validation or runtime semantics. |
 | Starshine registry | No `print-boundary` / `PrintBoundary` spelling was found under `src/` on 2026-07-11. |
 | Starshine substrate | [`Module`](../../../../../src/lib/types.mbt), section types, and [`src/wat/wat_api.mbt`](../../../../../src/wat/wat_api.mbt) provide relevant representation/printing prerequisites, but not Binaryen's JSON boundary protocol. |
 | Compare harness | `--print-boundary` is absent from [`SUPPORTED_PASS_FLAGS`](../../../../../scripts/lib/pass-fuzz-compare-task.ts), so no Starshine-vs-Binaryen compare-pass lane exists. |
@@ -83,13 +83,22 @@ Recursive function types can form cycles through signature references. A schemat
 )
 ```
 
-A naive boundary renderer that expands each referenced signature can recurse forever while formatting the imported function's type. Current Binaryen bounds this traversal with a depth limit, and the upstream fixture covers a terminal nested reference. This is a diagnostic-safety rule:
+A naive boundary renderer that expands each referenced signature can recurse forever while formatting the imported function's type. Current Binaryen does **not** maintain a general visited-set or promise arbitrary-depth expansion. Its exact current policy is a one-hop formatting rule:
 
-- preserve enough context for a human or tool to identify the declaration;
+1. `getTypes(type, forceArray = false, depth = 0)` expands a reference only when `depth == 0` and its heap type is a function signature.
+2. That outer signature becomes `{ "params": [...], "results": [...] }`; both fields are arrays, including an empty result list or a single parameter.
+3. The recursive calls use `depth + 1`. At that depth, every nested type—including a reference back to the same signature—is rendered with Binaryen's terminal `Type::toString()` spelling rather than expanded again.
+4. Non-signature external types follow the same scalar-versus-array helper: a single type is a JSON string unless an enclosing function/tag parameter or result list forces an array.
+
+For example, the current fixture's recursive export is reported as a function boundary whose parameter is the terminal string `"(ref $func.0)"`, not an infinite nested JSON object. The sibling exported function's `(ref $struct)` parameter is likewise a string; this output is a concise boundary description, **not** a complete serialization of the type section or a type-identity protocol.
+
+This is a diagnostic-safety rule:
+
+- preserve one outer function/tag signature for ordinary consumers;
 - stop before recursive expansion becomes unbounded;
-- do not infer that truncation changes nominal type identity, validation, or subtyping.
+- do not infer that the abbreviated nested string changes nominal type identity, validation, or subtyping.
 
-A Starshine port should make the cutoff explicit in its output contract and snapshot tests. It should not silently rely on incidental recursion behavior in a generic `Show` implementation.
+A Starshine port should make this one-hop policy explicit in its output contract and snapshot tests. It should not silently rely on incidental recursion behavior in a generic `Show` implementation, and it should not claim recursive structural equality from this diagnostic output.
 
 ## Future Starshine Slice And Signoff
 

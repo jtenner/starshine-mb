@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
+  - ../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md
   - ../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
@@ -32,6 +33,7 @@ related:
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/function-import-export-and-code-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/local-spec-divergence-ledger.md
   - ../validate/stack-polymorphism-and-bottom.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
@@ -48,7 +50,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The current-source refresh is [`../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md`](../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md). It rechecked the official Core 3.0 instruction pages and found no tail-call syntax, binary, validation, or execution drift from the earlier source map. The date is component-specific: syntax, text, validation, and execution pages are dated 2026-07-10, while binary instructions is dated 2026-07-09. Say “current Core 3.0 pages” or cite the particular page; do not imply every Core page has one shared date. The prior detailed capture [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md) remains historical source-map evidence. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is now routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), with the older detailed stack-shape note preserved at [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the older CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The current-source reconciliation is [`../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md`](../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md). The official WebAssembly 3.0 release and current editor's draft agree that tail-call **results match by subtyping**, not exact equality, and that `return_call_indirect` consumes the selected table's address type (`i32` or table64 `i64`). Starshine currently narrows both rules: `require_return_results(...)` compares result arrays exactly and `typecheck_return_call_indirect(...)` always pops `i32`. Treat those as explicit validator gaps, listed in [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md), rather than portable Wasm rules. The prior [`../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md`](../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md) remains historical component-date/local-inventory evidence but is superseded for this result/table precision. The prior detailed capture [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md) remains historical source-map evidence. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), with the older detailed stack-shape note preserved at [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md).
 
 ## Layer Model
 
@@ -58,7 +60,7 @@ The current-source refresh is [`../raw/wasm/2026-07-10-tail-call-core3-component
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `$` ids and type uses resolve to numeric `FuncIdx`, `TableIdx`, and `TypeIdx`. Printer emits explicit resolved indices, so default-table input may roundtrip less tersely. Type-use details are centralized in [`gc-type-authoring.md`](gc-type-authoring.md). |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Distinct `Instruction::ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` variants keep direct, table-mediated, and reference-call carriers visible to passes. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Direct, indirect, and reference tail calls encode as `0x12`, `0x13`, and `0x15`. `return_call_indirect` encodes type index before table index, matching the ordinary `call_indirect` binary order. |
-| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The selected callee results must match the current function return type. Starshine currently implements that check with exact `ValType` array equality in `require_return_results(...)`, then marks the state unreachable/stack-polymorphic for local continuation. The general bottom-value model lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). Coverage-forced GenValid now exercises direct, indirect, and reference tail calls inside terminal blocks and direct tail calls inside terminal `if` branches. |
+| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Core permits callee results that match the enclosing results by subtyping; current Starshine narrows that to exact `ValType` array equality in `require_return_results(...)`, then marks the state unreachable/stack-polymorphic. The general bottom-value model lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md); the local/spec split is tracked in [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md). Coverage-forced GenValid exercises direct, indirect, and reference tail calls inside terminal blocks and direct tail calls inside terminal `if` branches. |
 | IR2 CFG | [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt) | Tail-call HOT ops are calls, side-effecting/trapping, and terminators. The concrete CFG builder routes them to the synthetic normal exit with `ReturnEdge`; see [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md) for the current helper-test gap. |
 
 ## Instruction Families And Stack Shapes
@@ -67,8 +69,8 @@ The official validation model is easiest to remember as “ordinary call inputs,
 
 | WAST instruction | Text immediates | Stack before | Local continuation | Starshine notes |
 | --- | --- | --- | --- | --- |
-| `return_call` | `funcidx` | callee params | unreachable | Resolves to `FuncIdx`; callee results must match current function returns, with exact matching in current Starshine. |
-| `return_call_indirect` | optional `tableidx`, then `typeuse` | callee params..., table element index | unreachable | Resolves `typeuse` to `TypeIdx` and table to `TableIdx`; table must be function-reference-compatible. The official selected-table address type matters for table64, but Starshine currently pops an `i32` index in `typecheck_return_call_indirect(...)`; keep table64 evidence routed through [`table-instruction-authoring.md`](table-instruction-authoring.md). |
+| `return_call` | `funcidx` | callee params | unreachable | Resolves to `FuncIdx`; Core matches callee results to current function results by subtyping, while current Starshine requires exact equality. |
+| `return_call_indirect` | optional `tableidx`, then `typeuse` | callee params..., selected table address | unreachable | Resolves `typeuse` to `TypeIdx` and table to `TableIdx`; table must be function-reference-compatible. Core uses the selected table address type (`i32` or table64 `i64`), but Starshine currently pops `i32`; keep the gap routed through [`table-instruction-authoring.md`](table-instruction-authoring.md) and [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md). |
 | `return_call_ref` | `typeuse` | callee params..., function reference | unreachable | Resolves `typeuse` to a function type; consumes a reference to that function type. It shares the target/reference shape with ordinary `call_ref`, but exits instead of pushing results. |
 
 ### Why “unreachable” is not “no validation”
@@ -77,15 +79,15 @@ After a tail call validates, following code is stack-polymorphic because it is u
 
 1. target function/type/table indices must exist;
 2. the operand stack must provide the callee parameters, plus a table index or function reference for indirect/reference forms;
-3. the target result list must match the current function return list;
-4. table-mediated forms must use a compatible function-reference table.
+3. the target result list must match the current function return list under the Core subtype relation (not just exact equality);
+4. table-mediated forms must use a compatible function-reference table and the selected table's address type for their dynamic index.
 
 This is why a malformed `return_call_indirect` fixture can fail before the unreachable continuation matters.
 
 ### Current Starshine caveats to keep visible
 
-- **Return result matching is exact locally.** The current Starshine helper [`require_return_results(...)`](../../../src/validate/typecheck.mbt) compares the callee result list with the current function return list using exact `ValType` equality before marking the continuation unreachable. Do not use a tail-call fixture that relies on reference-result widening or other future subtyping-sensitive return matching as evidence until the validator has a focused widening change and tests.
-- **Indirect tail calls are still table32-shaped locally.** The official selected-table address type should drive the dynamic table element index. Starshine's [`typecheck_return_call_indirect(...)`](../../../src/validate/typecheck.mbt) currently expects an `i32` index, so table64 tail-call-indirect fixtures are validation-gap evidence, not ordinary pass or WAST authoring evidence. This is the same address-width family documented for ordinary `call_indirect` in [`table-instruction-authoring.md`](table-instruction-authoring.md).
+- **Return result matching is exact locally, but not portably.** Core permits a callee result sequence that matches the enclosing return sequence by subtyping—for example, a non-null reference result where the current function returns the nullable supertype. The current Starshine helper [`require_return_results(...)`](../../../src/validate/typecheck.mbt) instead compares `ValType` arrays with exact equality before marking the continuation unreachable. Do not use a local rejection of reference-result widening as Wasm evidence; it is a validator-widening target documented in [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md).
+- **Indirect tail calls are still table32-shaped locally.** Core uses the selected table address type for the dynamic index, so table64 needs `i64`. Starshine's [`typecheck_return_call_indirect(...)`](../../../src/validate/typecheck.mbt) currently expects `i32`, so table64 tail-call-indirect fixtures are validation-gap evidence, not ordinary pass or WAST authoring evidence. This is the same address-width family documented for ordinary `call_indirect` in [`table-instruction-authoring.md`](table-instruction-authoring.md).
 - **Proposal-era wording is rationale only.** The historical tail-call proposal explains why tail calls are return-position transfers, but the current Core 3.0 pages are the live source for syntax, binary opcodes, validation, and execution. Their document dates are component-specific; see the current source bridge rather than copying a single date across all pages.
 
 ## Concrete WAST Shapes
@@ -188,7 +190,8 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 
 ## Source Map
 
-- Current official Core 3.0 component-date and no-semantic-drift refresh: [`../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md`](../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md)
+- Current Core 3.0 release/editor's-draft result-matching and table64 reconciliation: [`../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md`](../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md)
+- Historical official component-date and local-inventory refresh: [`../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md`](../raw/wasm/2026-07-10-tail-call-core3-component-date-recheck.md)
 - Earlier detailed Core 3.0 and Starshine source refresh: [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md)
 - Focused typed-function-reference boundary refresh: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
 - Focused reference-call source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)

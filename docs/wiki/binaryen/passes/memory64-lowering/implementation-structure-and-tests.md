@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
@@ -26,10 +27,12 @@ related:
 
 ### `src/passes/Memory64Lowering.cpp`
 
-This is the owner file for both public siblings:
+This is the owner file behind both public aliases:
 
 - `memory64-lowering`
 - `table64-lowering`
+
+`pass.cpp` constructs the same parameterless `Memory64Lowering` visitor for either spelling. Neither name selects a memory-only or table-only mode.
 
 The important implementation pieces are:
 
@@ -42,8 +45,7 @@ The file should be read as a whole-module feature-lowering pass, not as a local 
 
 ### `src/passes/pass.cpp`
 
-`pass.cpp` publishes the pass names and their help text.
-The pass names are separate because users may lower memory64 without lowering table64, or vice versa.
+`pass.cpp` publishes two discoverable names and their resource-focused help text. The registrations intentionally preserve familiar CLI vocabulary, but both construct the same combined transform; users cannot use the spelling to lower only memory64 or only table64.
 
 ### `src/passes/passes.h`
 
@@ -64,16 +66,11 @@ It covers the visible families a future Starshine port should mirror first; the 
 - `memory.size` zero-extension and `memory.grow` operand plus failure-sentinel repair;
 - bulk memory instructions such as `memory.init`, `memory.copy`, and `memory.fill`.
 
-### `test/lit/passes/table64-lowering.wast`
+### One combined fixture, two invocations
 
-This is the table-focused sibling proof file.
-It covers:
+`test/lit/passes/memory64-lowering.wast` is the official proof file for both public aliases. Its RUN lines invoke `--memory64-lowering` and `--table64-lowering` separately, then compare each result with the same expected output. That output includes the table declaration, active-element-offset, `table.get` / `table.set`, `table.size` / `table.grow`, `table.fill`, `table.init`, and `table.copy` families as well as the memory families.
 
-- table declaration lowering;
-- active element offset lowering;
-- `table.get` and `table.set` index repair;
-- `table.size` and `table.grow` result/operand repair;
-- `table.fill`, `table.init`, and `table.copy` width-sensitive operands.
+This is an important test-design constraint: separate local memory-first and table-later fixtures are useful for implementation staging, but upstream parity must eventually show that either public spelling produces the same combined result on a mixed module.
 
 ## Source-location map for readers
 
@@ -85,8 +82,7 @@ It covers:
 | How are `memory.size` / `table.size` results repaired? | `Memory64Lowering.cpp` result-extension helpers plus size visitors |
 | How are `memory.grow` / `table.grow` results repaired? | `Memory64Lowering.cpp` grow helper; deltas are lowered for the wasm32 grow and the lowered `i32` result gets failure-aware repair so `i32 -1` maps to the wasm64 sentinel |
 | How do active data/element offsets get rewritten? | module/segment visitors in `Memory64Lowering.cpp` |
-| What lit file proves memory lowering? | `test/lit/passes/memory64-lowering.wast` |
-| What lit file proves table lowering? | `test/lit/passes/table64-lowering.wast` |
+| What lit file proves both aliases? | `test/lit/passes/memory64-lowering.wast`; its two RUN lines invoke both public names against one expected output. |
 
 ## Tests that are especially important for a port
 
@@ -107,6 +103,7 @@ Before Starshine implements the pass, decide and test whether local impossible-m
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
@@ -118,4 +115,3 @@ Before Starshine implements the pass, decide and test whether local impossible-m
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>
-- Binaryen `table64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/table64-lowering.wast>

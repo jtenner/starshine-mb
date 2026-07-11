@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
@@ -22,7 +23,7 @@ related:
 
 # `instrument-locals`: unsupported types, effect invalidation, and the helper-import roster
 
-This page covers the part of `instrument-locals` that is easiest to misread if you only skim the pass name. The source set is now captured in [`../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md) and [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md).
+This page covers the part of `instrument-locals` that is easiest to misread if you only skim the pass name. The source set is refreshed by [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md) and retains [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md) as its tagged-release anchor.
 
 ## 1. The helper roster is broader than the actual rewrite surface
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -34,7 +35,7 @@ related:
 Starshine does not currently implement or register Binaryen's `memory64-lowering` or `table64-lowering` pass names.
 Requests for either name are unknown-pass behavior today, not honest boundary-only rejection.
 
-The local code has enough wasm64/table64 representation to plan a port, but not enough complete table typing to advertise both siblings as ready:
+The local code has enough wasm64/table64 representation to plan a port, but not enough complete table typing to advertise the table families as ready. This is local implementation sequencing only: upstream's two public names are aliases for one combined transform.
 
 - `src/passes/optimize.mbt:127` starts the boundary-only registry list; neither name appears there.
 - `src/passes/optimize.mbt:144` starts the removed-name registry list; neither name appears there.
@@ -48,8 +49,7 @@ The local code has enough wasm64/table64 representation to plan a port, but not 
 
 ## Port goal
 
-A faithful Starshine port should turn a wasm64 memory module into a wasm32 memory module while preserving validation and runtime behavior for the representable 32-bit address space.
-A later table64 sibling should do the same for table indexes after table typechecking is made coherent.
+A faithful Starshine port should turn every applicable wasm64 memory and table surface in a module into the corresponding wasm32 surface while preserving validation and runtime behavior for the representable 32-bit address space. Memory support can land before table support, but the completed public interface must preserve Binaryen's alias contract: either spelling invokes the same combined rewrite.
 
 This is a module pass because it must rewrite declarations, active segments, function bodies, and feature metadata together.
 
@@ -57,7 +57,7 @@ This is a module pass because it must rewrite declarations, active segments, fun
 
 ### Slice 0: registry honesty and no-op analyzer
 
-- Decide whether to add both names as `BoundaryOnly` while planning, or keep them unknown until implementation starts.
+- Decide whether to add both names as `BoundaryOnly` while planning, or keep them unknown until implementation starts. If admitted, record them as aliases to one implementation rather than resource-family selectors.
 - Add a no-op module analyzer that reports:
   - memories with `I64Limits`;
   - tables with `I64Limits`;
@@ -123,7 +123,7 @@ Exit criteria:
 - SIMD and atomic fixtures prove address-width changes do not accidentally rewrite payload/result vector or integer types.
 - Existing memory-packing / instrument-memory tests still validate after the new pass is registered.
 
-### Slice 5: table64 sibling after typechecker cleanup
+### Slice 5: table64 families in the combined pass after typechecker cleanup
 
 - First fix table typing so table operations use `TableType` limits consistently rather than hard-coded `i32`.
 - Include the targeted `table.fill` cleanup: destination/start and length must both follow the selected table address type, while the reference value stays at the table element type; route exact width claims through [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md).
@@ -133,27 +133,21 @@ Exit criteria:
 
 - Table64 fixtures validate before and after lowering.
 - `table.grow` has the same failure-sentinel repair discipline as `memory.grow`.
-- The sibling status is explicit: implemented, boundary-only, or intentionally omitted.
+- Both public aliases have explicit, identical dispatch status; neither falsely promises a memory-only or table-only transform.
 
 ## Binaryen oracle lanes
 
-Use official Binaryen as the oracle in three lanes:
+Use official Binaryen as the oracle in two complementary ways:
 
-1. `wasm-opt --memory64-lowering` on memory-only fixtures.
-2. `wasm-opt --table64-lowering` on table-only fixtures.
-3. Combined memory/table fixtures only after both local siblings are real.
-
-Mirror the official lit intent from:
-
-- `test/lit/passes/memory64-lowering.wast`
-- `test/lit/passes/table64-lowering.wast`
+1. During local staging, use reduced memory-only and table-only fixtures to isolate the surface being implemented.
+2. Before public signoff, run **both** `wasm-opt --memory64-lowering` and `wasm-opt --table64-lowering` on the same mixed memory/table fixtures and require identical normalized output. The official `test/lit/passes/memory64-lowering.wast` already encodes this alias check with two RUN lines and one expected output.
 
 For every Starshine fixture, compare:
 
 - validation before and after lowering;
 - normalized WAT shape;
 - binary re-encode/decode roundtrip;
-- pass registry behavior for unsupported sibling names.
+- equal public-alias behavior for the two accepted spellings, or consistent unknown/boundary-only behavior while neither is implemented.
 
 ## Non-goals for the first port
 

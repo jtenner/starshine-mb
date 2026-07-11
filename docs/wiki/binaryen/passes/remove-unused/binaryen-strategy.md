@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
@@ -32,6 +33,7 @@ Use two different upstream source horizons here:
   - where Binaryen publicly registered `remove-unused-functions`
 - **modern oracle** for what Binaryen exposes now:
   - the 2026-06-02 `version_130` / current-main spelling recheck
+  - the 2026-07-11 current-main registration/help refresh
   - earlier current `main` spot-checks on 2026-04-25, 2026-04-27, and 2026-05-06 for registration drift
   - where Binaryen exposes `remove-unused-module-elements` but no `remove-unused` or `remove-unused-functions`
 
@@ -120,7 +122,7 @@ It replaced the historical function-only public pass with a broader module-eleme
 
 ## What current Binaryen exposes instead
 
-The 2026-06-02 `version_130` / current-main spelling recheck, with earlier narrow spot checks on 2026-04-25, 2026-04-27, and 2026-05-06, registers these relevant names:
+The 2026-06-02 `version_130` / current-main spelling recheck, reaffirmed by the focused 2026-07-11 current-main registration/help review, registers these relevant names:
 
 - `remove-unused-brs`
 - `remove-unused-module-elements`
@@ -211,6 +213,7 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)

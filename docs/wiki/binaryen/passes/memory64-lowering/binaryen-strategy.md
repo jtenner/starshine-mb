@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
@@ -24,19 +25,18 @@ related:
 
 ## Short version
 
-Binaryen's `memory64-lowering` converts wasm64 memory-indexed code into wasm32 memory-indexed code by changing the memory declarations and explicitly repairing every typed use site.
-The sibling `table64-lowering` does the same for table indexes.
+Binaryen's `memory64-lowering` converts wasm64 memory-indexed code into wasm32 memory-indexed code by changing declarations and explicitly repairing typed use sites. `table64-lowering` is an alias for that same combined visitor, so either public spelling also lowers applicable table64 declarations and use sites.
 
 The pass is not a profitability optimization. It is an ABI / feature-lowering transform.
 
 ## Public pass identity
 
-In Binaryen `version_129`, `pass.cpp` registers:
+In Binaryen `version_130` and current `main`, `pass.cpp` registers two discoverable public names:
 
-- `memory64-lowering` - lower 64-bit memory indexes to 32-bit indexes;
-- `table64-lowering` - lower 64-bit table indexes to 32-bit indexes.
+- `memory64-lowering` - described in terms of memory indexes;
+- `table64-lowering` - described in terms of table indexes.
 
-Both names are public pass names and both point at the same owner-file family captured in [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md).
+Those descriptions do **not** select distinct transforms. Both registrations instantiate the same parameterless `Memory64Lowering` constructor, whose one module walk covers both resource families. The canonical fixture runs both spellings against the same expected output; see [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md).
 
 ## Core rewrite model
 
@@ -102,12 +102,11 @@ That is a useful external motivation for the pass, but the mechanics on this pag
 
 ## Current-main freshness
 
-A 2026-04-25 current-`main` recheck of the owner source and paired lit files did not reveal teaching-level drift from the `version_129` contract. A later same-day source correction narrowed the high-constant wording: dynamic operand constants wrap, static memory-access `offset=` immediates at or above `2^32` become `unreachable`, grow deltas are repaired through the lowered grow result, max limits clamp to the 32-bit maximum, and min-limit behavior is still best described as source-level assertion rather than a user-facing diagnostic contract.
-
-A 2026-04-26 port-readiness recheck again found no teaching-level upstream drift; its new value is local sequencing in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md), not a changed Binaryen strategy.
+The 2026-07-11 `version_130` / current-main recheck corrects the old separate-sibling wording: the two public names are aliases for one combined transform, and one official fixture runs both names. It found no behavior-bearing drift in the owner, registration, or fixture contract. The older static-offset correction remains current: dynamic operand constants wrap, static memory-access `offset=` immediates at or above `2^32` become `unreachable`, grow deltas are repaired through the lowered grow result, max limits clamp to the 32-bit maximum, and min-limit behavior is still best described as source-level assertion rather than a user-facing diagnostic contract.
 
 ## Sources
 
+- Current alias/current-main recheck: [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
 - Port-readiness primary-source recheck: [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
 - Port-readiness research note: [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - Static-offset correction: [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
@@ -118,5 +117,4 @@ A 2026-04-26 port-readiness recheck again found no teaching-level upstream drift
 - Research note: [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>
-- Binaryen `table64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/table64-lowering.wast>
 - Emscripten `MEMORY64` setting: <https://emscripten.org/docs/tools_reference/settings_reference.html#memory64>

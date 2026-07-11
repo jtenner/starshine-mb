@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -45,7 +46,7 @@ So today's correct user-facing description is:
 
 > Starshine can model several memory64/table64 surfaces, but it has no wasm64-to-wasm32 lowering pass today.
 
-The concrete future implementation ladder now lives in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md): registry honesty, a no-op analyzer, memory declaration/data-offset lowering, scalar body lowering, size/grow repair, bulk/SIMD/atomic memory coverage, and a later table64 sibling after table typing cleanup.
+The concrete future implementation ladder now lives in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md): registry honesty, a no-op analyzer, memory declaration/data-offset lowering, scalar body lowering, size/grow repair, bulk/SIMD/atomic memory coverage, then table-family coverage after table typing cleanup. This is one future combined lowerer: upstream `memory64-lowering` and `table64-lowering` are aliases, not independently scoped transforms.
 
 ## Relevant local surfaces
 
@@ -96,7 +97,7 @@ Recommended implementation phases:
 
 1. **Registry decision**
    - Decide whether to register both upstream names exactly.
-   - If Starshine keeps one implementation, expose aliases or document why one sibling is intentionally omitted.
+   - If Starshine exposes both names, they must be aliases that dispatch to one combined module rewrite. Do not imply one name lowers only memories and the other only tables.
 2. **Module declaration rewrite**
    - Rewrite memory/table `I64Limits` to `I32Limits`.
    - Match Binaryen's source-confirmed max-limit clamp.
@@ -144,7 +145,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - `memory.init` destination versus data-offset/length widths are tested.
 - `memory.copy` mixed-width cases match Binaryen.
 - `memory.fill` destination/value/length rules match the official memory64 matrix after the local validator length caveat is resolved.
-- `table64-lowering` is either implemented or explicitly rejected with a clear sibling-status message.
+- The `table64-lowering` alias is either accepted by the same combined pass or rejected consistently with `memory64-lowering`; it must not imply a different transform scope.
 - Table64 typechecking is made coherent before table lowering is advertised.
 - Binaryen lit files are mirrored as local fixtures or pass-fuzz seeds.
 
@@ -156,6 +157,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)

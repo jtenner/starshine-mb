@@ -1,20 +1,45 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-06-16
+status: planned
+last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
+related:
+  - ./index.md
+  - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
+  - ../../../tooling/pass-fuzz-compare.md
 ---
 
-# `flatten` Fuzzing Profile
+# `flatten` Fuzzing Status
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+## Current state: planned, not runnable
 
-```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass flatten --out-dir .tmp/pass-fuzz-flatten --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+Do **not** treat `bun fuzz compare-pass --pass flatten ...` as a current smoke lane.
+
+- The harness allowlist in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does **not** include `flatten`, so it rejects the command before generation or either optimizer runs.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) retains `flatten` as **Removed**, not as an active pass with a descriptor or dispatcher route.
+- Parser rejection, removed-pass rejection, or zero compared cases is only current-status evidence. It is not evidence about the upstream `flatten` transform or Starshine parity.
+
+Safe inspection only:
+
+```text
+bun fuzz compare-pass --list-passes
 ```
 
-Dedicated GenValid profile: none documented for this pass yet.
+## Future executable lane
 
-If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.
+
+```text
+moon build --target native --release src/cmd
+bun fuzz compare-pass --pass flatten --count 10000 --seed 0x5eed \
+  --gen-valid-profile <flatten-aware-profile> \
+  --out-dir .tmp/pass-fuzz-flatten --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --min-compared <meaningful-threshold>
+```
+
+This is a future template, not a command to run against the current removed implementation.

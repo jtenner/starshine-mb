@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
@@ -114,14 +115,14 @@ Those would all overstate what `InstrumentLocals.cpp` actually does.
 
 ## Current-`main` drift check
 
-A 2026-05-06 spot check re-reviewed these surfaces between `version_129` and current `main`:
+A 2026-07-11 focused reread rechecked these surfaces against current `main`:
 
 - `src/passes/InstrumentLocals.cpp`
 - `test/lit/passes/instrument-locals_all-features_disable-gc.wast`
 - `test/lit/passes/instrument-locals_effects.wast`
 - `test/lit/passes/instrument-locals-eh-legacy.wast`
 
-No teaching-relevant contract drift was found on the inspected surfaces. This was a narrow source check, not a full upstream audit.
+No behavior-bearing contract drift was found on the inspected surfaces. This supersedes the older 2026-05-06 freshness statement; both checks are narrow source reviews, not full upstream audits.
 
 ## Starshine implementation map
 

@@ -124,6 +124,7 @@ For a future implementation:
 - [`./usefulness-gate-and-sibling-split.md`](./usefulness-gate-and-sibling-split.md) - Focused guide to what “always” removes and what it keeps.
 - [`./wat-shapes.md`](./wat-shapes.md) - Concrete before/after shape catalog.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - Current Starshine boundary-only status and future port map.
+- [`./fuzzing.md`](./fuzzing.md) - Planned-only comparison status, including the required contrast between ordinary usefulness-gated `monomorphize` and this sibling.
 
 ## Maintenance rule
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
@@ -40,7 +41,7 @@ related:
 
 # Starshine Strategy For `type-refining`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md) and [`../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md).
+Use this page together with the tagged-source and readiness manifests plus the current-main recheck: [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md), [`../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 For first-slice sequencing, validation fixtures, and Binaryen oracle lanes, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
@@ -140,7 +141,7 @@ A faithful Starshine port would need to reason over:
 
 - the module's full heap-type inventory
 - public versus private or externally visible heap-type boundaries
-- GC and closed-world gates
+- GC plus explicit world/visibility-policy gates (current Binaryen rejects `WorldMode::Open`)
 - direct struct write/default/copy evidence
 - the optional GUFA-style whole-program contents-oracle sibling surface
 - hierarchy-aware field LUB propagation through supertypes and subtypes
@@ -297,7 +298,7 @@ A future implementation should validate in layers:
 
 ## Open local questions
 
-- What will Starshine's closed-world option surface be for passes that upstream Binaryen hard-gates on `--closed-world`?
+- What will Starshine's explicit world/visibility-policy surface be for passes that upstream Binaryen currently rejects in `WorldMode::Open` and documents as `--closed-world`?
 - Should `type-refining` share one type-graph rewrite engine with `remove-unused-types`, `minimize-rec-groups`, `type-merging`, `unsubtyping`, `signature-pruning`, and `signature-refining`?
 - Should the first local implementation support only the normal direct-struct-traffic mode, or should it wait for GUFA/`ContentOracle`-equivalent infrastructure?
 - Should the registry add boundary-only `type-refining-gufa` now for naming honesty, or keep the sibling documented only through the `type-refining` and `gufa` pages until implementation planning starts?

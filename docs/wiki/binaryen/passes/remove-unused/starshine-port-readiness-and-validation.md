@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
@@ -48,11 +49,11 @@ Use this page when deciding whether to:
 
 | Surface | Current state |
 | --- | --- |
-| Registry | `src/passes/optimize.mbt:127`-`139` lists `remove-unused` in `pass_registry_boundary_only_names()`. |
-| Active module entries | `src/passes/optimize.mbt:243`-`249` registers modern `remove-unused-module-elements` and `remove-unused-nonfunction-module-elements`, not `remove-unused`. |
-| Dispatcher | `src/passes/pass_manager.mbt:8655`-`8685` has RUME/RUNE cases and no `remove-unused` case. |
+| Registry | `src/passes/optimize.mbt:133`-`138` lists `remove-unused` in `pass_registry_boundary_only_names()`. |
+| Active module entries | `src/passes/optimize.mbt:271`-`274` registers modern `remove-unused-module-elements` and `remove-unused-nonfunction-module-elements`, not `remove-unused`. |
+| Dispatcher | `src/passes/pass_manager.mbt:102614`-`102619` has RUME/RUNE cases and no `remove-unused` case. |
 | Modern implementation | `src/passes/remove_unused_module_elements.mbt:1`-`8` summarizes the implemented RUME/RUNE module passes. |
-| Tests | `src/passes/registry_test.mbt:78`-`82` asserts active RUME category; no active `remove-unused` category exists. |
+| Tests | `src/passes/registry_test.mbt` covers category behavior; no active `remove-unused` category exists. |
 | Presets | No default preset contains `remove-unused`. |
 
 ## Decision tree
@@ -67,7 +68,7 @@ Required validation:
 - CLI or pipeline tests should produce a clear boundary-only error if a user requests the name;
 - docs should point users to modern RUME when they meant current Binaryen cleanup.
 
-This option fits current sources because current Binaryen `main` and the 2026-06-02 `version_130` spelling recheck do not expose the short spelling.
+This option fits current sources because current Binaryen `main` and the 2026-06-02 `version_130` spelling recheck, refreshed on 2026-07-11, do not expose the short spelling. The same 2026-07-11 local review confirms that it is also absent from the compare-pass allowlist.
 
 ### Option B: remove or rename the alias
 
@@ -154,6 +155,7 @@ Use these instead:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)

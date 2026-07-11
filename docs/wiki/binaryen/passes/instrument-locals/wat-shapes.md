@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
@@ -23,7 +24,7 @@ related:
 
 This page is a beginner-friendly catalog of the main IR shapes Binaryen rewrites.
 The examples are schematic: they show the contract, not verbatim full lit output.
-The primary-source manifest for this shape catalog is [`../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md) plus [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md).
+The current-primary-source manifest for this shape catalog is [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md); [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md) remains the tagged-release anchor.
 
 ## 1. `local.get i32` -> wrapped `get_i32` call
 

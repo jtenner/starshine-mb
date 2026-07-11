@@ -90,6 +90,8 @@ So this pass is best taught as:
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout WAT families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact local code-map and future-port plan showing that current Starshine keeps `inline-main` as a boundary-only name with request rejection, no owner file, no active preset role, and no backlog slice.
+- [`./fuzzing.md`](./fuzzing.md)
+  Planned-only comparison status plus the exact wrapper fixtures required before a future lane can produce meaningful comparisons.
 
 ## Current maintenance rule
 

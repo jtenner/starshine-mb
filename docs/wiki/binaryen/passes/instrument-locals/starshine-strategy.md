@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md
@@ -63,7 +64,7 @@ The wiki tracks the upstream pass because it is a real public Binaryen pass and 
 ## Why there is no HOT-IR port today
 
 Binaryen's pass is not a local peephole optimizer.
-Per the upstream source captured in [`../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md) and [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md), it needs all of these module-level behaviors:
+Per the current-main source reread captured in [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md), with [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md) retained as the tagged-release anchor, it needs all of these module-level behaviors:
 
 1. inject helper function imports into the module,
 2. select helper signatures from the local value type,

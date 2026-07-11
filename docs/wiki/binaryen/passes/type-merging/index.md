@@ -118,6 +118,8 @@ What it actually is in `version_129`:
   Current Starshine status and future port map: boundary-only registry entry, honest active-request rejection, no owner file or backlog slice, reusable local type-section surfaces, and the shared type-graph infrastructure a future closed-world module pass would need.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Future-port bridge covering exact local code locations, validation ladder, GC / closed-world gate sequencing, and the Binaryen oracle path for an eventual implementation.
+- [`./fuzzing.md`](./fuzzing.md)
+  Current planned-only compare-pass status, the boundary-only/harness-admission distinction, and the directed closed-world GC fixture requirements for a future lane.
 
 ## Current maintenance rule
 

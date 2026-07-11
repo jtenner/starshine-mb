@@ -119,6 +119,8 @@ This dossier keeps four splits explicit:
   Beginner-friendly before/after input-shape catalog for the main positive, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: unknown-pass local behavior, exact registry / dispatcher / CLI / HOT-analysis prerequisite code locations, and the output-contract work a faithful trace-emission port would need.
+- [`./fuzzing.md`](./fuzzing.md)
+  Planned-only status explaining why normal wasm compare-pass is not the product oracle for a Souper text-emission feature, plus the future text-oracle fixture surface.
 
 ## Current maintenance rule
 

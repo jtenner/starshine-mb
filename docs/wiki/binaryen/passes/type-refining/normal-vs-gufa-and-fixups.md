@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
   - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
@@ -15,6 +16,8 @@ related:
 ---
 
 # `type-refining`: normal vs GUFA and why fixups are mandatory
+
+The 2026-07-11 current-main recheck preserves this normal-vs-GUFA and repair contract, while requiring one world/visibility policy to flow from the non-open gate through public-type classification and global rewriting; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
 
 This page covers the part of the pass that is easiest to misunderstand:
 
