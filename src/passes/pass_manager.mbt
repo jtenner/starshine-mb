@@ -26433,6 +26433,7 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndThirdI32AddAndDirectI64I64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndSecondI64AddAndDirectI32I64I32I64ToI64OperandsAdmission
+  RawOiIdempotentCallDirectI32AndSecondI64AddAndThirdI32AddAndDirectI64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndDirectI64I32I64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallDirectI32AndSecondI64AddAndDirectI32I64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallDirectI32I64I32I64I32AndSixthI64AddToI64OperandsAdmission
@@ -26667,6 +26668,7 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndDirectI64I64I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndSecondI64AddAndDirectI32I64I32I64ToI64OperandsAdmission
+    | RawOiIdempotentCallDirectI32AndSecondI64AddAndThirdI32AddAndDirectI64I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndSecondI64AddAndDirectI32I64I32I64ToI32OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndDirectI64I64I32I64ToI32OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI32OperandsAdmission
@@ -32104,6 +32106,46 @@ fn RawOiIdempotentCallSelfSelectFact::from_six_operand_i64_two_tree_instrs(
           right_fourth, right_fifth, right_sixth,
         ],
         [true, true, false, false, true, false, true, false],
+      )
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_first,
+      left_second_lhs,
+      left_second_rhs,
+      @lib.I64Add,
+      left_third_lhs,
+      left_third_rhs,
+      @lib.I32Add,
+      left_fourth,
+      left_fifth,
+      left_sixth,
+      @lib.Call(left_idx),
+      right_first,
+      right_second_lhs,
+      right_second_rhs,
+      @lib.I64Add,
+      right_third_lhs,
+      right_third_rhs,
+      @lib.I32Add,
+      right_fourth,
+      right_fifth,
+      right_sixth,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        RawOiIdempotentCallDirectI32AndSecondI64AddAndThirdI32AddAndDirectI64I32I64ToI64OperandsAdmission,
+        [
+          left_first, left_second_lhs, left_second_rhs, left_third_lhs, left_third_rhs,
+          left_fourth, left_fifth, left_sixth,
+        ],
+        [
+          right_first, right_second_lhs, right_second_rhs, right_third_lhs, right_third_rhs,
+          right_fourth, right_fifth, right_sixth,
+        ],
+        [true, false, false, true, true, false, true, false],
       )
     _ => return None
   }
@@ -68488,6 +68530,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_candidate(
       | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndDirectI64I64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndSecondI64AddAndDirectI32I64I32I64ToI64OperandsAdmission
+      | RawOiIdempotentCallDirectI32AndSecondI64AddAndThirdI32AddAndDirectI64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndDirectI64I32I64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallDirectI32AndSecondI64AddAndDirectI32I64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallDirectI32I64I32I64I32AndSixthI64AddToI64OperandsAdmission
