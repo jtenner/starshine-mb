@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
@@ -23,8 +24,8 @@ related:
 
 # `untee` implementation structure and tests
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the freshness bridge in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
-The older manifest records the exact reviewed official release, source, and test URLs plus the 2026-04-23 release-page provenance showing Binaryen `version_129` publish date **2026-04-01**; the newer bridge confirms current `main` still has no teaching-relevant drift for the owner file, registration, constructor declaration, dedicated lit oracle, or non-default scheduler status.
+Use this page with the tagged primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the current-main reread in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
+The tag manifest preserves the release/source/test provenance. The newer narrowly scoped reread found no behavior-bearing drift in the owner, registration/default-scheduler, constructor, or dedicated lit surface and explicitly supersedes the older 2026-04-25 freshness claim.
 
 This page is the file-by-file map for Binaryen `untee`.
 
@@ -143,7 +144,7 @@ This is the clearest official proof that unreachable tees are a real special cas
 
 ## Freshness check against `main`
 
-A narrow 2026-04-25 current-main bridge compared:
+A narrow 2026-07-11 current-main reread compared:
 
 - `src/passes/Untee.cpp`
 - `src/passes/pass.cpp`
@@ -151,13 +152,13 @@ A narrow 2026-04-25 current-main bridge compared:
 - `src/passes/SimplifyLocals.cpp`
 - `test/lit/passes/untee.wast`
 
-between `version_129` and `main`; see [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
+against current `main`; see [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
 
 Result:
 
-- no teaching-relevant drift in the reviewed implementation, public registration, constructor declaration, dedicated test surface, or non-default scheduler status
+- no behavior-bearing drift in the reviewed implementation, public registration/default-scheduler surface, constructor declaration, or dedicated test surface
 
-That means the `version_129` release tag remains a reliable oracle for this pass at the moment.
+The reread is not a full upstream audit. It keeps `version_129` useful as the tagged oracle for these reviewed shapes, while the current `main` source must be reread for new behavior outside this scope.
 
 ## What the source layout does **not** contain
 
@@ -201,6 +202,7 @@ When this pass is eventually ported, these are the source-backed obligations to 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)

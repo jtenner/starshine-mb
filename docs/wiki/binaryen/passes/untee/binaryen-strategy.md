@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
@@ -21,8 +22,8 @@ related:
 
 # Binaryen strategy for `untee`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the freshness bridge in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
-The reviewed official Binaryen `version_129` release page rechecked on 2026-04-23 showed publish date **2026-04-01**, and the 2026-04-25 `main` recheck on `Untee.cpp`, `pass.cpp`, `passes.h`, `SimplifyLocals.cpp`, and `untee.wast` did not surface a new teaching-relevant drift beyond this dossier's claims.
+Use this page together with the tagged primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the current freshness capture in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
+The older manifest records Binaryen `version_129` release provenance; the 2026-07-11 reread found no behavior-bearing drift in the reviewed `main` owner, registration/default-scheduler, constructor, or focused test surface. Its scope is deliberately narrow, not a full upstream audit.
 
 ## What the pass really is
 
@@ -280,7 +281,7 @@ So even though both can feel "flatter" in different senses, they are aiming at d
 
 ## Current-main drift check
 
-A narrow 2026-04-25 current-main bridge compared the teaching-critical surfaces captured in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md):
+A narrow 2026-07-11 current-main reread compared the teaching-critical surfaces captured in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md):
 
 - `src/passes/Untee.cpp`
 - `src/passes/pass.cpp`
@@ -292,9 +293,9 @@ between `version_129` and current `main`.
 
 Result:
 
-- no teaching-relevant drift in the reviewed implementation, public registration, constructor declaration, dedicated test surface, or non-default scheduler status
+- no behavior-bearing drift in the reviewed implementation, public registration/default-scheduler surface, constructor declaration, or dedicated test surface
 
-So `version_129` remains a reliable oracle here today.
+The 2026-07-11 reread supersedes the 2026-04-25 freshness claim. `version_129` remains a useful tagged oracle for this narrowly reviewed contract; use current `main` again before relying on it for unreviewed features or a new port slice.
 
 ## What a future Starshine port must preserve
 
@@ -309,6 +310,7 @@ So `version_129` remains a reliable oracle here today.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)

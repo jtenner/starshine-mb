@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
@@ -82,8 +83,9 @@ So this pass is best taught as:
 - Nested tees expand inside-out because the walk is postorder.
 - The source comment explicitly says this flatter form can help passes like `code-pushing`.
 - The 2026-04-23 raw primary-source manifest records the exact official release, source, and test URLs reviewed for this dossier, and the checked official Binaryen `version_129` release page showed publish date **2026-04-01**.
-- The 2026-04-25 current-main source bridge found the implementation, registration, constructor declaration, dedicated lit file, and non-default scheduler status unchanged for teaching purposes, so the tagged release remains a reliable oracle here.
-- The 2026-05-06 direct pass-fuzz revalidation keeps the Starshine implementation evidence current after the fuzzer / compare-harness refresh.
+- The 2026-07-11 current-main reread found no behavior-bearing drift in the owner, registration/default-scheduler surface, constructor declaration, or focused lit oracle; it supersedes the 2026-04-25 freshness claim while preserving that capture as history.
+- Binaryen builds an expression-tree sequence, while Starshine's raw stack-program representation appends `local.set` then `local.get`; focused root, nested, unreachable, and structured-body tests make that representation distinction explicit. Direct Binaryen-oracle comparison remains required for future changes.
+- The 2026-05-06 direct pass-fuzz revalidation remains the recorded direct-pass parity evidence after the fuzzer / compare-harness refresh.
 
 ## What this pass sounds like versus what it actually does
 
@@ -121,6 +123,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)

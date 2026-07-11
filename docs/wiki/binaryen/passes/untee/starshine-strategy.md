@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
@@ -48,6 +49,12 @@ The first Starshine implementation follows the source-backed Binaryen contract f
 This is intentionally a small raw module pass rather than a hidden mode of `simplify-locals`.
 That keeps `untee` separate from `simplify-locals-notee`, whose contract is broader and only forbids creating new tees.
 
+## Representation boundary
+
+Binaryen owns an expression tree, so its reachable rewrite wraps the original write in a result-producing sequence node. Starshine owns a stack-program instruction array: after recursively rewriting structured bodies, [`untee_rewrite_instrs`](../../../../../src/passes/untee.mbt) emits `local.set` then `local.get` after the value producer. The two forms serve the same stack contract in the covered shapes, but they are not a byte-for-byte or AST-shape promise.
+
+The focused tests deliberately cover the representation boundary: root tee expansion, inside-out nested expansion, direct unreachable deletion, and `if`-branch recursion. Treat broader unreachable trees or future HOT integration as parity work requiring a reduced Binaryen-oracle repro, not as automatically covered by the flat encoding.
+
 ## Local wiring
 
 The active surfaces are:
@@ -64,6 +71,8 @@ The active surfaces are:
   - exposes `untee_summary` and `untee_run_module_pass`
 
 ## Validation evidence
+
+The 2026-07-11 current-main source reread confirms that the upstream owner, public registration/default scheduler, constructor, and focused lit shapes still match the documented contract. It supersedes the 2026-04-25 freshness claim; the older raw capture remains historical provenance.
 
 2026-05-06 refreshed direct-pass evidence after the pass-audit harness changes:
 
@@ -114,6 +123,6 @@ The current no-DWARF path does not require it, and Binaryen treats it as an expl
 
 ## Remaining risks
 
-- The implemented unreachable fast path covers direct flat `unreachable; local.tee` syntax. More complex Binaryen tree-level unreachable values may need reduced repros before broadening the deletion rule.
+- The implemented unreachable fast path covers direct flat `unreachable; local.tee` syntax. More complex Binaryen tree-level unreachable values need a reduced Binaryen-oracle repro before broadening the deletion rule.
 - The pass is raw-WAT shaped, so future HOT-local integrations should preserve the same exact direct-pass oracle before changing the landing zone.
 - Runtime should be trivial on normal modules, but large artifact timings should still be captured in the standard signoff report.

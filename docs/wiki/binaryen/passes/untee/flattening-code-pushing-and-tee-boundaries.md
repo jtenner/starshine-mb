@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
@@ -23,7 +24,7 @@ related:
 
 # `untee`: flattening, `code-pushing`, and tee boundaries
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
+Use this page with the tagged primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the 2026-07-11 current-main reread in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md). The latter supersedes the older freshness claim but is intentionally a narrow source review.
 
 This page covers the easiest part of `untee` to misread:
 
@@ -145,6 +146,7 @@ That answer is much safer than:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)

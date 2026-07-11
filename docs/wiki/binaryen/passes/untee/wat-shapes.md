@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
@@ -18,7 +19,7 @@ related:
 
 # `untee` WAT shapes
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
+Use this page with the tagged primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the 2026-07-11 current-main reread in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md). The recheck confirms these focused source shapes without claiming a full upstream audit.
 
 This page is the beginner-friendly shape catalog for Binaryen `untee`.
 
@@ -220,6 +221,7 @@ Those may still appear around a rewritten tee, but they are not candidate kinds 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
