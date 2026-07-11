@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
@@ -44,7 +45,7 @@ It answers a narrower question than [`./starshine-strategy.md`](./starshine-stra
 
 The first direct-load slice is now implemented in Starshine as an active module pass.
 The remaining implementation debt is the indirect `reinterpret(local.get <- load)` helper-local family.
-The 2026-05-06 direct revalidation keeps this split current for the living dossier.
+The 2026-05-06 direct revalidation remains the local execution evidence; the 2026-07-11 source refresh keeps the upstream owner, fixture, and harness-admission context current without claiming a new parity run.
 
 ## Beginner mental model
 
@@ -268,7 +269,7 @@ Fuzzing is useful only after reduced fixtures separate known classes:
 - local-chain bailouts,
 - memory64 pointer typing.
 
-Otherwise failures will not tell whether the bug is opcode recognition, width filtering, local provenance, helper-local construction, or lowering.
+Otherwise failures will not tell whether the bug is opcode recognition, width filtering, local provenance, helper-local construction, or lowering. Until a directed profile exists, the admitted generic lane documented in [`./fuzzing.md`](./fuzzing.md) is integration smoke only, not evidence that the absent indirect family matches Binaryen.
 
 ## Cross-pass boundaries
 

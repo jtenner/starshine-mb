@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
@@ -31,7 +32,7 @@ related:
 The hard part of `avoid-reinterprets` is not the final rewrite syntax.
 The hard part is proving when a reinterpreting value still comes from exactly one source load.
 The 2026-04-24 Starshine follow-up in [`./starshine-strategy.md`](./starshine-strategy.md) keeps this proof obligation explicit because the current local HOT analyses are not yet documented as a drop-in equivalent of Binaryen's `LocalGraph` behavior.
-The 2026-05-05 current-main bridge, [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md), keeps the teaching frame current.
+The 2026-07-11 current-main bridge, [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md), supersedes the earlier freshness citation and keeps the teaching frame current.
 The port-readiness page, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), turns that caution into an implementation rule: ship direct `reinterpret(load)` flips before attempting this local-chain proof.
 
 That proof depends on three things working together:
@@ -190,6 +191,7 @@ They are also not current Starshine behavior: Starshine currently implements onl
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
@@ -22,6 +23,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../tracker.md
 ---
 
@@ -39,7 +41,7 @@ related:
 - The original parity queue and the first tracker-expansion wave are already dossier-covered, so this folder is an explicit source-backed expansion for a real local pass that has now moved from removed to active-partial.
 - `agent-todo.md` currently has **no dedicated `avoid-reinterprets` slice**.
 - The 2026-04-24 follow-up added an immutable raw primary-source manifest and a dedicated Starshine status page, so future readers no longer need to infer local status from registry snippets alone.
-- The 2026-05-05 current-main follow-up refreshed the source bridge and exact local-code anchors, so future implementers can start from direct `reinterpret(load)` flips before designing a LocalGraph-equivalent proof.
+- The 2026-07-11 current-main follow-up refreshed the owner, registration, local-analysis, fixture, local-code, and harness-admission bridge, so future implementers can start from direct `reinterpret(load)` flips before designing a LocalGraph-equivalent proof.
 - The pass name sounds broader than the real contract.
 - A future port needs to preserve exact provenance and helper-local behavior, not just “remove reinterprets somehow.”
 
@@ -68,7 +70,7 @@ So this pass is best taught as:
 - Direct `reinterpret(load(...))` can be flipped immediately with no helper locals.
 - `reinterpret(local.get ...)` uses fresh helper locals and duplicates the load at the source site.
 - The pointer helper local uses the memory's `addressType`, so memory64 needs `i64` pointer temps.
-- The reviewed `version_129` and current `main` implementation file still showed no teaching-relevant drift in the 2026-05-05 source refresh.
+- The 2026-07-11 current-main owner, registration, analysis-dependency, and fixture refresh found no behavior-bearing drift on the reviewed surfaces; its raw bridge supersedes the 2026-05-05 freshness citation while preserving it as historical provenance.
 - The active local implementation is only the direct slice: [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt#L1-L80) contains the adjacent-pair rewrite, [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L258-L261) registers the pass, and [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt#L8922-L8924) dispatches it.
 - [`../../../../../src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt#L1-L89) covers the active direct slice with focused positive and bailout tests.
 - Current Starshine accepts the pass as an active module pass for direct full-width load flips, with no preset scheduling yet.
@@ -87,18 +89,21 @@ So this pass is best taught as:
   Current Starshine status-and-port-planning page mapping the active direct-load implementation, remaining indirect provenance proof, missing backlog slice, and likely HOT-IR building blocks.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   First-slice and validation guide for a future port: direct full-width load flips first, indirect helper-local rewrites only after a documented single-load provenance proof, and a reduced-test-to-Binaryen-oracle ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  Current harness-admission boundary: generic compare-pass is integration smoke for the active direct subset, while a directed profile and the upstream indirect provenance/helper-local matrix remain required for parity signoff.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `avoid-reinterprets` research and port planning.
 - Keep it explicitly marked as **partial** until Starshine grows the indirect single-load-provenance helper-local family.
-- Cite the raw primary-source manifest when restating original Binaryen source provenance: [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md); cite the 2026-05-05 bridge when discussing current-main freshness or current local line anchors: [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md).
+- Cite the raw primary-source manifest when restating original Binaryen source provenance: [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md); cite the 2026-07-11 bridge for current-main freshness and current local/harness reconciliation: [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the scope fact explicit: reviewed Binaryen duplicates eligible loads to serve reinterpret users; it does not retarget whole local webs or eliminate every reinterpret in sight.
 - Keep the implementation split explicit: direct `reinterpret(load)` flips are implemented in [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt); indirect `reinterpret(local.get)` rewrites still require an explicit LocalGraph-equivalent proof decision first.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
@@ -30,7 +31,7 @@ related:
 
 Upstream Binaryen publishes this pass as `avoid-reinterprets`.
 
-The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md), and the 2026-05-05 current-main bridge is [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md).
+The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md), and the 2026-07-11 current-main bridge is [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md); the latter supersedes the 2026-05-05 bridge as the freshness citation.
 Together they confirm that the reviewed implementation is a **small function-parallel AST pass** whose real job is:
 
 - identify reinterpret users of a full-width load value,
@@ -304,7 +305,7 @@ I compared:
 
 The original dossier found the files identical on 2026-04-21.
 The 2026-04-24 source-capture follow-up did not surface teaching-relevant drift in the main pass file, registration surface, helper headers, or dedicated lit files.
-The 2026-05-05 current-main follow-up rechecked the official `version_129` and current-main implementation, registration, and dedicated lit surfaces again and found no teaching-relevant drift from this contract.
+The 2026-07-11 current-main follow-up rechecked the owner, registration, `LocalGraph`/fallthrough dependencies, and dedicated memory32/memory64 fixtures again and found no behavior-bearing drift from this contract. It supersedes the 2026-05-05 freshness claim without discarding the older capture.
 
 That does not prove every neighboring helper file is frozen, but it does mean the reviewed implementation summary still matches the official sources checked for this dossier.
 
@@ -354,6 +355,7 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
