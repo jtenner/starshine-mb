@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md
   - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
@@ -24,6 +25,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../precompute/index.md
   - ../global-effects/index.md
   - ../simplify-locals/index.md
@@ -84,8 +86,9 @@ So this pass is best taught as:
 - The helper functions are added after the walk so they are not instrumented themselves.
 - The `v128` helper path is unusually careful: it extracts `f32x4` lanes and checks them individually instead of relying on vector equality, specifically to avoid self-interference on reruns.
 - The 2026-04-24 raw primary-source manifest records the official `version_129` release provenance, the source/test URLs reviewed for this pass, and the first narrow current-`main` drift check.
-- The 2026-05-06 line-anchor refresh confirms no teaching-relevant drift: registration, helper strategy, skip families, dedicated lit proof surface, and Starshine's removed-registry status still match the living dossier.
-- The dedicated Starshine strategy page now records that current Starshine preserves `de-nan` only as a removed registry entry with explicit request rejection, category tests, no owner file, and no active backlog slice.
+- The 2026-05-06 line-anchor refresh remains historical evidence; the 2026-07-11 current-main reconciliation supersedes its freshness claim without changing the reviewed owner, registration, or focused lit contract.
+- The current compare harness does **not** admit `de-nan`, and Starshine still rejects it as a removed pass. [`fuzzing.md`](fuzzing.md) is therefore planned-only: a parser/registry rejection is a status check, not parity evidence.
+- The dedicated Starshine strategy page records that current Starshine preserves `de-nan` only as a removed registry entry with explicit request rejection, category tests, no owner file, and no active backlog slice.
 
 ## What this pass sounds like versus what it actually does
 
@@ -115,6 +118,8 @@ What it actually is in `version_129`:
   Current Starshine status and port-planning bridge: exact removed-registry / request-rejection / test code locations, no owner file, no active backlog slice, and why a faithful future port is probably module-owned instrumentation rather than an ordinary HOT peephole.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Compact validation bridge: the removed-registry hold point, exact local code map, and the shape/compare ladder a future implementation would need.
+- [`./fuzzing.md`](./fuzzing.md)
+  Current planned-only compare-pass status: exact harness/registry/alias admission failures, why generic valid modules are insufficient, future scalar/SIMD lane templates, and the targeted signoff matrix.
 
 ## Current maintenance rule
 
@@ -125,6 +130,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md`](../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md)
 - [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md)
 - [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)

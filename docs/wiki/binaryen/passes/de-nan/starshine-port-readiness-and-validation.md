@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md
   - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
@@ -25,6 +26,7 @@ related:
   - ./helper-functions-fallthrough-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../global-effects/index.md
   - ../precompute/index.md
 ---
@@ -93,10 +95,15 @@ The biggest boundaries to keep honest are:
 4. **Broader fuzzing**
    - only after the reduced shape set is green
 
+## Fuzzing admission boundary
+
+[`fuzzing.md`](fuzzing.md) is deliberately **planned-only**. As of July 11, 2026, `de-nan` fails all current execution prerequisites: the registry rejects it as removed, the compare harness does not admit `--de-nan`, and no local-to-Binaryen `--denan` alias exists. That rejection happens before generation or either optimizer executes, so it is a status check rather than a failed or green parity lane.
+
+Before publishing a real compare command, land an active module pass, harness admission, explicit `--de-nan` → `--denan` mapping, and focused scalar plus SIMD generators with meaningful compared-case thresholds. The page also holds the pre-signoff WAT matrix for global legality, entry-param repair, skip families, helper naming, and SIMD handling.
+
 ## Source bridge
 
-The 2026-05-06 line-anchor refresh confirmed there is still no simpler function-only contract hiding behind the pass name.
-That keeps the local strategy unchanged: `de-nan` stays a removed compatibility name until a real module pass lands.
+The 2026-07-11 reconciliation supersedes the 2026-05-06 freshness claim in the limited owner/registration/lit reread scope. It confirmed no simpler function-only contract and no current runnable local fuzz lane. That keeps the local strategy unchanged: `de-nan` stays a removed compatibility name until a real module pass lands.
 
 ## Cross-links
 
@@ -105,3 +112,4 @@ That keeps the local strategy unchanged: `de-nan` stays a removed compatibility 
 - [`./helper-functions-fallthrough-and-boundaries.md`](./helper-functions-fallthrough-and-boundaries.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./fuzzing.md`](./fuzzing.md)
