@@ -73,6 +73,42 @@ test "optimize-instructions raw function index records nested local-load-call ca
 }
 
 ///|
+test "optimize-instructions raw function index routes nested localtee memory hazards" {
+  let address_local = @lib.LocalIdx::new(2U)
+  let atomic_index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_tee(address_local),
+        @lib.Instruction::i32_atomic_load(@lib.MemArg::new(0U, None, 0UL)),
+      ]),
+    ),
+  ])
+  assert_true(
+    RawOiAtomicLocalTeeAddressRegionFact::from_index(atomic_index).has_blocking_use,
+  )
+  let memory_index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_tee(address_local),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::memory_copy(
+          @lib.MemIdx::new(0U),
+          @lib.MemIdx::new(0U),
+        ),
+      ]),
+    ),
+  ])
+  assert_true(
+    RawOiMemoryLocalTeeRegionFact::from_index(memory_index, false).has_blocking_use,
+  )
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([

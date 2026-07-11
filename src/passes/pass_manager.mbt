@@ -25553,6 +25553,7 @@ priv enum RawOiRootKind {
   ArrayLen
   I32Const
   LocalGet
+  LocalTee
   PlainLoad
   CallLike
   Other
@@ -25586,6 +25587,7 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.ArrayLen => RawOiRootKind::ArrayLen
     @lib.I32Const(_) => RawOiRootKind::I32Const
     @lib.LocalGet(_) => RawOiRootKind::LocalGet
+    @lib.LocalTee(_) => RawOiRootKind::LocalTee
     instr if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) =>
       RawOiRootKind::PlainLoad
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
@@ -25773,6 +25775,7 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ArrayLen, ArrayLen)
     | (I32Const, I32Const)
     | (LocalGet, LocalGet)
+    | (LocalTee, LocalTee)
     | (PlainLoad, PlainLoad)
     | (CallLike, CallLike)
     | (Other, Other) => true
@@ -27955,14 +27958,14 @@ priv struct RawOiAtomicLocalTeeAddressUseFact {
 }
 
 ///|
-fn RawOiAtomicLocalTeeAddressUseFact::from_instrs_at(
-  instrs : Array[@lib.Instruction],
+fn RawOiAtomicLocalTeeAddressUseFact::from_region_at(
+  region : RawOiInstructionRegionFact,
   localtee_index : Int,
 ) -> RawOiAtomicLocalTeeAddressUseFact? {
-  if localtee_index >= instrs.length() {
+  if !region.has_root_at(localtee_index, RawOiRootKind::LocalTee) {
     return None
   }
-  match instrs[localtee_index] {
+  match region.roots[localtee_index].instr {
     @lib.LocalTee(_) => ()
     _ => return None
   }
@@ -27970,10 +27973,11 @@ fn RawOiAtomicLocalTeeAddressUseFact::from_instrs_at(
       operand_distance <= 3
       operand_distance = operand_distance + 1 {
     let consumer_index = localtee_index + operand_distance
-    if consumer_index >= instrs.length() {
+    if consumer_index >= region.roots.length() {
       return None
     }
-    match RawOiAtomicAccessFact::from_instr(instrs[consumer_index]) {
+    match
+      RawOiAtomicAccessFact::from_instr(region.roots[consumer_index].instr) {
       Some(access) if access.proves_address_localtee_boundary(operand_distance) =>
         return Some({ localtee_index, consumer_index, operand_distance, access })
       _ => ()
@@ -27997,38 +28001,17 @@ priv struct RawOiAtomicLocalTeeAddressRegionFact {
 }
 
 ///|
-fn RawOiAtomicLocalTeeAddressRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiAtomicLocalTeeAddressRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
 ) -> RawOiAtomicLocalTeeAddressRegionFact {
-  let mut i = 0
-  while i < instrs.length() {
-    match instrs[i] {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
+  for region in index.regions {
+    for i = 0; i < region.roots.length(); i = i + 1 {
+      match RawOiAtomicLocalTeeAddressUseFact::from_region_at(region, i) {
+        Some(fact) if fact.proves_raw_gate_boundary() =>
           return { has_blocking_use: true }
-        }
-      @lib.If(_, then_body, else_body) => {
-        if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(then_body).has_blocking_use {
-          return { has_blocking_use: true }
-        }
-        match else_body {
-          Some(body) =>
-            if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
-              return { has_blocking_use: true }
-            }
-          None => ()
-        }
+        _ => ()
       }
-      _ => ()
     }
-    match RawOiAtomicLocalTeeAddressUseFact::from_instrs_at(instrs, i) {
-      Some(fact) if fact.proves_raw_gate_boundary() =>
-        return { has_blocking_use: true }
-      _ => ()
-    }
-    i = i + 1
   }
   { has_blocking_use: false }
 }
@@ -28108,13 +28091,20 @@ priv struct RawOiTnhLocalTeeSameAddressMemoryCopyFact {
 }
 
 ///|
-fn RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_region(
+  region : RawOiInstructionRegionFact,
 ) -> RawOiTnhLocalTeeSameAddressMemoryCopyFact? {
-  if instrs.length() != 5 {
+  if region.roots.length() != 5 {
     return None
   }
-  match (instrs[0], instrs[1], instrs[2], instrs[3], instrs[4]) {
+  match
+    (
+      region.roots[0].instr,
+      region.roots[1].instr,
+      region.roots[2].instr,
+      region.roots[3].instr,
+      region.roots[4].instr,
+    ) {
     (
       addr,
       @lib.LocalTee(tee_local),
@@ -28156,14 +28146,14 @@ priv struct RawOiMemoryLocalTeeUseFact {
 }
 
 ///|
-fn RawOiMemoryLocalTeeUseFact::from_instrs_at(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryLocalTeeUseFact::from_region_at(
+  region : RawOiInstructionRegionFact,
   localtee_index : Int,
 ) -> RawOiMemoryLocalTeeUseFact? {
-  if localtee_index >= instrs.length() {
+  if !region.has_root_at(localtee_index, RawOiRootKind::LocalTee) {
     return None
   }
-  match instrs[localtee_index] {
+  match region.roots[localtee_index].instr {
     @lib.LocalTee(_) => ()
     _ => return None
   }
@@ -28171,12 +28161,12 @@ fn RawOiMemoryLocalTeeUseFact::from_instrs_at(
       operand_distance <= 3
       operand_distance = operand_distance + 1 {
     let consumer_index = localtee_index + operand_distance
-    if consumer_index >= instrs.length() {
+    if consumer_index >= region.roots.length() {
       return None
     }
     if operand_distance <= 2 {
       let access_fact = RawOiMemoryAccessIndexFact::from_instr(
-        instrs[consumer_index],
+        region.roots[consumer_index].instr,
       )
       if access_fact.proves_nondefault_memory_access() {
         return Some({
@@ -28189,7 +28179,7 @@ fn RawOiMemoryLocalTeeUseFact::from_instrs_at(
         })
       }
     }
-    match instrs[consumer_index] {
+    match region.roots[consumer_index].instr {
       @lib.MemoryCopy(_, _) =>
         return Some({
           localtee_index,
@@ -28235,52 +28225,24 @@ priv struct RawOiMemoryLocalTeeRegionFact {
 }
 
 ///|
-fn RawOiMemoryLocalTeeRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryLocalTeeRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
   allow_tnh_localtee_same_address_memory_copy : Bool,
 ) -> RawOiMemoryLocalTeeRegionFact {
-  if allow_tnh_localtee_same_address_memory_copy {
-    match RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_instrs(instrs) {
-      Some(fact) if fact.proves_trap_relaxed_escape() =>
-        return { has_blocking_use: false }
-      _ => ()
-    }
-  }
-  let mut i = 0
-  while i < instrs.length() {
-    match instrs[i] {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if RawOiMemoryLocalTeeRegionFact::from_instrs(
-            body, allow_tnh_localtee_same_address_memory_copy,
-          ).has_blocking_use {
-          return { has_blocking_use: true }
-        }
-      @lib.If(_, then_body, else_body) => {
-        if RawOiMemoryLocalTeeRegionFact::from_instrs(
-            then_body, allow_tnh_localtee_same_address_memory_copy,
-          ).has_blocking_use {
-          return { has_blocking_use: true }
-        }
-        match else_body {
-          Some(body) =>
-            if RawOiMemoryLocalTeeRegionFact::from_instrs(
-                body, allow_tnh_localtee_same_address_memory_copy,
-              ).has_blocking_use {
-              return { has_blocking_use: true }
-            }
-          None => ()
-        }
+  for region in index.regions {
+    if allow_tnh_localtee_same_address_memory_copy {
+      match RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_region(region) {
+        Some(fact) if fact.proves_trap_relaxed_escape() => continue
+        _ => ()
       }
-      _ => ()
     }
-    match RawOiMemoryLocalTeeUseFact::from_instrs_at(instrs, i) {
-      Some(fact) if fact.proves_raw_gate_boundary() =>
-        return { has_blocking_use: true }
-      _ => ()
+    for i = 0; i < region.roots.length(); i = i + 1 {
+      match RawOiMemoryLocalTeeUseFact::from_region_at(region, i) {
+        Some(fact) if fact.proves_raw_gate_boundary() =>
+          return { has_blocking_use: true }
+        _ => ()
+      }
     }
-    i = i + 1
   }
   { has_blocking_use: false }
 }
@@ -33563,7 +33525,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       })
     _ => ()
   }
-  if RawOiAtomicLocalTeeAddressRegionFact::from_instrs(body).has_blocking_use {
+  if RawOiAtomicLocalTeeAddressRegionFact::from_index(oi_index).has_blocking_use {
     return Some({
       reason: "atomic-localtee-optimize-instructions",
       func: skipped_func,
@@ -33573,7 +33535,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let trap_relaxed = options.traps_never_happen || options.ignore_implicit_traps
   let localtee_same_address_memory_copy = match
-    RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_instrs(body) {
+    RawOiTnhLocalTeeSameAddressMemoryCopyFact::from_region(oi_index.regions[0]) {
     Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
     None => false
   }
@@ -33590,8 +33552,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let zero_size_stack_bulk_memory = trap_relaxed &&
     zero_size_stack_bulk_memory_region
-  if RawOiMemoryLocalTeeRegionFact::from_instrs(
-      body, localtee_same_address_memory_copy,
+  if RawOiMemoryLocalTeeRegionFact::from_index(
+      oi_index, localtee_same_address_memory_copy,
     ).has_blocking_use {
     return Some({
       reason: "memory-localtee-optimize-instructions",
