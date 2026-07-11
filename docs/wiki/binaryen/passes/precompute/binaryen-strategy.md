@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
@@ -21,9 +22,9 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass family.
-For the immutable manifest of the reviewed official release, source, and representative test URLs, see [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md).
-A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) found no teaching-relevant drift on the reviewed owner, scheduler, and representative test surfaces.
+Use Binaryen `version_130` as the current public release baseline for this pass family. The detailed algorithm reading on this page was initially captured from `version_129`; retain that tag as historical provenance rather than calling it the current release oracle.
+
+The focused 2026-07-11 reread of `version_130` and current `main` in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) confirmed the public plain-versus-propagate split, shared owner, scheduler boundary, and representative test families without finding a behavior-bearing change that requires rewriting this teaching map. It is not a byte-for-byte three-way source diff. For the immutable older release/source/test manifest, see [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md).
 
 Primary files:
 

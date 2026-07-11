@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
@@ -15,8 +16,7 @@ related:
 
 # `precompute`: propagation, partial precompute, and GC identity
 
-This page covers the three parts of Binaryen `precompute` that are easiest to underestimate:
-A 2026-05-05 current-main recheck kept this split and the GC-identity / emitability story stable on the reviewed surfaces.
+This page covers the three parts of Binaryen `precompute` that are easiest to underestimate. The focused v130/current-main reread in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) kept this split and the GC-identity / emitability teaching story stable on reviewed surfaces; it is a baseline reconciliation, not a full source diff.
 
 1. `precompute` and `precompute-propagate` are not the same pass mode
 2. partial precompute is a separate upward-moving algorithm, not a minor special case
@@ -59,7 +59,7 @@ That extra work is why upstream Binaryen exposes a second CLI pass name instead 
 
 ## Why the scheduler uses both names
 
-In `version_129`:
+In the initially reviewed `version_129` source and the focused `version_130`/current-main scheduler reread:
 
 - top-level no-DWARF `-O` / `-Os` uses plain `precompute`
 - more aggressive top-level settings use `precompute-propagate`

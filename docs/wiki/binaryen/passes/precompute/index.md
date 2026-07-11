@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
   - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
@@ -56,9 +57,10 @@ related:
 ## Role
 
 - `precompute` is an active implemented **hot pass** in Starshine.
-- In upstream Binaryen `version_129`, the real pass family has **two public names**:
+- The Binaryen `version_130`/current-main source reconciliation confirms the real upstream family still has **two public names**:
   - `precompute`
   - `precompute-propagate`
+  The older `version_129` investigation remains historical provenance; it is no longer the current release baseline.
 - The public summary in `pass.cpp` is small:
   - `precompute`: computes compile-time evaluatable expressions
   - `precompute-propagate`: computes compile-time evaluatable expressions and propagates them through locals
@@ -81,7 +83,7 @@ So this pass is not just “integer constant folding.”
 - The canonical no-DWARF `-O` / `-Os` scheduler uses the precompute family **twice** in the default function pipeline:
   - once early
   - once late
-- In Binaryen `version_129`, those top-level no-DWARF `-O` / `-Os` slots use **plain `precompute`**, not `precompute-propagate`, because that preset is only `optimizeLevel=2`, `shrinkLevel=1`.
+- In the reviewed Binaryen `version_130`/current-main scheduling surfaces, those top-level no-DWARF `-O` / `-Os` slots use **plain `precompute`**, not `precompute-propagate`, because that preset is only `optimizeLevel=2`, `shrinkLevel=1`.
 - The saved generated-artifact `-O4z` audit saw the more aggressive variant instead:
   - slot `19`: `precompute-propagate`
   - slot `43`: `precompute-propagate`
@@ -140,7 +142,7 @@ What it sounds like:
 
 - a small constant-folder
 
-What it actually is in `version_129`:
+What the documented upstream contract is (initially read at `version_129`, then baseline-reconciled through `version_130`):
 
 - a function-parallel post-walk pass with:
   - bounded compile-time execution
@@ -156,7 +158,7 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope.
+  - Deep dive into the documented Binaryen implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope. The detailed algorithm read remains historically anchored at `version_129`; the release baseline and focused owner/scheduler recheck are now `version_130`/current main.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Compact source-confirmed owner/test map for plain `precompute`, including the shared `Precompute.cpp` core, the public/scheduler split in `pass.cpp` and `opt-utils.h`, the helper ownership in `wasm-interpreter.h` / `properties.h` / `local-graph.h`, and the broad lit roster that proves the plain-pass contract instead of only the sibling `precompute-propagate` one.
 - [`./propagation-partial-precompute-and-gc-identity.md`](./propagation-partial-precompute-and-gc-identity.md)
@@ -170,9 +172,9 @@ What it actually is in `version_129`:
 - [`../precompute-propagate/index.md`](../precompute-propagate/index.md)
   - Dedicated dossier for the upstream aggressive / nested-rerun sibling, focused on the separate public pass name, the extra `LazyLocalGraph` propagation phase, and the `optimizeAfterInlining(...)` scheduler role.
 
-## Newer-than-`version_129` drift already recorded on this page
+## Historical post-`version_129` drift notes
 
-The current dossier uses Binaryen `version_129` as the main source oracle, but this folder should not silently forget the newer upstream drift that the earlier landing page had already recorded.
+Binaryen `version_130` is now the public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
 
 Those newer facts remain useful, provided they stay labeled as newer than the tagged oracle:
 
@@ -181,7 +183,7 @@ Those newer facts remain useful, provided they stay labeled as newer than the ta
 - `2026-03-25`: upstream stopped folding GC `struct` / `array` atomic RMW and `cmpxchg` because those operations both read and write heap state
 - `2026-03-26`: upstream kept multibyte `array.load` as `NONCONSTANT_FLOW` for now instead of folding it like a normal immutable read
 
-Treat those as newer-trunk drift notes, not as silent edits to the `version_129` contract described in the strategy page.
+Treat those as dated drift notes, not as silent edits to the historical `version_129` algorithm reading. Use the 2026-07-11 v130/current-main reconciliation before calling an older tag the current baseline.
 
 ## Release-gating status as of 2026-06-20
 
@@ -206,7 +208,7 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 - Treat [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md) as the current-main / local-code-location bridge until the project deliberately bumps the Binaryen oracle baseline; the 2026-05-05 recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) confirms no teaching-relevant drift on the reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
-- Use Binaryen `version_129` as the current source oracle for new conclusions.
+- Use Binaryen `version_130` as the current public release baseline for new conclusions. Keep the detailed `version_129` source reading as historical provenance until a behavior-specific v130 reread replaces that exact claim.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`
@@ -214,10 +216,11 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
   - the saved slot-19 `func 108` invalid-output witness is retired
   - the later rooted slot-43 continuation witness (`func 3867`, extracted as `func 15`) is also retired by HOT-lower carried-prefix label guarding rather than by a new pass-local `precompute` rewrite
   - the remaining work is documentation depth, parity breadth, and runtime honesty, not an open hard-corruption blocker
-- Keep newer upstream drift notes labeled as newer-than-`version_129` facts instead of silently rewriting the `version_129` contract.
+- Keep dated upstream drift notes explicit instead of silently rewriting the historical `version_129` algorithm reading or overstating the limited v130/current-main reconciliation.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md)
 - [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md)
 - [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md)
 - [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md)
@@ -247,7 +250,12 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/>
-- Binaryen `version_129` sources:
+- Binaryen `version_130` release baseline / focused source reread:
+  - <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
+- Historical Binaryen `version_129` algorithm sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Precompute.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
@@ -19,9 +20,8 @@ related:
 
 # `precompute`: implementation structure and tests
 
-This page is the compact source-confirmed map for Binaryen `version_129` plain `precompute`.
-Use [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) as the immutable provenance manifest for the reviewed official release, source, and test URLs cited here.
-The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) left this owner/test map unchanged on the reviewed surfaces.
+This page is the compact source-confirmed map for Binaryen plain `precompute`. Its detailed owner/test reading originated at `version_129`, while `version_130` is now the current public release baseline.
+Use [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) as the immutable historical provenance manifest. The focused v130/current-main reread in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) left this owner/test map unchanged on the reviewed surfaces; it does not claim a full source diff.
 
 Its main job is to answer two practical questions:
 
