@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
@@ -42,7 +43,8 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `type-finalizing` slice**.
-- The 2026-04-24 source refresh found no current Starshine owner file and no preset role.
+- The 2026-07-11 local status recheck still finds no current Starshine owner file, harness admission, or preset role.
+- Current Binaryen `main` threads `worldMode` through both private-type selection and global rewriting. This does **not** make the pass closed-world-only, but it means a future port must carry one explicit visibility/rewrite policy through both stages; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
 - It has a close local-registry sibling:
   - local `type-un-finalizing`
   - upstream public `type-unfinalizing`
@@ -122,6 +124,7 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md)
 - [`../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md`](../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)

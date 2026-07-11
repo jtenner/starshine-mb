@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
@@ -23,7 +24,7 @@ related:
 
 ## Main upstream files
 
-Primary online source provenance is captured in [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md), with a 2026-04-27 current-main implementation-readiness recheck in [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md). The older 0193 research note is still useful historical context, but this page now treats the raw manifests as the source anchors.
+Primary online source provenance is captured in [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The 2026-07-11 current-main recheck preserves the owner, registration, and lit contract but corrects the helper call shape: `worldMode` now reaches both private-type selection and `GlobalTypeRewriter`; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md). The older 0193 research note remains historical context.
 
 | File | Kind | Why it matters |
 | --- | --- | --- |
@@ -37,8 +38,8 @@ This pass is tiny, but it leans on helper concepts that are easy to under-teach 
 
 | Helper surface | Why it matters for this pass | Where this repo already explains it in more depth |
 | --- | --- | --- |
-| `ModuleUtils::getPrivateHeapTypes(...)` | Defines the visibility boundary: only private heap types are candidates for reopening | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md), [`../type-finalizing/implementation-structure-and-tests.md`](../type-finalizing/implementation-structure-and-tests.md) |
-| `GlobalTypeRewriter` | Performs the coherent module-wide heap-type rewrite instead of a local declaration edit | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md) |
+| `ModuleUtils::getPrivateHeapTypes(...)` | Defines the visibility boundary: only private heap types are candidates for reopening; current `main` receives `worldMode` here | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md), [`../type-finalizing/implementation-structure-and-tests.md`](../type-finalizing/implementation-structure-and-tests.md) |
+| `GlobalTypeRewriter` | Performs the coherent module-wide heap-type rewrite instead of a local declaration edit; current `main` receives the same `worldMode` policy | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md) |
 | `TypeBuilder::setOpen(...)` | Is the actual mutation the pass applies to selected type-builder entries | directly visible in `TypeFinalizing.cpp` |
 | `SubTypes` | Matters here mainly by absence: `type-unfinalizing` does not need the leaf proof that `type-finalizing` requires | [`../type-finalizing/implementation-structure-and-tests.md`](../type-finalizing/implementation-structure-and-tests.md) |
 
@@ -78,8 +79,8 @@ That proves the exact split in safety reasoning:
 
 ### 4. private types are the only candidates
 
-The file explicitly seeds from `ModuleUtils::getPrivateHeapTypes(*module)`.
-That proves the pass is visibility-limited by design.
+The tagged source explicitly seeds from `ModuleUtils::getPrivateHeapTypes(*module)`; current `main` also passes `worldMode` to that helper and to the paired global rewriter.
+That proves the pass is visibility-limited by design and that candidate selection/rewrite policy must stay aligned.
 
 ### 5. the visible mutation is only `setOpen(true)`
 

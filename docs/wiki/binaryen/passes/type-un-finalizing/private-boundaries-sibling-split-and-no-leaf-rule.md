@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
@@ -20,7 +21,7 @@ related:
 
 # `type-unfinalizing`: private boundaries, sibling split, and the no-leaf rule
 
-This page covers the easiest part of `type-unfinalizing` to misread. It is source-backed by the 2026-04-24 raw manifest plus the 2026-04-27 port-readiness recheck, and should be read with the current Starshine status page, [`./starshine-strategy.md`](./starshine-strategy.md), and the validation bridge, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), when planning local work.
+This page covers the easiest part of `type-unfinalizing` to misread. It is source-backed by the 2026-04-24 raw manifest and the 2026-07-11 current-main world-mode recheck, and should be read with the current Starshine status page, [`./starshine-strategy.md`](./starshine-strategy.md), and the validation bridge, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), when planning local work.
 
 ## The three rules that matter most
 
@@ -34,7 +35,7 @@ That is almost the entire pass contract.
 
 ## Rule 1: public types stay untouched
 
-The pass begins from `ModuleUtils::getPrivateHeapTypes(...)`, not from all heap types.
+The pass begins from `ModuleUtils::getPrivateHeapTypes(...)`, not from all heap types. Current Binaryen `main` also threads `worldMode` into that helper and the paired global rewriter; the private boundary remains, but selection and rebuilding must use one consistent policy.
 So public types are out of scope before Binaryen even thinks about openness.
 
 Why this matters:
@@ -139,6 +140,6 @@ Starshine currently has no port to audit for these rules. The only local behavio
 
 A good future-port rule of thumb is:
 
-- if your implementation ever starts changing public types, or insists on a leaf-only proof before reopening private types, it is no longer matching Binaryen `version_129`
+- if your implementation ever starts changing public types, insists on a leaf-only proof before reopening private types, or uses inconsistent world/visibility policies for discovery and rewriting, it is no longer matching the current Binaryen contract
 
 That is the clearest possible correctness alarm for this sibling.

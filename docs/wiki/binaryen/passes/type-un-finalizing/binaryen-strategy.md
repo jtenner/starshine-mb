@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
@@ -23,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass, anchored by the committed raw manifest [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The 2026-04-27 current-main port-readiness manifest [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md) found no teaching-relevant owner/registration/lit drift and should be used for future Starshine implementation planning. The older 0193 research note remains historical background, but new summaries should cite the raw manifests and this living page first.
+Use Binaryen `version_129` as the tagged source oracle for this pass, anchored by the committed raw manifest [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The 2026-07-11 current-main recheck preserves the owner/registration/lit contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global rewriting. This is **not** a closed-world-only gate; it is one policy a future port must apply consistently. See [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
 
 The core sources are:
 
@@ -69,10 +70,12 @@ So this dossier is a deliberate upstream-only registry expansion.
 
 ## Core gates
 
-Like its sibling, `type-unfinalizing` does **not** ask for closed world.
+Like its sibling, `type-unfinalizing` does **not** contain a closed-world-only gate.
 Its real hard gate is simpler:
 
 - if the module does not have GC, return immediately
+
+Current `main` still forwards `worldMode` to its helpers. Treat that as a visibility and rewrite-policy input, not as evidence that the pass has become closed-world-only.
 
 Beginner translation:
 
@@ -133,9 +136,11 @@ That is the main strategic difference from the finalizing sibling.
 
 ## Phase 3: private heap types define the visibility boundary
 
-The pass asks for:
+The tagged source asks for:
 
 - `ModuleUtils::getPrivateHeapTypes(*module)`
+
+Current `main` adds `getPassOptions().worldMode` to that helper. The candidate boundary remains private heap types, but the current call shape carries an explicit policy.
 
 That helper is the core observability rule.
 The pass only modifies **private** heap types.
@@ -174,9 +179,7 @@ Everything else the pass does is there only to decide *which* heap types are saf
 
 ## Phase 6: `GlobalTypeRewriter` carries the real module rewrite
 
-The pass ends with:
-
-- `TypeRewriter(*module, *this).update();`
+The pass ends by running its `TypeRewriter` over the module. In current `main`, that rewriter's `GlobalTypeRewriter` base also receives `parent.getPassOptions().worldMode`.
 
 That is why this pass can safely change more than one declaration line.
 `GlobalTypeRewriter` is the whole-module helper that rebuilds the type graph and updates uses consistently.
@@ -290,7 +293,7 @@ A faithful port should preserve at least nine things:
 4. the shared-engine split between finalizing and unfinalizing
 5. module-wide coherent heap-type remapping
 6. the fact that public types are not touched
-7. the fact that no closed-world request is needed upstream here
+7. an explicit, consistent world-mode policy for selection and rewriting, without inventing a closed-world-only gate
 8. the local-vs-upstream naming split for the sibling
 9. the fact that there is no explicit AST refinalization phase
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
@@ -22,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass, anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md). A 2026-04-27 current-main recheck for implementation readiness found no teaching-relevant drift; see [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use Binaryen `version_129` as the tagged source oracle for this pass, anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md). The 2026-07-11 current-main recheck preserves the GC/private-leaf contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global type rewriting. This is **not** a new closed-world-only gate; it is a policy input a future port must model consistently. See [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
 The core sources are:
 
 - `src/passes/TypeFinalizing.cpp`
@@ -69,10 +70,12 @@ So this dossier is a deliberate upstream-only registry expansion.
 
 ## Core gates
 
-Unlike many neighboring GC/type passes, `type-finalizing` does **not** ask for closed world.
+Unlike many neighboring GC/type passes, `type-finalizing` does **not** contain a closed-world-only gate.
 Its real hard gate is simpler:
 
 - if the module does not have GC, return immediately
+
+Current `main` still carries `worldMode` into its helpers. Treat that as a visibility and rewrite-policy parameter, not as evidence that every mode may mutate the same set of types or that the pass itself now requires closed world.
 
 Beginner translation:
 
@@ -137,9 +140,11 @@ This is the pass's entire safety proof split between the siblings.
 
 ## Phase 3: private heap types define the visibility boundary
 
-The pass next asks for:
+The tagged source asks for:
 
 - `ModuleUtils::getPrivateHeapTypes(*module)`
+
+Current `main` supplies `getPassOptions().worldMode` as an additional helper argument. The candidate boundary is still *private heap types*, but its exact policy is no longer accurately described as a no-argument helper call.
 
 That helper is the core observability rule.
 The pass only modifies **private** heap types.
@@ -176,9 +181,7 @@ Everything else the pass does is there only to decide *which* heap types are saf
 
 ## Phase 6: `GlobalTypeRewriter` carries the real module rewrite
 
-The pass ends with:
-
-- `TypeRewriter(*module, *this).update();`
+The pass ends by running its `TypeRewriter` over the module. In current `main`, that rewriter's `GlobalTypeRewriter` base also receives `parent.getPassOptions().worldMode`.
 
 That is why this pass can safely change more than one declaration line.
 `GlobalTypeRewriter` is the whole-module helper that rebuilds the type graph and updates its uses consistently.
@@ -281,7 +284,7 @@ For exact current local status and code locations, see [`./starshine-strategy.md
 5. the shared-engine split between finalizing and unfinalizing
 6. module-wide coherent heap-type remapping
 7. the fact that public types are not touched
-8. the fact that no closed-world request is needed upstream here
+8. explicit, consistent world-mode policy for candidate discovery **and** global rewriting; this is not a closed-world-only gate
 9. the local-vs-upstream naming split for the unfinalizing sibling
 
 ## Most important beginner correction
@@ -294,4 +297,4 @@ that is too vague to be useful.
 
 A much better sentence is:
 
-- “Binaryen `type-finalizing` is a tiny GC-only module rewrite that marks safe private leaf heap types final, while its sibling can reopen private types again.”
+- “Binaryen `type-finalizing` is a tiny GC-only module rewrite that marks safe private leaf heap types final, while carrying one world-mode policy through private-type selection and the coherent global rewrite.”

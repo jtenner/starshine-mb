@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
@@ -20,7 +21,7 @@ related:
 
 # `type-finalizing` implementation structure and tests
 
-This page is source-confirmed by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md) and refreshed by the 2026-04-27 current-main implementation-readiness recheck [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md). For the current Starshine non-implementation, future-port code map, and validation ladder, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page is source-confirmed by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md). The 2026-07-11 current-main recheck preserves the owner, registration, and lit contract but corrects the helper call shape: `worldMode` now reaches both private-type selection and `GlobalTypeRewriter`; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md). For the current Starshine non-implementation, future-port code map, and validation ladder, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Main upstream files
 
@@ -36,9 +37,9 @@ This pass is tiny, but it leans on helper concepts that are easy to under-teach 
 
 | Helper surface | Why it matters for this pass | Where this repo already explains it in more depth |
 | --- | --- | --- |
-| `ModuleUtils::getPrivateHeapTypes(...)` | Defines the visibility boundary: only private heap types are candidates for toggling | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md), [`../type-merging/implementation-structure-and-tests.md`](../type-merging/implementation-structure-and-tests.md) |
+| `ModuleUtils::getPrivateHeapTypes(...)` | Defines the visibility boundary: only private heap types are candidates for toggling; current `main` receives `worldMode` here | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md), [`../type-merging/implementation-structure-and-tests.md`](../type-merging/implementation-structure-and-tests.md) |
 | `SubTypes` | Defines the leaf proof used only in finalizing mode | neighboring GC/type dossiers such as [`../signature-pruning/implementation-structure-and-tests.md`](../signature-pruning/implementation-structure-and-tests.md) and [`../abstract-type-refining/implementation-structure-and-tests.md`](../abstract-type-refining/implementation-structure-and-tests.md) |
-| `GlobalTypeRewriter` | Performs the coherent module-wide heap-type rewrite instead of a local declaration edit | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md) |
+| `GlobalTypeRewriter` | Performs the coherent module-wide heap-type rewrite instead of a local declaration edit; current `main` receives the same `worldMode` policy | [`../remove-unused-types/implementation-structure-and-tests.md`](../remove-unused-types/implementation-structure-and-tests.md) |
 | `TypeBuilder::setOpen(...)` | Is the actual mutation the pass applies to selected type-builder entries | directly visible in `TypeFinalizing.cpp` |
 
 ## What `TypeFinalizing.cpp` proves by itself
@@ -76,8 +77,8 @@ That proves the exact split in safety reasoning:
 
 ### 4. private types are the only candidates
 
-The file explicitly seeds from `ModuleUtils::getPrivateHeapTypes(*module)`.
-That proves the pass is visibility-limited by design.
+The tagged source explicitly seeds from `ModuleUtils::getPrivateHeapTypes(*module)`; current `main` also passes `worldMode` to that helper and to the paired global rewriter.
+That proves the pass is visibility-limited by design and that candidate selection/rewrite policy must stay aligned.
 
 ### 5. the visible mutation is only `setOpen(...)`
 

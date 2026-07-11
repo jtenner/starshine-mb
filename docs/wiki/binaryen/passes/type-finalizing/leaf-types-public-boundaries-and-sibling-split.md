@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
@@ -33,7 +34,7 @@ That is almost the entire pass contract.
 
 ## Rule 1: public types stay untouched
 
-The pass begins from `ModuleUtils::getPrivateHeapTypes(...)`, not from all heap types.
+The pass begins from `ModuleUtils::getPrivateHeapTypes(...)`, not from all heap types. Current Binaryen `main` also threads `worldMode` into that helper and into its paired global rewriter; this preserves the private boundary but requires one consistent policy, not an assumption that private means the same thing under every mode.
 So public types are out of scope before Binaryen even thinks about finality.
 
 Why this matters:
@@ -135,6 +136,6 @@ For the current Starshine port map, exact local code surfaces, and future valida
 
 A good future-port rule of thumb is:
 
-- if your implementation ever starts changing public types, or starts finalizing non-leaf types, it is no longer matching Binaryen `version_129`
+- if your implementation ever starts changing public types, starts finalizing non-leaf types, or discovers candidates and rewrites them under inconsistent world/visibility policies, it is no longer matching the current Binaryen contract
 
 That is the clearest possible correctness alarm for this pass family.

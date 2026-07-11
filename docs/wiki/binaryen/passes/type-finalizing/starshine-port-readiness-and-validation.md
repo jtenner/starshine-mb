@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
@@ -48,14 +49,16 @@ Today Starshine must keep doing all of the following:
 
 ## Upstream behavior the port must match
 
-The Binaryen current-main source reviewed on **2026-04-27** matched the `version_129` dossier contract on the owner, registration, and dedicated-test surfaces:
+The Binaryen current-main source reviewed on **2026-07-11** preserves the `version_129` owner, registration, and dedicated-test contract, while adding one policy-carrying helper interface:
 
 1. Return immediately when GC is disabled.
-2. Collect private heap types.
+2. Pass `worldMode` into private-heap-type discovery.
 3. In finalizing mode, build an immediate-subtype index and keep only private types with no immediate subtypes.
 4. In unfinalizing mode, use the same owner file but skip the leaf-only filter.
 5. Toggle the selected type-builder entries with `setOpen(!finalize)`.
-6. Run a global type rewrite so all dependent declarations and references remain coherent.
+6. Pass that same `worldMode` into the global type rewrite so all dependent declarations and references remain coherent under one policy.
+
+This still is not a closed-world-only pass. The port requirement is policy consistency: do not discover types under one visibility rule and remap them under another.
 
 That means the Starshine port is primarily a type-graph rewrite problem. The hard part is not the boolean final/open bit; it is proving the selected heap types are private and then repairing every dependent reference after mutation.
 
@@ -108,8 +111,8 @@ Do not use no-DWARF `-O` / `-Os` preset parity as the primary acceptance test. T
 
 ## Known blockers and design questions
 
-- **Private-type visibility.** Starshine needs a documented equivalent of Binaryen's `ModuleUtils::getPrivateHeapTypes(...)` before mutation. Exported, imported, JS-visible, descriptor-visible, and otherwise externally observable type references should be treated conservatively until proven safe.
-- **Global type rewrite helper.** There is no named local equivalent of Binaryen's `GlobalTypeRewriter`; building one likely benefits multiple GC/type passes.
+- **Private-type visibility and world policy.** Starshine needs a documented equivalent of Binaryen's `ModuleUtils::getPrivateHeapTypes(..., worldMode)` before mutation. Exported, imported, JS-visible, descriptor-visible, and otherwise externally observable type references should be treated conservatively until proven safe.
+- **Global type rewrite helper.** There is no named local equivalent of Binaryen's `GlobalTypeRewriter(..., worldMode)`; candidate discovery and rewriting must receive the same policy. Building that shared layer likely benefits multiple GC/type passes.
 - **Sibling spelling.** The local registry uses `type-un-finalizing`, while Binaryen uses `type-unfinalizing`. Tests and docs should keep this explicit rather than hiding it behind prose.
 - **Preset policy.** A future explicit pass can exist without adding it to optimize/shrink presets. Preset inclusion needs separate evidence.
 

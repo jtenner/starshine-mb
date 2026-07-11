@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
@@ -68,10 +69,10 @@ So this page is a **status and future-port map**, not an implementation guide fo
 Binaryen's `type-unfinalizing` strategy is module/type-section work:
 
 - check that GC is enabled,
-- collect private heap types,
+- collect private heap types under one `worldMode` policy,
 - skip the finalizing sibling's immediate-subtype / leaf-only proof,
 - reopen every private candidate with `setOpen(true)`,
-- and rely on a coherent global type rewrite so all uses still point at valid heap types.
+- and pass that same policy into a coherent global type rewrite so all uses still point at valid heap types.
 
 A faithful Starshine port should therefore be a module pass that rewrites type declarations and dependent references coherently. It should **not** be planned as a local HOT peephole.
 
@@ -83,7 +84,7 @@ A future implementation needs at least these pieces:
 2. a module-pass registry entry in `src/passes/optimize.mbt` instead of a boundary-only entry;
 3. a module dispatcher hook if the current pass runner still separates module and hot passes;
 4. a GC-feature gate matching the upstream no-GC no-op rule;
-5. private-heap-type discovery that matches Binaryen's observability boundary;
+5. private-heap-type discovery and global type rewriting that share one Starshine world/visibility policy matching Binaryen's observability boundary;
 6. no leaf-only proof in the unfinalizing mode;
 7. a coherent type remapper that updates globals, locals, function signatures, type references, exports, and any binary/text metadata that names heap types;
 8. tests for public type preservation, private leaf reopening, private non-leaf reopening, function heap-type participation, and local/global use repair;
@@ -129,8 +130,8 @@ If a future port lands, use the repo's standard signoff:
 
 ## Uncertainties and caveats
 
-- The local representation of private/public heap-type visibility may not exactly mirror Binaryen's `ModuleUtils::getPrivateHeapTypes(...)`; a future port must define and test the Starshine equivalent before flipping the registry category.
-- The best local type-remap helper does not exist yet as a named `GlobalTypeRewriter` equivalent. A faithful port may first need shared type-section rewrite infrastructure used by other boundary-only GC/type passes.
+- The local representation of private/public heap-type visibility may not exactly mirror Binaryen's current `ModuleUtils::getPrivateHeapTypes(..., worldMode)` policy; a future port must define and test one Starshine equivalent before flipping the registry category.
+- The best local type-remap helper does not exist yet as a named `GlobalTypeRewriter(..., worldMode)` equivalent. A faithful port may first need shared type-section rewrite infrastructure that carries the same policy from candidate discovery through global remapping.
 - The current-main source check was narrow: it compared the owner file and dedicated lit file for teaching-relevant drift, not every helper transitively used by Binaryen's type updater.
 
 ## Source chain
