@@ -26435,6 +26435,7 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallFirstI32AddAndThirdI32AddAndFourthI64AddAndDirectI64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndThirdI32AddAndFifthI32AddAndDirectI64I64I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndThirdI32AddAndSixthI64AddAndDirectI64I64I32ToI64OperandsAdmission
+  RawOiIdempotentCallFirstI32AddAndFourthI64AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
@@ -26685,7 +26686,8 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     | RawOiIdempotentCallFirstI32AddAndSecondI64AddAndSixthI64AddAndDirectI32I64I32ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndFourthI64AddAndDirectI64I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndFifthI32AddAndDirectI64I64I64ToI64OperandsAdmission
-    | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndSixthI64AddAndDirectI64I64I32ToI64OperandsAdmission =>
+    | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndSixthI64AddAndDirectI64I64I32ToI64OperandsAdmission
+    | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission =>
       self.leaf_facts.length() == 9
     RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
@@ -32247,6 +32249,50 @@ fn RawOiIdempotentCallSelfSelectFact::from_six_operand_i64_three_tree_instrs(
           right_fourth, right_fifth, right_sixth_lhs, right_sixth_rhs,
         ],
         [true, true, false, true, true, false, true, false, false],
+      )
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_first_lhs,
+      left_first_rhs,
+      @lib.I32Add,
+      left_second,
+      left_third,
+      left_fourth_lhs,
+      left_fourth_rhs,
+      @lib.I64Add,
+      left_fifth_lhs,
+      left_fifth_rhs,
+      @lib.I32Add,
+      left_sixth,
+      @lib.Call(left_idx),
+      right_first_lhs,
+      right_first_rhs,
+      @lib.I32Add,
+      right_second,
+      right_third,
+      right_fourth_lhs,
+      right_fourth_rhs,
+      @lib.I64Add,
+      right_fifth_lhs,
+      right_fifth_rhs,
+      @lib.I32Add,
+      right_sixth,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        RawOiIdempotentCallFirstI32AddAndFourthI64AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission,
+        [
+          left_first_lhs, left_first_rhs, left_second, left_third, left_fourth_lhs,
+          left_fourth_rhs, left_fifth_lhs, left_fifth_rhs, left_sixth,
+        ],
+        [
+          right_first_lhs, right_first_rhs, right_second, right_third, right_fourth_lhs,
+          right_fourth_rhs, right_fifth_lhs, right_fifth_rhs, right_sixth,
+        ],
+        [true, true, false, true, false, false, true, true, false],
       )
     _ => return None
   }
@@ -69291,6 +69337,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_candidate(
       | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndFourthI64AddAndDirectI64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndFifthI32AddAndDirectI64I64I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndThirdI32AddAndSixthI64AddAndDirectI64I64I32ToI64OperandsAdmission
+      | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
