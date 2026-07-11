@@ -25586,6 +25586,115 @@ fn RawOiStackCarriedEffectSkipFact::proves_accepted_raw_noop(
 }
 
 ///|
+// Raw OI candidate index for the current immutable function-body snapshot.
+// This is the pre-HOT routing half of the revision-keyed OI architecture: one
+// recursive walk records semantic anchors, while HOT remains responsible for
+// exact type, equality, effect, removability, ordering, trap, and invalidation
+// proof. Rebuild this index whenever the raw body snapshot changes.
+priv struct RawOiCallSiteFact {
+  call_idx : @lib.FuncIdx
+  call_ordinal : Int
+}
+
+///|
+priv struct RawOiSelectAnchorFact {
+  select_ordinal : Int
+}
+
+///|
+priv struct RawOiFunctionRevisionFactIndex {
+  instruction_count : Int
+  call_sites : Array[RawOiCallSiteFact]
+  select_anchors : Array[RawOiSelectAnchorFact]
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::collect_instr(
+  instr : @lib.Instruction,
+  call_sites : Array[RawOiCallSiteFact],
+  select_anchors : Array[RawOiSelectAnchorFact],
+) -> Int {
+  let mut count = 1
+  match instr {
+    @lib.Call(call_idx) =>
+      call_sites.push({ call_idx, call_ordinal: call_sites.length() })
+    @lib.Select(_) =>
+      select_anchors.push({ select_ordinal: select_anchors.length() })
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      count += RawOiFunctionRevisionFactIndex::collect_body(
+        body, call_sites, select_anchors,
+      )
+    @lib.If(_, then_body, else_body) => {
+      count += RawOiFunctionRevisionFactIndex::collect_body(
+        then_body, call_sites, select_anchors,
+      )
+      match else_body {
+        Some(body) =>
+          count += RawOiFunctionRevisionFactIndex::collect_body(
+            body, call_sites, select_anchors,
+          )
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  count
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::collect_body(
+  instrs : Array[@lib.Instruction],
+  call_sites : Array[RawOiCallSiteFact],
+  select_anchors : Array[RawOiSelectAnchorFact],
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += RawOiFunctionRevisionFactIndex::collect_instr(
+      instr, call_sites, select_anchors,
+    )
+  }
+  count
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::from_instrs(
+  instrs : Array[@lib.Instruction],
+) -> RawOiFunctionRevisionFactIndex {
+  let call_sites : Array[RawOiCallSiteFact] = []
+  let select_anchors : Array[RawOiSelectAnchorFact] = []
+  let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
+    instrs, call_sites, select_anchors,
+  )
+  { instruction_count, call_sites, select_anchors }
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_repeated_call(
+  self : RawOiFunctionRevisionFactIndex,
+  call_idx : @lib.FuncIdx,
+) -> Bool {
+  let mut count = 0
+  for site in self.call_sites {
+    if site.call_idx == call_idx {
+      count += 1
+      if count >= 2 {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_select_anchor(
+  self : RawOiFunctionRevisionFactIndex,
+) -> Bool {
+  !self.select_anchors.is_empty()
+}
+
+///|
 priv enum RawOiIdempotentCallStackOperandKind {
   RawOiIdempotentCallLocalOperand
   RawOiIdempotentCallI32ConstOperand

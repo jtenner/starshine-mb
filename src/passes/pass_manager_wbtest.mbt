@@ -1,4 +1,45 @@
 ///|
+test "optimize-instructions raw function index collects call and select anchors once" {
+  let repeated = @lib.FuncIdx::new(3U)
+  let other = @lib.FuncIdx::new(9U)
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::call(other),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::call(repeated),
+        @lib.Instruction::call(repeated),
+      ]),
+    ),
+    @lib.Instruction::select(),
+  ])
+  @debug.assert_eq(index.instruction_count, 5)
+  @debug.assert_eq(index.call_sites.length(), 3)
+  @debug.assert_eq(index.select_anchors.length(), 1)
+  assert_true(index.has_repeated_call(repeated))
+  assert_false(index.has_repeated_call(other))
+  assert_true(index.has_select_anchor())
+}
+
+///|
+test "optimize-instructions raw function index rebuilds from a changed snapshot" {
+  let target = @lib.FuncIdx::new(4U)
+  let before = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::call(target),
+  ])
+  let after = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::call(target),
+    @lib.Instruction::call(target),
+    @lib.Instruction::select(),
+  ])
+  assert_false(before.has_repeated_call(target))
+  assert_false(before.has_select_anchor())
+  assert_true(after.has_repeated_call(target))
+  assert_true(after.has_select_anchor())
+  assert_true(after.instruction_count > before.instruction_count)
+}
+
+///|
 test "optimize-instructions raw directizes adjacent ref.func call_ref before skip" {
   // OI-H grouped-sweep follow-up: profile-backed `oi-call-ref-target-wrapper`
   // classified a large size-losing raw-gate gap. The raw skip path may still
