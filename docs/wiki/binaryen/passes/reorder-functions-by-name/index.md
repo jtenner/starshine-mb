@@ -22,6 +22,7 @@ related:
   - ./module-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../reorder-functions/index.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
@@ -96,6 +97,8 @@ The real `version_129` contract is small but specific:
   Current Starshine status and future-port map: boundary-only registry, request rejection, omitted presets, module-function permutation requirements, and exact local code locations.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge covering the module-pass gap, remap surfaces, and validation ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  Planned-only comparison status: the current boundary-only registry entry and absent harness flag make a 10,000-case `compare-pass` command invalid until active implementation and fixture gates are satisfied.
 
 ## Current maintenance rule
 
