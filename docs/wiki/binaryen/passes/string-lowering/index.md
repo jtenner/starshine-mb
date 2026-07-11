@@ -21,6 +21,7 @@ related:
   - ./json-and-magic-imports.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../string-gathering/index.md
   - ../string-lifting/index.md
   - ../../../wasm-js-string-builtins-boundary.md
@@ -108,6 +109,8 @@ That is much more accurate than saying either:
   Current Starshine status and code map: no registry spelling or pass owner yet, but real `string.const` parser / encoder / decoder / validator / HOT roundtrip infrastructure that future boundary-module work would reuse.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Future-port bridge: registry-honesty first slice, no-mutation analyzer, default JSON lowering, helper-import rewrite sequence, magic-import/assert-mode validation, and exact local code surfaces.
+- [`./fuzzing.md`](./fuzzing.md)
+  Harness-admission correction: `string-lowering` is planned-only because neither the current compare harness nor Starshine registry admits it; it supplies the four-gate future-lane template instead of a misleading runnable command.
 
 ## Current maintenance rule
 

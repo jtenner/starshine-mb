@@ -24,6 +24,7 @@ related:
   - ./import-and-call-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../string-lowering/index.md
   - ../string-gathering/index.md
   - ../../../wasm-js-string-builtins-boundary.md
@@ -143,6 +144,8 @@ See [`../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md`](
   Exact current Starshine status and code-location map for the missing pass plus reusable string plumbing.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Future-port checklist: registry honesty, local opcode prerequisites, magic-import first slice, JSON/helper follow-on slices, cast-policy decision, and validation ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  Harness-admission correction: `string-lifting` is planned-only because neither the current compare harness nor Starshine registry admits it; it records the four-gate future-lane template instead of a misleading runnable command.
 
 ## Sources
 
