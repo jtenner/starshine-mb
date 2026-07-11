@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
@@ -39,6 +40,7 @@ related:
 - [`./starshine-strategy.md`](./starshine-strategy.md) is the dedicated local status page: Starshine knows the name, rejects active requests as boundary-only, has no owner file or dispatcher case, and would need a module-level function-index permutation/remap pass for a future port.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) is the companion implementation ladder: it spells out the permutation/remap surfaces and the minimum validation order.
 - Official Binaryen also exposes a sibling pass, `reorder-functions-by-name`, from the same source file.
+- An open upstream proposal, `reorder-functions-by-similarity`, is **not** a current Binaryen or Starshine pass; its compression-oriented structural-ordering idea is tracked separately in [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
 
 ## Why this pass matters
 
@@ -73,7 +75,7 @@ So this pass is best taught as:
 
 ## Most important durable takeaways
 
-- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; the 2026-04-24 raw manifest now records the official `version_129` release/source/test URLs used by this dossier, and the 2026-05-05 recheck keeps the same contract fresh on current main.
+- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; the 2026-04-24 raw manifest records the official `version_129` release/source/test URLs, while the 2026-07-11 reread found no behavior-bearing drift in the two shipped current-main siblings.
 - `reorder-functions` only changes function declaration order; it does not rewrite bodies, and the pass explicitly reports `requiresNonNullableLocalFixups() == false`.
 - The counted surfaces in `version_129` are:
   - direct `call` targets
@@ -102,6 +104,8 @@ So this pass is best taught as:
   Current Starshine boundary-only status plus the future module-pass code map: registry, dispatcher gap, preset omission, numeric `FuncIdx` remap requirements, and reusable DFE remap surfaces.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   New bridge page for the local module-pass gap, exact remap surfaces, and the minimum validation ladder.
+- [`./compression-oriented-similarity-proposal.md`](./compression-oriented-similarity-proposal.md)
+  Explicit boundary for open Binaryen PR #8696: its structural compression heuristic, evidence, unresolved choices, and the gate that keeps it out of current pass inventories.
 
 
 ## Current maintenance rule
@@ -113,6 +117,7 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md`](../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md)
 - [`../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md`](../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md)

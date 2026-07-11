@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
@@ -21,7 +22,7 @@ related:
 
 # `reorder-functions` count surfaces, ordering, and omissions
 
-This page focuses on the part of `reorder-functions` that is easiest to mis-teach. It is now backed by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md).
+This page focuses on the part of the **shipped** `reorder-functions` pass that is easiest to mis-teach. It is backed by the 2026-04-24 raw primary-source manifest and the 2026-07-11 current-main reread: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md) and [`../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md`](../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md).
 
 It covers:
 
@@ -164,14 +165,14 @@ That gives the honest optimization story:
 - possible worse **compressed** size,
 - no claim about runtime speed.
 
-## Split from the lexical sibling
+## Split from the lexical sibling and open similarity proposal
 
 This page also helps preserve the main difference from [`../reorder-functions-by-name/index.md`](../reorder-functions-by-name/index.md):
 
 - `reorder-functions-by-name` ignores all count surfaces and just sorts ascending by name,
 - `reorder-functions` uses a tiny mixed count model and then sorts descending by count and descending by name.
 
-The shared file does not make them the same pass.
+The shared file does not make them the same pass. The separate open `reorder-functions-by-similarity` proposal is also not a hidden third mode of this counter: it uses a structural body key for compression-oriented layout and remains outside current-main. See [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
 
 ## Common beginner mistakes to avoid
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
@@ -36,7 +37,8 @@ The current local facts are:
 - `run_hot_pipeline_expand_passes(...)` rejects boundary-only names before module-pass dispatch.
 - `src/passes/pass_manager.mbt` has no `reorder-functions` module-pass case.
 - `agent-todo.md` has no dedicated active implementation slice.
-- the nearest in-tree reference-rewrite helper cluster is still `src/passes/duplicate_function_elimination.mbt`, but that code solves duplicate-survivor remapping, not a total function permutation.
+- the nearest in-tree reference-rewrite helper cluster is still `src/passes/duplicate_function_elimination.mbt`, but that code solves duplicate-survivor remapping, not a total function permutation;
+- the open upstream `reorder-functions-by-similarity` proposal has no local registry or harness entry and must not be used to justify a speculative implementation or compare-pass lane.
 
 So the honest status remains: name known, request rejected, future module-pass shape not yet implemented.
 
@@ -91,6 +93,7 @@ The main unresolved local question is whether Starshine should permute imported 
 - [`module-shapes.md`](./module-shapes.md) - concrete before/after shape families
 - [`starshine-strategy.md`](./starshine-strategy.md) - current local boundary-only status
 - [`../reorder-functions-by-name/index.md`](../reorder-functions-by-name/index.md) - sibling lexical-order pass
+- [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md) - open upstream proposal boundary, not an implementation plan
 
 ## Current conclusion
 

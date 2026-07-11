@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
@@ -42,6 +43,7 @@ The exact local status is:
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):137 registers `reorder-functions` as a **boundary-only** pass name.
 - The same boundary-only list also registers the sibling `reorder-functions-by-name`.
+- It does **not** register the separate open Binaryen proposal `reorder-functions-by-similarity`; current upstream does not register that proposal either.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):482, 552 rejects boundary-only names in `run_hot_pipeline_expand_passes(...)` instead of running a transformation.
 - The active `optimize` and `shrink` preset arrays in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) do not include `reorder-functions`.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):8912-8940 has no `run_hot_pipeline_apply_module_pass(...)` case for `reorder-functions`.
@@ -167,4 +169,4 @@ When implemented, the minimum local tests should cover:
 
 The correct Starshine status is **boundary-only with a clear future module-pass map**.
 
-Do not describe this as implemented, removed, or merely unknown. The repository knows the pass name, rejects it honestly, and now has a complete source-backed plan for what a faithful future implementation must preserve.
+Do not describe this as implemented, removed, or merely unknown. The repository knows the two shipped Binaryen pass names, rejects them honestly, and has a complete source-backed plan for what a faithful future implementation must preserve. Keep the open compression-oriented proposal distinct until it lands; see [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).

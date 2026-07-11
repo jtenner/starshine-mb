@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
@@ -29,7 +30,7 @@ related:
 
 ## Why this page exists
 
-This page is now anchored by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), with the 2026-05-05 recheck keeping the freshness layer current.
+This page is anchored by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), with the 2026-07-11 reread keeping the two shipped siblings' freshness layer current.
 
 `reorder-functions` is small enough that it is easy to skip over.
 That makes it easy to misremember too.
@@ -121,13 +122,15 @@ It also indirectly supports the shared rule that function-body content is not be
 
 ## Freshness check
 
-I compared `version_129` and current `main` `ReorderFunctions.cpp` again on 2026-05-05.
+I reread `version_129` against current `main` `ReorderFunctions.cpp`, `pass.cpp`, and the sibling lit surface on 2026-07-11.
 
 Durable result:
 
-- no implementation drift was observed in the reviewed implementation and sibling test surfaces
+- no behavior-bearing drift was observed for the two shipped siblings;
+- `pass.cpp` still has no `reorder-functions-by-similarity` registration;
+- PR #8696 is an open proposal with its own proposed owner/test diff, not evidence that the shipped pass gained a new mode.
 
-So a future reader can safely treat the `version_129` source as current for the documented behavior here unless a later deliberate follow-up records new drift.
+So a future reader can treat the `version_129` source as current for the documented shipped behavior unless a later deliberate follow-up records drift. Track the proposal separately in [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
 
 ## Starshine follow-along pointer
 

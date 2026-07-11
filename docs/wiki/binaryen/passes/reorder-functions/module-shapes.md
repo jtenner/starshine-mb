@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
@@ -39,7 +40,7 @@ Each example focuses on which functions get extra static-use counts from the rea
 
 Unless noted otherwise, the order examples below are **inferences from the reviewed source comparator**, not copied oracle output.
 
-The family layout below was rechecked against current main on 2026-05-05 and still matches the source-backed teaching model.
+The family layout below was reread against current main on 2026-07-11 and still matches the source-backed teaching model. It describes the shipped count-based pass only, not the separate open similarity-ordering proposal.
 
 ## Positive family 1: one heavily called helper moves earlier
 
@@ -267,6 +268,10 @@ That simplicity is a core part of its identity.
 ## Starshine representation caveat
 
 These examples show logical module-order changes. In Binaryen's IR, body references still point at the same named functions after the list reorder. In Starshine's current lowered representation, function references are numeric `FuncIdx` values; a future port therefore needs the remap plan in [`./starshine-strategy.md`](./starshine-strategy.md) to keep calls, start/export/element references, and metadata pointed at the same logical functions.
+
+## Proposal boundary: body similarity is not this pass
+
+Binaryen PR #8696 proposes a distinct `reorder-functions-by-similarity` pass that groups defined bodies using a structural key for compression experiments. It is open upstream and absent from current Binaryen and Starshine registries. Do not interpret any count-based shape on this page as evidence for that proposal; see [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
 
 ## Condensed porting checklist
 

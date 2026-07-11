@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
@@ -31,7 +32,7 @@ related:
 ## Why this pass is easy to misread
 
 The name sounds like a broad whole-module optimizer.
-The actual `version_129` implementation is tiny. The 2026-04-24 raw primary-source manifest for this page is [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), and the 2026-05-05 recheck keeps the current-main freshness layer current.
+The actual `version_129` implementation is tiny. The 2026-04-24 raw primary-source manifest for this page is [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), and the 2026-07-11 reread keeps the shipped current-main contract fresh without finding behavior-bearing drift. An open similarity-ordering proposal is deliberately separate; see [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
 
 It does **not** optimize function bodies.
 It does **not** compute dynamic hotness.
@@ -55,7 +56,7 @@ That “access frequency” is still **static**, not profile-guided.
 
 For the most compact owner/boundary recap, see [`./count-surfaces-ordering-and-omissions.md`](./count-surfaces-ordering-and-omissions.md). For the current local non-implementation and future Starshine module-pass map, see [`./starshine-strategy.md`](./starshine-strategy.md). For the implementation ladder and validation order, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-A 2026-05-05 current-main recheck of `ReorderFunctions.cpp`, `pass.cpp`, and the sibling lit surface found no teaching-relevant drift from the source-backed contract already described here.
+A 2026-07-11 current-main reread of `ReorderFunctions.cpp`, `pass.cpp`, and the sibling lit surface found no behavior-bearing drift from the source-backed contract described here. `pass.cpp` still registers the frequency and by-name siblings only; PR #8696's proposed similarity pass has not landed and must not be treated as a third shipped variant.
 
 ## Phase 1: seed every function with count `0`
 
