@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
@@ -46,11 +47,11 @@ Primary files:
 - `src/cfg/liveness-traversal.h`
 - `test/lit/passes/signature-pruning.wast`
 
-The later 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md) repeated the same narrow check on the same teaching surfaces.
+The later 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md) supersedes the older current-main freshness claim.
 Durable result:
 
-- the checked `main` pass logic still matches the reviewed `version_129` algorithm on the important gates, phase split, and helper usage
-- no teaching-relevant drift surfaced in the reviewed current-`main` owner, registration, helper, or dedicated lit surfaces
+- the reviewed `version_130` and current-main pass contract still matches the `version_129` teaching algorithm on the important gates, phase split, and helper policy
+- no behavior-bearing drift surfaced in the reviewed owner, registration/default-pipeline, or dedicated lit surfaces
 
 So this dossier treats `version_129` as the normative algorithm oracle and records future upstream drift explicitly instead of silently rewriting the story.
 
@@ -439,6 +440,7 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md)
 - [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)

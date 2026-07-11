@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
@@ -24,7 +25,7 @@ related:
 This page exists because `SignaturePruning.cpp` is not a self-contained pass.
 If you read only that one file, you will miss where most of the real behavior comes from.
 For the exact 2026-04-24 source capture, use [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md).
-For the 2026-05-05 current-main recheck, use [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md).
+For the 2026-07-11 `version_130` / current-main recheck, use [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md).
 For the current Starshine status and future-port code map, use [`./starshine-strategy.md`](./starshine-strategy.md); for first-slice sequencing and validation, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## File map
@@ -213,7 +214,7 @@ The test that preserves distinct nominal types after shrinking shows that the ty
 
 ## Freshness note
 
-I did a narrow 2026-05-05 current-`main` check on:
+A narrow 2026-07-11 `version_130` / current-main check reviewed:
 
 - `src/passes/SignaturePruning.cpp`
 - `src/passes/pass.cpp`
@@ -227,8 +228,8 @@ I did a narrow 2026-05-05 current-`main` check on:
 
 Durable result:
 
-- the checked core pass structure still matches `version_129` on the important reviewed surfaces
-- no teaching-relevant drift surfaced in the reviewed owner, registration, helper, or dedicated lit surfaces
+- the reviewed core pass structure still matches the `version_129` teaching contract on the important surfaces
+- no behavior-bearing drift surfaced in the owner, registration/default-pipeline, or dedicated lit surfaces
 
 That is a narrow freshness note, not a proof that every neighboring helper file is identical.
 
@@ -259,6 +260,7 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md)
 - [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
