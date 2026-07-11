@@ -26439,6 +26439,7 @@ priv enum RawOiIdempotentCallOperandAdmissionKind {
   RawOiIdempotentCallFirstI32AddAndFourthI64AddAndSixthI64AddAndDirectI64I32I32ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFifthI32AddAndSixthI64AddAndDirectI64I32I64ToI64OperandsAdmission
   RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFourthI64AddAndDirectI32I32I64ToI64OperandsAdmission
+  RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFifthI32AddAndDirectI32I64I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
   RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
@@ -26693,7 +26694,8 @@ fn RawOiIdempotentCallOperandAdmissionFact::proves_admission(
     | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndFifthI32AddAndDirectI64I32I64ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndSixthI64AddAndDirectI64I32I32ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndSixthI64AddAndDirectI64I32I64ToI64OperandsAdmission
-    | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFourthI64AddAndDirectI32I32I64ToI64OperandsAdmission =>
+    | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFourthI64AddAndDirectI32I32I64ToI64OperandsAdmission
+    | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFifthI32AddAndDirectI32I64I64ToI64OperandsAdmission =>
       self.leaf_facts.length() == 9
     RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
     | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
@@ -32431,6 +32433,50 @@ fn RawOiIdempotentCallSelfSelectFact::from_six_operand_i64_three_tree_instrs(
           right_fourth_lhs, right_fourth_rhs, right_fifth, right_sixth,
         ],
         [true, false, false, true, true, false, false, true, false],
+      )
+    [
+      @lib.I64Const(@lib.I64(0L)),
+      left_first,
+      left_second_lhs,
+      left_second_rhs,
+      @lib.I64Add,
+      left_third_lhs,
+      left_third_rhs,
+      @lib.I32Add,
+      left_fourth,
+      left_fifth_lhs,
+      left_fifth_rhs,
+      @lib.I32Add,
+      left_sixth,
+      @lib.Call(left_idx),
+      right_first,
+      right_second_lhs,
+      right_second_rhs,
+      @lib.I64Add,
+      right_third_lhs,
+      right_third_rhs,
+      @lib.I32Add,
+      right_fourth,
+      right_fifth_lhs,
+      right_fifth_rhs,
+      @lib.I32Add,
+      right_sixth,
+      @lib.Call(right_idx),
+      @lib.I64Eqz,
+      @lib.Select(_),
+    ] if left_idx == right_idx =>
+      (
+        left_idx,
+        RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFifthI32AddAndDirectI32I64I64ToI64OperandsAdmission,
+        [
+          left_first, left_second_lhs, left_second_rhs, left_third_lhs, left_third_rhs,
+          left_fourth, left_fifth_lhs, left_fifth_rhs, left_sixth,
+        ],
+        [
+          right_first, right_second_lhs, right_second_rhs, right_third_lhs, right_third_rhs,
+          right_fourth, right_fifth_lhs, right_fifth_rhs, right_sixth,
+        ],
+        [true, false, false, true, true, false, true, true, false],
       )
     _ => return None
   }
@@ -69479,6 +69525,7 @@ fn RawOiIdempotentCallSelfSelectFact::from_candidate(
       | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndSixthI64AddAndDirectI64I32I32ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndSixthI64AddAndDirectI64I32I64ToI64OperandsAdmission
       | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFourthI64AddAndDirectI32I32I64ToI64OperandsAdmission
+      | RawOiIdempotentCallSecondI64AddAndThirdI32AddAndFifthI32AddAndDirectI32I64I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndSixthI64AddAndDirectI64I32I64I32ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFifthI32AddAndDirectI64I32I64I64ToI64OperandsAdmission
       | RawOiIdempotentCallFirstI32AddAndFourthI64AddAndDirectI64I32I32I64ToI64OperandsAdmission
