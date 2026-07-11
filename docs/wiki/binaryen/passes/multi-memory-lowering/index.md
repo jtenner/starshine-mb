@@ -127,6 +127,7 @@ The 2026-04-26 port-readiness bridge keeps that test order explicit for Starshin
 - [`wat-shapes.md`](wat-shapes.md) - before/after shape catalog.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - staged future implementation and validation ladder.
+- [`fuzzing.md`](fuzzing.md) - planned-only comparison profile: both pass spellings are currently absent from Starshine and the compare-pass allowlist, so it records future admission, targeted-generation, and signoff requirements instead of a runnable command.
 - [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md) - proposal boundary and the local page-size representation gap; it also records the upstream output-propagation uncertainty.
 
 ## Sources
