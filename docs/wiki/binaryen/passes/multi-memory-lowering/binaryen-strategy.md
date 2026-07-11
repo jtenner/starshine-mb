@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
   - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -68,6 +69,14 @@ This representation matters because `memory.grow` can move later memories:
 
 The pass's correctness is therefore coupled to `memory.copy`, not just to address arithmetic.
 
+### Custom-page-size propagation is unresolved
+
+Current `main` requires all input memories to share `pageSizeLog2` and uses that input field when converting page totals to byte offsets and when generating virtual size/grow arithmetic. However, the reviewed `addCombinedMemory()` construction visibly assigns the output memory's sharedness, address type, initial/max pages, and import data without visibly assigning `pageSizeLog2`.
+
+Do **not** collapse those observations into “the pass preserves custom page size.” The result may be accounted for by constructor behavior not established by this source review, but the official owner and fixture routes available for this capture did not prove that behavior. Until upstream adds an assignment or regression evidence, treat non-default page-size lowering as an unresolved transform boundary. This is distinct from the checked sibling's effective-address-overflow caveat.
+
+See [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md) and [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md).
+
 ## Instruction rewrites
 
 For memory operations with an explicit original memory index, Binaryen retargets the operation to the combined memory. For nonzero memories, it adds that memory's base byte offset to the address operand before the retargeted access.
@@ -101,4 +110,4 @@ The source comment still records an imprecision: the inserted checks do not perf
 
 ## Current-main check
 
-A focused 2026-04-26 current-`main` recheck on `MultiMemoryLowering.cpp`, `pass.cpp`, `passes.h`, and the paired lit filenames found no teaching-relevant drift from the `version_129` contract recorded here. The source-backed caveats are still part of the strategy: non-first imports/exports are not positive shapes, all memories must share address type/sharedness/page size, non-constant active data offsets remain behind a TODO/assertion path, and the checked sibling has a documented effective-address overflow imprecision.
+The 2026-04-26 recheck established the ordinary-page-size contract. The 2026-07-11 recheck keeps the owner/registry/factory routes current but narrows its former page-size wording: all inputs must share address type/sharedness/page size, while non-default output page-size propagation remains unresolved because the reviewed combined-memory construction does not visibly copy `pageSizeLog2`. Non-first imports/exports remain outside the positive family, non-constant active data offsets remain behind a TODO/assertion path, and the checked sibling has a documented effective-address-overflow imprecision.

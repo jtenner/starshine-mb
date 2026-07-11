@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
   - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -74,7 +75,8 @@ The official lit files are broad, but they should not be overread as proving eve
 - modules with zero or one memory are skipped;
 - imported memories after the first are not supported positives;
 - exported memories after the first are not supported positives;
-- mismatched address type, sharedness, or page size is outside the accepted family;
+- mismatched address type, sharedness, or input page size is outside the accepted family;
+- equal input page sizes are **not** proof that a non-default page size survives in the output: the reviewed combined-memory construction does not visibly assign `pageSizeLog2`, and this source capture did not establish constructor behavior or fixture coverage for that case; see [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md);
 - active data segments with non-constant offsets still sit behind a TODO/assertion path;
 - the checked variant has a source-commented overflow-imprecision caveat.
 

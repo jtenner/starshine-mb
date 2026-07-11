@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-11
 sources:
+  - raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
   - raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
@@ -62,14 +63,15 @@ Custom Page Sizes adds a proposal-facing idea: a memory may choose a different p
 | External-type matching | [`Match for MemType`](../../src/validate/match.mbt) | Compares limits and sharedness only; cannot enforce page-size equality. |
 | WAST declarations | [`parse_limits(...)`](../../src/wast/parser.mbt), [`wt_limits(...)`](../../src/wast/lower_to_lib.mbt) | Parses natural min/max limits and lowers through `Limits::i32`; no `(pagesize ...)` or equivalent text form. |
 | Valid generator / fuzzing | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) | Uses current `MemType`/`Limits` vocabulary; no `GenValidProposalFeature` for custom page sizes is documented. |
-| Passes | Memory pass helpers and Binaryen dossiers | Some Binaryen source contracts mention matching page size, but local passes cannot inspect or preserve a page-size field that does not exist. |
+| Passes | Memory pass helpers and Binaryen dossiers | Some Binaryen source contracts mention matching page size, but local passes cannot inspect or preserve a page-size field that does not exist. In particular, current Binaryen `multi-memory-lowering` compares input `pageSizeLog2` and uses it for layout/helpers, while its reviewed combined-memory construction does not visibly assign the output field; do not treat equal input size as output-preservation proof. |
 
 ## How to phrase claims
 
 Use precise layer wording:
 
 - “Custom Page Sizes is an active proposal; Starshine does not currently model page size in `MemType`.”
-- “This Binaryen pass requires same page size upstream, but current Starshine memory types have no page-size field, so a faithful local port would need a representation decision first.”
+- “This Binaryen pass requires equal input page size upstream, but current Starshine memory types have no page-size field, so a faithful local port would need a representation decision first.”
+- “Binaryen `multi-memory-lowering` currently has an unresolved custom-page-size output-propagation question: its reviewed owner checks/uses input size but does not visibly assign the combined output's `pageSizeLog2`. Do not call that a supported positive transform without a fixture or constructor-level source proof.”
 - “A memory64 or shared-memory fixture is not custom-page-size evidence. Address width, sharedness, and page size are distinct.”
 - “Current Starshine memory page arithmetic assumes ordinary 64 KiB pages unless a future custom-page-size slice says otherwise.”
 
@@ -85,7 +87,8 @@ A credible Starshine custom-page-size slice would need to update and test all of
 4. **External matching:** make page size part of memory import/export compatibility once the representation exists.
 5. **WAST:** add parser/lowerer/printer syntax only after choosing the local text policy; until then, use core/binary fixtures for any proposal experiments.
 6. **Instructions and passes:** audit `memory.size`, `memory.grow`, active data layout, memory-packing, multi-memory-lowering, memory64-lowering, and any helper that converts pages to bytes with `<< 16`.
-7. **Fuzzing and docs:** add a feature gate, generator coverage row, invalid/repro strategy, focused wiki updates, and compare-pass caveats before treating it as ordinary generated coverage.
+7. **Pass contracts:** audit whether a pass preserves, rejects, or deliberately normalizes page size. For `multi-memory-lowering`, require a non-default equal-page-size fixture that proves combined-memory declaration propagation plus byte offsets and virtual `memory.size` / `memory.grow`; until then, keep that case rejected or explicitly unsupported.
+8. **Fuzzing and docs:** add a feature gate, generator coverage row, invalid/repro strategy, focused wiki updates, and compare-pass caveats before treating it as ordinary generated coverage.
 
 ## Related boundaries
 
@@ -93,10 +96,11 @@ A credible Starshine custom-page-size slice would need to update and test all of
 - Shared linear memory and atomics: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md)
 - Binary resource sections and memory flags: [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md)
 - WAST memory declarations: [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md)
-- Upstream Binaryen multi-memory page-size caveat: [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md)
+- Upstream Binaryen multi-memory page-size caveat: [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md), with current owner-source uncertainty in [`raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md)
 
 ## Sources
 
+- Current Binaryen bridge: [`raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md)
 - Current source bridge: [`raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md)
 - Active proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Core/resource implementation: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt)

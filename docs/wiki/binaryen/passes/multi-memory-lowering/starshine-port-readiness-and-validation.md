@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
   - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -136,6 +137,7 @@ Extend address repair to the remaining Binaryen-covered families:
 - atomics;
 - all bulk-memory forms and mixed source/destination memory indexes;
 - memory64-compatible typing only if the pass explicitly supports same-address-type memory64 input.
+- custom-page-size input only after `MemType` carries page size and tests prove the combined memory retains it. Do not infer this from Binaryen's equal-input check: the current upstream combined-memory construction does not visibly assign `pageSizeLog2`, so its output policy needs an upstream oracle before Starshine copies it.
 
 ### Slice 6: checked sibling
 
@@ -162,9 +164,10 @@ Use this sequence for a future implementation:
 9. Last-memory `memory.grow` helper returns the old virtual size or `-1`.
 10. Non-last `memory.grow` moves later bytes and updates later offset globals.
 11. Unsupported imported/exported/mismatched-memory-property shapes fail deliberately.
-12. Checked sibling traps when an access exceeds the virtual memory range.
-13. MultiMemory feature/custom-section cleanup is asserted.
-14. Binaryen oracle comparison runs against `wasm-opt --multi-memory-lowering` and then `--multi-memory-lowering-with-bounds-checks`.
+12. If custom page sizes become representable, a non-default equal-page-size case proves input validation, combined-memory declaration propagation, byte offsets, virtual `memory.size`, and virtual `memory.grow` together; otherwise reject that family deliberately. The upstream output policy is currently unresolved; see [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md).
+13. Checked sibling traps when an access exceeds the virtual memory range.
+14. MultiMemory feature/custom-section cleanup is asserted.
+15. Binaryen oracle comparison runs against `wasm-opt --multi-memory-lowering` and then `--multi-memory-lowering-with-bounds-checks`.
 
 ## Cross-links for follow-along reading
 
