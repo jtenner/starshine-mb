@@ -1,20 +1,91 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-06-16
+status: supported
+last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/remove_unused_module_elements_test.mbt
+  - ./starshine-port-readiness-and-validation.md
+related:
+  - ./index.md
+  - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
+  - ../../../tooling/pass-fuzz-compare.md
 ---
 
-# `remove-unused-non-function-elements` Fuzzing Profile
+# `remove-unused-nonfunction-module-elements` Fuzzing
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+## Current runnable contract
 
-```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-non-function-elements --out-dir .tmp/pass-fuzz-remove-unused-non-function-elements --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+This is an **active Starshine module pass** and an admitted Binaryen
+`compare-pass` target. Use the exact public spelling everywhere:
+
+```text
+remove-unused-nonfunction-module-elements
 ```
 
-Dedicated GenValid profile: none documented for this pass yet.
+The historical dashed dossier name, `remove-unused-non-function-elements`, is
+**not** a harness or CLI alias. `SUPPORTED_PASS_FLAGS` admits only
+`--remove-unused-nonfunction-module-elements`, matching the active registry and
+module dispatcher. A command using the historical spelling fails before it can
+produce parity evidence.
 
-If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+## Standard direct-pass lane
+
+Build a fresh native CLI first, then run the default GenValid lane. The command
+uses the project wrapper so its current harness defaults stay centralized.
+
+```text
+moon build --target native --release src/cmd
+bun fuzz compare-pass --pass remove-unused-nonfunction-module-elements \
+  --count 10000 --seed 0x5eed \
+  --out-dir .tmp/pass-fuzz-remove-unused-nonfunction-module-elements \
+  --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+```
+
+The default generator is GenValid. No dedicated profile is currently documented;
+use ordinary GenValid unless a focused reproduction requires a named profile.
+The 2026-05-06 direct evidence cited by
+[`starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+used this same canonical pass spelling.
+
+## What this lane must prove
+
+The shared RUME engine makes raw text differences insufficient. Inspect
+mismatches against these contract boundaries:
+
+- defined function bodies remain rooted;
+- unused imported functions may disappear;
+- dead non-function declarations still prune;
+- active segments and startup traps retain observable parents; and
+- index/type/start-section rewrites remain valid after pruning.
+
+The focused local regressions are in
+[`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt);
+the implementation route is
+[`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
+through the registry and dispatcher named above. See
+[`module-shapes.md`](./module-shapes.md) for concrete before/after modules.
+
+## Signoff and failure classification
+
+For ordinary parity signoff, follow the repository requirement of 10,000 cases
+with the freshly built `_build/native/.../cmd.exe` and parallel workers. Validate
+both optimizer outputs and classify a remaining mismatch from inspected evidence:
+Starshine win, parity gap, size-losing, unknown/risky, validation failure,
+tool/Binaryen failure, or semantic mismatch. Do not call a mismatch safe merely
+because both modules validate.
+
+An external `--wasm-smith` lane is separate and opt-in. It can exercise unusual
+module shapes, but it does not replace the GenValid signoff lane. Record its
+command failures separately from comparable optimizer results.
+
+## Maintenance boundary
+
+No new upstream raw capture was needed for this correction: the stale command was
+an invocation-interface error, settled by the current local registry, dispatcher,
+harness allowlist, and focused pass tests. The existing Binaryen raw manifests in
+this dossier remain the primary-source evidence for the transform itself.

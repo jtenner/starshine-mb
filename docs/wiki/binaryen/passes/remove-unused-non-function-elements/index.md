@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../agent-todo.md
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
@@ -26,6 +27,7 @@ related:
   - ./module-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../../../binary/data-element-and-datacount-sections.md
   - ../remove-unused-module-elements/index.md
 ---
@@ -101,6 +103,8 @@ So this pass is best taught as:
   Current Starshine status, implementation map, and validation evidence, including exact registry / dispatcher / reusable full-RUME code locations.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation and validation bridge: policy-first sequencing, required differential tests, Binaryen oracle spelling, and signoff ladder.
+- [`./fuzzing.md`](./fuzzing.md)
+  Runnable compare-pass guide: canonical upstream-compatible pass spelling, fresh-native build prerequisite, ordinary GenValid signoff command, mismatch classification, and the separate external-generator boundary.
 
 ## Current maintenance rule
 
@@ -113,6 +117,7 @@ So this pass is best taught as:
 - Keep the local-vs-upstream naming split explicit too:
   - historical local dossier label: `remove-unused-non-function-elements`
   - active Starshine and upstream Binaryen public pass: `remove-unused-nonfunction-module-elements`
+  - the fuzz harness accepts only the active public spelling; the historical label is not a command alias.
 
 ## Sources
 
@@ -125,6 +130,8 @@ So this pass is best taught as:
 - [`../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md`](../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md`](../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+- [`./fuzzing.md`](./fuzzing.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
