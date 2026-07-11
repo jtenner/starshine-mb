@@ -40,12 +40,16 @@ The strategy is intentionally tiny:
 
 `src/passes/pass.cpp` registers `discard-global-effects` as a public pass next to `generate-global-effects`, making the cleanup lifecycle explicit rather than hidden. The same pass-runner layer also clears stored global-effect summaries before a pass that reports it can add effects, using the `addsEffects()` capability surfaced from `src/passes/pass.h`.
 
-## Current-main line anchors
+## Current-main semantic anchors
 
-- `GlobalEffects.cpp#L1520-L1530` - summary reset helper that clears or refreshes per-function stored effects
-- `GlobalEffects.cpp#L1555-L1562` - `DiscardGlobalEffects::run` loops over module functions and clears each `effects` field
-- `pass.cpp#L2475-L2479` - public `discard-global-effects` registration
-- `pass.cpp#L3692-L3698` - lifecycle placement note that keeps the function-pass relation explicit
+Current `main` is deliberately routed through stable owner symbols rather than brittle line numbers:
+
+- `GlobalEffects.cpp`, `DiscardGlobalEffects::run(Module*)` - loops over module functions and clears each `Function::effects` field.
+- `pass.cpp`, public-pass registration - retains the `discard-global-effects` spelling.
+- `pass.cpp`, `PassRunner::handleAfterEffects(...)` - owns the automatic `addsEffects()` invalidation path.
+- `pass.cpp`, default-pipeline TODO - preserves the boundary that global-effect producer/cleanup work is not silently a standard default-pipeline phase.
+
+The direct source URLs and the scope of this recheck are recorded in [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md).
 
 ## Why the pass exists
 
