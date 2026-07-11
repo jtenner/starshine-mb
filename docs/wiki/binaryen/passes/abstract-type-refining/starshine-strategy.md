@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -26,6 +27,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./traps-never-happen-exact-casts-and-descriptors.md
   - ./wat-shapes.md
+  - ./fuzzing.md
   - ../global-struct-inference/index.md
   - ../remove-unused-types/index.md
   - ../type-refining/index.md
@@ -34,7 +36,7 @@ related:
 
 # Starshine Strategy For `abstract-type-refining`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md).
+Use this page together with the reviewed `version_130` source/admission refresh in [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md) and the historical raw manifest in [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
@@ -49,6 +51,7 @@ The current Starshine strategy is deliberately limited:
 - keep the upstream closed-world GC/type-cluster contract visible in the wiki
 - keep its absence from the canonical open-world no-DWARF path explicit
 - keep the missing dedicated backlog slice explicit
+- keep the absent `SUPPORTED_PASS_FLAGS` admission explicit: the historical compare-pass command was not runnable evidence; see [`./fuzzing.md`](./fuzzing.md)
 - document why a future port is type-section/module-owned work, not a HOT peephole
 
 So this is a **status-and-port-planning** page, not an implementation page.

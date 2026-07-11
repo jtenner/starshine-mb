@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
@@ -17,7 +18,7 @@ related:
 # `abstract-type-refining`: implementation structure and tests
 
 This page exists because `AbstractTypeRefining.cpp` is not a self-contained algorithm.
-If you read only that one file, you will miss where several of the real rules come from.
+If you read only that one file, you will miss where several of the real rules come from. The reviewed `version_130` source and fixture floor is captured in [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md); its current-`main` caveat replaces the older unqualified no-drift wording.
 
 ## File map
 
@@ -232,24 +233,11 @@ Several lit RUN lines pair:
 
 So visible type-section shrinkage can be a combined effect.
 
-## Freshness note
+## Freshness and evidence note
 
-The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md) records the official release/source/test URLs used for this dossier.
+The 2026-07-11 raw capture refreshes this page's tagged source floor to `version_130`: its reviewed owner and fixture routes preserve the documented GC/closed-world gate, struct-creation scan, TNH split, descriptor/exact-cast repairs, and late explicit-pass role. See [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md).
 
-I did a narrow current-`main` check on:
-
-- `src/passes/AbstractTypeRefining.cpp`
-- `src/passes/pass.cpp`
-- the dedicated lit roster listed above
-
-Durable result:
-
-- the checked core pass logic still matches `version_129` on the important reviewed surfaces
-- the dedicated lit files still match exactly on the reviewed surfaces
-- the reviewed `pass.cpp` surface did not change the registration or scheduler slot for `abstract-type-refining`
-- the local Starshine follow-up still found no pass owner file; the exact current local status lives in [`./starshine-strategy.md`](./starshine-strategy.md)
-
-That is a narrow freshness note, not a proof that every neighboring helper file is identical.
+The same web review returned an internally inconsistent current-`main` API snapshot: the owner route and helper signature could not both compile as fetched. Therefore this page makes **no** `version_130`-to-main equality claim. Before porting, replay the owner, `module-utils`, `type-updating`, registration, and full fixture roster from one pinned checkout. Starshine's local status remains independently verifiable: it has no owner and rejects the boundary-only name; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Porting checklist
 
@@ -279,6 +267,7 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
 - [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)

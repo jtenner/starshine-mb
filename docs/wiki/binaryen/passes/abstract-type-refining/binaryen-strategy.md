@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
@@ -19,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the immutable 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md).
+Use Binaryen `version_130` as the newest reviewed tagged source oracle for this pass, anchored by [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The 2026-07-11 web retrieval found an internally inconsistent current-`main` API snapshot, so it does **not** establish a main no-drift claim; pin one checkout before using main-specific behavior for implementation or signoff.
 
 Primary files:
 
@@ -402,6 +403,7 @@ The public one-line summary in `pass.cpp` hides that entire story.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
 - [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)

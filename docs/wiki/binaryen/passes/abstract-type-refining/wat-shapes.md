@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
@@ -17,7 +18,7 @@ related:
 # `abstract-type-refining` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `abstract-type-refining`.
-For provenance and local status, pair it with the raw manifest [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md) and the Starshine page [`./starshine-strategy.md`](./starshine-strategy.md).
+For provenance and local status, pair it with the reviewed `version_130`/admission refresh [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md), the historical raw manifest [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md), and the Starshine page [`./starshine-strategy.md`](./starshine-strategy.md).
 
 The easiest way to read these examples is to remember the pass has two different powers:
 
