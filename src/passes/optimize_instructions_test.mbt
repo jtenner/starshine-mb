@@ -11747,6 +11747,71 @@ test "optimize-instructions folds first+second+fifth trees in six-operand mixed 
 }
 
 ///|
+test "optimize-instructions folds first+second+sixth trees in six-operand mixed i32-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 independently checks
+  // exact i32.add(local, const), i64.add(local, const), and
+  // i64.add(local, const) trees in the first, second, and sixth operands after
+  // direct third through fifth leaves on annotated
+  // (i32, i64, i32, i64, i32, i64) -> i32 calls in the canonical i32 SCCP
+  // self-select. A mismatch in any logical slot retains both calls. Source:
+  // `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-second-next-three-tree-foldability.wat`
+  // (`first_second_sixth_equal` and its six mismatch functions).
+  let optimize_caller = fn(
+    right_first_tree_const : Int,
+    right_second_tree_const : Int64,
+    right_third_const : Int,
+    right_fourth_const : Int64,
+    right_fifth_const : Int,
+    right_sixth_tree_const : Int64,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
+      right_first_tree_const.to_string() +
+      " i32.add local.get 1 i64.const " +
+      right_second_tree_const.to_string() +
+      " i64.add i32.const " +
+      right_third_const.to_string() +
+      " i64.const " +
+      right_fourth_const.to_string() +
+      " i32.const " +
+      right_fifth_const.to_string() +
+      " local.get 1 i64.const " +
+      right_sixth_tree_const.to_string() +
+      " i64.add call $id select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected first+second+sixth-tree six-operand mixed i32-result call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(3, 5L, 7, 11L, 13, 17L)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(4, 5L, 7, 11L, 13, 17L),
+      optimize_caller(3, 6L, 7, 11L, 13, 17L),
+      optimize_caller(3, 5L, 8, 11L, 13, 17L),
+      optimize_caller(3, 5L, 7, 12L, 13, 17L),
+      optimize_caller(3, 5L, 7, 11L, 14, 17L),
+      optimize_caller(3, 5L, 7, 11L, 13, 18L),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
+
+///|
 test "optimize-instructions folds first+second trees in six-operand mixed i32-result calls" {
   // Red-first OI-F parity slice: Binaryen version_130 independently checks
   // exact i32.add(local, const) and i64.add(local, const) trees in the first
