@@ -1,8 +1,9 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
   - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
@@ -44,7 +45,7 @@ This page maps what exists today, what is missing, and how a faithful future por
 
 ## Current public-pass status
 
-As of 2026-05-06:
+As of 2026-07-10:
 
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) does not include `signext-lowering` in active, module, boundary-only, removed, or preset registry lists.
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) has no module or HOT dispatcher case for `signext-lowering`.
@@ -57,24 +58,23 @@ These files are prerequisites a future pass can reuse:
 
 | Surface | Current code location | Why it matters |
 | --- | --- | --- |
-| WAT opcode enum | [`src/wast/types.mbt:454-458`](../../../../../src/wast/types.mbt) | Declares `I32Extend8S`, `I32Extend16S`, `I64Extend8S`, `I64Extend16S`, and `I64Extend32S`. |
-| WAT keywords | [`src/wast/keywords.mbt:328-332`](../../../../../src/wast/keywords.mbt) | Maps textual mnemonics such as `i32.extend8_s` to opcode enum cases. |
-| Parser coverage | [`src/wast/parser.mbt:4987-4994`](../../../../../src/wast/parser.mbt) | Has a focused `parse sign extension` test for all five opcodes. |
-| WAT-to-lib lowering | [`src/wast/lower_to_lib.mbt:1284-1288`](../../../../../src/wast/lower_to_lib.mbt) | Converts WAT opcode cases to `@lib.Instruction` constructors. |
-| Library IR | [`src/lib/types.mbt:715-719`](../../../../../src/lib/types.mbt), [`src/lib/types.mbt:3940-3961`](../../../../../src/lib/types.mbt), [`src/lib/types.mbt:5882-5903`](../../../../../src/lib/types.mbt) | Provides instruction cases, unary-op cases, and constructor helpers like `Instruction::i32_extend8s()`. |
-| Binary encoding | [`src/binary/encode.mbt:2561-2565`](../../../../../src/binary/encode.mbt) | Emits sign-extension opcode bytes `0xC0` through `0xC4`. |
-| Binary decoding | [`src/binary/decode.mbt:2901-2905`](../../../../../src/binary/decode.mbt) | Binary decoder maps bytes `0xC0` through `0xC4` back to the five sign-extension constructors. |
-| Pretty printer | [`src/lib/show.mbt:1317-1321`](../../../../../src/lib/show.mbt) | Pretty-printer emits underscoreless spellings like `i32.extend8s`. |
-| Type checking | [`src/validate/typecheck.mbt:3464-3468`](../../../../../src/validate/typecheck.mbt), [`src/validate/typecheck.mbt:5482-5521`](../../../../../src/validate/typecheck.mbt) | Treats and tests sign-extension as unary same-type operations: `i32 -> i32` and `i64 -> i64`. |
-| HOT lifting | [`src/ir/hot_lift.mbt:847-851`](../../../../../src/ir/hot_lift.mbt) | Classifies all five sign-extension instructions as unary HOT ops. |
+| WAT opcode enum | [`src/wast/types.mbt:471-475`](../../../../../src/wast/types.mbt) | Declares `I32Extend8S`, `I32Extend16S`, `I64Extend8S`, `I64Extend16S`, and `I64Extend32S`. |
+| WAT keywords | [`src/wast/keywords.mbt:345-349`](../../../../../src/wast/keywords.mbt) | Maps textual mnemonics such as `i32.extend8_s` to opcode enum cases. |
+| Parser classification | [`src/wast/parser.mbt:2149-2153`](../../../../../src/wast/parser.mbt) | Treats all five as unary operations. |
+| WAT-to-lib lowering | [`src/wast/lower_to_lib.mbt:1306-1310`](../../../../../src/wast/lower_to_lib.mbt) | Converts WAT opcode cases to `@lib.Instruction` constructors. |
+| Library IR | [`src/lib/types.mbt:771-775`](../../../../../src/lib/types.mbt) | Provides the five instruction cases. |
+| Binary codec | [`src/binary/encode.mbt:2563-2567`](../../../../../src/binary/encode.mbt), [`src/binary/decode.mbt:3019-3023`](../../../../../src/binary/decode.mbt) | Encodes and decodes bytes `0xC0` through `0xC4`. |
+| Pretty printer | [`src/lib/show.mbt:1337-1341`](../../../../../src/lib/show.mbt) | Pretty-printer emits underscoreless spellings like `i32.extend8s`. |
+| Type checking | [`src/validate/typecheck.mbt:4033-4037`](../../../../../src/validate/typecheck.mbt) | Treats sign extension as unary same-type operations: `i32 -> i32` and `i64 -> i64`. |
+| HOT lifting | [`src/ir/hot_lift.mbt:900-904`](../../../../../src/ir/hot_lift.mbt) | Classifies all five sign-extension instructions as unary HOT ops. |
 | Neighboring pass logic | [`src/passes/pick_load_signs.mbt:437-441`](../../../../../src/passes/pick_load_signs.mbt) | Recognizes sign-extension consumers when deciding whether narrow loads should become signed loads. |
 
 These surfaces are necessary but not sufficient. None of them rewrites sign-extension opcodes into shifts or clears a target-feature requirement.
 
 ## Local caveats found during source mapping
 
-- [`src/lib/show.mbt:1317-1321`](../../../../../src/lib/show.mbt) currently prints sign-extension mnemonics without underscores, such as `i32.extend8s`. Binaryen and WAT syntax use `i32.extend8_s`. Treat this as WAT-output hygiene to verify before writing any roundtrip-oriented `signext-lowering` tests; binary decode already roundtrips the direct opcodes, so the printer is the only current mismatch.
-- The repository search did not find a Binaryen-like `FeatureSet::SignExt` model. Starshine preserves opaque custom sections in the binary layer, so a faithful port must decide whether feature removal means deleting or rewriting a `target_features` custom section, adding a feature model, or documenting instruction-only lowering as an intentional divergence.
+- [`src/lib/show.mbt:1337-1341`](../../../../../src/lib/show.mbt) currently prints sign-extension mnemonics without underscores, such as `i32.extend8s`. Binaryen and WAT syntax use `i32.extend8_s`. Treat this as WAT-output hygiene to verify before writing any roundtrip-oriented `signext-lowering` tests; binary decode already roundtrips the direct opcodes, so the printer is the only current mismatch.
+- A current repository search found no Binaryen-like `FeatureSet::SignExt` or structured `target_features` model. Starshine preserves opaque custom sections in the binary layer, so a faithful port must decide both how to admit the enabled path and whether feature removal means deleting or rewriting a custom section, adding a feature model, or documenting instruction-only lowering as an intentional divergence. The upstream gate is documented in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
 
 ## Future implementation shape
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
   - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
@@ -24,7 +25,7 @@ related:
 
 # `signext-lowering` WAT shapes
 
-This page lists the concrete shapes transformed by Binaryen `signext-lowering` and the nearby shapes it deliberately does not own.
+This page lists the concrete shapes transformed by Binaryen `signext-lowering` on its **enabled `SignExt` feature path** and the nearby shapes it deliberately does not own. If Binaryen's module feature set does not include `SignExt`, the pass returns without rewriting; see [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
 
 ## Shape family 1: `i32.extend8_s`
 
@@ -177,7 +178,7 @@ After, before any later cleanup:
 
 ## Feature-state side effect
 
-Binaryen's owner source disables `FeatureSet::SignExt` after rewriting the direct opcodes. In practical terms, the module should no longer claim that sign-extension opcodes are required after all those opcodes are lowered.
+Binaryen first requires `FeatureSet::SignExt`; without it, the pass does not rewrite. On the enabled path, the owner disables `FeatureSet::SignExt` after lowering the direct opcodes. In practical terms, the module should no longer claim that sign-extension opcodes are required after all those opcodes are lowered.
 
 Evidence boundary: the dedicated Binaryen lit test directly checks the instruction output shapes above, but this run did not find an explicit target-feature custom-section assertion in that fixture. Treat feature clearing as source-proven by the implementation, not as independently asserted by the WAT-shape fixture.
 

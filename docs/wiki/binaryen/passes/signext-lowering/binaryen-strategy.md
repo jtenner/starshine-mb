@@ -1,8 +1,9 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
   - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
@@ -23,22 +24,22 @@ related:
 
 # Binaryen strategy for `signext-lowering`
 
-Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifests are [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md), [`../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md), and the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md).
+Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The source history is retained in the older manifests, while the current contract—including the entry `hasSignExt()` gate—is in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
 
 ## Primary-source line map
 
-| Source | Current main line anchors | What they show |
+| Source | Current main source | What it shows |
 | --- | --- | --- |
-| `src/passes/SignExtLowering.cpp` | [`main#L437-L540`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignExtLowering.cpp#L437-L540) | The function-parallel postwalk, five opcode cases, child reuse, root replacement, and `FeatureSet::SignExt` clearing. |
-| `src/passes/pass.cpp` | [`main#L3110-L3116`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp#L3110-L3116) | Public `signext-lowering` registration and help text. |
-| `test/lit/passes/signext-lowering.wast` | [`main#L374-L493`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/signext-lowering.wast#L374-L493) | The five-opcode output proof surface. |
+| `src/passes/SignExtLowering.cpp` | [`main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignExtLowering.cpp) | The `hasSignExt()` entry gate, function-parallel postwalk, five opcode cases, child reuse, root replacement, and `FeatureSet::SignExt` clearing. |
+| `src/passes/pass.cpp` | [`main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp) | Public `signext-lowering` registration and help text. |
+| `test/lit/passes/signext-lowering.wast` | [`main`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/signext-lowering.wast) | The enabled five-opcode output proof surface. |
 
 ## Execution shape
 
 Binaryen's pass shape is:
 
-- function-parallel pass;
-- postwalk over unary expressions;
+- return without rewriting when `getModule()->features.hasSignExt()` is false;
+- otherwise run a function-parallel postwalk over unary expressions;
 - replace matching unary roots in place;
 - disable the module's sign-extension feature flag after all functions are processed.
 
@@ -107,7 +108,7 @@ Those belong to neighboring Binaryen passes such as `optimize-instructions` and 
 
 ## Current-main freshness
 
-A focused 2026-05-05 recheck of Binaryen `main` found no teaching-relevant drift from `version_129` or from the 2026-04-25 / 2026-04-26 dossier: the owner file still uses the same five-opcode, shift-pair, feature-disable strategy, and the dedicated lit proof still checks the same output instruction families. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
+The 2026-07-10 current-main refresh found the same five-opcode shift-pair and feature-disable strategy, and made the entry feature gate explicit: `SignExt` absent means no transform walk. This is source-level evidence, not a claim about generated binary bytes or a particular `target_features` custom-section layout.
 
 ## Non-goals
 

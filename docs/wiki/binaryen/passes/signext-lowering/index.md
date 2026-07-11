@@ -1,8 +1,9 @@
 ---
 kind: pass
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
   - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
@@ -40,7 +41,7 @@ The pass takes the five sign-extension opcodes:
 - `i64.extend16_s`
 - `i64.extend32_s`
 
-and rewrites them to older same-width shift pairs. After that rewrite, Binaryen clears its `SignExt` feature bit for the module. The goal is not to make code smaller or faster. The goal is to make a module that uses sign-extension opcodes representable on targets that do not support the sign-extension feature directly. See the raw source capture in [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md), the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md), and the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md). The same opcode family also roundtrips through the local binary decoder and pretty-printer, though the printer still uses underscoreless spellings today.
+and, **only when the module's Binaryen feature set includes `SignExt`**, rewrites them to older same-width shift pairs. It then clears `SignExt`. The goal is feature compatibility, not immediate size or speed. The 2026-07-10 current-main refresh records this gate, the five rewrite shapes, and the feature-clear side effect in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md); it supersedes the older current-main summaries where they implied unconditional rewriting. The same opcode family roundtrips through Starshine's local binary decoder and pretty-printer, though the printer still uses underscoreless spellings today.
 
 ## Current Starshine status
 
@@ -59,14 +60,15 @@ A faithful `signext-lowering` implementation must preserve these invariants:
 1. **Value semantics:** every input value must produce the same sign-extended result as the original opcode.
 2. **Operand effects:** the child expression must still execute exactly once and in the same relative place.
 3. **Type preservation:** i32 opcodes remain `i32 -> i32`; i64 opcodes remain `i64 -> i64`.
-4. **No neighboring rewrites:** the pass should not absorb `optimize-instructions` sign-extension cleanup or `pick-load-signs` load-sign selection.
-5. **Feature lowering:** Binaryen also disables `FeatureSet::SignExt`; a Starshine port needs an explicit decision about target-feature metadata because local feature modeling is not currently Binaryen-identical.
+4. **Feature gate:** a source-faithful port must define how its `SignExt`-equivalent admission check works; Binaryen does not walk the module when its feature is absent.
+5. **No neighboring rewrites:** the pass should not absorb `optimize-instructions` sign-extension cleanup or `pick-load-signs` load-sign selection.
+6. **Feature lowering:** after an enabled rewrite Binaryen disables `FeatureSet::SignExt`; a Starshine port needs an explicit feature-model or metadata policy because local feature modeling is not Binaryen-identical.
 
 ## Inputs and outputs
 
-Input: a module whose function bodies may contain sign-extension unary instructions.
+Input: a Binaryen module whose feature set declares `SignExt` and whose function bodies may contain sign-extension unary instructions. If `SignExt` is absent, Binaryen returns without rewriting.
 
-Output: a module with those instructions replaced by shift pairs:
+Output after the enabled path: a module with those instructions replaced by shift pairs:
 
 ```wat
 (i32.extend8_s X)

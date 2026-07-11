@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-10
 sources:
+  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
   - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
@@ -42,8 +43,8 @@ This page is the implementation bridge for a future Starshine `signext-lowering`
 
 Starshine currently supports sign-extension instructions but does **not** expose Binaryen's `signext-lowering` pass.
 
-- [`src/passes/optimize.mbt:125-153`](../../../../../src/passes/optimize.mbt) lists boundary-only and removed passes; `signext-lowering` is absent.
-- [`src/passes/pass_manager.mbt:8685-8720`](../../../../../src/passes/pass_manager.mbt) dispatches active HOT passes; there is no `signext-lowering` case.
+- [`src/passes/optimize.mbt:126-153`](../../../../../src/passes/optimize.mbt) lists boundary-only and removed passes; `signext-lowering` is absent.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) contains no `signext-lowering` dispatcher case.
 - There is no `src/passes/signext_lowering.mbt` owner file and no dedicated `signext-lowering` test file in `src/passes/`.
 - A request for `--pass signext-lowering` should therefore still be treated as an unknown pass until a real transform lands.
 
@@ -51,26 +52,27 @@ The important positive news is that the opcode substrate already exists:
 
 | Surface | Current code location | Port use |
 | --- | --- | --- |
-| WAT opcode enum | [`src/wast/types.mbt:454-458`](../../../../../src/wast/types.mbt) | The five direct opcodes are representable. |
-| Text keywords | [`src/wast/keywords.mbt:328-332`](../../../../../src/wast/keywords.mbt) | WAT input uses the canonical underscore spellings. |
-| Parser coverage | [`src/wast/parser.mbt:4987-4994`](../../../../../src/wast/parser.mbt) | Existing parser tests cover the direct opcodes. |
-| WAT-to-lib lowering | [`src/wast/lower_to_lib.mbt:1284-1288`](../../../../../src/wast/lower_to_lib.mbt) | Parsed opcodes enter lib IR. |
-| Lib instruction constructors | [`src/lib/types.mbt:3940-3961`](../../../../../src/lib/types.mbt) and [`src/lib/types.mbt:5882-5903`](../../../../../src/lib/types.mbt) | A pass can build or match the opcode families. |
-| Binary encode/decode | [`src/binary/encode.mbt:2561-2565`](../../../../../src/binary/encode.mbt), [`src/binary/decode.mbt:2902-2906`](../../../../../src/binary/decode.mbt) | Direct opcodes roundtrip today. |
-| Validation | [`src/validate/typecheck.mbt:3464-3468`](../../../../../src/validate/typecheck.mbt), [`src/validate/typecheck.mbt:5482-5521`](../../../../../src/validate/typecheck.mbt) | Before and after forms can be checked as same-width integer operations. |
-| HOT lifting | [`src/ir/hot_lift.mbt:847-851`](../../../../../src/ir/hot_lift.mbt) | A HOT rewrite is feasible for instruction lowering. |
+| WAT opcode enum | [`src/wast/types.mbt:471-475`](../../../../../src/wast/types.mbt) | The five direct opcodes are representable. |
+| Text keywords | [`src/wast/keywords.mbt:345-349`](../../../../../src/wast/keywords.mbt) | WAT input uses canonical underscore spellings. |
+| Parser classification | [`src/wast/parser.mbt:2149-2153`](../../../../../src/wast/parser.mbt) | Parsed direct opcodes are unary operations. |
+| WAT-to-lib lowering | [`src/wast/lower_to_lib.mbt:1306-1310`](../../../../../src/wast/lower_to_lib.mbt) | Parsed opcodes enter lib IR. |
+| Lib instruction cases | [`src/lib/types.mbt:771-775`](../../../../../src/lib/types.mbt) | A pass can build or match the opcode families. |
+| Binary encode/decode | [`src/binary/encode.mbt:2563-2567`](../../../../../src/binary/encode.mbt), [`src/binary/decode.mbt:3019-3023`](../../../../../src/binary/decode.mbt) | Direct opcodes roundtrip today. |
+| Validation | [`src/validate/typecheck.mbt:4033-4037`](../../../../../src/validate/typecheck.mbt) | Before and after forms are same-width integer operations. |
+| HOT lifting | [`src/ir/hot_lift.mbt:900-904`](../../../../../src/ir/hot_lift.mbt) | A HOT rewrite is feasible for instruction lowering. |
 | Neighboring analysis | [`src/passes/pick_load_signs.mbt:437-441`](../../../../../src/passes/pick_load_signs.mbt) | Confirms sign-extension consumers already matter to other passes, but do not belong to this pass. |
 
 ## Recommended first slice
 
-Implement the first Starshine slice as an instruction-lowering pass with explicit feature-metadata caveat:
+Implement the first Starshine slice as an instruction-lowering pass with an explicit feature-admission decision:
 
-1. Match only `I32Extend8S`, `I32Extend16S`, `I64Extend8S`, `I64Extend16S`, and `I64Extend32S`.
-2. Replace each with the exact Binaryen shift pair from [`wat-shapes.md`](wat-shapes.md).
-3. Move the original child expression under the new left shift exactly once.
-4. Use signed right shift (`shr_s`), never logical right shift.
-5. Validate the rewritten function/module.
-6. Keep target-feature metadata unchanged in the first slice unless a real Starshine feature model is added.
+1. Define the enabled-path admission rule. Binaryen returns without rewriting when `FeatureSet::SignExt` is absent; Starshine cannot claim full parity while silently applying a different policy.
+2. Match only `I32Extend8S`, `I32Extend16S`, `I64Extend8S`, `I64Extend16S`, and `I64Extend32S` on that enabled path.
+3. Replace each with the exact Binaryen shift pair from [`wat-shapes.md`](wat-shapes.md).
+4. Move the original child expression under the new left shift exactly once.
+5. Use signed right shift (`shr_s`), never logical right shift.
+6. Validate the rewritten function/module.
+7. Keep target-feature metadata unchanged only if the first slice explicitly documents that instruction-only policy; otherwise add a real local feature model and cleanup.
 
 That first slice is useful because it removes direct sign-extension opcodes from executable code, which is the highest-risk behavior. It should not be described as full Binaryen parity until the feature side effect is either implemented or intentionally documented as unsupported.
 
