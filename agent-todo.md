@@ -25,6 +25,7 @@ The prior arity/placement-matrix strategy is superseded. Do not add another exac
   - Deliverables: count full-body traversals and arity/placement-specific helpers; identify which facts can share opcode anchors, typed stack provenance, call-site facts, module signature/annotation facts, structural equality, and effect summaries; add a representative large-function/pass-local benchmark.
   - Invariants: classify behavior separately from implementation structure; preserve every passing OI boundary test; hashes or fingerprints may reject unequal candidates but may never prove equality alone.
   - Exit criteria: committed baseline measurements, a deletion inventory for the legacy matcher families, and a documented first migration boundary.
+  - Status: baseline captured in `docs/wiki/raw/research/1559-2026-07-11-optimize-instructions-index-baseline.md`: 41 raw `from_instrs` definitions, 27 direct body calls, and a 46,567-line idempotent admission block with 362 admission variants, 22 signature facts, 10 explicit six/seven-operand helpers, and approximately 494 matcher arms. A deterministic 1,200-repetition long-perf fixture now guards the migration. Both default and native baseline package builds exceeded 600 seconds before test execution, so runtime/pass-local timing remains required after matrix deletion.
 
 - [OI-INDEX]002 - Build a revision-keyed per-function OI fact index
   - Goal: compute reusable lookup information once per function revision instead of rescanning the body independently for each transform family.

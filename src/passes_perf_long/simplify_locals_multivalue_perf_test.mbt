@@ -36,6 +36,26 @@ fn perf_long_make_optimize_instructions_nested_block_module(
 }
 
 ///|
+fn perf_long_make_optimize_instructions_large_flat_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (export \"main\") (param i32) (result i32)\n")
+  let mut i = 0
+  while i < repetitions {
+    out.write_string("    local.get 0\n")
+    out.write_string("    i32.const ")
+    out.write_string((i % 17 + 1).to_string())
+    out.write_string("\n    i32.add\n    drop\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
   repetitions : Int,
 ) -> String {
@@ -266,6 +286,22 @@ test "optimize-instructions long perf lane scans nested blocks without exponenti
   assert_true(
     elapsed_us < 2000000UL,
     msg="expected optimize-instructions nested-block scan to stay under 2s, got \{elapsed_us}us",
+  )
+}
+
+///|
+test "optimize-instructions long perf lane records the large flat scanner baseline" {
+  let input = perf_long_make_optimize_instructions_large_flat_module(1200)
+  let start_us = @lib.trace_now_us()
+  match @passes.pass_test_run_pipeline(input, ["optimize-instructions"]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large flat optimize-instructions success, got \{err}")
+  }
+  let elapsed_us = @lib.trace_elapsed_us_since(start_us)
+  assert_true(
+    elapsed_us < 5000000UL,
+    msg="expected optimize-instructions large flat baseline to stay under 5s, got \{elapsed_us}us",
   )
 }
 
