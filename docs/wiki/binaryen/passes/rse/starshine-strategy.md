@@ -5,6 +5,7 @@ last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
+  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
@@ -38,7 +39,7 @@ related:
 
 # Starshine Strategy For `rse`
 
-Use this page with the current-main bridge in [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md) and the corrected primary-source capture in [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md).
+Use this page with the 2026-07-11 current-main bridge in [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md), which supersedes the older freshness claim without changing the upstream contract, and the corrected primary-source capture in [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md).
 The most important teaching point remains the same: the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
 
 ## Honest current status
@@ -84,18 +85,16 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 
 ### Owner file
 
-- `src/passes/rse.mbt:2-8`
-  - Owns the active direct-pass descriptor.
-- `src/passes/rse.mbt:12-16`
-  - Owns the summary.
-- `src/passes/rse.mbt:692-700`
-  - Owns the raw lowered-function value tracker used to keep the debug-artifact lane fast.
-- `src/passes/optimize.mbt:253-256`
+- `src/passes/rse.mbt:2-16`
+  - Owns the active direct-pass descriptor and summary.
+- `src/passes/rse.mbt:2758-2800`
+  - Owns `rse_run_raw_func`, including i32/general raw fast-path selection and the conservative fallback rewrite.
+- `src/passes/optimize.mbt:261-264`
   - Registers the active hot-pass name.
-- `src/passes/pass_manager.mbt:7324-7334`
-  - Runs `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
-- `src/passes/rse_test.mbt:41-71`
-  - Owns the focused same-value set/tee tests.
+- `src/passes/pass_manager.mbt:73199-73203`
+  - Invokes `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
+- `src/passes/rse_test.mbt:46-1393`
+  - Owns the focused same-value, CFG, loop, and refined-local regression suite.
   - Should own future semantic/parity regressions, broader fixed-point CFG work if proven necessary, and additional refined local-get retargeting fixtures.
 
 ### 2026-05-10 RSE002 progress

@@ -5,6 +5,7 @@ last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
+  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
@@ -34,7 +35,7 @@ related:
 
 This page turns the corrected Binaryen source read into a future implementation checklist.
 It should be read after [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./cfg-and-value-tracking.md`](./cfg-and-value-tracking.md).
-The 2026-05-05 current-main recheck keeps the same teaching split and only refreshes the provenance.
+The 2026-07-11 current-main reread keeps the same teaching split and supersedes the 2026-05-05 freshness claim. It found no behavior-bearing drift across the reviewed owner, registration, all-features, and GC/refinement surfaces.
 
 ## Current readiness verdict
 
@@ -124,7 +125,7 @@ Only then should the pass enter public preset scheduling.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
 - [x] Direct Binaryen `--rse` compare-pass lane: final 2026-05-10 signoff lane `.tmp/pass-fuzz-rse-rse002-final-signoff` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-array-get-refinalize`, `.tmp/pass-fuzz-rse-rse002-struct-get-refinalize`, `.tmp/pass-fuzz-rse-rse002-branch-free-loops`, `.tmp/pass-fuzz-rse-rse002-hot-label-exits`, `.tmp/pass-fuzz-rse-rse002-hot-block-exits`, `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`, `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`, `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
-- [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
+- [x] 2026-07-11 current-main reread stayed aligned with the same CFG/value-flow and refined-get split; it supersedes the 2026-05-05 freshness claim.
 - [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
 - [x] Branch-join different-value negative beyond the focused local tests: a raw branch-join fixture keeps the final const set alive when then/else values differ.
 - [x] Raw block-exit disagreement negative keeps the final const set after `br_if` exits a block on one path and a later fallthrough path writes the same const.

@@ -7,6 +7,7 @@ sources:
   - ./binaryen-strategy.md
   - ./cfg-and-value-tracking.md
   - ./fuzzing.md
+  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
@@ -22,6 +23,12 @@ related:
 This matrix is the live audit ledger for Starshine `redundant-set-elimination` (`rse`) against Binaryen's current source/test surface. It should be read with [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./cfg-and-value-tracking.md`](./cfg-and-value-tracking.md), and [`./fuzzing.md`](./fuzzing.md).
 
 ## Fresh primary-source/probe snapshot
+
+2026-07-11 upstream source reread:
+
+- Rechecked official Binaryen `main` `RedundantSetElimination.cpp`, `pass.cpp`, `rse_all-features.wast` / expected output, and `rse-gc.wast`; see [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md).
+- The prior 2026-07-04 local source snapshot remains accurate: the pass is still CFG/value-flow-based same-value local shell removal plus strict-subtype equivalent-local get retargeting, with no behavior-bearing owner/test drift. The version-to-main source comparison only changes a comment spelling (`vaccum` → `vacuum`).
+- This was an upstream freshness check, not a replacement for the 2026-07-05 Starshine all-features replay, direct compare matrix, or pass-local timing evidence below.
 
 2026-07-05 loop/fixed-point closure:
 

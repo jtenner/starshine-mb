@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
@@ -78,22 +79,24 @@ Read `RedundantSetElimination.cpp` in this order:
 
 ## Current-main spot check
 
-The 2026-05-05 raw recheck stayed aligned with the same owner and test files.
-No teaching-relevant drift was found:
+The 2026-07-11 raw reread stays aligned with the same owner and test files; it supersedes the older 2026-05-05 freshness claim. No behavior-bearing drift was found:
 
 - the owner file remains `RedundantSetElimination.cpp`;
 - the pass still uses a `CFGWalker`-based flow/optimize split;
 - same-value local set/tee removal and refined local-get retargeting remain the visible transforms;
+- the ordinary all-features and GC/refinement fixtures remain the dedicated proof surfaces;
 - no `LocalGraph` / liveness / broad overwritten-write eliminator appeared.
+
+The version-to-main owner comparison showed only a `vaccum` → `vacuum` comment spelling correction, not an implementation change.
 
 ## Starshine read-across
 
 The local follow-along points are now active:
 
-- `src/passes/rse.mbt:2-8` owns the direct pass descriptor, `src/passes/rse.mbt:12-16` the summary, and `src/passes/rse.mbt:692-700` the raw lowered-function rewrite helper.
-- `src/passes/optimize.mbt:253-256` registers `"redundant-set-elimination"` as an active hot pass.
-- `src/passes/pass_manager.mbt:7324-7334` dispatches the pass and runs the raw fast path before hot lift.
-- `src/passes/rse_test.mbt:41-71`, `src/passes/registry_test.mbt:189-193`, and `src/cmd/cmd_wbtest.mbt:3922-3959` cover focused pass behavior, registry classification, and CLI execution.
+- `src/passes/rse.mbt:2-16` owns the direct-pass descriptor and summary; `src/passes/rse.mbt:2758-2800` owns the raw lowered-function entry point and its i32/general fast-path-to-fallback selection.
+- `src/passes/optimize.mbt:261-264` registers `"redundant-set-elimination"` as an active hot pass.
+- `src/passes/pass_manager.mbt:73199-73203` invokes the raw path before hot lift.
+- `src/passes/rse_test.mbt:46-1393`, `src/passes/registry_test.mbt:84,195,248`, and `src/cmd/cmd_wbtest.mbt:4130-4167` cover focused pass behavior, registry classification, and CLI execution.
 - `scripts/lib/pass-fuzz-compare-task.ts` maps the Starshine long name to Binaryen `--rse` for oracle comparison.
 
 Future implementation work should stay in `src/passes/rse.mbt`, adding fixed-point CFG merge values and strict-subtype refined local-get retargeting without changing the pass into generic liveness dead-store elimination.

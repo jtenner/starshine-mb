@@ -5,6 +5,7 @@ last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
+  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
@@ -54,7 +55,7 @@ It also does not use Binaryen `LocalGraph` or liveness in `version_129`; the dat
 
 - The canonical Binaryen no-DWARF function pipeline runs `rse` very late, just before the final cleanup cluster.
 - The saved generated-artifact `-O4z` audit records it as a real skipped upstream slot: top-level slot `46`.
-- A 2026-05-05 current-main recheck stayed aligned with the corrected CFG/value-flow contract on the reviewed surfaces.
+- A 2026-07-11 current-main reread supersedes the 2026-05-05 freshness claim and remains aligned with the corrected CFG/value-flow contract on the reviewed owner, registration, all-features, and GC/refinement surfaces.
 - A 2026-05-06 direct revalidation under the refreshed pass-fuzz harness reached 6759 comparable cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
 - Earlier local and structural cleanup passes can expose repeated same-value writes and equivalent local values; `rse` is the late pass that removes the redundant write shell.
 - The following `vacuum` pass is part of the payoff because removed plain `local.set`s may become `drop(value)` debris.
@@ -145,6 +146,7 @@ The current durable claim is:
 
 - [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md)
 - [`../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md`](../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md)
+- [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md)
 - [`../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md`](../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md)
