@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
   - ../../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
@@ -20,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
+  - ./host-runtime-contract-and-reentrancy.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ../i64-to-i32-lowering/index.md
@@ -114,7 +116,7 @@ For a future Starshine port, add tests in this order:
 8. memory64 modules use `i64` pointer traffic;
 9. an EH/catch fixture proves the chosen catch-unwind behavior or an explicit subset rejection;
 10. tail-call input is rejected or explicitly unsupported;
-11. an integration harness proves a real unwind/rewind round trip.
+11. an integration harness proves a real unwind/rewind round trip and the chosen nested-entry/reentrancy policy.
 
 ## Page map
 
@@ -122,11 +124,13 @@ For a future Starshine port, add tests in this order:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files, source-navigation handles, and official test surface.
 - [`wat-shapes.md`](wat-shapes.md) - transformed module/function shape catalog.
 - [`state-machine-memory-and-eh-boundaries.md`](state-machine-memory-and-eh-boundaries.md) - focused guide to state values, memory/pointer width, indirect-call bookkeeping, catch unwinding, tail-call rejection, and helper-pass boundaries.
+- [`host-runtime-contract-and-reentrancy.md`](host-runtime-contract-and-reentrancy.md) - host-driven unwind/rewind lifecycle, Emscripten configuration-versus-pass boundary, and the nested-entry proof obligation that static WAT cannot discharge.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - first-slice order and validation ladder for a future local port, including registry honesty, direct-call scalar proof, live-local save/restore, indirect calls, memory64, EH/catch, and dynamic host-harness gates.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md`](../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md)
 - [`../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md)
 - [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)

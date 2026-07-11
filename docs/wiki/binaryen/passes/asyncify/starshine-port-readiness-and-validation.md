@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
   - ../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
   - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
@@ -21,6 +22,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
+  - ./host-runtime-contract-and-reentrancy.md
   - ../memory64-lowering/index.md
   - ../legalize-js-interface/index.md
 ---
@@ -133,8 +135,8 @@ Either:
 ### 9. Dynamic host harness
 
 Static WAT comparison is not enough for Asyncify.
-The last readiness gate is an execution test that drives one unwind/rewind round trip through the exported runtime API.
-Until then, a port can be shape-correct and still semantically wrong.
+The last readiness gate is an execution test that drives one unwind/rewind round trip through the exported runtime API and proves the implementation's deliberate nested-entry/reentrancy policy.
+Until then, a port can be shape-correct and still semantically wrong. See [`host-runtime-contract-and-reentrancy.md`](host-runtime-contract-and-reentrancy.md) for the host-side proof obligations.
 
 ## Validation checklist
 
@@ -157,6 +159,7 @@ For every active slice, require:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md`](../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md)
 - [`../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md)
 - [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)

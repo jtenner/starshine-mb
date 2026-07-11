@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
   - ../../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
@@ -14,6 +15,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./host-runtime-contract-and-reentrancy.md
   - ./starshine-strategy.md
   - ../memory64-lowering/index.md
 ---
@@ -54,7 +56,9 @@ The runtime-facing API exports remain the stable external contract:
 A future Starshine port must verify both sides:
 
 1. static shape: helpers, globals, memory traffic, and call-site checks are emitted correctly;
-2. dynamic behavior: a host harness can actually unwind and rewind through one or more frames.
+2. dynamic behavior: a host harness can actually unwind and rewind through one or more frames, including the implementation's explicit nested-entry/reentrancy policy.
+
+For the host-side lifecycle and why static transformed WAT cannot prove it, see [`host-runtime-contract-and-reentrancy.md`](host-runtime-contract-and-reentrancy.md).
 
 ## Memory and pointer width are correctness, not formatting
 
@@ -141,6 +145,7 @@ Until those pieces exist, the correct Starshine status remains unknown-pass with
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md`](../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
 - [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
