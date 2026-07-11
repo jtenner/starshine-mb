@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
@@ -218,7 +219,7 @@ The true durable wording should be closer to:
 - intercept supported memory loads/stores, `memory.grow`, and selected scalar GC heap accesses through imported helper calls
 
 This same wording drift also exists for the sibling `instrument-locals`, which is why keeping the two folders separate matters.
-The 2026-04-24 source manifest preserves the exact primary-source URLs behind this correction, and [`./starshine-strategy.md`](./starshine-strategy.md) keeps the local non-adoption status separate from the upstream contract.
+The 2026-07-11 current-main recheck confirms this wording and filter/import split remains current on the inspected `version_130` / `main` source surfaces; [`./starshine-strategy.md`](./starshine-strategy.md) keeps the local non-adoption status separate from the upstream contract.
 
 ## Easy-to-miss teaching summary
 
@@ -228,6 +229,7 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)

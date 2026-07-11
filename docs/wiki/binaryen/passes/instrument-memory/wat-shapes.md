@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
@@ -20,7 +21,7 @@ related:
 # WAT shapes for `instrument-memory`
 
 This page shows the main before/after shapes that matter for teaching the pass.
-The shapes are grounded in the 2026-04-24 primary-source manifest and the 2026-04-26 current-main no-drift recheck. They remain upstream-only for Starshine today; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local non-adoption status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future-port checklist.
+The shapes are grounded in the 2026-04-24 primary-source manifest and reconfirmed by the 2026-07-11 `version_130` / current-main no-behavior-drift recheck. They remain upstream-only for Starshine today; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local non-adoption status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future-port checklist.
 
 ## 1. Scalar load: pointer prehook plus value posthook
 
@@ -348,6 +349,7 @@ If someone remembers only one visual rule, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)

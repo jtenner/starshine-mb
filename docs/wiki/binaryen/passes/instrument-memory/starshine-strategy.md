@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
@@ -78,7 +79,7 @@ It is not part of Starshine's optimize or shrink preset today. If that status ev
 ## Why there is no HOT-IR port today
 
 Binaryen's pass is not a local peephole optimizer.
-Per the upstream source captured in [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md), it needs all of these module-level behaviors:
+Per the upstream source reconfirmed in [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md), it needs all of these module-level behaviors:
 
 1. inject helper function imports into the module,
 2. optionally parse an exact comma-separated filter set,

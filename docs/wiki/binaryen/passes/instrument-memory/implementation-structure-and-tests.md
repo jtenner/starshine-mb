@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
@@ -151,10 +152,9 @@ Why this order helps:
 
 ## Release provenance and current-main spot check
 
-The raw primary-source manifest anchors this page to the official Binaryen `version_129` release page, which was reviewed on 2026-04-24 and showed publish date **2026-04-01 14:31**.
+The older raw primary-source manifest anchors this page's historical `version_129` evidence; `version_130` is now the public release baseline.
 
-A focused 2026-04-26 current-`main` recheck of `InstrumentMemory.cpp`, `pass.cpp`, `passes.h`, and the four dedicated lit files did not surface teaching-relevant contract drift beyond the tagged `version_129` claims.
-That means the tagged sources remain the preferred teaching oracle for this dossier, with the caveat that the recheck was not a full upstream history audit.
+A focused 2026-07-11 reread of the `version_130` and current-`main` owner, registration, factory, and four dedicated lit fixtures found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness claim; both rechecks are focused source reads, not full upstream history audits.
 
 ## Beginner checklist
 
@@ -176,6 +176,7 @@ The current local status page, [`./starshine-strategy.md`](./starshine-strategy.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
 - [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)

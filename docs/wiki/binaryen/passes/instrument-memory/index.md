@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
@@ -34,7 +35,7 @@ related:
 - It is currently **upstream-only** in this repo's living pass map: it is **not** in Starshine's local optimizer registry in `src/passes/optimize.mbt`.
 - It is **not** part of the repo's canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `instrument-memory` slice**.
-- The 2026-04-24 local recheck sharpened the status: an explicit Starshine request would fail as an **unknown pass flag**, not as boundary-only or removed.
+- The 2026-07-11 local recheck confirms an explicit Starshine request would fail as an **unknown pass flag**, not as boundary-only or removed.
 
 ## Why this dossier exists
 
@@ -44,7 +45,7 @@ The tracker now has no obvious remaining pass entries with wiki status `none`, s
 
 - Binaryen exposes it as a real public pass with a compact dedicated owner file, `InstrumentMemory.cpp`.
 - The neighboring `instrument-locals` dossier depends on keeping the split from `instrument-memory` explicit.
-- The public help text is easy to misread: `pass.cpp` describes this as intercepting "all loads and stores", but the real `version_129` contract also covers `memory.grow` and selected GC `struct.*` / `array.*` traffic.
+- The public help text is easy to misread: `pass.cpp` describes this as intercepting "all loads and stores", but the current `version_130` / `main` contract also covers `memory.grow` and selected GC `struct.*` / `array.*` traffic.
 - The pass intentionally adds effects through imported helper calls, so it belongs in the same instrumentation-analysis neighborhood as `instrument-locals` and `global-effects`, not in the optimizer families.
 - The folder now has the same provenance and local-status shape as newer deep dossiers: immutable raw primary-source manifests, a dedicated Starshine status page, and a first-slice / validation page for future port planning.
 
@@ -68,8 +69,8 @@ So this pass is best taught as:
 ## Most important durable takeaways
 
 - The whole reviewed `version_129` contract lives in one small owner file, `InstrumentMemory.cpp`, plus public registration in `pass.cpp`.
-- The official Binaryen `version_129` release page reviewed on 2026-04-24 showed publish date **2026-04-01 14:31**.
-- A 2026-04-26 focused current-`main` source recheck did not surface teaching-relevant drift from the tagged `version_129` contract and clarified the safe first Starshine port slice.
+- The official Binaryen `version_129` release page reviewed on 2026-04-24 remains historical provenance; the current public release baseline is `version_130`.
+- A 2026-07-11 focused `version_130` / current-`main` owner, registration, and fixture recheck found no behavior-bearing drift. It supersedes the older 2026-04-26 freshness claim while preserving that capture's first-slice port-readiness analysis.
 - The pass is a `PostWalker`, so it rewrites children first and then wraps the current operation.
 - It covers ordinary scalar `load` / `store`, `memory.grow`, and selected GC `struct` / `array` access families.
 - It does **not** cover everything the name might suggest: no `memory.size`, no bulk-memory ops, no atomic RMW/cmpxchg, and no general ref-valued GC payload instrumentation.
@@ -106,6 +107,7 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
 - [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)

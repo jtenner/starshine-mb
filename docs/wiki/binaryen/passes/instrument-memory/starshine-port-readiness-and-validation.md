@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
@@ -38,7 +39,7 @@ Current status remains unchanged: Starshine does **not** implement or register `
 
 ## Binaryen contract to preserve
 
-The 2026-04-26 current-main recheck found no teaching-relevant drift from the tagged `version_129` source contract captured earlier.
+The 2026-07-11 `version_130` / current-main reread found no behavior-bearing drift from the earlier source contract. It supersedes the 2026-04-26 freshness claim while retaining that capture's historical port-readiness analysis.
 
 A faithful Starshine port must preserve these Binaryen behaviors:
 
