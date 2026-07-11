@@ -83791,3 +83791,70 @@ test "optimize-instructions folds first tree in seven-operand mixed i64-result c
     )
   }
 }
+
+///|
+test "optimize-instructions folds second tree in seven-operand mixed i64-result calls" {
+  // Red-first OI-F parity slice: Binaryen version_130 folds equal annotated
+  // seven-operand calls with a direct first operand, exact
+  // i64.add(local, const) second operand, and five later direct leaves in the
+  // canonical i64 zero-test self-select. A mismatch in any logical slot retains
+  // both calls. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
+  // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-direct-first-second-foldability.wat`
+  // (`second_equal` and its seven mismatch functions).
+  let optimize_caller = fn(
+    right_first : Int,
+    right_second_const : Int64,
+    right_third : Int,
+    right_fourth : Int64,
+    right_fifth : Int,
+    right_sixth : Int64,
+    right_seventh : Int,
+  ) raise {
+    let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 i64.const 17 i32.const 19 call $id i32.const " +
+      right_first.to_string() +
+      " local.get 0 i64.const " +
+      right_second_const.to_string() +
+      " i64.add i32.const " +
+      right_third.to_string() +
+      " i64.const " +
+      right_fourth.to_string() +
+      " i32.const " +
+      right_fifth.to_string() +
+      " i64.const " +
+      right_sixth.to_string() +
+      " i32.const " +
+      right_seventh.to_string() +
+      " call $id i64.eqz select))"
+    let optimized = match
+      pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected second-tree seven-operand mixed i64-result call OI success, got \{err}",
+        )
+    }
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  }
+  let equal = optimize_caller(3, 5L, 7, 11L, 13, 17L, 19)
+  assert_false(equal.contains("select"), msg=equal)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(equal, "call (Func 0)"),
+    1,
+  )
+  for
+    output in [
+      optimize_caller(4, 5L, 7, 11L, 13, 17L, 19),
+      optimize_caller(3, 6L, 7, 11L, 13, 17L, 19),
+      optimize_caller(3, 5L, 8, 11L, 13, 17L, 19),
+      optimize_caller(3, 5L, 7, 12L, 13, 17L, 19),
+      optimize_caller(3, 5L, 7, 11L, 14, 17L, 19),
+      optimize_caller(3, 5L, 7, 11L, 13, 18L, 19),
+      optimize_caller(3, 5L, 7, 11L, 13, 17L, 20),
+    ] {
+    assert_true(output.contains("select"), msg=output)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(output, "call (Func 0)"),
+      2,
+    )
+  }
+}
