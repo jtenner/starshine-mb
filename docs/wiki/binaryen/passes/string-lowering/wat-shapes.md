@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
@@ -140,6 +141,30 @@ Why:
 - `updateTypes()` remaps `HeapType::string` to `HeapType::ext`
 - nullability stays the same
 - this is an ABI-visible part of the pass, not just internal cleanup
+
+## Shape 4b: a string-bearing tag payload is repaired too
+
+Current Binaryen `main` extends the older public-function special case to exception tags.
+
+Before, conceptually:
+
+```wat
+(module
+  (tag $string_error (param (ref null string))))
+```
+
+After, conceptually:
+
+```wat
+(module
+  (tag $string_error (param externref)))
+```
+
+Why this deserves its own shape:
+
+- a tag payload is part of the module ABI and must agree with every `throw` / `catch` use;
+- repairing only function signatures and then disabling Strings would leave an invalid string-typed tag declaration behind;
+- this is a narrow current-main expansion, **not** evidence that Binaryen solves every public type containing strings.
 
 ## Shape 5: `string.concat` becomes a helper import call
 
@@ -288,6 +313,7 @@ That makes the boundary honest and easy to port incorrectly if a future implemen
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
@@ -23,8 +24,8 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current tagged oracle for this folder, with the 2026-04-24 raw manifest and 2026-04-26 port-readiness bridge as provenance anchors.
-On 2026-04-24 the official GitHub `version_129` release page showed publish date **2026-04-01 14:31**.
+Use Binaryen `version_129` as the detailed tagged oracle for this folder, with `version_130` as the current public release baseline and the 2026-07-11 current-main bridge as the freshness anchor.
+On 2026-04-24 the official GitHub `version_129` release page showed publish date **2026-04-01 14:31**. The older 2026-04-24 and 2026-04-26 captures remain provenance for the original contract and port map.
 The main sources are:
 
 - `src/passes/StringLowering.cpp`
@@ -124,13 +125,14 @@ So nullable `stringref` becomes nullable `externref`, and non-null string refs b
 The implementation comments explain a subtle limitation:
 
 - `TypeMapper` will not handle public types the way this pass needs.
-- Binaryen therefore manually fixes singleton-rec-group function types that still mention strings.
-- The file has an explicit TODO saying broader public-type cases would need more work.
+- `version_129` and `version_130` manually fix singleton-rec-group **function** types that still mention strings.
+- Current `main` factors the fixup into a shared helper and applies it to both functions and exception **tags** before it runs `TypeMapper`.
+- The current owner also passes the pass runner's world mode to `TypeMapper`; source review alone does not establish a broader semantic consequence from that call.
+- The file retains an explicit TODO saying broader public-type cases would need more work.
 
-That means the real `version_129` contract is not "general public type lowering".
-It is a narrower, source-confirmed special case.
+That means the current contract is not "general public type lowering." It is a narrower, source-confirmed special case with a later tag-payload expansion.
 
-For porting, that is a major safety rule: do not silently overstate the supported public-type surface.
+For porting, a string-bearing tag payload must receive the same string-to-extern repair as a function signature before feature cleanup. Do not silently overstate the remaining public-type surface.
 
 ## Phase 3: lower defining globals into imports
 
@@ -286,18 +288,20 @@ So `string-lowering` should be taught as one half of a bidirectional public fami
 
 ## Current-main drift check
 
-A 2026-04-24 checked source diff found no visible difference between `version_129` and current `main` for `src/passes/StringLowering.cpp` on the inspected teaching-relevant surfaces.
-`main/src/passes/pass.cpp` still exposes the same pass names.
+The 2026-07-11 reread of `main` and comparison with `version_130` keeps the public names, phase order, helper roster, JSON/magic-import behavior, and unsupported-op boundary taught here intact. It supersedes the older no-drift wording.
 
-A 2026-04-26 port-readiness recheck again found no teaching-relevant drift in phase order, helper import roster, JSON/magic-import behavior, or unsupported-op boundaries.
+It also found one behavior-bearing change in `updateTypes`: the public singleton-rec-group repair now covers exception tags as well as functions. Current `main` passes world mode to `TypeMapper`; that source-level call is recorded, but no wider world-mode behavior is asserted without focused evidence.
 
 The durable conclusion is:
 
-- the `version_129` strategy described here is still current on the checked surfaces.
+- the core tagged `version_129` strategy remains current on the reviewed surfaces;
+- tag payload signatures are now part of the explicit type-repair contract;
+- broader public-type handling remains an upstream TODO;
 - implementation sequencing and local validation lanes belong in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)

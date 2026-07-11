@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
@@ -103,7 +104,7 @@ A future port still needs explicit support or explicit rejection for these surfa
   - `string-lowering-magic-imports-assert`
 - `string.consts` JSON custom-section emission and roundtrip expectations,
 - module import synthesis for `string.const` and `wasm:js-string`,
-- ABI-visible function/global/type rewriting from string refs to extern refs,
+- ABI-visible function/global/type rewriting from string refs to extern refs, including public singleton-rec-group function and tag payload signatures,
 - helper-call rewrites for Binaryen's supported operation families:
   - `fromCharCodeArray`
   - `fromCodePoint`
@@ -139,7 +140,7 @@ Do not register only `string-lowering` while ignoring the magic-import siblings 
 Before changing output, build a module analyzer that reports:
 
 - string literal globals that the gathering prefix would define or reuse,
-- string-typed function/global/type surfaces that would need externref repair,
+- string-typed function/global/type surfaces that would need externref repair, including tag payload signatures,
 - unsupported string opcodes that would make Binaryen fatal or unreachable,
 - whether default JSON, magic-import, or assert-mode behavior was requested.
 
@@ -204,17 +205,18 @@ Use this order:
 1. `moon test` fixtures for registry categorization and unknown/boundary behavior.
 2. Parser/lower/typecheck fixtures for each supported source shape.
 3. Binary encode/decode roundtrip fixtures for string literal and custom-section behavior.
-4. Focused pass fixtures matching Binaryen `test/lit/passes/string-lowering.wast` and `string-lowering.js`.
-5. Separate oracle runs for:
+4. Type-rewrite fixtures for nullable/non-null function signatures **and tag payloads**, retaining the broader public-type TODO as an explicit boundary.
+5. Focused pass fixtures matching Binaryen `test/lit/passes/string-lowering.wast` and `string-lowering.js`.
+6. Separate oracle runs for:
    - `--string-lowering`,
    - `--string-lowering-magic-imports`,
    - `--string-lowering-magic-imports-assert`.
-6. Negative fixtures for unsupported string op families, preserving Binaryen's explicit TODO/fatal boundary instead of silently no-oping.
-7. Feature cleanup checks proving no string feature remains after successful lowering.
+7. Negative fixtures for unsupported string op families, preserving Binaryen's explicit TODO/fatal boundary instead of silently no-oping.
+8. Feature cleanup checks proving no string feature remains after successful lowering.
 
 ## Main caveats
 
 - The JS string builtins proposal is the ABI context for `wasm:js-string` helper imports. Recheck it before freezing helper ABI tests.
-- Public-type handling is intentionally narrow in Binaryen `version_129`: singleton-rec-group function types get special treatment, but broader public-type cases are not solved.
+- Public-type handling is intentionally narrow: `version_129` specially handled singleton-rec-group function types, and current `main` also repairs tags. Broader public-type cases remain unsolved upstream.
 - If local `string-gathering` lands first, reroute the first mutating slice through that owner instead of duplicating the Binaryen inherited-prefix behavior.
 - This pass should be module/boundary-owned, not HOT-owned: it rewrites imports, globals, custom sections, types, helper functions, and feature metadata.

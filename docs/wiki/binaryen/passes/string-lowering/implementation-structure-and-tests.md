@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
@@ -20,7 +21,7 @@ related:
 # `string-lowering`: implementation structure and tests
 
 This page is the compact source-confirmed map of which Binaryen files own `string-lowering` and which shipped tests prove the important contract surfaces.
-The 2026-04-26 port-readiness bridge found no teaching-relevant current-main drift from this file/test map and adds Starshine-specific validation sequencing in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The 2026-07-11 current-main reread preserves the phase, helper, JSON/magic-import, and test-map contract, but expands the source-backed type-repair scope from public singleton function types to tags too. It adds the resulting Starshine validation requirement in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Official owner files
 
@@ -59,9 +60,11 @@ Important subfacts:
 
 - `HeapType::string` is remapped to `HeapType::ext`
 - nullability is preserved
-- public singleton-rec-group function types are manually rewritten first
-- `TypeMapper` then handles the ordinary remap work
+- public singleton-rec-group function and tag types are manually repaired when they contain strings
+- `TypeMapper` then handles the ordinary remap work (with the pass runner's world mode in current `main`)
 - the file has an explicit TODO for broader public-type cases
+
+The tag repair is a current-main source change beyond the older tagged contract. It means exception payload signatures need a focused port test; it does not prove general public-type lowering.
 
 ## 3. `makeImports(module)`
 
@@ -174,14 +177,17 @@ If teaching this pass to a new contributor, the cleanest proof split is:
 
 ## Current-main drift check
 
-A 2026-04-24 checked diff against current `main` found no visible teaching-relevant changes in `src/passes/StringLowering.cpp` on the inspected surfaces, and `main/src/passes/pass.cpp` still exposes the same public pass names.
+The 2026-07-11 reread confirms that `main/src/passes/pass.cpp` still exposes the same public names and that the reviewed gathering/lowering fixture roles remain the same. It supersedes the earlier broad no-drift wording because current `StringLowering.cpp` now applies its public singleton-rec-group repair to tags as well as functions.
 
 So the working conclusion is:
 
-- the tagged `version_129` implementation and test map here still matches current upstream on the checked surfaces.
+- the tagged implementation and test map still describe the core current upstream contract;
+- tag-payload type repair is now an explicit source-level addition;
+- the reviewed dedicated fixtures remain strong for literals, imports, JSON/magic modes, and helper rewrites, but a future port should add a focused tag payload fixture rather than infer its coverage.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
