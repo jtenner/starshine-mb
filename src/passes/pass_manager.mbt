@@ -24611,11 +24611,17 @@ priv struct RawOiConstOffsetLoadThenCallFact {
 }
 
 ///|
-fn RawOiConstOffsetLoadThenCallFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiConstOffsetLoadThenCallFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
 ) -> RawOiConstOffsetLoadThenCallFact? {
-  match instrs {
-    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] => {
+  if index.top_level_roots.length() != 4 ||
+    !index.has_top_level_root_at(0, RawOiRootKind::I32Const) ||
+    !index.has_top_level_root_at(1, RawOiRootKind::PlainLoad) ||
+    !index.has_top_level_root_at(3, RawOiRootKind::DirectCall) {
+    return None
+  }
+  match (index.instr_at(1), index.instr_at(2)) {
+    (Some(load), Some(@lib.Drop)) => {
       let load_has_nonzero_offset = run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
         load,
       )
@@ -33638,7 +33644,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   let const_offset_load_then_call = match
-    RawOiConstOffsetLoadThenCallFact::from_instrs(body) {
+    RawOiConstOffsetLoadThenCallFact::from_index(oi_index) {
     Some(fact) => fact.proves_binaryen_offset_fold_bypass()
     None => false
   }

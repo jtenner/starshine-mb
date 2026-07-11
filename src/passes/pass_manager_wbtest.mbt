@@ -122,6 +122,29 @@ test "optimize-instructions raw function index routes bottom-null descriptor can
 }
 
 ///|
+test "optimize-instructions raw function index routes const-offset load-call bypass" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 4UL)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+  match RawOiConstOffsetLoadThenCallFact::from_index(index) {
+    Some(fact) => assert_true(fact.proves_binaryen_offset_fold_bypass())
+    None => fail("expected indexed const-offset load-call bypass")
+  }
+  let zero_offset = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+  assert_true(
+    RawOiConstOffsetLoadThenCallFact::from_index(zero_offset).is_none(),
+  )
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([
