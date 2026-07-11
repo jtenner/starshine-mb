@@ -8713,6 +8713,7 @@ fn optimize_instructions_sign_ext_bits_for_value(
 fn optimize_instructions_collect_sign_ext_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   region : @ir.HotRegionRef,
 ) -> Unit {
@@ -8720,6 +8721,7 @@ fn optimize_instructions_collect_sign_ext_local_assignment_region(
     optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
+      seen,
       scratch,
       @ir.hot_region_get(func, region, i),
     )
@@ -8730,17 +8732,20 @@ fn optimize_instructions_collect_sign_ext_local_assignment_region(
 fn optimize_instructions_collect_sign_ext_local_assignment_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Unit {
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
     return
   }
+  seen[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
+      seen,
       scratch,
       func.children[node.child_base + slot],
     )
@@ -8750,6 +8755,7 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
       optimize_instructions_collect_sign_ext_local_assignment_region(
         func,
         dead,
+        seen,
         scratch,
         @ir.hot_region_body_ref(func, node_id),
       )
@@ -8757,13 +8763,14 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
       optimize_instructions_collect_sign_ext_local_assignment_region(
         func,
         dead,
+        seen,
         scratch,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           optimize_instructions_collect_sign_ext_local_assignment_region(
-            func, dead, scratch, else_region,
+            func, dead, seen, scratch, else_region,
           )
         None => ()
       }
@@ -8797,10 +8804,12 @@ fn optimize_instructions_collect_sign_ext_facts(
   if scratch.local_facts.sign_ext_ready {
     return
   }
+  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
+      seen,
       scratch,
       func.roots[slot],
     )
@@ -11478,6 +11487,7 @@ fn OiSignedExtendWrapI64FallbackFact::apply(
 fn optimize_instructions_collect_unsigned_max_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   region : @ir.HotRegionRef,
 ) -> Unit {
@@ -11485,6 +11495,7 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_region(
     optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
+      seen,
       scratch,
       @ir.hot_region_get(func, region, i),
     )
@@ -11495,17 +11506,20 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_region(
 fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Unit {
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
     return
   }
+  seen[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
+      seen,
       scratch,
       func.children[node.child_base + slot],
     )
@@ -11515,6 +11529,7 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
       optimize_instructions_collect_unsigned_max_local_assignment_region(
         func,
         dead,
+        seen,
         scratch,
         @ir.hot_region_body_ref(func, node_id),
       )
@@ -11522,13 +11537,14 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
       optimize_instructions_collect_unsigned_max_local_assignment_region(
         func,
         dead,
+        seen,
         scratch,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           optimize_instructions_collect_unsigned_max_local_assignment_region(
-            func, dead, scratch, else_region,
+            func, dead, seen, scratch, else_region,
           )
         None => ()
       }
@@ -11585,10 +11601,12 @@ fn optimize_instructions_collect_unsigned_max_facts(
       _ => ()
     }
   }
+  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
+      seen,
       scratch,
       func.roots[slot],
     )
