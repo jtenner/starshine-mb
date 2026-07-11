@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
@@ -32,6 +32,7 @@ related:
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../discard-global-effects/index.md
   - ../vacuum/index.md
   - ../simplify-locals/index.md
@@ -150,7 +151,7 @@ Use paired pipelines because standalone `generate-global-effects` often has no t
 - `wasm-opt --generate-global-effects --simplify-locals`
 - negative comparisons where `--vacuum` or `--simplify-locals` alone must remain more conservative
 
-For Starshine fuzzing, compare the paired consumer pipeline rather than expecting a standalone metadata pass to normalize into a different text module.
+For Starshine fuzzing, a standalone metadata-observer test is primary; compare a paired consumer pipeline only as secondary evidence rather than expecting a standalone metadata pass to normalize into a different text module. See [`./fuzzing.md`](./fuzzing.md).
 
 ## Main risks
 
@@ -190,3 +191,4 @@ Until then, keep the local boundary-only status described in [`./starshine-strat
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./fuzzing.md`](./fuzzing.md)

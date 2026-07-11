@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
@@ -35,6 +35,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../discard-global-effects/index.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
@@ -102,6 +103,8 @@ So the pass is best taught as:
   Current Starshine status and future-port map: boundary-only registry entry, CLI parse coverage, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful port must be a module/call-graph metadata pass rather than a HOT peephole.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Concrete future implementation ladder: no-rewrite analyzer, summary model, solver choice, registry/dispatcher sequencing, consumer sequencing, Binaryen oracle lanes, and first-port definition of done.
+- [`./fuzzing.md`](./fuzzing.md)
+  Current planned-only harness status and future metadata-first signoff: standalone WAT is not an oracle for this producer, so paired consumer and cleanup composition evidence is required.
 
 ## Current maintenance rule
 
