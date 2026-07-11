@@ -125,6 +125,7 @@ For a future Starshine port, add tests in this order:
 - [`wat-shapes.md`](wat-shapes.md) - transformed module/function shape catalog.
 - [`state-machine-memory-and-eh-boundaries.md`](state-machine-memory-and-eh-boundaries.md) - focused guide to state values, memory/pointer width, indirect-call bookkeeping, catch unwinding, tail-call rejection, and helper-pass boundaries.
 - [`host-runtime-contract-and-reentrancy.md`](host-runtime-contract-and-reentrancy.md) - host-driven unwind/rewind lifecycle, Emscripten configuration-versus-pass boundary, and the nested-entry proof obligation that static WAT cannot discharge.
+- [`fuzzing.md`](fuzzing.md) - current planned-only parity-fuzz status; explains why an unadmitted pass cannot have a smoke lane and why future Asyncify signoff needs runtime evidence beyond canonical output comparison.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - first-slice order and validation ladder for a future local port, including registry honesty, direct-call scalar proof, live-local save/restore, indirect calls, memory64, EH/catch, and dynamic host-harness gates.
 
