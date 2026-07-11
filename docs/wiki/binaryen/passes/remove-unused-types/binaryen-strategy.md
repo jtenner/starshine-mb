@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
@@ -32,21 +33,20 @@ Primary files:
 - `src/ir/module-utils.h`
 - `test/lit/passes/remove-unused-types.wast`
 
-A 2026-05-05 current-main recheck on the same owner / registration / helper / test surfaces again did not surface teaching-relevant drift from the corrected `version_129` story.
-That is still not a whole-repo equivalence proof.
+The 2026-07-11 bridge supersedes the older no-drift freshness claim: current `RemoveUnusedTypes.cpp` now passes `getPassOptions().worldMode` to `GlobalTypeRewriter`. It preserves the helper-owned rewrite teaching model, but makes the older claim that the wrapper itself directly rejects all open-world execution stale pending a focused helper-and-fixture review. This is still not a whole-repo equivalence proof.
 
 ## Correction from the older dossier
 
 The older 0149 research note said the pass file performed a pass-local optimization-level gate, collected public and used types itself, copied whole live private rec groups into a local builder, and handed that builder to `GlobalTypeRewriter`.
 That is now superseded.
 
-The actual `version_129` pass body is much smaller:
+The historical `version_129` pass body was much smaller than the older dossier claimed. On current `main`, the equally small wrapper:
 
-1. return immediately if the module has no GC features
-2. fatally reject open-world execution
-3. call `GlobalTypeRewriter(*module).update()`
+1. returns immediately if the module has no GC features;
+2. constructs `GlobalTypeRewriter(*module, getPassOptions().worldMode)`;
+3. calls `update()`.
 
-Most of the algorithm lives in `type-updating.h`.
+Most of the algorithm, including current world-mode policy, lives in `type-updating.h`.
 
 ## High-level intent
 
@@ -64,7 +64,7 @@ A precise summary is:
 
 | Phase | What Binaryen does | Why it exists |
 | --- | --- | --- |
-| Pass-file gate | `RemoveUnusedTypes.cpp` returns on no-GC modules and fatally rejects `!closedWorld` | The transform is only meaningful for GC type graphs and is only correct under closed-world assumptions |
+| Pass-file gate | Current `RemoveUnusedTypes.cpp` returns on no-GC modules, then passes pass-option world mode to `GlobalTypeRewriter` | GC remains the direct wrapper gate; current open-world semantics belong to helper-and-fixture reconciliation |
 | Scheduler placement | `pass.cpp` adds the pass in the closed-world GC/type optimization neighborhood under the broader optimization-level checks | The standalone pass file does not own the optimization-level policy; the default pass runner does |
 | Collect type metadata | `GlobalTypeRewriter` gathers used IR heap types and public/private visibility data | Establish which old types can disappear and which groups are externally anchored |
 | Public group anchoring | Public groups are remembered separately | Public type identity / grouping must not be casually reshaped away |
@@ -75,15 +75,13 @@ A precise summary is:
 
 ## Phase 0: GC and closed-world are part of correctness
 
-`RemoveUnusedTypes::run(Module* module)` first checks GC features.
-No-GC modules have no relevant GC heap-type graph to shrink, so the pass returns.
+`RemoveUnusedTypes::run(Module* module)` first checks GC features. No-GC modules have no relevant GC heap-type graph to shrink, so the pass returns.
 
-The same pass body then treats open-world execution as an error, not a quiet no-op.
-That matters for teaching:
+On current `main`, the wrapper passes pass-option world mode into the helper rather than carrying the older direct open-world rejection. The safe teaching rule is therefore narrower:
 
-- default Binaryen scheduling should only reach the pass in closed-world mode,
-- explicit user invocation in open world is rejected,
-- a Starshine port should not silently run this rewrite in an open-world module.
+- the default scheduler and historical transform context place this in the closed-world GC/type cluster;
+- a Starshine port must make any open-world policy explicit rather than silently applying a private type-graph rewrite;
+- the exact current Binaryen explicit-open-world result remains an open helper-and-fixture reconciliation item.
 
 ## Phase 1: default scheduling still supplies optimization context
 
@@ -199,7 +197,7 @@ What it actually is:
 A faithful implementation should validate with:
 
 - no-GC no-op cases,
-- open-world rejection/no-run behavior matching the chosen API,
+- explicit world-mode behavior matching the chosen API,
 - private unused singleton removal,
 - private unused member removal even inside a larger old group when it is not referenced,
 - used private type retention,
@@ -223,6 +221,7 @@ Do not teach it as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for the corrected phase map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)

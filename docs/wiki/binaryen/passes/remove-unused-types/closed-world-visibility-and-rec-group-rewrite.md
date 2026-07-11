@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
@@ -21,7 +22,7 @@ related:
 # `remove-unused-types`: closed-world visibility and private-group rewrite rules
 
 This page covers the part of `remove-unused-types` that is easiest to misunderstand.
-A 2026-05-05 current-main recheck kept this shape intact.
+The 2026-07-11 current-main bridge preserves this public/private rebuild model but flags a wrapper-interface change in world-mode handling.
 
 The pass is not mainly asking:
 
@@ -50,17 +51,13 @@ That correction matters because old private rec-group boundaries are not automat
 
 ## Part 1: closed world is a hard proof boundary
 
-`RemoveUnusedTypes.cpp` treats open-world execution as unsupported.
-The reason is not just profitability.
+The historical scheduler context is closed-world because public type identity and public subtype/group shape can be observable outside a module. A private type-section rewrite that is safe in a closed-world module may be invalid or unproven when outside code can depend on the old graph.
 
-In open world, public type identity and public subtype/group shape can be observed outside the module.
-A private type-section rewrite that is safe in a closed-world module may be invalid or at least unproven when outside code can depend on the old graph.
-
-A future Starshine port should keep that rule explicit:
+However, current `RemoveUnusedTypes.cpp` passes world mode into `GlobalTypeRewriter`; it no longer supports the older documentation's narrower claim that the wrapper itself rejects every open-world execution. A future Starshine port must keep its policy explicit:
 
 - no GC: unchanged,
-- open world: rejected or not scheduled,
-- closed-world GC: eligible.
+- any open-world behavior: explicitly defined, tested, and justified,
+- closed-world GC: the documented baseline for private-graph shrinking.
 
 ## Part 2: public groups are anchors
 
@@ -189,7 +186,7 @@ The two passes are adjacent, but not duplicates.
 
 A future port must preserve at least these rules:
 
-- closed-world and GC gates are required,
+- GC is required; world-mode policy must be explicit and source-reconciled,
 - public groups are a separate boundary from private survivor selection,
 - old private rec groups are not automatically preserved whole,
 - private supertype and descriptor/described dependencies must constrain the rebuild order,
@@ -204,6 +201,7 @@ The best one-sentence explanation of the corrected `remove-unused-types` contrac
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for the whole-old-rec-group model: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)

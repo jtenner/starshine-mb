@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
@@ -19,7 +20,7 @@ related:
 # `remove-unused-types`: implementation structure and tests
 
 This page exists because `RemoveUnusedTypes.cpp` is much smaller than the real pass contract.
-A 2026-05-05 current-main recheck kept the same wrapper/helper split in place.
+The 2026-07-11 current-main bridge keeps the wrapper/helper split but corrects its interface: the wrapper now passes pass-option world mode to `GlobalTypeRewriter`.
 The corrected implementation map is:
 
 - tiny pass file,
@@ -32,7 +33,7 @@ The corrected implementation map is:
 
 | File | Why it matters |
 | --- | --- |
-| `src/passes/RemoveUnusedTypes.cpp` | Tiny coordinator: requires GC, rejects open-world execution, and dispatches to `GlobalTypeRewriter(*module).update()` |
+| `src/passes/RemoveUnusedTypes.cpp` | Tiny coordinator: requires GC and dispatches to `GlobalTypeRewriter(*module, getPassOptions().worldMode).update()`; helper code owns the current world-mode policy |
 | `src/passes/pass.cpp` | Registers the CLI pass name `remove-unused-types` and places it in the broader closed-world GC/type optimization neighborhood |
 | `src/ir/type-updating.h` | Owns `GlobalTypeRewriter`, the real algorithm for collecting used/private/public type facts, rebuilding private types, preserving public groups, and remapping the module |
 | `src/ir/module-utils.h` | Supplies shared heap-type information and visibility analysis used by the type-rewriting helper |
@@ -42,13 +43,13 @@ The corrected implementation map is:
 
 ### 1. `RemoveUnusedTypes::run(Module* module)`
 
-The pass method does three things:
+On current `main`, the pass method does three things:
 
 1. return if the module has no GC features,
-2. fatally reject `!module->closedWorld`,
-3. run `GlobalTypeRewriter(*module).update()`.
+2. construct `GlobalTypeRewriter(*module, getPassOptions().worldMode)`,
+3. run `update()`.
 
-The older dossier's custom scanner / private builder / whole-rec-group loop does not exist in the pass file.
+The older direct `!module->closedWorld` wrapper claim is stale. The exact current open-world outcome belongs to the helper-and-fixture review; the older dossier's custom scanner / private builder / whole-rec-group loop still does not exist in the pass file.
 
 ### 2. `pass.cpp` registration and scheduling
 
@@ -131,7 +132,7 @@ The missing context comes from:
 
 ## Freshness note
 
-A narrow 2026-04-24 current-`main` check on:
+A 2026-07-11 focused current-`main` bridge rechecks the wrapper interface, while the older narrow 2026-04-24 current-`main` check covered:
 
 - `src/passes/RemoveUnusedTypes.cpp`,
 - `src/passes/pass.cpp`,
@@ -139,8 +140,7 @@ A narrow 2026-04-24 current-`main` check on:
 - `src/ir/module-utils.h`,
 - `test/lit/passes/remove-unused-types.wast`,
 
-found no teaching-relevant drift from the corrected `version_129` story.
-This is intentionally narrow.
+supported the helper-owned corrected `version_129` story. The newer bridge identifies the world-mode constructor drift and deliberately does not overclaim its full semantics. Both checks are intentionally narrow.
 
 ## Porting checklist
 
@@ -168,6 +168,7 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for the corrected file map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)

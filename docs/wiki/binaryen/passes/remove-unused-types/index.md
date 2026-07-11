@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
@@ -53,18 +54,17 @@ A good beginner summary is:
 
 So this pass is not just type-section garbage collection.
 It is **closed-world private heap-type cleanup plus whole-module heap-type rewriting**.
-A 2026-05-05 current-main recheck kept that contract intact.
+A 2026-07-11 current-main bridge keeps the helper-owned type-graph contract but identifies a world-mode constructor drift that the living pages now treat explicitly.
 
 ## 2026-04-24 source correction
 
 The older research note [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md) is useful history, but its phase-by-phase algorithm reading is now superseded.
 
-The corrected source reading from [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md) is:
+The corrected source reading from [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md) is historically useful, but its wrapper wording is now stale. The 2026-07-11 current-main bridge shows that `RemoveUnusedTypes.cpp` passes `getPassOptions().worldMode` into `GlobalTypeRewriter`; do not describe the wrapper itself as directly rejecting every open-world invocation until the helper's current world-mode branches are reconciled with its fixtures.
 
-- `RemoveUnusedTypes.cpp` itself only:
-  - requires GC,
-  - fatally rejects explicit open-world execution,
-  - and calls `GlobalTypeRewriter(*module).update()`.
+The durable correction remains:
+
+- `RemoveUnusedTypes.cpp` is a small GC-gated coordinator around helper-owned rewriting, rather than a pass-local scanner/builder.
 - The pass file does **not** directly:
   - check `optimizeLevel >= 2`,
   - collect `publicTypes` with a pass-local call,
@@ -90,10 +90,10 @@ This correction changes the teaching emphasis:
 
 - `remove-unused-types` is **not** part of Starshine's current open-world no-DWARF `-O` / `-Os` path.
 - It is **not** the same pass as [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md).
-- The pass is closed-world and GC-only:
+- The pass is GC/type-graph work whose historical scheduler home is the closed-world GC/type optimization neighborhood:
   - no-GC modules return unchanged,
-  - explicit open-world execution is a fatal Binaryen usage error,
-  - default scheduling only reaches it in the closed-world GC/type optimization neighborhood.
+  - current-main passes world mode to the helper, so the exact explicit-open-world result is pending helper-and-fixture reconciliation,
+  - it remains outside Starshine's current open-world no-DWARF path.
 - Public type groups are anchors and are not freely reshaped away.
 - Private types that are not used by the surviving IR can disappear.
 - Surviving private types are rebuilt into a new private type group using predecessor constraints from private supertypes and described-type dependencies.
@@ -137,7 +137,7 @@ That means the changed surface can include:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-types` research in this repo.
-- Cite the 2026-04-24 raw primary-source manifest for the corrected source reading, the 2026-04-26 port-readiness manifest for implementation sequencing, and the 2026-05-05 current-main bridge for freshness wording.
+- Cite the 2026-04-24 raw primary-source manifest for the corrected source reading, the 2026-04-26 port-readiness manifest for implementation sequencing, and the 2026-07-11 bridge for current wrapper interface/admission wording.
 - Keep the 0149 research note as history only; do not reuse its superseded pass-local scanner / whole-old-rec-group explanation as the current algorithm.
 - Keep the page honest about scheduler scope:
   - closed-world GC/type cluster in Binaryen,
@@ -146,6 +146,7 @@ That means the changed surface can include:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md)
 - [`../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md`](../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)

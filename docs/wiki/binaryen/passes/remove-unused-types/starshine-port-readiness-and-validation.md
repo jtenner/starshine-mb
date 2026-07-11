@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
@@ -31,7 +32,7 @@ related:
 # Starshine Port Readiness And Validation For `remove-unused-types`
 
 This page turns the existing source-correct `remove-unused-types` dossier into an implementation-readiness checklist. The current Starshine status is still **boundary-only and unimplemented**; this page says how to move safely from that state to a faithful module pass when the repo chooses to build shared closed-world type-graph infrastructure.
-A 2026-05-05 current-main recheck left the slice plan unchanged.
+The 2026-07-11 current-main bridge keeps the module-pass sequencing but makes the older direct wrapper open-world-rejection wording stale.
 
 Use it with:
 
@@ -42,13 +43,13 @@ Use it with:
 
 ## Why this needs a bridge page
 
-The corrected Binaryen contract is deceptively small at the pass wrapper:
+The current Binaryen wrapper is deceptively small:
 
 1. require GC,
-2. reject explicit open-world execution,
-3. call `GlobalTypeRewriter(*module).update()`.
+2. construct `GlobalTypeRewriter(*module, getPassOptions().worldMode)`,
+3. call `update()`.
 
-The real transform is the helper-owned module rewrite: public rec groups anchor the boundary, unused private heap types disappear, surviving private heap types are dependency-sorted and rebuilt into fresh private grouping, and every affected type use in the module is remapped. A Starshine port that starts by walking HOT expressions would miss the pass's actual unit of correctness.
+The exact current explicit-open-world result belongs to helper-and-fixture reconciliation, not to a stale wrapper shortcut. The real transform is the helper-owned module rewrite: public rec groups anchor the boundary, unused private heap types disappear, surviving private heap types are dependency-sorted and rebuilt into fresh private grouping, and every affected type use in the module is remapped. A Starshine port that starts by walking HOT expressions would miss the pass's actual unit of correctness.
 
 ## Current local starting point
 
@@ -112,7 +113,7 @@ It should not remove anything yet.
 Exit criteria:
 
 - no-GC modules are unchanged,
-- open-world invocations are rejected or unscheduled consistently with the chosen Starshine closed-world policy,
+- explicit world-mode invocations follow a chosen, documented Starshine policy; do not silently apply the rewrite in an unproven mode,
 - the analyzer output classifies the fixture families from [`./wat-shapes.md`](./wat-shapes.md),
 - no WAT/binary output changes occur in this slice.
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
@@ -19,7 +20,7 @@ related:
 # `remove-unused-types` WAT shapes
 
 This page is the beginner-friendly module-shape catalog for Binaryen `remove-unused-types`.
-A 2026-05-05 current-main recheck still teaches these same families.
+The 2026-07-11 current-main bridge keeps these survivor/rebuild families but makes the older direct-open-world-wrapper wording stale.
 
 ## Read this page with one mental model
 
@@ -377,28 +378,21 @@ Why:
 
 - `RemoveUnusedTypes.cpp` returns immediately when GC features are absent.
 
-## Shape 12: open-world execution is not a supported rewrite context
+## Shape 12: world mode is a policy boundary, not a wrapper shortcut
 
-Conceptual command shape:
-
-```text
-wasm-opt --remove-unused-types input.wasm
-```
-
-without closed-world mode is not the intended successful rewrite case.
-The pass body fatally rejects open-world execution.
-
-The scheduled form belongs in a closed-world optimization context, conceptually:
+The historically documented optimization context is:
 
 ```text
 wasm-opt --closed-world --remove-unused-types input.wasm
 ```
 
-Future Starshine behavior should choose an explicit API shape here:
+Current Binaryen passes pass-option world mode into `GlobalTypeRewriter`; the 2026-07-11 reread therefore does not support repeating the older categorical statement that the wrapper itself fatally rejects every open-world call. A focused helper-and-fixture review must establish the current Binaryen explicit-open-world result.
 
-- keep the pass boundary-only until closed-world support exists,
-- then reject or skip open-world requests deliberately,
-- and only rewrite when the module is known closed-world.
+Future Starshine behavior should still choose an explicit API shape:
+
+- keep the pass boundary-only until type-graph and world-mode infrastructure exists,
+- do not silently run a private-type rewrite in an unproven world mode,
+- test and document any open-world policy separately from closed-world GC fixtures.
 
 ## Non-goals and nearby passes
 
@@ -414,7 +408,7 @@ Future Starshine behavior should choose an explicit API shape here:
 When testing this pass or a future Starshine port, include:
 
 - no-GC no-op fixtures,
-- open-world rejection or no-schedule fixtures,
+- explicit world-mode fixtures, including the chosen open-world policy,
 - unused private singleton removal,
 - unused private member removal from a larger old group,
 - private field-dependency retention,
@@ -427,6 +421,7 @@ When testing this pass or a future Starshine port, include:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for old group-retention wording: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)

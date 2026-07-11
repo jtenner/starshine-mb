@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
@@ -37,9 +38,8 @@ related:
 
 # Starshine Strategy For `remove-unused-types`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md) and the 2026-05-05 current-main recheck bridge in [`../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
-A 2026-05-05 current-main recheck left that local status unchanged.
+Use this page together with the tagged-source manifest in [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md) and the 2026-07-11 current-main/admission bridge in [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md).
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve. The new bridge leaves the local boundary-only status unchanged while flagging current Binaryen's helper world-mode interface for future policy review.
 
 ## The honest current status
 
@@ -152,8 +152,8 @@ That matches the current local strategy: `remove-unused-types` has no open-world
 
 A faithful port should preserve the source-backed contract from the rest of this folder:
 
-- require GC support and closed-world mode before rewriting,
-- keep open-world behavior explicit and non-silent,
+- require GC support before rewriting,
+- choose, document, and test world-mode policy explicitly; current Binaryen passes world mode to its helper, so do not inherit the older direct-wrapper-rejection wording,
 - collect public type groups as boundary anchors,
 - collect used private heap types across declarations and code,
 - avoid preserving whole old private rec groups merely because one member is live,
@@ -214,8 +214,8 @@ A future implementation should validate in layers:
    - when the pass lands, update registry category, tests, tracker, and docs in the same change.
 2. feature and world gates
    - no-GC modules are unchanged,
-   - open-world requests are rejected or not scheduled,
-   - closed-world test fixtures enable the rewrite explicitly.
+   - explicit world-mode requests follow a documented Starshine policy,
+   - closed-world fixtures cover the documented private-graph baseline explicitly.
 3. private/public boundaries
    - unused private singleton types disappear,
    - public type groups stay,
