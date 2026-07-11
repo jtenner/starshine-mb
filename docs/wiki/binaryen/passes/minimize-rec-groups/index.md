@@ -1,12 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../tooling/pass-fuzz-compare.md
   - ../tracker.md
   - ../index.md
   - ../late-pipeline-dispatch.md
@@ -126,6 +128,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest half of the pass: why SCC splitting is not enough, how canonicalization and valid topological permutations work, when brands become necessary, how public groups constrain private output, and why exactness is feature-sensitive.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering independent-type splits, chain-vs-cycle boundaries, permutation wins, automorphism and subtype-order bailouts, descriptor/described ordering, exactness-feature toggles, public conflicts, and brand-heavy fallback families.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Planned-only comparison status: current boundary-only and harness-admission barriers, GC-rec-group reachability needs, and the required permutation/brand/type-remapping signoff matrix.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and port map: boundary-only registry entry, honest active-request rejection, active-preset omission, no owner file, no dedicated backlog slice, and the exact local rec-group/type-section code surfaces a future module pass would need to build on.
 
@@ -142,6 +146,7 @@ What it actually is in `version_129`:
   - brands are part of the real contract
 - Keep the public/private split explicit instead of implying the pass can rewrite ABI-visible groups.
 - Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep [`./fuzzing.md`](./fuzzing.md) planned-only until a real module pass, harness admission, and a GC-rec-group-aware input profile can produce meaningful compared cases.
 
 ## Sources
 
@@ -149,6 +154,8 @@ What it actually is in `version_129`:
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+- [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
 - [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md)

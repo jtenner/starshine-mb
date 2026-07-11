@@ -1,20 +1,57 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-06-16
+status: planned
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
+related:
+  - ./index.md
+  - ./starshine-strategy.md
+  - ./permutations-brands-and-public-conflicts.md
+  - ../../../tooling/pass-fuzz-compare.md
 ---
 
-# `minimize-rec-groups` Fuzzing Profile
+# `minimize-rec-groups` Fuzzing Status
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+## Current status: planned-only
 
-```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass minimize-rec-groups --out-dir .tmp/pass-fuzz-minimize-rec-groups --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` smoke lane for `minimize-rec-groups` today.
+
+- `--minimize-rec-groups` is absent from `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts), so the comparison harness rejects it during argument parsing before generation or optimizer execution.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) tracks `minimize-rec-groups` as **BoundaryOnly**. The known name deliberately rejects active execution because Starshine has no module-pass implementation.
+- A Binaryen result, a harness parser failure, a boundary-only rejection, or zero compared cases is not Starshine parity evidence.
+
+The existing Binaryen dossier remains the source of truth for the GC-gated private-rec-group rewrite, public-shape conflicts, valid permutations, and brand-type fallback. This page corrects the stale local smoke-lane claim without claiming a new upstream behavior finding.
+
+## Safe inspection now
+
+```text
+bun fuzz compare-pass --list-passes
 ```
 
-Dedicated GenValid profile: none documented for this pass yet.
+This reports harness admission only; it does not exercise the Binaryen pass or a Starshine transform.
 
-If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+## Future runnable-lane template
+
+Use this only after every gate below is true:
+
+```text
+moon build --target native --release src/cmd
+bun fuzz compare-pass --pass minimize-rec-groups --count 10000 --seed 0x5eed \
+  --gen-valid-profile <gc-rec-group-profile> --require-feature gc \
+  --out-dir .tmp/pass-fuzz-minimize-rec-groups --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --min-compared <meaningful-threshold>
+```
+
+### Admission gates
+
+1. **Harness:** admit `--minimize-rec-groups` and test that it maps to Binaryen's public flag.
+2. **Starshine:** replace the boundary-only entry with an active module pass, dispatcher route, owner, and focused tests.
+3. **GC reachability:** add fixtures or a profile that creates private and public recursive groups, rather than ordinary scalar-only valid modules that never exercise type-graph rewriting.
+4. **Semantic coverage:** require a meaningful compared-case threshold and cover private singleton splitting, public shape conflicts, valid permutation resolution, required brand insertion, descriptor/subtype constraints, feature-sensitive exactness, and complete type-use/name/index remapping.
+
+Until then, targeted Binaryen fixtures are upstream-oracle preparation only. Do not infer local support from Binaryen's public registration or from a boundary-only registry entry.
