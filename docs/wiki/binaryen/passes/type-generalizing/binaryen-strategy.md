@@ -165,7 +165,7 @@ For upstream comprehension:
 - `TypeGeneralizing.cpp` is the owner of the algorithm.
 - `pass.cpp` proves hidden/test and not-yet-sound status.
 - `type-generalizing.wast` is the official behavior catalog.
-- The 2026-05-06 current-main recheck kept the same reviewed surface contract.
+- The 2026-07-11 `version_130` / current-main recheck is the current reviewed surface contract.
 
 For future Starshine implementation:
 
@@ -175,7 +175,7 @@ For future Starshine implementation:
 
 ## Relationship to neighboring passes
 
-- Compared with `gufa`, `type-generalizing` consumes oracle-style facts but writes local declarations rather than rewriting arbitrary expression contents.
+- Compared with `gufa`, `type-generalizing` does **not** consume a whole-program `ContentOracle`; it derives intra-function requirements from typed IR and declarations, then writes local declarations rather than arbitrary expressions.
 - Compared with `type-refining`, it generalizes local variables from use requirements rather than tightening struct field declarations.
 - Compared with `signature-refining`, it does not rewrite function signatures; calls are constraints, not the direct output.
 - Compared with `type-merging`, it does not merge heap type declarations.
