@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -44,7 +45,7 @@ related:
 - The existing `type-refining` dossier already depends on understanding GUFA as a distinct whole-program inference engine.
 - `agent-todo.md` currently has **no dedicated `gufa` slice**.
 - Without a dedicated page, beginners can easily blur GUFA into ordinary constant propagation or into the separate `type-refining-gufa` companion.
-- The 2026-05-05 refresh adds a current-main recheck plus a dedicated Starshine port-readiness bridge, keeping plain `gufa` in line with the already-refreshed `gufa-optimizing` and `gufa-cast-all` sibling dossiers.
+- The 2026-07-11 source refresh adds the previously omitted `possible-contents.cpp` analysis owner to the current-main source map; it keeps plain `gufa` aligned with the sibling dossiers while explicitly not claiming a complete `version_130`-to-`main` diff.
 
 ## Beginner summary
 
@@ -63,7 +64,7 @@ So the pass is best read as:
 ## Current durable takeaways
 
 - `gufa` is a **whole-program**, oracle-driven pass, not a local peephole pass.
-- The core helper is `ContentOracle` in `src/ir/possible-contents.h`.
+- The core helper is `ContentOracle`, whose public vocabulary is in `src/ir/possible-contents.h` and whose analysis machinery is in `src/ir/possible-contents.cpp`.
 - The plain pass rewrite surface is intentionally narrow: constants, `global.get` / `ref.func`, `unreachable`, `ref.eq`, `ref.test`, and `ref.cast` refinement.
 - `gufa-optimizing` is the same analysis plus nested `dce` and `vacuum` reruns on changed functions.
 - `gufa-cast-all` is the same analysis plus explicit cast insertion where the oracle knows a narrower type.
@@ -73,7 +74,7 @@ So the pass is best read as:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` contract: what the pass analyzes, how it rewrites code, why the default scheduler does not run it, and what the public variants really mean.
+  Deep dive into the current tagged `version_130` source anchor, historical `version_129` provenance, what the pass analyzes, how it rewrites code, why the default scheduler does not run it, and what the public variants really mean.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   File-by-file and test-by-test map of the upstream sources that define `gufa`, `gufa-optimizing`, and `gufa-cast-all`.
 - [`./content-oracle-variants-and-boundaries.md`](./content-oracle-variants-and-boundaries.md)
@@ -89,11 +90,12 @@ So the pass is best read as:
 
 - Treat this folder as the canonical home for future `gufa` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
-- Cite [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md) for source-backed Binaryen mechanics, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the missing validation bridge.
+- Cite [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) for current upstream owner-map and uncertainty, [`./binaryen-strategy.md`](./binaryen-strategy.md) for mechanics, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the missing validation bridge.
 - Keep the relationship to [`../type-refining/index.md`](../type-refining/index.md) explicit instead of teaching GUFA only as a side note inside the `type-refining` folder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md
   - ../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0189-2026-04-21-gufa-optimizing-binaryen-research.md
@@ -57,7 +58,7 @@ So the pass is best read as:
 ## Current durable takeaways
 
 - Binaryen `version_129` implements `gufa-optimizing` in the shared [`GUFA.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp) engine with `optimizing = true` and `castAll = false`.
-- The whole-program proof engine is still `ContentOracle` from [`possible-contents.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h).
+- The whole-program proof engine is still `ContentOracle`. Its public API is in [`possible-contents.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/possible-contents.h) and its analysis implementation is in [`possible-contents.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/possible-contents.cpp); see the shared 2026-07-11 source refresh for scope and uncertainty.
 - After a changed function is rewritten, Binaryen refinalizes it, repairs EH nested pops, and then runs nested `dce` followed by `vacuum` on that function.
 - `gufa-optimizing` does **not** insert the fresh casts owned by [`../gufa-cast-all/index.md`](../gufa-cast-all/index.md).
 - Starshine currently rejects the name: command parsing admits only active hot/module/preset pass names, and lower-level expansion rejects boundary-only names as not implemented.
@@ -84,6 +85,7 @@ So the pass is best read as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) — current shared oracle owner-map; not a complete source-diff claim.
 - [`../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md)
 - [`../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0189-2026-04-21-gufa-optimizing-binaryen-research.md`](../../../raw/research/0189-2026-04-21-gufa-optimizing-binaryen-research.md)

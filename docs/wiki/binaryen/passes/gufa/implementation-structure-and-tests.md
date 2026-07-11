@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -24,16 +25,17 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the main source oracle for this page, anchored by [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md).
+Use Binaryen `version_130` as the current tagged source anchor for this page, while retaining [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md) as historical provenance.
 
-The 2026-05-05 refresh also spot-checked current `main` on the owner, registration, oracle, and dedicated lit-test surfaces and found no teaching-relevant drift from the tagged release.
+The 2026-07-11 refresh rechecked current `main` on the owner, registration, oracle header **and implementation**, and dedicated lit-test surfaces. It corrects the older owner map by adding `possible-contents.cpp`; it is a focused source reread, not a complete version-to-main diff.
 
 ## File map
 
 | File | Why it matters |
 | --- | --- |
 | `src/passes/GUFA.cpp` | Core pass-family logic: queries `ContentOracle`, rewrites expressions, specializes `ref.eq` / `ref.test` / `ref.cast`, optionally adds new casts, and optionally reruns `dce` + `vacuum` |
-| `src/ir/possible-contents.h` | Defines `PossibleContents` and `ContentOracle`, the whole-program lattice/oracle that makes the pass family possible |
+| `src/ir/possible-contents.h` | Declares `PossibleContents` / `ContentOracle`: result vocabulary, query API, and the public contract consumed by the pass |
+| `src/ir/possible-contents.cpp` | Implements the contents-analysis machinery behind that API; this owner was absent from the older wiki source map and is a required future-port study target |
 | `src/passes/pass.cpp` | Registers `gufa`, `gufa-cast-all`, and `gufa-optimizing`, and also makes the neighboring `type-refining-gufa` relationship visible |
 | `test/lit/passes/gufa.wast` | Main semantic contract surface for plain `gufa`: unreachable, constants, calls, locals, globals, `ref.eq`, `ref.test`, and `ref.cast` |
 | `test/lit/passes/gufa-optimizing.wast` | Proves that the optimizing variant owns nested cleanup behavior, not just a naming alias |
@@ -71,6 +73,8 @@ The durable execution order is:
 That flow already explains most of the pass family.
 
 ## `PossibleContents`: the real data model behind the pass
+
+Read the helper as a two-file subsystem: the header states the result model and query contract, while the `.cpp` implements the module analysis. The header alone is not a substitute for the flow/graph design a future Starshine port would need.
 
 The official helper defines five useful result classes:
 
@@ -209,16 +213,17 @@ The dedicated cast-all test proves a very specific additional semantic step: ins
 False for the reviewed `version_129` pipeline.
 `pass.cpp` registers it publicly but does not schedule it in the current default no-DWARF path.
 
-## Current-main spot check
+## Current-main source-refresh scope
 
-I checked the following public surfaces on current `main` as a freshness guard:
+The 2026-07-11 bridge reread these current-main surfaces:
 
 - `src/passes/GUFA.cpp`
 - `src/passes/pass.cpp`
-- `test/lit/passes/gufa.wast`
+- `src/ir/possible-contents.h`
+- `src/ir/possible-contents.cpp`
+- `test/lit/passes/gufa.wast`, `gufa-optimizing.wast`, and `gufa-cast-all.wast`
 
-On the reviewed owner-file, registration, oracle, and dedicated lit-test surfaces, current `main` did not surface teaching-relevant drift from `version_129`.
-So the tagged release remains a stable teaching oracle for this dossier today.
+It confirms the public owner/variant/fixture map and corrects the missing implementation-owner citation. It does **not** claim a complete internal source diff or a fresh Binaryen execution run, so retain the explicit uncertainty in [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md).
 
 ## Porting checklist this page suggests
 
@@ -233,6 +238,7 @@ A future Starshine port needs answers to at least these questions:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)

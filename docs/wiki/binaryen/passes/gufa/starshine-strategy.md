@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -90,7 +91,7 @@ That means a faithful Starshine port must be module-level analysis plus local re
 A faithful local port should probably be a module pass or a module-plus-HOT hybrid:
 
 1. add a real `gufa` owner file and dispatch surface before accepting the pass flag;
-2. build a Starshine equivalent of Binaryen's `ContentOracle` over functions, globals, call edges, reference-typed flows, and closed-world roots;
+2. study and then build a Starshine equivalent of Binaryen's two-file `ContentOracle` subsystem (`possible-contents.h` API plus `possible-contents.cpp` analysis) over functions, globals, call edges, reference-typed flows, and closed-world roots;
 3. represent at least the source-backed result families: no contents, one literal, one global/function identity, one reference type cone, and many/unknown;
 4. make the rewrite engine conservative about materialization and static type validity, especially for `global.get` and `ref.func` identities;
 5. preserve child side effects when replacing an expression by `unreachable` or a known value;
@@ -124,6 +125,6 @@ A useful first validation ladder would be:
 
 ## Current local conclusion
 
-Starshine should keep plain `gufa` as boundary-only until a whole-program contents oracle exists. The existing instruction, HOT, validation, binary, and WAT surfaces are useful future building blocks, but the missing oracle is the pass.
+Starshine should keep plain `gufa` as boundary-only until a whole-program contents oracle exists. The existing instruction, HOT, validation, binary, and WAT surfaces are useful future building blocks, but the missing oracle subsystem—not merely its result-kind vocabulary—is the pass. The current source bridge is [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md).
 
 See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the concrete validation ladder and prerequisite surfaces.

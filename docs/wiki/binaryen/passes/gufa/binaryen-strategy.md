@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -24,13 +25,13 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass family.
-- The committed raw manifest [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md) is the provenance anchor for plain `gufa`.
-- The core implementation is `src/passes/GUFA.cpp`.
-- The core analysis helper is `src/ir/possible-contents.h`.
+- Use Binaryen `version_130` as the current tagged source anchor for this pass family; retain the older `version_129` captures as historical provenance.
+- The committed raw manifest [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) is the current owner-map and uncertainty anchor for plain `gufa`.
+- The core pass implementation is `src/passes/GUFA.cpp`.
+- The core analysis helper spans `src/ir/possible-contents.h` (public vocabulary/API) and `src/ir/possible-contents.cpp` (analysis implementation).
 - Public registration comes from `src/passes/pass.cpp`.
 - The shipped behavior examples are `test/lit/passes/gufa.wast`, `gufa-optimizing.wast`, and `gufa-cast-all.wast`.
-- A 2026-05-05 current-`main` spot check of the reviewed owner/registration/oracle/test surfaces did not surface teaching-relevant drift from `version_129`.
+- A 2026-07-11 current-`main` reread confirms the public owner map and fixture split while correcting the omitted `.cpp` owner. It is not a complete `version_130`-to-`main` diff, so do not convert this freshness bridge into a blanket no-drift claim.
 
 ## The pass family in one sentence
 
@@ -102,7 +103,7 @@ That avoids mutating the shared oracle while still letting later steps in the sa
 
 ## Phase 1: `ContentOracle` computes possible contents per location
 
-`ContentOracle` is defined in `possible-contents.h`.
+`possible-contents.h` defines the oracle's vocabulary and query API; `possible-contents.cpp` owns the analysis implementation that makes those answers available. A future port needs both layers, not merely a copy of the result kinds.
 The source comments say it assumes a **closed world**, starts from roots such as newly created values, and propagates them to the locations they reach.
 
 The important result kinds are:
@@ -275,7 +276,7 @@ The `global.get` / `ref.func` type-mismatch bailout is the clearest counterexamp
 
 The most important helper dependencies are:
 
-- `ContentOracle` / `PossibleContents` in `possible-contents.h`
+- `ContentOracle` / `PossibleContents` across `possible-contents.h` and `possible-contents.cpp`
 - `Properties` for memory-order and constant-expression gates
 - `ReFinalize`
 - `EHUtils::handleBlockNestedPops`
@@ -319,6 +320,7 @@ That is the main durable teaching value of this dossier.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)

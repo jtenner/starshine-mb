@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -23,7 +24,7 @@ related:
 
 This page gives beginner-friendly before/after sketches for the main source-backed shapes in Binaryen `gufa`.
 They are simplified teaching examples, not exact copied lit-file excerpts.
-The source-backed provenance for these families is now captured in [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md).
+The source-backed provenance for these families is captured in [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) and the older [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md). The newer bridge corrects the analysis-owner map; it does not assert a full source-diff or fresh execution result.
 
 ## How to read these examples
 
@@ -449,6 +450,7 @@ A future Starshine port should keep these shape rules explicit:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)

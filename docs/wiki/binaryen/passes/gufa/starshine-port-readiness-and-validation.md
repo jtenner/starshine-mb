@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -78,7 +79,7 @@ A real Starshine `gufa` port needs a **module-wide contents oracle**, not just m
 
 Minimum required pieces:
 
-1. a module owner that can build a closed-world contents oracle
+1. a module owner that can build a closed-world contents oracle; its design work must cover both Binaryen oracle layers, the public `possible-contents.h` contract and `possible-contents.cpp` analysis implementation
 2. a representation for the source-backed result families: no contents, one literal, one global/function identity, one reference cone, and many/unknown
 3. a rewrite worker that preserves side effects when replacing expressions by `unreachable`
 4. explicit `ref.eq`, `ref.test`, and existing-`ref.cast` specialization
@@ -131,4 +132,4 @@ A good first validation ladder would be:
 
 ## Current local conclusion
 
-Starshine should keep plain `gufa` boundary-only until a module-wide contents oracle exists. The IR / HOT / validation / binary surfaces already support the needed instruction vocabulary, but they do not replace the missing oracle and rewrite ownership.
+Starshine should keep plain `gufa` boundary-only until a module-wide contents oracle exists. The IR / HOT / validation / binary surfaces already support the needed instruction vocabulary, but they do not replace the missing oracle implementation and rewrite ownership. The 2026-07-11 source bridge corrects the former header-only owner map while retaining explicit uncertainty about the detailed solver design.

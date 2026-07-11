@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
@@ -41,7 +42,7 @@ A beginner-friendly approximation is:
 - “What values can really reach this location in the closed-world program?”
 
 The answer is not just yes/no or const/non-const.
-The helper tracks several distinct kinds of knowledge.
+The public header tracks several distinct kinds of knowledge. The companion `possible-contents.cpp` implements the analysis that computes them; copying this list alone would not reproduce GUFA.
 
 ### `None`
 
@@ -66,6 +67,12 @@ That is the key to `ref.test`, `ref.cast`, and `gufa-cast-all` improvements.
 ### `Many`
 
 There is still useful reachability information, but not enough precision to emit one replacement value.
+
+## Header vocabulary versus analysis implementation
+
+`src/ir/possible-contents.h` tells readers what answers callers can request: contents classes, cone/intersection relations, and materialization queries. `src/ir/possible-contents.cpp` is a separate required owner for how a whole module produces those answers. The older source map omitted that `.cpp` file, which could mislead a port into treating GUFA as a small enum-plus-visitor feature.
+
+The 2026-07-11 source refresh corrects ownership but deliberately does not claim a complete internal algorithm audit or a source-identical `version_130`/`main` comparison. Treat the detailed solver design as an implementation investigation still required before porting.
 
 ## Why this is bigger than constant propagation
 
@@ -247,6 +254,7 @@ If you want the correct beginner-to-intermediate mental model, remember:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
@@ -59,7 +60,7 @@ So the pass is best read as:
 
 - Binaryen `version_129` implements `gufa-cast-all` in the shared [`GUFA.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp) engine with `optimizing = false` and `castAll = true`.
 - The 2026-05-04 current-main recheck confirmed the same shared-engine split and `addNewCasts(func)` shape still hold on the reviewed surfaces.
-- The whole-program proof engine is still `ContentOracle` from [`possible-contents.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h).
+- The whole-program proof engine is still `ContentOracle`. Its public API is in [`possible-contents.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/possible-contents.h) and its analysis implementation is in [`possible-contents.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/possible-contents.cpp); see the shared 2026-07-11 source refresh for scope and uncertainty.
 - After a changed function is rewritten, Binaryen refinalizes it, and the cast-all-only `addNewCasts(func)` walk can insert fresh `ref.cast` nodes.
 - `addNewCasts` is GC-gated, only uses castable reference-typed sites, requires a real subtype improvement, and downgrades exact targets when custom descriptors are unavailable.
 - If cast insertion changes the function, Binaryen refinalizes again before the outer EH nested-pop repair path finishes.
@@ -88,6 +89,7 @@ So the pass is best read as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) — current shared oracle owner-map; not a complete source-diff claim.
 - [`../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md)
 - [`../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md`](../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md`](../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md)
