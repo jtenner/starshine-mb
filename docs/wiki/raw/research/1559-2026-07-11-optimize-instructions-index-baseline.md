@@ -70,3 +70,18 @@ Those timeouts include compilation and are not pass-local runtime measurements. 
 5. GC/descriptor families: share call sites, module type/annotation facts, and GC root kinds.
 
 No new whole-body scanner should be added for a single behavior shape.
+
+## First migration result
+
+The first follow-up completed the idempotent-call deletion boundary:
+
+- `RawOiFunctionRevisionFactIndex` now discovers call/select candidates once per immutable raw body snapshot.
+- HOT remains the sole owner of dynamic operand equality and safety proof.
+- direct 8/9-operand, middle-tree 8-operand, separated two-tree 9-operand, and mismatch fixtures match Binaryen v130.
+- existing six-operand compatibility passes 128/128, seven-operand compatibility passes 7/7, and focused idempotent tests pass 24/24.
+- the 46,567-line matrix, 362 admission variants, 22 arity-specific signature facts, and all explicit six/seven dispatch helpers are gone.
+- `pass_manager.mbt` is 58,443 lines after the migration, down from 104,839.
+- raw `from_instrs` definitions fell from 41 to 40 and direct body calls from 27 to 26.
+- the focused 1,200-repetition fixture completes in 0.798 seconds on cached native execution and 8.237 seconds on the default target including rebuild work; the pre-deletion default and native package builds both exceeded 600 seconds.
+
+These timings demonstrate the compile/build-pressure win and a usable runtime smoke floor. They do not replace the required native CLI/Binaryen pass-local comparison or broader scanner migration.

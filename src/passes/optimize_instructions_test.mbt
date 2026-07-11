@@ -84126,3 +84126,63 @@ test "optimize-instructions folds seventh tree in seven-operand mixed i64-result
     )
   }
 }
+
+///|
+test "optimize-instructions folds generic eight and nine operand idempotent calls" {
+  // Red-first OI-INDEX003 parity slice. Binaryen v130
+  // `areConsecutiveInputsEqualAndFoldable` iterates the dynamic operand arrays;
+  // it does not branch on arity or tree placement. The fresh oracle is
+  // `.tmp/oi-probes/indexed-idempotent-8-9.wat`: direct and middle-tree arity-8
+  // calls plus separated-tree arity-9 calls fold, while an independent final
+  // operand mismatch keeps both calls and the select.
+  let wat =
+    #|(module
+    #|  (@binaryen.idempotent)
+    #|  (func $id8 (param i64 i64 i64 i64 i64 i64 i64 i64) (result i64) local.get 0)
+    #|  (@binaryen.idempotent)
+    #|  (func $id9 (param i64 i64 i64 i64 i64 i64 i64 i64 i64) (result i64) local.get 0)
+    #|  (func (param i64 i64 i64 i64 i64 i64 i64 i64) (result i64)
+    #|    i64.const 0
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 call $id8
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 call $id8
+    #|    i64.eqz select)
+    #|  (func (param i64 i64 i64 i64 i64 i64 i64 i64) (result i64)
+    #|    i64.const 0
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 i64.const 1 i64.add local.get 4 local.get 5 local.get 6 local.get 7 call $id8
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 i64.const 1 i64.add local.get 4 local.get 5 local.get 6 local.get 7 call $id8
+    #|    i64.eqz select)
+    #|  (func (param i64 i64 i64 i64 i64 i64 i64 i64 i64) (result i64)
+    #|    i64.const 0
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 local.get 8 call $id9
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 local.get 8 call $id9
+    #|    i64.eqz select)
+    #|  (func (param i64 i64 i64 i64 i64 i64 i64 i64 i64) (result i64)
+    #|    i64.const 0
+    #|    local.get 0 local.get 1 i64.const 1 i64.add local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 i64.const 2 i64.add local.get 8 call $id9
+    #|    local.get 0 local.get 1 i64.const 1 i64.add local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 i64.const 2 i64.add local.get 8 call $id9
+    #|    i64.eqz select)
+    #|  (func (param i64 i64 i64 i64 i64 i64 i64 i64 i64) (result i64)
+    #|    i64.const 0
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 local.get 8 call $id9
+    #|    local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 i64.const 99 call $id9
+    #|    i64.eqz select))
+  let optimized = match pass_test_run_pipeline(wat, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected generic 8/9-operand idempotent OI success, got \{err}")
+  }
+  for func_idx in [2U, 3U, 4U, 5U] {
+    let text = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(text.contains("select"), msg=text)
+    @debug.assert_eq(
+      optimize_instructions_test_count_substring(text, "call (Func "),
+      1,
+    )
+  }
+  let mismatch = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_true(mismatch.contains("select"), msg=mismatch)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(mismatch, "call (Func 1)"),
+    2,
+  )
+}
