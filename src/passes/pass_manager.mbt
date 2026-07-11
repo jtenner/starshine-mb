@@ -25567,6 +25567,7 @@ priv enum RawOiRootKind {
   LocalGet
   LocalTee
   PlainLoad
+  MemoryStore
   RefNull
   RefCastDescEq
   CallLike
@@ -25696,6 +25697,8 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.RefCastDescEq(_, _, _) => RawOiRootKind::RefCastDescEq
     instr if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) =>
       RawOiRootKind::PlainLoad
+    instr if RawOiMemoryAccessMemargFact::from_store_instr(instr) is Some(_) =>
+      RawOiRootKind::MemoryStore
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
         instr,
       ) => RawOiRootKind::CommutativeIntegerBinop
@@ -25892,6 +25895,7 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (LocalGet, LocalGet)
     | (LocalTee, LocalTee)
     | (PlainLoad, PlainLoad)
+    | (MemoryStore, MemoryStore)
     | (RefNull, RefNull)
     | (RefCastDescEq, RefCastDescEq)
     | (CallLike, CallLike)
@@ -27930,15 +27934,16 @@ fn RawOiMemoryOffsetFoldRewriteFact::append_rewrite(
 }
 
 ///|
-fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryOffsetFoldRewriteFact::from_load_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::PlainLoad) {
     return None
   }
-  let address = instrs[start]
-  let load_instr = instrs[start + 1]
+  let address = region.roots[start].instr
+  let load_instr = region.roots[start + 1].instr
   let access = match RawOiMemoryAccessMemargFact::from_load_instr(load_instr) {
     Some(fact) if fact.proves_load_access() => fact
     _ => return None
@@ -27968,16 +27973,17 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
 }
 
 ///|
-fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryOffsetFoldRewriteFact::from_store_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start + 2, RawOiRootKind::MemoryStore) {
     return None
   }
-  let address = instrs[start]
-  let value = instrs[start + 1]
-  let store_instr = instrs[start + 2]
+  let address = region.roots[start].instr
+  let value = region.roots[start + 1].instr
+  let store_instr = region.roots[start + 2].instr
   let access = match
     RawOiMemoryAccessMemargFact::from_store_instr(store_instr) {
     Some(fact) if fact.proves_store_access() => fact
@@ -28008,15 +28014,15 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
 }
 
 ///|
-fn RawOiMemoryOffsetFoldRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryOffsetFoldRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
-  match RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(instrs, start) {
+  match RawOiMemoryOffsetFoldRewriteFact::from_store_region(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(instrs, start)
+  RawOiMemoryOffsetFoldRewriteFact::from_load_region(region, start)
 }
 
 ///|
@@ -32902,7 +32908,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiMemoryOffsetFoldRewriteFact::from_instrs(instrs, i) {
+    match RawOiMemoryOffsetFoldRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true

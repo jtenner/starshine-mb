@@ -239,6 +239,28 @@ test "optimize-instructions descriptor block arguments consume indexed flow fact
 }
 
 ///|
+test "optimize-instructions memory offset folds consume indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 4UL)),
+  ])
+  match RawOiMemoryOffsetFoldRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_memory_offset_fold())
+      @debug.assert_eq(fact.end, 2)
+    }
+    None => fail("expected indexed memory offset fold")
+  }
+  let zero_offset = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+  ])
+  assert_true(
+    RawOiMemoryOffsetFoldRewriteFact::from_region(zero_offset, 0).is_none(),
+  )
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([
