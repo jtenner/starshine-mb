@@ -4049,6 +4049,67 @@ test "dae typeidx control rewrite plan centralizes type installation and reconst
 }
 
 ///|
+test "dae typeidx control rebuild preserves active type section timing" {
+  let params = [@lib.ValType::i32()]
+  let results = [@lib.ValType::i64()]
+  let body = [@lib.Instruction::drop(), @lib.Instruction::i64_const(@lib.I64(1L))]
+  let empty_type_sec = @lib.TypeSec::new([])
+  let first = match
+    dae_rebuild_typeidx_control(
+      empty_type_sec,
+      0,
+      params,
+      results,
+      body,
+      None,
+    ) {
+    Some(application) => application
+    None => fail("expected first typeidx control rebuild")
+  }
+  let @lib.TypeSec(first_types) = first.type_sec
+  assert_eq(first_types.length(), 1)
+  assert_eq(
+    first.rewritten,
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(body),
+    ),
+  )
+  let second = match
+    dae_rebuild_typeidx_control(
+      first.type_sec,
+      1,
+      params,
+      results,
+      body,
+      None,
+    ) {
+    Some(application) => application
+    None => fail("expected second typeidx control rebuild")
+  }
+  assert_eq(second.type_sec, first.type_sec)
+  assert_eq(
+    second.rewritten,
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(body),
+    ),
+  )
+  match
+    dae_rebuild_typeidx_control(
+      second.type_sec,
+      2,
+      params,
+      results,
+      body,
+      None,
+    ) {
+    Some(_) => fail("if rebuild without else must reject before type mutation")
+    None => ()
+  }
+}
+
+///|
 test "dae single-body control rewrite evidence centralizes reconstruction" {
   let original_body = [@lib.Instruction::nop()]
   let rewritten_body = [@lib.Instruction::drop()]
