@@ -11596,22 +11596,6 @@ fn dae_rewrite_dropped_result_calls_with_policy_instrs(
 }
 
 ///|
-fn dae_rewrite_dropped_result_calls_instrs(
-  instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> (Array[@lib.Instruction], Int) {
-  dae_rewrite_dropped_result_calls_with_policy_instrs(instrs, callee_abs, true)
-}
-
-///|
-fn dae_rewrite_dropped_result_calls_anywhere_instrs(
-  instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> (Array[@lib.Instruction], Int) {
-  dae_rewrite_dropped_result_calls_with_policy_instrs(instrs, callee_abs, false)
-}
-
-///|
 fn dae_dropped_result_scope_from_optional(
   func_count : Int,
   caller_defs : Array[Int]?,
@@ -11799,20 +11783,24 @@ fn dae_dropped_result_module_context(
 }
 
 ///|
-fn dae_rewrite_dropped_result_calls_in_scope(
+fn dae_rewrite_dropped_result_calls_in_scope_with_policy(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
   callee_abs : Int,
+  stop_at_unreachable_root~ : Bool,
 ) -> Int {
   let mut rewritten_call_count = 0
-  for caller in scope.caller_defs {
-    if caller >= 0 && caller < funcs.length() {
-      let @lib.Func(locals, @lib.Expr(body)) = funcs[caller]
-      let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_instrs(
-        body, callee_abs,
+  for caller_def in scope.caller_defs {
+    if caller_def >= 0 && caller_def < funcs.length() {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
+      let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_with_policy_instrs(
+        body, callee_abs, stop_at_unreachable_root,
       )
       if rewrites > 0 {
-        funcs[caller] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
+        funcs[caller_def] = @lib.Func::new(
+          locals,
+          @lib.Expr::new(rewritten_body),
+        )
         rewritten_call_count += rewrites
       }
     }
@@ -11821,32 +11809,27 @@ fn dae_rewrite_dropped_result_calls_in_scope(
 }
 
 ///|
+fn dae_rewrite_dropped_result_calls_in_scope(
+  funcs : Array[@lib.Func],
+  scope : DaeDroppedResultScope,
+  callee_abs : Int,
+) -> Int {
+  dae_rewrite_dropped_result_calls_in_scope_with_policy(
+    funcs, scope, callee_abs, stop_at_unreachable_root=true,
+  )
+}
+
+///|
 fn dae_remove_dropped_result_call_drops_in_scope(
   funcs : Array[@lib.Func],
   callee_abs : Int,
   scope : DaeDroppedResultScope,
 ) -> Unit {
-  for caller_def in scope.caller_defs {
-    dae_remove_dropped_result_call_drops_in_func(funcs, caller_def, callee_abs)
-  }
-}
-
-///|
-fn dae_remove_dropped_result_call_drops_in_func(
-  funcs : Array[@lib.Func],
-  caller_def : Int,
-  callee_abs : Int,
-) -> Unit {
-  if caller_def < 0 || caller_def >= funcs.length() {
-    return
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
-  let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_anywhere_instrs(
-    body, callee_abs,
+  ignore(
+    dae_rewrite_dropped_result_calls_in_scope_with_policy(
+      funcs, scope, callee_abs, stop_at_unreachable_root=false,
+    ),
   )
-  if rewrites > 0 {
-    funcs[caller_def] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
-  }
 }
 
 ///|
