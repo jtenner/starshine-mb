@@ -24,7 +24,7 @@ related:
 
 # `inlining`: heuristics, splitting, and plain-vs-optimizing
 
-This page focuses on the parts of the inliner that future agents most often overcompress. A 2026-06-02 current-main recheck still leaves these heuristics and split boundaries unchanged.
+This page focuses on the parts of the inliner that future agents most often overcompress. The 2026-06-02 current-main recheck remains useful for the older shapes, but its blanket no-drift conclusion is superseded: current `main` adds a function-level toolchain `AlwaysInline` / `NeverInline` override before generic full-inline profitability. The splitting boundaries themselves were not reread; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the precise reviewed scope.
 
 ## The wrong one-line summary
 

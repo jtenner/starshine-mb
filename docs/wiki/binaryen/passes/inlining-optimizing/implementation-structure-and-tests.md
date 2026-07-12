@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-14
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
@@ -31,7 +32,7 @@ related:
 
 | File | Role |
 | --- | --- |
-| `src/passes/Inlining.cpp` | shared inliner: summaries, heuristics, planner, splitter, rewrite, repair, helper cleanup |
+| `src/passes/Inlining.cpp` | shared inliner: summaries including current-main function-level toolchain inline hints, full-inline heuristics, planner, splitter, rewrite, repair, helper cleanup |
 | `src/passes/pass.cpp` | public registration of `inlining` / `inlining-optimizing`; late post-pass scheduling |
 | `src/passes/opt-utils.h` | optimizing suffix: `precompute-propagate` + default function pipeline on changed functions |
 | `src/pass.h` | heuristic defaults |

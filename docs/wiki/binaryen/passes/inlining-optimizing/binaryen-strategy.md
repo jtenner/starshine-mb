@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
@@ -23,7 +24,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle; the public release horizon now reaches `version_130`, but the 2026-04-25 current-main implementation/test-map bridge still records no teaching-relevant drift for the optimizing suffix contract. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
+Use Binaryen `version_129` as the tagged oracle. The public release horizon reaches `version_130`; the 2026-04-25 bridge still supports the optimizing **suffix** contract, but it cannot be read as a no-drift claim for the shared inliner. The 2026-07-11 reread found a function-level toolchain `AlwaysInline` / `NeverInline` override in `Inlining.cpp` before generic full-inline profitability. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
 
 Primary URLs:
 
@@ -45,7 +46,7 @@ The optimizing variant inherits every core obligation from [`../inlining/binarye
 - module-wide function summaries;
 - root/ref/use accounting;
 - direct `call` / `return_call` chosen-action planning in reviewed `version_129`;
-- layered tiny/one-use/trivial/flexible heuristics;
+- layered toolchain-hint/tiny/one-use/trivial/flexible full-inline policy, where `try_delegate` bails out before `NeverInline` / `AlwaysInline` and the toolchain hint's producer format remains unreviewed;
 - optional narrow partial Pattern A/B splitting;
 - structured callsite rewrite;
 - local, label, return, tail-call, reachability, EH, and type repair;

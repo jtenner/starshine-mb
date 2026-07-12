@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
@@ -23,7 +24,7 @@ related:
 
 # `inlining` WAT Shapes
 
-The examples below are conceptual. Binaryen may print wrapper blocks, fresh locals, drops, label scaffolding, or post-repair type forms. Plain `inlining` deliberately leaves more debris than `inlining-optimizing`, and a 2026-06-02 current-main recheck still matches the same shape families.
+The examples below are conceptual. Binaryen may print wrapper blocks, fresh locals, drops, label scaffolding, or post-repair type forms. Plain `inlining` deliberately leaves more debris than `inlining-optimizing`. The 2026-06-02 recheck still supports these existing shape families, but it is not a blanket current-main no-drift claim: the later reread adds a function-level toolchain `AlwaysInline` / `NeverInline` eligibility override. Its source/WAT producer syntax was outside that narrow reread, so this catalog intentionally does not invent a fixture spelling; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md).
 
 ## Shape 1: tiny no-param helper disappears
 
