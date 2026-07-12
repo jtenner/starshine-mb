@@ -17226,6 +17226,22 @@ fn dae_apply_core_result(
 }
 
 ///|
+fn dae_apply_cleanup_result_preserving_touched(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  result : DaePassResult,
+) -> DaeCoreResultApplication {
+  let application_result : DaePassResult = {
+    mod_out: result.mod_out,
+    touched: [],
+    changed: result.changed,
+    primary_def: result.primary_def,
+  }
+  dae_apply_core_result(current, touched, changed, application_result)
+}
+
+///|
 fn dae_apply_selected_core_result(
   current : @lib.Module,
   touched : Array[Bool],
@@ -29839,15 +29855,18 @@ fn dae_run_core(
     touched,
     return_touched=false,
   )
-  if module_raw_cleanup.changed {
-    current = module_raw_cleanup.mod_out
+  let module_raw_cleanup_application = dae_apply_cleanup_result_preserving_touched(
+    current, touched, changed, module_raw_cleanup,
+  )
+  if module_raw_cleanup_application.applied {
+    current = module_raw_cleanup_application.mod_out
+    touched = module_raw_cleanup_application.touched
     // The module raw cleanup rewrites bodies but does not discover new DAE
-    // candidate functions; keep the existing touched bitmap instead of copying
-    // and OR-ing it with an identical returned bitmap on large artifacts.
+    // candidate functions; preserve the existing scheduler-owned bitmap.
     trace(
-      "pass[dae-optimizing]:module-raw-cleanup primary_def=\{module_raw_cleanup.primary_def}",
+      "pass[dae-optimizing]:module-raw-cleanup primary_def=\{module_raw_cleanup_application.primary_def}",
     )
-    changed = true
+    changed = module_raw_cleanup_application.changed
   }
   perf_stop_timer_opt(perf, "detail:dae:core:raw-cleanup", raw_cleanup_start_us)
   let post_raw_selected_lanes_start_us = perf_start_timer_opt(
@@ -30133,12 +30152,16 @@ fn dae_run_core(
   let final_return_suffix_cleanup = dae_strip_module_root_return_suffix_once(
     current, touched,
   )
-  if final_return_suffix_cleanup.changed {
-    current = final_return_suffix_cleanup.mod_out
+  let final_return_suffix_cleanup_application = dae_apply_cleanup_result_preserving_touched(
+    current, touched, changed, final_return_suffix_cleanup,
+  )
+  if final_return_suffix_cleanup_application.applied {
+    current = final_return_suffix_cleanup_application.mod_out
+    touched = final_return_suffix_cleanup_application.touched
     trace(
-      "pass[dae-optimizing]:final-return-suffix-cleanup primary_def=\{final_return_suffix_cleanup.primary_def}",
+      "pass[dae-optimizing]:final-return-suffix-cleanup primary_def=\{final_return_suffix_cleanup_application.primary_def}",
     )
-    changed = true
+    changed = final_return_suffix_cleanup_application.changed
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:post-raw-selected-lanes", post_raw_selected_lanes_start_us,
