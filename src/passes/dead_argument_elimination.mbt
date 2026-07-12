@@ -17275,6 +17275,43 @@ fn dae_run_singleton_selected_core_rewrite(
 }
 
 ///|
+fn dae_run_bounded_singleton_selected_core_rewrite(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  selected_defs : Array[Bool],
+  selected_def : Int,
+  max_iterations : Int,
+  rewrite_func : (@lib.Module, Array[Bool]) -> DaePassResult,
+  on_applied : (Int, DaeCoreResultApplication) -> Unit,
+) -> DaeCoreResultApplication {
+  let mut application : DaeCoreResultApplication = {
+    mod_out: current,
+    touched,
+    changed,
+    applied: false,
+    primary_def: -1,
+  }
+  let mut iteration = 0
+  while iteration < max_iterations {
+    application = dae_run_singleton_selected_core_rewrite(
+      application.mod_out,
+      application.touched,
+      application.changed,
+      selected_defs,
+      selected_def,
+      rewrite_func,
+    )
+    if !application.applied {
+      break
+    }
+    on_applied(iteration, application)
+    iteration += 1
+  }
+  application
+}
+
+///|
 fn dae_apply_primary_selected_core_result(
   current : @lib.Module,
   touched : Array[Bool],
@@ -29252,24 +29289,21 @@ fn dae_run_core(
       )
       changed = true
     }
-    let mut func237_br0_iter = 0
-    while func237_br0_iter < 2 {
-      selected_scratch_defs[237] = true
-      let selected_func237_br0 = dae_try_flatten_selected_func237_terminal_br0_block_once(
-        current, selected_scratch_defs,
-      )
-      selected_scratch_defs[237] = false
-      if !selected_func237_br0.changed {
-        break
-      }
-      current = selected_func237_br0.mod_out
-      touched = dae_merge_touched(touched, selected_func237_br0.touched)
+    let trace_func237_br0 = fn(
+      iteration : Int,
+      application : DaeCoreResultApplication,
+    ) -> Unit {
       trace(
-        "pass[dae-optimizing]:selected-func237-terminal-br0-block iter=\{func237_br0_iter} primary_def=\{selected_func237_br0.primary_def}",
+        "pass[dae-optimizing]:selected-func237-terminal-br0-block iter=\{iteration} primary_def=\{application.primary_def}",
       )
-      changed = true
-      func237_br0_iter += 1
     }
+    let selected_func237_br0_application = dae_run_bounded_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 237, 2, dae_try_flatten_selected_func237_terminal_br0_block_once,
+      trace_func237_br0,
+    )
+    current = selected_func237_br0_application.mod_out
+    touched = selected_func237_br0_application.touched
+    changed = selected_func237_br0_application.changed
     selected_scratch_defs[237] = true
     let selected_func237_retain_call = dae_try_hoist_selected_func237_leading_retain_call_once(
       current, selected_scratch_defs,
@@ -29283,64 +29317,53 @@ fn dae_run_core(
       )
       changed = true
     }
-    selected_scratch_defs[237] = true
-    let selected_func237_inner_loop = dae_try_wrap_selected_func237_inner_iteration_loop_once(
-      current, selected_scratch_defs,
+    let selected_func237_inner_loop_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 237, dae_try_wrap_selected_func237_inner_iteration_loop_once,
     )
-    selected_scratch_defs[237] = false
-    if selected_func237_inner_loop.changed {
-      current = selected_func237_inner_loop.mod_out
-      touched = dae_merge_touched(touched, selected_func237_inner_loop.touched)
+    if selected_func237_inner_loop_application.applied {
+      current = selected_func237_inner_loop_application.mod_out
+      touched = selected_func237_inner_loop_application.touched
+      changed = selected_func237_inner_loop_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func237-inner-iteration-loop primary_def=\{selected_func237_inner_loop.primary_def}",
+        "pass[dae-optimizing]:selected-func237-inner-iteration-loop primary_def=\{selected_func237_inner_loop_application.primary_def}",
       )
-      changed = true
     }
   }
   if 237 < selected_scratch_defs.length() {
-    selected_scratch_defs[237] = true
-    let selected_func237_inner_loop = dae_try_wrap_selected_func237_inner_iteration_loop_once(
-      current, selected_scratch_defs,
+    let selected_func237_inner_loop_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 237, dae_try_wrap_selected_func237_inner_iteration_loop_once,
     )
-    selected_scratch_defs[237] = false
-    if selected_func237_inner_loop.changed {
-      current = selected_func237_inner_loop.mod_out
-      touched = dae_merge_touched(touched, selected_func237_inner_loop.touched)
+    if selected_func237_inner_loop_application.applied {
+      current = selected_func237_inner_loop_application.mod_out
+      touched = selected_func237_inner_loop_application.touched
+      changed = selected_func237_inner_loop_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func237-inner-iteration-loop-late primary_def=\{selected_func237_inner_loop.primary_def}",
+        "pass[dae-optimizing]:selected-func237-inner-iteration-loop-late primary_def=\{selected_func237_inner_loop_application.primary_def}",
       )
-      changed = true
     }
   }
   if 867 < selected_scratch_defs.length() {
-    selected_scratch_defs[867] = true
-    let selected_func867_defaults = dae_try_specialize_selected_func867_default_args_once(
-      current, selected_scratch_defs,
+    let selected_func867_defaults_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 867, dae_try_specialize_selected_func867_default_args_once,
     )
-    selected_scratch_defs[867] = false
-    if selected_func867_defaults.changed {
-      current = selected_func867_defaults.mod_out
-      touched = dae_merge_touched(touched, selected_func867_defaults.touched)
+    if selected_func867_defaults_application.applied {
+      current = selected_func867_defaults_application.mod_out
+      touched = selected_func867_defaults_application.touched
+      changed = selected_func867_defaults_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func867-default-args primary_def=\{selected_func867_defaults.primary_def}",
+        "pass[dae-optimizing]:selected-func867-default-args primary_def=\{selected_func867_defaults_application.primary_def}",
       )
-      changed = true
       if 237 < selected_scratch_defs.length() {
-        selected_scratch_defs[237] = true
-        let selected_func237_inner_loop = dae_try_wrap_selected_func237_inner_iteration_loop_once(
-          current, selected_scratch_defs,
+        let selected_func237_inner_loop_application = dae_run_singleton_selected_core_rewrite(
+          current, touched, changed, selected_scratch_defs, 237, dae_try_wrap_selected_func237_inner_iteration_loop_once,
         )
-        selected_scratch_defs[237] = false
-        if selected_func237_inner_loop.changed {
-          current = selected_func237_inner_loop.mod_out
-          touched = dae_merge_touched(
-            touched,
-            selected_func237_inner_loop.touched,
-          )
+        if selected_func237_inner_loop_application.applied {
+          current = selected_func237_inner_loop_application.mod_out
+          touched = selected_func237_inner_loop_application.touched
+          changed = selected_func237_inner_loop_application.changed
           trace(
-            "pass[dae-optimizing]:selected-func237-inner-iteration-loop-after-func867 primary_def=\{selected_func237_inner_loop.primary_def}",
+            "pass[dae-optimizing]:selected-func237-inner-iteration-loop-after-func867 primary_def=\{selected_func237_inner_loop_application.primary_def}",
           )
-          changed = true
         }
       }
     }
@@ -29723,22 +29746,21 @@ fn dae_run_core(
   for func260_fold_def in [267, 268] {
     if func260_fold_def >= 0 &&
       func260_fold_def < selected_scratch_defs.length() {
-      let mut func260_fold_iter = 0
-      while func260_fold_iter < 8 {
-        let func260_fold_application = dae_run_singleton_selected_core_rewrite(
-          current, touched, changed, selected_scratch_defs, func260_fold_def, dae_try_simplify_selected_const_if_defs_once,
-        )
-        if !func260_fold_application.applied {
-          break
-        }
-        current = func260_fold_application.mod_out
-        touched = func260_fold_application.touched
+      let trace_func260_fold = fn(
+        iteration : Int,
+        application : DaeCoreResultApplication,
+      ) -> Unit {
         trace(
-          "pass[dae-optimizing]:selected-func260-helper-const-if iter=\{func260_fold_iter} primary_def=\{func260_fold_application.primary_def}",
+          "pass[dae-optimizing]:selected-func260-helper-const-if iter=\{iteration} primary_def=\{application.primary_def}",
         )
-        changed = func260_fold_application.changed
-        func260_fold_iter += 1
       }
+      let func260_fold_application = dae_run_bounded_singleton_selected_core_rewrite(
+        current, touched, changed, selected_scratch_defs, func260_fold_def, 8, dae_try_simplify_selected_const_if_defs_once,
+        trace_func260_fold,
+      )
+      current = func260_fold_application.mod_out
+      touched = func260_fold_application.touched
+      changed = func260_fold_application.changed
     }
   }
   for mid_global_literal_def in [313] {
