@@ -17241,6 +17241,24 @@ fn dae_apply_selected_core_result(
 }
 
 ///|
+fn dae_run_singleton_selected_core_rewrite(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  selected_defs : Array[Bool],
+  selected_def : Int,
+  rewrite_func : (@lib.Module, Array[Bool]) -> DaePassResult,
+) -> DaeCoreResultApplication {
+  if selected_def >= 0 && selected_def < selected_defs.length() {
+    selected_defs[selected_def] = true
+  }
+  let result = rewrite_func(current, selected_defs)
+  dae_apply_selected_core_result(
+    current, touched, changed, selected_defs, selected_def, result,
+  )
+}
+
+///|
 fn dae_apply_primary_selected_core_result(
   current : @lib.Module,
   touched : Array[Bool],
@@ -29312,18 +29330,16 @@ fn dae_run_core(
     }
   }
   if 233 < selected_scratch_defs.length() {
-    selected_scratch_defs[233] = true
-    let selected_const_if = dae_try_simplify_selected_const_if_defs_once(
-      current, selected_scratch_defs,
+    let selected_const_if_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 233, dae_try_simplify_selected_const_if_defs_once,
     )
-    selected_scratch_defs[233] = false
-    if selected_const_if.changed {
-      current = selected_const_if.mod_out
-      touched = dae_merge_touched(touched, selected_const_if.touched)
+    if selected_const_if_application.applied {
+      current = selected_const_if_application.mod_out
+      touched = selected_const_if_application.touched
       trace(
-        "pass[dae-optimizing]:selected-const-if primary_def=\{selected_const_if.primary_def}",
+        "pass[dae-optimizing]:selected-const-if primary_def=\{selected_const_if_application.primary_def}",
       )
-      changed = true
+      changed = selected_const_if_application.changed
     }
   }
   perf_stop_timer_opt(
@@ -29693,20 +29709,18 @@ fn dae_run_core(
       func260_fold_def < selected_scratch_defs.length() {
       let mut func260_fold_iter = 0
       while func260_fold_iter < 8 {
-        selected_scratch_defs[func260_fold_def] = true
-        let func260_fold_result = dae_try_simplify_selected_const_if_defs_once(
-          current, selected_scratch_defs,
+        let func260_fold_application = dae_run_singleton_selected_core_rewrite(
+          current, touched, changed, selected_scratch_defs, func260_fold_def, dae_try_simplify_selected_const_if_defs_once,
         )
-        selected_scratch_defs[func260_fold_def] = false
-        if !func260_fold_result.changed {
+        if !func260_fold_application.applied {
           break
         }
-        current = func260_fold_result.mod_out
-        touched = dae_merge_touched(touched, func260_fold_result.touched)
+        current = func260_fold_application.mod_out
+        touched = func260_fold_application.touched
         trace(
-          "pass[dae-optimizing]:selected-func260-helper-const-if iter=\{func260_fold_iter} primary_def=\{func260_fold_result.primary_def}",
+          "pass[dae-optimizing]:selected-func260-helper-const-if iter=\{func260_fold_iter} primary_def=\{func260_fold_application.primary_def}",
         )
-        changed = true
+        changed = func260_fold_application.changed
         func260_fold_iter += 1
       }
     }
@@ -29972,18 +29986,16 @@ fn dae_run_core(
     }
   }
   if 327 < selected_scratch_defs.length() {
-    selected_scratch_defs[327] = true
-    let selected_func327_const_if = dae_try_simplify_selected_const_if_defs_once(
-      current, selected_scratch_defs,
+    let selected_func327_const_if_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 327, dae_try_simplify_selected_const_if_defs_once,
     )
-    selected_scratch_defs[327] = false
-    if selected_func327_const_if.changed {
-      current = selected_func327_const_if.mod_out
-      touched = dae_merge_touched(touched, selected_func327_const_if.touched)
+    if selected_func327_const_if_application.applied {
+      current = selected_func327_const_if_application.mod_out
+      touched = selected_func327_const_if_application.touched
       trace(
-        "pass[dae-optimizing]:selected-func327-const-if-before-func328-defaults primary_def=\{selected_func327_const_if.primary_def}",
+        "pass[dae-optimizing]:selected-func327-const-if-before-func328-defaults primary_def=\{selected_func327_const_if_application.primary_def}",
       )
-      changed = true
+      changed = selected_func327_const_if_application.changed
     }
     selected_scratch_defs[327] = true
     let selected_func327_wrappers = dae_try_cleanup_selected_func327_default_wrappers_once(
@@ -30018,18 +30030,16 @@ fn dae_run_core(
     }
   }
   if 1794 < selected_scratch_defs.length() {
-    selected_scratch_defs[1794] = true
-    let selected_func1794_const_if = dae_try_simplify_selected_const_if_defs_once(
-      current, selected_scratch_defs,
+    let selected_func1794_const_if_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 1794, dae_try_simplify_selected_const_if_defs_once,
     )
-    selected_scratch_defs[1794] = false
-    if selected_func1794_const_if.changed {
-      current = selected_func1794_const_if.mod_out
-      touched = dae_merge_touched(touched, selected_func1794_const_if.touched)
+    if selected_func1794_const_if_application.applied {
+      current = selected_func1794_const_if_application.mod_out
+      touched = selected_func1794_const_if_application.touched
       trace(
-        "pass[dae-optimizing]:selected-func1794-const-if-before-func1795-defaults primary_def=\{selected_func1794_const_if.primary_def}",
+        "pass[dae-optimizing]:selected-func1794-const-if-before-func1795-defaults primary_def=\{selected_func1794_const_if_application.primary_def}",
       )
-      changed = true
+      changed = selected_func1794_const_if_application.changed
     }
     selected_scratch_defs[1794] = true
     let selected_func1794_terminal_call = dae_try_inline_selected_terminal_call_local_sets_once(
