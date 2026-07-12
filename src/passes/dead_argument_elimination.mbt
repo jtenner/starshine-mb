@@ -87,6 +87,14 @@ priv struct DaeMultiResultSuffixBoundsEvidence {
 }
 
 ///|
+priv struct DaeMultiResultOperandSequenceEvidence {
+  bounds : DaeMultiResultSuffixBoundsEvidence
+  operand_starts : Array[Int]
+  value_instr_indices : Array[Int]
+  specialized_slots : Array[Bool]
+}
+
+///|
 priv struct DaeFlatMultiResultSuffixEvidence {
   start : Int
   end : Int
@@ -9736,30 +9744,29 @@ fn dae_multi_result_suffix_bounds_evidence(
 }
 
 ///|
-fn dae_try_refine_multi_result_single_if_operand_body(
+fn dae_multi_result_operand_sequence_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  func_locals : @lib.FunctionLocals?,
   body : Array[@lib.Instruction],
-  results : Array[@lib.ValType],
-  next_results : Array[@lib.ValType],
-) -> Array[@lib.Instruction]? {
-  if results.length() < 2 {
+  result_count : Int,
+  min_extra_instrs : Int,
+  specialize : (Array[@lib.Instruction], Int, Int, Int) -> (Int, Int)?,
+) -> DaeMultiResultOperandSequenceEvidence? {
+  if result_count <= 0 {
     return None
   }
   let suffix_bounds = dae_multi_result_suffix_bounds_evidence(
-    body,
-    results.length(),
-    1,
+    body, result_count, min_extra_instrs,
   )
   for bounds in suffix_bounds {
-    ignore(bounds.has_terminal_return)
-    let candidate_instrs = Array::make(results.length(), -1)
+    let operand_starts = Array::make(result_count, -1)
+    let value_instr_indices = Array::make(result_count, -1)
+    let specialized_slots = Array::make(result_count, false)
     let mut instr_idx = bounds.suffix_start
     let mut result_idx = 0
-    let mut saw_if_operand = false
+    let mut saw_specialized = false
     let mut suffix_ok = true
-    while suffix_ok && result_idx < results.length() {
+    while suffix_ok && result_idx < result_count {
       let slot_prefix = match
         dae_multi_result_operand_slot_prefix_evidence(
           body,
@@ -9772,32 +9779,22 @@ fn dae_try_refine_multi_result_single_if_operand_body(
           break
         }
       }
-      let mut consumed = false
       let operand_start = slot_prefix.operand_start
-      if operand_start + 1 < bounds.operand_end {
-        match body[operand_start + 1] {
-          @lib.If(block_type, _, Some(_)) =>
-            match
-              dae_control_single_result_block_type_evidence(block_type, mod_) {
-              Some(_) =>
-                match
-                  dae_stack_single_value_producer_evidence(
-                    body[operand_start],
-                    mod_,
-                    func_type_indices,
-                  ) {
-                  Some(_) => {
-                    candidate_instrs[result_idx] = operand_start + 1
-                    instr_idx = operand_start + 2
-                    saw_if_operand = true
-                    consumed = true
-                  }
-                  None => ()
-                }
-              None => ()
-            }
-          _ => ()
-        }
+      operand_starts[result_idx] = operand_start
+      let mut consumed = false
+      match specialize(body, operand_start, bounds.operand_end, result_idx) {
+        Some((value_instr_idx, next)) =>
+          if value_instr_idx >= operand_start &&
+            value_instr_idx < next &&
+            next > operand_start &&
+            next <= bounds.operand_end {
+            value_instr_indices[result_idx] = value_instr_idx
+            specialized_slots[result_idx] = true
+            instr_idx = next
+            saw_specialized = true
+            consumed = true
+          }
+        None => ()
       }
       if !consumed {
         match
@@ -9805,7 +9802,7 @@ fn dae_try_refine_multi_result_single_if_operand_body(
             mod_, func_type_indices, body, slot_prefix,
           ) {
           Some(evidence) => {
-            candidate_instrs[result_idx] = evidence.operand_start
+            value_instr_indices[result_idx] = evidence.operand_start
             instr_idx = evidence.next
             consumed = true
           }
@@ -9818,47 +9815,108 @@ fn dae_try_refine_multi_result_single_if_operand_body(
         suffix_ok = false
       }
     }
-    if !suffix_ok ||
-      result_idx != results.length() ||
-      instr_idx != bounds.operand_end ||
-      !saw_if_operand {
-      continue
-    }
-    let rewritten_body = body.copy()
-    let mut changed = false
-    result_idx = 0
-    while result_idx < results.length() {
-      let candidate_instr_idx = candidate_instrs[result_idx]
-      match
-        dae_gc_result_slot_evidence(
-          mod_,
-          func_type_indices,
-          func_locals,
-          body[candidate_instr_idx],
-          results[result_idx],
-          require_refined=true,
-        ) {
-        Some(evidence) => {
-          let refined = match evidence.refined_candidate {
-            Some(vt) => vt
-            None => return None
-          }
-          next_results[result_idx] = refined
-          changed = true
-          match evidence.rewrite {
-            Some(instr) => rewritten_body[candidate_instr_idx] = instr
-            None => ()
-          }
-        }
-        None => ()
-      }
-      result_idx += 1
-    }
-    if changed {
-      return Some(rewritten_body)
+    if suffix_ok &&
+      result_idx == result_count &&
+      instr_idx == bounds.operand_end &&
+      saw_specialized {
+      return Some({
+        bounds,
+        operand_starts,
+        value_instr_indices,
+        specialized_slots,
+      })
     }
   }
   None
+}
+
+///|
+fn dae_try_refine_multi_result_single_if_operand_body(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  func_locals : @lib.FunctionLocals?,
+  body : Array[@lib.Instruction],
+  results : Array[@lib.ValType],
+  next_results : Array[@lib.ValType],
+) -> Array[@lib.Instruction]? {
+  if results.length() < 2 {
+    return None
+  }
+  let specialize_if = fn(
+    candidate_body : Array[@lib.Instruction],
+    operand_start : Int,
+    operand_end : Int,
+    _ : Int,
+  ) -> (Int, Int)? {
+    if operand_start + 1 >= operand_end {
+      return None
+    }
+    match candidate_body[operand_start + 1] {
+      @lib.If(block_type, _, Some(_)) =>
+        match dae_control_single_result_block_type_evidence(block_type, mod_) {
+          Some(_) =>
+            match
+              dae_stack_single_value_producer_evidence(
+                candidate_body[operand_start],
+                mod_,
+                func_type_indices,
+              ) {
+              Some(_) => Some((operand_start + 1, operand_start + 2))
+              None => None
+            }
+          None => None
+        }
+      _ => None
+    }
+  }
+  let sequence = match
+    dae_multi_result_operand_sequence_evidence(
+      mod_,
+      func_type_indices,
+      body,
+      results.length(),
+      1,
+      specialize_if,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  ignore(sequence.bounds.has_terminal_return)
+  let rewritten_body = body.copy()
+  let mut changed = false
+  let mut result_idx = 0
+  while result_idx < results.length() {
+    let candidate_instr_idx = sequence.value_instr_indices[result_idx]
+    match
+      dae_gc_result_slot_evidence(
+        mod_,
+        func_type_indices,
+        func_locals,
+        body[candidate_instr_idx],
+        results[result_idx],
+        require_refined=true,
+      ) {
+      Some(evidence) => {
+        let refined = match evidence.refined_candidate {
+          Some(vt) => vt
+          None => return None
+        }
+        next_results[result_idx] = refined
+        changed = true
+        match evidence.rewrite {
+          Some(instr) => rewritten_body[candidate_instr_idx] = instr
+          None => ()
+        }
+      }
+      None => ()
+    }
+    result_idx += 1
+  }
+  if changed {
+    Some(rewritten_body)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -9873,123 +9931,102 @@ fn dae_try_refine_multi_result_select_operand_body(
   if results.length() == 0 {
     return None
   }
-  let suffix_bounds = dae_multi_result_suffix_bounds_evidence(
-    body,
-    results.length(),
-    3,
-  )
-  for bounds in suffix_bounds {
-    ignore(bounds.has_terminal_return)
-    let select_evidence : Array[DaeGcSelectValueSlicesEvidence?] = Array::make(
-      results.length(),
-      None,
-    )
-    let mut instr_idx = bounds.suffix_start
-    let mut result_idx = 0
-    let mut saw_select_operand = false
-    let mut suffix_ok = true
-    while suffix_ok && result_idx < results.length() {
-      let slot_prefix = match
-        dae_multi_result_operand_slot_prefix_evidence(
-          body,
-          instr_idx,
-          bounds.operand_end,
+  let specialize_select = fn(
+    candidate_body : Array[@lib.Instruction],
+    operand_start : Int,
+    operand_end : Int,
+    result_idx : Int,
+  ) -> (Int, Int)? {
+    let remaining_results = results.length() - result_idx - 1
+    let max_select_idx = operand_end - remaining_results - 1
+    let mut select_idx = operand_start + 3
+    while select_idx <= max_select_idx {
+      match
+        dae_gc_select_value_slices_candidate_evidence(
+          mod_,
+          func_type_indices,
+          func_locals,
+          candidate_body,
+          select_idx,
+          results[result_idx],
+          required_left_start=operand_start,
+          require_refined=true,
         ) {
-        Some(evidence) => evidence
-        None => {
-          suffix_ok = false
-          break
-        }
-      }
-      let mut consumed = false
-      let operand_start = slot_prefix.operand_start
-      let remaining_results = results.length() - result_idx - 1
-      let max_select_idx = bounds.operand_end - remaining_results - 1
-      let mut select_idx = operand_start + 3
-      while !consumed && select_idx <= max_select_idx {
-        match
-          dae_gc_select_value_slices_candidate_evidence(
-            mod_,
-            func_type_indices,
-            func_locals,
-            body,
-            select_idx,
-            results[result_idx],
-            required_left_start=operand_start,
-            require_refined=true,
-          ) {
-          Some(evidence) => {
-            select_evidence[result_idx] = Some(evidence)
-            instr_idx = evidence.slices.select_idx + 1
-            saw_select_operand = true
-            consumed = true
-          }
-          None => ()
-        }
-        select_idx += 1
-      }
-      if !consumed {
-        match
-          dae_multi_result_operand_slot_single_producer_evidence(
-            mod_, func_type_indices, body, slot_prefix,
-          ) {
-          Some(evidence) => {
-            instr_idx = evidence.next
-            consumed = true
-          }
-          None => ()
-        }
-      }
-      if consumed {
-        result_idx += 1
-      } else {
-        suffix_ok = false
-      }
-    }
-    if !suffix_ok ||
-      result_idx != results.length() ||
-      instr_idx != bounds.operand_end ||
-      !saw_select_operand {
-      continue
-    }
-    let rewritten_body = body.copy()
-    let mut changed = false
-    result_idx = 0
-    while result_idx < results.length() {
-      match select_evidence[result_idx] {
         Some(evidence) =>
-          match evidence.gc.refined_candidate {
-            Some(refined) => {
-              let slices = evidence.slices
-              next_results[result_idx] = refined
-              changed = true
-              let (next_body, _) = match
-                dae_apply_select_value_rewrites_to_body(
-                  rewritten_body,
-                  slices.left.start,
-                  slices.right.start,
-                  slices.select_idx,
-                  evidence.gc.left_rewrite,
-                  evidence.gc.right_rewrite,
-                  Some(@lib.Instruction::select(types=Some([refined]))),
-                ) {
-                Some(application) => application
-                None => return None
-              }
-              rewritten_body.clear()
-              rewritten_body.append(next_body)
-            }
-            None => ()
-          }
+          return Some(
+            (evidence.slices.select_idx, evidence.slices.select_idx + 1),
+          )
         None => ()
       }
-      result_idx += 1
+      select_idx += 1
     }
-    if changed {
-      return Some(rewritten_body)
-    }
+    None
   }
-  None
+  let sequence = match
+    dae_multi_result_operand_sequence_evidence(
+      mod_,
+      func_type_indices,
+      body,
+      results.length(),
+      3,
+      specialize_select,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  ignore(sequence.bounds.has_terminal_return)
+  let rewritten_body = body.copy()
+  let mut changed = false
+  let mut result_idx = 0
+  while result_idx < results.length() {
+    if sequence.specialized_slots[result_idx] {
+      let select_idx = sequence.value_instr_indices[result_idx]
+      let operand_start = sequence.operand_starts[result_idx]
+      let evidence = match
+        dae_gc_select_value_slices_candidate_evidence(
+          mod_,
+          func_type_indices,
+          func_locals,
+          body,
+          select_idx,
+          results[result_idx],
+          required_left_start=operand_start,
+          require_refined=true,
+        ) {
+        Some(evidence) => evidence
+        None => return None
+      }
+      match evidence.gc.refined_candidate {
+        Some(refined) => {
+          let slices = evidence.slices
+          next_results[result_idx] = refined
+          changed = true
+          let (next_body, _) = match
+            dae_apply_select_value_rewrites_to_body(
+              rewritten_body,
+              slices.left.start,
+              slices.right.start,
+              slices.select_idx,
+              evidence.gc.left_rewrite,
+              evidence.gc.right_rewrite,
+              Some(@lib.Instruction::select(types=Some([refined]))),
+            ) {
+            Some(application) => application
+            None => return None
+          }
+          rewritten_body.clear()
+          rewritten_body.append(next_body)
+        }
+        None => ()
+      }
+    }
+    result_idx += 1
+  }
+  if changed {
+    Some(rewritten_body)
+  } else {
+    None
+  }
 }
 
 ///|

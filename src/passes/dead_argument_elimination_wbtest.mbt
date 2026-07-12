@@ -6013,9 +6013,7 @@ test "dae multi result operand sequence evidence shares specialized and fallback
     }
   }
   match
-    dae_multi_result_operand_sequence_evidence(
-      mod_, [], body, 2, 1, specialize,
-    ) {
+    dae_multi_result_operand_sequence_evidence(mod_, [], body, 2, 1, specialize) {
     Some(evidence) => {
       assert_eq(evidence.bounds.suffix_start, 0)
       assert_eq(evidence.bounds.operand_end, 4)
@@ -6031,11 +6029,11 @@ test "dae multi result operand sequence evidence shares specialized and fallback
     _ : Int,
     _ : Int,
     _ : Int,
-  ) -> (Int, Int)? { None }
+  ) -> (Int, Int)? {
+    None
+  }
   match
-    dae_multi_result_operand_sequence_evidence(
-      mod_, [], body, 2, 1, reject_all,
-    ) {
+    dae_multi_result_operand_sequence_evidence(mod_, [], body, 2, 1, reject_all) {
     Some(_) => fail("sequence must contain at least one specialized slot")
     None => ()
   }
