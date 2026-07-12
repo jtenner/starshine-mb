@@ -1,3 +1,9 @@
+## 2026-07-12 heap2local reference gaps closed
+
+The `heap2local-ref` random family reduced to two Binaryen v130 visitor-order gaps from case 20. First, `visitStructGet` applies `skipNonNullCast` because the parent already traps on a null receiver; `OiStructGetNonNullCheckFact` now removes only a direct `ref.as_non_null` receiver from an exact `struct.get`, preserving the nullable child and trap point while other GC consumers fail closed. Second, `visitRefEq` can synthesize `ref.is_null(fresh-non-null-ref)` after the ordinary `RefIsNull` post-order slot; `OiSynthesizedRefIsNullFact` now immediately reuses the ordinary typed result/effect plan, preserving fresh allocation with `drop` before the zero result. Neither rule adds a scanner, profile admission, or shape matrix.
+
+A dedicated `heap2local-ref` replay at count 1,000, seed `0x5555`, completed `1000/1000` normalized with zero mismatches or validation/property/generator/command failures; Binaryen cache was `1000/0`. The old 219-case random group is therefore cleared for a full random-lane rerun.
+
 ## 2026-07-12 random SSA local-write reduction
 
 The `ssa-nomerge-parity` random family reduced to one general control/value gap: both branches wrote one pure, exact-typed value to the same local, while Starshine retained duplicate arm writes and Binaryen's parsed OI shape used `local.set (if (result T) ...)`. Red-first root and nested-block tests now lock `OiSameLocalSetIfFact`: it proves one current-revision use, same local, exact local/value type, one pure value per arm, and reuses the already visited arm `local.set` while converting the existing `if` to a value producer. This avoids a new node after the traversal bitsets were sized, avoids a wrapper block, and adds no scanner or profile-specific admission.

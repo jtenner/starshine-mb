@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Finish synthesized reference predicates and reuse parent trap contracts
+
+Producer-owned finishing applies to references as well as scalar binaries. When `ref.eq` replaces a null comparison with `ref.is_null` after that visitor slot, `OiSynthesizedRefIsNullFact` immediately invokes the ordinary `OiRefIsNullRewritePlanFact`; known non-null results fold while allocation/effects remain ordered through the existing drop-plus-constant plan. Separately, `OiStructGetNonNullCheckFact` encodes Binaryen v130's exact `visitStructGet` contract: a direct `ref.as_non_null` receiver is redundant because the parent traps at the same null receiver point. The fact forwards the nullable child only for exact struct gets and leaves other GC consumers fail closed.
+
 ## Sink same-local branch writes through current-revision use facts
 
 When both arms of a void `if` consist of one pure, exact-typed `local.set` to the same local, `OiSameLocalSetIfFact` converts the existing `if` into the value producer and reuses one already visited set as the outer write. The fact requires one current-revision use and only supports a direct child use, a function root, or a root in a block/loop region; unsupported ownership fails closed. Reusing existing nodes avoids post-order worklist growth, and replacing the recorded use avoids the wrapper block produced by control demotion. This is a general typed state-write rule, not an SSA-profile shape matcher, admission enum, or body scanner.

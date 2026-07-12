@@ -729,6 +729,41 @@ fn OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
 }
 
 ///|
+priv struct OiSynthesizedRefIsNullFact {
+  operand_id : Int
+}
+
+///|
+fn OiSynthesizedRefIsNullFact::from_operand(
+  operand_id : Int,
+) -> OiSynthesizedRefIsNullFact {
+  { operand_id, }
+}
+
+///|
+fn OiSynthesizedRefIsNullFact::apply(
+  self : OiSynthesizedRefIsNullFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  // A producer such as ref.eq may synthesize ref.is_null after the ordinary
+  // RefIsNull post-order slot has passed. Reuse the regular typed result and
+  // operand-effect plan immediately instead of admitting downstream shapes.
+  OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
+    ctx,
+    func,
+    node_id,
+    self.operand_id,
+  )
+  match OiRefIsNullRewritePlanFact::from_node(ctx, func, node_id) {
+    Some(plan) => ignore(plan.apply(ctx, func, node_id))
+    None => ()
+  }
+  true
+}
+
+///|
 fn OiRefIsNullRewritePlanFact::apply(
   self : OiRefIsNullRewritePlanFact,
   ctx : HotPassContext,
@@ -37143,6 +37178,68 @@ fn optimize_instructions_replace_ref_eq_impossible_with_const_i32(
 }
 
 ///|
+priv struct OiStructGetNonNullCheckFact {
+  nullable_operand_id : Int
+}
+
+///|
+fn OiStructGetNonNullCheckFact::from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> OiStructGetNonNullCheckFact? {
+  // Binaryen v130 visitStructGet applies skipNonNullCast before trapOnNull. A
+  // direct ref.as_non_null is redundant because struct.get itself traps at the
+  // same receiver point. Keep the exact consumer contract and selected nullable
+  // operand in one typed fact; other GC consumers remain fail-closed.
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructGet(_, _)) => ()
+    _ => return None
+  }
+  let checked_operand_id = @ir.hot_child_get(func, node_id, 0)
+  let checked_operand = @ir.hot_node_get(func, checked_operand_id)
+  match checked_operand.op {
+    @ir.HotOp::Heap if checked_operand.child_count == 1 => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, checked_operand_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return None
+  }
+  let nullable_operand_id = @ir.hot_child_get(func, checked_operand_id, 0)
+  match OiRefFact::from_node(func, nullable_operand_id).ref_type {
+    Some(ref_type) if ref_type.is_nullable() => Some({ nullable_operand_id, })
+    _ => None
+  }
+}
+
+///|
+fn OiStructGetNonNullCheckFact::apply(
+  self : OiStructGetNonNullCheckFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  @ir.hot_child_set(func, node_id, 0, self.nullable_operand_id)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_strip_struct_get_non_null_check(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match OiStructGetNonNullCheckFact::from_node(func, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_ref_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -37222,8 +37319,10 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
         )
       }
     } else {
-      OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
-        ctx, func, node_id, rhs_id,
+      ignore(
+        OiSynthesizedRefIsNullFact::from_operand(rhs_id).apply(
+          ctx, func, node_id,
+        ),
       )
     }
     return true
@@ -37247,8 +37346,10 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
         )
       }
     } else {
-      OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
-        ctx, func, node_id, lhs_id,
+      ignore(
+        OiSynthesizedRefIsNullFact::from_operand(lhs_id).apply(
+          ctx, func, node_id,
+        ),
       )
     }
     return true
@@ -40115,6 +40216,9 @@ fn optimize_instructions_visit_node(
         ctx, func, node_id,
       )
     @ir.HotOp::Heap =>
+      optimize_instructions_try_strip_struct_get_non_null_check(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
         ctx, func, node_id,
       ) ||

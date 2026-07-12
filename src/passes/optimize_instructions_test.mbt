@@ -56299,6 +56299,57 @@ test "optimize-instructions rewrites ref.eq null comparisons through ref.is_null
 }
 
 ///|
+test "optimize-instructions finishes ref.eq null checks synthesized from fresh structs" {
+  // Red-first `heap2local-ref` case 20: visitRefEq rewrites the null comparison
+  // to ref.is_null after that visitor slot has passed. Binaryen immediately
+  // finishes the non-null result while preserving the allocation with a drop.
+  let source =
+    #|(module
+    #|  (type $s (struct (field (mut i32))))
+    #|  (func (result i32)
+    #|    struct.new_default $s
+    #|    ref.null eq
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected fresh-struct ref.eq optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_false(pretty.contains("ref.is_null"), msg=pretty)
+  assert_true(pretty.contains("struct.new_default"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions strips redundant non-null checks from trapping struct gets" {
+  // Red-first `heap2local-ref` case 20: struct.get already traps on null, so
+  // Binaryen v130 skipNonNullCast removes a direct ref.as_non_null wrapper while
+  // preserving the nullable local read and the parent's trap point.
+  let source =
+    #|(module
+    #|  (type $s (struct (field (mut i32))))
+    #|  (func (param (ref null $s)) (result i32)
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    struct.get $s 0)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected struct.get non-null cleanup success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
 test "optimize-instructions directizes ref.func call_ref targets" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let callee_type = @lib.RecType::new(
