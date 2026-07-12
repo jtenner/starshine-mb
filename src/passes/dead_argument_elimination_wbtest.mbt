@@ -3038,10 +3038,7 @@ test "dae dropped-result scope application centralizes live and anywhere policie
     @lib.Expr::new(original_body.copy()),
   )
   let live_funcs = [
-    @lib.Func::new(
-      @lib.Locals::empty(),
-      @lib.Expr::new(original_body.copy()),
-    ),
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(original_body.copy())),
     untouched,
   ]
   let scope = DaeDroppedResultScope::{ caller_defs: [0] }
@@ -3059,10 +3056,7 @@ test "dae dropped-result scope application centralizes live and anywhere policie
   ])
   assert_eq(live_funcs[1], untouched)
   let anywhere_funcs = [
-    @lib.Func::new(
-      @lib.Locals::empty(),
-      @lib.Expr::new(original_body.copy()),
-    ),
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(original_body.copy())),
     untouched,
   ]
   let anywhere_rewrites = dae_rewrite_dropped_result_calls_in_scope_with_policy(

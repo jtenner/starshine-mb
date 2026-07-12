@@ -11815,7 +11815,10 @@ fn dae_rewrite_dropped_result_calls_in_scope(
   callee_abs : Int,
 ) -> Int {
   dae_rewrite_dropped_result_calls_in_scope_with_policy(
-    funcs, scope, callee_abs, stop_at_unreachable_root=true,
+    funcs,
+    scope,
+    callee_abs,
+    stop_at_unreachable_root=true,
   )
 }
 
@@ -11827,7 +11830,10 @@ fn dae_remove_dropped_result_call_drops_in_scope(
 ) -> Unit {
   ignore(
     dae_rewrite_dropped_result_calls_in_scope_with_policy(
-      funcs, scope, callee_abs, stop_at_unreachable_root=false,
+      funcs,
+      scope,
+      callee_abs,
+      stop_at_unreachable_root=false,
     ),
   )
 }
