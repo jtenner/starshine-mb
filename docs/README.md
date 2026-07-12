@@ -96,7 +96,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 - Active packages live under `src/`; the current active package set is `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
 - `examples/` contains runnable examples.
 - `tests/spec/` and `tests/node/` hold external and integration coverage.
-- `scripts/` contains Bun entrypoints only: `validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`, and `pass-fuzz-compare.ts`.
+- `scripts/` contains Bun entrypoints only, including `validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`, `pass-fuzz-compare.ts`, and focused analysis tools such as `oi-parity-sweep.ts` / `oi-mismatch-summary.ts`.
 - `scripts/lib/*` contains shared script code.
 - `scripts/test/*` contains script tests.
 

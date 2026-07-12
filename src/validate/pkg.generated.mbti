@@ -1278,6 +1278,7 @@ pub enum GenValidProfile {
   PassOiGcAggregateProfile
   PassOiDescriptorGcProfile
   PassOiTupleProfile
+  PassOiAllProfile
   RandomAllProfilesProfile
 } derive(Eq, @debug.Debug)
 

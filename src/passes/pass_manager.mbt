@@ -24611,11 +24611,17 @@ priv struct RawOiConstOffsetLoadThenCallFact {
 }
 
 ///|
-fn RawOiConstOffsetLoadThenCallFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiConstOffsetLoadThenCallFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
 ) -> RawOiConstOffsetLoadThenCallFact? {
-  match instrs {
-    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] => {
+  if index.top_level_roots.length() != 4 ||
+    !index.has_top_level_root_at(0, RawOiRootKind::I32Const) ||
+    !index.has_top_level_root_at(1, RawOiRootKind::PlainLoad) ||
+    !index.has_top_level_root_at(3, RawOiRootKind::DirectCall) {
+    return None
+  }
+  match (index.instr_at(1), index.instr_at(2)) {
+    (Some(load), Some(@lib.Drop)) => {
       let load_has_nonzero_offset = run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
         load,
       )
@@ -24812,10 +24818,10 @@ priv struct RawOiGcSelectedOperandForwardingFact {
 }
 
 ///|
-fn RawOiGcSelectedOperandForwardingFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
-  call_values : RawOiFunctionCallValueFacts,
+fn RawOiGcSelectedOperandForwardingFact::from_facts(
+  facts : RawOiModuleFunctionRevisionFacts,
 ) -> RawOiGcSelectedOperandForwardingFact? {
+  let index = facts.index
   let len = index.top_level_roots.length()
   if len < 3 {
     return None
@@ -24825,15 +24831,12 @@ fn RawOiGcSelectedOperandForwardingFact::from_index(
     match (index.instr_at(len - 2), index.instr_at(len - 1)) {
       (Some(@lib.StructNew(new_type)), Some(@lib.StructGet(get_type, _))) if new_type ==
         get_type &&
-        call_values.range_all_constructor_operands(0, len - 2) =>
+        facts.range_all_constructor_operands(0, len - 2) =>
         return Some({
           is_struct_get_after_new: true,
           is_array_get_after_fixed_new: false,
           operand_count: len - 2,
-          saw_effectful_operand_call: call_values.range_has_direct_call(
-            0,
-            len - 2,
-          ),
+          saw_effectful_operand_call: facts.range_has_direct_call(0, len - 2),
         })
       _ => ()
     }
@@ -24854,17 +24857,14 @@ fn RawOiGcSelectedOperandForwardingFact::from_index(
       let fixed_len = raw_len.reinterpret_as_int()
       if fixed_len < 0 ||
         fixed_len != len - 3 ||
-        !call_values.range_all_constructor_operands(0, len - 3) {
+        !facts.range_all_constructor_operands(0, len - 3) {
         return None
       }
       Some({
         is_struct_get_after_new: false,
         is_array_get_after_fixed_new: true,
         operand_count: fixed_len,
-        saw_effectful_operand_call: call_values.range_has_direct_call(
-          0,
-          len - 3,
-        ),
+        saw_effectful_operand_call: facts.range_has_direct_call(0, len - 3),
       })
     }
     _ => None
@@ -24896,10 +24896,10 @@ priv struct RawOiGcEffectLocalizationFact {
 }
 
 ///|
-fn RawOiGcEffectLocalizationFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
-  call_values : RawOiFunctionCallValueFacts,
+fn RawOiGcEffectLocalizationFact::from_facts(
+  facts : RawOiModuleFunctionRevisionFacts,
 ) -> RawOiGcEffectLocalizationFact? {
+  let index = facts.index
   let len = index.top_level_roots.length()
   if len < 4 {
     return None
@@ -24912,7 +24912,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
         return None
       }
       ignore(new_type)
-      if !call_values.is_constructor_operand_at(0) {
+      if !facts.is_constructor_operand_at(0) {
         return None
       }
       match instrs[1] {
@@ -24943,7 +24943,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
           if len != 5 {
             return None
           }
-          if !call_values.is_constructor_operand_at(0) {
+          if !facts.is_constructor_operand_at(0) {
             return None
           }
           match instrs[1] {
@@ -24975,14 +24975,14 @@ fn RawOiGcEffectLocalizationFact::from_index(
               if fixed_len < 0 || len != fixed_len + 4 {
                 return None
               }
-              if !call_values.range_all_constructor_operands(0, fixed_len) {
+              if !facts.range_all_constructor_operands(0, fixed_len) {
                 return None
               }
-              saw_call = call_values.range_has_direct_call(0, fixed_len)
+              saw_call = facts.range_has_direct_call(0, fixed_len)
               match instrs[len - 2] {
                 @lib.Call(_) => saw_call = true
                 _ =>
-                  if !call_values.is_constructor_operand_at(len - 2) {
+                  if !facts.is_constructor_operand_at(len - 2) {
                     return None
                   }
               }
@@ -25027,7 +25027,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
               if len != 6 {
                 return None
               }
-              if !call_values.is_constructor_operand_at(0) {
+              if !facts.is_constructor_operand_at(0) {
                 return None
               }
               match instrs[1] {
@@ -25040,10 +25040,7 @@ fn RawOiGcEffectLocalizationFact::from_index(
               }
               match instrs[4] {
                 @lib.Call(_) => saw_call = true
-                _ =>
-                  if !call_values.is_constructor_operand_at(4) {
-                    return None
-                  }
+                _ => if !facts.is_constructor_operand_at(4) { return None }
               }
               Some({
                 is_array_len_after_new: false,
@@ -25220,16 +25217,16 @@ priv struct RawOiBulkStackOperandFact {
 }
 
 ///|
-fn RawOiBulkStackOperandFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBulkStackOperandFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiBulkStackOperandFact? {
-  if start >= instrs.length() {
+  if start >= region.roots.length() {
     return None
   }
   if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-      instrs[start],
+      region.roots[start].instr,
       module_ctx,
     ) ==
     0 {
@@ -25240,16 +25237,18 @@ fn RawOiBulkStackOperandFact::from_instrs(
       stack_argument_count: 0,
     })
   }
-  match RawOiBulkStackOperandAtomFact::from_instr(instrs[start]) {
+  match RawOiBulkStackOperandAtomFact::from_instr(region.roots[start].instr) {
     Some(_) => ()
     None => return None
   }
   let mut call_pos = start + 1
-  while call_pos < instrs.length() &&
-        RawOiBulkStackOperandAtomFact::from_instr(instrs[call_pos - 1])
+  while call_pos < region.roots.length() &&
+        RawOiBulkStackOperandAtomFact::from_instr(
+          region.roots[call_pos - 1].instr,
+        )
         is Some(_) {
     if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
-        instrs[call_pos],
+        region.roots[call_pos].instr,
         module_ctx,
       ) ==
       call_pos - start {
@@ -25320,26 +25319,29 @@ priv struct RawOiStackBulkMemoryFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiStackBulkMemoryFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryFact? {
   let dest = match
-    RawOiBulkStackOperandFact::from_instrs(instrs, start, module_ctx) {
+    RawOiBulkStackOperandFact::from_region(region, start, module_ctx) {
     Some(fact) => fact
     None => return None
   }
   let source_or_value = match
-    RawOiBulkStackOperandFact::from_instrs(instrs, dest.end, module_ctx) {
+    RawOiBulkStackOperandFact::from_region(region, dest.end, module_ctx) {
     Some(fact) => fact
     None => return None
   }
-  if source_or_value.end + 1 >= instrs.length() {
+  if source_or_value.end + 1 >= region.roots.length() {
     return None
   }
-  let size = RawOiBulkSizeFact::from_instr(instrs[source_or_value.end])
-  let (is_memory_copy, is_memory_fill) = match instrs[source_or_value.end + 1] {
+  let size = RawOiBulkSizeFact::from_instr(
+    region.roots[source_or_value.end].instr,
+  )
+  let (is_memory_copy, is_memory_fill) = match
+    region.roots[source_or_value.end + 1].instr {
     @lib.MemoryCopy(_, _) => (true, false)
     @lib.MemoryFill(_) => (false, true)
     _ => return None
@@ -25390,11 +25392,12 @@ priv struct RawOiStackBulkMemoryRegionFact {
 }
 
 ///|
-fn RawOiStackBulkMemoryRegionFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiStackBulkMemoryRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryRegionFact? {
-  if instrs.length() == 0 {
+  let region = index.regions[0]
+  if region.roots.length() == 0 {
     return None
   }
   let mut i = 0
@@ -25402,9 +25405,9 @@ fn RawOiStackBulkMemoryRegionFact::from_instrs(
   let mut all_tiny_rewrites = true
   let mut all_trap_relaxed_zero_size_drops = true
   let mut saw_stack_carried_call_operand = false
-  while i < instrs.length() {
+  while i < region.roots.length() {
     let fact = match
-      RawOiStackBulkMemoryFact::from_instrs(instrs, i, module_ctx) {
+      RawOiStackBulkMemoryFact::from_region(region, i, module_ctx) {
       Some(fact) => fact
       None => return None
     }
@@ -25545,6 +25548,7 @@ priv enum RawOiRootKind {
   ReturnCallRef
   TableGet
   CommutativeIntegerBinop
+  ScalarNumericTerminal
   StructConstructor
   StructRead
   ArrayConstructor
@@ -25552,13 +25556,110 @@ priv enum RawOiRootKind {
   ArrayWrite
   ArrayLen
   I32Const
+  StructuredBlock
+  If
+  Select
+  MemorySize
+  BulkMemory
   LocalGet
   LocalTee
   PlainLoad
+  MemoryStore
   RefNull
+  RefAsNonNull
+  RefGetDesc
   RefCastDescEq
   CallLike
   Other
+}
+
+///|
+// Reusable root-level control/effect classification for raw region routing.
+// This only rejects candidates; family facts and HOT still own exact type,
+// ordering, trap, removability, and invalidation proof.
+priv struct RawOiRootFlowFact {
+  has_nested_control : Bool
+  has_branch : Bool
+  has_call : Bool
+  has_function_exit : Bool
+  has_throw_or_trap : Bool
+}
+
+///|
+fn RawOiRootFlowFact::from_instr(instr : @lib.Instruction) -> RawOiRootFlowFact {
+  match instr {
+    @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _) =>
+      {
+        has_nested_control: true,
+        has_branch: false,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+    @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _) =>
+      {
+        has_nested_control: false,
+        has_branch: true,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: true,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+    @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Return =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: true,
+        has_function_exit: true,
+        has_throw_or_trap: false,
+      }
+    @lib.Throw(_) | @lib.ThrowRef | @lib.Unreachable =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: true,
+      }
+    _ =>
+      {
+        has_nested_control: false,
+        has_branch: false,
+        has_call: false,
+        has_function_exit: false,
+        has_throw_or_trap: false,
+      }
+  }
+}
+
+///|
+fn RawOiRootFlowFact::blocks_branch_free_value_region(
+  self : RawOiRootFlowFact,
+) -> Bool {
+  self.has_nested_control ||
+  self.has_branch ||
+  self.has_call ||
+  self.has_function_exit ||
+  self.has_throw_or_trap
 }
 
 ///|
@@ -25567,6 +25668,7 @@ priv struct RawOiTopLevelRootFact {
   kind : RawOiRootKind
   instr : @lib.Instruction
   is_pure_stack_operand : Bool
+  flow : RawOiRootFlowFact
 }
 
 ///|
@@ -25588,15 +25690,47 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.ArraySet(_) => RawOiRootKind::ArrayWrite
     @lib.ArrayLen => RawOiRootKind::ArrayLen
     @lib.I32Const(_) => RawOiRootKind::I32Const
+    @lib.Block(_, _) => RawOiRootKind::StructuredBlock
+    @lib.If(_, _, _) => RawOiRootKind::If
+    @lib.Select(_) => RawOiRootKind::Select
+    @lib.MemorySize(_) => RawOiRootKind::MemorySize
+    @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) => RawOiRootKind::BulkMemory
     @lib.LocalGet(_) => RawOiRootKind::LocalGet
     @lib.LocalTee(_) => RawOiRootKind::LocalTee
     @lib.RefNull(_) => RawOiRootKind::RefNull
+    @lib.RefAsNonNull => RawOiRootKind::RefAsNonNull
+    @lib.RefGetDesc(_) => RawOiRootKind::RefGetDesc
     @lib.RefCastDescEq(_, _, _) => RawOiRootKind::RefCastDescEq
     instr if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) =>
       RawOiRootKind::PlainLoad
+    instr if RawOiMemoryAccessMemargFact::from_store_instr(instr) is Some(_) =>
+      RawOiRootKind::MemoryStore
     instr if run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
         instr,
       ) => RawOiRootKind::CommutativeIntegerBinop
+    @lib.I32Sub
+    | @lib.I64Sub
+    | @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I32LtS
+    | @lib.I32LeS
+    | @lib.I32GtS
+    | @lib.I32GeS
+    | @lib.I64LtS
+    | @lib.I64LeS
+    | @lib.I64GtS
+    | @lib.I64GeS
+    | @lib.I32DivS
+    | @lib.I32RemS
+    | @lib.I32ShrS
+    | @lib.I64DivS
+    | @lib.I64RemS
+    | @lib.I64ShrS
+    | @lib.F32Sub
+    | @lib.F64Sub
+    | @lib.I32WrapI64 => RawOiRootKind::ScalarNumericTerminal
     _ => RawOiRootKind::Other
   }
   {
@@ -25606,6 +25740,7 @@ fn RawOiTopLevelRootFact::from_instr(
     is_pure_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
       instr,
     ),
+    flow: RawOiRootFlowFact::from_instr(instr),
   }
 }
 
@@ -25622,6 +25757,14 @@ fn RawOiInstructionRegionFact::from_instrs(
     RawOiTopLevelRootFact::from_instr(position, instr)
   })
   { roots, }
+}
+
+///|
+fn RawOiInstructionRegionFact::from_expr(
+  expr : @lib.Expr,
+) -> RawOiInstructionRegionFact {
+  let @lib.Expr(instrs) = expr
+  RawOiInstructionRegionFact::from_instrs(instrs)
 }
 
 ///|
@@ -25661,6 +25804,55 @@ priv struct RawOiSelectAnchorFact {
 }
 
 ///|
+priv struct RawOiRawBridgeCandidateFact {
+  mut has_ref_null : Bool
+  mut has_ref_get_desc : Bool
+  mut has_ref_cast_desc_eq : Bool
+  mut has_call_ref : Bool
+  mut has_unreachable : Bool
+}
+
+///|
+fn RawOiRawBridgeCandidateFact::new() -> RawOiRawBridgeCandidateFact {
+  {
+    has_ref_null: false,
+    has_ref_get_desc: false,
+    has_ref_cast_desc_eq: false,
+    has_call_ref: false,
+    has_unreachable: false,
+  }
+}
+
+///|
+fn RawOiRawBridgeCandidateFact::record_instr(
+  self : RawOiRawBridgeCandidateFact,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.RefNull(_) => self.has_ref_null = true
+    @lib.RefGetDesc(_) => self.has_ref_get_desc = true
+    @lib.RefCastDescEq(_, _, _) => self.has_ref_cast_desc_eq = true
+    @lib.CallRef(_) | @lib.ReturnCallRef(_) => self.has_call_ref = true
+    @lib.Unreachable => self.has_unreachable = true
+    _ => ()
+  }
+}
+
+///|
+fn RawOiRawBridgeCandidateFact::needs_descriptor_reconstruction(
+  self : RawOiRawBridgeCandidateFact,
+) -> Bool {
+  self.has_ref_cast_desc_eq
+}
+
+///|
+fn RawOiRawBridgeCandidateFact::needs_call_ref_or_null_repair(
+  self : RawOiRawBridgeCandidateFact,
+) -> Bool {
+  self.has_call_ref || self.has_ref_null || self.has_unreachable
+}
+
+///|
 priv struct RawOiFunctionRevisionFactIndex {
   instruction_count : Int
   lowered_stats : OptimizeInstructionsLoweredStats
@@ -25669,6 +25861,7 @@ priv struct RawOiFunctionRevisionFactIndex {
   regions : Array[RawOiInstructionRegionFact]
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
+  bridge_candidates : RawOiRawBridgeCandidateFact
 }
 
 ///|
@@ -25678,11 +25871,13 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
+  bridge_candidates : RawOiRawBridgeCandidateFact,
 ) -> Int {
   let mut count = 1
   run_hot_pipeline_optimize_instructions_record_stats_instr(
     instr, lowered_stats,
   )
+  bridge_candidates.record_instr(instr)
   match instr {
     @lib.Call(call_idx) =>
       call_sites.push({ call_idx, call_ordinal: call_sites.length() })
@@ -25692,16 +25887,16 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        body, lowered_stats, call_sites, select_anchors, regions,
+        body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
       )
     @lib.If(_, then_body, else_body) => {
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        then_body, lowered_stats, call_sites, select_anchors, regions,
+        then_body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
       )
       match else_body {
         Some(body) =>
           count += RawOiFunctionRevisionFactIndex::collect_body(
-            body, lowered_stats, call_sites, select_anchors, regions,
+            body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
           )
         None => ()
       }
@@ -25718,12 +25913,13 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
+  bridge_candidates : RawOiRawBridgeCandidateFact,
 ) -> Int {
   regions.push(RawOiInstructionRegionFact::from_instrs(instrs))
   let mut count = 0
   for instr in instrs {
     count += RawOiFunctionRevisionFactIndex::collect_instr(
-      instr, lowered_stats, call_sites, select_anchors, regions,
+      instr, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
     )
   }
   count
@@ -25737,8 +25933,9 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
   let call_sites : Array[RawOiCallSiteFact] = []
   let select_anchors : Array[RawOiSelectAnchorFact] = []
   let regions : Array[RawOiInstructionRegionFact] = []
+  let bridge_candidates = RawOiRawBridgeCandidateFact::new()
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
-    instrs, lowered_stats, call_sites, select_anchors, regions,
+    instrs, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
   )
   let top_level_roots = regions[0].roots
   let mut top_level_pure_stack_prefix_count = 0
@@ -25757,6 +25954,33 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
     regions,
     call_sites,
     select_anchors,
+    bridge_candidates,
+  }
+}
+
+///|
+// Mixed-revision root overlay for recursive raw rewrites. The immutable region
+// owns original sibling identity and the current root carries post-child rewrite
+// identity. Candidate discovery may use the region, but exact target, type,
+// return-call, effect, and order proof remains family-owned.
+priv struct RawOiCurrentRootRevisionOverlay {
+  current : @lib.Instruction
+  region : RawOiInstructionRegionFact
+  start : Int
+}
+
+///|
+fn RawOiCurrentRootRevisionOverlay::instr_at(
+  self : RawOiCurrentRootRevisionOverlay,
+  offset : Int,
+) -> @lib.Instruction? {
+  let position = self.start + offset
+  if position < 0 || position >= self.region.roots.length() {
+    None
+  } else if offset == 0 {
+    Some(self.current)
+  } else {
+    Some(self.region.roots[position].instr)
   }
 }
 
@@ -25767,6 +25991,8 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
 ) -> Bool {
   match (actual, expected) {
     (DirectCall, DirectCall)
+    | (CommutativeIntegerBinop, ScalarNumericTerminal)
+    | (ScalarNumericTerminal, ScalarNumericTerminal)
     | (CallRef, CallRef)
     | (ReturnCallRef, ReturnCallRef)
     | (TableGet, TableGet)
@@ -25778,10 +26004,18 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ArrayWrite, ArrayWrite)
     | (ArrayLen, ArrayLen)
     | (I32Const, I32Const)
+    | (StructuredBlock, StructuredBlock)
+    | (If, If)
+    | (Select, Select)
+    | (MemorySize, MemorySize)
+    | (BulkMemory, BulkMemory)
     | (LocalGet, LocalGet)
     | (LocalTee, LocalTee)
     | (PlainLoad, PlainLoad)
+    | (MemoryStore, MemoryStore)
     | (RefNull, RefNull)
+    | (RefAsNonNull, RefAsNonNull)
+    | (RefGetDesc, RefGetDesc)
     | (RefCastDescEq, RefCastDescEq)
     | (CallLike, CallLike)
     | (Other, Other) => true
@@ -25832,56 +26066,50 @@ fn RawOiFunctionRevisionFactIndex::top_level_instrs(
 }
 
 ///|
-priv struct RawOiTopLevelCallValueFact {
-  position : Int
-  is_constructor_stack_operand : Bool
-  is_direct_call : Bool
+// Module-enriched companion to one immutable raw function revision. Module
+// signature resolution is computed once into the constructor-operand bitset;
+// root kinds and instructions remain owned by the underlying revision index.
+priv struct RawOiModuleFunctionRevisionFacts {
+  index : RawOiFunctionRevisionFactIndex
+  constructor_operand_positions : @bitset.BitSet
 }
 
 ///|
-priv struct RawOiFunctionCallValueFacts {
-  top_level : Array[RawOiTopLevelCallValueFact]
-}
-
-///|
-fn RawOiFunctionCallValueFacts::from_index(
+fn RawOiModuleFunctionRevisionFacts::from_index(
   index : RawOiFunctionRevisionFactIndex,
   module_ctx : @ir.HotModuleContext,
-) -> RawOiFunctionCallValueFacts {
-  let top_level = index.top_level_roots.map(fn(root) {
-    {
-      position: root.position,
-      is_constructor_stack_operand: run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+) -> RawOiModuleFunctionRevisionFacts {
+  let constructor_operand_positions = @bitset.BitSet::new(
+    index.top_level_roots.length(),
+  )
+  for root in index.top_level_roots {
+    if run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
         root.instr,
         module_ctx,
-      ),
-      is_direct_call: match root.instr {
-        @lib.Call(_) => true
-        _ => false
-      },
+      ) {
+      constructor_operand_positions[root.position] = true
     }
-  })
-  { top_level, }
+  }
+  { index, constructor_operand_positions }
 }
 
 ///|
-fn RawOiFunctionCallValueFacts::is_constructor_operand_at(
-  self : RawOiFunctionCallValueFacts,
+fn RawOiModuleFunctionRevisionFacts::is_constructor_operand_at(
+  self : RawOiModuleFunctionRevisionFacts,
   position : Int,
 ) -> Bool {
   position >= 0 &&
-  position < self.top_level.length() &&
-  self.top_level[position].position == position &&
-  self.top_level[position].is_constructor_stack_operand
+  position < self.constructor_operand_positions.length() &&
+  self.constructor_operand_positions[position]
 }
 
 ///|
-fn RawOiFunctionCallValueFacts::range_all_constructor_operands(
-  self : RawOiFunctionCallValueFacts,
+fn RawOiModuleFunctionRevisionFacts::range_all_constructor_operands(
+  self : RawOiModuleFunctionRevisionFacts,
   start : Int,
   end : Int,
 ) -> Bool {
-  if start < 0 || end < start || end > self.top_level.length() {
+  if start < 0 || end < start || end > self.index.top_level_roots.length() {
     return false
   }
   for i = start; i < end; i = i + 1 {
@@ -25893,16 +26121,16 @@ fn RawOiFunctionCallValueFacts::range_all_constructor_operands(
 }
 
 ///|
-fn RawOiFunctionCallValueFacts::range_has_direct_call(
-  self : RawOiFunctionCallValueFacts,
+fn RawOiModuleFunctionRevisionFacts::range_has_direct_call(
+  self : RawOiModuleFunctionRevisionFacts,
   start : Int,
   end : Int,
 ) -> Bool {
-  if start < 0 || end < start || end > self.top_level.length() {
+  if start < 0 || end < start || end > self.index.top_level_roots.length() {
     return false
   }
   for i = start; i < end; i = i + 1 {
-    if self.top_level[i].is_direct_call {
+    if self.index.has_top_level_root_at(i, RawOiRootKind::DirectCall) {
       return true
     }
   }
@@ -26001,75 +26229,109 @@ fn RawOiStackCarriedEffectUseFact::is_stack_carried(
 }
 
 ///|
-fn RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
-  instrs : Array[@lib.Instruction],
-  env : @validate.Env,
-  module_ctx : @ir.HotModuleContext,
-) -> RawOiStackCarriedEffectRegionFact {
-  let prefix : Array[@lib.Instruction] = []
-  let mut barrier_index = 0
-  for instr in instrs {
-    prefix.push(instr)
-    match RawOiStackEffectBarrierFact::from_instr(instr, module_ctx) {
-      Some(barrier) => {
-        let init_state = @validate.make_state(env, [])
-        match
-          @validate.Typecheck::typecheck(
-            @lib.Expr::new(prefix.copy()),
-            init_state,
-          ) {
-          Ok(state) =>
-            match
-              RawOiStackCarriedEffectUseFact::from_barrier_state(
-                barrier_index,
-                barrier,
-                state.reachable,
-                state.stack.length(),
-              ) {
-              Some(fact) =>
-                if fact.is_stack_carried() {
-                  return { has_blocking_effect: true }
-                }
-              None => ()
-            }
-          Err(_) => ()
-        }
-      }
-      None => ()
-    }
-    barrier_index = barrier_index + 1
-  }
-  { has_blocking_effect: false }
+priv struct RawOiStackValueTransferStepFact {
+  position : Int
+  typechecked : Bool
+  reachable : Bool
+  stack_depth_after : Int
 }
 
 ///|
-fn RawOiStackCarriedEffectRegionFact::from_instrs(
+// Module-independent validation-stack transfer overlay for the indexed top-level
+// region. Build it once for the immutable function snapshot; effect families may
+// discover candidate barriers from indexed roots, but must consume these exact
+// validator-derived reachability and stack-depth facts for admission.
+priv struct RawOiFunctionStackValueTransferFacts {
+  steps : Array[RawOiStackValueTransferStepFact]
+  complete : Bool
+}
+
+///|
+fn RawOiFunctionStackValueTransferFacts::from_prefix_index(
   index : RawOiFunctionRevisionFactIndex,
-  instrs : Array[@lib.Instruction],
   env : @validate.Env,
+) -> RawOiFunctionStackValueTransferFacts {
+  let prefix : Array[@lib.Instruction] = []
+  let steps : Array[RawOiStackValueTransferStepFact] = []
+  let mut complete = true
+  for root in index.top_level_roots {
+    prefix.push(root.instr)
+    let init_state = @validate.make_state(env, [])
+    match
+      @validate.Typecheck::typecheck(@lib.Expr::new(prefix.copy()), init_state) {
+      Ok(state) =>
+        steps.push({
+          position: root.position,
+          typechecked: true,
+          reachable: state.reachable,
+          stack_depth_after: state.stack.length(),
+        })
+      Err(_) => {
+        complete = false
+        steps.push({
+          position: root.position,
+          typechecked: false,
+          reachable: false,
+          stack_depth_after: 0,
+        })
+      }
+    }
+  }
+  { steps, complete }
+}
+
+///|
+fn RawOiFunctionStackValueTransferFacts::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  env : @validate.Env,
+) -> RawOiFunctionStackValueTransferFacts {
+  let steps : Array[RawOiStackValueTransferStepFact] = []
+  let mut state = @validate.make_state(env, [])
+  for root in index.top_level_roots {
+    let next_state = match @validate.Typecheck::typecheck(root.instr, state) {
+      Ok(next_state) => next_state
+      Err(_) =>
+        return RawOiFunctionStackValueTransferFacts::from_prefix_index(
+          index, env,
+        )
+    }
+    steps.push({
+      position: root.position,
+      typechecked: true,
+      reachable: next_state.reachable,
+      stack_depth_after: next_state.stack.length(),
+    })
+    state = next_state
+  }
+  { steps, complete: true }
+}
+
+///|
+fn RawOiStackCarriedEffectRegionFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+  transfers : RawOiFunctionStackValueTransferFacts,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackCarriedEffectRegionFact {
+  ignore(transfers.complete)
   if RawOiLocalLoadCallAddressRegionFact::from_index(index).has_blocking_use {
     return { has_blocking_effect: true }
   }
-  let mut state = @validate.make_state(env, [])
-  let mut barrier_index = 0
-  for instr in instrs {
-    let next_state = match @validate.Typecheck::typecheck(instr, state) {
-      Ok(next_state) => next_state
-      Err(_) =>
-        return RawOiStackCarriedEffectRegionFact::from_prefix_typecheck(
-          instrs, env, module_ctx,
-        )
+  for root in index.top_level_roots {
+    if root.position < 0 || root.position >= transfers.steps.length() {
+      continue
     }
-    match RawOiStackEffectBarrierFact::from_instr(instr, module_ctx) {
+    let transfer = transfers.steps[root.position]
+    if !transfer.typechecked || transfer.position != root.position {
+      continue
+    }
+    match RawOiStackEffectBarrierFact::from_instr(root.instr, module_ctx) {
       Some(barrier) =>
         match
           RawOiStackCarriedEffectUseFact::from_barrier_state(
-            barrier_index,
+            root.position,
             barrier,
-            next_state.reachable,
-            next_state.stack.length(),
+            transfer.reachable,
+            transfer.stack_depth_after,
           ) {
           Some(fact) =>
             if fact.is_stack_carried() {
@@ -26079,70 +26341,8 @@ fn RawOiStackCarriedEffectRegionFact::from_instrs(
         }
       None => ()
     }
-    state = next_state
-    barrier_index = barrier_index + 1
   }
   { has_blocking_effect: false }
-}
-
-///|
-// Raw OI-H local-use fact for fallback call_ref fallthrough target rewrites.
-// Binaryen v130 `visitCallRef` uses `Properties::getFallthrough(curr->target)`
-// to recover a `ref.func` behind local writes and then preserves target effects
-// only when the local binding may still be read. The raw fallback represents the
-// covered flat shape as `ref.func; local.set $tmp; local.get $tmp; call_ref`, so
-// keep the exact root-local-get count in a source-backed fact instead of letting
-// the call_ref directizer query an unclassified recursive counter.
-priv struct RawOiLocalUseCountFact {
-  target : @lib.LocalIdx
-  exact_get_count : Int
-}
-
-///|
-fn RawOiLocalUseCountFact::count_instr(
-  instr : @lib.Instruction,
-  target : @lib.LocalIdx,
-) -> Int {
-  match instr {
-    @lib.LocalGet(local_id) if local_id == target => 1
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      RawOiLocalUseCountFact::count_body(body, target)
-    @lib.If(_, then_body, else_body) => {
-      let mut count = RawOiLocalUseCountFact::count_body(then_body, target)
-      match else_body {
-        Some(body) =>
-          count = count + RawOiLocalUseCountFact::count_body(body, target)
-        None => ()
-      }
-      count
-    }
-    _ => 0
-  }
-}
-
-///|
-fn RawOiLocalUseCountFact::count_body(
-  instrs : Array[@lib.Instruction],
-  target : @lib.LocalIdx,
-) -> Int {
-  let mut count = 0
-  for instr in instrs {
-    count = count + RawOiLocalUseCountFact::count_instr(instr, target)
-  }
-  count
-}
-
-///|
-fn RawOiLocalUseCountFact::from_body(
-  instrs : Array[@lib.Instruction],
-  target : @lib.LocalIdx,
-) -> RawOiLocalUseCountFact {
-  {
-    target,
-    exact_get_count: RawOiLocalUseCountFact::count_body(instrs, target),
-  }
 }
 
 ///|
@@ -26151,12 +26351,11 @@ fn RawOiLocalUseCountFact::from_body(
 // remain in the sibling body facts below.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
   instr : @lib.Instruction,
-  root_instrs : Array[@lib.Instruction],
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Instruction::Block(bt, @lib.Expr(body)) => {
       let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        body, root_instrs,
+        body,
       )
       if changed {
         (@lib.Instruction::block(bt, @lib.Expr::new(rewritten)), true)
@@ -26166,7 +26365,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
     }
     @lib.Instruction::Loop(bt, @lib.Expr(body)) => {
       let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        body, root_instrs,
+        body,
       )
       if changed {
         (@lib.Instruction::loop_(bt, @lib.Expr::new(rewritten)), true)
@@ -26176,12 +26375,12 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
     }
     @lib.Instruction::If(bt, then_body, else_body) => {
       let (rewritten_then, then_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        then_body, root_instrs,
+        then_body,
       )
       let (rewritten_else, else_changed) = match else_body {
         Some(body) => {
           let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-            body, root_instrs,
+            body,
           )
           (Some(rewritten), changed)
         }
@@ -26195,7 +26394,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
     }
     @lib.Instruction::TryTable(bt, catches, @lib.Expr(body)) => {
       let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        body, root_instrs,
+        body,
       )
       if changed {
         (
@@ -26262,10 +26461,6 @@ priv struct RawOiCallRefDirectizeRewriteFact {
   is_direct_ref_func_target : Bool
   is_table_target : Bool
   is_const_select_ref_func_target : Bool
-  is_local_fallthrough_ref_func_target : Bool
-  local_fallthrough_target : @lib.LocalIdx?
-  local_fallthrough_get_count : Int
-  preserves_local_fallthrough_binding : Bool
   is_return : Bool
   rewrite : Array[@lib.Instruction]
 }
@@ -26275,15 +26470,11 @@ fn RawOiCallRefDirectizeRewriteFact::proves_binaryen_call_ref_directization(
   self : RawOiCallRefDirectizeRewriteFact,
 ) -> Bool {
   ignore(self.is_return)
-  ignore(self.local_fallthrough_target)
-  ignore(self.local_fallthrough_get_count)
-  ignore(self.preserves_local_fallthrough_binding)
   self.rewrite.length() > 0 &&
   (
     self.is_direct_ref_func_target ||
     self.is_table_target ||
-    self.is_const_select_ref_func_target ||
-    self.is_local_fallthrough_ref_func_target
+    self.is_const_select_ref_func_target
   )
 }
 
@@ -26312,88 +26503,33 @@ fn RawOiCallRefDirectizeRewriteFact::call_instr(
 }
 
 ///|
-// Raw OI-H fallthrough-target use fact for the local.set/local.get target bridge.
-// A single root `local.get` means the use consumed by `call_ref` is the only read
-// of the temporary target local, so the raw fallback can erase the preceding
-// `ref.func; local.set` target materialization. Any additional read preserves the
-// binding as an evaluated side effect before replacing `call_ref` with a direct
-// call, matching the Binaryen fallthrough-target effect preservation contract.
-priv struct RawOiCallRefLocalFallthroughUseFact {
-  target_local : @lib.LocalIdx
-  exact_get_count : Int
-  preserves_target_binding : Bool
-  rewrite : Array[@lib.Instruction]
-}
-
-///|
-fn RawOiCallRefLocalFallthroughUseFact::from_parts(
-  target_expr : @lib.Instruction,
-  target_set : @lib.Instruction,
-  target_local : @lib.LocalIdx,
-  func_idx : @lib.FuncIdx,
-  is_return : Bool,
-  root_instrs : Array[@lib.Instruction],
-) -> RawOiCallRefLocalFallthroughUseFact {
-  let use_fact = RawOiLocalUseCountFact::from_body(root_instrs, target_local)
-  ignore(use_fact.target)
-  let preserves_target_binding = use_fact.exact_get_count != 1
-  let rewrite : Array[@lib.Instruction] = []
-  if preserves_target_binding {
-    rewrite.push(target_expr)
-    rewrite.push(target_set)
-  }
-  rewrite.push(
-    RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return),
-  )
-  {
-    target_local,
-    exact_get_count: use_fact.exact_get_count,
-    preserves_target_binding,
-    rewrite,
-  }
-}
-
-///|
 fn RawOiCallRefDirectizeRewriteFact::from_table_target(
-  current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
-  start : Int,
+  overlay : RawOiCurrentRootRevisionOverlay,
 ) -> RawOiCallRefDirectizeRewriteFact? {
-  if start + 2 >= instrs.length() {
-    return None
-  }
-  match (current, instrs[start + 1], instrs[start + 2]) {
+  match (overlay.instr_at(0), overlay.instr_at(1), overlay.instr_at(2)) {
     (
-      index,
-      @lib.Instruction::TableGet(table_idx),
-      @lib.Instruction::CallRef(type_idx),
+      Some(index),
+      Some(@lib.Instruction::TableGet(table_idx)),
+      Some(@lib.Instruction::CallRef(type_idx)),
     ) =>
       Some({
-        end: start + 3,
+        end: overlay.start + 3,
         is_direct_ref_func_target: false,
         is_table_target: true,
         is_const_select_ref_func_target: false,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: false,
         rewrite: [index, @lib.Instruction::call_indirect(type_idx, table_idx)],
       })
     (
-      index,
-      @lib.Instruction::TableGet(table_idx),
-      @lib.Instruction::ReturnCallRef(type_idx),
+      Some(index),
+      Some(@lib.Instruction::TableGet(table_idx)),
+      Some(@lib.Instruction::ReturnCallRef(type_idx)),
     ) =>
       Some({
-        end: start + 3,
+        end: overlay.start + 3,
         is_direct_ref_func_target: false,
         is_table_target: true,
         is_const_select_ref_func_target: false,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: true,
         rewrite: [
           index,
@@ -26406,33 +26542,26 @@ fn RawOiCallRefDirectizeRewriteFact::from_table_target(
 
 ///|
 fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
-  current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
-  start : Int,
+  overlay : RawOiCurrentRootRevisionOverlay,
 ) -> RawOiCallRefDirectizeRewriteFact? {
-  if start + 4 >= instrs.length() {
-    return None
-  }
-  let true_func = match RawOiRefFuncTargetFact::from_instr(current) {
-    Some(fact) =>
-      if fact.proves_binaryen_ref_func_target() {
-        fact.func_idx
-      } else {
-        return None
-      }
+  let true_target = match overlay.instr_at(0) {
+    Some(instr) => instr
     None => return None
   }
-  let false_func = match RawOiRefFuncTargetFact::from_instr(instrs[start + 1]) {
-    Some(fact) =>
-      if fact.proves_binaryen_ref_func_target() {
-        fact.func_idx
-      } else {
-        return None
-      }
+  let true_func = match RawOiRefFuncTargetFact::from_instr(true_target) {
+    Some(fact) if fact.proves_binaryen_ref_func_target() => fact.func_idx
+    _ => return None
+  }
+  let false_target = match overlay.instr_at(1) {
+    Some(instr) => instr
     None => return None
   }
-  let selected_func = match instrs[start + 2] {
-    @lib.Instruction::I32Const(@lib.I32(raw)) =>
+  let false_func = match RawOiRefFuncTargetFact::from_instr(false_target) {
+    Some(fact) if fact.proves_binaryen_ref_func_target() => fact.func_idx
+    _ => return None
+  }
+  let selected_func = match overlay.instr_at(2) {
+    Some(@lib.Instruction::I32Const(@lib.I32(raw))) =>
       if raw == 0 {
         false_func
       } else {
@@ -26440,30 +26569,23 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
       }
     _ => return None
   }
-  match (instrs[start + 3], instrs[start + 4]) {
-    (@lib.Instruction::Select(_), @lib.Instruction::CallRef(_)) =>
+  match (overlay.instr_at(3), overlay.instr_at(4)) {
+    (Some(@lib.Instruction::Select(_)), Some(@lib.Instruction::CallRef(_))) =>
       Some({
-        end: start + 5,
+        end: overlay.start + 5,
         is_direct_ref_func_target: false,
         is_table_target: false,
         is_const_select_ref_func_target: true,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: false,
         rewrite: [@lib.Instruction::call(selected_func)],
       })
-    (@lib.Instruction::Select(_), @lib.Instruction::ReturnCallRef(_)) =>
+    (Some(@lib.Instruction::Select(_)), Some(@lib.Instruction::ReturnCallRef(_))
+    ) =>
       Some({
-        end: start + 5,
+        end: overlay.start + 5,
         is_direct_ref_func_target: false,
         is_table_target: false,
         is_const_select_ref_func_target: true,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: true,
         rewrite: [@lib.Instruction::return_call(selected_func)],
       })
@@ -26472,122 +26594,45 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
 }
 
 ///|
-fn RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
-  current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
-  root_instrs : Array[@lib.Instruction],
-  start : Int,
-) -> RawOiCallRefDirectizeRewriteFact? {
-  if start + 3 >= instrs.length() {
-    return None
-  }
-  let func_idx = match RawOiRefFuncTargetFact::from_instr(current) {
-    Some(fact) =>
-      if fact.proves_binaryen_ref_func_target() {
-        fact.func_idx
-      } else {
-        return None
-      }
-    None => return None
-  }
-  let local_id = match (instrs[start + 1], instrs[start + 2]) {
-    (
-      @lib.Instruction::LocalSet(set_local),
-      @lib.Instruction::LocalGet(get_local),
-    ) if set_local == get_local => set_local
-    _ => return None
-  }
-  let is_return = match instrs[start + 3] {
-    @lib.Instruction::CallRef(_) => false
-    @lib.Instruction::ReturnCallRef(_) => true
-    _ => return None
-  }
-  let use_fact = RawOiCallRefLocalFallthroughUseFact::from_parts(
-    current,
-    instrs[start + 1],
-    local_id,
-    func_idx,
-    is_return,
-    root_instrs,
-  )
-  Some({
-    end: start + 4,
-    is_direct_ref_func_target: false,
-    is_table_target: false,
-    is_const_select_ref_func_target: false,
-    is_local_fallthrough_ref_func_target: true,
-    local_fallthrough_target: Some(use_fact.target_local),
-    local_fallthrough_get_count: use_fact.exact_get_count,
-    preserves_local_fallthrough_binding: use_fact.preserves_target_binding,
-    is_return,
-    rewrite: use_fact.rewrite,
-  })
-}
-
-///|
 fn RawOiCallRefDirectizeRewriteFact::from_direct_target(
-  current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
-  start : Int,
+  overlay : RawOiCurrentRootRevisionOverlay,
 ) -> RawOiCallRefDirectizeRewriteFact? {
-  if start + 1 >= instrs.length() {
-    return None
-  }
-  let func_idx = match RawOiRefFuncTargetFact::from_instr(current) {
-    Some(fact) =>
-      if fact.proves_binaryen_ref_func_target() {
-        fact.func_idx
-      } else {
-        return None
-      }
+  let target = match overlay.instr_at(0) {
+    Some(instr) => instr
     None => return None
   }
-  let is_return = match instrs[start + 1] {
-    @lib.Instruction::CallRef(_) => false
-    @lib.Instruction::ReturnCallRef(_) => true
+  let func_idx = match RawOiRefFuncTargetFact::from_instr(target) {
+    Some(fact) if fact.proves_binaryen_ref_func_target() => fact.func_idx
+    _ => return None
+  }
+  let is_return = match overlay.instr_at(1) {
+    Some(@lib.Instruction::CallRef(_)) => false
+    Some(@lib.Instruction::ReturnCallRef(_)) => true
     _ => return None
   }
   Some({
-    end: start + 2,
+    end: overlay.start + 2,
     is_direct_ref_func_target: true,
     is_table_target: false,
     is_const_select_ref_func_target: false,
-    is_local_fallthrough_ref_func_target: false,
-    local_fallthrough_target: None,
-    local_fallthrough_get_count: 0,
-    preserves_local_fallthrough_binding: false,
     is_return,
     rewrite: [RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return)],
   })
 }
 
 ///|
-fn RawOiCallRefDirectizeRewriteFact::from_instrs(
-  current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
-  root_instrs : Array[@lib.Instruction],
-  start : Int,
+fn RawOiCallRefDirectizeRewriteFact::from_overlay(
+  overlay : RawOiCurrentRootRevisionOverlay,
 ) -> RawOiCallRefDirectizeRewriteFact? {
-  match
-    RawOiCallRefDirectizeRewriteFact::from_table_target(current, instrs, start) {
+  match RawOiCallRefDirectizeRewriteFact::from_table_target(overlay) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match
-    RawOiCallRefDirectizeRewriteFact::from_const_select_target(
-      current, instrs, start,
-    ) {
+  match RawOiCallRefDirectizeRewriteFact::from_const_select_target(overlay) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match
-    RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
-      current, instrs, root_instrs, start,
-    ) {
-    Some(fact) => return Some(fact)
-    None => ()
-  }
-  RawOiCallRefDirectizeRewriteFact::from_direct_target(current, instrs, start)
+  RawOiCallRefDirectizeRewriteFact::from_direct_target(overlay)
 }
 
 ///|
@@ -26647,13 +26692,13 @@ fn RawOiRefNullTrapRewriteFact::append_rewrite(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() {
     return None
   }
-  match instrs[start + 1] {
+  match region.roots[start + 1].instr {
     @lib.Instruction::Drop if pass_raw_dropped_block_has_unreachable_tail(
         current,
       ) =>
@@ -26679,13 +26724,13 @@ fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() {
     return None
   }
-  match (current, instrs[start + 1]) {
+  match (current, region.roots[start + 1].instr) {
     (@lib.Instruction::RefNull(_), @lib.Instruction::RefAsNonNull) =>
       Some({
         end: start + 2,
@@ -26709,25 +26754,25 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 10 >= instrs.length() {
+  if start + 10 >= region.roots.length() {
     return None
   }
   match
     (
       current,
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
-      instrs[start + 5],
-      instrs[start + 6],
-      instrs[start + 7],
-      instrs[start + 8],
-      instrs[start + 9],
-      instrs[start + 10],
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
+      region.roots[start + 5].instr,
+      region.roots[start + 6].instr,
+      region.roots[start + 7].instr,
+      region.roots[start + 8].instr,
+      region.roots[start + 9].instr,
+      region.roots[start + 10].instr,
     ) {
     (
       @lib.Instruction::RefNull(_),
@@ -26759,17 +26804,17 @@ fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
         preserved_local: Some(set_local),
         rewrite: [
           current,
-          instrs[start + 1],
-          instrs[start + 2],
-          instrs[start + 3],
-          instrs[start + 4],
-          instrs[start + 5],
+          region.roots[start + 1].instr,
+          region.roots[start + 2].instr,
+          region.roots[start + 3].instr,
+          region.roots[start + 4].instr,
+          region.roots[start + 5].instr,
           @lib.Instruction::drop(),
           @lib.Instruction::i32_const(
             @lib.I32(if test_nullable { 1 } else { 0 }),
           ),
           @lib.Instruction::drop(),
-          instrs[start + 8],
+          region.roots[start + 8].instr,
           @lib.Instruction::drop(),
         ],
       })
@@ -26780,13 +26825,14 @@ fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() {
     return None
   }
-  match (current, instrs[start + 1], instrs[start + 2]) {
+  match
+    (current, region.roots[start + 1].instr, region.roots[start + 2].instr) {
     (
       @lib.Instruction::RefNull(_),
       @lib.Instruction::RefTest(nullable, false, _),
@@ -26817,13 +26863,14 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
 ///|
 fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() {
     return None
   }
-  match (current, instrs[start + 1], instrs[start + 2]) {
+  match
+    (current, region.roots[start + 1].instr, region.roots[start + 2].instr) {
     (
       @lib.Instruction::RefNull(_),
       @lib.Instruction::RefCast(nullable, exact, target_heap),
@@ -26860,62 +26907,65 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
 }
 
 ///|
-fn RawOiRefNullTrapRewriteFact::from_instrs(
+fn RawOiRefNullTrapRewriteFact::from_region(
   current : @lib.Instruction,
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiRefNullTrapRewriteFact? {
+  if start < 0 ||
+    start >= region.roots.length() ||
+    !(region.has_root_at(start, RawOiRootKind::RefNull) ||
+    region.roots[start].flow.has_nested_control) {
+    return None
+  }
   match
     RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
-      current, instrs, start,
+      current, region, start,
     ) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
     RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
-      current, instrs, start,
+      current, region, start,
     ) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
     RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
-      current, instrs, start,
+      current, region, start,
     ) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
-    RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(current, instrs, start) {
+    RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(current, region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(current, instrs, start)
+  RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(current, region, start)
 }
 
 ///|
-// Accepted raw OI-H bridge boundary. This traversal only rebuilds nested
-// control bodies and dispatches to source-backed flat raw facts:
-// `RawOiRefNullTrapRewriteFact` for represented null/ref repair windows and
-// `RawOiCallRefDirectizeRewriteFact` for represented call_ref directization.
-// Reopen if this function starts matching target/operand spellings directly,
-// bypasses those facts, or a reduced mismatch needs broader Binaryen
-// `visitCallRef` / `trapOnNull` facts rather than another bridge case.
+// Accepted raw OI-H traversal boundary. One immutable region per visited body
+// discovers direct, table, select, and null/trap candidates. The current-root
+// overlay never promotes local assignment dataflow into exact target proof.
+// Reopen if this function starts matching target/operand spellings directly or
+// bypasses family-owned type, return-call, effect, order, and trap proof.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   instrs : Array[@lib.Instruction],
-  root_instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     let (current, child_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
       instrs[i],
-      root_instrs,
     )
     changed = changed || child_changed
-    match RawOiRefNullTrapRewriteFact::from_instrs(current, instrs, i) {
+    match RawOiRefNullTrapRewriteFact::from_region(current, region, i) {
       Some(fact) => {
         fact.append_rewrite(out)
         changed = true
@@ -26927,10 +26977,12 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
       }
       None => ()
     }
-    match
-      RawOiCallRefDirectizeRewriteFact::from_instrs(
-        current, instrs, root_instrs, i,
-      ) {
+    let overlay : RawOiCurrentRootRevisionOverlay = {
+      current,
+      region,
+      start: i,
+    }
+    match RawOiCallRefDirectizeRewriteFact::from_overlay(overlay) {
       Some(fact) => {
         fact.append_rewrite(out)
         changed = true
@@ -26946,13 +26998,13 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
 }
 
 ///|
-// Accepted raw OI-H root wrapper; the root body is passed through so local
-// fallthrough target preservation facts can count root `local.get` uses.
+// Accepted raw OI-H root wrapper. Nested rewrites use current-root overlays over
+// immutable region facts and never build a second function-wide index.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
   run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-    instrs, instrs,
+    instrs,
   )
 }
 
@@ -27787,15 +27839,16 @@ fn RawOiMemoryOffsetFoldRewriteFact::append_rewrite(
 }
 
 ///|
-fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryOffsetFoldRewriteFact::from_load_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::PlainLoad) {
     return None
   }
-  let address = instrs[start]
-  let load_instr = instrs[start + 1]
+  let address = region.roots[start].instr
+  let load_instr = region.roots[start + 1].instr
   let access = match RawOiMemoryAccessMemargFact::from_load_instr(load_instr) {
     Some(fact) if fact.proves_load_access() => fact
     _ => return None
@@ -27825,16 +27878,17 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(
 }
 
 ///|
-fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryOffsetFoldRewriteFact::from_store_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start + 2, RawOiRootKind::MemoryStore) {
     return None
   }
-  let address = instrs[start]
-  let value = instrs[start + 1]
-  let store_instr = instrs[start + 2]
+  let address = region.roots[start].instr
+  let value = region.roots[start + 1].instr
+  let store_instr = region.roots[start + 2].instr
   let access = match
     RawOiMemoryAccessMemargFact::from_store_instr(store_instr) {
     Some(fact) if fact.proves_store_access() => fact
@@ -27865,15 +27919,15 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(
 }
 
 ///|
-fn RawOiMemoryOffsetFoldRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemoryOffsetFoldRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
-  match RawOiMemoryOffsetFoldRewriteFact::from_store_instrs(instrs, start) {
+  match RawOiMemoryOffsetFoldRewriteFact::from_store_region(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiMemoryOffsetFoldRewriteFact::from_load_instrs(instrs, start)
+  RawOiMemoryOffsetFoldRewriteFact::from_load_region(region, start)
 }
 
 ///|
@@ -28396,22 +28450,23 @@ fn RawOiDropStoreMaskRewriteFact::append_rewrite(
 
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDropStoreMaskRewriteFact? {
-  let address = match RawOiI32ConstAddAddressFact::from_instrs(instrs, start) {
+  let address = match RawOiI32ConstAddAddressFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
-  if address.end + 3 >= instrs.length() {
+  if address.end + 3 >= region.roots.length() ||
+    !region.has_root_at(address.end + 3, RawOiRootKind::MemoryStore) {
     return None
   }
   let mask = match
     RawOiNarrowStoreMaskFact::from_parts(
-      instrs[address.end],
-      instrs[address.end + 1],
-      instrs[address.end + 2],
-      instrs[address.end + 3],
+      region.roots[address.end].instr,
+      region.roots[address.end + 1].instr,
+      region.roots[address.end + 2].instr,
+      region.roots[address.end + 3].instr,
     ) {
     Some(fact) if fact.proves_binaryen_i32_narrow_store_mask() => fact
     _ => return None
@@ -28421,25 +28476,26 @@ fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
     folded_const_add_address: true,
     address: address.value,
     value: mask.value,
-    store: instrs[address.end + 3],
+    store: region.roots[address.end + 3].instr,
     mask,
   })
 }
 
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_plain_address(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDropStoreMaskRewriteFact? {
-  if start + 4 >= instrs.length() {
+  if start + 4 >= region.roots.length() ||
+    !region.has_root_at(start + 4, RawOiRootKind::MemoryStore) {
     return None
   }
   let mask = match
     RawOiNarrowStoreMaskFact::from_parts(
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
     ) {
     Some(fact) if fact.proves_binaryen_i32_narrow_store_mask() => fact
     _ => return None
@@ -28447,23 +28503,23 @@ fn RawOiDropStoreMaskRewriteFact::from_plain_address(
   Some({
     end: start + 5,
     folded_const_add_address: false,
-    address: instrs[start],
+    address: region.roots[start].instr,
     value: mask.value,
-    store: instrs[start + 4],
+    store: region.roots[start + 4].instr,
     mask,
   })
 }
 
 ///|
-fn RawOiDropStoreMaskRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDropStoreMaskRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDropStoreMaskRewriteFact? {
-  match RawOiDropStoreMaskRewriteFact::from_const_add_address(instrs, start) {
+  match RawOiDropStoreMaskRewriteFact::from_const_add_address(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiDropStoreMaskRewriteFact::from_plain_address(instrs, start)
+  RawOiDropStoreMaskRewriteFact::from_plain_address(region, start)
 }
 
 ///|
@@ -28661,15 +28717,24 @@ priv struct RawOiI32ConstSelectOperandFact {
 }
 
 ///|
-fn RawOiI32ConstSelectOperandFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiI32ConstSelectOperandFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiI32ConstSelectOperandFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 1, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 2, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 3, RawOiRootKind::Select) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (
       @lib.I32Const(@lib.I32(true_raw)),
       @lib.I32Const(@lib.I32(false_raw)),
@@ -28694,42 +28759,38 @@ priv struct RawOiMemorySizePageAddressFact {
 }
 
 ///|
-fn RawOiMemorySizePageAddressFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemorySizePageAddressFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemorySizePageAddressFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::MemorySize) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  let first = region.roots[start].instr
+  let second = region.roots[start + 1].instr
+  let third = region.roots[start + 2].instr
+  match (first, second, third) {
     (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(15)), @lib.I32Shl) =>
-      Some({
-        end: start + 3,
-        mem,
-        rewrite: [instrs[start], instrs[start + 1], instrs[start + 2]],
-      })
+      Some({ end: start + 3, mem, rewrite: [first, second, third] })
     (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(32768)), @lib.I32Mul) =>
       Some({
         end: start + 3,
         mem,
         rewrite: [
-          instrs[start],
+          first,
           @lib.Instruction::i32_const(@lib.I32(15)),
           @lib.Instruction::i32_shl(),
         ],
       })
     (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(15L)), @lib.I64Shl) =>
-      Some({
-        end: start + 3,
-        mem,
-        rewrite: [instrs[start], instrs[start + 1], instrs[start + 2]],
-      })
+      Some({ end: start + 3, mem, rewrite: [first, second, third] })
     (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(32768L)), @lib.I64Mul) =>
       Some({
         end: start + 3,
         mem,
         rewrite: [
-          instrs[start],
+          first,
           @lib.Instruction::i64_const(@lib.I64(15L)),
           @lib.Instruction::i64_shl(),
         ],
@@ -28745,14 +28806,13 @@ priv struct RawOiI32ConstAddAddressFact {
 }
 
 ///|
-fn RawOiI32ConstAddAddressFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  start : Int,
+fn RawOiI32ConstAddAddressFact::from_parts(
+  first : @lib.Instruction,
+  second : @lib.Instruction,
+  add : @lib.Instruction,
+  end : Int,
 ) -> RawOiI32ConstAddAddressFact? {
-  if start + 2 >= instrs.length() {
-    return None
-  }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match (first, second, add) {
     (
       @lib.I32Const(@lib.I32(lhs_raw)),
       @lib.I32Const(@lib.I32(rhs_raw)),
@@ -28761,10 +28821,28 @@ fn RawOiI32ConstAddAddressFact::from_instrs(
       let folded = @lib.I32(
         (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
       )
-      Some({ end: start + 3, value: @lib.Instruction::i32_const(folded) })
+      Some({ end, value: @lib.Instruction::i32_const(folded) })
     }
     _ => None
   }
+}
+
+///|
+fn RawOiI32ConstAddAddressFact::from_region(
+  region : RawOiInstructionRegionFact,
+  start : Int,
+) -> RawOiI32ConstAddAddressFact? {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::I32Const) ||
+    !region.has_root_at(start + 1, RawOiRootKind::I32Const) {
+    return None
+  }
+  RawOiI32ConstAddAddressFact::from_parts(
+    region.roots[start].instr,
+    region.roots[start + 1].instr,
+    region.roots[start + 2].instr,
+    start + 3,
+  )
 }
 
 ///|
@@ -28900,20 +28978,20 @@ fn RawOiBulkLoweringRewriteFact::fill_from_parts(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  let dest = match RawOiI32ConstSelectOperandFact::from_instrs(instrs, start) {
+  let dest = match RawOiI32ConstSelectOperandFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
   let source_or_value = match
-    RawOiI32ConstSelectOperandFact::from_instrs(instrs, dest.end) {
+    RawOiI32ConstSelectOperandFact::from_region(region, dest.end) {
     Some(fact) => fact
     None => return None
   }
   let size_operand = match
-    RawOiI32ConstSelectOperandFact::from_instrs(instrs, source_or_value.end) {
+    RawOiI32ConstSelectOperandFact::from_region(region, source_or_value.end) {
     Some(fact) => fact
     None => return None
   }
@@ -28921,10 +28999,11 @@ fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
     Some(fact) => fact.size
     None => return None
   }
-  if size_operand.end >= instrs.length() {
+  if size_operand.end >= region.roots.length() ||
+    !region.has_root_at(size_operand.end, RawOiRootKind::BulkMemory) {
     return None
   }
-  match instrs[size_operand.end] {
+  match region.roots[size_operand.end].instr {
     @lib.MemoryCopy(dst_mem, src_mem) =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
         size_operand.end + 1,
@@ -28954,26 +29033,28 @@ fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  let dest = match RawOiMemorySizePageAddressFact::from_instrs(instrs, start) {
+  let dest = match RawOiMemorySizePageAddressFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
   let source = match
-    RawOiMemorySizePageAddressFact::from_instrs(instrs, dest.end) {
+    RawOiMemorySizePageAddressFact::from_region(region, dest.end) {
     Some(fact) => fact
     None => return None
   }
-  if source.end + 1 >= instrs.length() {
+  if source.end + 1 >= region.roots.length() ||
+    !region.has_root_at(source.end + 1, RawOiRootKind::BulkMemory) {
     return None
   }
-  let size = match RawOiBulkConstSizeFact::from_instr(instrs[source.end]) {
+  let size = match
+    RawOiBulkConstSizeFact::from_instr(region.roots[source.end].instr) {
     Some(fact) => fact.size
     None => return None
   }
-  match instrs[source.end + 1] {
+  match region.roots[source.end + 1].instr {
     @lib.MemoryCopy(dst_mem, src_mem) if dest.mem == dst_mem &&
       source.mem == src_mem =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
@@ -28994,22 +29075,24 @@ fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::BulkMemory) {
     return None
   }
-  let size = match RawOiBulkConstSizeFact::from_instr(instrs[start + 2]) {
+  let size = match
+    RawOiBulkConstSizeFact::from_instr(region.roots[start + 2].instr) {
     Some(fact) => fact.size
     None => return None
   }
-  match instrs[start + 3] {
+  match region.roots[start + 3].instr {
     @lib.MemoryCopy(dst_mem, src_mem) =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
         start + 4,
-        [instrs[start]],
-        [instrs[start + 1]],
+        [region.roots[start].instr],
+        [region.roots[start + 1].instr],
         size,
         src_mem,
         dst_mem,
@@ -29021,8 +29104,8 @@ fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
     @lib.MemoryFill(mem) =>
       RawOiBulkLoweringRewriteFact::fill_from_parts(
         start + 4,
-        [instrs[start]],
-        instrs[start + 1],
+        [region.roots[start].instr],
+        region.roots[start + 1].instr,
         size,
         mem,
         false,
@@ -29034,26 +29117,28 @@ fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
-  let dest = match RawOiI32ConstAddAddressFact::from_instrs(instrs, start) {
+  let dest = match RawOiI32ConstAddAddressFact::from_region(region, start) {
     Some(fact) => fact
     None => return None
   }
   let source = match
-    RawOiI32ConstAddAddressFact::from_instrs(instrs, dest.end) {
+    RawOiI32ConstAddAddressFact::from_region(region, dest.end) {
     Some(fact) => fact
     None => return None
   }
-  if source.end + 1 >= instrs.length() {
+  if source.end + 1 >= region.roots.length() ||
+    !region.has_root_at(source.end + 1, RawOiRootKind::BulkMemory) {
     return None
   }
-  let size = match RawOiBulkConstSizeFact::from_instr(instrs[source.end]) {
+  let size = match
+    RawOiBulkConstSizeFact::from_instr(region.roots[source.end].instr) {
     Some(fact) => fact.size
     None => return None
   }
-  match instrs[source.end + 1] {
+  match region.roots[source.end + 1].instr {
     @lib.MemoryCopy(dst_mem, src_mem) =>
       RawOiBulkLoweringRewriteFact::copy_from_parts(
         source.end + 2,
@@ -29072,25 +29157,25 @@ fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
 }
 
 ///|
-fn RawOiBulkLoweringRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiBulkLoweringRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiBulkLoweringRewriteFact? {
   match
-    RawOiBulkLoweringRewriteFact::from_const_select_operands(instrs, start) {
+    RawOiBulkLoweringRewriteFact::from_const_select_operands(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
-    RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(instrs, start) {
+    RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiBulkLoweringRewriteFact::from_plain_static_size(instrs, start) {
+  match RawOiBulkLoweringRewriteFact::from_plain_static_size(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(instrs, start)
+  RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(region, start)
 }
 
 ///|
@@ -29132,19 +29217,20 @@ fn RawOiSelectRewriteFact::append_rewrite(
 
 ///|
 fn RawOiSelectRewriteFact::from_const_eqz_condition(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  if start + 4 >= instrs.length() {
+  if start + 4 >= region.roots.length() ||
+    !region.has_root_at(start + 4, RawOiRootKind::Select) {
     return None
   }
   match
     (
-      instrs[start],
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
     ) {
     (
       true_value,
@@ -29172,14 +29258,20 @@ fn RawOiSelectRewriteFact::from_const_eqz_condition(
 
 ///|
 fn RawOiSelectRewriteFact::from_const_condition(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::Select) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (true_value, false_value, @lib.I32Const(@lib.I32(cond)), @lib.Select(_)) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
         true_value,
       ) &&
@@ -29200,14 +29292,20 @@ fn RawOiSelectRewriteFact::from_const_condition(
 
 ///|
 fn RawOiSelectRewriteFact::from_identical_pure_arms(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::Select) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (true_value, false_value, condition, @lib.Select(_)) if true_value ==
       false_value &&
       run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
@@ -29226,19 +29324,19 @@ fn RawOiSelectRewriteFact::from_identical_pure_arms(
 }
 
 ///|
-fn RawOiSelectRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiSelectRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiSelectRewriteFact? {
-  match RawOiSelectRewriteFact::from_const_eqz_condition(instrs, start) {
+  match RawOiSelectRewriteFact::from_const_eqz_condition(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiSelectRewriteFact::from_const_condition(instrs, start) {
+  match RawOiSelectRewriteFact::from_const_condition(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiSelectRewriteFact::from_identical_pure_arms(instrs, start)
+  RawOiSelectRewriteFact::from_identical_pure_arms(region, start)
 }
 
 ///|
@@ -29346,14 +29444,15 @@ fn RawOiDroppedConstBranchIfFact::append_rewrite(
 }
 
 ///|
-fn RawOiDroppedConstBranchIfFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDroppedConstBranchIfFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiDroppedConstBranchIfFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::If) {
     return None
   }
-  match (instrs[start], instrs[start + 1]) {
+  match (region.roots[start].instr, region.roots[start + 1].instr) {
     (condition, @lib.If(block_type, then_body, Some(else_body))) if block_type ==
       @lib.BlockType::void_() =>
       match
@@ -29424,20 +29523,26 @@ fn RawOiMemorySizeNonzeroIfFact::append_rewrite(
 }
 
 ///|
-fn RawOiMemorySizeNonzeroIfFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiMemorySizeNonzeroIfFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiMemorySizeNonzeroIfFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start, RawOiRootKind::MemorySize) {
     return None
   }
   match
-    (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+    (
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+    ) {
     (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
       0 =>
       Some({
         end: start + 4,
-        memory_size: instrs[start],
+        memory_size: region.roots[start].instr,
         zero_condition: true,
         compare_is_ne: true,
         if_instr,
@@ -29500,19 +29605,20 @@ fn RawOiScalarNumericRewriteFact::append_rewrite(
 
 ///|
 fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 4 >= instrs.length() {
+  if start + 4 >= region.roots.length() ||
+    !region.has_root_at(start + 4, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
   match
     (
-      instrs[start],
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
-      instrs[start + 4],
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
+      region.roots[start + 4].instr,
     ) {
     (
       @lib.F64Const(@lib.F64(div_lhs_raw)),
@@ -29555,18 +29661,19 @@ fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
 
 ///|
 fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 3 >= instrs.length() {
+  if start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 3, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
   match
     RawOiI64ExtendLocalCommuteFact::from_parts(
-      instrs[start],
-      instrs[start + 1],
-      instrs[start + 2],
-      instrs[start + 3],
+      region.roots[start].instr,
+      region.roots[start + 1].instr,
+      region.roots[start + 2].instr,
+      region.roots[start + 3].instr,
     ) {
     Some(commute) =>
       Some({
@@ -29587,14 +29694,17 @@ fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
 }
 
 ///|
-fn RawOiScalarNumericRewriteFact::from_three_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiScalarNumericRewriteFact::from_three_roots(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 2 >= instrs.length() {
+  if start + 2 >= region.roots.length() ||
+    !region.has_root_at(start + 2, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  let instrs = region.roots
+  match
+    (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (value, @lib.I32Const(@lib.I32(0)), @lib.I32Add)
     | (value, @lib.I32Const(@lib.I32(0)), @lib.I32Sub)
     | (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add)
@@ -29616,7 +29726,8 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
       })
     _ => ()
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (@lib.I32Const(@lib.I32(lhs_raw)), @lib.I32Const(@lib.I32(rhs_raw)), instr) => {
       match RawOiOrderedConstEqNeFact::from_i32(lhs_raw, rhs_raw, instr) {
         Some(eq_ne) =>
@@ -29701,7 +29812,8 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
     }
     _ => ()
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !RawOiScalarConstAtomFact::from_instr(
         lhs,
       ).is_i32_const =>
@@ -29888,14 +30000,15 @@ fn RawOiScalarNumericRewriteFact::from_three_instrs(
 }
 
 ///|
-fn RawOiScalarNumericRewriteFact::from_two_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiScalarNumericRewriteFact::from_two_roots(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  if start + 1 >= instrs.length() {
+  if start + 1 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
-  match (instrs[start], instrs[start + 1]) {
+  match (region.roots[start].instr, region.roots[start + 1].instr) {
     (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) => {
       let wrap = RawOiWrapI64ConstFact::from_raw(raw)
       if !wrap.proves_binaryen_wrap_const() {
@@ -29920,27 +30033,36 @@ fn RawOiScalarNumericRewriteFact::from_two_instrs(
 }
 
 ///|
-fn RawOiScalarNumericRewriteFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiScalarNumericRewriteFact::from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
 ) -> RawOiScalarNumericRewriteFact? {
-  match RawOiScalarNumericRewriteFact::from_f64_div2_sub(instrs, start) {
+  match RawOiScalarNumericRewriteFact::from_f64_div2_sub(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
   match
-    RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(instrs, start) {
+    RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiScalarNumericRewriteFact::from_three_instrs(instrs, start) {
+  match RawOiScalarNumericRewriteFact::from_three_roots(region, start) {
     Some(fact) => return Some(fact)
     None => ()
   }
-  RawOiScalarNumericRewriteFact::from_two_instrs(instrs, start)
+  RawOiScalarNumericRewriteFact::from_two_roots(region, start)
 }
 
 ///|
+// Remaining raw traversal audit: seven descriptor `from_instrs` definitions
+// below form one representation bridge cluster (direct/local exact success and
+// miss, exactification, and balanced operands). Descriptor block-prefix control
+// reconstruction has moved to one reusable prefix value graph per body. The
+// remaining bridges reconstruct stack expressions that are not yet available
+// as HOT value graphs. Preserve exact descriptor type/exactness, trap, effect,
+// source order, and operand-cardinality proof; migrate only with shared typed
+// descriptor-value overlays, never another shape-specific whole-body scanner.
+//
 // Source-backed raw descriptor prefix facts for the Binaryen v130
 // optimizeKnownCastResult descriptor-child-localization case. Binaryen uses
 // ChildLocalizer to preserve descriptor operand effects before replacing a
@@ -29987,33 +30109,41 @@ priv struct RawOiDescriptorPrefixInstrFact {
 }
 
 ///|
-fn RawOiDescriptorPrefixBodyFact::from_instrs_until(
+// Reusable prefix graph for one descriptor value body. Each instruction is
+// classified once for the current immutable raw revision; consumers can query
+// any prefix boundary without replaying the body scan. Recursive block/if
+// values build the same graph for their own nested revision.
+priv struct RawOiDescriptorPrefixValueGraphFact {
+  body_len : Int
+  prefixes : Array[RawOiDescriptorPrefixBodyFact]
+}
+
+///|
+fn RawOiDescriptorPrefixValueGraphFact::from_body(
   instrs : Array[@lib.Instruction],
   depth : Int,
-  end : Int,
-) -> RawOiDescriptorPrefixBodyFact {
+) -> RawOiDescriptorPrefixValueGraphFact {
+  let prefixes : Array[RawOiDescriptorPrefixBodyFact] = [
+    { depth, end: 0, can_hoist: true, has_blocking_boundary: false },
+  ]
   let mut can_hoist = true
   let mut has_blocking_boundary = false
-  for idx = 0; idx < end; idx = idx + 1 {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let fact = RawOiDescriptorPrefixInstrFact::from_instr(instrs[idx], depth)
     can_hoist = can_hoist && fact.can_hoist
     has_blocking_boundary = has_blocking_boundary ||
       fact.has_blocking_boundary ||
       (fact.has_nested_control && !fact.can_hoist && !fact.is_plain_instruction)
+    prefixes.push({ depth, end: idx + 1, can_hoist, has_blocking_boundary })
   }
-  { depth, end, can_hoist, has_blocking_boundary }
+  { body_len: instrs.length(), prefixes }
 }
 
 ///|
-fn RawOiDescriptorPrefixBodyFact::from_instrs(
-  instrs : Array[@lib.Instruction],
-  depth : Int,
+fn RawOiDescriptorPrefixValueGraphFact::whole_body(
+  self : RawOiDescriptorPrefixValueGraphFact,
 ) -> RawOiDescriptorPrefixBodyFact {
-  RawOiDescriptorPrefixBodyFact::from_instrs_until(
-    instrs,
-    depth,
-    instrs.length(),
-  )
+  self.prefixes[self.body_len]
 }
 
 ///|
@@ -30069,17 +30199,18 @@ fn RawOiDescriptorPrefixInstrFact::from_instr(
   match instr {
     @lib.Block(_, @lib.Expr(body)) =>
       RawOiDescriptorPrefixInstrFact::nested(
-        RawOiDescriptorPrefixBodyFact::from_instrs(body, depth + 1),
+        RawOiDescriptorPrefixValueGraphFact::from_body(body, depth + 1).whole_body(),
       )
     @lib.If(_, then_body, else_body) => {
-      let then_fact = RawOiDescriptorPrefixBodyFact::from_instrs(
+      let then_fact = RawOiDescriptorPrefixValueGraphFact::from_body(
         then_body,
         depth + 1,
-      )
+      ).whole_body()
       let else_fact = match else_body {
         Some(body) =>
-          RawOiDescriptorPrefixBodyFact::from_instrs(body, depth + 1)
-        None => RawOiDescriptorPrefixBodyFact::from_instrs([], depth + 1)
+          RawOiDescriptorPrefixValueGraphFact::from_body(body, depth + 1).whole_body()
+        None =>
+          RawOiDescriptorPrefixValueGraphFact::from_body([], depth + 1).whole_body()
       }
       {
         can_hoist: then_fact.can_hoist && else_fact.can_hoist,
@@ -30134,16 +30265,14 @@ priv struct RawOiDescriptorBlockPrefixHoistFact {
 }
 
 ///|
-fn RawOiDescriptorBlockPrefixHoistFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorPrefixValueGraphFact::prefix_hoist(
+  self : RawOiDescriptorPrefixValueGraphFact,
   prefix_len : Int,
 ) -> RawOiDescriptorBlockPrefixHoistFact? {
-  if prefix_len < 0 || prefix_len > instrs.length() {
+  if prefix_len < 0 || prefix_len > self.body_len {
     return None
   }
-  let body = RawOiDescriptorPrefixBodyFact::from_instrs_until(
-    instrs, 0, prefix_len,
-  )
+  let body = self.prefixes[prefix_len]
   if body.can_hoist {
     Some({ prefix_len, body })
   } else {
@@ -30618,38 +30747,16 @@ priv struct RawOiDescriptorCallArgBlockBodyFact {
 }
 
 ///|
-fn RawOiDescriptorCallArgBlockBodyFact::from_instrs(
-  body : Array[@lib.Instruction],
+fn RawOiDescriptorCallArgBlockBodyFact::from_region(
+  region : RawOiInstructionRegionFact,
 ) -> RawOiDescriptorCallArgBlockBodyFact {
-  if body.is_empty() {
+  if region.roots.is_empty() {
     return { has_value: false, branch_free: false, blocking_boundary_count: 0 }
   }
   let mut blocking_boundary_count = 0
-  for instr in body {
-    match instr {
-      @lib.Block(_, _)
-      | @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _)
-      | @lib.Call(_)
-      | @lib.CallIndirect(_, _)
-      | @lib.CallRef(_)
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_)
-      | @lib.Return
-      | @lib.Throw(_)
-      | @lib.ThrowRef
-      | @lib.Unreachable =>
-        blocking_boundary_count = blocking_boundary_count + 1
-      _ => ()
+  for root in region.roots {
+    if root.flow.blocks_branch_free_value_region() {
+      blocking_boundary_count = blocking_boundary_count + 1
     }
   }
   {
@@ -30694,8 +30801,10 @@ fn RawOiDescriptorCallArgFact::from_branch_free_effectful_block_instr(
   start : Int,
 ) -> RawOiDescriptorCallArgFact? {
   match instr {
-    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-      let body_fact = RawOiDescriptorCallArgBlockBodyFact::from_instrs(body)
+    @lib.Block(@lib.ValTypeBlockType(_), body) => {
+      let body_fact = RawOiDescriptorCallArgBlockBodyFact::from_region(
+        RawOiInstructionRegionFact::from_expr(body),
+      )
       if body_fact.proves_binaryen_branch_free_operand() {
         Some({
           kind: DescriptorArgBranchFreeEffectfulBlock,
@@ -31066,6 +31175,310 @@ fn RawOiDescriptorCallArgFact::append_instrs(
 }
 
 ///|
+priv enum RawOiDescriptorProducerEndpointKind {
+  DescriptorProducerEndpointDirectCall
+  DescriptorProducerEndpointDirectCallRef
+  DescriptorProducerEndpointTableCallRef
+}
+
+///|
+// Syntactic descriptor producer endpoint discovered by the reusable value
+// graph. This is candidate routing only: family facts still prove the resolved
+// signature, target descriptor, exactness, arity, local subtype, and rewrite.
+priv struct RawOiDescriptorProducerEndpointFact {
+  kind : RawOiDescriptorProducerEndpointKind
+  end : Int
+}
+
+///|
+fn RawOiDescriptorProducerEndpointFact::from_position(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDescriptorProducerEndpointFact? {
+  if start < 0 || start >= instrs.length() {
+    return None
+  }
+  match instrs[start] {
+    @lib.Call(_) if start + 1 < instrs.length() =>
+      match instrs[start + 1] {
+        @lib.RefCastDescEq(_, _, _) =>
+          Some({ kind: DescriptorProducerEndpointDirectCall, end: start + 2 })
+        _ => None
+      }
+    @lib.RefFunc(_) if start + 2 < instrs.length() =>
+      match (instrs[start + 1], instrs[start + 2]) {
+        (@lib.CallRef(_), @lib.RefCastDescEq(_, _, _)) =>
+          Some({ kind: DescriptorProducerEndpointDirectCallRef, end: start + 3 })
+        _ => None
+      }
+    @lib.TableGet(_) if start + 2 < instrs.length() =>
+      match (instrs[start + 1], instrs[start + 2]) {
+        (@lib.CallRef(_), @lib.RefCastDescEq(_, _, _)) =>
+          Some({ kind: DescriptorProducerEndpointTableCallRef, end: start + 3 })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+// Reusable ordered-value graph for the flat descriptor stack bridge. The graph
+// classifies each immutable root once, stores maximal simple runs, and records
+// richer typed descriptor chunks plus candidate producer endpoints. Family
+// facts may use those runs to discover operands, but exact signature, target,
+// nullability, exactness, trap, and rewrite-order proof stays in the consuming
+// descriptor fact.
+priv struct RawOiDescriptorCallValueGraphFact {
+  instrs : Array[@lib.Instruction]
+  local_run_ends : Array[Int]
+  nontrapping_run_ends : Array[Int]
+  exactification_run_ends : Array[Int]
+  descriptor_operand_miss_chunks : Array[RawOiDescriptorCallArgFact?]
+  descriptor_operand_miss_endpoints : Array[
+    RawOiDescriptorProducerEndpointFact?,
+  ]
+  descriptor_operand_miss_run_ends : Array[Int]
+  descriptor_operand_miss_value_counts : Array[Int]
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::from_body(
+  instrs : Array[@lib.Instruction],
+) -> RawOiDescriptorCallValueGraphFact {
+  let local_run_ends = Array::make(instrs.length() + 1, instrs.length())
+  let nontrapping_run_ends = Array::make(instrs.length() + 1, instrs.length())
+  let exactification_run_ends = Array::make(
+    instrs.length() + 1,
+    instrs.length(),
+  )
+  let descriptor_operand_miss_chunks : Array[RawOiDescriptorCallArgFact?] = Array::make(
+    instrs.length(),
+    None,
+  )
+  let descriptor_operand_miss_endpoints : Array[
+    RawOiDescriptorProducerEndpointFact?,
+  ] = Array::make(instrs.length(), None)
+  let descriptor_operand_miss_run_ends = Array::make(
+    instrs.length() + 1,
+    instrs.length(),
+  )
+  let descriptor_operand_miss_value_counts = Array::make(instrs.length() + 1, 0)
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    local_run_ends[idx] = match instrs[idx] {
+      @lib.LocalGet(_) => local_run_ends[idx + 1]
+      _ => idx
+    }
+    let is_nontrapping = RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
+        instrs[idx],
+        idx,
+      )
+      is Some(_)
+    nontrapping_run_ends[idx] = if is_nontrapping {
+      nontrapping_run_ends[idx + 1]
+    } else {
+      idx
+    }
+    exactification_run_ends[idx] = if is_nontrapping {
+      exactification_run_ends[idx + 1]
+    } else {
+      idx
+    }
+    idx = idx - 1
+  }
+  {
+    instrs,
+    local_run_ends,
+    nontrapping_run_ends,
+    exactification_run_ends,
+    descriptor_operand_miss_chunks,
+    descriptor_operand_miss_endpoints,
+    descriptor_operand_miss_run_ends,
+    descriptor_operand_miss_value_counts,
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::from_module_body(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> RawOiDescriptorCallValueGraphFact {
+  let graph = RawOiDescriptorCallValueGraphFact::from_body(instrs)
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match
+      RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
+        module_ctx, instrs, idx,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() =>
+        graph.descriptor_operand_miss_chunks[idx] = Some(fact)
+      _ =>
+        match RawOiDescriptorProducerEndpointFact::from_position(instrs, idx) {
+          Some(endpoint) =>
+            graph.descriptor_operand_miss_endpoints[idx] = Some(endpoint)
+          None =>
+            match
+              RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
+                module_ctx,
+                instrs[idx],
+                idx,
+              ) {
+              Some(fact) if fact.proves_binaryen_operand_preservation() =>
+                graph.descriptor_operand_miss_chunks[idx] = Some(fact)
+              _ => ()
+            }
+        }
+    }
+  }
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    let is_exactification_operand = RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
+        module_ctx,
+        instrs[idx],
+        idx,
+      )
+      is Some(_)
+    graph.exactification_run_ends[idx] = if is_exactification_operand {
+      graph.exactification_run_ends[idx + 1]
+    } else {
+      idx
+    }
+    match graph.descriptor_operand_miss_chunks[idx] {
+      Some(fact) if fact.end > idx && fact.end <= instrs.length() => {
+        graph.descriptor_operand_miss_run_ends[idx] = graph.descriptor_operand_miss_run_ends[fact.end]
+        graph.descriptor_operand_miss_value_counts[idx] = fact.value_count +
+          graph.descriptor_operand_miss_value_counts[fact.end]
+      }
+      _ => {
+        graph.descriptor_operand_miss_run_ends[idx] = idx
+        graph.descriptor_operand_miss_value_counts[idx] = 0
+      }
+    }
+    idx = idx - 1
+  }
+  graph
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::local_run_end(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    start
+  } else {
+    self.local_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::nontrapping_run_end(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    start
+  } else {
+    self.nontrapping_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::exactification_run_end(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    start
+  } else {
+    self.exactification_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_run_end(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    start
+  } else {
+    self.descriptor_operand_miss_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_value_count(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    0
+  } else {
+    self.descriptor_operand_miss_value_counts[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_endpoint(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> RawOiDescriptorProducerEndpointFact? {
+  if start < 0 || start >= self.instrs.length() {
+    None
+  } else {
+    self.descriptor_operand_miss_endpoints[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::instr_args(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+  end : Int,
+) -> Array[@lib.Instruction] {
+  let args : Array[@lib.Instruction] = []
+  let mut idx = start
+  while idx < end && idx < self.instrs.length() {
+    args.push(self.instrs[idx])
+    idx = idx + 1
+  }
+  args
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::has_local_default_candidate_at(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Bool {
+  if start < 0 || start + 2 >= self.instrs.length() {
+    return false
+  }
+  match (self.instrs[start], self.instrs[start + 1], self.instrs[start + 2]) {
+    (@lib.LocalGet(_), @lib.StructNewDefault(_), @lib.RefCastDescEq(_, _, _)) =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::local_args(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+  end : Int,
+) -> Array[@lib.LocalIdx] {
+  let args : Array[@lib.LocalIdx] = []
+  let mut idx = start
+  while idx < end && idx < self.instrs.length() {
+    match self.instrs[idx] {
+      @lib.LocalGet(local_idx) => args.push(local_idx)
+      _ => return []
+    }
+    idx = idx + 1
+  }
+  args
+}
+
+///|
 // Raw descriptor exact-miss producer shape for source-order bridge facts.
 // Binaryen v130 `optimizeKnownCastResult` proves a descriptor-cast failure from
 // reference strict-subtype facts plus descriptor producer facts, then preserves
@@ -31091,141 +31504,117 @@ priv struct RawOiDescriptorDirectCallMissFact {
 }
 
 ///|
-fn RawOiDescriptorDirectCallMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorDirectCallMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorDirectCallMissFact? {
-  let ref_args : Array[@lib.Instruction] = []
-  let mut scan = start
-  while scan < instrs.length() {
-    match
-      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
-        instrs[scan],
-        scan,
-      ) {
-      Some(fact) if fact.proves_binaryen_operand_preservation() => {
-        fact.append_instrs(instrs, ref_args)
-        scan = fact.end
-        continue
-      }
-      _ => ()
-    }
-    match instrs[scan] {
-      @lib.Call(ref_func) => {
-        let desc_args : Array[@lib.Instruction] = []
-        let mut desc_scan = scan + 1
-        while desc_scan < instrs.length() {
-          match
-            RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
-              instrs[desc_scan],
-              desc_scan,
-            ) {
-            Some(fact) if fact.proves_binaryen_operand_preservation() => {
-              fact.append_instrs(instrs, desc_args)
-              desc_scan = fact.end
-              continue
-            }
-            _ => ()
-          }
-          match instrs[desc_scan] {
-            @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
-              match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(_, _, target) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-                    module_ctx,
-                    descriptor_func,
-                    target,
-                    desc_args.length(),
-                  ) =>
-                  return Some({
-                    end: desc_scan + 2,
-                    kind: DescriptorMissProducerDirectCall,
-                    ref_func,
-                    descriptor_func: Some(descriptor_func),
-                    type_idx: None,
-                    table_idx: None,
-                    target,
-                    ref_args,
-                    desc_args,
-                  })
-                _ => return None
-              }
-            @lib.RefFunc(descriptor_func) if desc_scan + 2 < instrs.length() =>
-              match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
-                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-                    module_ctx,
-                    descriptor_func,
-                    target,
-                    desc_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
-                    module_ctx,
-                    type_idx,
-                    target,
-                    desc_args.length(),
-                  ) =>
-                  return Some({
-                    end: desc_scan + 3,
-                    kind: DescriptorMissProducerDirectCallRef,
-                    ref_func,
-                    descriptor_func: Some(descriptor_func),
-                    type_idx: Some(type_idx),
-                    table_idx: None,
-                    target,
-                    ref_args,
-                    desc_args,
-                  })
-                _ => return None
-              }
-            @lib.TableGet(table_idx) if desc_args.length() > 0 &&
-              desc_scan + 2 < instrs.length() =>
-              match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
-                (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
-                    module_ctx,
-                    type_idx,
-                    target,
-                    desc_args.length() - 1,
-                  ) =>
-                  return Some({
-                    end: desc_scan + 3,
-                    kind: DescriptorMissProducerTableCallRef,
-                    ref_func,
-                    descriptor_func: None,
-                    type_idx: Some(type_idx),
-                    table_idx: Some(table_idx),
-                    target,
-                    ref_args,
-                    desc_args,
-                  })
-                _ => return None
-              }
-            _ => return None
-          }
-        }
-        return None
-      }
-      _ => return None
-    }
+  let ref_end = graph.nontrapping_run_end(start)
+  if ref_end >= graph.instrs.length() {
+    return None
   }
-  None
+  let ref_func = match graph.instrs[ref_end] {
+    @lib.Call(ref_func) => ref_func
+    _ => return None
+  }
+  let desc_start = ref_end + 1
+  let desc_end = graph.nontrapping_run_end(desc_start)
+  if desc_end >= graph.instrs.length() {
+    return None
+  }
+  let ref_args = graph.instr_args(start, ref_end)
+  let desc_args = graph.instr_args(desc_start, desc_end)
+  match graph.instrs[desc_end] {
+    @lib.Call(descriptor_func) if desc_end + 1 < graph.instrs.length() =>
+      match graph.instrs[desc_end + 1] {
+        @lib.RefCastDescEq(_, _, target) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
+            module_ctx,
+            ref_func,
+            target,
+            ref_args.length(),
+          ) &&
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx,
+            descriptor_func,
+            target,
+            desc_args.length(),
+          ) =>
+          Some({
+            end: desc_end + 2,
+            kind: DescriptorMissProducerDirectCall,
+            ref_func,
+            descriptor_func: Some(descriptor_func),
+            type_idx: None,
+            table_idx: None,
+            target,
+            ref_args,
+            desc_args,
+          })
+        _ => None
+      }
+    @lib.RefFunc(descriptor_func) if desc_end + 2 < graph.instrs.length() =>
+      match (graph.instrs[desc_end + 1], graph.instrs[desc_end + 2]) {
+        (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
+            module_ctx,
+            ref_func,
+            target,
+            ref_args.length(),
+          ) &&
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx,
+            descriptor_func,
+            target,
+            desc_args.length(),
+          ) &&
+          RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+            module_ctx,
+            type_idx,
+            target,
+            desc_args.length(),
+          ) =>
+          Some({
+            end: desc_end + 3,
+            kind: DescriptorMissProducerDirectCallRef,
+            ref_func,
+            descriptor_func: Some(descriptor_func),
+            type_idx: Some(type_idx),
+            table_idx: None,
+            target,
+            ref_args,
+            desc_args,
+          })
+        _ => None
+      }
+    @lib.TableGet(table_idx) if desc_args.length() > 0 &&
+      desc_end + 2 < graph.instrs.length() =>
+      match (graph.instrs[desc_end + 1], graph.instrs[desc_end + 2]) {
+        (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
+            module_ctx,
+            ref_func,
+            target,
+            ref_args.length(),
+          ) &&
+          RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+            module_ctx,
+            type_idx,
+            target,
+            desc_args.length() - 1,
+          ) =>
+          Some({
+            end: desc_end + 3,
+            kind: DescriptorMissProducerTableCallRef,
+            ref_func,
+            descriptor_func: None,
+            type_idx: Some(type_idx),
+            table_idx: Some(table_idx),
+            target,
+            ref_args,
+            desc_args,
+          })
+        _ => None
+      }
+    _ => None
+  }
 }
 
 ///|
@@ -31291,96 +31680,90 @@ priv struct RawOiDescriptorLocalOperandMissFact {
 }
 
 ///|
-fn RawOiDescriptorLocalOperandMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorLocalOperandMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> RawOiDescriptorLocalOperandMissFact? {
-  let local_idx = match instrs[start] {
+  if start < 0 || start >= graph.instrs.length() {
+    return None
+  }
+  let local_idx = match graph.instrs[start] {
     @lib.LocalGet(local_idx) => local_idx
     _ => return None
   }
-  let desc_args : Array[@lib.Instruction] = []
-  let mut desc_arg_count = 0
-  let mut scan = start + 1
-  while scan < instrs.length() {
-    match
-      RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
-        module_ctx, instrs, scan,
-      ) {
-      Some(fact) if fact.proves_binaryen_operand_preservation() => {
-        fact.append_instrs(instrs, desc_args)
-        desc_arg_count = desc_arg_count + fact.value_count
-        scan = fact.end
-        continue
+  let desc_start = start + 1
+  let scan = graph.descriptor_operand_miss_run_end(desc_start)
+  let desc_arg_count = graph.descriptor_operand_miss_value_count(desc_start)
+  let desc_args = graph.instr_args(desc_start, scan)
+  let endpoint = match graph.descriptor_operand_miss_endpoint(scan) {
+    Some(endpoint) => endpoint
+    None => return None
+  }
+  match endpoint.kind {
+    DescriptorProducerEndpointDirectCall =>
+      match (graph.instrs[scan], graph.instrs[scan + 1]) {
+        (@lib.Call(descriptor_func), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx, descriptor_func, target, desc_arg_count,
+          ) &&
+          RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+            module_ctx, params, locals, local_idx, target,
+          ) =>
+          Some({
+            end: endpoint.end,
+            kind: DescriptorMissProducerDirectCall,
+            local_idx,
+            descriptor_func: Some(descriptor_func),
+            type_idx: None,
+            table_idx: None,
+            target,
+            desc_value_count: desc_arg_count,
+            desc_args,
+          })
+        _ => None
       }
-      _ => ()
-    }
-    match instrs[scan] {
-      @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
-        match instrs[scan + 1] {
-          @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-              module_ctx, descriptor_func, target, desc_arg_count,
-            ) &&
-            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-              module_ctx, params, locals, local_idx, target,
-            ) =>
-            return Some({
-              end: scan + 2,
-              kind: DescriptorMissProducerDirectCall,
-              local_idx,
-              descriptor_func: Some(descriptor_func),
-              type_idx: None,
-              table_idx: None,
-              target,
-              desc_value_count: desc_arg_count,
-              desc_args,
-            })
-          _ =>
-            match
-              RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
-                module_ctx,
-                instrs[scan],
-                scan,
-              ) {
-              Some(fact) if fact.proves_binaryen_operand_preservation() => {
-                fact.append_instrs(instrs, desc_args)
-                desc_arg_count = desc_arg_count + fact.value_count
-                scan = fact.end
-              }
-              _ => return None
-            }
-        }
-      @lib.RefFunc(descriptor_func) if scan + 2 < instrs.length() =>
-        match (instrs[scan + 1], instrs[scan + 2]) {
-          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-              module_ctx, descriptor_func, target, desc_arg_count,
-            ) &&
-            RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
-              module_ctx, type_idx, target, desc_arg_count,
-            ) &&
-            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-              module_ctx, params, locals, local_idx, target,
-            ) =>
-            return Some({
-              end: scan + 3,
-              kind: DescriptorMissProducerDirectCallRef,
-              local_idx,
-              descriptor_func: Some(descriptor_func),
-              type_idx: Some(type_idx),
-              table_idx: None,
-              target,
-              desc_value_count: desc_arg_count,
-              desc_args,
-            })
-          _ => return None
-        }
-      @lib.TableGet(table_idx) if desc_arg_count > 0 &&
-        scan + 2 < instrs.length() =>
-        match (instrs[scan + 1], instrs[scan + 2]) {
-          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+    DescriptorProducerEndpointDirectCallRef =>
+      match
+        (graph.instrs[scan], graph.instrs[scan + 1], graph.instrs[scan + 2]) {
+        (
+          @lib.RefFunc(descriptor_func),
+          @lib.CallRef(type_idx),
+          @lib.RefCastDescEq(_, _, target),
+        ) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx, descriptor_func, target, desc_arg_count,
+          ) &&
+          RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+            module_ctx, type_idx, target, desc_arg_count,
+          ) &&
+          RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+            module_ctx, params, locals, local_idx, target,
+          ) =>
+          Some({
+            end: endpoint.end,
+            kind: DescriptorMissProducerDirectCallRef,
+            local_idx,
+            descriptor_func: Some(descriptor_func),
+            type_idx: Some(type_idx),
+            table_idx: None,
+            target,
+            desc_value_count: desc_arg_count,
+            desc_args,
+          })
+        _ => None
+      }
+    DescriptorProducerEndpointTableCallRef =>
+      if desc_arg_count <= 0 {
+        None
+      } else {
+        match
+          (graph.instrs[scan], graph.instrs[scan + 1], graph.instrs[scan + 2]) {
+          (
+            @lib.TableGet(table_idx),
+            @lib.CallRef(type_idx),
+            @lib.RefCastDescEq(_, _, target),
+          ) if RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
               module_ctx,
               type_idx,
               target,
@@ -31389,8 +31772,8 @@ fn RawOiDescriptorLocalOperandMissFact::from_instrs(
             RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
             ) =>
-            return Some({
-              end: scan + 3,
+            Some({
+              end: endpoint.end,
               kind: DescriptorMissProducerTableCallRef,
               local_idx,
               descriptor_func: None,
@@ -31400,23 +31783,10 @@ fn RawOiDescriptorLocalOperandMissFact::from_instrs(
               desc_value_count: desc_arg_count,
               desc_args,
             })
-          _ => return None
+          _ => None
         }
-      arg =>
-        match
-          RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
-            module_ctx, arg, scan,
-          ) {
-          Some(fact) if fact.proves_binaryen_operand_preservation() => {
-            fact.append_instrs(instrs, desc_args)
-            desc_arg_count = desc_arg_count + fact.value_count
-            scan = fact.end
-          }
-          _ => return None
-        }
-    }
+      }
   }
-  None
 }
 
 ///|
@@ -31483,64 +31853,56 @@ priv struct RawOiDescriptorBalancedLocalDirectExactSuccessFact {
 }
 
 ///|
-fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorBalancedLocalDirectExactSuccessFact? {
-  let ref_args : Array[@lib.LocalIdx] = []
-  let mut scan = start
-  while scan < instrs.length() {
-    match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        ref_args.push(arg)
-        scan = scan + 1
-      }
-      @lib.Call(ref_func) => {
-        let desc_args : Array[@lib.LocalIdx] = []
-        let mut desc_scan = scan + 1
-        while desc_scan < instrs.length() {
-          match instrs[desc_scan] {
-            @lib.LocalGet(arg) => {
-              desc_args.push(arg)
-              desc_scan = desc_scan + 1
-            }
-            @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
-              match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
-                  exact &&
-                  RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-                    module_ctx,
-                    descriptor_func,
-                    target,
-                    desc_args.length(),
-                  ) =>
-                  return Some({
-                    end: desc_scan + 2,
-                    param_count: ref_args.length(),
-                    ref_func,
-                    descriptor_func,
-                    target,
-                    ref_args,
-                    desc_args,
-                  })
-                _ => return None
-              }
-            _ => return None
-          }
-        }
-        return None
-      }
-      _ => return None
-    }
+  let ref_end = graph.local_run_end(start)
+  if ref_end >= graph.instrs.length() {
+    return None
   }
-  None
+  let ref_func = match graph.instrs[ref_end] {
+    @lib.Call(ref_func) => ref_func
+    _ => return None
+  }
+  let desc_start = ref_end + 1
+  let desc_end = graph.local_run_end(desc_start)
+  if desc_end + 1 >= graph.instrs.length() {
+    return None
+  }
+  let descriptor_func = match graph.instrs[desc_end] {
+    @lib.Call(descriptor_func) => descriptor_func
+    _ => return None
+  }
+  let ref_args = graph.local_args(start, ref_end)
+  let desc_args = graph.local_args(desc_start, desc_end)
+  match graph.instrs[desc_end + 1] {
+    @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
+      exact &&
+      RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
+        module_ctx,
+        ref_func,
+        target,
+        ref_args.length(),
+      ) &&
+      RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+        module_ctx,
+        descriptor_func,
+        target,
+        desc_args.length(),
+      ) =>
+      Some({
+        end: desc_end + 2,
+        param_count: ref_args.length(),
+        ref_func,
+        descriptor_func,
+        target,
+        ref_args,
+        desc_args,
+      })
+    _ => None
+  }
 }
 
 ///|
@@ -31848,129 +32210,99 @@ priv struct RawOiDescriptorDirectCallExactificationFact {
 }
 
 ///|
-fn RawOiDescriptorDirectCallExactificationFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorDirectCallExactificationFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorDirectCallExactificationFact? {
-  let ref_args : Array[@lib.Instruction] = []
-  let mut scan = start
-  while scan < instrs.length() {
-    match
-      RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
-        module_ctx,
-        instrs[scan],
-        scan,
-      ) {
-      Some(fact) if fact.proves_binaryen_operand_preservation() => {
-        fact.append_instrs(instrs, ref_args)
-        scan = fact.end
-        continue
+  let ref_end = graph.exactification_run_end(start)
+  if ref_end >= graph.instrs.length() {
+    return None
+  }
+  let ref_func = match graph.instrs[ref_end] {
+    @lib.Call(ref_func) => ref_func
+    _ => return None
+  }
+  let desc_start = ref_end + 1
+  let desc_end = graph.exactification_run_end(desc_start)
+  if desc_end >= graph.instrs.length() {
+    return None
+  }
+  let ref_args = graph.instr_args(start, ref_end)
+  let desc_args = graph.instr_args(desc_start, desc_end)
+  match graph.instrs[desc_end] {
+    @lib.Call(descriptor_func) if desc_end + 1 < graph.instrs.length() =>
+      match graph.instrs[desc_end + 1] {
+        @lib.RefCastDescEq(nullable, exact, target) if (nullable || !exact) &&
+          RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
+            module_ctx,
+            ref_func,
+            target,
+            ref_args.length(),
+          ) &&
+          RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx,
+            descriptor_func,
+            target,
+            desc_args.length(),
+          ) =>
+          Some({
+            end: desc_end + 2,
+            ref_func,
+            descriptor_func,
+            target,
+            result_nullable: false,
+            ref_args,
+            desc_args,
+          })
+        _ => None
       }
-      _ => ()
-    }
-    match instrs[scan] {
-      @lib.Call(ref_func) => {
-        let desc_args : Array[@lib.Instruction] = []
-        let mut desc_scan = scan + 1
-        while desc_scan < instrs.length() {
-          match
-            RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
+    @lib.RefFunc(descriptor_func) if desc_end + 2 < graph.instrs.length() =>
+      match (graph.instrs[desc_end + 1], graph.instrs[desc_end + 2]) {
+        (@lib.CallRef(type_idx), @lib.RefCastDescEq(nullable, exact, target)) => {
+          let non_null_fact = RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
+            module_ctx,
+            ref_func,
+            target,
+            ref_args.length(),
+          )
+          let nullable_fact = RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count(
+            module_ctx,
+            ref_func,
+            target,
+            ref_args.length(),
+          )
+          if (nullable || !exact) &&
+            (non_null_fact || (nullable && !exact && nullable_fact)) &&
+            RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
               module_ctx,
-              instrs[desc_scan],
-              desc_scan,
+              descriptor_func,
+              target,
+              desc_args.length(),
+            ) &&
+            RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+              module_ctx,
+              type_idx,
+              target,
+              desc_args.length(),
             ) {
-            Some(fact) if fact.proves_binaryen_operand_preservation() => {
-              fact.append_instrs(instrs, desc_args)
-              desc_scan = fact.end
-              continue
-            }
-            _ => ()
-          }
-          match instrs[desc_scan] {
-            @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
-              match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(nullable, exact, target) if (
-                    nullable || !exact
-                  ) &&
-                  RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-                    module_ctx,
-                    descriptor_func,
-                    target,
-                    desc_args.length(),
-                  ) =>
-                  return Some({
-                    end: desc_scan + 2,
-                    ref_func,
-                    descriptor_func,
-                    target,
-                    result_nullable: false,
-                    ref_args,
-                    desc_args,
-                  })
-                _ => return None
-              }
-            @lib.RefFunc(descriptor_func) if desc_scan + 2 < instrs.length() =>
-              match (instrs[desc_scan + 1], instrs[desc_scan + 2]) {
-                (
-                  @lib.CallRef(type_idx),
-                  @lib.RefCastDescEq(nullable, exact, target),
-                ) => {
-                  let non_null_fact = RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  )
-                  let nullable_fact = RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  )
-                  if (nullable || !exact) &&
-                    (non_null_fact || (nullable && !exact && nullable_fact)) &&
-                    RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-                      module_ctx,
-                      descriptor_func,
-                      target,
-                      desc_args.length(),
-                    ) &&
-                    RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
-                      module_ctx,
-                      type_idx,
-                      target,
-                      desc_args.length(),
-                    ) {
-                    return Some({
-                      end: desc_scan + 3,
-                      ref_func,
-                      descriptor_func,
-                      target,
-                      result_nullable: !non_null_fact,
-                      ref_args,
-                      desc_args,
-                    })
-                  }
-                  return None
-                }
-                _ => return None
-              }
-            _ => return None
+            Some({
+              end: desc_end + 3,
+              ref_func,
+              descriptor_func,
+              target,
+              result_nullable: !non_null_fact,
+              ref_args,
+              desc_args,
+            })
+          } else {
+            None
           }
         }
-        return None
+        _ => None
       }
-      _ => return None
-    }
+    _ => None
   }
-  None
 }
 
 ///|
@@ -32014,16 +32346,17 @@ fn RawOiDescriptorDirectCallExactificationFact::append_rewrite(
 // exact-success direct-call subset; broader success facts belong in that fact
 // family or the visitor-level descriptor facts, not in this loop.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
-  instrs : Array[@lib.Instruction],
+  graph : RawOiDescriptorCallValueGraphFact,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
+  let instrs = graph.instrs
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     match
-      RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_instrs(
-        instrs, i, module_ctx,
+      RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_graph(
+        graph, i, module_ctx,
       ) {
       Some(fact) if fact.proves_binaryen_exact_success() => {
         fact.append_rewrite(rewritten)
@@ -32045,16 +32378,17 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
 // direct-call exactification subset; any new proof fields should live in that
 // fact or in shared descriptor type/producer facts.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
-  instrs : Array[@lib.Instruction],
+  graph : RawOiDescriptorCallValueGraphFact,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
+  let instrs = graph.instrs
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     match
-      RawOiDescriptorDirectCallExactificationFact::from_instrs(
-        instrs, i, module_ctx,
+      RawOiDescriptorDirectCallExactificationFact::from_graph(
+        graph, i, module_ctx,
       ) {
       Some(fact) if fact.proves_binaryen_exactification() => {
         fact.append_rewrite(rewritten)
@@ -32168,17 +32502,18 @@ priv struct RawOiDescriptorLocalDefaultMissFact {
 }
 
 ///|
-fn RawOiDescriptorLocalDefaultMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorLocalDefaultMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> RawOiDescriptorLocalDefaultMissFact? {
-  if start + 2 >= instrs.length() {
+  if !graph.has_local_default_candidate_at(start) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (graph.instrs[start], graph.instrs[start + 1], graph.instrs[start + 2]) {
     (
       @lib.LocalGet(local_idx),
       @lib.StructNewDefault(descriptor_type),
@@ -32231,56 +32566,33 @@ priv struct RawOiDescriptorBalancedLocalDirectMissFact {
 }
 
 ///|
-fn RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorBalancedLocalDirectMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorBalancedLocalDirectMissFact? {
-  let ref_args : Array[@lib.LocalIdx] = []
-  let mut scan = start
-  while scan < instrs.length() {
-    match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        ref_args.push(arg)
-        scan = scan + 1
-        if ref_args.length() > 5 {
-          return None
-        }
-      }
-      _ => break
-    }
-  }
-  if scan >= instrs.length() {
+  let ref_end = graph.local_run_end(start)
+  let ref_args = graph.local_args(start, ref_end)
+  if ref_args.length() > 5 || ref_end >= graph.instrs.length() {
     return None
   }
-  let ref_func = match instrs[scan] {
+  let ref_func = match graph.instrs[ref_end] {
     @lib.Call(func_idx) => func_idx
     _ => return None
   }
-  scan = scan + 1
-  let desc_args : Array[@lib.LocalIdx] = []
-  while scan < instrs.length() {
-    match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        desc_args.push(arg)
-        scan = scan + 1
-        if desc_args.length() > 5 {
-          return None
-        }
-      }
-      _ => break
-    }
-  }
-  if scan >= instrs.length() ||
+  let desc_start = ref_end + 1
+  let desc_end = graph.local_run_end(desc_start)
+  let desc_args = graph.local_args(desc_start, desc_end)
+  if desc_args.length() > 5 ||
     ref_args.length() != desc_args.length() ||
-    scan + 1 >= instrs.length() {
+    desc_end + 1 >= graph.instrs.length() {
     return None
   }
-  let descriptor_func = match instrs[scan] {
+  let descriptor_func = match graph.instrs[desc_end] {
     @lib.Call(func_idx) => func_idx
     _ => return None
   }
-  match instrs[scan + 1] {
+  match graph.instrs[desc_end + 1] {
     @lib.RefCastDescEq(_, _, target) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
         module_ctx,
         ref_func,
@@ -32294,7 +32606,7 @@ fn RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
         desc_args.length(),
       ) =>
       Some({
-        end: scan + 2,
+        end: desc_end + 2,
         param_count: ref_args.length(),
         ref_func,
         descriptor_func,
@@ -32355,60 +32667,43 @@ priv struct RawOiDescriptorLocalCallOperandMissFact {
 }
 
 ///|
-fn RawOiDescriptorLocalCallOperandMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorLocalCallOperandMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> RawOiDescriptorLocalCallOperandMissFact? {
-  if start >= instrs.length() {
+  if start >= graph.instrs.length() {
     return None
   }
-  let local_idx = match instrs[start] {
+  let local_idx = match graph.instrs[start] {
     @lib.LocalGet(local_idx) => local_idx
     _ => return None
   }
-  let desc_args : Array[@lib.Instruction] = []
-  let mut scan = start + 1
-  while scan < instrs.length() {
-    match
-      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
-        instrs[scan],
-        scan,
-      ) {
-      Some(fact) if fact.proves_binaryen_operand_preservation() => {
-        fact.append_instrs(instrs, desc_args)
-        scan = fact.end
-        continue
-      }
-      _ => ()
-    }
-    match instrs[scan] {
-      @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
-        match instrs[scan + 1] {
-          @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-              module_ctx,
-              descriptor_func,
-              target,
-              desc_args.length(),
-            ) &&
-            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-              module_ctx, params, locals, local_idx, target,
-            ) =>
-            return Some({
-              end: scan + 2,
-              local_idx,
-              descriptor_func,
-              target,
-              desc_args,
-            })
-          _ => return None
-        }
-      _ => return None
-    }
+  let desc_start = start + 1
+  let desc_end = graph.nontrapping_run_end(desc_start)
+  if desc_end + 1 >= graph.instrs.length() {
+    return None
   }
-  None
+  let desc_args = graph.instr_args(desc_start, desc_end)
+  let descriptor_func = match graph.instrs[desc_end] {
+    @lib.Call(descriptor_func) => descriptor_func
+    _ => return None
+  }
+  match graph.instrs[desc_end + 1] {
+    @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+        module_ctx,
+        descriptor_func,
+        target,
+        desc_args.length(),
+      ) &&
+      RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+        module_ctx, params, locals, local_idx, target,
+      ) =>
+      Some({ end: desc_end + 2, local_idx, descriptor_func, target, desc_args })
+    _ => None
+  }
 }
 
 ///|
@@ -32445,11 +32740,12 @@ fn RawOiDescriptorLocalCallOperandMissFact::append_rewrite(
 // parameter facts once. Reopen if it starts owning descriptor argument,
 // producer, target, arity, or preservation proofs outside those facts.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-  instrs : Array[@lib.Instruction],
+  graph : RawOiDescriptorCallValueGraphFact,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
   locals : @lib.Locals,
 ) -> (Array[@lib.Instruction], Bool) {
+  let instrs = graph.instrs
   let params = match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, _)) => params
     None => return (instrs.copy(), false)
@@ -32459,8 +32755,29 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
   let mut i = 0
   while i < instrs.length() {
     match
-      RawOiDescriptorLocalCallOperandMissFact::from_instrs(
-        instrs, i, module_ctx, params, locals,
+      RawOiDescriptorLocalCallOperandMissFact::from_graph(
+        graph, i, module_ctx, params, locals,
+      ) {
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
+      }
+      _ => ()
+    }
+    match RawOiDescriptorDirectCallMissFact::from_graph(graph, i, module_ctx) {
+      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = fact.end
+        continue
+      }
+      _ => ()
+    }
+    match
+      RawOiDescriptorLocalOperandMissFact::from_graph(
+        graph, i, module_ctx, params, locals,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)
@@ -32471,18 +32788,8 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       _ => ()
     }
     match
-      RawOiDescriptorDirectCallMissFact::from_instrs(instrs, i, module_ctx) {
-      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
-        fact.append_rewrite(rewritten)
-        changed = true
-        i = fact.end
-        continue
-      }
-      _ => ()
-    }
-    match
-      RawOiDescriptorLocalOperandMissFact::from_instrs(
-        instrs, i, module_ctx, params, locals,
+      RawOiDescriptorLocalDefaultMissFact::from_graph(
+        graph, i, module_ctx, params, locals,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)
@@ -32493,20 +32800,8 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       _ => ()
     }
     match
-      RawOiDescriptorLocalDefaultMissFact::from_instrs(
-        instrs, i, module_ctx, params, locals,
-      ) {
-      Some(fact) if fact.proves_binaryen_descriptor_miss() => {
-        fact.append_rewrite(rewritten)
-        changed = true
-        i = fact.end
-        continue
-      }
-      _ => ()
-    }
-    match
-      RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
-        instrs, i, module_ctx,
+      RawOiDescriptorBalancedLocalDirectMissFact::from_graph(
+        graph, i, module_ctx,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)
@@ -32566,13 +32861,12 @@ fn RawOiBottomNullDescriptorOperandFact::from_block_body(
   if descriptor_body.length() < 2 {
     return None
   }
+  let prefix_graph = RawOiDescriptorPrefixValueGraphFact::from_body(
+    descriptor_body, 0,
+  )
   match descriptor_body[descriptor_body.length() - 1] {
     @lib.Unreachable =>
-      match
-        RawOiDescriptorBlockPrefixHoistFact::from_instrs(
-          descriptor_body,
-          descriptor_body.length() - 1,
-        ) {
+      match prefix_graph.prefix_hoist(descriptor_body.length() - 1) {
         Some(fact) if fact.proves_binaryen_descriptor_prefix_hoist() =>
           return Some({
             preserves_operand_as_drop: false,
@@ -32587,10 +32881,7 @@ fn RawOiBottomNullDescriptorOperandFact::from_block_body(
   let prefix_len = descriptor_body.length() - 2
   match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
     (@lib.RefNull(_), @lib.RefAsNonNull) =>
-      match
-        RawOiDescriptorBlockPrefixHoistFact::from_instrs(
-          descriptor_body, prefix_len,
-        ) {
+      match prefix_graph.prefix_hoist(prefix_len) {
         Some(fact) if fact.proves_binaryen_descriptor_prefix_hoist() =>
           Some({
             preserves_operand_as_drop: false,
@@ -32725,7 +33016,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiBulkLoweringRewriteFact::from_instrs(instrs, i) {
+    match RawOiBulkLoweringRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -32734,7 +33025,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiDroppedConstBranchIfFact::from_instrs(instrs, i) {
+    match RawOiDroppedConstBranchIfFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -32743,7 +33034,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiSelectRewriteFact::from_instrs(instrs, i) {
+    match RawOiSelectRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -32752,7 +33043,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiMemorySizeNonzeroIfFact::from_instrs(instrs, i) {
+    match RawOiMemorySizeNonzeroIfFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten, module_ctx)
         changed = true
@@ -32761,7 +33052,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiDropStoreMaskRewriteFact::from_instrs(instrs, i) {
+    match RawOiDropStoreMaskRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -32770,7 +33061,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiScalarNumericRewriteFact::from_instrs(instrs, i) {
+    match RawOiScalarNumericRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -32779,7 +33070,7 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiMemoryOffsetFoldRewriteFact::from_instrs(instrs, i) {
+    match RawOiMemoryOffsetFoldRewriteFact::from_region(region, i) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true
@@ -33116,8 +33407,8 @@ fn RawOiFlatPureScalarBudgetFact::exceeded_stack(
 }
 
 ///|
-fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiFlatPureScalarAddressFact::candidates_from_region(
+  region : RawOiInstructionRegionFact,
   start : Int,
   allow_fallthrough_local_tee : Bool,
 ) -> Array[RawOiFlatPureScalarAddressFact] {
@@ -33125,11 +33416,12 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
   let facts : Array[RawOiFlatPureScalarAddressFact] = []
   let stack : Array[RawOiFlatPureScalarStackValueFact] = []
   let mut idx = start
-  while idx < instrs.length() && budget.allows_instr(start, idx) {
-    match RawOiFlatPureScalarLeafFact::from_instr(instrs[idx]) {
+  while idx < region.roots.length() && budget.allows_instr(start, idx) {
+    let instr = region.roots[idx].instr
+    match RawOiFlatPureScalarLeafFact::from_instr(instr) {
       Some(fact) => stack.push(RawOiFlatPureScalarStackValueFact::leaf(fact))
       None =>
-        match instrs[idx] {
+        match instr {
           @lib.LocalTee(_) => {
             // Binaryen v130 `Properties::getImmediateFallthrough` with
             // `AllowTeeBrIf` exposes a direct right `local.tee`'s value as the
@@ -33152,7 +33444,7 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
             })
           }
           _ =>
-            match RawOiFlatPureScalarUnaryOpFact::from_instr(instrs[idx]) {
+            match RawOiFlatPureScalarUnaryOpFact::from_instr(instr) {
               Some(fact) => {
                 if stack.length() < 1 {
                   break
@@ -33163,7 +33455,7 @@ fn RawOiFlatPureScalarAddressFact::candidates_from_instrs(
                 )
               }
               None =>
-                match RawOiFlatPureScalarBinaryOpFact::from_instr(instrs[idx]) {
+                match RawOiFlatPureScalarBinaryOpFact::from_instr(instr) {
                   Some(fact) => {
                     if stack.length() < 2 {
                       break
@@ -33215,10 +33507,10 @@ fn RawOiFlatPureScalarAddressFact::proves_equal(
 fn RawOiFlatPureScalarAddressFact::append_dropped_operand(
   self : RawOiFlatPureScalarAddressFact,
   out : Array[@lib.Instruction],
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
 ) -> Unit {
   for idx = self.start; idx < self.end; idx = idx + 1 {
-    out.push(instrs[idx])
+    out.push(region.roots[idx].instr)
   }
   out.push(@lib.Instruction::drop())
 }
@@ -33233,7 +33525,7 @@ priv struct RawOiSameFlatPureScalarMemoryCopyFact {
 
 ///|
 fn RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
   dst_fact : RawOiFlatPureScalarAddressFact,
   src_fact : RawOiFlatPureScalarAddressFact,
 ) -> RawOiSameFlatPureScalarMemoryCopyFact? {
@@ -33246,15 +33538,15 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
   }
   let size_instr_idx = src_fact.end
   let copy_instr_idx = src_fact.end + 1
-  if copy_instr_idx >= instrs.length() {
+  if copy_instr_idx >= region.roots.length() {
     return None
   }
   if !run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
-      instrs[size_instr_idx],
+      region.roots[size_instr_idx].instr,
     ) {
     return None
   }
-  match instrs[copy_instr_idx] {
+  match region.roots[copy_instr_idx].instr {
     @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem =>
       Some({ dst_fact, src_fact, size_instr_idx, copy_instr_idx })
     _ => None
@@ -33272,11 +33564,11 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::proves_same_memory_copy_drop(
 fn RawOiSameFlatPureScalarMemoryCopyFact::append_replacement(
   self : RawOiSameFlatPureScalarMemoryCopyFact,
   out : Array[@lib.Instruction],
-  instrs : Array[@lib.Instruction],
+  region : RawOiInstructionRegionFact,
 ) -> Int {
-  self.dst_fact.append_dropped_operand(out, instrs)
-  self.src_fact.append_dropped_operand(out, instrs)
-  out.push(instrs[self.size_instr_idx])
+  self.dst_fact.append_dropped_operand(out, region)
+  self.src_fact.append_dropped_operand(out, region)
+  out.push(region.roots[self.size_instr_idx].instr)
   out.push(@lib.Instruction::drop())
   self.copy_instr_idx + 1
 }
@@ -33293,21 +33585,21 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(body)
       (
         @lib.Instruction::block(block_type, @lib.Expr::new(fact.rewritten)),
         fact.changed,
       )
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(body)
       (
         @lib.Instruction::loop_(block_type, @lib.Expr::new(fact.rewritten)),
         fact.changed,
       )
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(body)
+      let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(body)
       (
         @lib.Instruction::try_table(
           block_type,
@@ -33318,12 +33610,12 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
       )
     }
     @lib.If(block_type, then_body, else_body) => {
-      let then_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+      let then_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
         then_body,
       )
       let (next_else, else_changed) = match else_body {
         Some(body) => {
-          let else_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+          let else_fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
             body,
           )
           (Some(else_fact.rewritten), else_fact.changed)
@@ -33340,27 +33632,28 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
 }
 
 ///|
-fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
   instrs : Array[@lib.Instruction],
 ) -> RawOiSameFlatPureScalarMemoryCopyRegionFact {
-  // Accepted raw OI-G traversal fact over `RawOiFlatPureScalarAddressFact` and
-  // `RawOiSameFlatPureScalarMemoryCopyFact`. The region loop owns recursion and
-  // emission only after a named same-address memory.copy fact proves the drop;
-  // no inline opcode/equality windows should be added here.
+  // Accepted raw OI-G mutation bridge over one immutable region view per body.
+  // Indexed roots discover bounded scalar-address candidates; exact equality,
+  // memory identity, size removability, and trap-relaxed admission remain in the
+  // named address/copy facts. No second admission traversal is constructed.
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
-  while i < instrs.length() {
+  while i < region.roots.length() {
     let mut matched = false
-    let dst_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-      instrs, i, false,
+    let dst_facts = RawOiFlatPureScalarAddressFact::candidates_from_region(
+      region, i, false,
     )
     for dst_fact in dst_facts {
       if matched {
         break
       }
-      let src_facts = RawOiFlatPureScalarAddressFact::candidates_from_instrs(
-        instrs,
+      let src_facts = RawOiFlatPureScalarAddressFact::candidates_from_region(
+        region,
         dst_fact.end,
         true,
       )
@@ -33370,10 +33663,10 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
         }
         match
           RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
-            instrs, dst_fact, src_fact,
+            region, dst_fact, src_fact,
           ) {
           Some(copy_fact) if copy_fact.proves_same_memory_copy_drop() => {
-            i = copy_fact.append_replacement(out, instrs)
+            i = copy_fact.append_replacement(out, region)
             changed = true
             matched = true
           }
@@ -33385,7 +33678,7 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
       continue
     }
     let (rewritten, instr_changed) = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_nested_instr(
-      instrs[i],
+      region.roots[i].instr,
     )
     out.push(rewritten)
     changed = changed || instr_changed
@@ -33546,26 +33839,87 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
-  let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
-    body, module_ctx,
+  // Build the original revision once before raw routing. Candidate facts only
+  // decide which raw bridges can possibly apply; each selected family still
+  // performs its exact descriptor/type/effect/order/trap proof.
+  let raw_index_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-revision-index",
   )
-  let (exactification_body, exactification_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
-    exact_success_body, module_ctx,
+  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-revision-index",
+    raw_index_start_us,
   )
-  let (exact_miss_body, exact_miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-    exactification_body, module_ctx, func_idx, locals,
+  let raw_descriptor_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-descriptor-bridges",
   )
-  let (directized_body, directized_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
+  let has_descriptor_candidate = oi_index.bridge_candidates.needs_descriptor_reconstruction()
+  let (
+    exact_success_changed,
+    exactification_changed,
     exact_miss_body,
-  )
-  let (tnh_exact_success_body, tnh_exact_success_changed) = if options.traps_never_happen {
+    exact_miss_changed,
+  ) = if has_descriptor_candidate {
+    let success_graph = RawOiDescriptorCallValueGraphFact::from_module_body(
+      body, module_ctx,
+    )
+    let (success_body, success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+      success_graph, module_ctx,
+    )
+    let exactification_graph = if success_changed {
+      RawOiDescriptorCallValueGraphFact::from_module_body(
+        success_body, module_ctx,
+      )
+    } else {
+      success_graph
+    }
+    let (exactification_body, exactification_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
+      exactification_graph, module_ctx,
+    )
+    let miss_graph = if exactification_changed {
+      RawOiDescriptorCallValueGraphFact::from_module_body(
+        exactification_body, module_ctx,
+      )
+    } else {
+      exactification_graph
+    }
+    let (miss_body, miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
+      miss_graph, module_ctx, func_idx, locals,
+    )
+    (success_changed, exactification_changed, miss_body, miss_changed)
+  } else {
+    (false, false, body, false)
+  }
+  let directization_index = if exact_success_changed ||
+    exactification_changed ||
+    exact_miss_changed {
+    RawOiFunctionRevisionFactIndex::from_instrs(exact_miss_body)
+  } else {
+    oi_index
+  }
+  let (directized_body, directized_changed) = if directization_index.bridge_candidates.needs_call_ref_or_null_repair() {
+    run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
+      exact_miss_body,
+    )
+  } else {
+    (exact_miss_body, false)
+  }
+  let (tnh_exact_success_body, tnh_exact_success_changed) = if options.traps_never_happen &&
+    has_descriptor_candidate {
     run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
-      directized_body, module_ctx,
+      RawOiDescriptorCallValueGraphFact::from_module_body(
+        directized_body, module_ctx,
+      ),
+      module_ctx,
     )
   } else {
     (directized_body, false)
   }
-  let (tnh_indirect_exact_success_body, tnh_indirect_exact_success_changed) = if options.traps_never_happen {
+  let (tnh_indirect_exact_success_body, tnh_indirect_exact_success_changed) = if options.traps_never_happen &&
+    has_descriptor_candidate {
     run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor_success_body(
       tnh_exact_success_body, module_ctx,
     )
@@ -33600,20 +33954,27 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     same_flat_pure_scalar_memory_copy_body,
     same_flat_pure_scalar_memory_copy_changed,
   ) = if options.traps_never_happen || options.ignore_implicit_traps {
-    let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::from_instrs(
+    let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
       effectful_sibling_body,
     )
     (fact.rewritten, fact.changed)
   } else {
     (effectful_sibling_body, false)
   }
-  let (escaping_ref_get_desc_body, escaping_ref_get_desc_changed) = if options.traps_never_happen {
+  let (escaping_ref_get_desc_body, escaping_ref_get_desc_changed) = if options.traps_never_happen ||
+    !has_descriptor_candidate ||
+    !oi_index.bridge_candidates.has_ref_get_desc {
     (same_flat_pure_scalar_memory_copy_body, false)
   } else {
     run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
       same_flat_pure_scalar_memory_copy_body, module_ctx,
     )
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:optimize-instructions:raw-descriptor-bridges",
+    raw_descriptor_start_us,
+  )
   let skipped_func = if exact_success_changed ||
     exactification_changed ||
     exact_miss_changed ||
@@ -33672,7 +34033,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
+  // Every gate below intentionally classifies the unmodified input snapshot
+  // whose HOT lift/admission decision is being made.
   if effectful_sibling_changed &&
     RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
     return Some({
@@ -33707,8 +34069,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => trap_relaxed && fact.proves_trap_relaxed_escape()
     None => false
   }
-  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_instrs(
-    body, module_ctx,
+  let stack_bulk_region = RawOiStackBulkMemoryRegionFact::from_index(
+    oi_index, module_ctx,
   )
   let tiny_stack_bulk_memory = match stack_bulk_region {
     Some(fact) => fact.proves_binaryen_tiny_rewrite_region()
@@ -33753,16 +34115,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_binaryen_call_ref_directization()
     None => false
   }
-  let call_values = RawOiFunctionCallValueFacts::from_index(
+  let module_revision_facts = RawOiModuleFunctionRevisionFacts::from_index(
     oi_index, module_ctx,
   )
   let gc_selected_operand_forwarding = match
-    RawOiGcSelectedOperandForwardingFact::from_index(oi_index, call_values) {
+    RawOiGcSelectedOperandForwardingFact::from_facts(module_revision_facts) {
     Some(fact) => fact.proves_binaryen_forwarding()
     None => false
   }
   let gc_effect_localization = match
-    RawOiGcEffectLocalizationFact::from_index(oi_index, call_values) {
+    RawOiGcEffectLocalizationFact::from_facts(module_revision_facts) {
     Some(fact) => fact.proves_binaryen_localization()
     None => false
   }
@@ -33771,9 +34133,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     Some(fact) => fact.proves_hot_replay()
     None => false
   }
+  let stack_value_transfers = RawOiFunctionStackValueTransferFacts::from_index(
+    oi_index, env,
+  )
   let stack_carried_effect_skip = RawOiStackCarriedEffectSkipFact::from_parts(
-    RawOiStackCarriedEffectRegionFact::from_instrs(
-      oi_index, body, env, module_ctx,
+    RawOiStackCarriedEffectRegionFact::from_index(
+      oi_index, stack_value_transfers, module_ctx,
     ),
     simple_stack_call_binop,
     tiny_stack_bulk_memory,
@@ -33793,7 +34158,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   let const_offset_load_then_call = match
-    RawOiConstOffsetLoadThenCallFact::from_instrs(body) {
+    RawOiConstOffsetLoadThenCallFact::from_index(oi_index) {
     Some(fact) => fact.proves_binaryen_offset_fold_bypass()
     None => false
   }
@@ -54211,6 +54576,40 @@ fn RawOiRefGetDescResultBlockTypeFact::block_type_from_module(
 }
 
 ///|
+// Revision-local candidate for the one remaining label-aware descriptor
+// bridge. Indexed roots only establish the outer block/get_desc/cast envelope;
+// the flatten fact still owns exact branch shape, labels, types, effects, traps,
+// evaluation order, descriptor rebuilding, and the complete rewrite payload.
+priv struct RawOiEscapingRefGetDescCandidateFact {
+  start : Int
+  end : Int
+  skips_explicit_null_check : Bool
+}
+
+///|
+fn RawOiEscapingRefGetDescCandidateFact::from_region_at(
+  region : RawOiInstructionRegionFact,
+  start : Int,
+) -> RawOiEscapingRefGetDescCandidateFact? {
+  if start < 0 ||
+    start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::StructuredBlock) {
+    return None
+  }
+  if start + 4 < region.roots.length() &&
+    region.has_root_at(start + 2, RawOiRootKind::RefAsNonNull) &&
+    region.has_root_at(start + 3, RawOiRootKind::RefGetDesc) &&
+    region.has_root_at(start + 4, RawOiRootKind::RefCastDescEq) {
+    return Some({ start, end: start + 5, skips_explicit_null_check: true })
+  }
+  if region.has_root_at(start + 2, RawOiRootKind::RefGetDesc) &&
+    region.has_root_at(start + 3, RawOiRootKind::RefCastDescEq) {
+    return Some({ start, end: start + 4, skips_explicit_null_check: false })
+  }
+  None
+}
+
+///|
 // Source-backed raw OI-J escaping `ref.get_desc` flatten subfamily. Each
 // variant corresponds to a represented Binaryen nullable-child movement shape
 // that can leave an escaping control wrapper immediately before the
@@ -54276,11 +54675,28 @@ fn RawOiEscapingRefGetDescFlattenFact::append_rewrite(
 // ref.get_desc; ref.cast_desc_eq`; the lowered raw bridge removes that wrapper
 // only for the represented payload/control shapes and carries the complete
 // rewrite payload here so the body traversal is not its own window scanner.
-fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
+// Explicit final descriptor traversal bridge. The revision-local region index
+// now owns outer block/get_desc/cast candidate discovery, but this fact must
+// still reconstruct escaping raw control and retarget labels. The existing
+// prefix value graph proves branch-free prefix hoisting, and root-flow facts
+// summarize whether control exists; neither can prove exact escaping target
+// decrements, branch payload/fallthrough typing, trap placement, or source
+// order. Keep this bridge until a typed label/control/effect graph carries those
+// proofs rather than flattening them into root-kind admission.
+fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
+  candidate : RawOiEscapingRefGetDescCandidateFact,
   instrs : Array[@lib.Instruction],
-  start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiEscapingRefGetDescFlattenFact? {
+  let start = candidate.start
+  let expected_window_len = if candidate.skips_explicit_null_check {
+    5
+  } else {
+    4
+  }
+  if candidate.end - start != expected_window_len {
+    return None
+  }
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut end = start
@@ -55600,7 +56016,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
     }
     break
   }
-  if changed {
+  if changed && end == candidate.end {
     Some({
       end,
       kind,
@@ -55615,27 +56031,35 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
 
 ///|
 // Accepted raw OI-J traversal bridge over `RawOiEscapingRefGetDescFlattenFact`.
-// The fact owns the represented payload/control-shape proof, label retargeting
-// metadata, descriptor-result block rebuilding flag, and complete rewrite
-// payload. Reopen if direct pattern windows or new proof cases reappear here
-// instead of in the fact constructor with focused coverage.
+// Each recursive body constructs one immutable region view, so outer candidate
+// queries do not rescan that body. The fact owns represented payload/control
+// proof, label retargeting, descriptor-result rebuilding, and the complete
+// rewrite. Reopen if direct windows or proof cases reappear in this walker, or
+// when a typed label/control/effect graph can replace the remaining bridge.
 fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    match
-      RawOiEscapingRefGetDescFlattenFact::from_instrs(instrs, i, module_ctx) {
-      Some(fact) if fact.proves_binaryen_escaping_ref_get_desc_flattening() => {
-        fact.append_rewrite(rewritten)
-        changed = true
-        i = fact.end
-        continue
-      }
-      _ => ()
+    match RawOiEscapingRefGetDescCandidateFact::from_region_at(region, i) {
+      Some(candidate) =>
+        match
+          RawOiEscapingRefGetDescFlattenFact::from_candidate(
+            candidate, instrs, module_ctx,
+          ) {
+          Some(fact) if fact.proves_binaryen_escaping_ref_get_desc_flattening() => {
+            fact.append_rewrite(rewritten)
+            changed = true
+            i = fact.end
+            continue
+          }
+          _ => ()
+        }
+      None => ()
     }
     match instrs[i] {
       @lib.Block(block_type, @lib.Expr(body)) => {
@@ -55984,8 +56408,11 @@ fn run_hot_pipeline_func(
       if descriptor.name == "optimize-instructions" {
         let original = run_hot_pipeline_original_func(mod_, func_idx)
         let @lib.Func(locals, @lib.Expr(body)) = original
-        let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+        let descriptor_graph = RawOiDescriptorCallValueGraphFact::from_module_body(
           body, module_ctx,
+        )
+        let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+          descriptor_graph, module_ctx,
         )
         if exact_success_changed {
           return Ok({
@@ -55996,7 +56423,7 @@ fn run_hot_pipeline_func(
           })
         }
         let (exactification_body, exactification_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
-          body, module_ctx,
+          descriptor_graph, module_ctx,
         )
         if exactification_changed {
           return Ok({
@@ -56007,7 +56434,7 @@ fn run_hot_pipeline_func(
           })
         }
         let (exact_miss_body, exact_miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-          exactification_body, module_ctx, func_idx, locals,
+          descriptor_graph, module_ctx, func_idx, locals,
         )
         if exact_miss_changed {
           return Ok({
@@ -56020,6 +56447,11 @@ fn run_hot_pipeline_func(
         let (rewritten_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           body, module_ctx,
         )
+        // This is the mutually exclusive hot-lift-error fallback. It cannot
+        // reuse the normal raw-admission index because that path returned None
+        // before lift and its locals are out of scope here. Build one explicit
+        // immutable index for the same original body revision solely to prove
+        // whether the fallback rewrite included the bottom-null family.
         let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
         if changed &&
           RawOiBottomNullDescriptorCastRegionFact::from_index(oi_index).has_fold {
