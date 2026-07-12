@@ -218,6 +218,68 @@ test "dae selected core result application clears the consumed selection" {
 }
 
 ///|
+test "dae singleton-selected core rewrite owns selection and result application" {
+  let current = dae_wbtest_call_summary_fixture()
+  let rewritten = @lib.Module::new()
+  let selected = [true, false, true]
+  let observed_current : Array[Bool] = []
+  let observed_selection : Array[Bool] = []
+  let productive_rewrite = fn(
+    active : @lib.Module,
+    active_selected : Array[Bool],
+  ) -> DaePassResult {
+    observed_current.push(active == current)
+    observed_selection.push(active_selected[1])
+    {
+      mod_out: rewritten,
+      touched: [false, true, false],
+      changed: true,
+      primary_def: 1,
+    }
+  }
+  let applied = dae_run_singleton_selected_core_rewrite(
+    current,
+    [true, false, false],
+    false,
+    selected,
+    1,
+    productive_rewrite,
+  )
+  assert_eq(observed_current, [true])
+  assert_eq(observed_selection, [true])
+  assert_eq(selected, [true, false, true])
+  assert_true(applied.applied)
+  assert_eq(applied.mod_out, rewritten)
+  assert_eq(applied.touched, [true, true, false])
+  assert_true(applied.changed)
+  assert_eq(applied.primary_def, 1)
+  let no_change_rewrite = fn(
+    active : @lib.Module,
+    active_selected : Array[Bool],
+  ) -> DaePassResult {
+    observed_current.push(active == current)
+    observed_selection.push(active_selected[1])
+    { mod_out: rewritten, touched: [], changed: false, primary_def: -1 }
+  }
+  let preserved = dae_run_singleton_selected_core_rewrite(
+    current,
+    applied.touched,
+    true,
+    selected,
+    1,
+    no_change_rewrite,
+  )
+  assert_eq(observed_current, [true, true])
+  assert_eq(observed_selection, [true, true])
+  assert_eq(selected, [true, false, true])
+  assert_false(preserved.applied)
+  assert_eq(preserved.mod_out, current)
+  assert_eq(preserved.touched, [true, true, false])
+  assert_true(preserved.changed)
+  assert_eq(preserved.primary_def, -1)
+}
+
+///|
 test "dae primary-selected core result application clears only the applied primary" {
   let current = dae_wbtest_call_summary_fixture()
   let rewritten = @lib.Module::new()
