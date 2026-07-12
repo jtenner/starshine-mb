@@ -78546,7 +78546,7 @@ test "optimize-instructions rewrites array.new default init through control fall
 }
 
 ///|
-test "optimize-instructions folds array.len of pure array.new_fixed length" {
+test "optimize-instructions keeps array.len over fresh array.new_fixed like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let result_type = @lib.TypeIdx::new(2U)
@@ -78606,18 +78606,16 @@ test "optimize-instructions folds array.len of pure array.new_fixed length" {
   )
   let pure = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let effectful = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(pure.contains("array.len"), msg=pure)
-  assert_false(pure.contains("array.new_fixed"), msg=pure)
-  assert_true(pure.contains("I32(2)"), msg=pure)
-  // Boundary-only half of this OI-K slice: Binaryen currently leaves the
-  // effectful element form intact, and Starshine must not drop element effects.
-  assert_true(effectful.contains("array.len"), msg=effectful)
-  assert_true(effectful.contains("array.new_fixed"), msg=effectful)
+  // Binaryen v130's visitArrayLen never inspects fresh constructors.
+  for pretty in [pure, effectful] {
+    assert_true(pretty.contains("array.len"), msg=pretty)
+    assert_true(pretty.contains("array.new_fixed"), msg=pretty)
+  }
   assert_true(effectful.contains("call (Func 0)"), msg=effectful)
 }
 
 ///|
-test "optimize-instructions folds array.len of constant-size array.new_default" {
+test "optimize-instructions keeps array.len over fresh array.new_default like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let result_type = @lib.TypeIdx::new(1U)
   let param_result_type = @lib.TypeIdx::new(2U)
@@ -78693,22 +78691,12 @@ test "optimize-instructions folds array.len of constant-size array.new_default" 
   let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_false(constant_len.contains("array.len"), msg=constant_len)
-  assert_false(constant_len.contains("array.new_default"), msg=constant_len)
-  assert_true(constant_len.contains("I32(3)"), msg=constant_len)
-  // Boundary-only half of this OI-K slice: Binaryen's O4z-style oracle keeps
-  // dynamic-length default arrays because removing allocation could drop the
-  // allocation-size trap.
-  assert_true(dynamic_len.contains("array.len"), msg=dynamic_len)
-  assert_true(dynamic_len.contains("array.new_default"), msg=dynamic_len)
-  // Boundary-only half of this OI-K slice: Binaryen also keeps negative
-  // i32.const lengths because the huge unsigned allocation should still trap.
-  assert_true(negative_len.contains("array.len"), msg=negative_len)
-  assert_true(negative_len.contains("array.new_default"), msg=negative_len)
-  // Boundary-only half of this OI-K slice: Binaryen keeps huge non-negative
-  // lengths past the O4z-observed allocation limit for the same trap reason.
-  assert_true(huge_len.contains("array.len"), msg=huge_len)
-  assert_true(huge_len.contains("array.new_default"), msg=huge_len)
+  // Binaryen v130's visitArrayLen only strips non-null casts and traps known
+  // nulls; constructor length and trap reasoning are not direct-pass rules.
+  for pretty in [constant_len, dynamic_len, negative_len, huge_len] {
+    assert_true(pretty.contains("array.len"), msg=pretty)
+    assert_true(pretty.contains("array.new_default"), msg=pretty)
+  }
 }
 
 ///|
@@ -78822,7 +78810,7 @@ test "optimize-instructions keeps array.len over fresh array.new like Binaryen v
 }
 
 ///|
-test "optimize-instructions folds array.get of pure array.new_fixed elements" {
+test "optimize-instructions keeps array.get over fresh array.new_fixed like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let result_type = @lib.TypeIdx::new(2U)
@@ -78927,32 +78915,19 @@ test "optimize-instructions folds array.get of pure array.new_fixed elements" {
   let dynidx = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let oob = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  assert_false(get0.contains("array.get"), msg=get0)
-  assert_false(get0.contains("array.new_fixed"), msg=get0)
-  assert_true(get0.contains("I32(7)"), msg=get0)
-  assert_false(get1.contains("array.get"), msg=get1)
-  assert_false(get1.contains("array.new_fixed"), msg=get1)
-  assert_true(get1.contains("I32(8)"), msg=get1)
-  assert_true(dynidx.contains("array.get"), msg=dynidx)
-  assert_true(dynidx.contains("array.new_fixed"), msg=dynidx)
-  assert_false(oob.contains("array.get"), msg=oob)
-  assert_false(oob.contains("array.new_fixed"), msg=oob)
-  assert_true(oob.contains("unreachable"), msg=oob)
-  // OI-K effect-localization slice: Binaryen removes the fresh allocation,
-  // forwards the selected element, and preserves the earlier non-selected call
-  // as a dropped effect in element evaluation order.
-  assert_false(effectful_sibling.contains("array.get"), msg=effectful_sibling)
-  assert_false(
-    effectful_sibling.contains("array.new_fixed"),
+  // Binaryen v130's visitArrayGet does not inspect fresh constructors.
+  for pretty in [get0, get1, dynidx, oob, effectful_sibling] {
+    assert_true(pretty.contains("array.get"), msg=pretty)
+    assert_true(pretty.contains("array.new_fixed"), msg=pretty)
+  }
+  assert_true(
+    effectful_sibling.contains("call (Func 0)"),
     msg=effectful_sibling,
   )
-  optimize_instructions_assert_strings_in_order(effectful_sibling, [
-    "call (Func 0)", "drop", "I32(8)",
-  ])
 }
 
 ///|
-test "optimize-instructions localizes selected array.get new_fixed element before later effectful sibling" {
+test "optimize-instructions keeps effectful fresh array.new_fixed get like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let result_type = @lib.TypeIdx::new(2U)
@@ -79007,15 +78982,12 @@ test "optimize-instructions localizes selected array.get new_fixed element befor
     ),
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(pretty.contains("array.get"), msg=pretty)
-  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_true(pretty.contains("array.get"), msg=pretty)
+  assert_true(pretty.contains("array.new_fixed"), msg=pretty)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "call"),
     2,
   )
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "call (Func 0)", "local.set", "call (Func 1)", "drop", "local.get",
-  ])
 }
 
 ///|
@@ -79147,7 +79119,7 @@ test "optimize-instructions keeps multi-use array.new_fixed producer boundary" {
 }
 
 ///|
-test "optimize-instructions folds packed array.get_s and array.get_u of pure array.new_fixed elements" {
+test "optimize-instructions keeps packed array.get over fresh array.new_fixed like Binaryen v130" {
   let array_i8_type = @lib.TypeIdx::new(0U)
   let array_i16_type = @lib.TypeIdx::new(1U)
   let effect_type = @lib.TypeIdx::new(2U)
@@ -79308,35 +79280,14 @@ test "optimize-instructions folds packed array.get_s and array.get_u of pure arr
   let dynidx = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
   let oob = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
   let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
-  assert_false(s8_const.contains("array.get"), msg=s8_const)
-  assert_false(s8_const.contains("array.new_fixed"), msg=s8_const)
-  assert_true(s8_const.contains("I32(-1)"), msg=s8_const)
-  assert_false(u8_const.contains("array.get"), msg=u8_const)
-  assert_true(u8_const.contains("I32(255)"), msg=u8_const)
-  assert_false(s16_const.contains("array.get"), msg=s16_const)
-  assert_true(s16_const.contains("I32(-32768)"), msg=s16_const)
-  assert_false(u16_const.contains("array.get"), msg=u16_const)
-  assert_true(u16_const.contains("I32(32768)"), msg=u16_const)
-  assert_false(s8_nonconst.contains("array.get"), msg=s8_nonconst)
-  assert_false(s8_nonconst.contains("array.new_fixed"), msg=s8_nonconst)
-  assert_true(s8_nonconst.contains("i32.extend8s"), msg=s8_nonconst)
-  assert_false(u16_nonconst.contains("array.get"), msg=u16_nonconst)
-  assert_false(u16_nonconst.contains("array.new_fixed"), msg=u16_nonconst)
-  assert_true(u16_nonconst.contains("i32.and"), msg=u16_nonconst)
-  assert_true(u16_nonconst.contains("I32(65535)"), msg=u16_nonconst)
-  assert_true(dynidx.contains("array.get_s"), msg=dynidx)
-  assert_true(dynidx.contains("array.new_fixed"), msg=dynidx)
-  assert_false(oob.contains("array.get"), msg=oob)
-  assert_false(oob.contains("array.new_fixed"), msg=oob)
-  assert_true(oob.contains("unreachable"), msg=oob)
-  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
-  // sibling with a drop before forwarding, but Starshine keeps the stack form
-  // until a safe localizing lowering preserves element-evaluation effects.
-  assert_true(effectful_sibling.contains("array.get_u"), msg=effectful_sibling)
-  assert_true(
-    effectful_sibling.contains("array.new_fixed"),
-    msg=effectful_sibling,
-  )
+  for
+    pretty in [
+      s8_const, u8_const, s16_const, u16_const, s8_nonconst, u16_nonconst, dynidx,
+      oob, effectful_sibling,
+    ] {
+    assert_true(pretty.contains("array.get"), msg=pretty)
+    assert_true(pretty.contains("array.new_fixed"), msg=pretty)
+  }
   assert_true(
     effectful_sibling.contains("call (Func 0)"),
     msg=effectful_sibling,
@@ -79511,16 +79462,15 @@ test "optimize-instructions keeps array.set over array.new_fixed like Binaryen v
   assert_true(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
   assert_true(fixed_oob.contains("array.set"), msg=fixed_oob)
   assert_true(fixed_oob.contains("array.new_fixed"), msg=fixed_oob)
-  assert_false(default_inbounds.contains("array.set"), msg=default_inbounds)
-  assert_false(
+  // The same v130 visitor boundary applies to array.new_default receivers.
+  assert_true(default_inbounds.contains("array.set"), msg=default_inbounds)
+  assert_true(
     default_inbounds.contains("array.new_default"),
     msg=default_inbounds,
   )
-  assert_false(default_oob.contains("array.set"), msg=default_oob)
-  assert_false(default_oob.contains("array.new_default"), msg=default_oob)
-  optimize_instructions_assert_strings_in_order(default_oob, [
-    "call (Func 0)", "drop", "unreachable",
-  ])
+  assert_true(default_oob.contains("array.set"), msg=default_oob)
+  assert_true(default_oob.contains("array.new_default"), msg=default_oob)
+  assert_true(default_oob.contains("call (Func 0)"), msg=default_oob)
   assert_true(effect_inbounds.contains("array.set"), msg=effect_inbounds)
   assert_true(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
   assert_true(effect_oob.contains("array.set"), msg=effect_oob)
@@ -80215,7 +80165,7 @@ test "optimize-instructions keeps array.get over fresh array.new like Binaryen v
 }
 
 ///|
-test "optimize-instructions folds array.get of constant-size array.new_default defaults" {
+test "optimize-instructions keeps array.get over fresh array.new_default like Binaryen v130" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)
   let array_i16_type = @lib.TypeIdx::new(2U)
@@ -80358,24 +80308,12 @@ test "optimize-instructions folds array.get of constant-size array.new_default d
   let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
-  for pretty in [plain, s8, u8, s16] {
-    assert_false(pretty.contains("array.get"), msg=pretty)
-    assert_false(pretty.contains("array.new_default"), msg=pretty)
-    assert_true(pretty.contains("I32(0)"), msg=pretty)
+  // Binaryen v130's visitArrayGet preserves fresh default constructors for
+  // ordinary, packed, in-bounds, out-of-bounds, and trapping length forms.
+  for pretty in [plain, s8, u8, s16, oob, dynamic_len, negative_len, huge_len] {
+    assert_true(pretty.contains("array.get"), msg=pretty)
+    assert_true(pretty.contains("array.new_default"), msg=pretty)
   }
-  assert_false(oob.contains("array.get"), msg=oob)
-  assert_false(oob.contains("array.new_default"), msg=oob)
-  assert_true(oob.contains("unreachable"), msg=oob)
-  // Boundary-only half of this OI-K slice: without a constant length, Starshine
-  // cannot prove that a constant index is in-bounds or out-of-bounds.
-  assert_true(dynamic_len.contains("array.get"), msg=dynamic_len)
-  assert_true(dynamic_len.contains("array.new_default"), msg=dynamic_len)
-  // Correctness boundary: Binaryen version_130 keeps negative and huge
-  // allocation lengths to preserve the allocation-size trap before the get.
-  assert_true(negative_len.contains("array.get"), msg=negative_len)
-  assert_true(negative_len.contains("array.new_default"), msg=negative_len)
-  assert_true(huge_len.contains("array.get"), msg=huge_len)
-  assert_true(huge_len.contains("array.new_default"), msg=huge_len)
 }
 
 ///|

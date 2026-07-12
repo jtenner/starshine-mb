@@ -22656,22 +22656,6 @@ fn optimize_instructions_struct_field_pack_bits(
 }
 
 ///|
-fn optimize_instructions_array_field_pack_bits(
-  ctx : HotPassContext,
-  type_idx : @lib.TypeIdx,
-) -> Int? {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return None
-  }
-  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
-    Some(field) => field
-    None => return None
-  }
-  optimize_instructions_packed_storage_bits(field.get_storage_type())
-}
-
-///|
 fn optimize_instructions_default_value_for_storage(
   func : @ir.HotFunc,
   storage : @lib.StorageType,
@@ -22718,26 +22702,6 @@ fn optimize_instructions_struct_default_field_value(
   optimize_instructions_default_value_for_storage(
     func,
     fields[field_idx].get_storage_type(),
-  )
-}
-
-///|
-fn optimize_instructions_array_default_element_value(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  type_idx : @lib.TypeIdx,
-) -> Int? {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return None
-  }
-  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
-    Some(field) => field
-    None => return None
-  }
-  optimize_instructions_default_value_for_storage(
-    func,
-    field.get_storage_type(),
   )
 }
 
@@ -23648,55 +23612,6 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
 }
 
 ///|
-priv enum OiArrayNonTrappingLengthKind {
-  ArrayLengthKnownNonTrapping
-  ArrayLengthNegativeTrapBoundary
-  ArrayLengthAboveTrapBudgetBoundary
-}
-
-///|
-priv struct OiArrayNonTrappingLengthFact {
-  kind : OiArrayNonTrappingLengthKind
-}
-
-///|
-fn OiArrayNonTrappingLengthFact::from_len(
-  len : Int,
-) -> OiArrayNonTrappingLengthFact {
-  // Binaryen version_130 keeps fresh array lengths above this O4z-observed
-  // limit to preserve allocation trap behavior. Keep the threshold as an
-  // explicit allocation fact so array_len/get/set folds all share the same
-  // trap-preservation evidence, while negative and above-budget lengths are
-  // named trap-preserving boundaries rather than a direct boolean.
-  let kind = if len < 0 {
-    ArrayLengthNegativeTrapBoundary
-  } else if len <= 44739241 {
-    ArrayLengthKnownNonTrapping
-  } else {
-    ArrayLengthAboveTrapBudgetBoundary
-  }
-  { kind, }
-}
-
-///|
-fn OiArrayNonTrappingLengthFact::proves_known_non_trapping(
-  self : OiArrayNonTrappingLengthFact,
-) -> Bool {
-  match self.kind {
-    ArrayLengthKnownNonTrapping => true
-    ArrayLengthNegativeTrapBoundary | ArrayLengthAboveTrapBudgetBoundary =>
-      false
-  }
-}
-
-///|
-fn OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-  len : Int,
-) -> Bool {
-  OiArrayNonTrappingLengthFact::from_len(len).proves_known_non_trapping()
-}
-
-///|
 priv enum OiOrderedOperandControlShapeFact {
   OrderedOperandExpressionRoot
   OrderedOperandControlBoundary
@@ -23996,41 +23911,6 @@ fn optimize_instructions_append_ordered_effects(
       return false
     }
   }
-  true
-}
-
-///|
-fn optimize_instructions_try_replace_with_ordered_effects_then_void(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  operand_ids : Array[Int],
-  append_unreachable : Bool,
-) -> Bool {
-  let body : Array[Int] = []
-  if !optimize_instructions_append_ordered_effects(ctx, func, operand_ids, body) {
-    return false
-  }
-  if append_unreachable {
-    if body.length() == 0 {
-      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-      return true
-    }
-    body.push(@ir.hot_build_unreachable(func))
-  } else if body.length() == 0 {
-    optimize_instructions_replace_with_nop(ctx, func, node_id)
-    return true
-  }
-  let replacement = @ir.hot_build_block(func, @lib.BlockType::void_(), body)
-  let replacement_node = @ir.hot_node_get(func, replacement)
-  @ir.hot_replace_node(func, node_id, replacement_node)
-  @ir.hot_label_owner_set(
-    func,
-    @ir.hot_control_node_label(func, node_id),
-    node_id,
-  )
-  @ir.hot_delete_node(func, replacement)
-  pass_mark_mutated(ctx, func)
   true
 }
 
@@ -25161,253 +25041,6 @@ fn optimize_instructions_try_rewrite_array_new_single_fixed(
   }
   fact.apply_rewrite(ctx, func)
   true
-}
-
-///|
-fn optimize_instructions_try_fold_array_len_new_fixed(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 1 {
-    return false
-  }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::ArrayLen) => ()
-    _ => return false
-  }
-  let array_id = @ir.hot_child_get(func, node_id, 0)
-  if !OiLiveNodeFact::proves_node_live(func, dead, array_id) ||
-    pass_node_use_count(ctx, func, array_id) != 1 {
-    return false
-  }
-  let array_node = @ir.hot_node_get(func, array_id)
-  let len = match @ir.hot_node_exact_instr(func, array_id) {
-    Some(@lib.Instruction::ArrayNewFixed(_, @lib.U32(len))) => {
-      let len = len.reinterpret_as_int()
-      if len != array_node.child_count {
-        return false
-      }
-      for i = 0; i < array_node.child_count; i = i + 1 {
-        if !optimize_instructions_node_effects_are_pure(
-            ctx,
-            func,
-            @ir.hot_child_get(func, array_id, i),
-          ) {
-          return false
-        }
-      }
-      len
-    }
-    Some(@lib.Instruction::ArrayNewDefault(_)) => {
-      if array_node.child_count != 1 {
-        return false
-      }
-      let len = match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 0),
-        ) {
-        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-            len,
-          ) => len
-        _ => return false
-      }
-      len
-    }
-    _ => return false
-  }
-  optimize_instructions_replace_with_const_i32(
-    ctx,
-    func,
-    node_id,
-    @lib.I32(len),
-  )
-  true
-}
-
-///|
-fn optimize_instructions_try_fold_array_get_new_fixed(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 2 {
-    return false
-  }
-  let (type_idx, packed_signed) = match
-    @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::ArrayGet(type_idx)) => (type_idx, None)
-    Some(@lib.Instruction::ArrayGetS(type_idx)) => (type_idx, Some(true))
-    Some(@lib.Instruction::ArrayGetU(type_idx)) => (type_idx, Some(false))
-    _ => return false
-  }
-  let array_id = @ir.hot_child_get(func, node_id, 0)
-  let index_id = @ir.hot_child_get(func, node_id, 1)
-  if !OiLiveNodeFact::proves_node_live(func, dead, array_id) ||
-    pass_node_use_count(ctx, func, array_id) != 1 {
-    return false
-  }
-  let index = match optimize_instructions_i32_const(func, dead, index_id) {
-    Some(@lib.I32(index)) => index
-    _ => return false
-  }
-  let array_node = @ir.hot_node_get(func, array_id)
-  let (is_fixed, len) = match @ir.hot_node_exact_instr(func, array_id) {
-    Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
-      type_idx => {
-      let len = len.reinterpret_as_int()
-      if len != array_node.child_count {
-        return false
-      }
-      (true, len)
-    }
-    Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
-      type_idx => {
-      if array_node.child_count != 1 {
-        return false
-      }
-      let len = match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 0),
-        ) {
-        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-            len,
-          ) => len
-        _ => return false
-      }
-      (false, len)
-    }
-    _ => return false
-  }
-  if is_fixed {
-    if index >= 0 && index < len && packed_signed == None {
-      let operands : Array[Int] = []
-      for i = 0; i < array_node.child_count; i = i + 1 {
-        operands.push(@ir.hot_child_get(func, array_id, i))
-      }
-      return optimize_instructions_try_forward_selected_operand_preserving_effects(
-        ctx, func, node_id, operands, index,
-      )
-    }
-    for i = 0; i < array_node.child_count; i = i + 1 {
-      if (index < 0 || index >= len || i != index) &&
-        !optimize_instructions_node_effects_are_pure(
-          ctx,
-          func,
-          @ir.hot_child_get(func, array_id, i),
-        ) {
-        return false
-      }
-    }
-  }
-  if index < 0 || index >= len {
-    if !optimize_instructions_node_effects_are_pure(ctx, func, index_id) {
-      return false
-    }
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-  } else {
-    let value_id = if is_fixed {
-      @ir.hot_child_get(func, array_id, index)
-    } else {
-      match
-        optimize_instructions_array_default_element_value(ctx, func, type_idx) {
-        Some(value_id) => value_id
-        None => return false
-      }
-    }
-    match packed_signed {
-      Some(signed) => {
-        let bits = match
-          optimize_instructions_array_field_pack_bits(ctx, type_idx) {
-          Some(bits) => bits
-          None => return false
-        }
-        optimize_instructions_replace_with_packed_i32_value(
-          ctx, func, dead, node_id, value_id, bits, signed,
-        )
-      }
-      None =>
-        optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
-    }
-  }
-  true
-}
-
-///|
-fn optimize_instructions_replace_with_nop(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Unit {
-  let temp = @ir.hot_build_nop(func)
-  let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
-  pass_mark_mutated(ctx, func)
-}
-
-///|
-fn optimize_instructions_try_remove_array_set_fresh_default(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 3 {
-    return false
-  }
-  let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::ArraySet(type_idx)) => type_idx
-    _ => return false
-  }
-  let array_id = @ir.hot_child_get(func, node_id, 0)
-  let index_id = @ir.hot_child_get(func, node_id, 1)
-  let value_id = @ir.hot_child_get(func, node_id, 2)
-  if !OiLiveNodeFact::proves_node_live(func, dead, array_id) ||
-    pass_node_use_count(ctx, func, array_id) != 1 {
-    return false
-  }
-  let index = match optimize_instructions_i32_const(func, dead, index_id) {
-    Some(@lib.I32(index)) => index
-    _ => return false
-  }
-  let array_node = @ir.hot_node_get(func, array_id)
-  let effect_operands : Array[Int] = []
-  let len = match @ir.hot_node_exact_instr(func, array_id) {
-    Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
-      type_idx => {
-      if array_node.child_count != 1 {
-        return false
-      }
-      let len_id = @ir.hot_child_get(func, array_id, 0)
-      effect_operands.push(len_id)
-      match optimize_instructions_i32_const(func, dead, len_id) {
-        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-            len,
-          ) => len
-        _ => return false
-      }
-    }
-    _ => return false
-  }
-  effect_operands.push(index_id)
-  effect_operands.push(value_id)
-  optimize_instructions_try_replace_with_ordered_effects_then_void(
-    ctx,
-    func,
-    node_id,
-    effect_operands,
-    index < 0 || index >= len,
-  )
 }
 
 ///|
@@ -40674,15 +40307,6 @@ fn optimize_instructions_visit_node(
       ) ||
       optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
         ctx, func, node_id,
-      ) ||
-      optimize_instructions_try_fold_array_len_new_fixed(
-        ctx, func, dead, node_id,
-      ) ||
-      optimize_instructions_try_fold_array_get_new_fixed(
-        ctx, func, dead, node_id,
-      ) ||
-      optimize_instructions_try_remove_array_set_fresh_default(
-        ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_struct_get_struct_new(
         ctx, func, dead, node_id,
