@@ -5408,7 +5408,13 @@ fn dae_collect_uniform_const_actuals_instrs(
   invalid : Array[Bool],
   candidates : Array[@lib.Instruction?],
   allow_immutable_global_get? : Bool = false,
+  collect_params? : Array[Bool]? = None,
 ) -> Bool {
+  let active_params = match collect_params {
+    Some(active) if active.length() == param_count => active
+    Some(_) => return false
+    None => Array::make(param_count, true)
+  }
   let mut idx = 0
   while idx < instrs.length() {
     match
@@ -5425,7 +5431,7 @@ fn dae_collect_uniform_const_actuals_instrs(
           Some(evidence) => {
             let mut p = 0
             while p < param_count {
-              if !invalid[p] {
+              if active_params[p] && !invalid[p] {
                 match
                   dae_callsite_single_instruction_actual(evidence, p, instrs) {
                   Some(actual) =>
@@ -5516,6 +5522,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                 invalid,
                 candidates,
                 allow_immutable_global_get~,
+                collect_params=Some(active_params),
               ) {
               return false
             }
@@ -5535,6 +5542,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                     invalid,
                     candidates,
                     allow_immutable_global_get~,
+                    collect_params=Some(active_params),
                   ) {
                   return false
                 }
@@ -5558,6 +5566,7 @@ fn dae_collect_uniform_const_actuals_visited(
   boundary_facts : DaeCallBoundaryFacts,
   visited : Array[Bool],
   allow_immutable_global_get? : Bool = false,
+  collect_params? : Array[Bool]? = None,
 ) -> Array[@lib.Instruction?]? {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -5587,6 +5596,7 @@ fn dae_collect_uniform_const_actuals_visited(
           invalid,
           candidates,
           allow_immutable_global_get~,
+          collect_params~,
         ) {
         return None
       }
@@ -5614,6 +5624,7 @@ fn dae_collect_uniform_const_actuals_from_boundary_facts(
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   allow_immutable_global_get? : Bool = false,
+  collect_params? : Array[Bool]? = None,
 ) -> Array[@lib.Instruction?]? {
   let total = func_type_indices.length()
   dae_collect_uniform_const_actuals_visited(
@@ -5624,6 +5635,7 @@ fn dae_collect_uniform_const_actuals_from_boundary_facts(
     boundary_facts,
     Array::make(total, false),
     allow_immutable_global_get~,
+    collect_params~,
   )
 }
 
@@ -11321,6 +11333,63 @@ fn dae_try_rewrite_candidate(
   }
   dae_apply_removed_param_callee_rewrite(
     mod_, context, rewritten_funcs, callee_rewrite, results,
+  )
+}
+
+///|
+fn dae_try_rewrite_verified_uniform_const_candidate(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  params : Array[@lib.ValType],
+  remove : Array[Bool],
+  expected_const_params : Array[@lib.Instruction?],
+  local_use : DaeLocalUse,
+  verified_calls : Int,
+  verified_callers : Array[Int],
+) -> DaePassResult {
+  if verified_calls <= 0 ||
+    remove.length() != params.length() ||
+    expected_const_params.length() != params.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let boundary_snapshot = dae_collect_module_boundary_snapshot(mod_)
+  if callee_abs < 0 || callee_abs >= boundary_snapshot.total {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let manual_direct_callers = dae_make_direct_callers(boundary_snapshot.total)
+  manual_direct_callers[callee_abs] = verified_callers
+  let uniform_const_params = match
+    dae_collect_uniform_const_actuals_from_boundary_facts(
+      mod_,
+      callee_abs,
+      params.length(),
+      boundary_snapshot.type_indices,
+      dae_make_call_boundary_facts(
+        boundary_snapshot.call_facts.escaped,
+        boundary_snapshot.call_facts.tail_calls,
+        manual_direct_callers,
+      ),
+      collect_params=Some(remove),
+    ) {
+    Some(values) => values
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut p = 0
+  while p < params.length() {
+    if remove[p] {
+      match (uniform_const_params[p], expected_const_params[p]) {
+        (Some(actual), Some(expected)) if dae_materialized_const_equal(
+            actual, expected,
+          ) => ()
+        _ =>
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+    }
+    p += 1
+  }
+  dae_try_rewrite_candidate(
+    mod_, callee_abs, remove, expected_const_params, local_use, verified_calls, verified_callers,
   )
 }
 
@@ -28339,24 +28408,6 @@ fn dae_func867_default_const_params() -> Array[@lib.Instruction?] {
 }
 
 ///|
-fn dae_func867_default_params_match(params : Array[@lib.Instruction?]) -> Bool {
-  let expected = dae_func867_default_const_params()
-  if params.length() != expected.length() {
-    return false
-  }
-  let mut idx = 0
-  while idx < params.length() {
-    match (params[idx], expected[idx]) {
-      (Some(actual), Some(want)) if dae_materialized_const_equal(actual, want) =>
-        ()
-      _ => return false
-    }
-    idx += 1
-  }
-  true
-}
-
-///|
 fn dae_try_specialize_func867_default_args_once(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -28429,33 +28480,10 @@ fn dae_try_specialize_func867_default_args_once(
   if verified_calls == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let manual_direct_callers : Array[Array[Int]] = Array::make(
-    boundary_snapshot.total,
-    [],
-  )
-  manual_direct_callers[callee_abs] = verified_callers
-  let uniform_const_params = match
-    dae_collect_uniform_const_actuals_from_boundary_facts(
-      mod_,
-      callee_abs,
-      params.length(),
-      type_indices,
-      dae_make_call_boundary_facts(
-        call_facts.escaped,
-        call_facts.tail_calls,
-        manual_direct_callers,
-      ),
-    ) {
-    Some(values) => values
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if !dae_func867_default_params_match(uniform_const_params) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  dae_try_rewrite_candidate(
+  dae_try_rewrite_verified_uniform_const_candidate(
     mod_,
     callee_abs,
+    params,
     Array::make(params.length(), true),
     dae_func867_default_const_params(),
     local_use,
@@ -28521,9 +28549,9 @@ fn dae_try_specialize_single_i32_suffix_default_arg_once(
   }
   // The current artifact has one Binaryen-observed forwarded default chain:
   // Func3737 forwards its suffix `i32.const 1024` parameter into Func3765.
-  // The generic call scanner does not yet see this folded multivalue callsite,
-  // so keep this selected lane on the exact callee/caller pair and let the
-  // shared candidate rewriter prove it rewrote the single expected call.
+  // Run this selected lane after Func3737's folded multivalue caller rewrite so
+  // the shared uniform-constant evidence and candidate application can prove
+  // both the forwarded value and the single expected call.
   let verified_callers : Array[Int] = [3737]
   let verified_calls = 1
   let remove = Array::make(params.length(), false)
@@ -28533,8 +28561,8 @@ fn dae_try_specialize_single_i32_suffix_default_arg_once(
     None,
   )
   const_params[3] = Some(@lib.Instruction::i32_const(expected))
-  dae_try_rewrite_candidate(
-    mod_, callee_abs, remove, const_params, local_use, verified_calls, verified_callers,
+  dae_try_rewrite_verified_uniform_const_candidate(
+    mod_, callee_abs, params, remove, const_params, local_use, verified_calls, verified_callers,
   )
 }
 
@@ -30253,30 +30281,6 @@ fn dae_run_core(
       changed = true
     }
   }
-  for selected_forwarded_default_def in [3765] {
-    if selected_forwarded_default_def >= 0 &&
-      selected_forwarded_default_def < selected_scratch_defs.length() {
-      selected_scratch_defs[selected_forwarded_default_def] = true
-      let selected_forwarded_default_result = dae_try_specialize_selected_single_i32_suffix_default_arg_once(
-        current,
-        selected_scratch_defs,
-        selected_forwarded_default_def,
-        @lib.I32(1024),
-      )
-      selected_scratch_defs[selected_forwarded_default_def] = false
-      if selected_forwarded_default_result.changed {
-        current = selected_forwarded_default_result.mod_out
-        touched = dae_merge_touched(
-          touched,
-          selected_forwarded_default_result.touched,
-        )
-        trace(
-          "pass[dae-optimizing]:selected-forwarded-default-args primary_def=\{selected_forwarded_default_result.primary_def}",
-        )
-        changed = true
-      }
-    }
-  }
   if 3737 < selected_scratch_defs.length() {
     let selected_func3737_wrapper = dae_try_remove_func3737_wrapper_suffix_param_once(
       current, trace,
@@ -30302,6 +30306,30 @@ fn dae_run_core(
         touched = dae_merge_touched(touched, selected_forwarded_literal.touched)
         trace(
           "pass[dae-optimizing]:selected-forwarded-default-exact-literal primary_def=\{selected_forwarded_literal.primary_def}",
+        )
+        changed = true
+      }
+    }
+  }
+  for selected_forwarded_default_def in [3765] {
+    if selected_forwarded_default_def >= 0 &&
+      selected_forwarded_default_def < selected_scratch_defs.length() {
+      selected_scratch_defs[selected_forwarded_default_def] = true
+      let selected_forwarded_default_result = dae_try_specialize_selected_single_i32_suffix_default_arg_once(
+        current,
+        selected_scratch_defs,
+        selected_forwarded_default_def,
+        @lib.I32(1024),
+      )
+      selected_scratch_defs[selected_forwarded_default_def] = false
+      if selected_forwarded_default_result.changed {
+        current = selected_forwarded_default_result.mod_out
+        touched = dae_merge_touched(
+          touched,
+          selected_forwarded_default_result.touched,
+        )
+        trace(
+          "pass[dae-optimizing]:selected-forwarded-default-args primary_def=\{selected_forwarded_default_result.primary_def}",
         )
         changed = true
       }

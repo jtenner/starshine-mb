@@ -3033,6 +3033,8 @@ test "dae verified uniform-constant candidate uses shared boundary rewrite trans
     @lib.Locals::empty(),
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(5)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_add(),
       @lib.Instruction::i32_const(@lib.I32(9)),
       @lib.Instruction::call(callee),
     ]),
@@ -3058,10 +3060,18 @@ test "dae verified uniform-constant candidate uses shared boundary rewrite trans
   let local_use = dae_local_use_for_callee(callee_func, 2, 1, 2)
   let remove = [false, true]
   let expected : Array[@lib.Instruction?] = [
-    None, Some(@lib.Instruction::i32_const(@lib.I32(9))),
+    None,
+    Some(@lib.Instruction::i32_const(@lib.I32(9))),
   ]
   let result = dae_try_rewrite_verified_uniform_const_candidate(
-    mod_, 1, params, remove, expected, local_use, 1, [0],
+    mod_,
+    1,
+    params,
+    remove,
+    expected,
+    local_use,
+    1,
+    [0],
   )
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)
@@ -3071,6 +3081,8 @@ test "dae verified uniform-constant candidate uses shared boundary rewrite trans
       let @lib.Func(_, @lib.Expr(caller_body)) = funcs[0]
       assert_eq(caller_body, [
         @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_add(),
         @lib.Instruction::call(callee),
       ])
     }
@@ -3085,15 +3097,87 @@ test "dae verified uniform-constant candidate uses shared boundary rewrite trans
     None => fail("expected rewritten callee type")
   }
   let mismatched : Array[@lib.Instruction?] = [
-    None, Some(@lib.Instruction::i32_const(@lib.I32(8))),
+    None,
+    Some(@lib.Instruction::i32_const(@lib.I32(8))),
   ]
   let rejected = dae_try_rewrite_verified_uniform_const_candidate(
-    mod_, 1, params, remove, mismatched, local_use, 1, [0],
+    mod_,
+    1,
+    params,
+    remove,
+    mismatched,
+    local_use,
+    1,
+    [0],
   )
   assert_false(rejected.changed)
   assert_eq(rejected.primary_def, -1)
   assert_eq(rejected.touched, [])
   assert_eq(rejected.mod_out, mod_)
+  let forwarded_params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]
+  let forwarded_caller = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::call(callee),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+    ]),
+  )
+  let forwarded_callee = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+    ]),
+  )
+  let forwarded_mod = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32(), @lib.ValType::i32()],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(forwarded_params, [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([caller_type, callee_type]))
+    .with_code_sec(@lib.CodeSec::new([forwarded_caller, forwarded_callee]))
+  let forwarded_local_use = dae_local_use_for_callee(forwarded_callee, 4, 1, 4)
+  let forwarded_remove = [false, false, false, true]
+  let forwarded_expected : Array[@lib.Instruction?] = [
+    None,
+    None,
+    None,
+    Some(@lib.Instruction::i32_const(@lib.I32(9))),
+  ]
+  let forwarded_result = dae_try_rewrite_verified_uniform_const_candidate(
+    forwarded_mod,
+    1,
+    forwarded_params,
+    forwarded_remove,
+    forwarded_expected,
+    forwarded_local_use,
+    1,
+    [0],
+  )
+  assert_true(forwarded_result.changed)
 }
 
 ///|
