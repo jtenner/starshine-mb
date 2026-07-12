@@ -5991,6 +5991,57 @@ test "dae multi result carrier chain evidence centralizes fallthrough and return
 }
 
 ///|
+test "dae multi result operand sequence evidence shares specialized and fallback slots" {
+  let mod_ = @lib.Module::new()
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::i64_const(@lib.I64(9L)),
+    @lib.Instruction::return_(),
+  ]
+  let specialize = fn(
+    _ : Array[@lib.Instruction],
+    operand_start : Int,
+    operand_end : Int,
+    result_idx : Int,
+  ) -> (Int, Int)? {
+    if result_idx == 0 && operand_start < operand_end {
+      Some((operand_start, operand_start + 1))
+    } else {
+      None
+    }
+  }
+  match
+    dae_multi_result_operand_sequence_evidence(
+      mod_, [], body, 2, 1, specialize,
+    ) {
+    Some(evidence) => {
+      assert_eq(evidence.bounds.suffix_start, 0)
+      assert_eq(evidence.bounds.operand_end, 4)
+      assert_true(evidence.bounds.has_terminal_return)
+      assert_eq(evidence.operand_starts, [2, 3])
+      assert_eq(evidence.value_instr_indices, [2, 3])
+      assert_eq(evidence.specialized_slots, [true, false])
+    }
+    None => fail("expected shared specialized/fallback operand sequence")
+  }
+  let reject_all = fn(
+    _ : Array[@lib.Instruction],
+    _ : Int,
+    _ : Int,
+    _ : Int,
+  ) -> (Int, Int)? { None }
+  match
+    dae_multi_result_operand_sequence_evidence(
+      mod_, [], body, 2, 1, reject_all,
+    ) {
+    Some(_) => fail("sequence must contain at least one specialized slot")
+    None => ()
+  }
+}
+
+///|
 test "dae stack slice localization evidence carries transition escape and rewrite disposition" {
   let mod_ = @lib.Module::new()
   let body = [@lib.Instruction::i32_const(@lib.I32(7))]
