@@ -2739,6 +2739,102 @@ test "dae dropped result repair plan centralizes dead suffix cleanup" {
 }
 
 ///|
+test "dae dropped-result callee application centralizes repair and finalization" {
+  let result_type = @lib.TypeIdx::new(0U)
+  let callee = @lib.FuncIdx::new(2U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::call(callee),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(callee),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let context = match dae_module_signature_context(mod_, 2, copy_funcs=true) {
+    Some(context) => context
+    None => fail("expected module signature context")
+  }
+  let scope = dae_dropped_result_scope_from_optional(3, None)
+  let repair = dae_dropped_result_repair_plan(
+    scope,
+    2,
+    2,
+    DaeRepairDeadSuffixNoParamCallers,
+    remove_dropped_call_drops=true,
+    remove_dropped_call_drops_before_repair=false,
+  )
+  let finalization = dae_module_code_finalization_plan(
+    [],
+    [],
+    DaeTouchModuleCodeChangedFuncs,
+  )
+  let rewritten_callee = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let result = dae_apply_dropped_result_callee_rewrite(
+    mod_,
+    context,
+    dae_collect_func_type_indices(mod_),
+    0,
+    context.funcs,
+    rewritten_callee,
+    repair,
+    finalization,
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 2)
+  assert_eq(result.touched, [true, true, true])
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(dead_suffix_caller)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(dropped_caller)) = funcs[1]
+      assert_eq(dead_suffix_caller, [@lib.Instruction::unreachable_()])
+      assert_eq(dropped_caller, [@lib.Instruction::call(callee)])
+      assert_eq(funcs[2], rewritten_callee)
+    }
+    None => fail("expected rewritten code section")
+  }
+  let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 2) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [])
+      assert_eq(results, [])
+    }
+    None => fail("expected rewritten callee type")
+  }
+}
+
+///|
 test "dae dropped result unreachable callee rewrite centralizes application" {
   let result_type = @lib.TypeIdx::new(0U)
   let callee = @lib.FuncIdx::new(1U)
