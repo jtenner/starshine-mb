@@ -671,6 +671,13 @@ pub enum GenValidProfile {
   InliningOptimizingReturnCallProfile
   InliningOptimizingCleanupPayoffProfile
   InliningOptimizingAllProfile
+  SgoInitializerFoldingProfile
+  SgoSameInitDeadSetProfile
+  SgoReadOnlyToWriteProfile
+  SgoStartupPropagationProfile
+  SgoRuntimePropagationProfile
+  SgoNestedCleanupProfile
+  SgoAllProfile
   PassMemoryProfile
   PassGcRefProfile
   PassControlProfile
@@ -857,6 +864,18 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     InliningOptimizingCleanupPayoffProfile =>
       "inlining-optimizing-cleanup-payoff"
     InliningOptimizingAllProfile => "inlining-optimizing-all"
+    SgoInitializerFoldingProfile =>
+      "simplify-globals-optimizing-initializer-folding"
+    SgoSameInitDeadSetProfile =>
+      "simplify-globals-optimizing-same-init-dead-set"
+    SgoReadOnlyToWriteProfile =>
+      "simplify-globals-optimizing-read-only-to-write"
+    SgoStartupPropagationProfile =>
+      "simplify-globals-optimizing-startup-propagation"
+    SgoRuntimePropagationProfile =>
+      "simplify-globals-optimizing-runtime-propagation"
+    SgoNestedCleanupProfile => "simplify-globals-optimizing-nested-cleanup"
+    SgoAllProfile => "simplify-globals-optimizing-all"
     PassMemoryProfile => "pass-memory"
     PassGcRefProfile => "pass-gc-ref"
     PassControlProfile => "pass-control"
@@ -1029,6 +1048,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | OptimizeCastsAllProfile
     | InliningOptimizingAllProfile
     | PassOiAllProfile
+    | SgoAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1246,6 +1266,15 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(PassOiDescriptorGcProfile, 1),
         GenValidProfileMember::new(PassOiTupleProfile, 1),
       ]
+    SgoAllProfile =>
+      [
+        GenValidProfileMember::new(SgoInitializerFoldingProfile, 2),
+        GenValidProfileMember::new(SgoSameInitDeadSetProfile, 2),
+        GenValidProfileMember::new(SgoReadOnlyToWriteProfile, 3),
+        GenValidProfileMember::new(SgoStartupPropagationProfile, 2),
+        GenValidProfileMember::new(SgoRuntimePropagationProfile, 3),
+        GenValidProfileMember::new(SgoNestedCleanupProfile, 2),
+      ]
     RandomAllProfilesProfile =>
       [
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
@@ -1342,6 +1371,13 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     InliningOptimizingReturnCallProfile,
     InliningOptimizingCleanupPayoffProfile,
     InliningOptimizingAllProfile,
+    SgoInitializerFoldingProfile,
+    SgoSameInitDeadSetProfile,
+    SgoReadOnlyToWriteProfile,
+    SgoStartupPropagationProfile,
+    SgoRuntimePropagationProfile,
+    SgoNestedCleanupProfile,
+    SgoAllProfile,
     PassMemoryProfile,
     PassGcRefProfile,
     PassControlProfile,
@@ -1596,6 +1632,11 @@ pub fn gen_valid_profile_by_name(
     "inlining-optimizing-all-profiles" => Ok(InliningOptimizingAllProfile)
     "io" => Ok(InliningOptimizingAllProfile)
     "io-closeout" => Ok(InliningOptimizingAllProfile)
+    "simplify-globals-optimizing" => Ok(SgoAllProfile)
+    "simplify-globals-optimizing-closeout" => Ok(SgoAllProfile)
+    "simplify-globals-optimizing-all-profiles" => Ok(SgoAllProfile)
+    "sgo" => Ok(SgoAllProfile)
+    "sgo-closeout" => Ok(SgoAllProfile)
     "oc" => Ok(OptimizeCastsAllProfile)
     "oc-closeout" => Ok(OptimizeCastsAllProfile)
     "rl" => Ok(ReorderLocalsAllProfile)
@@ -1808,6 +1849,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | InliningOptimizingCleanupPayoffProfile
     | InliningOptimizingAllProfile =>
       gen_valid_inlining_optimizing_profile_config(profile)
+    SgoInitializerFoldingProfile
+    | SgoSameInitDeadSetProfile
+    | SgoReadOnlyToWriteProfile
+    | SgoStartupPropagationProfile
+    | SgoRuntimePropagationProfile
+    | SgoNestedCleanupProfile
+    | SgoAllProfile => gen_valid_sgo_profile_config(profile)
     PassMemoryProfile => {
       let base = GenValidConfig::coverage_forced_default()
       GenValidConfig::{
@@ -15933,6 +15981,250 @@ fn gen_valid_inlining_optimizing_profile_module(
 }
 
 ///|
+fn gen_valid_sgo_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let family_id = match profile {
+    SgoInitializerFoldingProfile => 1
+    SgoSameInitDeadSetProfile => 2
+    SgoReadOnlyToWriteProfile => 3
+    SgoStartupPropagationProfile => 4
+    SgoRuntimePropagationProfile => 5
+    SgoNestedCleanupProfile => 6
+    _ => 7
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 1,
+    max_imports: 0,
+    max_defined_funcs: if profile == SgoInitializerFoldingProfile ||
+      profile == SgoStartupPropagationProfile {
+      0
+    } else if profile == SgoNestedCleanupProfile {
+      2
+    } else {
+      1
+    },
+    max_tables: 0,
+    max_mems: if profile == SgoStartupPropagationProfile {
+      1
+    } else {
+      0
+    },
+    max_globals: if profile == SgoInitializerFoldingProfile {
+      2
+    } else {
+      1
+    },
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: if profile == SgoStartupPropagationProfile {
+      1
+    } else {
+      0
+    },
+    max_params: 0,
+    max_results: if profile == SgoSameInitDeadSetProfile ||
+      profile == SgoRuntimePropagationProfile {
+      1
+    } else {
+      0
+    },
+    max_locals: 0,
+    max_body_statements: 8 + family_id,
+    max_body_depth: 2,
+    max_module_byte_size_budget: Some(18000 + family_id),
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: profile == SgoStartupPropagationProfile,
+      allow_globals: true,
+      allow_tags: false,
+      allow_start: false,
+      allow_elems: false,
+      allow_datas: profile == SgoStartupPropagationProfile,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: true,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: true,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_sgo_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SgoInitializerFoldingProfile) ||
+  config == GenValidConfig::for_profile(SgoSameInitDeadSetProfile) ||
+  config == GenValidConfig::for_profile(SgoReadOnlyToWriteProfile) ||
+  config == GenValidConfig::for_profile(SgoStartupPropagationProfile) ||
+  config == GenValidConfig::for_profile(SgoRuntimePropagationProfile) ||
+  config == GenValidConfig::for_profile(SgoNestedCleanupProfile) ||
+  config == GenValidConfig::for_profile(SgoAllProfile)
+}
+
+///|
+fn gen_valid_sgo_profile_kind(config : GenValidConfig) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(SgoSameInitDeadSetProfile) {
+    SgoSameInitDeadSetProfile
+  } else if config == GenValidConfig::for_profile(SgoReadOnlyToWriteProfile) {
+    SgoReadOnlyToWriteProfile
+  } else if config == GenValidConfig::for_profile(SgoStartupPropagationProfile) {
+    SgoStartupPropagationProfile
+  } else if config == GenValidConfig::for_profile(SgoRuntimePropagationProfile) {
+    SgoRuntimePropagationProfile
+  } else if config == GenValidConfig::for_profile(SgoNestedCleanupProfile) {
+    SgoNestedCleanupProfile
+  } else {
+    SgoInitializerFoldingProfile
+  }
+}
+
+///|
+fn gen_valid_sgo_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_sgo_i32_result_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+}
+
+///|
+fn gen_valid_sgo_func_module(
+  result : Bool,
+  body : Array[Instruction],
+) -> Module {
+  let ty = if result {
+    gen_valid_sgo_i32_result_type()
+  } else {
+    gen_valid_sgo_void_type()
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([ty]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]))
+}
+
+///|
+fn gen_valid_sgo_profile_module(config : GenValidConfig) -> Module {
+  match gen_valid_sgo_profile_kind(config) {
+    SgoSameInitDeadSetProfile =>
+      gen_valid_sgo_func_module(true, [
+        Instruction::i32_const(I32(7)),
+        Instruction::global_set(GlobalIdx::new(0U)),
+        Instruction::global_get(GlobalIdx::new(0U)),
+      ]).with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(7))]),
+          ),
+        ]),
+      )
+    SgoReadOnlyToWriteProfile =>
+      gen_valid_sgo_func_module(false, [
+        Instruction::global_get(GlobalIdx::new(0U)),
+        Instruction::if_(
+          BlockType::void_(),
+          [
+            Instruction::i32_const(I32(1)),
+            Instruction::global_set(GlobalIdx::new(0U)),
+          ],
+          None,
+        ),
+      ]).with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+        ]),
+      )
+    SgoStartupPropagationProfile =>
+      Module::new()
+      .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+      .with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), false),
+            Expr::new([Instruction::i32_const(I32(4))]),
+          ),
+        ]),
+      )
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+            ),
+            b"x",
+          ),
+        ]),
+      )
+    SgoRuntimePropagationProfile =>
+      gen_valid_sgo_func_module(true, [
+        Instruction::i32_const(I32(9)),
+        Instruction::global_set(GlobalIdx::new(0U)),
+        Instruction::global_get(GlobalIdx::new(0U)),
+      ]).with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+        ]),
+      )
+    SgoNestedCleanupProfile =>
+      gen_valid_sgo_func_module(false, [
+        Instruction::global_get(GlobalIdx::new(0U)),
+        Instruction::drop(),
+      ]).with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(7))]),
+          ),
+        ]),
+      )
+    _ =>
+      Module::new().with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), false),
+            Expr::new([
+              Instruction::i32_const(I32(40)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          Global::new(
+            GlobalType::new(ValType::i32(), false),
+            Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+          ),
+        ]),
+      )
+  }
+}
+
+///|
 fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let family_id = match profile {
@@ -23505,6 +23797,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_inlining_optimizing_profile_config(config) {
     return gen_valid_inlining_optimizing_profile_module(config)
+  }
+  if gen_valid_is_sgo_profile_config(config) {
+    return gen_valid_sgo_profile_module(config)
   }
   if gen_valid_is_vacuum_profile_config(config) {
     return gen_valid_vacuum_profile_module(config)

@@ -1145,6 +1145,13 @@ pub enum GenValidProfile {
   InliningOptimizingReturnCallProfile
   InliningOptimizingCleanupPayoffProfile
   InliningOptimizingAllProfile
+  SgoInitializerFoldingProfile
+  SgoSameInitDeadSetProfile
+  SgoReadOnlyToWriteProfile
+  SgoStartupPropagationProfile
+  SgoRuntimePropagationProfile
+  SgoNestedCleanupProfile
+  SgoAllProfile
   PassMemoryProfile
   PassGcRefProfile
   PassControlProfile

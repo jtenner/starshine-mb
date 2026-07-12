@@ -2502,6 +2502,108 @@ test "inlining-optimizing GenValid aggregate samples focused inline cleanup leav
 }
 
 ///|
+test "simplify-globals-optimizing GenValid profile resolves aggregate leaves" {
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoInitializerFoldingProfile),
+    "simplify-globals-optimizing-initializer-folding",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoSameInitDeadSetProfile),
+    "simplify-globals-optimizing-same-init-dead-set",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoReadOnlyToWriteProfile),
+    "simplify-globals-optimizing-read-only-to-write",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoStartupPropagationProfile),
+    "simplify-globals-optimizing-startup-propagation",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoRuntimePropagationProfile),
+    "simplify-globals-optimizing-runtime-propagation",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoNestedCleanupProfile),
+    "simplify-globals-optimizing-nested-cleanup",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SgoAllProfile),
+    "simplify-globals-optimizing-all",
+  )
+  assert_true(
+    gen_valid_profile_names().contains("simplify-globals-optimizing-all"),
+  )
+  match gen_valid_profile_by_name("sgo-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SgoAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(SgoInitializerFoldingProfile, 2),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(SgoSameInitDeadSetProfile, 2),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(SgoReadOnlyToWriteProfile, 3),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(SgoStartupPropagationProfile, 2),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(SgoRuntimePropagationProfile, 3),
+        ),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(SgoNestedCleanupProfile, 2)),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "simplify-globals-optimizing focused GenValid leaves emit global rewrite triggers" {
+  let profiles = [
+    SgoInitializerFoldingProfile,
+    SgoSameInitDeadSetProfile,
+    SgoReadOnlyToWriteProfile,
+    SgoStartupPropagationProfile,
+    SgoRuntimePropagationProfile,
+    SgoNestedCleanupProfile,
+  ]
+  for profile in profiles {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      gen_valid_test_sgo_module_has_trigger(generated.wasm_module, profile),
+      msg="SGO profile \\{gen_valid_profile_name(profile)} did not emit its expected trigger",
+    )
+  }
+}
+
+///|
 test "inlining-optimizing focused GenValid leaves emit direct inline cleanup triggers" {
   let profiles = [
     InliningOptimizingDirectWrapperProfile,
@@ -3669,6 +3771,135 @@ fn gen_valid_test_module_has_global_set(mod : Module) -> Bool {
     None => ()
   }
   false
+}
+
+///|
+fn gen_valid_test_instrs_have_global_get(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      GlobalGet(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_global_get(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_global_get(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_global_get(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_if(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      If(_, _, _) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_if(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_global_get(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          Func(_, Expr(body)) if gen_valid_test_instrs_have_global_get(body) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_if(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          Func(_, Expr(body)) if gen_valid_test_instrs_have_if(body) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_global_initializer_get(mod : Module) -> Bool {
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        match global {
+          Global(_, Expr(init)) if gen_valid_test_instrs_have_global_get(init) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_active_data_global_offset(mod : Module) -> Bool {
+  match mod.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        match data {
+          Data(Active(_, Expr(offset)), _) if gen_valid_test_instrs_have_global_get(
+              offset,
+            ) => return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_sgo_module_has_trigger(
+  mod : Module,
+  profile : GenValidProfile,
+) -> Bool {
+  match profile {
+    SgoInitializerFoldingProfile =>
+      gen_valid_test_module_has_global_initializer_get(mod)
+    SgoSameInitDeadSetProfile | SgoRuntimePropagationProfile =>
+      gen_valid_test_module_has_global_set(mod) &&
+      gen_valid_test_module_has_global_get(mod)
+    SgoReadOnlyToWriteProfile =>
+      gen_valid_test_module_has_global_set(mod) &&
+      gen_valid_test_module_has_global_get(mod) &&
+      gen_valid_test_module_has_if(mod)
+    SgoStartupPropagationProfile =>
+      gen_valid_test_module_has_active_data_global_offset(mod)
+    SgoNestedCleanupProfile =>
+      gen_valid_test_module_has_global_get(mod) &&
+      !gen_valid_test_module_has_global_set(mod)
+    _ => false
+  }
 }
 
 ///|
