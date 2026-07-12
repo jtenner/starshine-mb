@@ -8704,8 +8704,14 @@ fn OiSignExtValueFact::from_assigned_value(
   // Binaryen's LocalScanner computes the value fact for an assignment from the
   // assigned expression itself, not from the local fact being built. Keep that
   // no-local-get boundary explicit so self-referential local.set/tee shapes do
-  // not smuggle stale scan state into the whole-function summary.
-  OiSignExtValueFact::from_node_with_local_facts(func, dead, None, node_id)
+  // not smuggle stale scan state into the whole-function summary. Its direct
+  // optimize-instructions output also keeps sign extensions after literal
+  // assignments, so literals do not seed this producer-only local fact.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const => OiSignExtValueFact::from_bits(0)
+    _ =>
+      OiSignExtValueFact::from_node_with_local_facts(func, dead, None, node_id)
+  }
 }
 
 ///|
@@ -32883,6 +32889,13 @@ fn optimize_instructions_try_remove_redundant_sign_ext(
   let needed_bits = optimize_instructions_required_sign_ext_bits(instr)
   if needed_bits == 0 {
     return false
+  }
+  // Binaryen v130 keeps direct literal sign-extension shells. Restrict this
+  // general redundancy rule to producer/local facts so exact literal knowledge
+  // does not accidentally widen the pass beyond the oracle's visitUnary shape.
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::Const => return false
+    _ => ()
   }
   let known_bits = optimize_instructions_sign_ext_bits_for_value(
     func, dead, scratch, operand_id,

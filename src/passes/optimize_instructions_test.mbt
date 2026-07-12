@@ -80685,6 +80685,38 @@ test "optimize-instructions uses local sign facts after fallthrough sets" {
 }
 
 ///|
+test "optimize-instructions keeps in-range literal sign extensions like Binaryen" {
+  // Binaryen v130's direct pass keeps literal sign-extension shells even when
+  // the literal already fits the signed lane. The reusable sign-width fact may
+  // remove an extension proven redundant by a signed producer or local fact,
+  // but must not turn literal knowledge into a broader output-shape rewrite.
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 127 i32.extend8_s))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_func, i32_root),
+    Some(@lib.Instruction::i32_extend8s()),
+  )
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (result i64) i64.const 2147483647 i64.extend32_s))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_func, i64_root),
+    Some(@lib.Instruction::i64_extend32s()),
+  )
+  let local_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (local i32) i32.const 127 local.set 0 local.get 0 i32.extend8_s))",
+  )
+  let local_root = @ir.hot_root_get(local_func, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(local_func, local_root),
+    Some(@lib.Instruction::i32_extend8s()),
+  )
+}
+
+///|
 test "optimize-instructions preserves sign extensions for constants outside signed lane range" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i32.const 255 i32.extend8_s))",
