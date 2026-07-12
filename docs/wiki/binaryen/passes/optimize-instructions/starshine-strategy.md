@@ -278,7 +278,7 @@ related:
 
 ## Finish synthesized roots with general rules
 
-When a rewrite synthesizes a new scalar root after that root's normal post-order visit slot, the producing fact should immediately reuse the ordinary rule facts needed to finish that root locally. Boolean select algebra now runs the shared binary identity and exact-constant rules on its synthesized `and`/`or` root. This keeps downstream bulk-memory facts source-faithful—they still require the direct constant size that Binaryen's `optimizeMemoryCopy` / `optimizeMemoryFill` consume—without admitting select/or shapes, adding a whole-body revisit, or creating a producer/consumer matrix. The deterministic count-1000 `pass-oi-all` lane is therefore `896` normalized / `104` measured tuple-only residuals with zero failures.
+When a rewrite synthesizes a new scalar root after that root's normal post-order visit slot, the producing fact should immediately reuse the ordinary rule facts needed to finish that root locally. Boolean select algebra now delegates its synthesized `and`/`or` root to `OiSynthesizedI32BinaryFact`, which runs the shared binary identity, absorbing, and exact-constant rules locally. This keeps downstream bulk-memory facts source-faithful—they still require the direct constant size that Binaryen's `optimizeMemoryCopy` / `optimizeMemoryFill` consume—without admitting select/or shapes, adding a whole-body revisit, or creating a producer/consumer matrix. The deterministic count-1000 `pass-oi-all` lane is therefore `896` normalized / `104` measured tuple-only residuals with zero failures.
 
 ## Fresh aggregate consumer boundaries
 

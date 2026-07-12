@@ -23764,6 +23764,40 @@ test "optimize-instructions lowers one-bit true-one selects to or" {
 }
 
 ///|
+test "optimize-instructions finishes synthesized constant boolean algebra roots" {
+  // A producing select fact owns the local finishing of its newly synthesized
+  // binary root. This locks constant and/or outcomes without a second body walk
+  // and without widening any downstream consumer to accept binary shapes.
+  let or_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (select (i32.const 1) (i32.const 1) (i32.const 0))))",
+  )
+  let or_root = @ir.hot_root_get(or_func, 0)
+  match @ir.hot_node_get(or_func, or_root).op {
+    @ir.HotOp::Const => ()
+    other =>
+      fail("expected synthesized or root to finish as const, got \{other}")
+  }
+  match @ir.hot_const_get(or_func, @ir.hot_node_get(or_func, or_root).imm0) {
+    @ir.HotConstPayload::I32Const(@lib.I32(1)) => ()
+    other => fail("expected synthesized or result one, got \{other}")
+  }
+
+  let and_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (select (i32.const 0) (i32.const 0) (i32.const 1))))",
+  )
+  let and_root = @ir.hot_root_get(and_func, 0)
+  match @ir.hot_node_get(and_func, and_root).op {
+    @ir.HotOp::Const => ()
+    other =>
+      fail("expected synthesized and root to finish as const, got \{other}")
+  }
+  match @ir.hot_const_get(and_func, @ir.hot_node_get(and_func, and_root).imm0) {
+    @ir.HotConstPayload::I32Const(@lib.I32(0)) => ()
+    other => fail("expected synthesized and result zero, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions hoists eqz from select arms paired with booleans" {
   // Red-first OI-F ternary parity slice: Binaryen version_130
   // `optimizeTernary` moves a direct i32/i64 eqz out of a select when the

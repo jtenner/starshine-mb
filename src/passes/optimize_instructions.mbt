@@ -27033,6 +27033,71 @@ priv enum OiBooleanSelectAlgebraKind {
 }
 
 ///|
+priv struct OiSynthesizedI32BinaryFact {
+  instr : @lib.Instruction
+  left_id : Int
+  right_id : Int
+}
+
+///|
+fn OiSynthesizedI32BinaryFact::new(
+  instr : @lib.Instruction,
+  left_id : Int,
+  right_id : Int,
+) -> OiSynthesizedI32BinaryFact {
+  { instr, left_id, right_id }
+}
+
+///|
+fn OiSynthesizedI32BinaryFact::apply(
+  self : OiSynthesizedI32BinaryFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Unit {
+  let replacement = optimize_instructions_build_i32_binary(
+    func,
+    self.instr,
+    self.left_id,
+    self.right_id,
+  )
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
+  // A producer that creates a binary after its ordinary post-order slot owns
+  // the local reuse of normal binary finishing facts. Keep this bounded to the
+  // current root: no body revisit, consumer admission widening, or new scanner.
+  ignore(
+    optimize_instructions_try_fold_identity_binary(
+      ctx,
+      func,
+      dead,
+      node_id,
+      self.instr,
+      self.left_id,
+      self.right_id,
+    ) ||
+    optimize_instructions_try_fold_absorbing_binary(
+      ctx,
+      func,
+      dead,
+      node_id,
+      self.instr,
+      self.left_id,
+      self.right_id,
+    ) ||
+    optimize_instructions_try_fold_exact_const_binary(
+      ctx,
+      func,
+      dead,
+      node_id,
+      self.instr,
+      self.left_id,
+      self.right_id,
+    ),
+  )
+}
+
+///|
 priv struct OiBooleanSelectAlgebraFact {
   kind : OiBooleanSelectAlgebraKind
   condition_fact : OiOneBitI32ValueFact
@@ -27099,24 +27164,11 @@ fn OiBooleanSelectAlgebraFact::apply(
     BooleanSelectOrTrueOne =>
       (@lib.Instruction::i32_or(), self.if_false_fact.value_id())
   }
-  let right_id = self.condition_fact.value_id()
-  let replacement = optimize_instructions_build_i32_binary(
-    func, instr, left_id, right_id,
-  )
-  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
-  // `optimizeSelect` can synthesize a binary root after that root's ordinary
-  // post-order visit slot has passed. Reuse the general binary identity and
-  // exact-constant rules immediately so the replacement reaches the same local
-  // fixed point as Binaryen without revisiting the body or teaching consumers
-  // about `select` or `or` shapes.
-  ignore(
-    optimize_instructions_try_fold_identity_binary(
-      ctx, func, dead, node_id, instr, left_id, right_id,
-    ) ||
-    optimize_instructions_try_fold_exact_const_binary(
-      ctx, func, dead, node_id, instr, left_id, right_id,
-    ),
-  )
+  OiSynthesizedI32BinaryFact::new(
+    instr,
+    left_id,
+    self.condition_fact.value_id(),
+  ).apply(ctx, func, dead, node_id)
   true
 }
 
