@@ -31488,6 +31488,21 @@ fn RawOiDescriptorCallValueGraphFact::instr_args(
 }
 
 ///|
+fn RawOiDescriptorCallValueGraphFact::has_local_default_candidate_at(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Bool {
+  if start < 0 || start + 2 >= self.instrs.length() {
+    return false
+  }
+  match (self.instrs[start], self.instrs[start + 1], self.instrs[start + 2]) {
+    (@lib.LocalGet(_), @lib.StructNewDefault(_), @lib.RefCastDescEq(_, _, _)) =>
+      true
+    _ => false
+  }
+}
+
+///|
 fn RawOiDescriptorCallValueGraphFact::local_args(
   self : RawOiDescriptorCallValueGraphFact,
   start : Int,
@@ -32392,10 +32407,10 @@ fn RawOiDescriptorDirectCallExactificationFact::append_rewrite(
 // exact-success direct-call subset; broader success facts belong in that fact
 // family or the visitor-level descriptor facts, not in this loop.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
-  instrs : Array[@lib.Instruction],
+  graph : RawOiDescriptorCallValueGraphFact,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
-  let graph = RawOiDescriptorCallValueGraphFact::from_body(instrs)
+  let instrs = graph.instrs
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
@@ -32424,12 +32439,10 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
 // direct-call exactification subset; any new proof fields should live in that
 // fact or in shared descriptor type/producer facts.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
-  instrs : Array[@lib.Instruction],
+  graph : RawOiDescriptorCallValueGraphFact,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
-  let graph = RawOiDescriptorCallValueGraphFact::from_module_body(
-    instrs, module_ctx,
-  )
+  let instrs = graph.instrs
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
@@ -32550,17 +32563,18 @@ priv struct RawOiDescriptorLocalDefaultMissFact {
 }
 
 ///|
-fn RawOiDescriptorLocalDefaultMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorLocalDefaultMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> RawOiDescriptorLocalDefaultMissFact? {
-  if start + 2 >= instrs.length() {
+  if !graph.has_local_default_candidate_at(start) {
     return None
   }
-  match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+  match
+    (graph.instrs[start], graph.instrs[start + 1], graph.instrs[start + 2]) {
     (
       @lib.LocalGet(local_idx),
       @lib.StructNewDefault(descriptor_type),
@@ -32714,60 +32728,43 @@ priv struct RawOiDescriptorLocalCallOperandMissFact {
 }
 
 ///|
-fn RawOiDescriptorLocalCallOperandMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorLocalCallOperandMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> RawOiDescriptorLocalCallOperandMissFact? {
-  if start >= instrs.length() {
+  if start >= graph.instrs.length() {
     return None
   }
-  let local_idx = match instrs[start] {
+  let local_idx = match graph.instrs[start] {
     @lib.LocalGet(local_idx) => local_idx
     _ => return None
   }
-  let desc_args : Array[@lib.Instruction] = []
-  let mut scan = start + 1
-  while scan < instrs.length() {
-    match
-      RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
-        instrs[scan],
-        scan,
-      ) {
-      Some(fact) if fact.proves_binaryen_operand_preservation() => {
-        fact.append_instrs(instrs, desc_args)
-        scan = fact.end
-        continue
-      }
-      _ => ()
-    }
-    match instrs[scan] {
-      @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
-        match instrs[scan + 1] {
-          @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-              module_ctx,
-              descriptor_func,
-              target,
-              desc_args.length(),
-            ) &&
-            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-              module_ctx, params, locals, local_idx, target,
-            ) =>
-            return Some({
-              end: scan + 2,
-              local_idx,
-              descriptor_func,
-              target,
-              desc_args,
-            })
-          _ => return None
-        }
-      _ => return None
-    }
+  let desc_start = start + 1
+  let desc_end = graph.nontrapping_run_end(desc_start)
+  if desc_end + 1 >= graph.instrs.length() {
+    return None
   }
-  None
+  let desc_args = graph.instr_args(desc_start, desc_end)
+  let descriptor_func = match graph.instrs[desc_end] {
+    @lib.Call(descriptor_func) => descriptor_func
+    _ => return None
+  }
+  match graph.instrs[desc_end + 1] {
+    @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+        module_ctx,
+        descriptor_func,
+        target,
+        desc_args.length(),
+      ) &&
+      RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+        module_ctx, params, locals, local_idx, target,
+      ) =>
+      Some({ end: desc_end + 2, local_idx, descriptor_func, target, desc_args })
+    _ => None
+  }
 }
 
 ///|
@@ -32804,25 +32801,23 @@ fn RawOiDescriptorLocalCallOperandMissFact::append_rewrite(
 // parameter facts once. Reopen if it starts owning descriptor argument,
 // producer, target, arity, or preservation proofs outside those facts.
 fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-  instrs : Array[@lib.Instruction],
+  graph : RawOiDescriptorCallValueGraphFact,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
   locals : @lib.Locals,
 ) -> (Array[@lib.Instruction], Bool) {
+  let instrs = graph.instrs
   let params = match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, _)) => params
     None => return (instrs.copy(), false)
   }
-  let graph = RawOiDescriptorCallValueGraphFact::from_module_body(
-    instrs, module_ctx,
-  )
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     match
-      RawOiDescriptorLocalCallOperandMissFact::from_instrs(
-        instrs, i, module_ctx, params, locals,
+      RawOiDescriptorLocalCallOperandMissFact::from_graph(
+        graph, i, module_ctx, params, locals,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)
@@ -32854,8 +32849,8 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       _ => ()
     }
     match
-      RawOiDescriptorLocalDefaultMissFact::from_instrs(
-        instrs, i, module_ctx, params, locals,
+      RawOiDescriptorLocalDefaultMissFact::from_graph(
+        graph, i, module_ctx, params, locals,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)
@@ -33791,26 +33786,41 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     "detail:optimize-instructions:raw-descriptor-bridges",
   )
   let has_descriptor_candidate = oi_index.bridge_candidates.needs_descriptor_reconstruction()
-  let (exact_success_body, exact_success_changed) = if has_descriptor_candidate {
-    run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+  let (
+    exact_success_changed,
+    exactification_changed,
+    exact_miss_body,
+    exact_miss_changed,
+  ) = if has_descriptor_candidate {
+    let success_graph = RawOiDescriptorCallValueGraphFact::from_module_body(
       body, module_ctx,
     )
-  } else {
-    (body, false)
-  }
-  let (exactification_body, exactification_changed) = if has_descriptor_candidate {
-    run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
-      exact_success_body, module_ctx,
+    let (success_body, success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+      success_graph, module_ctx,
     )
-  } else {
-    (exact_success_body, false)
-  }
-  let (exact_miss_body, exact_miss_changed) = if has_descriptor_candidate {
-    run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-      exactification_body, module_ctx, func_idx, locals,
+    let exactification_graph = if success_changed {
+      RawOiDescriptorCallValueGraphFact::from_module_body(
+        success_body, module_ctx,
+      )
+    } else {
+      success_graph
+    }
+    let (exactification_body, exactification_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
+      exactification_graph, module_ctx,
     )
+    let miss_graph = if exactification_changed {
+      RawOiDescriptorCallValueGraphFact::from_module_body(
+        exactification_body, module_ctx,
+      )
+    } else {
+      exactification_graph
+    }
+    let (miss_body, miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
+      miss_graph, module_ctx, func_idx, locals,
+    )
+    (success_changed, exactification_changed, miss_body, miss_changed)
   } else {
-    (exactification_body, false)
+    (false, false, body, false)
   }
   let directization_index = if exact_success_changed ||
     exactification_changed ||
@@ -33830,7 +33840,10 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let (tnh_exact_success_body, tnh_exact_success_changed) = if options.traps_never_happen &&
     has_descriptor_candidate {
     run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
-      directized_body, module_ctx,
+      RawOiDescriptorCallValueGraphFact::from_module_body(
+        directized_body, module_ctx,
+      ),
+      module_ctx,
     )
   } else {
     (directized_body, false)
@@ -56239,8 +56252,11 @@ fn run_hot_pipeline_func(
       if descriptor.name == "optimize-instructions" {
         let original = run_hot_pipeline_original_func(mod_, func_idx)
         let @lib.Func(locals, @lib.Expr(body)) = original
-        let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+        let descriptor_graph = RawOiDescriptorCallValueGraphFact::from_module_body(
           body, module_ctx,
+        )
+        let (exact_success_body, exact_success_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
+          descriptor_graph, module_ctx,
         )
         if exact_success_changed {
           return Ok({
@@ -56251,7 +56267,7 @@ fn run_hot_pipeline_func(
           })
         }
         let (exactification_body, exactification_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_exactification_body(
-          body, module_ctx,
+          descriptor_graph, module_ctx,
         )
         if exactification_changed {
           return Ok({
@@ -56262,7 +56278,7 @@ fn run_hot_pipeline_func(
           })
         }
         let (exact_miss_body, exact_miss_changed) = run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
-          exactification_body, module_ctx, func_idx, locals,
+          descriptor_graph, module_ctx, func_idx, locals,
         )
         if exact_miss_changed {
           return Ok({

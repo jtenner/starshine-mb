@@ -105,6 +105,19 @@ test "descriptor call value graph reuses ordered local operand runs" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
   ])
+  let default_graph = RawOiDescriptorCallValueGraphFact::from_body([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::struct_new_default(@lib.TypeIdx::new(1U)),
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+        exact=true,
+      ),
+    ),
+  ])
+  assert_true(default_graph.has_local_default_candidate_at(0))
+  assert_false(default_graph.has_local_default_candidate_at(1))
 }
 
 ///|
