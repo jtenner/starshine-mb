@@ -3113,7 +3113,9 @@ test "dae direct-caller scope application is transactional and count verified" {
     }
   }
   let application = dae_apply_direct_caller_scope_rewrite(
-    original_funcs, [-1, 0, 1, 4], rewrite,
+    original_funcs,
+    [-1, 0, 1, 4],
+    rewrite,
   )
   assert_true(application.ok)
   assert_true(application.changed)
@@ -3122,25 +3124,24 @@ test "dae direct-caller scope application is transactional and count verified" {
   assert_eq(visited, [0, 1])
   assert_eq(application.funcs[1], original_funcs[1])
   assert_eq(application.funcs[2], original_funcs[2])
-  let failed = dae_apply_direct_caller_scope_rewrite(
-    original_funcs,
-    [0, 1],
-    fn(func, def_idx) {
-      if def_idx == 0 {
-        {
-          func: @lib.Func::new(
-            @lib.Locals::empty(),
-            @lib.Expr::new([@lib.Instruction::drop()]),
-          ),
-          calls_rewritten: 1,
-          changed: true,
-          ok: true,
-        }
-      } else {
-        { func, calls_rewritten: 0, changed: false, ok: false }
+  let failed = dae_apply_direct_caller_scope_rewrite(original_funcs, [0, 1], fn(
+    func,
+    def_idx,
+  ) {
+    if def_idx == 0 {
+      {
+        func: @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::drop()]),
+        ),
+        calls_rewritten: 1,
+        changed: true,
+        ok: true,
       }
-    },
-  )
+    } else {
+      { func, calls_rewritten: 0, changed: false, ok: false }
+    }
+  })
   assert_false(failed.ok)
   assert_false(failed.changed)
   assert_eq(failed.calls_rewritten, 0)

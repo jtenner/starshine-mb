@@ -803,6 +803,23 @@ priv struct DaeCallBoundaryCandidate {
 }
 
 ///|
+priv struct DaeDirectCallerRewriteEvidence {
+  func : @lib.Func
+  calls_rewritten : Int
+  changed : Bool
+  ok : Bool
+}
+
+///|
+priv struct DaeDirectCallerScopeApplication {
+  funcs : Array[@lib.Func]
+  calls_rewritten : Int
+  changed_defs : Array[Bool]
+  changed : Bool
+  ok : Bool
+}
+
+///|
 priv enum DaeTargetCallsiteMode {
   DaeTargetDirectCallOnly
   DaeTargetDirectOrReturnCall
@@ -10663,6 +10680,39 @@ fn dae_try_refine_mixed_multi_result_if_fallthrough_body(
 }
 
 ///|
+fn dae_apply_direct_caller_scope_rewrite(
+  funcs : Array[@lib.Func],
+  direct_caller_defs : Array[Int],
+  rewrite_caller : (@lib.Func, Int) -> DaeDirectCallerRewriteEvidence,
+) -> DaeDirectCallerScopeApplication {
+  let rewritten_funcs = funcs.copy()
+  let changed_defs = Array::make(funcs.length(), false)
+  let mut calls_rewritten = 0
+  let mut changed = false
+  for caller_def in direct_caller_defs {
+    if caller_def >= 0 && caller_def < rewritten_funcs.length() {
+      let evidence = rewrite_caller(rewritten_funcs[caller_def], caller_def)
+      if !evidence.ok {
+        return {
+          funcs,
+          calls_rewritten: 0,
+          changed_defs: Array::make(funcs.length(), false),
+          changed: false,
+          ok: false,
+        }
+      }
+      calls_rewritten += evidence.calls_rewritten
+      if evidence.changed {
+        rewritten_funcs[caller_def] = evidence.func
+        changed_defs[caller_def] = true
+        changed = true
+      }
+    }
+  }
+  { funcs: rewritten_funcs, calls_rewritten, changed_defs, changed, ok: true }
+}
+
+///|
 fn dae_try_refine_direct_gc_types(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -10699,7 +10749,7 @@ fn dae_try_refine_direct_gc_types(
   let next_params = params.copy()
   let next_results = results.copy()
   let refined_params = Array::make(params.length(), false)
-  let rewritten_funcs = funcs.copy()
+  let mut rewritten_funcs = funcs.copy()
   let mut caller_body_changed = false
   let mut next_body = body
   let mut result_body_changed = false
@@ -10745,36 +10795,36 @@ fn dae_try_refine_direct_gc_types(
       }
     }
     if changed {
-      let mut rewritten_calls = 0
-      for caller_def in direct_caller_defs {
-        if caller_def >= 0 && caller_def < rewritten_funcs.length() {
-          let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
-          let (rewritten_body, calls, ok, body_changed) = dae_rewrite_refined_gc_actuals_instrs(
-            caller_body, callee_abs, refined_params, next_params, 0, mod_, type_indices,
-          )
-          rewritten_calls += calls
-          if !ok {
-            return {
-              mod_out: mod_,
-              touched: [],
-              changed: false,
-              primary_def: -1,
-            }
-          }
-          if body_changed {
-            rewritten_funcs[caller_def] = @lib.Func::new(
-              caller_locals,
-              @lib.Expr::new(rewritten_body),
-            )
-            caller_body_changed = true
-            if caller_def == def_idx {
-              next_body = rewritten_body
-            }
-          }
+      let rewrite_caller = fn(caller_func, _) {
+        let @lib.Func(caller_locals, @lib.Expr(caller_body)) = caller_func
+        let (rewritten_body, calls, ok, body_changed) = dae_rewrite_refined_gc_actuals_instrs(
+          caller_body, callee_abs, refined_params, next_params, 0, mod_, type_indices,
+        )
+        let rewritten_func = if body_changed {
+          @lib.Func::new(caller_locals, @lib.Expr::new(rewritten_body))
+        } else {
+          caller_func
+        }
+        {
+          func: rewritten_func,
+          calls_rewritten: calls,
+          changed: body_changed,
+          ok,
         }
       }
-      if rewritten_calls != direct_call_count {
+      let application = dae_apply_direct_caller_scope_rewrite(
+        funcs, direct_caller_defs, rewrite_caller,
+      )
+      if !application.ok || application.calls_rewritten != direct_call_count {
         return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+      rewritten_funcs = application.funcs
+      caller_body_changed = application.changed
+      if def_idx >= 0 &&
+        def_idx < application.changed_defs.length() &&
+        application.changed_defs[def_idx] {
+        let @lib.Func(_, @lib.Expr(rewritten_body)) = rewritten_funcs[def_idx]
+        next_body = rewritten_body
       }
     }
   }
@@ -11198,54 +11248,64 @@ fn dae_try_rewrite_candidate(
   if tail_call_boundary.blocks_direct_call_rewrite {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let rewritten_funcs = funcs.copy()
   let localized_params = Array::make(params.length(), false)
-  let mut rewritten_calls = 0
-  let mut caller_idx = 0
-  while caller_idx < direct_caller_defs.length() {
-    let caller_def = direct_caller_defs[caller_idx]
-    if caller_def >= 0 && caller_def < funcs.length() {
-      let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
-      let caller_abs = imported + caller_def
-      let caller_params = match
-        dae_resolve_func_type(mod_, type_indices, caller_abs) {
-        Some(@lib.FuncType(caller_params, _)) => caller_params
-        None =>
-          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-      }
-      let localization = {
-        first_scratch_local: caller_params.length() + locals.length(),
-        param_types: params,
-        scratch_local_types: [],
-        localized_params,
-      }
-      let result = dae_rewrite_calls_instrs(
-        body,
-        callee_abs,
-        remove,
-        0,
-        mod_,
-        type_indices,
-        localization=Some(localization),
-      )
-      if !result.ok {
-        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-      }
-      if result.calls_rewritten > 0 {
-        let rewritten_locals = locals.copy()
-        rewritten_locals.append_types(localization.scratch_local_types)
-        rewritten_funcs[caller_def] = @lib.Func::new(
-          rewritten_locals,
-          @lib.Expr::new(result.instrs),
-        )
-        rewritten_calls += result.calls_rewritten
+  let rewrite_caller = fn(caller_func, caller_def) {
+    let @lib.Func(locals, @lib.Expr(body)) = caller_func
+    let caller_abs = imported + caller_def
+    let caller_params = match
+      dae_resolve_func_type(mod_, type_indices, caller_abs) {
+      Some(@lib.FuncType(caller_params, _)) => caller_params
+      None =>
+        return {
+          func: caller_func,
+          calls_rewritten: 0,
+          changed: false,
+          ok: false,
+        }
+    }
+    let localization = {
+      first_scratch_local: caller_params.length() + locals.length(),
+      param_types: params,
+      scratch_local_types: [],
+      localized_params,
+    }
+    let result = dae_rewrite_calls_instrs(
+      body,
+      callee_abs,
+      remove,
+      0,
+      mod_,
+      type_indices,
+      localization=Some(localization),
+    )
+    if !result.ok {
+      return {
+        func: caller_func,
+        calls_rewritten: 0,
+        changed: false,
+        ok: false,
       }
     }
-    caller_idx += 1
+    if result.calls_rewritten > 0 {
+      let rewritten_locals = locals.copy()
+      rewritten_locals.append_types(localization.scratch_local_types)
+      {
+        func: @lib.Func::new(rewritten_locals, @lib.Expr::new(result.instrs)),
+        calls_rewritten: result.calls_rewritten,
+        changed: true,
+        ok: true,
+      }
+    } else {
+      { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+    }
   }
-  if rewritten_calls != direct_call_count {
+  let application = dae_apply_direct_caller_scope_rewrite(
+    funcs, direct_caller_defs, rewrite_caller,
+  )
+  if !application.ok || application.calls_rewritten != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let rewritten_funcs = application.funcs
   let callee_rewrite = match
     dae_removed_param_callee_rewrite_evidence(
       rewritten_funcs[def_idx],
