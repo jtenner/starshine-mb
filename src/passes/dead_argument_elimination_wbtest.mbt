@@ -2936,10 +2936,7 @@ test "dae removed-param callee application centralizes cleanup and finalization"
       @lib.TypeSec::new([
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func(
-              [@lib.ValType::i32()],
-              [@lib.ValType::i32()],
-            ),
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
           ),
         ),
       ]),
@@ -2956,9 +2953,7 @@ test "dae removed-param callee application centralizes cleanup and finalization"
         ),
         @lib.Func::new(
           @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-          ]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
         ),
       ]),
     )
@@ -2981,7 +2976,11 @@ test "dae removed-param callee application centralizes cleanup and finalization"
     ],
   }
   let result = dae_apply_removed_param_callee_rewrite(
-    mod_, context, rewritten_funcs, rewrite, [@lib.ValType::i32()],
+    mod_,
+    context,
+    rewritten_funcs,
+    rewrite,
+    [@lib.ValType::i32()],
   )
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)

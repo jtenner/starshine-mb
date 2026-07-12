@@ -11259,37 +11259,15 @@ fn dae_try_rewrite_candidate(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let rewritten_total_locals = callee_rewrite.kept_params.length() +
-    callee_rewrite.locals.length()
-  let rewritten_written_locals = dae_collect_written_locals(
-    callee_rewrite.body,
-    rewritten_total_locals,
-  )
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_simplify_default_zero_high_guard_instrs(
-        callee_rewrite.body,
-        callee_rewrite.kept_params.length(),
-        rewritten_written_locals,
-      ),
-      def_idx == 505,
-    ),
-  )
-  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
-  )
   let context = match
     dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
     Some(context) => context
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let plan = dae_module_code_finalization_plan(
-    callee_rewrite.kept_params,
-    results,
-    DaeTouchModuleCodeChangedFuncs,
+  dae_apply_removed_param_callee_rewrite(
+    mod_, context, rewritten_funcs, callee_rewrite, results,
   )
-  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
@@ -11998,6 +11976,45 @@ fn dae_apply_module_code_finalization(
     changed: true,
     primary_def: signature_result.primary_def,
   }
+}
+
+///|
+fn dae_apply_removed_param_callee_rewrite(
+  mod_ : @lib.Module,
+  context : DaeModuleSignatureContext,
+  rewritten_funcs : Array[@lib.Func],
+  rewrite : DaeRemovedParamCalleeRewriteEvidence,
+  results : Array[@lib.ValType],
+) -> DaePassResult {
+  let def_idx = context.def_idx
+  if def_idx < 0 || def_idx >= rewritten_funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_total_locals = rewrite.kept_params.length() +
+    rewrite.locals.length()
+  let rewritten_written_locals = dae_collect_written_locals(
+    rewrite.body,
+    rewritten_total_locals,
+  )
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_simplify_default_zero_high_guard_instrs(
+        rewrite.body,
+        rewrite.kept_params.length(),
+        rewritten_written_locals,
+      ),
+      def_idx == 505,
+    ),
+  )
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(rewrite.locals, @lib.Expr::new(new_body)),
+  )
+  let plan = dae_module_code_finalization_plan(
+    rewrite.kept_params,
+    results,
+    DaeTouchModuleCodeChangedFuncs,
+  )
+  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
@@ -28647,31 +28664,9 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let rewritten_total_locals = callee_rewrite.kept_params.length() +
-    callee_rewrite.locals.length()
-  let rewritten_written_locals = dae_collect_written_locals(
-    callee_rewrite.body,
-    rewritten_total_locals,
+  dae_apply_removed_param_callee_rewrite(
+    mod_, context, rewritten_funcs, callee_rewrite, results,
   )
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_simplify_default_zero_high_guard_instrs(
-        callee_rewrite.body,
-        callee_rewrite.kept_params.length(),
-        rewritten_written_locals,
-      ),
-      def_idx == 505,
-    ),
-  )
-  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
-  )
-  let plan = dae_module_code_finalization_plan(
-    callee_rewrite.kept_params,
-    results,
-    DaeTouchModuleCodeChangedFuncs,
-  )
-  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
