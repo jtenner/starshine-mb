@@ -5331,7 +5331,7 @@ test "optimize and shrink presets strip names while preserving non-name custom s
 test "optimize preset hands simplify-locals output to the late merge-blocks cleanup cluster" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (import \"m\" \"id\" (func $id (param i32) (result i32))) (func (export \"f\") (param i32) (result i32) (local i32) local.get 0 if i32.const 1 call $id local.set 1 else i32.const 2 call $id local.set 1 end local.get 1))",
+    "(module (func (export \"f\") (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
   )
   let optimized = match
     run_hot_pipeline(

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-06
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
@@ -498,7 +498,7 @@ The local file now models the first `visitTupleExtract(...)` family for one-use 
 - local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape;
 - multi-result non-selected siblings are a current tuple-scratch localization boundary: Binaryen `version_130` materializes tuple scratch and scalar drops for the probed shapes, including both later and earlier multi-result siblings, while Starshine keeps the direct-HOT tuple spelling until a safe multi-result sibling localizer exists;
 - multi-result selected children in direct one-use `tuple.extract(tuple.make(...))` shapes now use a generalized selected-child localizer: Starshine allocates one scratch local per selected-child scalar result, stores lanes in stack-pop order, and reloads the requested lane. The Binaryen `version_130` source audit found no explicit arity cap in `OptimizeInstructions.cpp::visitTupleExtract` or the delegated `getDroppedChildrenAndAppend` helper; the implementation is still bounded by Starshine's direct-HOT preconditions and excludes multi-result non-selected siblings, multi-use tuple producers, control/branch/EH siblings, and broader tuple-scratch reconstruction.
-- broader tee/drop reconstruction, multi-use tuple proof, public text-surface coverage, and non-selected sibling tuple-scratch localization are explicit SB003/SB004 keep/fail-closed boundaries. The remaining SB005 direct-HOT wrapper differences are accepted only as source/runtime/size-backed Starshine wins; reopen on the OI-M matrix criteria rather than treating these as an active broad parity gap.
+- broader tee/drop reconstruction, any future safe multi-use tuple proof, public text-surface coverage, non-selected sibling tuple-scratch localization, and broader tuple-neighbor signoff remain open under `[O4Z-AUDIT-OI-M]`; current `simplify-locals-nostructure` neighbor replays cover only the existing single-result effectful-sibling localization subset, including the earlier+later effectful-sibling direct-HOT fixture, and the public full-`simplify-locals` plus `tuple-optimization` multivalue-block probes are boundary coverage rather than parity.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
 
@@ -509,7 +509,7 @@ Upstream Binaryen runs a whole-function `LocalScanner` to infer:
 
 As of `[O4Z-AUDIT-OI-E]`, Starshine has a first conservative HOT-local sign-extension fact scan. It initializes params pessimistically, treats non-param scalar locals as default-zero until writes update or invalidate them, records straight-line `local.set` fallthrough facts, recognizes signed loads and explicit sign-extension ops, removes redundant sign extensions, and rewrites the first shift-pair sign-extension idioms.
 
-This is intentionally not a helper-for-helper clone of Binaryen's full scanner. Starshine's revision-keyed local/value facts cover the reviewed transforms, including direct unsigned `maxBits` proofs, load widths, signed-domain boundaries, and sign-extension facts. CFG joins, loop-carried merging, and broader range proofs remain fail-closed unless a future Binaryen source behavior or parity repro requires them; the final closeout matrix contains no unclassified scanner-owned family.
+This is still narrower than Binaryen's full scanner. Starshine now has narrow direct unsigned `maxBits` compare facts, including direct `and` / `shr_u` expressions, unsigned load result widths, first nonnegative signed-relational out-of-range folds, and in-range signed-to-unsigned spelling rewrites, plus direct i32 sign-extension equality range facts, but it does not yet model CFG joins, loop-carried fact merging, i64 sign-extension equality, signed relational range facts beyond this subset, or broad compare proofs through this substrate.
 
 ## 7. No deferred `ReFinalize` / EH-pop-fixup equivalent inside this pass
 

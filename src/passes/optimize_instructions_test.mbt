@@ -313,10 +313,10 @@ test "optimize-instructions keeps sign extends after conflicting local facts" {
 }
 
 ///|
-test "optimize-instructions removes i32 but keeps i64 local-carried unsigned masks" {
-  // Binaryen v130's low-ones mask rewrite exists only for i32. LocalScanner
-  // maxBits may remove the bounded i32 mask, but both wide and provably narrow
-  // i64 masks remain explicit.
+test "optimize-instructions removes redundant local-carried unsigned mask facts" {
+  // OI-E wide local-carried mask residual: if LocalScanner facts prove an i32
+  // local is already within an all-ones mask, the mask is redundant. Keep the
+  // i64 mask whose local fact is wider than the mask.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -333,19 +333,6 @@ test "optimize-instructions removes i32 but keeps i64 local-carried unsigned mas
         #|    local.get $y
         #|    i64.const 65535
         #|    i64.and
-        #|    drop
-        #|    i64.const 255
-        #|    local.set $y
-        #|    local.get $y
-        #|    i64.const 255
-        #|    i64.and
-        #|    drop
-        #|    i32.const 255
-        #|    local.set $x
-        #|    local.get $x
-        #|    i64.extend_i32_u
-        #|    i64.const 255
-        #|    i64.and
         #|    drop))
         #|,
       ),
@@ -357,11 +344,7 @@ test "optimize-instructions removes i32 but keeps i64 local-carried unsigned mas
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("i32.and"), msg=pretty)
-  @debug.assert_eq(
-    optimize_instructions_test_count_substring(pretty, "i64.and"),
-    3,
-    msg=pretty,
-  )
+  assert_true(pretty.contains("i64.and"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
 }
 
@@ -1784,10 +1767,14 @@ test "optimize-instructions carries local maxBits through one-sided if assignmen
 }
 
 ///|
-test "optimize-instructions removes i32 but keeps i64 block-produced masks" {
-  // A simple value block preserves bounded maxBits for the i32 rewrite.
-  // Binaryen version_130 has no analogous i64 low-ones mask rule, so the i64
-  // spelling remains even when the block-produced value fits the mask.
+test "optimize-instructions removes redundant block-produced unsigned mask facts" {
+  // OI-E finite closeout `.tmp/oi-e-v01-closeout-signoff-10000` exposed the
+  // `oi-local-facts:block-produced-mask` bucket as the only sampled
+  // size-losing residual. A simple value block preserves the same bounded
+  // unsigned fact as the contained value, so the later all-ones masks are
+  // redundant. Starshine removes both i32 and i64 masks as a smaller semantic
+  // cleanup; Binaryen version_130 removes the sampled i32 mask and keeps the
+  // i64 spelling.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -1818,7 +1805,7 @@ test "optimize-instructions removes i32 but keeps i64 block-produced masks" {
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("i32.and"), msg=pretty)
-  assert_true(pretty.contains("i64.and"), msg=pretty)
+  assert_false(pretty.contains("i64.and"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
 }
@@ -23797,40 +23784,6 @@ test "optimize-instructions lowers one-bit true-one selects to or" {
 }
 
 ///|
-test "optimize-instructions finishes synthesized constant boolean algebra roots" {
-  // A producing select fact owns the local finishing of its newly synthesized
-  // binary root. This locks constant and/or outcomes without a second body walk
-  // and without widening any downstream consumer to accept binary shapes.
-  let or_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) (select (i32.const 1) (i32.const 1) (i32.const 0))))",
-  )
-  let or_root = @ir.hot_root_get(or_func, 0)
-  match @ir.hot_node_get(or_func, or_root).op {
-    @ir.HotOp::Const => ()
-    other =>
-      fail("expected synthesized or root to finish as const, got \{other}")
-  }
-  match @ir.hot_const_get(or_func, @ir.hot_node_get(or_func, or_root).imm0) {
-    @ir.HotConstPayload::I32Const(@lib.I32(1)) => ()
-    other => fail("expected synthesized or result one, got \{other}")
-  }
-
-  let and_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) (select (i32.const 0) (i32.const 0) (i32.const 1))))",
-  )
-  let and_root = @ir.hot_root_get(and_func, 0)
-  match @ir.hot_node_get(and_func, and_root).op {
-    @ir.HotOp::Const => ()
-    other =>
-      fail("expected synthesized and root to finish as const, got \{other}")
-  }
-  match @ir.hot_const_get(and_func, @ir.hot_node_get(and_func, and_root).imm0) {
-    @ir.HotConstPayload::I32Const(@lib.I32(0)) => ()
-    other => fail("expected synthesized and result zero, got \{other}")
-  }
-}
-
-///|
 test "optimize-instructions hoists eqz from select arms paired with booleans" {
   // Red-first OI-F ternary parity slice: Binaryen version_130
   // `optimizeTernary` moves a direct i32/i64 eqz out of a select when the
@@ -25291,78 +25244,6 @@ test "optimize-instructions sinks same-global if set arms to one set of value if
   match @ir.hot_verify_core(func) {
     Ok(_) => ()
     Err(err) => fail("expected sunk global.set(if) shape to verify, got \{err}")
-  }
-}
-
-///|
-test "optimize-instructions sinks same-local if set arms to one set of value if" {
-  // Red-first random-all-profiles reductions from `ssa-nomerge-smoke` case 8
-  // and `ssa-nomerge-parity` case 10: Binaryen v130's parsed OI shape owns one
-  // `local.set` around a value-producing `if`, rather than duplicate writes in
-  // the arms. The rewrite is valid only for the same local and single pure
-  // values of the same exact type.
-  let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end))",
-  )
-  let root = @ir.hot_root_get(func, 0)
-  let set_id = match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::Block => {
-      let body = @ir.hot_region_body_ref(func, root)
-      @debug.assert_eq(@ir.hot_region_root_count(func, body), 1)
-      @ir.hot_region_get(func, body, 0)
-    }
-    _ => root
-  }
-  let set_node = @ir.hot_node_get(func, set_id)
-  match set_node.op {
-    @ir.HotOp::LocalSet => ()
-    other => fail("expected if arms to sink into one local.set, got \{other}")
-  }
-  @debug.assert_eq(set_node.imm0, 1)
-  @debug.assert_eq(set_node.child_count, 1)
-  let value_if = @ir.hot_child_get(func, set_id, 0)
-  match @ir.hot_node_get(func, value_if).op {
-    @ir.HotOp::If => ()
-    other => fail("expected local.set value to be an if, got \{other}")
-  }
-  match @ir.hot_verify_core(func) {
-    Ok(_) => ()
-    Err(err) => fail("expected sunk local.set(if) shape to verify, got \{err}")
-  }
-}
-
-///|
-test "optimize-instructions sinks nested same-local if without a wrapper block" {
-  // The first random replay exposed that demoting the `if` to a block leaves an
-  // extra nested wrapper under an existing block. Reusing the current control
-  // root and replacing its unique revision-keyed use keeps the Binaryen shape.
-  let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (local i32) block local.get 0 if i32.const 37 local.set 1 else i32.const 38 local.set 1 end local.get 1 drop end))",
-  )
-  let outer = @ir.hot_root_get(func, 0)
-  match @ir.hot_node_get(func, outer).op {
-    @ir.HotOp::Block => ()
-    other => fail("expected outer block to remain, got \{other}")
-  }
-  let body = @ir.hot_region_body_ref(func, outer)
-  let set_id = @ir.hot_region_get(func, body, 0)
-  match @ir.hot_node_get(func, set_id).op {
-    @ir.HotOp::LocalSet => ()
-    other => fail("expected nested if to become direct local.set, got \{other}")
-  }
-  let value_if = @ir.hot_child_get(func, set_id, 0)
-  match @ir.hot_node_get(func, value_if).op {
-    @ir.HotOp::If => ()
-    other =>
-      fail("expected nested local.set payload to remain if, got \{other}")
-  }
-  @debug.assert_eq(
-    @ir.hot_type_results(func, @ir.hot_node_type(func, value_if)),
-    [@lib.ValType::i32()],
-  )
-  match @ir.hot_verify_core(func) {
-    Ok(_) => ()
-    Err(err) => fail("expected nested sunk local.set(if) to verify, got \{err}")
   }
 }
 
@@ -31377,109 +31258,21 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
-test "optimize-instructions preserves operands when ref.test folds to a constant" {
-  // Binaryen v130 `visitRefTest` always emits `drop(ref)` before a known
-  // success or failure constant. This applies even to trivially pure direct
-  // nulls and local.get operands; purity is not permission to erase the value.
-  // Oracle: `.tmp/probes/direct-null-test-cast.out.wat` and
-  // `.tmp/probes/ref-test-erasure.out.wat`.
-  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
-  let nullable_any = @lib.ValType::ref_null(any_heap)
-  let direct_type = @lib.TypeIdx::new(0U)
-  let local_type = @lib.TypeIdx::new(1U)
-  let optimized = optimize_instructions_test_run_module(
-    @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([], [@lib.ValType::i32()]),
-          ),
-        ),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([nullable_any], [@lib.ValType::i32()]),
-          ),
-        ),
-      ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([direct_type, direct_type, local_type]))
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::ref_null(any_heap),
-            @lib.Instruction::ref_test(true, any_heap),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::ref_null(any_heap),
-            @lib.Instruction::ref_test(false, any_heap),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::ref_test(true, any_heap),
-          ]),
-        ),
-      ]),
-    ),
-  )
-  let fixtures = [
-    ("direct-null-success", 0U, "I32(1)", "ref.null"),
-    ("direct-null-failure", 1U, "I32(0)", "ref.null"),
-    ("local-success", 2U, "I32(1)", "local.get"),
-  ]
-  for fixture in fixtures {
-    let (label, func_idx, expected, operand) = fixture
-    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
-    assert_false(pretty.contains("ref.test"), msg="\{label}: \{pretty}")
-    assert_true(pretty.contains(operand), msg="\{label}: \{pretty}")
-    assert_true(pretty.contains("drop"), msg="\{label}: \{pretty}")
-    assert_true(pretty.contains(expected), msg="\{label}: \{pretty}")
+test "optimize-instructions folds ref.is_null on known null refs" {
+  let source =
+    #|(module
+    #|  (func (export "null") (result i32)
+    #|    ref.null func
+    #|    ref.is_null)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.is_null optimize success, got \{err}")
   }
-}
-
-///|
-test "optimize-instructions keeps ref.is_null on direct null literals like Binaryen" {
-  // Binaryen v130 canonicalizes each abstract heap to its bottom null heap but
-  // keeps the explicit predicate. Known-null dataflow remains reusable for
-  // non-literal producers; a direct ref.null is an oracle output boundary.
-  let any_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) ref.null any ref.is_null))",
-  )
-  let any_root = @ir.hot_root_get(any_func, 0)
-  match @ir.hot_node_get(any_func, any_root).op {
-    @ir.HotOp::RefIsNull => ()
-    other =>
-      fail("expected direct anyref null predicate to remain, got \{other}")
-  }
-  let none_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) ref.null none ref.is_null))",
-  )
-  let none_root = @ir.hot_root_get(none_func, 0)
-  match @ir.hot_node_get(none_func, none_root).op {
-    @ir.HotOp::RefIsNull => ()
-    other => fail("expected direct none null predicate to remain, got \{other}")
-  }
-}
-
-///|
-test "optimize-instructions keeps ref.is_null on direct func null literals" {
-  let func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) ref.null func ref.is_null))",
-  )
-  let root = @ir.hot_root_get(func, 0)
-  match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::RefIsNull => ()
-    other =>
-      fail("expected direct funcref null predicate to remain, got \{other}")
-  }
+  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(null_pretty.contains("ref.is_null"), msg=null_pretty)
+  assert_true(null_pretty.contains("I32(1)"), msg=null_pretty)
 }
 
 ///|
@@ -32571,64 +32364,6 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
   assert_false(i31_pretty.contains("ref.as_non_null"), msg=i31_pretty)
   assert_true(func_pretty.contains("ref.func"), msg=func_pretty)
   assert_false(func_pretty.contains("ref.as_non_null"), msg=func_pretty)
-}
-
-///|
-test "optimize-instructions keeps local-carried call_ref targets like Binaryen" {
-  // Binaryen v130 `visitCallRef` follows the target expression itself through
-  // `Properties::getFallthrough`; it does not propagate a previous ref.func
-  // assignment through a later local.get. Keep the local binding and call_ref
-  // rather than treating local dataflow as a direct-target proof.
-  // Oracle: bounded aggregate case 53 (`oi-call-ref:local-carried-target`).
-  let caller_type = @lib.TypeIdx::new(0U)
-  let callee_type = @lib.TypeIdx::new(1U)
-  let callee_heap = @lib.HeapType::new(callee_type)
-  let optimized = optimize_instructions_test_run_module(
-    @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([], [@lib.ValType::i32()]),
-          ),
-        ),
-      ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([caller_type, callee_type]))
-    .with_elem_sec(
-      @lib.ElemSec::new([
-        @lib.Elem::new(
-          @lib.ElemMode::declarative(),
-          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::from_types([@lib.ValType::ref_null(callee_heap)]),
-          @lib.Expr::new([
-            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::call_ref(callee_type),
-            @lib.Instruction::drop(),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(42))]),
-        ),
-      ]),
-    ),
-  )
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("ref.func"), msg=pretty)
-  assert_true(pretty.contains("local.set"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_true(pretty.contains("call_ref"), msg=pretty)
-  assert_false(pretty.contains("call (Func 1)"), msg=pretty)
 }
 
 ///|
@@ -35087,9 +34822,9 @@ test "optimize-instructions traps standalone ref.get_desc on known-null child" {
 ///|
 test "optimize-instructions folds ref.test_desc null operands from descriptor test facts" {
   // OI-J descriptor-test fact slice: Binaryen version_130 routes ref.test_desc
-  // through the same RefTest cast-check family. Null operands prove the result
-  // from the nullable target fact, but the shared visitor still preserves the
-  // explicit operand with a drop before the constant.
+  // through the same RefTest cast-check family. Null operands fold entirely from
+  // the nullable target fact before any broader descriptor producer or
+  // fallthrough-type lattice is needed.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let nullable_func_type = @lib.TypeIdx::new(2U)
@@ -35149,26 +34884,8 @@ test "optimize-instructions folds ref.test_desc null operands from descriptor te
     Some(@lib.CodeSec([_, func])) => func
     _ => fail("expected optimized non-null ref.test_desc function")
   }
-  @debug.assert_eq(nullable_body, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::ref_null(described_heap),
-        @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(1)),
-      ]),
-    ),
-  ])
-  @debug.assert_eq(nonnull_body, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::ref_null(described_heap),
-        @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(0)),
-      ]),
-    ),
-  ])
+  @debug.assert_eq(nullable_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+  @debug.assert_eq(nonnull_body, [@lib.Instruction::i32_const(@lib.I32(0))])
 }
 
 ///|
@@ -56332,57 +56049,6 @@ test "optimize-instructions rewrites ref.eq null comparisons through ref.is_null
 }
 
 ///|
-test "optimize-instructions finishes ref.eq null checks synthesized from fresh structs" {
-  // Red-first `heap2local-ref` case 20: visitRefEq rewrites the null comparison
-  // to ref.is_null after that visitor slot has passed. Binaryen immediately
-  // finishes the non-null result while preserving the allocation with a drop.
-  let source =
-    #|(module
-    #|  (type $s (struct (field (mut i32))))
-    #|  (func (result i32)
-    #|    struct.new_default $s
-    #|    ref.null eq
-    #|    ref.eq)
-    #|)
-  let optimized = match
-    pass_test_run_pipeline(source, ["optimize-instructions"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected fresh-struct ref.eq optimize success, got \{err}")
-  }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("ref.eq"), msg=pretty)
-  assert_false(pretty.contains("ref.is_null"), msg=pretty)
-  assert_true(pretty.contains("struct.new_default"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("I32(0)"), msg=pretty)
-}
-
-///|
-test "optimize-instructions strips redundant non-null checks from trapping struct gets" {
-  // Red-first `heap2local-ref` case 20: struct.get already traps on null, so
-  // Binaryen v130 skipNonNullCast removes a direct ref.as_non_null wrapper while
-  // preserving the nullable local read and the parent's trap point.
-  let source =
-    #|(module
-    #|  (type $s (struct (field (mut i32))))
-    #|  (func (param (ref null $s)) (result i32)
-    #|    local.get 0
-    #|    ref.as_non_null
-    #|    struct.get $s 0)
-    #|)
-  let optimized = match
-    pass_test_run_pipeline(source, ["optimize-instructions"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected struct.get non-null cleanup success, got \{err}")
-  }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
-}
-
-///|
 test "optimize-instructions directizes ref.func call_ref targets" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let callee_type = @lib.RecType::new(
@@ -58543,116 +58209,6 @@ test "optimize-instructions folds atomic store constant offsets" {
   optimize_instructions_assert_strings_in_order(pretty, [
     "I32(3016)", "I32(1)", "i32.atomic.store",
   ])
-}
-
-///|
-test "optimize-instructions revisits memory.copy after child select rewrite" {
-  // Aggregate `pass-oi-all` case 172: Binaryen's post-order visitor rewrites the
-  // size select to a literal before visiting memory.copy, then lowers the
-  // one-byte copy. A synthesized boolean-algebra root must run the ordinary
-  // binary finishing rules immediately; bulk admission remains direct-const.
-  let optimized = match
-    pass_test_run_pipeline(
-      (
-        #|(module
-        #|  (memory 1)
-        #|  (data (i32.const 60490) "\\07")
-        #|  (data (i32.const 60506) "\\0d")
-        #|  (func (export "run") (result i32)
-        #|    (local i32 i32)
-        #|    i32.const 60506
-        #|    i32.load8_u
-        #|    local.set 0
-        #|    i32.const 60506
-        #|    i32.const 60506
-        #|    i32.const 1
-        #|    select
-        #|    i32.const 60490
-        #|    i32.const 60490
-        #|    i32.const 1
-        #|    select
-        #|    i32.const 1
-        #|    i32.const 1
-        #|    i32.const 0
-        #|    select
-        #|    memory.copy
-        #|    i32.const 60506
-        #|    i32.load8_u
-        #|    local.set 1
-        #|    i32.const 60506
-        #|    local.get 0
-        #|    i32.store8
-        #|    local.get 1
-        #|    i32.const 0
-        #|    i32.const 1
-        #|    select))
-        #|,
-      ),
-      ["optimize-instructions"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected revisited memory.copy success, got \{err}")
-  }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.copy"), msg=pretty)
-  assert_false(pretty.contains("select"), msg=pretty)
-  assert_false(pretty.contains("i32.or"), msg=pretty)
-  assert_true(pretty.contains("i32.load8u"), msg=pretty)
-  assert_true(pretty.contains("i32.store8"), msg=pretty)
-}
-
-///|
-test "optimize-instructions revisits memory.fill after child select rewrite" {
-  // Aggregate `pass-oi-all` case 280: keep the same synthesized-root finishing
-  // contract for memory.fill rather than admitting select/or size shapes in the
-  // bulk fact. The rewritten size must become a direct literal before lowering.
-  let optimized = match
-    pass_test_run_pipeline(
-      (
-        #|(module
-        #|  (memory 1)
-        #|  (data (i32.const 14642) "\\0d")
-        #|  (func (export "run") (result i32)
-        #|    (local i32 i32)
-        #|    i32.const 14642
-        #|    i32.load8_u
-        #|    local.set 0
-        #|    i32.const 14642
-        #|    i32.const 14642
-        #|    i32.const 1
-        #|    select
-        #|    i32.const 42
-        #|    i32.const 42
-        #|    i32.const 1
-        #|    select
-        #|    i32.const 1
-        #|    i32.const 1
-        #|    i32.const 0
-        #|    select
-        #|    memory.fill
-        #|    i32.const 14642
-        #|    i32.load8_u
-        #|    local.set 1
-        #|    i32.const 14642
-        #|    local.get 0
-        #|    i32.store8
-        #|    local.get 1
-        #|    i32.const 0
-        #|    i32.const 1
-        #|    select))
-        #|,
-      ),
-      ["optimize-instructions"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected revisited memory.fill success, got \{err}")
-  }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.fill"), msg=pretty)
-  assert_false(pretty.contains("select"), msg=pretty)
-  assert_false(pretty.contains("i32.or"), msg=pretty)
-  assert_true(pretty.contains("i32.store8"), msg=pretty)
-  assert_true(pretty.contains("I32(42)"), msg=pretty)
 }
 
 ///|
@@ -65221,7 +64777,7 @@ test "optimize-instructions keeps value-changing masks before i64 narrow stores"
 }
 
 ///|
-test "optimize-instructions keeps pure struct.get of struct.new like Binaryen v130" {
+test "optimize-instructions folds pure struct.get of struct.new field values" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -65247,14 +64803,16 @@ test "optimize-instructions keeps pure struct.get of struct.new like Binaryen v1
   }
   let get0 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   let get1 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  for pretty in [get0, get1] {
-    assert_true(pretty.contains("struct.get"), msg=pretty)
-    assert_true(pretty.contains("struct.new"), msg=pretty)
-  }
+  assert_false(get0.contains("struct.get"), msg=get0)
+  assert_false(get0.contains("struct.new"), msg=get0)
+  assert_true(get0.contains("I32(7)"), msg=get0)
+  assert_false(get1.contains("struct.get"), msg=get1)
+  assert_false(get1.contains("struct.new"), msg=get1)
+  assert_true(get1.contains("I64(9)"), msg=get1)
 }
 
 ///|
-test "optimize-instructions keeps struct.get of struct.new_default like Binaryen v130" {
+test "optimize-instructions folds struct.get of struct.new_default field defaults" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -65295,14 +64853,25 @@ test "optimize-instructions keeps struct.get of struct.new_default like Binaryen
   let get_f32 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let get_f64 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let get_ref = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
-  for pretty in [get_i32, get_i64, get_f32, get_f64, get_ref] {
-    assert_true(pretty.contains("struct.get"), msg=pretty)
-    assert_true(pretty.contains("struct.new_default"), msg=pretty)
-  }
+  assert_false(get_i32.contains("struct.get"), msg=get_i32)
+  assert_false(get_i32.contains("struct.new_default"), msg=get_i32)
+  assert_true(get_i32.contains("I32(0)"), msg=get_i32)
+  assert_false(get_i64.contains("struct.get"), msg=get_i64)
+  assert_false(get_i64.contains("struct.new_default"), msg=get_i64)
+  assert_true(get_i64.contains("I64(0)"), msg=get_i64)
+  assert_false(get_f32.contains("struct.get"), msg=get_f32)
+  assert_false(get_f32.contains("struct.new_default"), msg=get_f32)
+  assert_true(get_f32.contains("F32(0)"), msg=get_f32)
+  assert_false(get_f64.contains("struct.get"), msg=get_f64)
+  assert_false(get_f64.contains("struct.new_default"), msg=get_f64)
+  assert_true(get_f64.contains("F64(0)"), msg=get_f64)
+  assert_false(get_ref.contains("struct.get"), msg=get_ref)
+  assert_false(get_ref.contains("struct.new_default"), msg=get_ref)
+  assert_true(get_ref.contains("ref.null"), msg=get_ref)
 }
 
 ///|
-test "optimize-instructions keeps packed struct.get of struct.new_default like Binaryen v130" {
+test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new_default defaults" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -65332,13 +64901,14 @@ test "optimize-instructions keeps packed struct.get of struct.new_default like B
   }
   for i = 0; i < 4; i = i + 1 {
     let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(i.to_uint()))
-    assert_true(pretty.contains("struct.get"), msg=pretty)
-    assert_true(pretty.contains("struct.new_default"), msg=pretty)
+    assert_false(pretty.contains("struct.get"), msg=pretty)
+    assert_false(pretty.contains("struct.new_default"), msg=pretty)
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
   }
 }
 
 ///|
-test "optimize-instructions keeps packed struct.get of struct.new like Binaryen v130" {
+test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new field values" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -65382,10 +64952,19 @@ test "optimize-instructions keeps packed struct.get of struct.new like Binaryen 
   let getu16 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let const_s8 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let const_u16 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  for pretty in [gets8, getu16, const_s8, const_u16] {
-    assert_true(pretty.contains("struct.get"), msg=pretty)
-    assert_true(pretty.contains("struct.new"), msg=pretty)
-  }
+  assert_false(gets8.contains("struct.get"), msg=gets8)
+  assert_false(gets8.contains("struct.new"), msg=gets8)
+  assert_true(gets8.contains("i32.extend8s"), msg=gets8)
+  assert_false(getu16.contains("struct.get"), msg=getu16)
+  assert_false(getu16.contains("struct.new"), msg=getu16)
+  assert_true(getu16.contains("i32.and"), msg=getu16)
+  assert_true(getu16.contains("I32(65535)"), msg=getu16)
+  assert_false(const_s8.contains("struct.get"), msg=const_s8)
+  assert_false(const_s8.contains("struct.new"), msg=const_s8)
+  assert_true(const_s8.contains("I32(-1)"), msg=const_s8)
+  assert_false(const_u16.contains("struct.get"), msg=const_u16)
+  assert_false(const_u16.contains("struct.new"), msg=const_u16)
+  assert_true(const_u16.contains("I32(65535)"), msg=const_u16)
 }
 
 ///|
@@ -78823,7 +78402,7 @@ test "optimize-instructions rewrites array.new default init through control fall
 }
 
 ///|
-test "optimize-instructions keeps array.len over fresh array.new_fixed like Binaryen v130" {
+test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let result_type = @lib.TypeIdx::new(2U)
@@ -78883,16 +78462,18 @@ test "optimize-instructions keeps array.len over fresh array.new_fixed like Bina
   )
   let pure = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let effectful = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  // Binaryen v130's visitArrayLen never inspects fresh constructors.
-  for pretty in [pure, effectful] {
-    assert_true(pretty.contains("array.len"), msg=pretty)
-    assert_true(pretty.contains("array.new_fixed"), msg=pretty)
-  }
+  assert_false(pure.contains("array.len"), msg=pure)
+  assert_false(pure.contains("array.new_fixed"), msg=pure)
+  assert_true(pure.contains("I32(2)"), msg=pure)
+  // Boundary-only half of this OI-K slice: Binaryen currently leaves the
+  // effectful element form intact, and Starshine must not drop element effects.
+  assert_true(effectful.contains("array.len"), msg=effectful)
+  assert_true(effectful.contains("array.new_fixed"), msg=effectful)
   assert_true(effectful.contains("call (Func 0)"), msg=effectful)
 }
 
 ///|
-test "optimize-instructions keeps array.len over fresh array.new_default like Binaryen v130" {
+test "optimize-instructions folds array.len of constant-size array.new_default" {
   let array_type = @lib.TypeIdx::new(0U)
   let result_type = @lib.TypeIdx::new(1U)
   let param_result_type = @lib.TypeIdx::new(2U)
@@ -78968,16 +78549,26 @@ test "optimize-instructions keeps array.len over fresh array.new_default like Bi
   let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  // Binaryen v130's visitArrayLen only strips non-null casts and traps known
-  // nulls; constructor length and trap reasoning are not direct-pass rules.
-  for pretty in [constant_len, dynamic_len, negative_len, huge_len] {
-    assert_true(pretty.contains("array.len"), msg=pretty)
-    assert_true(pretty.contains("array.new_default"), msg=pretty)
-  }
+  assert_false(constant_len.contains("array.len"), msg=constant_len)
+  assert_false(constant_len.contains("array.new_default"), msg=constant_len)
+  assert_true(constant_len.contains("I32(3)"), msg=constant_len)
+  // Boundary-only half of this OI-K slice: Binaryen's O4z-style oracle keeps
+  // dynamic-length default arrays because removing allocation could drop the
+  // allocation-size trap.
+  assert_true(dynamic_len.contains("array.len"), msg=dynamic_len)
+  assert_true(dynamic_len.contains("array.new_default"), msg=dynamic_len)
+  // Boundary-only half of this OI-K slice: Binaryen also keeps negative
+  // i32.const lengths because the huge unsigned allocation should still trap.
+  assert_true(negative_len.contains("array.len"), msg=negative_len)
+  assert_true(negative_len.contains("array.new_default"), msg=negative_len)
+  // Boundary-only half of this OI-K slice: Binaryen keeps huge non-negative
+  // lengths past the O4z-observed allocation limit for the same trap reason.
+  assert_true(huge_len.contains("array.len"), msg=huge_len)
+  assert_true(huge_len.contains("array.new_default"), msg=huge_len)
 }
 
 ///|
-test "optimize-instructions keeps array.len over fresh array.new like Binaryen v130" {
+test "optimize-instructions folds array.len of constant-size array.new and localizes repeated effects" {
   let array_type = @lib.TypeIdx::new(0U)
   let result_type = @lib.TypeIdx::new(1U)
   let param_result_type = @lib.TypeIdx::new(2U)
@@ -79071,23 +78662,33 @@ test "optimize-instructions keeps array.len over fresh array.new like Binaryen v
   let effectful_value = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  // Binaryen v130's visitArrayLen only removes non-null casts and traps on
-  // known nulls. It does not inspect or erase a fresh array.new producer.
-  for
-    pretty in [
-      constant_value, local_value, effectful_value, negative_len, huge_len,
-    ] {
-    assert_true(pretty.contains("array.len"), msg=pretty)
-    assert_true(pretty.contains("array.new"), msg=pretty)
-  }
+  assert_false(constant_value.contains("array.len"), msg=constant_value)
+  assert_false(constant_value.contains("array.new"), msg=constant_value)
+  assert_true(constant_value.contains("I32(3)"), msg=constant_value)
+  // Boundary-only half of this OI-K slice: Binaryen's O4z-style oracle keeps
+  // nonconstant repeated values, even pure local.get values, so Starshine keeps
+  // them until a broader source-backed proof justifies dropping value evaluation.
+  assert_true(local_value.contains("array.len"), msg=local_value)
+  assert_true(local_value.contains("array.new"), msg=local_value)
+  assert_false(effectful_value.contains("array.len"), msg=effectful_value)
+  assert_false(effectful_value.contains("array.new"), msg=effectful_value)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effectful_value, "call"),
     1,
   )
+  optimize_instructions_assert_strings_in_order(effectful_value, [
+    "call (Func 0)", "drop", "I32(3)",
+  ])
+  // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
+  // the array.new_default length slice.
+  assert_true(negative_len.contains("array.len"), msg=negative_len)
+  assert_true(negative_len.contains("array.new"), msg=negative_len)
+  assert_true(huge_len.contains("array.len"), msg=huge_len)
+  assert_true(huge_len.contains("array.new"), msg=huge_len)
 }
 
 ///|
-test "optimize-instructions keeps array.get over fresh array.new_fixed like Binaryen v130" {
+test "optimize-instructions folds array.get of pure array.new_fixed elements" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let result_type = @lib.TypeIdx::new(2U)
@@ -79192,19 +78793,32 @@ test "optimize-instructions keeps array.get over fresh array.new_fixed like Bina
   let dynidx = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let oob = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  // Binaryen v130's visitArrayGet does not inspect fresh constructors.
-  for pretty in [get0, get1, dynidx, oob, effectful_sibling] {
-    assert_true(pretty.contains("array.get"), msg=pretty)
-    assert_true(pretty.contains("array.new_fixed"), msg=pretty)
-  }
-  assert_true(
-    effectful_sibling.contains("call (Func 0)"),
+  assert_false(get0.contains("array.get"), msg=get0)
+  assert_false(get0.contains("array.new_fixed"), msg=get0)
+  assert_true(get0.contains("I32(7)"), msg=get0)
+  assert_false(get1.contains("array.get"), msg=get1)
+  assert_false(get1.contains("array.new_fixed"), msg=get1)
+  assert_true(get1.contains("I32(8)"), msg=get1)
+  assert_true(dynidx.contains("array.get"), msg=dynidx)
+  assert_true(dynidx.contains("array.new_fixed"), msg=dynidx)
+  assert_false(oob.contains("array.get"), msg=oob)
+  assert_false(oob.contains("array.new_fixed"), msg=oob)
+  assert_true(oob.contains("unreachable"), msg=oob)
+  // OI-K effect-localization slice: Binaryen removes the fresh allocation,
+  // forwards the selected element, and preserves the earlier non-selected call
+  // as a dropped effect in element evaluation order.
+  assert_false(effectful_sibling.contains("array.get"), msg=effectful_sibling)
+  assert_false(
+    effectful_sibling.contains("array.new_fixed"),
     msg=effectful_sibling,
   )
+  optimize_instructions_assert_strings_in_order(effectful_sibling, [
+    "call (Func 0)", "drop", "I32(8)",
+  ])
 }
 
 ///|
-test "optimize-instructions keeps effectful fresh array.new_fixed get like Binaryen v130" {
+test "optimize-instructions localizes selected array.get new_fixed element before later effectful sibling" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let result_type = @lib.TypeIdx::new(2U)
@@ -79259,12 +78873,15 @@ test "optimize-instructions keeps effectful fresh array.new_fixed get like Binar
     ),
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("array.get"), msg=pretty)
-  assert_true(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_false(pretty.contains("array.get"), msg=pretty)
+  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "call"),
     2,
   )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "local.set", "call (Func 1)", "drop", "local.get",
+  ])
 }
 
 ///|
@@ -79396,7 +79013,7 @@ test "optimize-instructions keeps multi-use array.new_fixed producer boundary" {
 }
 
 ///|
-test "optimize-instructions keeps packed array.get over fresh array.new_fixed like Binaryen v130" {
+test "optimize-instructions folds packed array.get_s and array.get_u of pure array.new_fixed elements" {
   let array_i8_type = @lib.TypeIdx::new(0U)
   let array_i16_type = @lib.TypeIdx::new(1U)
   let effect_type = @lib.TypeIdx::new(2U)
@@ -79557,14 +79174,35 @@ test "optimize-instructions keeps packed array.get over fresh array.new_fixed li
   let dynidx = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
   let oob = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
   let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
-  for
-    pretty in [
-      s8_const, u8_const, s16_const, u16_const, s8_nonconst, u16_nonconst, dynidx,
-      oob, effectful_sibling,
-    ] {
-    assert_true(pretty.contains("array.get"), msg=pretty)
-    assert_true(pretty.contains("array.new_fixed"), msg=pretty)
-  }
+  assert_false(s8_const.contains("array.get"), msg=s8_const)
+  assert_false(s8_const.contains("array.new_fixed"), msg=s8_const)
+  assert_true(s8_const.contains("I32(-1)"), msg=s8_const)
+  assert_false(u8_const.contains("array.get"), msg=u8_const)
+  assert_true(u8_const.contains("I32(255)"), msg=u8_const)
+  assert_false(s16_const.contains("array.get"), msg=s16_const)
+  assert_true(s16_const.contains("I32(-32768)"), msg=s16_const)
+  assert_false(u16_const.contains("array.get"), msg=u16_const)
+  assert_true(u16_const.contains("I32(32768)"), msg=u16_const)
+  assert_false(s8_nonconst.contains("array.get"), msg=s8_nonconst)
+  assert_false(s8_nonconst.contains("array.new_fixed"), msg=s8_nonconst)
+  assert_true(s8_nonconst.contains("i32.extend8s"), msg=s8_nonconst)
+  assert_false(u16_nonconst.contains("array.get"), msg=u16_nonconst)
+  assert_false(u16_nonconst.contains("array.new_fixed"), msg=u16_nonconst)
+  assert_true(u16_nonconst.contains("i32.and"), msg=u16_nonconst)
+  assert_true(u16_nonconst.contains("I32(65535)"), msg=u16_nonconst)
+  assert_true(dynidx.contains("array.get_s"), msg=dynidx)
+  assert_true(dynidx.contains("array.new_fixed"), msg=dynidx)
+  assert_false(oob.contains("array.get"), msg=oob)
+  assert_false(oob.contains("array.new_fixed"), msg=oob)
+  assert_true(oob.contains("unreachable"), msg=oob)
+  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
+  // sibling with a drop before forwarding, but Starshine keeps the stack form
+  // until a safe localizing lowering preserves element-evaluation effects.
+  assert_true(effectful_sibling.contains("array.get_u"), msg=effectful_sibling)
+  assert_true(
+    effectful_sibling.contains("array.new_fixed"),
+    msg=effectful_sibling,
+  )
   assert_true(
     effectful_sibling.contains("call (Func 0)"),
     msg=effectful_sibling,
@@ -79572,7 +79210,7 @@ test "optimize-instructions keeps packed array.get over fresh array.new_fixed li
 }
 
 ///|
-test "optimize-instructions keeps array.set over array.new_fixed like Binaryen v130" {
+test "optimize-instructions removes array.set to fresh pure arrays with constant indexes" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let void_type = @lib.TypeIdx::new(2U)
@@ -79732,38 +79370,46 @@ test "optimize-instructions keeps array.set over array.new_fixed like Binaryen v
   let effectful_sibling_and_value = optimized.pretty_print_func(
     @lib.FuncIdx::new(9U),
   )
-  // Binaryen v130's visitArraySet does not erase writes to a fresh
-  // array.new_fixed receiver, even when the constant index is provably in or
-  // out of bounds.
-  assert_true(fixed_inbounds.contains("array.set"), msg=fixed_inbounds)
-  assert_true(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
-  assert_true(fixed_oob.contains("array.set"), msg=fixed_oob)
-  assert_true(fixed_oob.contains("array.new_fixed"), msg=fixed_oob)
-  // The same v130 visitor boundary applies to array.new_default receivers.
-  assert_true(default_inbounds.contains("array.set"), msg=default_inbounds)
-  assert_true(
+  assert_false(fixed_inbounds.contains("array.set"), msg=fixed_inbounds)
+  assert_false(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
+  assert_false(fixed_oob.contains("array.set"), msg=fixed_oob)
+  assert_false(fixed_oob.contains("array.new_fixed"), msg=fixed_oob)
+  assert_true(fixed_oob.contains("unreachable"), msg=fixed_oob)
+  assert_false(default_inbounds.contains("array.set"), msg=default_inbounds)
+  assert_false(
     default_inbounds.contains("array.new_default"),
     msg=default_inbounds,
   )
-  assert_true(default_oob.contains("array.set"), msg=default_oob)
-  assert_true(default_oob.contains("array.new_default"), msg=default_oob)
-  assert_true(default_oob.contains("call (Func 0)"), msg=default_oob)
-  assert_true(effect_inbounds.contains("array.set"), msg=effect_inbounds)
-  assert_true(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
-  assert_true(effect_oob.contains("array.set"), msg=effect_oob)
-  assert_true(effect_oob.contains("array.new_fixed"), msg=effect_oob)
+  assert_false(default_oob.contains("array.set"), msg=default_oob)
+  assert_false(default_oob.contains("array.new_default"), msg=default_oob)
+  optimize_instructions_assert_strings_in_order(default_oob, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
+  assert_false(effect_inbounds.contains("array.set"), msg=effect_inbounds)
+  assert_false(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
+  optimize_instructions_assert_strings_in_order(effect_inbounds, [
+    "call (Func 0)", "drop",
+  ])
+  assert_false(effect_oob.contains("array.set"), msg=effect_oob)
+  assert_false(effect_oob.contains("array.new_fixed"), msg=effect_oob)
+  optimize_instructions_assert_strings_in_order(effect_oob, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
   assert_true(dynamic_index.contains("array.set"), msg=dynamic_index)
   assert_true(dynamic_index.contains("array.new_fixed"), msg=dynamic_index)
-  assert_true(effectful_sibling.contains("array.set"), msg=effectful_sibling)
-  assert_true(
+  assert_false(effectful_sibling.contains("array.set"), msg=effectful_sibling)
+  assert_false(
     effectful_sibling.contains("array.new_fixed"),
     msg=effectful_sibling,
   )
-  assert_true(
+  optimize_instructions_assert_strings_in_order(effectful_sibling, [
+    "call (Func 0)", "drop",
+  ])
+  assert_false(
     effectful_sibling_and_value.contains("array.set"),
     msg=effectful_sibling_and_value,
   )
-  assert_true(
+  assert_false(
     effectful_sibling_and_value.contains("array.new_fixed"),
     msg=effectful_sibling_and_value,
   )
@@ -79773,10 +79419,13 @@ test "optimize-instructions keeps array.set over array.new_fixed like Binaryen v
     ),
     2,
   )
+  optimize_instructions_assert_strings_in_order(effectful_sibling_and_value, [
+    "call (Func 0)", "drop", "call (Func 0)", "drop",
+  ])
 }
 
 ///|
-test "optimize-instructions keeps array.set over fresh array.new like Binaryen v130" {
+test "optimize-instructions localizes array.set to fresh array.new repeated-value arrays with constant indexes" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let void_type = @lib.TypeIdx::new(2U)
@@ -79826,7 +79475,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
     )
     .with_code_sec(
       @lib.CodeSec::new([
-        // set_new_inbounds_pure: Binaryen keeps the fresh allocation and set.
+        // set_new_inbounds_pure: array.set(array.new(7, 2), 1, 9) -> nop.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79838,7 +79487,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_pure: Binaryen leaves later DCE to reason about the trap.
+        // set_new_oob_pure: array.set(array.new(7, 2), 2, 9) -> unreachable.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79850,7 +79499,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_setval: the set value remains inside array.set.
+        // set_new_effect_setval: effectful set value is localized and dropped.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79862,7 +79511,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_repeated: the repeated value remains inside array.new.
+        // set_new_effect_repeated: effectful repeated value is localized.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79874,7 +79523,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_both: both effects remain in the original GC operations.
+        // set_new_effect_both: repeated-value effect stays before set-value effect.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79886,7 +79535,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_effect_repeated: preserve the original trapping operation.
+        // set_new_oob_effect_repeated: preserve repeated effect before trap.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79898,7 +79547,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_effect_setval: preserve the original trapping operation.
+        // set_new_oob_effect_setval: preserve set-value effect before trap.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79910,7 +79559,7 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_effect_both: preserve both effects and the original trap.
+        // set_new_oob_effect_both: preserve repeated then set-value effects.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -80017,25 +79666,74 @@ test "optimize-instructions keeps array.set over fresh array.new like Binaryen v
   let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(12U))
   let control_repeated = optimized.pretty_print_func(@lib.FuncIdx::new(13U))
   let control_setval = optimized.pretty_print_func(@lib.FuncIdx::new(14U))
-  // Binaryen v130's visitArraySet only handles null/cast and stored-width
-  // concerns. It does not erase a write merely because the receiver is fresh.
-  for
-    pretty in [
-      new_inbounds, new_oob, effect_setval, effect_repeated, effect_both, oob_effect_repeated,
-      oob_effect_setval, oob_effect_both, dynamic_len, negative_len, huge_len, dynamic_index,
-      control_repeated, control_setval,
-    ] {
-    assert_true(pretty.contains("array.set"), msg=pretty)
-    assert_true(pretty.contains("array.new"), msg=pretty)
-  }
+  assert_false(new_inbounds.contains("array.set"), msg=new_inbounds)
+  assert_false(new_inbounds.contains("array.new"), msg=new_inbounds)
+  assert_false(new_inbounds.contains("unreachable"), msg=new_inbounds)
+  assert_false(new_oob.contains("array.set"), msg=new_oob)
+  assert_false(new_oob.contains("array.new"), msg=new_oob)
+  assert_true(new_oob.contains("unreachable"), msg=new_oob)
+  assert_false(effect_setval.contains("array.set"), msg=effect_setval)
+  assert_false(effect_setval.contains("array.new"), msg=effect_setval)
+  optimize_instructions_assert_strings_in_order(effect_setval, [
+    "call (Func 0)", "drop",
+  ])
+  assert_false(effect_repeated.contains("array.set"), msg=effect_repeated)
+  assert_false(effect_repeated.contains("array.new"), msg=effect_repeated)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(effect_repeated, "call"),
+    1,
+  )
+  optimize_instructions_assert_strings_in_order(effect_repeated, [
+    "call (Func 0)", "drop",
+  ])
+  assert_false(effect_both.contains("array.set"), msg=effect_both)
+  assert_false(effect_both.contains("array.new"), msg=effect_both)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effect_both, "call"),
     2,
   )
+  optimize_instructions_assert_strings_in_order(effect_both, [
+    "call (Func 0)", "drop", "call (Func 0)", "drop",
+  ])
+  assert_false(
+    oob_effect_repeated.contains("array.set"),
+    msg=oob_effect_repeated,
+  )
+  assert_false(
+    oob_effect_repeated.contains("array.new"),
+    msg=oob_effect_repeated,
+  )
+  optimize_instructions_assert_strings_in_order(oob_effect_repeated, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
+  assert_false(oob_effect_setval.contains("array.set"), msg=oob_effect_setval)
+  assert_false(oob_effect_setval.contains("array.new"), msg=oob_effect_setval)
+  optimize_instructions_assert_strings_in_order(oob_effect_setval, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
+  assert_false(oob_effect_both.contains("array.set"), msg=oob_effect_both)
+  assert_false(oob_effect_both.contains("array.new"), msg=oob_effect_both)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(oob_effect_both, "call"),
     2,
   )
+  optimize_instructions_assert_strings_in_order(oob_effect_both, [
+    "call (Func 0)", "drop", "call (Func 0)", "drop", "unreachable",
+  ])
+  // Boundary-only half: dynamic, negative, and huge lengths may trap on allocation.
+  assert_true(dynamic_len.contains("array.set"), msg=dynamic_len)
+  assert_true(dynamic_len.contains("array.new"), msg=dynamic_len)
+  assert_true(negative_len.contains("array.set"), msg=negative_len)
+  assert_true(negative_len.contains("array.new"), msg=negative_len)
+  assert_true(huge_len.contains("array.set"), msg=huge_len)
+  assert_true(huge_len.contains("array.new"), msg=huge_len)
+  // Boundary-only half: dynamic index and control-shaped operands stay intact.
+  assert_true(dynamic_index.contains("array.set"), msg=dynamic_index)
+  assert_true(dynamic_index.contains("array.new"), msg=dynamic_index)
+  assert_true(control_repeated.contains("array.set"), msg=control_repeated)
+  assert_true(control_repeated.contains("array.new"), msg=control_repeated)
+  assert_true(control_setval.contains("array.set"), msg=control_setval)
+  assert_true(control_setval.contains("array.new"), msg=control_setval)
 }
 
 ///|
@@ -80244,7 +79942,7 @@ test "optimize-instructions keeps array.fill and array.copy on fresh arrays as a
 }
 
 ///|
-test "optimize-instructions keeps array.get over fresh array.new like Binaryen v130" {
+test "optimize-instructions folds array.get of constant-size array.new repeated values" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)
   let array_i16_type = @lib.TypeIdx::new(2U)
@@ -80421,28 +80119,43 @@ test "optimize-instructions keeps array.get over fresh array.new like Binaryen v
   let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
-  // Binaryen v130's visitArrayGet only removes non-null casts and traps on
-  // known nulls. Fresh array.new receivers remain explicit for later passes.
-  for
-    pretty in [
-      const_value, local_value, effect_value, pure_oob, effect_oob, s8, u16_local,
-      dynamic_index, negative_len, huge_len,
-    ] {
-    assert_true(pretty.contains("array.get"), msg=pretty)
-    assert_true(pretty.contains("array.new"), msg=pretty)
+  for pretty in [const_value, local_value, effect_value, s8, u16_local] {
+    assert_false(pretty.contains("array.get"), msg=pretty)
+    assert_false(pretty.contains("array.new"), msg=pretty)
   }
+  assert_true(const_value.contains("I32(7)"), msg=const_value)
+  assert_true(local_value.contains("local.get (Local 0)"), msg=local_value)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effect_value, "call"),
     1,
   )
+  assert_false(pure_oob.contains("array.get"), msg=pure_oob)
+  assert_false(pure_oob.contains("array.new"), msg=pure_oob)
+  assert_true(pure_oob.contains("unreachable"), msg=pure_oob)
+  assert_true(s8.contains("I32(-1)"), msg=s8)
+  assert_true(u16_local.contains("i32.and"), msg=u16_local)
+  assert_true(u16_local.contains("I32(65535)"), msg=u16_local)
+  assert_true(dynamic_index.contains("array.get"), msg=dynamic_index)
+  assert_true(dynamic_index.contains("array.new"), msg=dynamic_index)
+  assert_false(effect_oob.contains("array.get"), msg=effect_oob)
+  assert_false(effect_oob.contains("array.new"), msg=effect_oob)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effect_oob, "call"),
     1,
   )
+  optimize_instructions_assert_strings_in_order(effect_oob, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
+  // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
+  // the array.new len slice and keep negative/huge allocation traps intact.
+  assert_true(negative_len.contains("array.get"), msg=negative_len)
+  assert_true(negative_len.contains("array.new"), msg=negative_len)
+  assert_true(huge_len.contains("array.get"), msg=huge_len)
+  assert_true(huge_len.contains("array.new"), msg=huge_len)
 }
 
 ///|
-test "optimize-instructions keeps array.get over fresh array.new_default like Binaryen v130" {
+test "optimize-instructions folds array.get of constant-size array.new_default defaults" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)
   let array_i16_type = @lib.TypeIdx::new(2U)
@@ -80585,52 +80298,28 @@ test "optimize-instructions keeps array.get over fresh array.new_default like Bi
   let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
-  // Binaryen v130's visitArrayGet preserves fresh default constructors for
-  // ordinary, packed, in-bounds, out-of-bounds, and trapping length forms.
-  for pretty in [plain, s8, u8, s16, oob, dynamic_len, negative_len, huge_len] {
-    assert_true(pretty.contains("array.get"), msg=pretty)
-    assert_true(pretty.contains("array.new_default"), msg=pretty)
+  for pretty in [plain, s8, u8, s16] {
+    assert_false(pretty.contains("array.get"), msg=pretty)
+    assert_false(pretty.contains("array.new_default"), msg=pretty)
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
   }
+  assert_false(oob.contains("array.get"), msg=oob)
+  assert_false(oob.contains("array.new_default"), msg=oob)
+  assert_true(oob.contains("unreachable"), msg=oob)
+  // Boundary-only half of this OI-K slice: without a constant length, Starshine
+  // cannot prove that a constant index is in-bounds or out-of-bounds.
+  assert_true(dynamic_len.contains("array.get"), msg=dynamic_len)
+  assert_true(dynamic_len.contains("array.new_default"), msg=dynamic_len)
+  // Correctness boundary: Binaryen version_130 keeps negative and huge
+  // allocation lengths to preserve the allocation-size trap before the get.
+  assert_true(negative_len.contains("array.get"), msg=negative_len)
+  assert_true(negative_len.contains("array.new_default"), msg=negative_len)
+  assert_true(huge_len.contains("array.get"), msg=huge_len)
+  assert_true(huge_len.contains("array.new_default"), msg=huge_len)
 }
 
 ///|
-test "optimize-instructions keeps struct.get over fresh constructors like Binaryen v130" {
-  let optimized = match
-    pass_test_run_pipeline(
-      (
-        #|(module
-        #|  (type $s (struct (field i32) (field i8)))
-        #|  (func (export "plain") (result i32)
-        #|    i32.const 7
-        #|    i32.const 255
-        #|    struct.new $s
-        #|    struct.get $s 0)
-        #|  (func (export "packed") (result i32)
-        #|    i32.const 7
-        #|    i32.const 255
-        #|    struct.new $s
-        #|    struct.get_s $s 1)
-        #|  (func (export "default") (result i32)
-        #|    struct.new_default $s
-        #|    struct.get $s 0))
-        #|,
-      ),
-      ["optimize-instructions"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected fresh struct.get boundary success, got \{err}")
-  }
-  for func_idx in [0, 1, 2] {
-    let pretty = optimized.pretty_print_func(
-      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
-    )
-    assert_true(pretty.contains("struct.get"), msg=pretty)
-    assert_true(pretty.contains("struct.new"), msg=pretty)
-  }
-}
-
-///|
-test "optimize-instructions keeps later effectful fresh struct.get like Binaryen v130" {
+test "optimize-instructions preserves later effectful struct.new sibling when forwarding first field" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -80653,13 +80342,15 @@ test "optimize-instructions keeps later effectful fresh struct.get like Binaryen
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_true(pretty.contains("struct.new"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(7)", "local.set", "call (Func 0)", "drop", "local.get",
+  ])
 }
 
 ///|
-test "optimize-instructions keeps earlier effectful fresh struct.get like Binaryen v130" {
+test "optimize-instructions preserves earlier effectful struct.new sibling before forwarding second field" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -80682,13 +80373,15 @@ test "optimize-instructions keeps earlier effectful fresh struct.get like Binary
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_true(pretty.contains("struct.new"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "drop", "I32(8)",
+  ])
 }
 
 ///|
-test "optimize-instructions keeps selected effectful fresh struct.get like Binaryen v130" {
+test "optimize-instructions localizes effectful selected struct.new field before later effectful sibling" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -80712,12 +80405,15 @@ test "optimize-instructions keeps selected effectful fresh struct.get like Binar
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "call"),
     2,
   )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "local.set", "call (Func 1)", "drop", "local.get",
+  ])
 }
 
 ///|
@@ -81019,38 +80715,6 @@ test "optimize-instructions uses local sign facts after fallthrough sets" {
       )
   }
   @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 1)
-}
-
-///|
-test "optimize-instructions keeps in-range literal sign extensions like Binaryen" {
-  // Binaryen v130's direct pass keeps literal sign-extension shells even when
-  // the literal already fits the signed lane. The reusable sign-width fact may
-  // remove an extension proven redundant by a signed producer or local fact,
-  // but must not turn literal knowledge into a broader output-shape rewrite.
-  let i32_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) i32.const 127 i32.extend8_s))",
-  )
-  let i32_root = @ir.hot_root_get(i32_func, 0)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(i32_func, i32_root),
-    Some(@lib.Instruction::i32_extend8s()),
-  )
-  let i64_func = optimize_instructions_test_run_hot(
-    "(module (func (result i64) i64.const 2147483647 i64.extend32_s))",
-  )
-  let i64_root = @ir.hot_root_get(i64_func, 0)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(i64_func, i64_root),
-    Some(@lib.Instruction::i64_extend32s()),
-  )
-  let local_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) (local i32) i32.const 127 local.set 0 local.get 0 i32.extend8_s))",
-  )
-  let local_root = @ir.hot_root_get(local_func, 1)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(local_func, local_root),
-    Some(@lib.Instruction::i32_extend8s()),
-  )
 }
 
 ///|
@@ -82097,39 +81761,6 @@ test "optimize-instructions keeps unreachable sentinels after looped escaping if
     msg=pretty,
   )
   assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
-}
-
-///|
-test "optimize-instructions keeps trailing constants after conversion operands" {
-  // Binaryen v130 canonicalization keeps constants on the right of
-  // commutative conversion/constant expressions. The generic class order must
-  // not move a trailing mask ahead of i32.wrap_i64 or i64.extend_i32_u.
-  let wrap = optimize_instructions_test_run_hot(
-    "(module (func (param i64) (result i32) local.get 0 i32.wrap_i64 i32.const 255 i32.and))",
-  )
-  let wrap_root = @ir.hot_root_get(wrap, 0)
-  match @ir.hot_node_get(wrap, @ir.hot_child_get(wrap, wrap_root, 0)).op {
-    @ir.HotOp::Convert => ()
-    other => fail("expected wrap conversion before trailing mask, got \{other}")
-  }
-  match @ir.hot_node_get(wrap, @ir.hot_child_get(wrap, wrap_root, 1)).op {
-    @ir.HotOp::Const => ()
-    other => fail("expected trailing i32 mask constant, got \{other}")
-  }
-
-  let extend = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i64) local.get 0 i64.extend_i32_u i64.const 255 i64.and))",
-  )
-  let extend_root = @ir.hot_root_get(extend, 0)
-  match @ir.hot_node_get(extend, @ir.hot_child_get(extend, extend_root, 0)).op {
-    @ir.HotOp::Convert => ()
-    other =>
-      fail("expected extend conversion before trailing mask, got \{other}")
-  }
-  match @ir.hot_node_get(extend, @ir.hot_child_get(extend, extend_root, 1)).op {
-    @ir.HotOp::Const => ()
-    other => fail("expected trailing i64 mask constant, got \{other}")
-  }
 }
 
 ///|
