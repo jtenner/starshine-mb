@@ -588,6 +588,14 @@ priv struct DaeControlResultPairGcEvidence {
 }
 
 ///|
+priv struct DaeOptionalRefinedResultSlotsApplicationEvidence {
+  result_count : Int
+  applied_count : Int
+  next_results_length : Int
+  refined_results_length : Int
+}
+
+///|
 priv struct DaeControlResultPairRefinementApplicationEvidence {
   result_count : Int
   next_results_length : Int
@@ -8374,6 +8382,87 @@ fn dae_control_result_pair_gc_evidence(
 }
 
 ///|
+fn dae_optional_refined_result_slots_application_is_consistent(
+  application : DaeOptionalRefinedResultSlotsApplicationEvidence,
+  refined_slots : Array[@lib.ValType?],
+  next_results : Array[@lib.ValType],
+  refined_results_length : Int,
+) -> Bool {
+  if application.result_count != refined_slots.length() ||
+    application.next_results_length != next_results.length() ||
+    application.refined_results_length != refined_results_length ||
+    application.result_count == 0 ||
+    application.next_results_length != application.result_count ||
+    application.applied_count <= 0 {
+    return false
+  }
+  let mut expected_applied = 0
+  for slot in refined_slots {
+    if slot is Some(_) {
+      expected_applied += 1
+    }
+  }
+  application.applied_count == expected_applied
+}
+
+///|
+fn dae_apply_optional_refined_result_slots(
+  refined_slots : Array[@lib.ValType?],
+  next_results : Array[@lib.ValType],
+  refined_results? : Array[@lib.ValType]? = None,
+) -> DaeOptionalRefinedResultSlotsApplicationEvidence? {
+  let result_count = refined_slots.length()
+  if result_count == 0 || next_results.length() != result_count {
+    return None
+  }
+  let refined_results_length = match refined_results {
+    Some(refined) => {
+      if refined.length() != result_count {
+        return None
+      }
+      refined.length()
+    }
+    None => 0
+  }
+  let mut applied_count = 0
+  for slot in refined_slots {
+    if slot is Some(_) {
+      applied_count += 1
+    }
+  }
+  if applied_count == 0 {
+    return None
+  }
+  let mut result_idx = 0
+  while result_idx < result_count {
+    match refined_slots[result_idx] {
+      Some(refined) => {
+        next_results[result_idx] = refined
+        match refined_results {
+          Some(refined_results) => refined_results[result_idx] = refined
+          None => ()
+        }
+      }
+      None => ()
+    }
+    result_idx += 1
+  }
+  let application = {
+    result_count,
+    applied_count,
+    next_results_length: next_results.length(),
+    refined_results_length,
+  }
+  if dae_optional_refined_result_slots_application_is_consistent(
+      application, refined_slots, next_results, refined_results_length,
+    ) {
+    Some(application)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_control_result_pair_refinement_application_is_consistent(
   application : DaeControlResultPairRefinementApplicationEvidence,
   pair : DaeControlResultPairGcEvidence,
@@ -8405,20 +8494,23 @@ fn dae_apply_control_result_pair_refinements(
     }
     None => 0
   }
-  let mut result_idx = 0
-  while result_idx < result_count {
-    let refined = pair.refined_results[result_idx]
-    next_results[result_idx] = refined
-    match refined_results {
-      Some(refined_results) => refined_results[result_idx] = refined
-      None => ()
-    }
-    result_idx += 1
+  let refined_slots : Array[@lib.ValType?] = []
+  for refined in pair.refined_results {
+    refined_slots.push(Some(refined))
+  }
+  let shared_application = match
+    dae_apply_optional_refined_result_slots(
+      refined_slots,
+      next_results,
+      refined_results~,
+    ) {
+    Some(application) => application
+    None => return None
   }
   let application = {
-    result_count,
-    next_results_length: next_results.length(),
-    refined_results_length,
+    result_count: shared_application.result_count,
+    next_results_length: shared_application.next_results_length,
+    refined_results_length: shared_application.refined_results_length,
     saw_refinement: pair.saw_refinement,
   }
   if dae_control_result_pair_refinement_application_is_consistent(
@@ -8467,31 +8559,21 @@ fn dae_apply_control_result_single_refinements(
     }
     None => 0
   }
-  let mut saw_refinement = false
-  let mut result_idx = 0
-  while result_idx < result_count {
-    match evidence.refined_candidates[result_idx] {
-      Some(refined) => {
-        next_results[result_idx] = refined
-        match refined_results {
-          Some(refined_results) => refined_results[result_idx] = refined
-          None => ()
-        }
-        saw_refinement = true
-      }
-      None => ()
-    }
-    result_idx += 1
-  }
-  if !saw_refinement {
-    return None
+  let shared_application = match
+    dae_apply_optional_refined_result_slots(
+      evidence.refined_candidates,
+      next_results,
+      refined_results~,
+    ) {
+    Some(application) => application
+    None => return None
   }
   let application = {
-    result_count,
-    next_results_length: next_results.length(),
-    refined_results_length,
+    result_count: shared_application.result_count,
+    next_results_length: shared_application.next_results_length,
+    refined_results_length: shared_application.refined_results_length,
     body_changed: evidence.body_changed,
-    saw_refinement,
+    saw_refinement: shared_application.applied_count > 0,
   }
   if dae_control_result_single_refinement_application_is_consistent(
       application, evidence, next_results, refined_results_length,
