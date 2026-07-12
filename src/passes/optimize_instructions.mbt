@@ -24035,75 +24035,6 @@ fn optimize_instructions_try_replace_with_ordered_effects_then_void(
 }
 
 ///|
-fn optimize_instructions_try_replace_with_ordered_effects_then_unreachable(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  operand_ids : Array[Int],
-) -> Bool {
-  let body : Array[Int] = []
-  if !optimize_instructions_append_ordered_effects(ctx, func, operand_ids, body) {
-    return false
-  }
-  if body.length() == 0 {
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-    return true
-  }
-  body.push(@ir.hot_build_unreachable(func))
-  let block_type = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [] => @lib.BlockType::void_()
-    [val_type] => @lib.BlockType::val_type(val_type)
-    _ => return false
-  }
-  let replacement = @ir.hot_build_block(func, block_type, body)
-  let replacement_node = @ir.hot_node_get(func, replacement)
-  @ir.hot_replace_node(func, node_id, replacement_node)
-  @ir.hot_label_owner_set(
-    func,
-    @ir.hot_control_node_label(func, node_id),
-    node_id,
-  )
-  @ir.hot_delete_node(func, replacement)
-  pass_mark_mutated(ctx, func)
-  true
-}
-
-///|
-fn optimize_instructions_try_replace_with_ordered_effects_then_const_i32(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  operand_ids : Array[Int],
-  value : @lib.I32,
-) -> Bool {
-  let body : Array[Int] = []
-  if !optimize_instructions_append_ordered_effects(ctx, func, operand_ids, body) {
-    return false
-  }
-  if body.length() == 0 {
-    optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
-    return true
-  }
-  body.push(@ir.hot_build_const_i32(func, value))
-  let replacement = @ir.hot_build_block(
-    func,
-    @lib.BlockType::val_type(@lib.ValType::i32()),
-    body,
-  )
-  let replacement_node = @ir.hot_node_get(func, replacement)
-  @ir.hot_replace_node(func, node_id, replacement_node)
-  @ir.hot_label_owner_set(
-    func,
-    @ir.hot_control_node_label(func, node_id),
-    node_id,
-  )
-  @ir.hot_delete_node(func, replacement)
-  pass_mark_mutated(ctx, func)
-  true
-}
-
-///|
 fn optimize_instructions_try_forward_selected_operand_preserving_effects(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -25287,39 +25218,6 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
       }
       len
     }
-    Some(@lib.Instruction::ArrayNew(_)) => {
-      if array_node.child_count != 2 {
-        return false
-      }
-      let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
-      let len_id = @ir.hot_child_get(func, array_id, 1)
-      let len = match optimize_instructions_i32_const(func, dead, len_id) {
-        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-            len,
-          ) => len
-        _ => return false
-      }
-      match optimize_instructions_i32_const(func, dead, repeated_value_id) {
-        Some(_) => len
-        None => {
-          if OiTriviallyPureOperandFact::proves_node_pure(
-              func, repeated_value_id,
-            ) ||
-            optimize_instructions_node_effects_are_pure(
-              ctx, func, repeated_value_id,
-            ) {
-            return false
-          }
-          return optimize_instructions_try_replace_with_ordered_effects_then_const_i32(
-            ctx,
-            func,
-            node_id,
-            [repeated_value_id, len_id],
-            @lib.I32(len),
-          )
-        }
-      }
-    }
     _ => return false
   }
   optimize_instructions_replace_with_const_i32(
@@ -25360,15 +25258,14 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     _ => return false
   }
   let array_node = @ir.hot_node_get(func, array_id)
-  // 0 = array.new_fixed, 1 = array.new_default, 2 = array.new repeated value.
-  let (array_kind, len) = match @ir.hot_node_exact_instr(func, array_id) {
+  let (is_fixed, len) = match @ir.hot_node_exact_instr(func, array_id) {
     Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
       type_idx => {
       let len = len.reinterpret_as_int()
       if len != array_node.child_count {
         return false
       }
-      (0, len)
+      (true, len)
     }
     Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
       type_idx => {
@@ -25386,35 +25283,11 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
           ) => len
         _ => return false
       }
-      (1, len)
-    }
-    Some(@lib.Instruction::ArrayNew(new_type_idx)) if new_type_idx == type_idx => {
-      if array_node.child_count != 2 {
-        return false
-      }
-      let len = match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 1),
-        ) {
-        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-            len,
-          ) => len
-        _ => return false
-      }
-      (2, len)
+      (false, len)
     }
     _ => return false
   }
-  if array_kind == 2 {
-    let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
-    if OiOrderedOperandFact::from_node(ctx, func, repeated_value_id).selected_value_fact.value_type
-      is None {
-      return false
-    }
-  }
-  if array_kind == 0 {
+  if is_fixed {
     if index >= 0 && index < len && packed_signed == None {
       let operands : Array[Int] = []
       for i = 0; i < array_node.child_count; i = i + 1 {
@@ -25436,33 +25309,19 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     }
   }
   if index < 0 || index >= len {
-    if array_kind == 2 {
-      return optimize_instructions_try_replace_with_ordered_effects_then_unreachable(
-        ctx,
-        func,
-        node_id,
-        [
-          @ir.hot_child_get(func, array_id, 0),
-          @ir.hot_child_get(func, array_id, 1),
-          index_id,
-        ],
-      )
-    }
     if !optimize_instructions_node_effects_are_pure(ctx, func, index_id) {
       return false
     }
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
   } else {
-    let value_id = if array_kind == 0 {
+    let value_id = if is_fixed {
       @ir.hot_child_get(func, array_id, index)
-    } else if array_kind == 1 {
+    } else {
       match
         optimize_instructions_array_default_element_value(ctx, func, type_idx) {
         Some(value_id) => value_id
         None => return false
       }
-    } else {
-      @ir.hot_child_get(func, array_id, 0)
     }
     match packed_signed {
       Some(signed) => {
@@ -25541,21 +25400,6 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
         return false
       }
       let len_id = @ir.hot_child_get(func, array_id, 0)
-      effect_operands.push(len_id)
-      match optimize_instructions_i32_const(func, dead, len_id) {
-        Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(
-            len,
-          ) => len
-        _ => return false
-      }
-    }
-    Some(@lib.Instruction::ArrayNew(new_type_idx)) if new_type_idx == type_idx => {
-      if array_node.child_count != 2 {
-        return false
-      }
-      let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
-      let len_id = @ir.hot_child_get(func, array_id, 1)
-      effect_operands.push(repeated_value_id)
       effect_operands.push(len_id)
       match optimize_instructions_i32_const(func, dead, len_id) {
         Some(@lib.I32(len)) if OiArrayNonTrappingLengthFact::proves_len_known_non_trapping(

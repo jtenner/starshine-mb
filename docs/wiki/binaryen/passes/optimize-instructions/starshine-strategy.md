@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Fresh repeated-array consumer boundary
+
+Binaryen v130 keeps `array.get`, `array.set`, and `array.len` over a fresh repeated-value `array.new`; those visitors do not prove or localize constructor operands. Starshine therefore limits the represented repeated-array rule to constructor canonicalization such as size-one `array.new` to `array.new_fixed`. Consumer rewrites no longer infer a result, erase a write, or replace an out-of-bounds access with localized effects and `unreachable`. This is one source-backed producer-kind boundary, not a profile-shape matrix; fixed/default producer parity remains separately testable.
+
 ## Width-specific masks and literal ordering
 
 Redundant low-ones mask removal follows Binaryen v130's width-specific ownership: the represented rule applies to i32 only; i64 masks remain explicit even when reusable maxBits facts prove them redundant. Generic commutative canonicalization also ranks literal leaves after unary/conversion, binary, and compare expressions, keeping mask constants on the right without weakening the existing effect/order swap proof.

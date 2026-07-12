@@ -78712,7 +78712,7 @@ test "optimize-instructions folds array.len of constant-size array.new_default" 
 }
 
 ///|
-test "optimize-instructions folds array.len of constant-size array.new and localizes repeated effects" {
+test "optimize-instructions keeps array.len over fresh array.new like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let result_type = @lib.TypeIdx::new(1U)
   let param_result_type = @lib.TypeIdx::new(2U)
@@ -78806,29 +78806,19 @@ test "optimize-instructions folds array.len of constant-size array.new and local
   let effectful_value = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  assert_false(constant_value.contains("array.len"), msg=constant_value)
-  assert_false(constant_value.contains("array.new"), msg=constant_value)
-  assert_true(constant_value.contains("I32(3)"), msg=constant_value)
-  // Boundary-only half of this OI-K slice: Binaryen's O4z-style oracle keeps
-  // nonconstant repeated values, even pure local.get values, so Starshine keeps
-  // them until a broader source-backed proof justifies dropping value evaluation.
-  assert_true(local_value.contains("array.len"), msg=local_value)
-  assert_true(local_value.contains("array.new"), msg=local_value)
-  assert_false(effectful_value.contains("array.len"), msg=effectful_value)
-  assert_false(effectful_value.contains("array.new"), msg=effectful_value)
+  // Binaryen v130's visitArrayLen only removes non-null casts and traps on
+  // known nulls. It does not inspect or erase a fresh array.new producer.
+  for
+    pretty in [
+      constant_value, local_value, effectful_value, negative_len, huge_len,
+    ] {
+    assert_true(pretty.contains("array.len"), msg=pretty)
+    assert_true(pretty.contains("array.new"), msg=pretty)
+  }
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effectful_value, "call"),
     1,
   )
-  optimize_instructions_assert_strings_in_order(effectful_value, [
-    "call (Func 0)", "drop", "I32(3)",
-  ])
-  // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
-  // the array.new_default length slice.
-  assert_true(negative_len.contains("array.len"), msg=negative_len)
-  assert_true(negative_len.contains("array.new"), msg=negative_len)
-  assert_true(huge_len.contains("array.len"), msg=huge_len)
-  assert_true(huge_len.contains("array.new"), msg=huge_len)
 }
 
 ///|
@@ -79569,7 +79559,7 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
 }
 
 ///|
-test "optimize-instructions localizes array.set to fresh array.new repeated-value arrays with constant indexes" {
+test "optimize-instructions keeps array.set over fresh array.new like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let void_type = @lib.TypeIdx::new(2U)
@@ -79619,7 +79609,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
     )
     .with_code_sec(
       @lib.CodeSec::new([
-        // set_new_inbounds_pure: array.set(array.new(7, 2), 1, 9) -> nop.
+        // set_new_inbounds_pure: Binaryen keeps the fresh allocation and set.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79631,7 +79621,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_pure: array.set(array.new(7, 2), 2, 9) -> unreachable.
+        // set_new_oob_pure: Binaryen leaves later DCE to reason about the trap.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79643,7 +79633,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_setval: effectful set value is localized and dropped.
+        // set_new_effect_setval: the set value remains inside array.set.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79655,7 +79645,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_repeated: effectful repeated value is localized.
+        // set_new_effect_repeated: the repeated value remains inside array.new.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79667,7 +79657,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_both: repeated-value effect stays before set-value effect.
+        // set_new_effect_both: both effects remain in the original GC operations.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79679,7 +79669,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_effect_repeated: preserve repeated effect before trap.
+        // set_new_oob_effect_repeated: preserve the original trapping operation.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79691,7 +79681,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_effect_setval: preserve set-value effect before trap.
+        // set_new_oob_effect_setval: preserve the original trapping operation.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79703,7 +79693,7 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_oob_effect_both: preserve repeated then set-value effects.
+        // set_new_oob_effect_both: preserve both effects and the original trap.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -79810,74 +79800,25 @@ test "optimize-instructions localizes array.set to fresh array.new repeated-valu
   let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(12U))
   let control_repeated = optimized.pretty_print_func(@lib.FuncIdx::new(13U))
   let control_setval = optimized.pretty_print_func(@lib.FuncIdx::new(14U))
-  assert_false(new_inbounds.contains("array.set"), msg=new_inbounds)
-  assert_false(new_inbounds.contains("array.new"), msg=new_inbounds)
-  assert_false(new_inbounds.contains("unreachable"), msg=new_inbounds)
-  assert_false(new_oob.contains("array.set"), msg=new_oob)
-  assert_false(new_oob.contains("array.new"), msg=new_oob)
-  assert_true(new_oob.contains("unreachable"), msg=new_oob)
-  assert_false(effect_setval.contains("array.set"), msg=effect_setval)
-  assert_false(effect_setval.contains("array.new"), msg=effect_setval)
-  optimize_instructions_assert_strings_in_order(effect_setval, [
-    "call (Func 0)", "drop",
-  ])
-  assert_false(effect_repeated.contains("array.set"), msg=effect_repeated)
-  assert_false(effect_repeated.contains("array.new"), msg=effect_repeated)
-  @debug.assert_eq(
-    optimize_instructions_test_count_substring(effect_repeated, "call"),
-    1,
-  )
-  optimize_instructions_assert_strings_in_order(effect_repeated, [
-    "call (Func 0)", "drop",
-  ])
-  assert_false(effect_both.contains("array.set"), msg=effect_both)
-  assert_false(effect_both.contains("array.new"), msg=effect_both)
+  // Binaryen v130's visitArraySet only handles null/cast and stored-width
+  // concerns. It does not erase a write merely because the receiver is fresh.
+  for
+    pretty in [
+      new_inbounds, new_oob, effect_setval, effect_repeated, effect_both, oob_effect_repeated,
+      oob_effect_setval, oob_effect_both, dynamic_len, negative_len, huge_len, dynamic_index,
+      control_repeated, control_setval,
+    ] {
+    assert_true(pretty.contains("array.set"), msg=pretty)
+    assert_true(pretty.contains("array.new"), msg=pretty)
+  }
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effect_both, "call"),
     2,
   )
-  optimize_instructions_assert_strings_in_order(effect_both, [
-    "call (Func 0)", "drop", "call (Func 0)", "drop",
-  ])
-  assert_false(
-    oob_effect_repeated.contains("array.set"),
-    msg=oob_effect_repeated,
-  )
-  assert_false(
-    oob_effect_repeated.contains("array.new"),
-    msg=oob_effect_repeated,
-  )
-  optimize_instructions_assert_strings_in_order(oob_effect_repeated, [
-    "call (Func 0)", "drop", "unreachable",
-  ])
-  assert_false(oob_effect_setval.contains("array.set"), msg=oob_effect_setval)
-  assert_false(oob_effect_setval.contains("array.new"), msg=oob_effect_setval)
-  optimize_instructions_assert_strings_in_order(oob_effect_setval, [
-    "call (Func 0)", "drop", "unreachable",
-  ])
-  assert_false(oob_effect_both.contains("array.set"), msg=oob_effect_both)
-  assert_false(oob_effect_both.contains("array.new"), msg=oob_effect_both)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(oob_effect_both, "call"),
     2,
   )
-  optimize_instructions_assert_strings_in_order(oob_effect_both, [
-    "call (Func 0)", "drop", "call (Func 0)", "drop", "unreachable",
-  ])
-  // Boundary-only half: dynamic, negative, and huge lengths may trap on allocation.
-  assert_true(dynamic_len.contains("array.set"), msg=dynamic_len)
-  assert_true(dynamic_len.contains("array.new"), msg=dynamic_len)
-  assert_true(negative_len.contains("array.set"), msg=negative_len)
-  assert_true(negative_len.contains("array.new"), msg=negative_len)
-  assert_true(huge_len.contains("array.set"), msg=huge_len)
-  assert_true(huge_len.contains("array.new"), msg=huge_len)
-  // Boundary-only half: dynamic index and control-shaped operands stay intact.
-  assert_true(dynamic_index.contains("array.set"), msg=dynamic_index)
-  assert_true(dynamic_index.contains("array.new"), msg=dynamic_index)
-  assert_true(control_repeated.contains("array.set"), msg=control_repeated)
-  assert_true(control_repeated.contains("array.new"), msg=control_repeated)
-  assert_true(control_setval.contains("array.set"), msg=control_setval)
-  assert_true(control_setval.contains("array.new"), msg=control_setval)
 }
 
 ///|
@@ -80086,7 +80027,7 @@ test "optimize-instructions keeps array.fill and array.copy on fresh arrays as a
 }
 
 ///|
-test "optimize-instructions folds array.get of constant-size array.new repeated values" {
+test "optimize-instructions keeps array.get over fresh array.new like Binaryen v130" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)
   let array_i16_type = @lib.TypeIdx::new(2U)
@@ -80263,39 +80204,24 @@ test "optimize-instructions folds array.get of constant-size array.new repeated 
   let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
   let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
   let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
-  for pretty in [const_value, local_value, effect_value, s8, u16_local] {
-    assert_false(pretty.contains("array.get"), msg=pretty)
-    assert_false(pretty.contains("array.new"), msg=pretty)
+  // Binaryen v130's visitArrayGet only removes non-null casts and traps on
+  // known nulls. Fresh array.new receivers remain explicit for later passes.
+  for
+    pretty in [
+      const_value, local_value, effect_value, pure_oob, effect_oob, s8, u16_local,
+      dynamic_index, negative_len, huge_len,
+    ] {
+    assert_true(pretty.contains("array.get"), msg=pretty)
+    assert_true(pretty.contains("array.new"), msg=pretty)
   }
-  assert_true(const_value.contains("I32(7)"), msg=const_value)
-  assert_true(local_value.contains("local.get (Local 0)"), msg=local_value)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effect_value, "call"),
     1,
   )
-  assert_false(pure_oob.contains("array.get"), msg=pure_oob)
-  assert_false(pure_oob.contains("array.new"), msg=pure_oob)
-  assert_true(pure_oob.contains("unreachable"), msg=pure_oob)
-  assert_true(s8.contains("I32(-1)"), msg=s8)
-  assert_true(u16_local.contains("i32.and"), msg=u16_local)
-  assert_true(u16_local.contains("I32(65535)"), msg=u16_local)
-  assert_true(dynamic_index.contains("array.get"), msg=dynamic_index)
-  assert_true(dynamic_index.contains("array.new"), msg=dynamic_index)
-  assert_false(effect_oob.contains("array.get"), msg=effect_oob)
-  assert_false(effect_oob.contains("array.new"), msg=effect_oob)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(effect_oob, "call"),
     1,
   )
-  optimize_instructions_assert_strings_in_order(effect_oob, [
-    "call (Func 0)", "drop", "unreachable",
-  ])
-  // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
-  // the array.new len slice and keep negative/huge allocation traps intact.
-  assert_true(negative_len.contains("array.get"), msg=negative_len)
-  assert_true(negative_len.contains("array.new"), msg=negative_len)
-  assert_true(huge_len.contains("array.get"), msg=huge_len)
-  assert_true(huge_len.contains("array.new"), msg=huge_len)
 }
 
 ///|
