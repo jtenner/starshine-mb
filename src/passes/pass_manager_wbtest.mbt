@@ -178,6 +178,59 @@ test "descriptor call value graph indexes rich operand chunks through producer e
 }
 
 ///|
+test "escaping ref.get_desc candidates use indexed block and suffix roots" {
+  let block = @lib.Instruction::block(
+    @lib.BlockType::val_type(
+      @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+    ),
+    @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+  )
+  let cast = @lib.Instruction::ref_cast_desc_eq_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let with_null_check = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    block,
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::ref_get_desc(@lib.TypeIdx::new(0U)),
+    cast,
+  ])
+  match
+    RawOiEscapingRefGetDescCandidateFact::from_region_at(with_null_check, 0) {
+    Some(candidate) => {
+      assert_true(candidate.skips_explicit_null_check)
+      @debug.assert_eq(candidate.end, 5)
+    }
+    None => fail("expected escaping descriptor candidate")
+  }
+  let direct = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    block,
+    @lib.Instruction::ref_get_desc(@lib.TypeIdx::new(0U)),
+    cast,
+  ])
+  match RawOiEscapingRefGetDescCandidateFact::from_region_at(direct, 0) {
+    Some(candidate) => {
+      assert_false(candidate.skips_explicit_null_check)
+      @debug.assert_eq(candidate.end, 4)
+    }
+    None => fail("expected direct escaping descriptor candidate")
+  }
+  let blocked = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::nop()]),
+    ),
+    @lib.Instruction::ref_get_desc(@lib.TypeIdx::new(0U)),
+    cast,
+  ])
+  assert_true(
+    RawOiEscapingRefGetDescCandidateFact::from_region_at(blocked, 0) is None,
+  )
+}
+
+///|
 test "optimize-instructions raw function index collects call and select anchors once" {
   let repeated = @lib.FuncIdx::new(3U)
   let other = @lib.FuncIdx::new(9U)

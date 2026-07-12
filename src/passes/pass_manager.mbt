@@ -25556,6 +25556,7 @@ priv enum RawOiRootKind {
   ArrayWrite
   ArrayLen
   I32Const
+  StructuredBlock
   If
   Select
   MemorySize
@@ -25565,6 +25566,7 @@ priv enum RawOiRootKind {
   PlainLoad
   MemoryStore
   RefNull
+  RefAsNonNull
   RefGetDesc
   RefCastDescEq
   CallLike
@@ -25688,6 +25690,7 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.ArraySet(_) => RawOiRootKind::ArrayWrite
     @lib.ArrayLen => RawOiRootKind::ArrayLen
     @lib.I32Const(_) => RawOiRootKind::I32Const
+    @lib.Block(_, _) => RawOiRootKind::StructuredBlock
     @lib.If(_, _, _) => RawOiRootKind::If
     @lib.Select(_) => RawOiRootKind::Select
     @lib.MemorySize(_) => RawOiRootKind::MemorySize
@@ -25695,6 +25698,7 @@ fn RawOiTopLevelRootFact::from_instr(
     @lib.LocalGet(_) => RawOiRootKind::LocalGet
     @lib.LocalTee(_) => RawOiRootKind::LocalTee
     @lib.RefNull(_) => RawOiRootKind::RefNull
+    @lib.RefAsNonNull => RawOiRootKind::RefAsNonNull
     @lib.RefGetDesc(_) => RawOiRootKind::RefGetDesc
     @lib.RefCastDescEq(_, _, _) => RawOiRootKind::RefCastDescEq
     instr if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) =>
@@ -26036,6 +26040,7 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (ArrayWrite, ArrayWrite)
     | (ArrayLen, ArrayLen)
     | (I32Const, I32Const)
+    | (StructuredBlock, StructuredBlock)
     | (If, If)
     | (Select, Select)
     | (MemorySize, MemorySize)
@@ -26045,6 +26050,7 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
     | (PlainLoad, PlainLoad)
     | (MemoryStore, MemoryStore)
     | (RefNull, RefNull)
+    | (RefAsNonNull, RefAsNonNull)
     | (RefGetDesc, RefGetDesc)
     | (RefCastDescEq, RefCastDescEq)
     | (CallLike, CallLike)
@@ -31380,7 +31386,7 @@ priv struct RawOiDescriptorProducerEndpointFact {
 }
 
 ///|
-fn RawOiDescriptorProducerEndpointFact::from_instrs(
+fn RawOiDescriptorProducerEndpointFact::from_position(
   instrs : Array[@lib.Instruction],
   start : Int,
 ) -> RawOiDescriptorProducerEndpointFact? {
@@ -31501,7 +31507,7 @@ fn RawOiDescriptorCallValueGraphFact::from_module_body(
       Some(fact) if fact.proves_binaryen_operand_preservation() =>
         graph.descriptor_operand_miss_chunks[idx] = Some(fact)
       _ =>
-        match RawOiDescriptorProducerEndpointFact::from_instrs(instrs, idx) {
+        match RawOiDescriptorProducerEndpointFact::from_position(instrs, idx) {
           Some(endpoint) =>
             graph.descriptor_operand_miss_endpoints[idx] = Some(endpoint)
           None =>
@@ -54603,6 +54609,40 @@ fn RawOiRefGetDescResultBlockTypeFact::block_type_from_module(
 }
 
 ///|
+// Revision-local candidate for the one remaining label-aware descriptor
+// bridge. Indexed roots only establish the outer block/get_desc/cast envelope;
+// the flatten fact still owns exact branch shape, labels, types, effects, traps,
+// evaluation order, descriptor rebuilding, and the complete rewrite payload.
+priv struct RawOiEscapingRefGetDescCandidateFact {
+  start : Int
+  end : Int
+  skips_explicit_null_check : Bool
+}
+
+///|
+fn RawOiEscapingRefGetDescCandidateFact::from_region_at(
+  region : RawOiInstructionRegionFact,
+  start : Int,
+) -> RawOiEscapingRefGetDescCandidateFact? {
+  if start < 0 ||
+    start + 3 >= region.roots.length() ||
+    !region.has_root_at(start + 1, RawOiRootKind::StructuredBlock) {
+    return None
+  }
+  if start + 4 < region.roots.length() &&
+    region.has_root_at(start + 2, RawOiRootKind::RefAsNonNull) &&
+    region.has_root_at(start + 3, RawOiRootKind::RefGetDesc) &&
+    region.has_root_at(start + 4, RawOiRootKind::RefCastDescEq) {
+    return Some({ start, end: start + 5, skips_explicit_null_check: true })
+  }
+  if region.has_root_at(start + 2, RawOiRootKind::RefGetDesc) &&
+    region.has_root_at(start + 3, RawOiRootKind::RefCastDescEq) {
+    return Some({ start, end: start + 4, skips_explicit_null_check: false })
+  }
+  None
+}
+
+///|
 // Source-backed raw OI-J escaping `ref.get_desc` flatten subfamily. Each
 // variant corresponds to a represented Binaryen nullable-child movement shape
 // that can leave an escaping control wrapper immediately before the
@@ -54668,15 +54708,28 @@ fn RawOiEscapingRefGetDescFlattenFact::append_rewrite(
 // ref.get_desc; ref.cast_desc_eq`; the lowered raw bridge removes that wrapper
 // only for the represented payload/control shapes and carries the complete
 // rewrite payload here so the body traversal is not its own window scanner.
-// Explicit final descriptor traversal bridge. Escaping ref.get_desc flattening
-// rewrites label depths while reconstructing raw control children; migrate only
-// after a reusable label-aware descriptor value/effect overlay can preserve
-// branch targets, traps, nullable types, and source order.
-fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
+// Explicit final descriptor traversal bridge. The revision-local region index
+// now owns outer block/get_desc/cast candidate discovery, but this fact must
+// still reconstruct escaping raw control and retarget labels. The existing
+// prefix value graph proves branch-free prefix hoisting, and root-flow facts
+// summarize whether control exists; neither can prove exact escaping target
+// decrements, branch payload/fallthrough typing, trap placement, or source
+// order. Keep this bridge until a typed label/control/effect graph carries those
+// proofs rather than flattening them into root-kind admission.
+fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
+  candidate : RawOiEscapingRefGetDescCandidateFact,
   instrs : Array[@lib.Instruction],
-  start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiEscapingRefGetDescFlattenFact? {
+  let start = candidate.start
+  let expected_window_len = if candidate.skips_explicit_null_check {
+    5
+  } else {
+    4
+  }
+  if candidate.end - start != expected_window_len {
+    return None
+  }
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut end = start
@@ -55996,7 +56049,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
     }
     break
   }
-  if changed {
+  if changed && end == candidate.end {
     Some({
       end,
       kind,
@@ -56011,27 +56064,35 @@ fn RawOiEscapingRefGetDescFlattenFact::from_instrs(
 
 ///|
 // Accepted raw OI-J traversal bridge over `RawOiEscapingRefGetDescFlattenFact`.
-// The fact owns the represented payload/control-shape proof, label retargeting
-// metadata, descriptor-result block rebuilding flag, and complete rewrite
-// payload. Reopen if direct pattern windows or new proof cases reappear here
-// instead of in the fact constructor with focused coverage.
+// Each recursive body constructs one immutable region view, so outer candidate
+// queries do not rescan that body. The fact owns represented payload/control
+// proof, label retargeting, descriptor-result rebuilding, and the complete
+// rewrite. Reopen if direct windows or proof cases reappear in this walker, or
+// when a typed label/control/effect graph can replace the remaining bridge.
 fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
+  let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    match
-      RawOiEscapingRefGetDescFlattenFact::from_instrs(instrs, i, module_ctx) {
-      Some(fact) if fact.proves_binaryen_escaping_ref_get_desc_flattening() => {
-        fact.append_rewrite(rewritten)
-        changed = true
-        i = fact.end
-        continue
-      }
-      _ => ()
+    match RawOiEscapingRefGetDescCandidateFact::from_region_at(region, i) {
+      Some(candidate) =>
+        match
+          RawOiEscapingRefGetDescFlattenFact::from_candidate(
+            candidate, instrs, module_ctx,
+          ) {
+          Some(fact) if fact.proves_binaryen_escaping_ref_get_desc_flattening() => {
+            fact.append_rewrite(rewritten)
+            changed = true
+            i = fact.end
+            continue
+          }
+          _ => ()
+        }
+      None => ()
     }
     match instrs[i] {
       @lib.Block(block_type, @lib.Expr(body)) => {
