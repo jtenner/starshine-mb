@@ -31225,6 +31225,75 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
+test "optimize-instructions preserves operands when ref.test folds to a constant" {
+  // Binaryen v130 `visitRefTest` always emits `drop(ref)` before a known
+  // success or failure constant. This applies even to trivially pure direct
+  // nulls and local.get operands; purity is not permission to erase the value.
+  // Oracle: `.tmp/probes/direct-null-test-cast.out.wat` and
+  // `.tmp/probes/ref-test-erasure.out.wat`.
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let nullable_any = @lib.ValType::ref_null(any_heap)
+  let direct_type = @lib.TypeIdx::new(0U)
+  let local_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_any], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([direct_type, direct_type, local_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(any_heap),
+            @lib.Instruction::ref_test(true, any_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(any_heap),
+            @lib.Instruction::ref_test(false, any_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(true, any_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let fixtures = [
+    ("direct-null-success", 0U, "I32(1)", "ref.null"),
+    ("direct-null-failure", 1U, "I32(0)", "ref.null"),
+    ("local-success", 2U, "I32(1)", "local.get"),
+  ]
+  for fixture in fixtures {
+    let (label, func_idx, expected, operand) = fixture
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains("ref.test"), msg="\{label}: \{pretty}")
+    assert_true(pretty.contains(operand), msg="\{label}: \{pretty}")
+    assert_true(pretty.contains("drop"), msg="\{label}: \{pretty}")
+    assert_true(pretty.contains(expected), msg="\{label}: \{pretty}")
+  }
+}
+
+///|
 test "optimize-instructions keeps ref.is_null on direct null literals like Binaryen" {
   // Binaryen v130 canonicalizes each abstract heap to its bottom null heap but
   // keeps the explicit predicate. Known-null dataflow remains reusable for
@@ -34808,9 +34877,9 @@ test "optimize-instructions traps standalone ref.get_desc on known-null child" {
 ///|
 test "optimize-instructions folds ref.test_desc null operands from descriptor test facts" {
   // OI-J descriptor-test fact slice: Binaryen version_130 routes ref.test_desc
-  // through the same RefTest cast-check family. Null operands fold entirely from
-  // the nullable target fact before any broader descriptor producer or
-  // fallthrough-type lattice is needed.
+  // through the same RefTest cast-check family. Null operands prove the result
+  // from the nullable target fact, but the shared visitor still preserves the
+  // explicit operand with a drop before the constant.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let nullable_func_type = @lib.TypeIdx::new(2U)
@@ -34870,8 +34939,26 @@ test "optimize-instructions folds ref.test_desc null operands from descriptor te
     Some(@lib.CodeSec([_, func])) => func
     _ => fail("expected optimized non-null ref.test_desc function")
   }
-  @debug.assert_eq(nullable_body, [@lib.Instruction::i32_const(@lib.I32(1))])
-  @debug.assert_eq(nonnull_body, [@lib.Instruction::i32_const(@lib.I32(0))])
+  @debug.assert_eq(nullable_body, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::ref_null(described_heap),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+      ]),
+    ),
+  ])
+  @debug.assert_eq(nonnull_body, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::ref_null(described_heap),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ]),
+    ),
+  ])
 }
 
 ///|

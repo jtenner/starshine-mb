@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Known-result reference-test preservation
+
+Known `ref.test` success and failure now use one general typed preservation rule: retain the tested operand under `drop`, then materialize the i32 constant. This directly follows Binaryen v130 `visitRefTest` and applies to ordinary and descriptor tests, including pure direct nulls and local reads. Candidate/type relation facts may prove the result, but purity no longer authorizes deleting the explicit operand; the former effect/erasure matrix and direct-constant plan are removed.
+
 This page is the local strategy overview.
 For the exact helper walk and finer-grained code map, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 

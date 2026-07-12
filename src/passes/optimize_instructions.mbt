@@ -4164,110 +4164,34 @@ fn OiRefTestResultFact::from_test(
 }
 
 ///|
-priv enum OiRefTestConstOperandEffectKind {
-  RefTestConstOperandTriviallyPureAndPureEffects
-  RefTestConstOperandTriviallyPureOnly
-  RefTestConstOperandPureEffects
-  RefTestConstOperandPreserveEffects
+priv enum OiRefTestConstOperandPreservationKind {
+  RefTestConstPreserveOperandWithDrop
 }
 
 ///|
-priv struct OiRefTestConstOperandEffectFact {
-  kind : OiRefTestConstOperandEffectKind
-}
-
-///|
-fn OiRefTestConstOperandEffectFact::from_operand(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  operand_id : Int,
-) -> OiRefTestConstOperandEffectFact {
-  // Binaryen v130 `visitRefTest` has a false-result shortcut for trivially
-  // pure operands, while both false and true constants can erase operands whose
-  // full effects are pure. Keep that distinction as a source fact before the
-  // constant-result erasure plan chooses erase or drop.
-  let trivially_pure_operand = OiTriviallyPureOperandFact::proves_node_pure(
-    func, operand_id,
-  )
-  let node_effects_pure = optimize_instructions_node_effects_are_pure(
-    ctx, func, operand_id,
-  )
-  let kind = if trivially_pure_operand && node_effects_pure {
-    RefTestConstOperandTriviallyPureAndPureEffects
-  } else if trivially_pure_operand {
-    RefTestConstOperandTriviallyPureOnly
-  } else if node_effects_pure {
-    RefTestConstOperandPureEffects
-  } else {
-    RefTestConstOperandPreserveEffects
-  }
-  { kind, }
-}
-
-///|
-priv enum OiRefTestConstOperandErasureKind {
-  RefTestConstEraseFalsePureOperand
-  RefTestConstEraseFalsePureEffects
-  RefTestConstEraseTruePureEffects
-  RefTestConstDropOperand
-}
-
-///|
-priv struct OiRefTestConstOperandErasureFact {
-  kind : OiRefTestConstOperandErasureKind
-  const_result : @lib.I32
+priv struct OiRefTestConstOperandPreservationFact {
+  kind : OiRefTestConstOperandPreservationKind
   operand_id : Int
-  operand_effect_fact : OiRefTestConstOperandEffectFact
 }
 
 ///|
-fn OiRefTestConstOperandErasureFact::from_const_result(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
+fn OiRefTestConstOperandPreservationFact::from_operand(
   operand_id : Int,
-  const_result : @lib.I32,
-) -> OiRefTestConstOperandErasureFact {
-  // Binaryen v130 `visitRefTest` may replace a known ref.test result with a
-  // constant only when the operand can be erased without losing required
-  // effects; otherwise it must drop the operand first. Keep the false-result
-  // trivially-pure shortcut and the pure-effects cases as explicit result kinds
-  // so the rewrite plan does not own a local purity cascade.
-  let operand_effect_fact = OiRefTestConstOperandEffectFact::from_operand(
-    ctx, func, operand_id,
-  )
-  let kind = match (const_result == @lib.I32(0), operand_effect_fact.kind) {
-    (true, RefTestConstOperandTriviallyPureAndPureEffects)
-    | (true, RefTestConstOperandTriviallyPureOnly) =>
-      RefTestConstEraseFalsePureOperand
-    (true, RefTestConstOperandPureEffects) => RefTestConstEraseFalsePureEffects
-    (false, RefTestConstOperandTriviallyPureAndPureEffects)
-    | (false, RefTestConstOperandPureEffects) =>
-      RefTestConstEraseTruePureEffects
-    _ => RefTestConstDropOperand
-  }
-  { kind, const_result, operand_id, operand_effect_fact }
+) -> OiRefTestConstOperandPreservationFact {
+  // Binaryen v130 `visitRefTest` materializes both known Success and Failure as
+  // `drop(ref); i32.const`. This is an output-shape contract, not merely an
+  // effect fallback: even direct ref.null and local.get operands remain
+  // explicit. Keep that unconditional preservation decision in one typed fact
+  // so candidate discovery and generic purity facts cannot erase the operand.
+  { kind: RefTestConstPreserveOperandWithDrop, operand_id }
 }
 
 ///|
-fn OiRefTestConstOperandErasureFact::proves_operand_erases_without_drop(
-  self : OiRefTestConstOperandErasureFact,
+fn OiRefTestConstOperandPreservationFact::proves_operand_drop_required(
+  self : OiRefTestConstOperandPreservationFact,
 ) -> Bool {
-  match (self.kind, self.operand_effect_fact.kind) {
-    (
-      RefTestConstEraseFalsePureOperand,
-      RefTestConstOperandTriviallyPureAndPureEffects,
-    )
-    | (RefTestConstEraseFalsePureOperand, RefTestConstOperandTriviallyPureOnly) =>
-      self.const_result == @lib.I32(0) && self.operand_id >= 0
-    (RefTestConstEraseFalsePureEffects, RefTestConstOperandPureEffects) =>
-      self.const_result == @lib.I32(0) && self.operand_id >= 0
-    (
-      RefTestConstEraseTruePureEffects,
-      RefTestConstOperandTriviallyPureAndPureEffects,
-    )
-    | (RefTestConstEraseTruePureEffects, RefTestConstOperandPureEffects) =>
-      self.const_result != @lib.I32(0) && self.operand_id >= 0
-    _ => false
+  match self.kind {
+    RefTestConstPreserveOperandWithDrop => self.operand_id >= 0
   }
 }
 
@@ -4276,7 +4200,6 @@ priv enum OiRefTestRewritePlanKind {
   RefTestTightenTarget
   RefTestRewriteToNonNullCheck
   RefTestRewriteToNullCheck
-  RefTestRewriteToConst
   RefTestDropOperandThenConst
 }
 
@@ -4286,7 +4209,7 @@ priv struct OiRefTestRewritePlanFact {
   test_fact : OiRefTestFact
   const_result : @lib.I32?
   narrowed_ref_type : @lib.RefType?
-  const_operand_erasure_fact : OiRefTestConstOperandErasureFact?
+  const_operand_preservation_fact : OiRefTestConstOperandPreservationFact?
 }
 
 ///|
@@ -4325,7 +4248,7 @@ fn OiRefTestRewritePlanFact::from_test(
         test_fact: active_test_fact,
         const_result: None,
         narrowed_ref_type: None,
-        const_operand_erasure_fact: None,
+        const_operand_preservation_fact: None,
       })
     RefTestResultRefIsNull =>
       Some({
@@ -4333,25 +4256,21 @@ fn OiRefTestRewritePlanFact::from_test(
         test_fact: active_test_fact,
         const_result: None,
         narrowed_ref_type: None,
-        const_operand_erasure_fact: None,
+        const_operand_preservation_fact: None,
       })
     RefTestResultConst =>
       match result_fact.const_result {
         Some(value) => {
           let operand_id = test_fact.operand_id
-          let erasure_fact = OiRefTestConstOperandErasureFact::from_const_result(
-            ctx, func, operand_id, value,
+          let preservation_fact = OiRefTestConstOperandPreservationFact::from_operand(
+            operand_id,
           )
           Some({
-            kind: if erasure_fact.proves_operand_erases_without_drop() {
-              RefTestRewriteToConst
-            } else {
-              RefTestDropOperandThenConst
-            },
+            kind: RefTestDropOperandThenConst,
             test_fact: active_test_fact,
             const_result: Some(value),
             narrowed_ref_type: None,
-            const_operand_erasure_fact: Some(erasure_fact),
+            const_operand_preservation_fact: Some(preservation_fact),
           })
         }
         None => None
@@ -4364,7 +4283,7 @@ fn OiRefTestRewritePlanFact::from_test(
             test_fact: active_test_fact,
             const_result: None,
             narrowed_ref_type: Some(narrowed_ref_type),
-            const_operand_erasure_fact: None,
+            const_operand_preservation_fact: None,
           })
         None => None
       }
@@ -4444,27 +4363,17 @@ fn OiRefTestRewritePlanFact::apply(
       self.replace_with_ref_is_null(ctx, func, node_id)
       true
     }
-    RefTestRewriteToConst =>
-      match (self.const_result, self.const_operand_erasure_fact) {
-        (Some(value), Some(erasure_fact)) =>
-          if erasure_fact.proves_operand_erases_without_drop() {
-            optimize_instructions_replace_with_const_i32(
-              ctx, func, node_id, value,
+    RefTestDropOperandThenConst =>
+      match (self.const_result, self.const_operand_preservation_fact) {
+        (Some(value), Some(preservation_fact)) =>
+          if preservation_fact.proves_operand_drop_required() {
+            optimize_instructions_replace_with_drop_then_const_i32(
+              ctx, func, node_id, operand_id, value,
             )
             true
           } else {
             false
           }
-        _ => false
-      }
-    RefTestDropOperandThenConst =>
-      match (self.const_result, self.const_operand_erasure_fact) {
-        (Some(value), Some(_)) => {
-          optimize_instructions_replace_with_drop_then_const_i32(
-            ctx, func, node_id, operand_id, value,
-          )
-          true
-        }
         _ => false
       }
   }
