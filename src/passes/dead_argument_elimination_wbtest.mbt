@@ -2806,7 +2806,7 @@ test "dae dropped-result callee application centralizes repair and finalization"
     context,
     dae_collect_func_type_indices(mod_),
     0,
-    context.funcs,
+    context.funcs.copy(),
     rewritten_callee,
     repair,
     finalization,

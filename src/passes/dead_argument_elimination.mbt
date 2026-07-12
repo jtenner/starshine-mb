@@ -11979,6 +11979,50 @@ fn dae_apply_module_code_finalization(
 }
 
 ///|
+fn dae_apply_dropped_result_callee_rewrite(
+  mod_ : @lib.Module,
+  context : DaeModuleSignatureContext,
+  type_indices : Array[@lib.TypeIdx],
+  imported : Int,
+  rewritten_funcs : Array[@lib.Func],
+  rewritten_callee : @lib.Func,
+  repair : DaeDroppedResultRepairPlan,
+  finalization : DaeModuleCodeFinalizationPlan,
+  perf? : HotPerfSession? = None,
+  repair_timer_name? : String = "",
+  type_update_timer_name? : String = "",
+) -> DaePassResult {
+  let def_idx = context.def_idx
+  if def_idx < 0 || def_idx >= rewritten_funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let repair_start_us = if repair_timer_name.length() > 0 {
+    perf_start_timer_opt(perf, repair_timer_name)
+  } else {
+    0UL
+  }
+  dae_apply_dropped_result_repair_plan(
+    rewritten_funcs,
+    type_indices,
+    context.type_sec,
+    imported,
+    repair,
+  )
+  if repair_timer_name.length() > 0 {
+    perf_stop_timer_opt(perf, repair_timer_name, repair_start_us)
+  }
+  rewritten_funcs[def_idx] = rewritten_callee
+  dae_apply_module_code_finalization(
+    mod_,
+    context,
+    rewritten_funcs,
+    finalization,
+    perf~,
+    type_update_timer_name~,
+  )
+}
+
+///|
 fn dae_apply_removed_param_callee_rewrite(
   mod_ : @lib.Module,
   context : DaeModuleSignatureContext,
@@ -12046,21 +12090,17 @@ fn dae_apply_dropped_result_unreachable_callee_rewrite(
   context : DaeDroppedResultModuleContext,
   plan : DaeDroppedResultUnreachableCalleeRewritePlan,
 ) -> DaePassResult {
-  dae_apply_dropped_result_repair_plan(
-    context.signature.funcs,
-    context.type_indices,
-    context.signature.type_sec,
-    context.imported,
-    plan.repair,
-  )
-  context.signature.funcs[context.signature.def_idx] = @lib.Func::new(
-    @lib.Locals::empty(),
-    @lib.Expr::new([@lib.Instruction::unreachable_()]),
-  )
-  dae_apply_module_code_finalization(
+  dae_apply_dropped_result_callee_rewrite(
     mod_,
     context.signature,
+    context.type_indices,
+    context.imported,
     context.signature.funcs,
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([@lib.Instruction::unreachable_()]),
+    ),
+    plan.repair,
     plan.finalization,
   )
 }
@@ -12171,7 +12211,6 @@ fn dae_try_remove_dropped_results(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let funcs = context.signature.funcs
-  let type_sec = context.signature.type_sec
   let rewrite_scope = context.scope
   if dae_dropped_result_removal_legality_blocks(context.result_removal_legality) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -12209,23 +12248,13 @@ fn dae_try_remove_dropped_results(
     remove_dropped_call_drops=true,
     remove_dropped_call_drops_before_repair=true,
   )
-  let repair_plan_start_us = perf_start_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:repair-plan",
-  )
-  dae_apply_dropped_result_repair_plan(
-    rewritten_funcs, type_indices, type_sec, imported, repair_plan,
-  )
-  perf_stop_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:repair-plan",
-    repair_plan_start_us,
-  )
   let @lib.Func(callee_locals, @lib.Expr(callee_body)) = rewritten_funcs[def_idx]
   let next_callee_body = callee_body.copy()
   next_callee_body.push(@lib.Instruction::drop())
   let callee_rewrite_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:callee-rewrite",
   )
-  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+  let rewritten_callee = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(callee_locals, @lib.Expr::new(next_callee_body)),
   )
   perf_stop_timer_opt(
@@ -12237,12 +12266,17 @@ fn dae_try_remove_dropped_results(
     [],
     DaeTouchModuleCodeChangedFuncs,
   )
-  dae_apply_module_code_finalization(
+  dae_apply_dropped_result_callee_rewrite(
     mod_,
     context.signature,
+    type_indices,
+    imported,
     rewritten_funcs,
+    rewritten_callee,
+    repair_plan,
     finalization_plan,
     perf~,
+    repair_timer_name="detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:repair-plan",
     type_update_timer_name="detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-update",
   )
 }
