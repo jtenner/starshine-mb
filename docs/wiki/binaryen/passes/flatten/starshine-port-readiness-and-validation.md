@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
@@ -39,9 +40,9 @@ The exact current local surfaces are:
 | Surface | Location | Meaning |
 | --- | --- | --- |
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
-| CLI pass-token preservation | `src/cli/cli_test.mbt:280-285` | `--flatten` survives trap-mode filtering. |
-| CLI plus `-O` preservation | `src/cli/cli_test.mbt:313-316` | explicit `--flatten` survives beside an optimization-level flag. |
-| Dispatcher absence | `src/passes/pass_manager.mbt` | no active `flatten` case exists. |
+| CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
+| CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
+| Dispatcher absence | `src/passes/pass_manager.mbt` | no active public `flatten` case exists; unrelated private helpers whose names contain `flatten` are not dispatcher evidence. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog gap | `agent-todo.md` | no dedicated active `flatten` slice exists today. |

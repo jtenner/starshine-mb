@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
@@ -57,11 +58,13 @@ related:
   - `simplify-locals-notee-nostructure`
   - `local-cse`
 - The current Starshine planning story is worth keeping explicit:
-  - `src/passes/optimize.mbt:144-151` still tracks `flatten` in the removed-name registry
-  - `src/cli/cli_test.mbt:280-285` and `src/cli/cli_test.mbt:313-316` still preserve the public `--flatten` spelling
-  - `src/passes/pass_manager.mbt` still has no active `flatten` dispatcher case
+  - `src/passes/optimize.mbt:142-147` still tracks `flatten` in the removed-name registry
+  - `src/cli/cli_test.mbt:305-309` and `src/cli/cli_test.mbt:340-342` still preserve the public `--flatten` spelling
+  - `src/passes/pass_manager.mbt` has no active public `flatten` dispatcher case; helpers whose names contain `flatten` serve other passes and do not change this status
   - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` and `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` still place `flatten` at the front of the old removed-pass batch
   - `agent-todo.md` still has **no dedicated `flatten` slice today**, which is a real local planning gap rather than something to smooth over
+
+The 2026-07-11 current-main/local-status recheck found no teaching-relevant upstream transform drift. It does, however, make the two local non-implementation boundaries explicit: the aggressive-neighborhood readiness predicate is intentionally false until all three passes are active, and text matches on `flatten` helper names do not prove pass registration. See [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md).
 
 ## Beginner summary
 

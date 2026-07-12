@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
@@ -64,10 +65,10 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/optimize.mbt:144-151`
     - `pass_registry_removed_names()` includes `"flatten"`
 - public CLI spelling stability
-  - `src/cli/cli_test.mbt:280-285`
+  - `src/cli/cli_test.mbt:305-309`
     - `resolve_pass_flags omits trap-mode toggles from scheduled pass list`
     - this still preserves the explicit `--flatten` spelling even though trap-mode toggles are omitted
-  - `src/cli/cli_test.mbt:313-316`
+  - `src/cli/cli_test.mbt:340-342`
     - `resolve_pass_flags ignores -O level flags for preset pass expansion`
     - this still preserves explicit `--flatten` alongside an `-O` flag
 - dispatcher gap
@@ -108,7 +109,7 @@ That is the right current behavior for an unimplemented parity pass.
 
 ### 2. The CLI spelling is intentionally stable
 
-`src/cli/cli_test.mbt:280-285` and `src/cli/cli_test.mbt:313-316` still exercise the explicit `--flatten` spelling in pass-flag resolution tests.
+`src/cli/cli_test.mbt:305-309` and `src/cli/cli_test.mbt:340-342` still exercise the explicit `--flatten` spelling in pass-flag resolution tests.
 That matters for two reasons:
 
 - docs and future parity commands can keep using the upstream pass spelling consistently

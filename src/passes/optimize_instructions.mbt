@@ -25,10 +25,6 @@ priv struct OptimizeInstructionsLocalFacts {
   sign_ext_state_by_local : Array[OiSignExtLocalStateFact]
   i32_unsigned_max_state_by_local : Array[OiI32UnsignedMaxLocalStateFact]
   i64_unsigned_max_state_by_local : Array[OiI64UnsignedMaxLocalStateFact]
-  i32_max_by_node : Array[Int?]
-  i64_max_by_node : Array[Int64?]
-  i32_max_ready : @bitset.BitSet
-  i64_max_ready : @bitset.BitSet
   mut sign_ext_ready : Bool
   mut unsigned_max_ready : Bool
 }
@@ -175,7 +171,6 @@ priv struct OiLocalAssignmentFact {
 ///|
 fn OptimizeInstructionsLocalFacts::new(
   local_count : Int,
-  node_count : Int,
 ) -> OptimizeInstructionsLocalFacts {
   {
     sign_ext_state_by_local: Array::make(
@@ -190,10 +185,6 @@ fn OptimizeInstructionsLocalFacts::new(
       local_count,
       OiI64UnsignedMaxLocalStateFact::unknown(),
     ),
-    i32_max_by_node: Array::make(node_count, None),
-    i64_max_by_node: Array::make(node_count, None),
-    i32_max_ready: @bitset.BitSet::new(node_count),
-    i64_max_ready: @bitset.BitSet::new(node_count),
     sign_ext_ready: false,
     unsigned_max_ready: false,
   }
@@ -8522,7 +8513,7 @@ fn OptimizeInstructionsScratch::new(
     cross_seen_stamps: Array::make(node_count, -1),
     loop_input_nodes: @bitset.BitSet::new(node_count),
     if_condition_nodes: @bitset.BitSet::new(node_count),
-    local_facts: OptimizeInstructionsLocalFacts::new(local_count, node_count),
+    local_facts: OptimizeInstructionsLocalFacts::new(local_count),
     loop_input_nodes_ready: false,
     if_condition_nodes_ready: false,
     next_cross_seen_stamp: 0,
@@ -8722,7 +8713,6 @@ fn optimize_instructions_sign_ext_bits_for_value(
 fn optimize_instructions_collect_sign_ext_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   region : @ir.HotRegionRef,
 ) -> Unit {
@@ -8730,7 +8720,6 @@ fn optimize_instructions_collect_sign_ext_local_assignment_region(
     optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
-      seen,
       scratch,
       @ir.hot_region_get(func, region, i),
     )
@@ -8741,20 +8730,17 @@ fn optimize_instructions_collect_sign_ext_local_assignment_region(
 fn optimize_instructions_collect_sign_ext_local_assignment_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Unit {
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return
   }
-  seen[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
-      seen,
       scratch,
       func.children[node.child_base + slot],
     )
@@ -8764,7 +8750,6 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
       optimize_instructions_collect_sign_ext_local_assignment_region(
         func,
         dead,
-        seen,
         scratch,
         @ir.hot_region_body_ref(func, node_id),
       )
@@ -8772,14 +8757,13 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
       optimize_instructions_collect_sign_ext_local_assignment_region(
         func,
         dead,
-        seen,
         scratch,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           optimize_instructions_collect_sign_ext_local_assignment_region(
-            func, dead, seen, scratch, else_region,
+            func, dead, scratch, else_region,
           )
         None => ()
       }
@@ -8813,12 +8797,10 @@ fn optimize_instructions_collect_sign_ext_facts(
   if scratch.local_facts.sign_ext_ready {
     return
   }
-  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     optimize_instructions_collect_sign_ext_local_assignment_expr(
       func,
       dead,
-      seen,
       scratch,
       func.roots[slot],
     )
@@ -11238,36 +11220,12 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> Int? {
-  match local_facts {
-    Some(facts) if node_id >= 0 && node_id < facts.i32_max_by_node.length() => {
-      if facts.i32_max_ready[node_id] {
-        return facts.i32_max_by_node[node_id]
-      }
-      // Mark before recursive fallthrough queries so malformed or cyclic HOT
-      // graphs fail closed instead of recursing. OI rewrites preserve values,
-      // so this revision-local upper bound remains sound after child rewrites;
-      // an unknown pre-rewrite result intentionally stays unknown.
-      facts.i32_max_ready[node_id] = true
-      let max_value = match
-        OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
-        Some(fact) => {
-          ignore(fact.value_id)
-          fact.max_value
-        }
-        None => None
-      }
-      facts.i32_max_by_node[node_id] = max_value
-      max_value
+  match OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      fact.max_value
     }
-    _ =>
-      match
-        OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
-        Some(fact) => {
-          ignore(fact.value_id)
-          fact.max_value
-        }
-        None => None
-      }
+    None => None
   }
 }
 
@@ -11278,32 +11236,12 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int,
 ) -> Int64? {
-  match local_facts {
-    Some(facts) if node_id >= 0 && node_id < facts.i64_max_by_node.length() => {
-      if facts.i64_max_ready[node_id] {
-        return facts.i64_max_by_node[node_id]
-      }
-      facts.i64_max_ready[node_id] = true
-      let max_value = match
-        OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
-        Some(fact) => {
-          ignore(fact.value_id)
-          fact.max_value
-        }
-        None => None
-      }
-      facts.i64_max_by_node[node_id] = max_value
-      max_value
+  match OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      fact.max_value
     }
-    _ =>
-      match
-        OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
-        Some(fact) => {
-          ignore(fact.value_id)
-          fact.max_value
-        }
-        None => None
-      }
+    None => None
   }
 }
 
@@ -11540,7 +11478,6 @@ fn OiSignedExtendWrapI64FallbackFact::apply(
 fn optimize_instructions_collect_unsigned_max_local_assignment_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   region : @ir.HotRegionRef,
 ) -> Unit {
@@ -11548,7 +11485,6 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_region(
     optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
-      seen,
       scratch,
       @ir.hot_region_get(func, region, i),
     )
@@ -11559,20 +11495,17 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_region(
 fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> Unit {
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return
   }
-  seen[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
-      seen,
       scratch,
       func.children[node.child_base + slot],
     )
@@ -11582,7 +11515,6 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
       optimize_instructions_collect_unsigned_max_local_assignment_region(
         func,
         dead,
-        seen,
         scratch,
         @ir.hot_region_body_ref(func, node_id),
       )
@@ -11590,14 +11522,13 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
       optimize_instructions_collect_unsigned_max_local_assignment_region(
         func,
         dead,
-        seen,
         scratch,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           optimize_instructions_collect_unsigned_max_local_assignment_region(
-            func, dead, seen, scratch, else_region,
+            func, dead, scratch, else_region,
           )
         None => ()
       }
@@ -11654,12 +11585,10 @@ fn optimize_instructions_collect_unsigned_max_facts(
       _ => ()
     }
   }
-  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     optimize_instructions_collect_unsigned_max_local_assignment_expr(
       func,
       dead,
-      seen,
       scratch,
       func.roots[slot],
     )
@@ -41064,54 +40993,6 @@ fn optimize_instructions_visit_node(
 }
 
 ///|
-priv struct OiNoRewriteI32LiteralRevisionFact {
-  revision : Int
-  root_id : Int
-  root_count : Int
-  node_count : Int
-}
-
-///|
-fn OiNoRewriteI32LiteralRevisionFact::from_func(
-  func : @ir.HotFunc,
-) -> OiNoRewriteI32LiteralRevisionFact? {
-  if func.roots.length() != 1 {
-    return None
-  }
-  let root_id = func.roots[0]
-  if !@ir.hot_node_is_live(func, root_id) ||
-    @ir.hot_child_count(func, root_id) != 0 {
-    return None
-  }
-  let root = @ir.hot_node_get(func, root_id)
-  match root.op {
-    @ir.HotOp::Const =>
-      match @ir.hot_const_get(func, root.imm0) {
-        @ir.HotConstPayload::I32Const(_) =>
-          Some({
-            revision: @ir.hot_revision_current(func),
-            root_id,
-            root_count: 1,
-            node_count: @ir.hot_node_count(func),
-          })
-        _ => None
-      }
-    _ => None
-  }
-}
-
-///|
-fn OiNoRewriteI32LiteralRevisionFact::proves_no_rewrite_candidate(
-  self : OiNoRewriteI32LiteralRevisionFact,
-  func : @ir.HotFunc,
-) -> Bool {
-  self.revision == @ir.hot_revision_current(func) &&
-  self.root_id == func.roots[0] &&
-  self.root_count == 1 &&
-  self.node_count == @ir.hot_node_count(func)
-}
-
-///|
 priv struct OiUnsupportedAggregateAtomicReceiverFact {
   found_unsupported_receiver : Bool
 }
@@ -41151,57 +41032,22 @@ fn optimize_instructions_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  match OiNoRewriteI32LiteralRevisionFact::from_func(func) {
-    Some(fact) if fact.proves_no_rewrite_candidate(func) =>
-      return HotPassResult::unchanged()
-    _ => ()
-  }
-  let unsupported_preflight_start_us = perf_start_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:unsupported-preflight",
-  )
-  let requires_fail_closed_skip = OiUnsupportedAggregateAtomicReceiverFact::from_func(
-    func,
-  ).requires_fail_closed_skip()
-  perf_stop_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:unsupported-preflight",
-    unsupported_preflight_start_us,
-  )
-  if requires_fail_closed_skip {
+  if OiUnsupportedAggregateAtomicReceiverFact::from_func(func).requires_fail_closed_skip() {
     return HotPassResult::unchanged()
   }
   let mut changed = false
   let node_count = @ir.hot_node_count(func)
-  let scratch_init_start_us = perf_start_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:scratch-init",
-  )
   let seen = @bitset.BitSet::new(node_count)
   let dead = @bitset.BitSet::new(node_count)
   let scratch = OptimizeInstructionsScratch::new(
     node_count,
     @ir.hot_local_count(func),
   )
-  perf_stop_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:scratch-init",
-    scratch_init_start_us,
-  )
-  let free_node_init_start_us = perf_start_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:free-node-init",
-  )
   for free_id in func.free_nodes {
     if free_id >= 0 && free_id < dead.length() {
       dead[free_id] = true
     }
   }
-  perf_stop_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:free-node-init",
-    free_node_init_start_us,
-  )
   let sign_ext_start_us = perf_start_timer_opt(
     ctx.perf,
     "detail:optimize-instructions:collect-sign-ext-facts",

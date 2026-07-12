@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
@@ -139,9 +140,9 @@ Starshine does not implement the transform today, but the status is represented 
 | Local surface | Exact location | Meaning |
 | --- | --- | --- |
 | Removed-name registry | `src/passes/optimize.mbt:144-151` | `flatten` is a known removed pass name, not an unknown typo. |
-| CLI trap-mode filtering test | `src/cli/cli_test.mbt:280-285` | Explicit `--flatten` survives trap-mode flag filtering in pass-token resolution. |
-| CLI `-O` flag interaction test | `src/cli/cli_test.mbt:313-316` | Explicit `--flatten` survives alongside an optimization-level flag in pass-token resolution. |
-| Missing dispatcher owner | `src/passes/pass_manager.mbt` has no `flatten` match | There is no active HOT/module dispatch path today. |
+| CLI trap-mode filtering test | `src/cli/cli_test.mbt:305-309` | Explicit `--flatten` survives trap-mode flag filtering in pass-token resolution. |
+| CLI `-O` flag interaction test | `src/cli/cli_test.mbt:340-342` | Explicit `--flatten` survives alongside an optimization-level flag in pass-token resolution. |
+| Missing dispatcher owner | `src/passes/pass_manager.mbt` has no public `flatten` match | There is no active HOT/module dispatch path today. Private helpers with `flatten` in their names belong to other transforms and are not contrary evidence. |
 | Old IR2 batch intent | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` still leads the old preferred Batch 2 implementation order. |
 | Old registry-map batch status | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains documented as removed until implementation lands. |
 | Active backlog gap | `agent-todo.md` has no dedicated `flatten` slice | The current backlog has shape mentions such as “flattened,” but no focused pass implementation plan. |
