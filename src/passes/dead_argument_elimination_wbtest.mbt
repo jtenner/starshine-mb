@@ -4802,6 +4802,83 @@ test "dae typeidx control rebuild preserves active type section timing" {
 }
 
 ///|
+test "dae typeidx control body installation is transactional and reuses active types" {
+  let params = [@lib.ValType::i32()]
+  let results = [@lib.ValType::i64()]
+  let control_body = [
+    @lib.Instruction::drop(),
+    @lib.Instruction::i64_const(@lib.I64(1L)),
+  ]
+  let outer_body = [
+    @lib.Instruction::nop(),
+    @lib.Instruction::unreachable_(),
+  ]
+  let first = match
+    dae_rebuild_typeidx_control_in_body(
+      @lib.TypeSec::new([]),
+      outer_body,
+      1,
+      0,
+      params,
+      results,
+      control_body,
+      None,
+    ) {
+    Some(application) => application
+    None => fail("expected transactional typeidx control body installation")
+  }
+  assert_eq(first.control_idx, 1)
+  assert_eq(outer_body[1], @lib.Instruction::unreachable_())
+  assert_eq(first.body[0], @lib.Instruction::nop())
+  assert_eq(
+    first.body[1],
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(control_body),
+    ),
+  )
+  let @lib.TypeSec(first_types) = first.type_sec
+  assert_eq(first_types.length(), 1)
+  let second = match
+    dae_rebuild_typeidx_control_in_body(
+      first.type_sec,
+      first.body,
+      0,
+      1,
+      params,
+      results,
+      control_body,
+      None,
+    ) {
+    Some(application) => application
+    None => fail("expected active type reuse for second body installation")
+  }
+  assert_eq(second.control_idx, 0)
+  assert_eq(second.type_sec, first.type_sec)
+  assert_eq(
+    second.body[0],
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(control_body),
+    ),
+  )
+  match
+    dae_rebuild_typeidx_control_in_body(
+      first.type_sec,
+      outer_body,
+      outer_body.length(),
+      0,
+      params,
+      [@lib.ValType::f32()],
+      control_body,
+      None,
+    ) {
+    Some(_) => fail("out-of-range control slot must reject before body installation")
+    None => assert_eq(outer_body[1], @lib.Instruction::unreachable_())
+  }
+}
+
+///|
 test "dae single-body control rewrite evidence centralizes reconstruction" {
   let original_body = [@lib.Instruction::nop()]
   let rewritten_body = [@lib.Instruction::drop()]
