@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
@@ -26,7 +27,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle for this dossier; Binaryen's public release horizon now reaches `version_130`, but the 2026-06-02 current-main recheck still recorded no teaching-relevant drift in the inlining surfaces. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
+Use Binaryen `version_129` as the tagged oracle for this dossier. Binaryen's public release horizon reaches `version_130`; the 2026-07-11 current-main recheck supersedes the older no-drift statement for one material policy addition: `Inlining.cpp` now consumes a function-level `toolchainInlineHint` before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
 
 Primary upstream URLs:
 
@@ -84,14 +85,15 @@ A local port that treats “one direct call” as “one total use” will delet
 
 Binaryen does not use one flat “max inline size” rule.
 
-1. `try_delegate` rejects full inlining in the reviewed contract.
-2. `size <= alwaysInlineMaxSize` accepts tiny helpers; `pass.h` default is `2`.
-3. `refs == 1 && !usedGlobally && size <= oneCallerInlineMaxSize` accepts one-use private helpers; the default `-1` acts as an effectively unbounded one-caller threshold.
-4. `TrivialInstruction::Shrinks` accepts wrappers that provably shrink.
-5. `size > flexibleInlineMaxSize` rejects large flexible cases; default is `20`.
-6. Shrink-focused modes and optimize levels below `3` stop before aggressive flexible cases.
-7. `TrivialInstruction::MayNotShrink` is accepted only under heavier speed focus.
-8. Remaining flexible cases require no calls and either no loops or `allowFunctionsWithLoops`.
+1. `try_delegate` rejects full inlining in the reviewed contract, including when a toolchain hint is present.
+2. A current-main function-level toolchain `NeverInline` hint rejects full inlining; `AlwaysInline` accepts it. This is a separate policy input from the older `CodeAnnotation::inline_` metadata discussion and from `no-inline*` flags; the reread did not establish its WAT/binary producer format.
+3. `size <= alwaysInlineMaxSize` accepts tiny helpers; `pass.h` default is `2`.
+4. `refs == 1 && !usedGlobally && size <= oneCallerInlineMaxSize` accepts one-use private helpers; the default `-1` acts as an effectively unbounded one-caller threshold.
+5. `TrivialInstruction::Shrinks` accepts wrappers that provably shrink.
+6. `size > flexibleInlineMaxSize` rejects large flexible cases; default is `20`.
+7. Shrink-focused modes and optimize levels below `3` stop before aggressive flexible cases.
+8. `TrivialInstruction::MayNotShrink` is accepted only under heavier speed focus.
+9. Remaining flexible cases require no calls and either no loops or `allowFunctionsWithLoops`.
 
 The result is policy-sensitive optimization, not a proof that every small function must inline.
 

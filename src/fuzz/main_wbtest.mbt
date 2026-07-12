@@ -2697,51 +2697,6 @@ test "emit gen-valid composite profile records requested and selected profiles" 
 }
 
 ///|
-test "emit gen-valid optimize-instructions aggregate records selected families" {
-  let args = EmitGenValidBatchArgs::new(
-    18,
-    0x5eedUL,
-    "tmp/gen-valid-optimize-instructions",
-    profile="pass-oi-all",
-    max_attempts=72,
-  )
-  let selection = match emit_gen_valid_batch_selection(args) {
-    Ok(v) => v
-    Err(msg) => fail(msg)
-  }
-  @debug.assert_eq(selection.manifest.length(), 18)
-  let all_profile = match @validate.gen_valid_profile_by_name("pass-oi-all") {
-    Ok(v) => v
-    Err(msg) => fail(msg)
-  }
-  let selected_profiles : Array[String] = []
-  for item in selection.manifest {
-    @debug.assert_eq(item.config_label, "pass-oi-all")
-    @debug.assert_eq(
-      item.selected_profile,
-      @validate.gen_valid_profile_name(
-        @validate.gen_valid_profile_leaf_for_case(
-          all_profile,
-          0x5eedUL,
-          item.index,
-        ),
-      ),
-    )
-    assert_true(
-      item.selected_profile.starts_with("pass-oi-"),
-      msg="expected OI selected profile, got \{item.selected_profile}",
-    )
-    if !selected_profiles.contains(item.selected_profile) {
-      selected_profiles.push(item.selected_profile)
-    }
-  }
-  assert_true(selected_profiles.length() > 1)
-  let manifest = format_gen_valid_batch_manifest_json(args, selection)
-  assert_true(manifest.contains("\"config_label\":\"pass-oi-all\""))
-  assert_true(manifest.contains("\"selected_profile\":\"pass-oi-"))
-}
-
-///|
 test "emit gen-valid reorder-locals composite records selected subprofiles" {
   let args = EmitGenValidBatchArgs::new(
     6,

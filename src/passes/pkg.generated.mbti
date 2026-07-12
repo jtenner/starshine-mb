@@ -406,14 +406,13 @@ pub struct HotPerfSession {
   enabled : Bool
   trace : (String) -> Unit
   trace_timings : Bool
-  trace_detail_timings : Bool
   trace_checkpoints : Bool
   trace_counters : Bool
   dump_options : HotPerfDumpOptions
   mut counters : HotPerfCounters
   timer_totals : Array[(String, UInt64)]
 }
-pub fn HotPerfSession::new(enabled? : Bool, trace? : (String) -> Unit, trace_timings? : Bool, trace_detail_timings? : Bool, trace_checkpoints? : Bool, trace_counters? : Bool, dump_options? : HotPerfDumpOptions) -> Self
+pub fn HotPerfSession::new(enabled? : Bool, trace? : (String) -> Unit, trace_timings? : Bool, trace_checkpoints? : Bool, trace_counters? : Bool, dump_options? : HotPerfDumpOptions) -> Self
 
 pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy

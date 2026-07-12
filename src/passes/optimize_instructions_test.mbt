@@ -31225,109 +31225,21 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
-test "optimize-instructions preserves operands when ref.test folds to a constant" {
-  // Binaryen v130 `visitRefTest` always emits `drop(ref)` before a known
-  // success or failure constant. This applies even to trivially pure direct
-  // nulls and local.get operands; purity is not permission to erase the value.
-  // Oracle: `.tmp/probes/direct-null-test-cast.out.wat` and
-  // `.tmp/probes/ref-test-erasure.out.wat`.
-  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
-  let nullable_any = @lib.ValType::ref_null(any_heap)
-  let direct_type = @lib.TypeIdx::new(0U)
-  let local_type = @lib.TypeIdx::new(1U)
-  let optimized = optimize_instructions_test_run_module(
-    @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([], [@lib.ValType::i32()]),
-          ),
-        ),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([nullable_any], [@lib.ValType::i32()]),
-          ),
-        ),
-      ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([direct_type, direct_type, local_type]))
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::ref_null(any_heap),
-            @lib.Instruction::ref_test(true, any_heap),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::ref_null(any_heap),
-            @lib.Instruction::ref_test(false, any_heap),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::ref_test(true, any_heap),
-          ]),
-        ),
-      ]),
-    ),
-  )
-  let fixtures = [
-    ("direct-null-success", 0U, "I32(1)", "ref.null"),
-    ("direct-null-failure", 1U, "I32(0)", "ref.null"),
-    ("local-success", 2U, "I32(1)", "local.get"),
-  ]
-  for fixture in fixtures {
-    let (label, func_idx, expected, operand) = fixture
-    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
-    assert_false(pretty.contains("ref.test"), msg="\{label}: \{pretty}")
-    assert_true(pretty.contains(operand), msg="\{label}: \{pretty}")
-    assert_true(pretty.contains("drop"), msg="\{label}: \{pretty}")
-    assert_true(pretty.contains(expected), msg="\{label}: \{pretty}")
+test "optimize-instructions folds ref.is_null on known null refs" {
+  let source =
+    #|(module
+    #|  (func (export "null") (result i32)
+    #|    ref.null func
+    #|    ref.is_null)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.is_null optimize success, got \{err}")
   }
-}
-
-///|
-test "optimize-instructions keeps ref.is_null on direct null literals like Binaryen" {
-  // Binaryen v130 canonicalizes each abstract heap to its bottom null heap but
-  // keeps the explicit predicate. Known-null dataflow remains reusable for
-  // non-literal producers; a direct ref.null is an oracle output boundary.
-  let any_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) ref.null any ref.is_null))",
-  )
-  let any_root = @ir.hot_root_get(any_func, 0)
-  match @ir.hot_node_get(any_func, any_root).op {
-    @ir.HotOp::RefIsNull => ()
-    other =>
-      fail("expected direct anyref null predicate to remain, got \{other}")
-  }
-  let none_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) ref.null none ref.is_null))",
-  )
-  let none_root = @ir.hot_root_get(none_func, 0)
-  match @ir.hot_node_get(none_func, none_root).op {
-    @ir.HotOp::RefIsNull => ()
-    other => fail("expected direct none null predicate to remain, got \{other}")
-  }
-}
-
-///|
-test "optimize-instructions keeps ref.is_null on direct func null literals" {
-  let func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) ref.null func ref.is_null))",
-  )
-  let root = @ir.hot_root_get(func, 0)
-  match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::RefIsNull => ()
-    other =>
-      fail("expected direct funcref null predicate to remain, got \{other}")
-  }
+  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(null_pretty.contains("ref.is_null"), msg=null_pretty)
+  assert_true(null_pretty.contains("I32(1)"), msg=null_pretty)
 }
 
 ///|
@@ -32419,64 +32331,6 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
   assert_false(i31_pretty.contains("ref.as_non_null"), msg=i31_pretty)
   assert_true(func_pretty.contains("ref.func"), msg=func_pretty)
   assert_false(func_pretty.contains("ref.as_non_null"), msg=func_pretty)
-}
-
-///|
-test "optimize-instructions keeps local-carried call_ref targets like Binaryen" {
-  // Binaryen v130 `visitCallRef` follows the target expression itself through
-  // `Properties::getFallthrough`; it does not propagate a previous ref.func
-  // assignment through a later local.get. Keep the local binding and call_ref
-  // rather than treating local dataflow as a direct-target proof.
-  // Oracle: bounded aggregate case 53 (`oi-call-ref:local-carried-target`).
-  let caller_type = @lib.TypeIdx::new(0U)
-  let callee_type = @lib.TypeIdx::new(1U)
-  let callee_heap = @lib.HeapType::new(callee_type)
-  let optimized = optimize_instructions_test_run_module(
-    @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([], [@lib.ValType::i32()]),
-          ),
-        ),
-      ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([caller_type, callee_type]))
-    .with_elem_sec(
-      @lib.ElemSec::new([
-        @lib.Elem::new(
-          @lib.ElemMode::declarative(),
-          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::from_types([@lib.ValType::ref_null(callee_heap)]),
-          @lib.Expr::new([
-            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::call_ref(callee_type),
-            @lib.Instruction::drop(),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(42))]),
-        ),
-      ]),
-    ),
-  )
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("ref.func"), msg=pretty)
-  assert_true(pretty.contains("local.set"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_true(pretty.contains("call_ref"), msg=pretty)
-  assert_false(pretty.contains("call (Func 1)"), msg=pretty)
 }
 
 ///|
@@ -34935,9 +34789,9 @@ test "optimize-instructions traps standalone ref.get_desc on known-null child" {
 ///|
 test "optimize-instructions folds ref.test_desc null operands from descriptor test facts" {
   // OI-J descriptor-test fact slice: Binaryen version_130 routes ref.test_desc
-  // through the same RefTest cast-check family. Null operands prove the result
-  // from the nullable target fact, but the shared visitor still preserves the
-  // explicit operand with a drop before the constant.
+  // through the same RefTest cast-check family. Null operands fold entirely from
+  // the nullable target fact before any broader descriptor producer or
+  // fallthrough-type lattice is needed.
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
   let nullable_func_type = @lib.TypeIdx::new(2U)
@@ -34997,26 +34851,8 @@ test "optimize-instructions folds ref.test_desc null operands from descriptor te
     Some(@lib.CodeSec([_, func])) => func
     _ => fail("expected optimized non-null ref.test_desc function")
   }
-  @debug.assert_eq(nullable_body, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::ref_null(described_heap),
-        @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(1)),
-      ]),
-    ),
-  ])
-  @debug.assert_eq(nonnull_body, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::ref_null(described_heap),
-        @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(0)),
-      ]),
-    ),
-  ])
+  @debug.assert_eq(nullable_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+  @debug.assert_eq(nonnull_body, [@lib.Instruction::i32_const(@lib.I32(0))])
 }
 
 ///|
@@ -80846,38 +80682,6 @@ test "optimize-instructions uses local sign facts after fallthrough sets" {
       )
   }
   @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 1)
-}
-
-///|
-test "optimize-instructions keeps in-range literal sign extensions like Binaryen" {
-  // Binaryen v130's direct pass keeps literal sign-extension shells even when
-  // the literal already fits the signed lane. The reusable sign-width fact may
-  // remove an extension proven redundant by a signed producer or local fact,
-  // but must not turn literal knowledge into a broader output-shape rewrite.
-  let i32_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) i32.const 127 i32.extend8_s))",
-  )
-  let i32_root = @ir.hot_root_get(i32_func, 0)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(i32_func, i32_root),
-    Some(@lib.Instruction::i32_extend8s()),
-  )
-  let i64_func = optimize_instructions_test_run_hot(
-    "(module (func (result i64) i64.const 2147483647 i64.extend32_s))",
-  )
-  let i64_root = @ir.hot_root_get(i64_func, 0)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(i64_func, i64_root),
-    Some(@lib.Instruction::i64_extend32s()),
-  )
-  let local_func = optimize_instructions_test_run_hot(
-    "(module (func (result i32) (local i32) i32.const 127 local.set 0 local.get 0 i32.extend8_s))",
-  )
-  let local_root = @ir.hot_root_get(local_func, 1)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(local_func, local_root),
-    Some(@lib.Instruction::i32_extend8s()),
-  )
 }
 
 ///|

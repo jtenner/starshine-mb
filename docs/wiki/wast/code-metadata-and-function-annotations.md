@@ -10,6 +10,7 @@ sources:
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
+  - ../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
   - ../../../src/wast/lexer.mbt
@@ -115,7 +116,7 @@ Starshine's no-inline passes deliberately avoid overloading `metadata.code.inlin
 - `starshine.no-full-inline`
 - `starshine.no-partial-inline`
 
-`no-inline=<pattern>` adds both markers, while `no-full-inline=<pattern>` and `no-partial-inline=<pattern>` add one marker each. [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt) reads those markers for the local direct inliner. The Binaryen policy split is documented in [`../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md): `@metadata.code.inline` is preserved metadata, while actual no-inline policy is a separate function-level control.
+`no-inline=<pattern>` adds both markers, while `no-full-inline=<pattern>` and `no-partial-inline=<pattern>` add one marker each. [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt) reads those markers for the local direct inliner. The current Binaryen boundary is now three-way: `@metadata.code.inline` remains separate preserved metadata; current upstream `Inlining.cpp` also consumes a distinct function-level toolchain `AlwaysInline` / `NeverInline` field for full-inline profitability; and `no-inline*` remains separate full/partial suppression policy. Starshine implements only its internal `no-inline*` markers today. See [`../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md) and [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md).
 
 ### Function-index remaps
 
@@ -176,5 +177,5 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)
 - WAST identifier/name baseline: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
-- Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../raw/binaryen/2026-04-23-inlining-primary-sources.md), [`../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`](../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md)
+- Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md), [`../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../raw/binaryen/2026-04-23-inlining-primary-sources.md), [`../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`](../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md)
 - Starshine code: [`../../../src/wast/lexer.mbt`](../../../src/wast/lexer.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`../../../src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), [`../../../src/passes/duplicate_function_elimination.mbt`](../../../src/passes/duplicate_function_elimination.mbt), [`../../../src/passes/duplicate_import_elimination.mbt`](../../../src/passes/duplicate_import_elimination.mbt), [`../../../src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt)

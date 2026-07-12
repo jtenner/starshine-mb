@@ -14314,54 +14314,6 @@ test "remove-unused-brs aggregate profile samples every current focused family" 
 }
 
 ///|
-test "optimize-instructions aggregate profile samples every OI family" {
-  @debug.assert_eq(gen_valid_profile_name(PassOiAllProfile), "pass-oi-all")
-  match gen_valid_profile_by_name("optimize-instructions") {
-    Ok(profile) => {
-      @debug.assert_eq(profile, PassOiAllProfile)
-      assert_true(gen_valid_profile_is_composite(profile))
-      let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 9)
-      for entry in members {
-        @debug.assert_eq(entry.weight, 1)
-      }
-    }
-    Err(msg) => fail(msg)
-  }
-  let expected = [
-    PassOiDefaultScalarProfile,
-    PassOiLocalFactsProfile,
-    PassOiBooleanSelectProfile,
-    PassOiMemoryBulkProfile,
-    PassOiCallRefProfile,
-    PassOiRefGcProfile,
-    PassOiGcAggregateProfile,
-    PassOiDescriptorGcProfile,
-    PassOiTupleProfile,
-  ]
-  let seen : Array[GenValidProfile] = []
-  let mut index = 1
-  while index <= 256 {
-    let leaf = gen_valid_profile_leaf_for_case(
-      PassOiAllProfile,
-      0x5eedUL,
-      index,
-    )
-    assert_false(gen_valid_profile_is_composite(leaf))
-    if !seen.contains(leaf) {
-      seen.push(leaf)
-    }
-    index += 1
-  }
-  for profile in expected {
-    assert_true(
-      seen.contains(profile),
-      msg="missing OI aggregate leaf \{gen_valid_profile_name(profile)}",
-    )
-  }
-}
-
-///|
 test "random all-profiles gen-valid profile resolves stable compare-pass leaves" {
   @debug.assert_eq(
     gen_valid_profile_name(RandomAllProfilesProfile),

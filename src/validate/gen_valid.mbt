@@ -797,7 +797,6 @@ pub enum GenValidProfile {
   PassOiGcAggregateProfile
   PassOiDescriptorGcProfile
   PassOiTupleProfile
-  PassOiAllProfile
   RandomAllProfilesProfile
 } derive(Eq, Debug)
 
@@ -1002,7 +1001,6 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassOiGcAggregateProfile => "pass-oi-gc-aggregate"
     PassOiDescriptorGcProfile => "pass-oi-descriptor-gc"
     PassOiTupleProfile => "pass-oi-tuple"
-    PassOiAllProfile => "pass-oi-all"
     RandomAllProfilesProfile => "random-all-profiles"
   }
 }
@@ -1028,7 +1026,6 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | ReorderLocalsAllProfile
     | OptimizeCastsAllProfile
     | InliningOptimizingAllProfile
-    | PassOiAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1233,18 +1230,6 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(InliningOptimizingParamSpillProfile, 3),
         GenValidProfileMember::new(InliningOptimizingReturnCallProfile, 2),
         GenValidProfileMember::new(InliningOptimizingCleanupPayoffProfile, 2),
-      ]
-    PassOiAllProfile =>
-      [
-        GenValidProfileMember::new(PassOiDefaultScalarProfile, 1),
-        GenValidProfileMember::new(PassOiLocalFactsProfile, 1),
-        GenValidProfileMember::new(PassOiBooleanSelectProfile, 1),
-        GenValidProfileMember::new(PassOiMemoryBulkProfile, 1),
-        GenValidProfileMember::new(PassOiCallRefProfile, 1),
-        GenValidProfileMember::new(PassOiRefGcProfile, 1),
-        GenValidProfileMember::new(PassOiGcAggregateProfile, 1),
-        GenValidProfileMember::new(PassOiDescriptorGcProfile, 1),
-        GenValidProfileMember::new(PassOiTupleProfile, 1),
       ]
     RandomAllProfilesProfile =>
       [
@@ -1468,7 +1453,6 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassOiGcAggregateProfile,
     PassOiDescriptorGcProfile,
     PassOiTupleProfile,
-    PassOiAllProfile,
     RandomAllProfilesProfile,
   ]
 }
@@ -1600,10 +1584,7 @@ pub fn gen_valid_profile_by_name(
     "oc-closeout" => Ok(OptimizeCastsAllProfile)
     "rl" => Ok(ReorderLocalsAllProfile)
     "rl-closeout" => Ok(ReorderLocalsAllProfile)
-    "optimize-instructions" => Ok(PassOiAllProfile)
-    "optimize-instructions-closeout" => Ok(PassOiAllProfile)
-    "optimize-instructions-all-profiles" => Ok(PassOiAllProfile)
-    "oi-all" => Ok(PassOiAllProfile)
+    "optimize-instructions" => Ok(PassOiDefaultScalarProfile)
     "oi-default-scalar" => Ok(PassOiDefaultScalarProfile)
     "oi-local-facts" => Ok(PassOiLocalFactsProfile)
     "oi-boolean-select" => Ok(PassOiBooleanSelectProfile)
@@ -2119,7 +2100,6 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiGcAggregateProfile
     | PassOiDescriptorGcProfile
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
-    PassOiAllProfile => gen_valid_oi_profile_config(PassOiDefaultScalarProfile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
   }
 }

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
@@ -63,7 +64,7 @@ A safe mental model:
 
 ## Current durable takeaways
 
-- The public Binaryen release horizon now reaches `version_130`, but this page keeps the detailed inlining contract anchored to `version_129` plus the 2026-06-02 current-main recheck because that remains the latest inlining-specific no-drift bridge. `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
+- The public Binaryen release horizon reaches `version_130`; the detailed contract remains anchored to `version_129`, but the 2026-06-02 no-drift bridge is superseded for one material current-main change: the shared engine now consumes an optional function-level toolchain inline hint. `NeverInline` rejects and `AlwaysInline` accepts full inlining after the `try_delegate` bailout and before normal tiny/one-use/trivial/flexible profitability checks. This is distinct from both the older `CodeAnnotation::inline_` metadata discussion and the separate `no-inline*` policy flags; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) and [`../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md). `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
 - `refs` is not just direct-call count. It includes `ref.func` uses, while exports and the start function mark global/root use.
 - Full-inline profitability is layered: `try_delegate` bailout, tiny threshold, one-use special case, shrinking trivial wrapper class, flexible max size, shrink/speed policy, direct-call and loop policy.
 - Partial inlining is real but narrow: two top-of-function conditional split families, enabled only by heavier speed settings and `partialInliningIfs`.
@@ -151,7 +152,7 @@ Per project policy and user preference, Binaryen parse/canonicalization failures
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) - deep upstream strategy: phases, heuristics, direct-call action surface, partial-inlining patterns, rewrite/repair, and dead-helper cleanup.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Binaryen owner/helper/test map plus current Starshine code/test map.
 - [`./heuristics-splitting-and-plain-vs-optimizing.md`](./heuristics-splitting-and-plain-vs-optimizing.md) - focused explainer for the pass's easiest misunderstandings.
-- [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) - source-backed split between preserved `@metadata.code.inline` bytes and actual no-inline policy flags.
+- [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) - source-backed separation among preserved `@metadata.code.inline` bytes, current-main function-level toolchain `AlwaysInline` / `NeverInline` policy, and separate `no-inline*` flags.
 - [`./wat-shapes.md`](./wat-shapes.md) - WAT shape catalog for positives, bailouts, partial-inline shapes, repair shapes, and current Starshine subset/gaps.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - active partial Starshine implementation status and design map.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - validation/evidence bridge for the remaining Starshine work.

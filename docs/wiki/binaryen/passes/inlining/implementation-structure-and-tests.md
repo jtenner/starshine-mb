@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
@@ -29,7 +30,7 @@ related:
 
 # `inlining`: implementation structure and tests
 
-This page maps the upstream Binaryen owner/test surface and the current Starshine owner/test surface. A 2026-06-02 current-main recheck still matches the same upstream owner/test map. Use it when you need exact follow-along files before editing code or interpreting compare artifacts.
+This page maps the upstream Binaryen owner/test surface and the current Starshine owner/test surface. The 2026-07-11 current-main reread preserves that owner map but adds a material `Inlining.cpp` policy input: the scanner carries `funcAnnotations.toolchainInline` into `FunctionInfo`, and full-inline profitability gives `NeverInline` / `AlwaysInline` priority after the `try_delegate` bailout. Use it when you need exact follow-along files before editing code or interpreting compare artifacts.
 
 ## Binaryen source map
 
@@ -47,7 +48,7 @@ Important pieces:
 | --- | --- |
 | `InliningMode` | `Unknown`, `Uninlineable`, `Full`, `SplitPatternA`, `SplitPatternB` classification |
 | `TrivialInstruction` | `NotTrivial`, `Shrinks`, `MayNotShrink` wrapper policy |
-| `FunctionInfo` | size, refs, calls/loops/delegate/root flags, trivial class, cached inline mode |
+| `FunctionInfo` | size, refs, calls/loops/delegate/root flags, trivial class, cached inline mode, and current-main optional toolchain inline hint |
 | `FunctionInfoScanner` | module-wide summary pass |
 | `Planner` | reachable direct `call` / `return_call` action discovery in reviewed `version_129` |
 | `FunctionSplitter` integration | partial Pattern A/B helper creation |

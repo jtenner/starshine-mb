@@ -66,7 +66,6 @@ pub struct HotPerfSession {
   enabled : Bool
   trace : (String) -> Unit
   trace_timings : Bool
-  trace_detail_timings : Bool
   trace_checkpoints : Bool
   trace_counters : Bool
   dump_options : HotPerfDumpOptions
@@ -79,7 +78,6 @@ pub fn HotPerfSession::new(
   enabled? : Bool = true,
   trace? : (String) -> Unit = hot_perf_trace_noop,
   trace_timings? : Bool = true,
-  trace_detail_timings? : Bool = true,
   trace_checkpoints? : Bool = true,
   trace_counters? : Bool = true,
   dump_options? : HotPerfDumpOptions = HotPerfDumpOptions::new(),
@@ -88,7 +86,6 @@ pub fn HotPerfSession::new(
     enabled,
     trace,
     trace_timings,
-    trace_detail_timings,
     trace_checkpoints,
     trace_counters,
     dump_options,
@@ -158,15 +155,9 @@ pub fn perf_counters(session : HotPerfSession) -> HotPerfCounters {
 }
 
 ///|
-fn perf_timer_enabled(session : HotPerfSession, name : String) -> Bool {
-  session.enabled &&
-  session.trace_timings &&
-  (session.trace_detail_timings || !name.has_prefix("detail:"))
-}
-
-///|
 pub fn perf_start_timer(session : HotPerfSession, name : String) -> UInt64 {
-  if !perf_timer_enabled(session, name) {
+  let _ = name
+  if !session.enabled || !session.trace_timings {
     return 0UL
   }
   @lib.trace_now_us()
@@ -189,7 +180,7 @@ fn perf_record_timer_elapsed(
   name : String,
   elapsed_us : UInt64,
 ) -> Unit {
-  if !perf_timer_enabled(session, name) {
+  if !session.enabled || !session.trace_timings {
     return
   }
   let total_us = perf_timer_total_commit(session, name, elapsed_us)
@@ -204,7 +195,7 @@ pub fn perf_stop_timer(
   name : String,
   start_us : UInt64,
 ) -> Unit {
-  if !perf_timer_enabled(session, name) {
+  if !session.enabled || !session.trace_timings {
     return
   }
   perf_record_timer_elapsed(

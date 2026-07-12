@@ -275,32 +275,17 @@ fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
 
 ///|
 test "optimize-instructions long perf lane scans nested blocks without exponential local write marking" {
-  let lines : Array[String] = []
-  let trace = fn(line) { lines.push(line) }
-  let perf = @passes.HotPerfSession::new(
-    trace~,
-    dump_options=@passes.HotPerfDumpOptions::new(),
-  )
   let input = perf_long_make_optimize_instructions_nested_block_module(50)
   let start_us = @lib.trace_now_us()
-  match
-    @passes.pass_test_run_pipeline(
-      input,
-      ["optimize-instructions"],
-      options=@passes.HotPipelineOptions::new(
-        trace=Some(trace),
-        perf=Some(perf),
-      ),
-    ) {
+  match @passes.pass_test_run_pipeline(input, ["optimize-instructions"]) {
     Ok(_) => ()
     Err(err) =>
       fail("expected nested block optimize-instructions success, got \{err}")
   }
   let elapsed_us = @lib.trace_elapsed_us_since(start_us)
-  let text = perf_long_join_lines(lines)
   assert_true(
     elapsed_us < 2000000UL,
-    msg="expected optimize-instructions nested-block scan to stay under 2s, got \{elapsed_us}us\n\{text}",
+    msg="expected optimize-instructions nested-block scan to stay under 2s, got \{elapsed_us}us",
   )
 }
 
