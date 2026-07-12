@@ -4492,6 +4492,14 @@ test "dae mixed multi-result return arm evidence centralizes LUB and effect-free
       assert_true(evidence.has_return)
       assert_false(evidence.effect_free_fallthrough)
       assert_eq(evidence.result_start, 0)
+      match evidence.control_result {
+        Some(control_result) => {
+          assert_eq(control_result.result_start, 0)
+          assert_eq(control_result.candidates.length(), 1)
+          assert_eq(control_result.rewrites.length(), 1)
+        }
+        None => fail("expected captured shared control-result evidence")
+      }
       assert_eq(combined_candidates[0], Some(expected_common_ref))
       assert_false(rejected[0])
     }
@@ -4515,6 +4523,7 @@ test "dae mixed multi-result return arm evidence centralizes LUB and effect-free
       assert_false(evidence.has_return)
       assert_true(evidence.effect_free_fallthrough)
       assert_eq(evidence.result_start, -1)
+      assert_true(evidence.control_result.is_none())
       assert_eq(evidence.body.length(), 2)
     }
     None => fail("expected effect-free fallthrough arm evidence")
