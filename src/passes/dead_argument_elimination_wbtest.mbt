@@ -4522,6 +4522,50 @@ test "dae mixed multi-result return arm evidence centralizes LUB and effect-free
 }
 
 ///|
+test "dae refined result projection applies sparse slots transactionally" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+  )
+  let next_results = [base_ref, base_ref]
+  let refined_results = [base_ref, base_ref]
+  match
+    dae_apply_optional_refined_result_slots(
+      [Some(leaf_ref), None],
+      next_results,
+      refined_results=Some(refined_results),
+    ) {
+    Some(application) => {
+      assert_eq(application.result_count, 2)
+      assert_eq(application.applied_count, 1)
+      assert_eq(application.next_results_length, 2)
+      assert_eq(application.refined_results_length, 2)
+      assert_eq(next_results, [leaf_ref, base_ref])
+      assert_eq(refined_results, [leaf_ref, base_ref])
+    }
+    None => fail("expected sparse refined-result projection")
+  }
+  let rejected_next = [base_ref, base_ref]
+  let rejected_refined = [base_ref]
+  match
+    dae_apply_optional_refined_result_slots(
+      [Some(leaf_ref), None],
+      rejected_next,
+      refined_results=Some(rejected_refined),
+    ) {
+    Some(_) => fail("mismatched mirror length must reject")
+    None => {
+      assert_eq(rejected_next, [base_ref, base_ref])
+      assert_eq(rejected_refined, [base_ref])
+    }
+  }
+}
+
+///|
 test "dae control result single refinement application centralizes next-result repair" {
   let base_type = @lib.TypeIdx::new(0U)
   let leaf_type = @lib.TypeIdx::new(1U)
