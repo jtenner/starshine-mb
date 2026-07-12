@@ -1,3 +1,7 @@
+## 2026-07-11 shared descriptor call/value graph: balanced direct-call families
+
+`RawOiDescriptorCallValueGraphFact` now classifies maximal ordered `local.get` runs once for each immutable descriptor body. Balanced local direct-call exact-success and exact-miss facts query that graph; exact call signatures, result heap type, descriptor describes-target relation, nullability/exactness, arity, source order, drops, and unreachable replacement remain family-owned. The two former `from_instrs` scanners are deleted. Red-first white-box coverage failed before the graph existed and passes 215/215 afterward; public OI behavior passes 1366/1366. The raw audit falls from 10 to 8 matching definitions, with two shared index builds unchanged. No compare-pass lane was run for this bounded architecture slice.
+
 ## 2026-07-11 indexed ref-null trap routing, bridge audit, and timing blocker
 
 `RawOiRefNullTrapRewriteFact` now consumes the directization walker's one immutable region view per body; its instruction-array entry point is deleted. A `RefNull` root or existing structured-control flow class only discovers the candidate. Exact dropped-unreachable, null/as_non_null, nullable test, nullable/exact cast, preserved local, termination, trap, and replacement proofs remain family-owned. Red-first white-box coverage failed before `from_region` existed and passes 209/209 afterward; public OI tests pass 1366/1366 and all pass tests pass 4934/4934. Native depth-50 and large-flat guards each pass 1/1; cached command walls were 0.774s and 0.799s respectively.

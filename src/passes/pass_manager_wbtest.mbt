@@ -82,6 +82,26 @@ test "descriptor prefix value graph answers repeated hoist queries without resca
 }
 
 ///|
+test "descriptor call value graph reuses ordered local operand runs" {
+  let graph = RawOiDescriptorCallValueGraphFact::from_body([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+  ])
+  @debug.assert_eq(graph.local_run_end(0), 2)
+  @debug.assert_eq(graph.local_run_end(1), 2)
+  @debug.assert_eq(graph.local_run_end(2), 2)
+  @debug.assert_eq(graph.local_run_end(3), 4)
+  @debug.assert_eq(graph.local_args(0, 2), [
+    @lib.LocalIdx::new(0U),
+    @lib.LocalIdx::new(1U),
+  ])
+  @debug.assert_eq(graph.local_args(3, 4), [@lib.LocalIdx::new(3U)])
+}
+
+///|
 test "optimize-instructions raw function index collects call and select anchors once" {
   let repeated = @lib.FuncIdx::new(3U)
   let other = @lib.FuncIdx::new(9U)

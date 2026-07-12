@@ -31364,6 +31364,63 @@ fn RawOiDescriptorCallArgFact::append_instrs(
 }
 
 ///|
+// Reusable ordered-value graph for the flat descriptor stack bridge. The graph
+// classifies each immutable root once and stores maximal local-get runs. Family
+// facts may use those runs to discover call operands, but exact signature,
+// target, nullability, exactness, trap, and rewrite-order proof stays in the
+// consuming descriptor fact.
+priv struct RawOiDescriptorCallValueGraphFact {
+  instrs : Array[@lib.Instruction]
+  local_run_ends : Array[Int]
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::from_body(
+  instrs : Array[@lib.Instruction],
+) -> RawOiDescriptorCallValueGraphFact {
+  let local_run_ends = Array::make(instrs.length() + 1, instrs.length())
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    local_run_ends[idx] = match instrs[idx] {
+      @lib.LocalGet(_) => local_run_ends[idx + 1]
+      _ => idx
+    }
+    idx = idx - 1
+  }
+  { instrs, local_run_ends }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::local_run_end(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    start
+  } else {
+    self.local_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::local_args(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+  end : Int,
+) -> Array[@lib.LocalIdx] {
+  let args : Array[@lib.LocalIdx] = []
+  let mut idx = start
+  while idx < end && idx < self.instrs.length() {
+    match self.instrs[idx] {
+      @lib.LocalGet(local_idx) => args.push(local_idx)
+      _ => return []
+    }
+    idx = idx + 1
+  }
+  args
+}
+
+///|
 // Raw descriptor exact-miss producer shape for source-order bridge facts.
 // Binaryen v130 `optimizeKnownCastResult` proves a descriptor-cast failure from
 // reference strict-subtype facts plus descriptor producer facts, then preserves
@@ -31781,64 +31838,56 @@ priv struct RawOiDescriptorBalancedLocalDirectExactSuccessFact {
 }
 
 ///|
-fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorBalancedLocalDirectExactSuccessFact? {
-  let ref_args : Array[@lib.LocalIdx] = []
-  let mut scan = start
-  while scan < instrs.length() {
-    match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        ref_args.push(arg)
-        scan = scan + 1
-      }
-      @lib.Call(ref_func) => {
-        let desc_args : Array[@lib.LocalIdx] = []
-        let mut desc_scan = scan + 1
-        while desc_scan < instrs.length() {
-          match instrs[desc_scan] {
-            @lib.LocalGet(arg) => {
-              desc_args.push(arg)
-              desc_scan = desc_scan + 1
-            }
-            @lib.Call(descriptor_func) if desc_scan + 1 < instrs.length() =>
-              match instrs[desc_scan + 1] {
-                @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
-                  exact &&
-                  RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
-                    module_ctx,
-                    ref_func,
-                    target,
-                    ref_args.length(),
-                  ) &&
-                  RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-                    module_ctx,
-                    descriptor_func,
-                    target,
-                    desc_args.length(),
-                  ) =>
-                  return Some({
-                    end: desc_scan + 2,
-                    param_count: ref_args.length(),
-                    ref_func,
-                    descriptor_func,
-                    target,
-                    ref_args,
-                    desc_args,
-                  })
-                _ => return None
-              }
-            _ => return None
-          }
-        }
-        return None
-      }
-      _ => return None
-    }
+  let ref_end = graph.local_run_end(start)
+  if ref_end >= graph.instrs.length() {
+    return None
   }
-  None
+  let ref_func = match graph.instrs[ref_end] {
+    @lib.Call(ref_func) => ref_func
+    _ => return None
+  }
+  let desc_start = ref_end + 1
+  let desc_end = graph.local_run_end(desc_start)
+  if desc_end + 1 >= graph.instrs.length() {
+    return None
+  }
+  let descriptor_func = match graph.instrs[desc_end] {
+    @lib.Call(descriptor_func) => descriptor_func
+    _ => return None
+  }
+  let ref_args = graph.local_args(start, ref_end)
+  let desc_args = graph.local_args(desc_start, desc_end)
+  match graph.instrs[desc_end + 1] {
+    @lib.RefCastDescEq(nullable, exact, target) if !nullable &&
+      exact &&
+      RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param_count(
+        module_ctx,
+        ref_func,
+        target,
+        ref_args.length(),
+      ) &&
+      RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+        module_ctx,
+        descriptor_func,
+        target,
+        desc_args.length(),
+      ) =>
+      Some({
+        end: desc_end + 2,
+        param_count: ref_args.length(),
+        ref_func,
+        descriptor_func,
+        target,
+        ref_args,
+        desc_args,
+      })
+    _ => None
+  }
 }
 
 ///|
@@ -32315,13 +32364,14 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_success_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
+  let graph = RawOiDescriptorCallValueGraphFact::from_body(instrs)
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     match
-      RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_instrs(
-        instrs, i, module_ctx,
+      RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_graph(
+        graph, i, module_ctx,
       ) {
       Some(fact) if fact.proves_binaryen_exact_success() => {
         fact.append_rewrite(rewritten)
@@ -32529,56 +32579,33 @@ priv struct RawOiDescriptorBalancedLocalDirectMissFact {
 }
 
 ///|
-fn RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorBalancedLocalDirectMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorBalancedLocalDirectMissFact? {
-  let ref_args : Array[@lib.LocalIdx] = []
-  let mut scan = start
-  while scan < instrs.length() {
-    match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        ref_args.push(arg)
-        scan = scan + 1
-        if ref_args.length() > 5 {
-          return None
-        }
-      }
-      _ => break
-    }
-  }
-  if scan >= instrs.length() {
+  let ref_end = graph.local_run_end(start)
+  let ref_args = graph.local_args(start, ref_end)
+  if ref_args.length() > 5 || ref_end >= graph.instrs.length() {
     return None
   }
-  let ref_func = match instrs[scan] {
+  let ref_func = match graph.instrs[ref_end] {
     @lib.Call(func_idx) => func_idx
     _ => return None
   }
-  scan = scan + 1
-  let desc_args : Array[@lib.LocalIdx] = []
-  while scan < instrs.length() {
-    match instrs[scan] {
-      @lib.LocalGet(arg) => {
-        desc_args.push(arg)
-        scan = scan + 1
-        if desc_args.length() > 5 {
-          return None
-        }
-      }
-      _ => break
-    }
-  }
-  if scan >= instrs.length() ||
+  let desc_start = ref_end + 1
+  let desc_end = graph.local_run_end(desc_start)
+  let desc_args = graph.local_args(desc_start, desc_end)
+  if desc_args.length() > 5 ||
     ref_args.length() != desc_args.length() ||
-    scan + 1 >= instrs.length() {
+    desc_end + 1 >= graph.instrs.length() {
     return None
   }
-  let descriptor_func = match instrs[scan] {
+  let descriptor_func = match graph.instrs[desc_end] {
     @lib.Call(func_idx) => func_idx
     _ => return None
   }
-  match instrs[scan + 1] {
+  match graph.instrs[desc_end + 1] {
     @lib.RefCastDescEq(_, _, target) if RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_param_count(
         module_ctx,
         ref_func,
@@ -32592,7 +32619,7 @@ fn RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
         desc_args.length(),
       ) =>
       Some({
-        end: scan + 2,
+        end: desc_end + 2,
         param_count: ref_args.length(),
         ref_func,
         descriptor_func,
@@ -32752,6 +32779,7 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
     Some(@lib.FuncType(params, _)) => params
     None => return (instrs.copy(), false)
   }
+  let graph = RawOiDescriptorCallValueGraphFact::from_body(instrs)
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
@@ -32803,8 +32831,8 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       _ => ()
     }
     match
-      RawOiDescriptorBalancedLocalDirectMissFact::from_instrs(
-        instrs, i, module_ctx,
+      RawOiDescriptorBalancedLocalDirectMissFact::from_graph(
+        graph, i, module_ctx,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)
