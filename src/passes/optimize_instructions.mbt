@@ -500,7 +500,6 @@ fn OiRefFact::proves_type_non_nullable(self : OiRefFact) -> Bool {
 ///|
 priv enum OiRefIsNullResultKind {
   RefIsNullUnknownResult
-  RefIsNullKnownNullOperand
   RefIsNullKnownNonNullOperand
 }
 
@@ -513,11 +512,11 @@ priv struct OiRefIsNullResultFact {
 fn OiRefIsNullResultFact::from_ref_fact(
   operand_fact : OiRefFact,
 ) -> OiRefIsNullResultFact {
-  let kind = if operand_fact.proves_known_null() {
-    RefIsNullKnownNullOperand
-  } else if operand_fact.proves_known_non_null() {
+  let kind = if operand_fact.proves_known_non_null() {
     RefIsNullKnownNonNullOperand
   } else {
+    // Binaryen v130 folds ref.is_null from non-nullability, but does not turn
+    // known-null value/dataflow facts into a constant in this direct pass.
     RefIsNullUnknownResult
   }
   { kind, }
@@ -528,7 +527,6 @@ fn OiRefIsNullResultFact::known_result(
   self : OiRefIsNullResultFact,
 ) -> @lib.I32? {
   match self.kind {
-    RefIsNullKnownNullOperand => Some(@lib.I32(1))
     RefIsNullKnownNonNullOperand => Some(@lib.I32(0))
     RefIsNullUnknownResult => None
   }

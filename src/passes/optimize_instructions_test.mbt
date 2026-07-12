@@ -31225,21 +31225,40 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
-test "optimize-instructions folds ref.is_null on known null refs" {
-  let source =
-    #|(module
-    #|  (func (export "null") (result i32)
-    #|    ref.null func
-    #|    ref.is_null)
-    #|)
-  let optimized = match
-    pass_test_run_pipeline(source, ["optimize-instructions"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected ref.is_null optimize success, got \{err}")
+test "optimize-instructions keeps ref.is_null on direct null literals like Binaryen" {
+  // Binaryen v130 canonicalizes each abstract heap to its bottom null heap but
+  // keeps the explicit predicate. Known-null dataflow remains reusable for
+  // non-literal producers; a direct ref.null is an oracle output boundary.
+  let any_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) ref.null any ref.is_null))",
+  )
+  let any_root = @ir.hot_root_get(any_func, 0)
+  match @ir.hot_node_get(any_func, any_root).op {
+    @ir.HotOp::RefIsNull => ()
+    other =>
+      fail("expected direct anyref null predicate to remain, got \{other}")
   }
-  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(null_pretty.contains("ref.is_null"), msg=null_pretty)
-  assert_true(null_pretty.contains("I32(1)"), msg=null_pretty)
+  let none_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) ref.null none ref.is_null))",
+  )
+  let none_root = @ir.hot_root_get(none_func, 0)
+  match @ir.hot_node_get(none_func, none_root).op {
+    @ir.HotOp::RefIsNull => ()
+    other => fail("expected direct none null predicate to remain, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions keeps ref.is_null on direct func null literals" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) ref.null func ref.is_null))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::RefIsNull => ()
+    other =>
+      fail("expected direct funcref null predicate to remain, got \{other}")
+  }
 }
 
 ///|

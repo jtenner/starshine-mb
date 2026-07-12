@@ -285,6 +285,8 @@ The active OI architecture migration is fact-driven: candidate roots and immutab
 
 Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but it is still narrower than Binaryen `OptimizeInstructions.cpp`. The `[O4Z-AUDIT-OI-A]` `version_130` matrix now makes that gap actionable by assigning each upstream source/lit family to current coverage, an explicit local boundary, or a follow-up slice.
 
+`OiRefIsNullResultFact` follows Binaryen v130's direct result rule rather than generic known-null folding: proven non-nullability yields zero, while direct or dataflow-known null values keep the predicate. Known-null facts remain reusable for trap-producing casts, descriptor operations, and other families that explicitly consume them.
+
 The reusable sign-width facts deliberately distinguish signed producers from literal knowledge: redundant sign extensions may be removed after signed loads/extension producers or compatible local producer facts, but direct literals and literal local assignments keep their extension shells to match Binaryen v130's direct pass output. This is one general producer-kind boundary, not a profile-case whitelist.
 
 The implemented center of gravity is:
