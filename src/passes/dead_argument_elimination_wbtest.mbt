@@ -3181,6 +3181,138 @@ test "dae verified uniform-constant candidate uses shared boundary rewrite trans
 }
 
 ///|
+test "dae verified constant suffix candidate preserves ambient multivalue call operands transactionally" {
+  let caller_type = @lib.TypeIdx::new(0U)
+  let callee_type = @lib.TypeIdx::new(1U)
+  let block_type = @lib.TypeIdx::new(2U)
+  let callee = @lib.FuncIdx::new(1U)
+  let params = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]
+  let block_body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::i32_const(@lib.I32(1024)),
+    @lib.Instruction::call(callee),
+  ]
+  let caller = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(block_type),
+        @lib.Expr::new(block_body),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    ]),
+  )
+  let callee_func = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+    ]),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              params,
+              [@lib.ValType::i32(), @lib.ValType::i32()],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [],
+              [@lib.ValType::i32(), @lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([caller_type, callee_type]))
+    .with_code_sec(@lib.CodeSec::new([caller, callee_func]))
+  let local_use = dae_local_use_for_callee(callee_func, 4, 1, 4)
+  let result = dae_try_rewrite_verified_materialized_const_suffix_candidate(
+    mod_,
+    1,
+    params,
+    [@lib.Instruction::i32_const(@lib.I32(1024))],
+    local_use,
+    1,
+    [0],
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 1)
+  assert_eq(result.touched, [true, true])
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[0]
+      match caller_body[0] {
+        @lib.Block(_, @lib.Expr(rewritten_block)) => {
+          let expected = block_body.copy()
+          ignore(expected.remove(expected.length() - 2))
+          assert_eq(rewritten_block, expected)
+        }
+        _ => fail("expected preserved multivalue block caller")
+      }
+    }
+    None => fail("expected rewritten code section")
+  }
+  let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 1) {
+    Some(@lib.FuncType(rewritten_params, results)) => {
+      assert_eq(rewritten_params, [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ])
+      assert_eq(results, [@lib.ValType::i32(), @lib.ValType::i32()])
+    }
+    None => fail("expected rewritten callee type")
+  }
+  let rejected = dae_try_rewrite_verified_materialized_const_suffix_candidate(
+    mod_,
+    1,
+    params,
+    [@lib.Instruction::i32_const(@lib.I32(9))],
+    local_use,
+    1,
+    [0],
+  )
+  assert_false(rejected.changed)
+  assert_eq(rejected.primary_def, -1)
+  assert_eq(rejected.touched, [])
+  assert_eq(rejected.mod_out, mod_)
+}
+
+///|
 test "dae module code rewrite finalization uses current sections transactionally" {
   let result_type = @lib.TypeIdx::new(0U)
   let void_type = @lib.TypeIdx::new(1U)
