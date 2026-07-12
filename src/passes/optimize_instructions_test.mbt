@@ -25262,6 +25262,78 @@ test "optimize-instructions sinks same-global if set arms to one set of value if
 }
 
 ///|
+test "optimize-instructions sinks same-local if set arms to one set of value if" {
+  // Red-first random-all-profiles reductions from `ssa-nomerge-smoke` case 8
+  // and `ssa-nomerge-parity` case 10: Binaryen v130's parsed OI shape owns one
+  // `local.set` around a value-producing `if`, rather than duplicate writes in
+  // the arms. The rewrite is valid only for the same local and single pure
+  // values of the same exact type.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let set_id = match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, root)
+      @debug.assert_eq(@ir.hot_region_root_count(func, body), 1)
+      @ir.hot_region_get(func, body, 0)
+    }
+    _ => root
+  }
+  let set_node = @ir.hot_node_get(func, set_id)
+  match set_node.op {
+    @ir.HotOp::LocalSet => ()
+    other => fail("expected if arms to sink into one local.set, got \{other}")
+  }
+  @debug.assert_eq(set_node.imm0, 1)
+  @debug.assert_eq(set_node.child_count, 1)
+  let value_if = @ir.hot_child_get(func, set_id, 0)
+  match @ir.hot_node_get(func, value_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected local.set value to be an if, got \{other}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected sunk local.set(if) shape to verify, got \{err}")
+  }
+}
+
+///|
+test "optimize-instructions sinks nested same-local if without a wrapper block" {
+  // The first random replay exposed that demoting the `if` to a block leaves an
+  // extra nested wrapper under an existing block. Reusing the current control
+  // root and replacing its unique revision-keyed use keeps the Binaryen shape.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (local i32) block local.get 0 if i32.const 37 local.set 1 else i32.const 38 local.set 1 end local.get 1 drop end))",
+  )
+  let outer = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, outer).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected outer block to remain, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, outer)
+  let set_id = @ir.hot_region_get(func, body, 0)
+  match @ir.hot_node_get(func, set_id).op {
+    @ir.HotOp::LocalSet => ()
+    other => fail("expected nested if to become direct local.set, got \{other}")
+  }
+  let value_if = @ir.hot_child_get(func, set_id, 0)
+  match @ir.hot_node_get(func, value_if).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail("expected nested local.set payload to remain if, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_type_results(func, @ir.hot_node_type(func, value_if)),
+    [@lib.ValType::i32()],
+  )
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested sunk local.set(if) to verify, got \{err}")
+  }
+}
+
+///|
 test "optimize-instructions folds dropped pure constant add" {
   // OI-F effectful-sibling reductions also showed stale native output keeping
   // dropped `i32.const 2; i32.const 3; i32.add`. The pass-owned OI-D behavior is

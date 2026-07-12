@@ -15157,6 +15157,187 @@ fn optimize_instructions_try_sink_same_global_set_if(
 }
 
 ///|
+priv struct OiSameLocalSetIfFact {
+  reusable_set_id : Int
+  then_value_id : Int
+  else_value_id : Int
+  value_type : @lib.ValType
+  use_site : @ir.HotUseSite
+  use_region : @ir.HotRegionRef?
+}
+
+///|
+fn OiSameLocalSetIfFact::from_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> OiSameLocalSetIfFact? {
+  // Binaryen v130's parsed OI shape sinks matching local writes from both arms
+  // into one write around a value-producing `if`. Keep the same-local target,
+  // exact result type, and arm purity proofs together so this remains a general
+  // state-write rule rather than a generated-profile shape admission.
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  if @ir.hot_type_results(func, node.ty).length() != 0 {
+    return None
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return None
+  }
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return None
+  }
+  let then_set_id = @ir.hot_region_get(func, then_region, 0)
+  let else_set_id = @ir.hot_region_get(func, else_region, 0)
+  if !OiLiveNodeFact::proves_node_live(func, dead, then_set_id) ||
+    !OiLiveNodeFact::proves_node_live(func, dead, else_set_id) {
+    return None
+  }
+  let then_set = @ir.hot_node_get(func, then_set_id)
+  let else_set = @ir.hot_node_get(func, else_set_id)
+  let local_id = match (then_set.op, else_set.op) {
+    (@ir.HotOp::LocalSet, @ir.HotOp::LocalSet) if then_set.imm0 == else_set.imm0 =>
+      then_set.imm0
+    _ => return None
+  }
+  if then_set.child_count != 1 || else_set.child_count != 1 {
+    return None
+  }
+  let then_value_id = @ir.hot_child_get(func, then_set_id, 0)
+  let else_value_id = @ir.hot_child_get(func, else_set_id, 0)
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func, dead, then_value_id,
+    ) ||
+    !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, else_value_id) {
+    return None
+  }
+  let value_type = match
+    (
+      @ir.hot_type_results(func, @ir.hot_node_type(func, then_value_id)),
+      @ir.hot_type_results(func, @ir.hot_node_type(func, else_value_id)),
+    ) {
+    ([then_type], [else_type]) if then_type == else_type => then_type
+    _ => return None
+  }
+  match @ir.hot_local_type(func, local_id) {
+    Some(local_type) if local_type == value_type => ()
+    _ => return None
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  if @ir.node_use_count(use_def, node_id) != 1 {
+    return None
+  }
+  let use_sites = @ir.node_use_sites_borrowed(use_def, node_id)
+  if use_sites.length() != 1 {
+    return None
+  }
+  let use_site = use_sites[0]
+  let use_region = match use_site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot => None
+    @ir.HotUseSlotKind::RootUseSlot if use_site.user == -1 => None
+    @ir.HotUseSlotKind::RootUseSlot => {
+      let holder = @ir.hot_node_get(func, use_site.user)
+      match holder.op {
+        @ir.HotOp::Block | @ir.HotOp::Loop => {
+          let region = @ir.hot_region_body_ref(func, use_site.user)
+          if use_site.slot < 0 ||
+            use_site.slot >= @ir.hot_region_root_count(func, region) ||
+            @ir.hot_region_get(func, region, use_site.slot) != node_id {
+            return None
+          }
+          Some(region)
+        }
+        _ => return None
+      }
+    }
+  }
+  Some({
+    reusable_set_id: then_set_id,
+    then_value_id,
+    else_value_id,
+    value_type,
+    use_site,
+    use_region,
+  })
+}
+
+///|
+fn OiSameLocalSetIfFact::apply(
+  self : OiSameLocalSetIfFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  @ir.hot_region_replace_body(func, @ir.hot_region_then_ref(func, node_id), [
+    self.then_value_id,
+  ])
+  match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) =>
+      @ir.hot_region_replace_body(func, region, [self.else_value_id])
+    None => return false
+  }
+  @ir.hot_control_result_type_set(
+    func,
+    node_id,
+    @ir.hot_type_intern_block_result(
+      func,
+      @lib.BlockType::val_type(self.value_type),
+    ),
+  )
+  @ir.hot_child_set(func, self.reusable_set_id, 0, node_id)
+  let replacement_set = self.reusable_set_id
+  match self.use_site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot =>
+      @ir.hot_child_set(
+        func,
+        self.use_site.user,
+        self.use_site.slot,
+        replacement_set,
+      )
+    @ir.HotUseSlotKind::RootUseSlot if self.use_site.user == -1 =>
+      @ir.hot_root_set(func, self.use_site.slot, replacement_set)
+    @ir.HotUseSlotKind::RootUseSlot =>
+      match self.use_region {
+        Some(region) =>
+          ignore(
+            @ir.hot_region_set(
+              func,
+              region,
+              self.use_site.slot,
+              replacement_set,
+            ),
+          )
+        None => return false
+      }
+  }
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_sink_same_local_set_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match OiSameLocalSetIfFact::from_if(ctx, func, dead, node_id) {
+    Some(fact) => fact.apply(ctx, func, node_id)
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_constant_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -40015,6 +40196,7 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_sink_same_global_set_if(
         ctx, func, dead, node_id,
       ) ||
+      optimize_instructions_try_sink_same_local_set_if(ctx, func, dead, node_id) ||
       optimize_instructions_try_fold_constant_if_condition(
         ctx, func, dead, node_id,
       ) ||

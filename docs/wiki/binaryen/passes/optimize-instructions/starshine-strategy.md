@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Sink same-local branch writes through current-revision use facts
+
+When both arms of a void `if` consist of one pure, exact-typed `local.set` to the same local, `OiSameLocalSetIfFact` converts the existing `if` into the value producer and reuses one already visited set as the outer write. The fact requires one current-revision use and only supports a direct child use, a function root, or a root in a block/loop region; unsupported ownership fails closed. Reusing existing nodes avoids post-order worklist growth, and replacing the recorded use avoids the wrapper block produced by control demotion. This is a general typed state-write rule, not an SSA-profile shape matcher, admission enum, or body scanner.
+
 ## Finish synthesized roots with general rules
 
 When a rewrite synthesizes a new scalar root after that root's normal post-order visit slot, the producing fact should immediately reuse the ordinary rule facts needed to finish that root locally. Boolean select algebra now delegates its synthesized `and`/`or` root to `OiSynthesizedI32BinaryFact`, which runs the shared binary identity, absorbing, and exact-constant rules locally. This keeps downstream bulk-memory facts source-faithful—they still require the direct constant size that Binaryen's `optimizeMemoryCopy` / `optimizeMemoryFill` consume—without admitting select/or shapes, adding a whole-body revisit, or creating a producer/consumer matrix. The deterministic count-1000 `pass-oi-all` lane is therefore `896` normalized / `104` measured tuple-only residuals with zero failures.
