@@ -149,6 +149,10 @@ Labels already accepted by notes 1422-1428 remain bounded by their own reopening
 - grouped wrappers around runtime-exported labels (`1427`);
 - runtime mixed effect+trap scratch-localized selected lane (`1428`).
 
+## 2026-07-11 deterministic aggregate recheck
+
+The post-GC-boundary `pass-oi-all` replay (`count=1000`, seed `0x5eed`) leaves 104 tuple mismatches across the same 22 maintained `pass-oi-tuple` labels. `oi-mismatch-summary` groups every tuple mismatch into only three block-result wrapper fingerprints and reports no Binaryen-only lines. Per-artifact measurement shows Starshine is strictly smaller for every case: raw wasm deltas range from `-92` to `-19` bytes and canonical wasm deltas from `-41` to `-5` bytes. A rerun with `--runtime-execution node` records 46 executable comparisons (`45` equal results, `1` equal trap, `0` unsupported, `0` semantic mismatches); non-exported cases remain covered by the original direct/grouped opcode, validation, trap/effect, and runtime evidence below. This current deterministic sample therefore satisfies SB005's measured Starshine-win classification and does not reopen OI-M. The four non-tuple mismatches in the aggregate remain active memory/bulk parity gaps and are not covered by this classification.
+
 ## Final OI-M classification
 
 OI-M is no longer an active/P0 closeout blocker after this note. The remaining raw mismatches are not ignored: they are classified as either implemented covered subsets, source-backed no-rewrite boundaries, fail-closed control/EH boundaries with probe evidence, or measured Starshine-win tuple-scratch representation boundaries.
