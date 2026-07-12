@@ -9578,6 +9578,25 @@ fn dae_apply_typeidx_control_rewrite(
 }
 
 ///|
+fn dae_rebuild_typeidx_control(
+  type_sec : @lib.TypeSec,
+  control_kind : Int,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction]?,
+) -> DaeTypeidxControlRewriteApplication? {
+  let plan = match
+    dae_typeidx_control_rewrite_plan(
+      control_kind, params, results, body, else_body,
+    ) {
+    Some(plan) => plan
+    None => return None
+  }
+  dae_apply_typeidx_control_rewrite(type_sec, plan)
+}
+
+///|
 fn dae_dropped_operand_pair_skip_evidence_is_consistent(
   evidence : DaeDroppedOperandPairSkipEvidence,
 ) -> Bool {
@@ -10233,14 +10252,10 @@ fn dae_try_refine_parametric_typeidx_multi_result_terminal_control_body(
   if !changed {
     return None
   }
-  let plan = match
-    dae_typeidx_control_rewrite_plan(
-      kind, params, refined_results, rewritten_arm, next_else_body,
+  let application = match
+    dae_rebuild_typeidx_control(
+      type_sec, kind, params, refined_results, rewritten_arm, next_else_body,
     ) {
-    Some(plan) => plan
-    None => return None
-  }
-  let application = match dae_apply_typeidx_control_rewrite(type_sec, plan) {
     Some(application) => application
     None => return None
   }
@@ -10872,25 +10887,19 @@ fn dae_try_refine_direct_gc_types(
                   }
                   match mod_.type_sec {
                     Some(type_sec) => {
-                      let plan = match
-                        dae_typeidx_control_rewrite_plan(
+                      let active_type_sec = match rewrite_type_sec {
+                        Some(current_type_sec) => current_type_sec
+                        None => type_sec
+                      }
+                      let application = match
+                        dae_rebuild_typeidx_control(
+                          active_type_sec,
                           2,
                           [],
                           pair_evidence.refined_results,
                           pair_evidence.rewritten_then_body,
                           Some(pair_evidence.rewritten_else_body),
                         ) {
-                        Some(plan) => plan
-                        None =>
-                          return {
-                            mod_out: mod_,
-                            touched: [],
-                            changed: false,
-                            primary_def: -1,
-                          }
-                      }
-                      let application = match
-                        dae_apply_typeidx_control_rewrite(type_sec, plan) {
                         Some(application) => application
                         None =>
                           return {
@@ -11092,25 +11101,19 @@ fn dae_try_refine_direct_gc_types(
         if preserve_loop_carrier {
           match mod_.type_sec {
             Some(type_sec) => {
-              let plan = match
-                dae_typeidx_control_rewrite_plan(
+              let active_type_sec = match rewrite_type_sec {
+                Some(current_type_sec) => current_type_sec
+                None => type_sec
+              }
+              let application = match
+                dae_rebuild_typeidx_control(
+                  active_type_sec,
                   1,
                   [],
                   next_results,
                   rewritten_body,
                   None,
                 ) {
-                Some(plan) => plan
-                None =>
-                  return {
-                    mod_out: mod_,
-                    touched: [],
-                    changed: false,
-                    primary_def: -1,
-                  }
-              }
-              let application = match
-                dae_apply_typeidx_control_rewrite(type_sec, plan) {
                 Some(application) => application
                 None =>
                   return {
