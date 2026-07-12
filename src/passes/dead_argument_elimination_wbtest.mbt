@@ -6820,6 +6820,50 @@ test "dae removed-param local projection distinguishes elided written and locali
 }
 
 ///|
+test "dae removed-param callee rewrite preserves mapped locals and constants" {
+  let func = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::f32()]),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    ]),
+  )
+  let evidence = match
+    dae_removed_param_callee_rewrite_evidence(
+      func,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+        @lib.ValType::i32(),
+      ],
+      [false, true, true],
+      [
+        None,
+        Some(@lib.Instruction::i64_const(@lib.I64(9L))),
+        Some(@lib.Instruction::i32_const(@lib.I32(7))),
+      ],
+      { gets: [true, true, true, true], writes: [false, true, false, false] },
+      [false, false, false],
+    ) {
+    Some(evidence) => evidence
+    None => fail("expected removed-param callee rewrite evidence")
+  }
+  assert_eq(evidence.kept_params, [@lib.ValType::i32()])
+  assert_eq(
+    evidence.locals,
+    @lib.Locals::from_types([@lib.ValType::i64(), @lib.ValType::f32()]),
+  )
+  assert_eq(evidence.body, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ])
+}
+
+///|
 test "dae callsite removal plan centralizes keep replay and drop repair" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let body = [
