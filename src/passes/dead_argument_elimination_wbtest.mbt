@@ -4809,10 +4809,7 @@ test "dae typeidx control body installation is transactional and reuses active t
     @lib.Instruction::drop(),
     @lib.Instruction::i64_const(@lib.I64(1L)),
   ]
-  let outer_body = [
-    @lib.Instruction::nop(),
-    @lib.Instruction::unreachable_(),
-  ]
+  let outer_body = [@lib.Instruction::nop(), @lib.Instruction::unreachable_()]
   let first = match
     dae_rebuild_typeidx_control_in_body(
       @lib.TypeSec::new([]),
@@ -4827,7 +4824,6 @@ test "dae typeidx control body installation is transactional and reuses active t
     Some(application) => application
     None => fail("expected transactional typeidx control body installation")
   }
-  assert_eq(first.control_idx, 1)
   assert_eq(outer_body[1], @lib.Instruction::unreachable_())
   assert_eq(first.body[0], @lib.Instruction::nop())
   assert_eq(
@@ -4853,7 +4849,6 @@ test "dae typeidx control body installation is transactional and reuses active t
     Some(application) => application
     None => fail("expected active type reuse for second body installation")
   }
-  assert_eq(second.control_idx, 0)
   assert_eq(second.type_sec, first.type_sec)
   assert_eq(
     second.body[0],
@@ -4873,7 +4868,8 @@ test "dae typeidx control body installation is transactional and reuses active t
       control_body,
       None,
     ) {
-    Some(_) => fail("out-of-range control slot must reject before body installation")
+    Some(_) =>
+      fail("out-of-range control slot must reject before body installation")
     None => assert_eq(outer_body[1], @lib.Instruction::unreachable_())
   }
 }

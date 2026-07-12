@@ -542,6 +542,12 @@ priv struct DaeTypeidxControlRewriteApplication {
 }
 
 ///|
+priv struct DaeTypeidxControlBodyRewriteApplication {
+  type_sec : @lib.TypeSec
+  body : Array[@lib.Instruction]
+}
+
+///|
 priv enum DaeGcActualShapeKind {
   DaeDirectGcActualShape
   DaeBlockGcActualShape
@@ -9708,6 +9714,32 @@ fn dae_rebuild_typeidx_control(
 }
 
 ///|
+fn dae_rebuild_typeidx_control_in_body(
+  type_sec : @lib.TypeSec,
+  outer_body : Array[@lib.Instruction],
+  control_idx : Int,
+  control_kind : Int,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+  control_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction]?,
+) -> DaeTypeidxControlBodyRewriteApplication? {
+  if control_idx < 0 || control_idx >= outer_body.length() {
+    return None
+  }
+  let control_application = match
+    dae_rebuild_typeidx_control(
+      type_sec, control_kind, params, results, control_body, else_body,
+    ) {
+    Some(application) => application
+    None => return None
+  }
+  let body = outer_body.copy()
+  body[control_idx] = control_application.rewritten
+  Some({ type_sec: control_application.type_sec, body })
+}
+
+///|
 fn dae_dropped_operand_pair_skip_evidence_is_consistent(
   evidence : DaeDroppedOperandPairSkipEvidence,
 ) -> Bool {
@@ -10364,16 +10396,15 @@ fn dae_try_refine_parametric_typeidx_multi_result_terminal_control_body(
     return None
   }
   let application = match
-    dae_rebuild_typeidx_control(
-      type_sec, kind, params, refined_results, rewritten_arm, next_else_body,
+    dae_rebuild_typeidx_control_in_body(
+      type_sec, body, terminal_idx, kind, params, refined_results, rewritten_arm,
+      next_else_body,
     ) {
     Some(application) => application
     None => return None
   }
-  let rewritten_body = body.copy()
-  rewritten_body[terminal_idx] = application.rewritten
   ignore(body_changed)
-  Some((application.type_sec, rewritten_body))
+  Some((application.type_sec, application.body))
 }
 
 ///|
@@ -11036,8 +11067,10 @@ fn dae_try_refine_direct_gc_types(
                         None => type_sec
                       }
                       let application = match
-                        dae_rebuild_typeidx_control(
+                        dae_rebuild_typeidx_control_in_body(
                           active_type_sec,
+                          body,
+                          body.length() - 1,
                           2,
                           [],
                           pair_evidence.refined_results,
@@ -11054,9 +11087,7 @@ fn dae_try_refine_direct_gc_types(
                           }
                       }
                       rewrite_type_sec = Some(application.type_sec)
-                      let rewritten_body = body.copy()
-                      rewritten_body[rewritten_body.length() - 1] = application.rewritten
-                      next_body = rewritten_body
+                      next_body = application.body
                       result_body_changed = true
                     }
                     None => ()
@@ -11250,8 +11281,10 @@ fn dae_try_refine_direct_gc_types(
                 None => type_sec
               }
               let application = match
-                dae_rebuild_typeidx_control(
+                dae_rebuild_typeidx_control_in_body(
                   active_type_sec,
+                  body,
+                  0,
                   1,
                   [],
                   next_results,
@@ -11268,7 +11301,7 @@ fn dae_try_refine_direct_gc_types(
                   }
               }
               rewrite_type_sec = Some(application.type_sec)
-              next_body = [application.rewritten]
+              next_body = application.body
               result_body_changed = true
             }
             None => ()
