@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Finish synthesized roots with general rules
+
+When a rewrite synthesizes a new scalar root after that root's normal post-order visit slot, the producing fact should immediately reuse the ordinary rule facts needed to finish that root locally. Boolean select algebra now runs the shared binary identity and exact-constant rules on its synthesized `and`/`or` root. This keeps downstream bulk-memory facts source-faithful—they still require the direct constant size that Binaryen's `optimizeMemoryCopy` / `optimizeMemoryFill` consume—without admitting select/or shapes, adding a whole-body revisit, or creating a producer/consumer matrix. The deterministic count-1000 `pass-oi-all` lane is therefore `896` normalized / `104` measured tuple-only residuals with zero failures.
+
 ## Fresh aggregate consumer boundaries
 
 Binaryen v130's `visitStructGet` does not inspect `struct.new` or `struct.new_default`; it only handles null/cast and memory-order concerns. Starshine therefore preserves ordinary, packed, default, and effectful fresh-struct reads. The stale direct field-forwarding rule and its packed/default-value and selected-operand localization fact surface are deleted rather than retained as a producer-shape matrix.

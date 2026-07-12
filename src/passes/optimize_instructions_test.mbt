@@ -58356,6 +58356,116 @@ test "optimize-instructions folds atomic store constant offsets" {
 }
 
 ///|
+test "optimize-instructions revisits memory.copy after child select rewrite" {
+  // Aggregate `pass-oi-all` case 172: Binaryen's post-order visitor rewrites the
+  // size select to a literal before visiting memory.copy, then lowers the
+  // one-byte copy. A synthesized boolean-algebra root must run the ordinary
+  // binary finishing rules immediately; bulk admission remains direct-const.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (data (i32.const 60490) "\\07")
+        #|  (data (i32.const 60506) "\\0d")
+        #|  (func (export "run") (result i32)
+        #|    (local i32 i32)
+        #|    i32.const 60506
+        #|    i32.load8_u
+        #|    local.set 0
+        #|    i32.const 60506
+        #|    i32.const 60506
+        #|    i32.const 1
+        #|    select
+        #|    i32.const 60490
+        #|    i32.const 60490
+        #|    i32.const 1
+        #|    select
+        #|    i32.const 1
+        #|    i32.const 1
+        #|    i32.const 0
+        #|    select
+        #|    memory.copy
+        #|    i32.const 60506
+        #|    i32.load8_u
+        #|    local.set 1
+        #|    i32.const 60506
+        #|    local.get 0
+        #|    i32.store8
+        #|    local.get 1
+        #|    i32.const 0
+        #|    i32.const 1
+        #|    select))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected revisited memory.copy success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("i32.or"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+}
+
+///|
+test "optimize-instructions revisits memory.fill after child select rewrite" {
+  // Aggregate `pass-oi-all` case 280: keep the same synthesized-root finishing
+  // contract for memory.fill rather than admitting select/or size shapes in the
+  // bulk fact. The rewritten size must become a direct literal before lowering.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (data (i32.const 14642) "\\0d")
+        #|  (func (export "run") (result i32)
+        #|    (local i32 i32)
+        #|    i32.const 14642
+        #|    i32.load8_u
+        #|    local.set 0
+        #|    i32.const 14642
+        #|    i32.const 14642
+        #|    i32.const 1
+        #|    select
+        #|    i32.const 42
+        #|    i32.const 42
+        #|    i32.const 1
+        #|    select
+        #|    i32.const 1
+        #|    i32.const 1
+        #|    i32.const 0
+        #|    select
+        #|    memory.fill
+        #|    i32.const 14642
+        #|    i32.load8_u
+        #|    local.set 1
+        #|    i32.const 14642
+        #|    local.get 0
+        #|    i32.store8
+        #|    local.get 1
+        #|    i32.const 0
+        #|    i32.const 1
+        #|    select))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected revisited memory.fill success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("i32.or"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands one-byte memory.copy to load8/store8" {
   let optimized = match
     pass_test_run_pipeline(

@@ -27090,6 +27090,7 @@ fn OiBooleanSelectAlgebraFact::apply(
   self : OiBooleanSelectAlgebraFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   let (instr, left_id) = match self.kind {
@@ -27098,13 +27099,24 @@ fn OiBooleanSelectAlgebraFact::apply(
     BooleanSelectOrTrueOne =>
       (@lib.Instruction::i32_or(), self.if_false_fact.value_id())
   }
+  let right_id = self.condition_fact.value_id()
   let replacement = optimize_instructions_build_i32_binary(
-    func,
-    instr,
-    left_id,
-    self.condition_fact.value_id(),
+    func, instr, left_id, right_id,
   )
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
+  // `optimizeSelect` can synthesize a binary root after that root's ordinary
+  // post-order visit slot has passed. Reuse the general binary identity and
+  // exact-constant rules immediately so the replacement reaches the same local
+  // fixed point as Binaryen without revisiting the body or teaching consumers
+  // about `select` or `or` shapes.
+  ignore(
+    optimize_instructions_try_fold_identity_binary(
+      ctx, func, dead, node_id, instr, left_id, right_id,
+    ) ||
+    optimize_instructions_try_fold_exact_const_binary(
+      ctx, func, dead, node_id, instr, left_id, right_id,
+    ),
+  )
   true
 }
 
@@ -29512,7 +29524,7 @@ fn optimize_instructions_try_fold_const_select(
       if_false,
       condition,
     ) {
-    Some(fact) => return fact.apply(ctx, func, node_id)
+    Some(fact) => return fact.apply(ctx, func, dead, node_id)
     _ => ()
   }
   let identical_arm_fact = OiIdenticalPureExpressionFact::from_select_arms(
