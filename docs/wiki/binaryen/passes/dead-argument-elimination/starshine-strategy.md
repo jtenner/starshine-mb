@@ -148,6 +148,14 @@ Acceptance criteria for the first consolidation:
 - `moon test src/passes` is run for behavior changes, while docs-only inventory slices may use `git diff --check` and source review;
 - docs and `agent-todo.md` record which scanners were consolidated and which remain scanner-heavy.
 
+### Typeidx control body-installation consolidation, 2026-07-12
+
+Slice 186 source-reviewed the three production paths that rebuild typeidx controls and immediately install them into a copied function body: parametric terminal block/loop/paired-`if` refinement, zero-input terminal paired-`if` refinement, and preserved multi-result loop carriers. Their evidence, selected control index, active `TypeSec` selection, inner bodies, and result-refinement policy differ, but destination validation, control rebuild, outer-body copy, slot replacement, and rollback are identical.
+
+`DaeTypeidxControlBodyRewriteApplication` and `dae_rebuild_typeidx_control_in_body(...)` now own that exact transaction above the existing typeidx-control rebuild. All three consumers supply their caller-selected active type section and destination slot, then receive the updated type section plus installed body. Candidate/LUB production, arm repair, result projection, touched policy, final module application, and scheduling remain caller-owned; plain DAE receives no optimizing-only cleanup or phase.
+
+The red-first whitebox contract failed while the body-installation helper was unbound, then passed while proving surrounding-body preservation, active equivalent-type reuse, and invalid-slot rejection before mutation. Validation reached DAE whitebox `200/200`, public DAE `303/303`, pass suites `5208/5208`, `moon info` with 9 warnings, full tests `8660/8660`, and native build. Fresh reduction-disabled lanes remain dedicated direct `5000/10000`, direct random-all `9136/10000`, and normalized optimizing random-all `9633/10000`, with zero cleanup-normalized matches, zero failures, and Binaryen cache `10000/0`. Existing source/diff/replay/size/performance classifications are unchanged; direct DAE remains explicitly raw-red.
+
 ### Refined result-vector application consolidation, 2026-07-12
 
 Slice 185 source-reviewed paired terminal-arm LUB application and sparse single-arm refinement application. Their evidence production remains distinct: paired evidence computes a per-slot LUB and rewrites both arms, while single evidence carries optional refined candidates and one rewritten body. Their result-vector mutation was identical, including exact length admission, optional mirrored `refined_results` updates, sparse slot application, no-refinement rejection, and transactional mismatch behavior.
