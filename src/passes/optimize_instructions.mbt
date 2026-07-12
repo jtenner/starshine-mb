@@ -25355,7 +25355,7 @@ fn optimize_instructions_replace_with_nop(
 }
 
 ///|
-fn optimize_instructions_try_remove_array_set_fresh_array(
+fn optimize_instructions_try_remove_array_set_fresh_default(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -25383,17 +25383,6 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
   let array_node = @ir.hot_node_get(func, array_id)
   let effect_operands : Array[Int] = []
   let len = match @ir.hot_node_exact_instr(func, array_id) {
-    Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
-      type_idx => {
-      let len = len.reinterpret_as_int()
-      if len != array_node.child_count {
-        return false
-      }
-      for i = 0; i < array_node.child_count; i = i + 1 {
-        effect_operands.push(@ir.hot_child_get(func, array_id, i))
-      }
-      len
-    }
     Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
       type_idx => {
       if array_node.child_count != 1 {
@@ -40692,7 +40681,7 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_array_get_new_fixed(
         ctx, func, dead, node_id,
       ) ||
-      optimize_instructions_try_remove_array_set_fresh_array(
+      optimize_instructions_try_remove_array_set_fresh_default(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_struct_get_struct_new(

@@ -278,7 +278,7 @@ related:
 
 ## Fresh repeated-array consumer boundary
 
-Binaryen v130 keeps `array.get`, `array.set`, and `array.len` over a fresh repeated-value `array.new`; those visitors do not prove or localize constructor operands. Starshine therefore limits the represented repeated-array rule to constructor canonicalization such as size-one `array.new` to `array.new_fixed`. Consumer rewrites no longer infer a result, erase a write, or replace an out-of-bounds access with localized effects and `unreachable`. This is one source-backed producer-kind boundary, not a profile-shape matrix; fixed/default producer parity remains separately testable.
+Binaryen v130 keeps `array.get`, `array.set`, and `array.len` over a fresh repeated-value `array.new`; those visitors do not prove or localize constructor operands. The same `visitArraySet` boundary keeps writes over `array.new_fixed`, including constant in-bounds/out-of-bounds indexes and effectful constructor/value operands. Starshine therefore limits the represented repeated-array rule to constructor canonicalization such as size-one `array.new` to `array.new_fixed`; the only remaining fresh-array write helper is explicitly scoped to `array.new_default`. Consumer rewrites no longer infer repeated-array results, erase repeated/fixed writes, or replace their out-of-bounds operations with localized effects and `unreachable`. These are source-backed producer-kind boundaries, not profile-shape matrices; fixed read/length and default producer parity remain separately testable.
 
 ## Width-specific masks and literal ordering
 

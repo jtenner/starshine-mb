@@ -79344,7 +79344,7 @@ test "optimize-instructions folds packed array.get_s and array.get_u of pure arr
 }
 
 ///|
-test "optimize-instructions removes array.set to fresh pure arrays with constant indexes" {
+test "optimize-instructions keeps array.set over array.new_fixed like Binaryen v130" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
   let void_type = @lib.TypeIdx::new(2U)
@@ -79504,11 +79504,13 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
   let effectful_sibling_and_value = optimized.pretty_print_func(
     @lib.FuncIdx::new(9U),
   )
-  assert_false(fixed_inbounds.contains("array.set"), msg=fixed_inbounds)
-  assert_false(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
-  assert_false(fixed_oob.contains("array.set"), msg=fixed_oob)
-  assert_false(fixed_oob.contains("array.new_fixed"), msg=fixed_oob)
-  assert_true(fixed_oob.contains("unreachable"), msg=fixed_oob)
+  // Binaryen v130's visitArraySet does not erase writes to a fresh
+  // array.new_fixed receiver, even when the constant index is provably in or
+  // out of bounds.
+  assert_true(fixed_inbounds.contains("array.set"), msg=fixed_inbounds)
+  assert_true(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
+  assert_true(fixed_oob.contains("array.set"), msg=fixed_oob)
+  assert_true(fixed_oob.contains("array.new_fixed"), msg=fixed_oob)
   assert_false(default_inbounds.contains("array.set"), msg=default_inbounds)
   assert_false(
     default_inbounds.contains("array.new_default"),
@@ -79519,31 +79521,22 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
   optimize_instructions_assert_strings_in_order(default_oob, [
     "call (Func 0)", "drop", "unreachable",
   ])
-  assert_false(effect_inbounds.contains("array.set"), msg=effect_inbounds)
-  assert_false(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
-  optimize_instructions_assert_strings_in_order(effect_inbounds, [
-    "call (Func 0)", "drop",
-  ])
-  assert_false(effect_oob.contains("array.set"), msg=effect_oob)
-  assert_false(effect_oob.contains("array.new_fixed"), msg=effect_oob)
-  optimize_instructions_assert_strings_in_order(effect_oob, [
-    "call (Func 0)", "drop", "unreachable",
-  ])
+  assert_true(effect_inbounds.contains("array.set"), msg=effect_inbounds)
+  assert_true(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
+  assert_true(effect_oob.contains("array.set"), msg=effect_oob)
+  assert_true(effect_oob.contains("array.new_fixed"), msg=effect_oob)
   assert_true(dynamic_index.contains("array.set"), msg=dynamic_index)
   assert_true(dynamic_index.contains("array.new_fixed"), msg=dynamic_index)
-  assert_false(effectful_sibling.contains("array.set"), msg=effectful_sibling)
-  assert_false(
+  assert_true(effectful_sibling.contains("array.set"), msg=effectful_sibling)
+  assert_true(
     effectful_sibling.contains("array.new_fixed"),
     msg=effectful_sibling,
   )
-  optimize_instructions_assert_strings_in_order(effectful_sibling, [
-    "call (Func 0)", "drop",
-  ])
-  assert_false(
+  assert_true(
     effectful_sibling_and_value.contains("array.set"),
     msg=effectful_sibling_and_value,
   )
-  assert_false(
+  assert_true(
     effectful_sibling_and_value.contains("array.new_fixed"),
     msg=effectful_sibling_and_value,
   )
@@ -79553,9 +79546,6 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
     ),
     2,
   )
-  optimize_instructions_assert_strings_in_order(effectful_sibling_and_value, [
-    "call (Func 0)", "drop", "call (Func 0)", "drop",
-  ])
 }
 
 ///|
