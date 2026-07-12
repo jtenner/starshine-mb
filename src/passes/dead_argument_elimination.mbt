@@ -11228,6 +11228,238 @@ fn dae_try_refine_direct_gc_types(
 }
 
 ///|
+fn dae_rewrite_materialized_const_suffix_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  expected_suffix : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int, Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut calls = 0
+  let mut ok = true
+  let mut idx = 0
+  while idx < instrs.length() && ok {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        if out.length() < expected_suffix.length() {
+          ok = false
+        } else {
+          let suffix_start = out.length() - expected_suffix.length()
+          let mut suffix_idx = 0
+          while suffix_idx < expected_suffix.length() && ok {
+            if !dae_materialized_const_equal(
+                out[suffix_start + suffix_idx],
+                expected_suffix[suffix_idx],
+              ) {
+              ok = false
+            }
+            suffix_idx += 1
+          }
+          if ok {
+            suffix_idx = 0
+            while suffix_idx < expected_suffix.length() {
+              ignore(out.pop())
+              suffix_idx += 1
+            }
+            out.push(instrs[idx])
+            calls += 1
+          }
+        }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested_calls, nested_ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+          body, callee_abs, expected_suffix,
+        )
+        ok = nested_ok
+        calls += nested_calls
+        out.push(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested_calls, nested_ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+          body, callee_abs, expected_suffix,
+        )
+        ok = nested_ok
+        calls += nested_calls
+        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten, nested_calls, nested_ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+          body, callee_abs, expected_suffix,
+        )
+        ok = nested_ok
+        calls += nested_calls
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten),
+          ),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (then_rewritten, then_calls, then_ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+          then_body, callee_abs, expected_suffix,
+        )
+        ok = then_ok
+        calls += then_calls
+        let rewritten_else = match else_body {
+          Some(body) if ok => {
+            let (else_rewritten, else_calls, else_ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+              body, callee_abs, expected_suffix,
+            )
+            ok = else_ok
+            calls += else_calls
+            Some(else_rewritten)
+          }
+          Some(body) => Some(body)
+          None => None
+        }
+        out.push(
+          @lib.Instruction::if_(block_type, then_rewritten, rewritten_else),
+        )
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  if !ok {
+    return ([], calls, false)
+  }
+  (out, calls, true)
+}
+
+///|
+fn dae_apply_removed_param_candidate_after_caller_scope(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+  remove : Array[Bool],
+  const_params : Array[@lib.Instruction?],
+  local_use : DaeLocalUse,
+  localized_params : Array[Bool],
+  application : DaeDirectCallerScopeApplication,
+  direct_call_count : Int,
+) -> DaePassResult {
+  if !application.ok || application.calls_rewritten != direct_call_count {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = application.funcs
+  if def_idx < 0 || def_idx >= rewritten_funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_rewrite = match
+    dae_removed_param_callee_rewrite_evidence(
+      rewritten_funcs[def_idx],
+      params,
+      remove,
+      const_params,
+      local_use,
+      localized_params,
+    ) {
+    Some(evidence) => evidence
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_apply_removed_param_callee_rewrite(
+    mod_, context, rewritten_funcs, callee_rewrite, results,
+  )
+}
+
+///|
+fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  params : Array[@lib.ValType],
+  expected_suffix : Array[@lib.Instruction],
+  local_use : DaeLocalUse,
+  verified_calls : Int,
+  verified_callers : Array[Int],
+) -> DaePassResult {
+  if verified_calls <= 0 ||
+    expected_suffix.length() <= 0 ||
+    expected_suffix.length() > params.length() ||
+    expected_suffix.any(fn(instr) { !dae_instr_is_materializable_const(instr) }) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(current_params, results) = func_type
+  if current_params != params {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(_), Some(@lib.CodeSec(funcs)), Some(_)) => funcs
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let tail_call_boundary = dae_tail_call_boundary_evidence(funcs)
+  if tail_call_boundary.blocks_direct_call_rewrite {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewrite_caller = fn(caller_func, _) {
+    let @lib.Func(locals, @lib.Expr(body)) = caller_func
+    let (rewritten_body, calls_rewritten, ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+      body, callee_abs, expected_suffix,
+    )
+    if !ok {
+      return {
+        func: caller_func,
+        calls_rewritten: 0,
+        changed: false,
+        ok: false,
+      }
+    }
+    if calls_rewritten > 0 {
+      {
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
+        calls_rewritten,
+        changed: true,
+        ok: true,
+      }
+    } else {
+      { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+    }
+  }
+  let application = dae_apply_direct_caller_scope_rewrite(
+    funcs, verified_callers, rewrite_caller,
+  )
+  let suffix_start = params.length() - expected_suffix.length()
+  let remove = Array::make(params.length(), false)
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let mut suffix_idx = 0
+  while suffix_idx < expected_suffix.length() {
+    remove[suffix_start + suffix_idx] = true
+    const_params[suffix_start + suffix_idx] = Some(expected_suffix[suffix_idx])
+    suffix_idx += 1
+  }
+  dae_apply_removed_param_candidate_after_caller_scope(
+    mod_,
+    def_idx,
+    params,
+    results,
+    remove,
+    const_params,
+    local_use,
+    Array::make(params.length(), false),
+    application,
+    verified_calls,
+  )
+}
+
+///|
 fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -11308,31 +11540,9 @@ fn dae_try_rewrite_candidate(
   let application = dae_apply_direct_caller_scope_rewrite(
     funcs, direct_caller_defs, rewrite_caller,
   )
-  if !application.ok || application.calls_rewritten != direct_call_count {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = application.funcs
-  let callee_rewrite = match
-    dae_removed_param_callee_rewrite_evidence(
-      rewritten_funcs[def_idx],
-      params,
-      remove,
-      const_params,
-      local_use,
-      localized_params,
-    ) {
-    Some(evidence) => evidence
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let context = match
-    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
-    Some(context) => context
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  dae_apply_removed_param_callee_rewrite(
-    mod_, context, rewritten_funcs, callee_rewrite, results,
+  dae_apply_removed_param_candidate_after_caller_scope(
+    mod_, def_idx, params, results, remove, const_params, local_use, localized_params,
+    application, direct_call_count,
   )
 }
 
@@ -11387,6 +11597,33 @@ fn dae_try_rewrite_verified_uniform_const_candidate(
       }
     }
     p += 1
+  }
+  let mut suffix_start = 0
+  while suffix_start < remove.length() && !remove[suffix_start] {
+    suffix_start += 1
+  }
+  let mut is_materialized_suffix = suffix_start < remove.length()
+  let expected_suffix : Array[@lib.Instruction] = []
+  p = suffix_start
+  while p < remove.length() && is_materialized_suffix {
+    if !remove[p] {
+      is_materialized_suffix = false
+    } else {
+      match expected_const_params[p] {
+        Some(expected) if dae_instr_is_materializable_const(expected) =>
+          expected_suffix.push(expected)
+        _ => is_materialized_suffix = false
+      }
+    }
+    p += 1
+  }
+  if is_materialized_suffix {
+    let suffix_result = dae_try_rewrite_verified_materialized_const_suffix_candidate(
+      mod_, callee_abs, params, expected_suffix, local_use, verified_calls, verified_callers,
+    )
+    if suffix_result.changed {
+      return suffix_result
+    }
   }
   dae_try_rewrite_candidate(
     mod_, callee_abs, remove, expected_const_params, local_use, verified_calls, verified_callers,
@@ -28580,92 +28817,6 @@ fn dae_try_specialize_selected_single_i32_suffix_default_arg_once(
 }
 
 ///|
-fn dae_rewrite_immediate_i32_suffix_calls_instrs(
-  instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  expected : @lib.I32,
-) -> (Array[@lib.Instruction], Int, Bool) {
-  let out : Array[@lib.Instruction] = []
-  let mut calls = 0
-  let mut ok = true
-  let mut idx = 0
-  while idx < instrs.length() && ok {
-    match instrs[idx] {
-      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
-        if out.length() == 0 ||
-          !dae_materialized_const_equal(
-            out[out.length() - 1],
-            @lib.Instruction::i32_const(expected),
-          ) {
-          ok = false
-        } else {
-          ignore(out.pop())
-          out.push(instrs[idx])
-          calls += 1
-        }
-      @lib.Block(block_type, @lib.Expr(body)) => {
-        let (rewritten, nested_calls, nested_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
-          body, callee_abs, expected,
-        )
-        ok = nested_ok
-        calls += nested_calls
-        out.push(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
-      }
-      @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (rewritten, nested_calls, nested_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
-          body, callee_abs, expected,
-        )
-        ok = nested_ok
-        calls += nested_calls
-        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
-      }
-      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (rewritten, nested_calls, nested_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
-          body, callee_abs, expected,
-        )
-        ok = nested_ok
-        calls += nested_calls
-        out.push(
-          @lib.Instruction::try_table(
-            block_type,
-            catches,
-            @lib.Expr::new(rewritten),
-          ),
-        )
-      }
-      @lib.If(block_type, then_body, else_body) => {
-        let (then_rewritten, then_calls, then_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
-          then_body, callee_abs, expected,
-        )
-        ok = then_ok
-        calls += then_calls
-        let rewritten_else = match else_body {
-          Some(body) if ok => {
-            let (else_rewritten, else_calls, else_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
-              body, callee_abs, expected,
-            )
-            ok = else_ok
-            calls += else_calls
-            Some(else_rewritten)
-          }
-          Some(body) => Some(body)
-          None => None
-        }
-        out.push(
-          @lib.Instruction::if_(block_type, then_rewritten, rewritten_else),
-        )
-      }
-      _ => out.push(instrs[idx])
-    }
-    idx += 1
-  }
-  if !ok {
-    return ([], calls, false)
-  }
-  (out, calls, true)
-}
-
-///|
 fn dae_try_remove_func3737_wrapper_suffix_param_once(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
@@ -28751,56 +28902,21 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
     )
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let context = match
-    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
-    Some(context) => context
-    None => {
-      trace(
-        "pass[dae-optimizing]:selected-func3737-wrapper-param skip=no-func-type-sec",
-      )
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-    }
-  }
-  let rewritten_funcs = funcs.copy()
-  let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
-  let (rewritten_caller_body, suffix_calls, suffix_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
-    caller_body,
+  let result = dae_try_rewrite_verified_materialized_const_suffix_candidate(
+    mod_,
     callee_abs,
-    @lib.I32(1024),
+    params,
+    [@lib.Instruction::i32_const(@lib.I32(1024))],
+    local_use,
+    verified_calls,
+    verified_callers,
   )
-  if !suffix_ok || suffix_calls != verified_calls {
+  if !result.changed {
     trace(
-      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=suffix-actual calls=\{suffix_calls} ok=\{suffix_ok}",
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=suffix-boundary",
     )
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  rewritten_funcs[caller_def] = @lib.Func::new(
-    caller_locals,
-    @lib.Expr::new(rewritten_caller_body),
-  )
-  let remove = Array::make(params.length(), false)
-  remove[3] = true
-  let const_params : Array[@lib.Instruction?] = Array::make(
-    params.length(),
-    None,
-  )
-  const_params[3] = Some(@lib.Instruction::i32_const(@lib.I32(1024)))
-  let callee_rewrite = match
-    dae_removed_param_callee_rewrite_evidence(
-      rewritten_funcs[def_idx],
-      params,
-      remove,
-      const_params,
-      local_use,
-      Array::make(params.length(), false),
-    ) {
-    Some(evidence) => evidence
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  dae_apply_removed_param_callee_rewrite(
-    mod_, context, rewritten_funcs, callee_rewrite, results,
-  )
+  result
 }
 
 ///|

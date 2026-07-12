@@ -3240,18 +3240,15 @@ test "dae verified constant suffix candidate preserves ambient multivalue call o
         ),
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func(
-              params,
-              [@lib.ValType::i32(), @lib.ValType::i32()],
-            ),
+            @lib.CompType::func(params, [
+              @lib.ValType::i32(),
+              @lib.ValType::i32(),
+            ]),
           ),
         ),
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func(
-              [],
-              [@lib.ValType::i32(), @lib.ValType::i32()],
-            ),
+            @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
           ),
         ),
       ]),
