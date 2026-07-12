@@ -22602,153 +22602,6 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
 }
 
 ///|
-fn optimize_instructions_packed_i32_const(
-  raw : Int,
-  bits : Int,
-  signed : Bool,
-) -> @lib.I32 {
-  let mask = (1 << bits) - 1
-  let truncated = raw & mask
-  if signed {
-    let sign = 1 << (bits - 1)
-    if (truncated & sign) != 0 {
-      @lib.I32(truncated - (1 << bits))
-    } else {
-      @lib.I32(truncated)
-    }
-  } else {
-    @lib.I32(truncated)
-  }
-}
-
-///|
-fn optimize_instructions_packed_storage_bits(
-  storage_type : @lib.StorageType,
-) -> Int? {
-  match storage_type {
-    @lib.PackTypeStorageType(@lib.I8PackType) => Some(8)
-    @lib.PackTypeStorageType(@lib.I16PackType) => Some(16)
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_struct_field_pack_bits(
-  ctx : HotPassContext,
-  type_idx : @lib.TypeIdx,
-  field_idx : Int,
-) -> Int? {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return None
-  }
-  let fields = match
-    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
-    Some(fields) => fields
-    None => return None
-  }
-  if field_idx < 0 || field_idx >= fields.length() {
-    return None
-  }
-  optimize_instructions_packed_storage_bits(
-    fields[field_idx].get_storage_type(),
-  )
-}
-
-///|
-fn optimize_instructions_default_value_for_storage(
-  func : @ir.HotFunc,
-  storage : @lib.StorageType,
-) -> Int? {
-  match storage.unpack() {
-    @lib.ValType::NumTypeValType(@lib.NumType::I32NumType) =>
-      Some(@ir.hot_build_const_i32(func, @lib.I32(0)))
-    @lib.ValType::NumTypeValType(@lib.NumType::I64NumType) =>
-      Some(@ir.hot_build_const_i64(func, @lib.I64(0L)))
-    @lib.ValType::NumTypeValType(@lib.NumType::F32NumType) =>
-      Some(@ir.hot_build_const_f32(func, @lib.F32(0.0)))
-    @lib.ValType::NumTypeValType(@lib.NumType::F64NumType) =>
-      Some(@ir.hot_build_const_f64(func, @lib.F64(0.0)))
-    @lib.ValType::VecTypeValType => Some(@ir.hot_build_const_v128_zero(func))
-    @lib.ValType::RefTypeValType(ref_type) =>
-      if ref_type.is_nullable() {
-        Some(@ir.hot_build_ref_null(func, ref_type))
-      } else {
-        None
-      }
-    @lib.ValType::BotValType => None
-  }
-}
-
-///|
-fn optimize_instructions_struct_default_field_value(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  type_idx : @lib.TypeIdx,
-  field_idx : Int,
-) -> Int? {
-  let module_ctx = match ctx.module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return None
-  }
-  let fields = match
-    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
-    Some(fields) => fields
-    None => return None
-  }
-  if field_idx < 0 || field_idx >= fields.length() {
-    return None
-  }
-  optimize_instructions_default_value_for_storage(
-    func,
-    fields[field_idx].get_storage_type(),
-  )
-}
-
-///|
-fn optimize_instructions_replace_with_packed_i32_value(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-  value_id : Int,
-  bits : Int,
-  signed : Bool,
-) -> Unit {
-  match optimize_instructions_i32_const(func, dead, value_id) {
-    Some(@lib.I32(raw)) =>
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        optimize_instructions_packed_i32_const(raw, bits, signed),
-      )
-    None =>
-      if signed {
-        let instr = if bits == 8 {
-          @lib.Instruction::i32_extend8s()
-        } else {
-          @lib.Instruction::i32_extend16s()
-        }
-        optimize_instructions_replace_with_exact_unary(
-          ctx, func, node_id, instr, value_id,
-        )
-      } else {
-        let mask = if bits == 8 { 255 } else { 65535 }
-        let replacement = optimize_instructions_build_i32_binary(
-          func,
-          @lib.Instruction::i32_and(),
-          value_id,
-          @ir.hot_build_const_i32(func, @lib.I32(mask)),
-        )
-        optimize_instructions_replace_with_node_id(
-          ctx, func, node_id, replacement,
-        )
-      }
-  }
-}
-
-///|
 priv enum OiTupleLaneLocalizeFact {
   TupleLaneDirectLocalizable
   TupleLaneControlBoundary
@@ -23776,37 +23629,11 @@ fn OiOrderedOperandPreservationFact::proves_order_preserved(
 }
 
 ///|
-priv struct OiOrderedOperandSelectedValueFact {
-  value_type : @lib.ValType?
-}
-
-///|
-fn OiOrderedOperandSelectedValueFact::from_facts(
-  control_shape_fact : OiOrderedOperandControlShapeFact,
-  results : Array[@lib.ValType],
-) -> OiOrderedOperandSelectedValueFact {
-  // Forward-selected rewrites may only carry a single scalar expression-root
-  // selected child through ordered siblings. Make that selected-value payload
-  // explicit instead of asking the whole operand fact whether it can preserve a
-  // scalar selected value.
-  let value_type = match control_shape_fact {
-    OrderedOperandControlBoundary => None
-    OrderedOperandExpressionRoot =>
-      match results {
-        [val_type] => Some(val_type)
-        _ => None
-      }
-  }
-  { value_type, }
-}
-
-///|
 priv struct OiOrderedOperandFact {
   node_id : Int
   discard_fact : OiOrderedOperandDiscardFact
   purity_fact : OiOrderedOperandPurityFact
   preservation_fact : OiOrderedOperandPreservationFact
-  selected_value_fact : OiOrderedOperandSelectedValueFact
 }
 
 ///|
@@ -23827,9 +23654,6 @@ fn OiOrderedOperandFact::from_node(
     preservation_fact: OiOrderedOperandPreservationFact::from_facts(
       control_shape_fact, discard_fact,
     ),
-    selected_value_fact: OiOrderedOperandSelectedValueFact::from_facts(
-      control_shape_fact, results,
-    ),
   }
 }
 
@@ -23840,56 +23664,6 @@ fn OiOrderedOperandFact::append_discard(
   body : Array[Int],
 ) -> Bool {
   self.discard_fact.append(func, self.node_id, body)
-}
-
-///|
-priv enum OiOrderedSelectedSiblingEffectKind {
-  OrderedSelectedDirectForward
-  OrderedSelectedInlineWithEffects
-  OrderedSelectedLocalizeThenEffects
-}
-
-///|
-priv struct OiOrderedSelectedSiblingEffectFact {
-  kind : OiOrderedSelectedSiblingEffectKind
-}
-
-///|
-fn OiOrderedSelectedSiblingEffectFact::from_operands(
-  operand_facts : Array[OiOrderedOperandFact],
-  selected_index : Int,
-) -> OiOrderedSelectedSiblingEffectFact {
-  // Forward-selected and null-trap rewrites use the same Binaryen-shaped order
-  // evidence as tuple extraction: pure siblings can disappear, earlier
-  // effectful siblings are emitted before the selected value, and later
-  // effectful siblings force selected-value localization. Keep that sibling
-  // order as an explicit effect-kind fact so the body builder does not carry
-  // parallel helper predicates or a selected-local sentinel.
-  let mut has_effectful_non_selected = false
-  let mut has_later_effectful_non_selected = false
-  for i = 0; i < operand_facts.length(); i = i + 1 {
-    if i == selected_index || operand_facts[i].purity_fact.proves_pure() {
-      continue
-    }
-    has_effectful_non_selected = true
-    if i > selected_index {
-      has_later_effectful_non_selected = true
-    }
-  }
-  let kind = if !has_effectful_non_selected {
-    OrderedSelectedDirectForward
-  } else if has_later_effectful_non_selected {
-    OrderedSelectedLocalizeThenEffects
-  } else {
-    OrderedSelectedInlineWithEffects
-  }
-  { kind, }
-}
-
-///|
-priv struct OiOrderedSelectedLocalFact {
-  selected_local : Int
-  selected_result_id : Int
 }
 
 ///|
@@ -23911,117 +23685,6 @@ fn optimize_instructions_append_ordered_effects(
       return false
     }
   }
-  true
-}
-
-///|
-fn optimize_instructions_try_forward_selected_operand_preserving_effects(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  operand_ids : Array[Int],
-  selected_index : Int,
-) -> Bool {
-  if selected_index < 0 || selected_index >= operand_ids.length() {
-    return false
-  }
-  let result_type = match
-    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [val_type] => val_type
-    _ => return false
-  }
-  let operand_facts : Array[OiOrderedOperandFact] = []
-  for operand_id in operand_ids {
-    let operand_fact = OiOrderedOperandFact::from_node(ctx, func, operand_id)
-    if !operand_fact.preservation_fact.proves_order_preserved() {
-      return false
-    }
-    operand_facts.push(operand_fact)
-  }
-  let selected_fact = operand_facts[selected_index]
-  let selected_value_type = match selected_fact.selected_value_fact.value_type {
-    Some(val_type) => val_type
-    None => return false
-  }
-  let sibling_effect_fact = OiOrderedSelectedSiblingEffectFact::from_operands(
-    operand_facts, selected_index,
-  )
-  let selected_local_fact = match sibling_effect_fact.kind {
-    OrderedSelectedDirectForward => {
-      optimize_instructions_replace_with_node_id(
-        ctx,
-        func,
-        node_id,
-        selected_fact.node_id,
-      )
-      return true
-    }
-    OrderedSelectedLocalizeThenEffects => {
-      let local_type = match
-        optimize_instructions_defaultable_scratch_type(selected_value_type) {
-        Some(local_type) => local_type
-        None => return false
-      }
-      let selected_local = @ir.hot_append_body_local(func, local_type)
-      let selected_get = @ir.hot_build_local_get(func, selected_local)
-      let selected_result_id = match
-        optimize_instructions_restore_localized_result(
-          func, selected_get, local_type, result_type,
-        ) {
-        Some(result_id) => result_id
-        None => return false
-      }
-      Some({ selected_local, selected_result_id })
-    }
-    OrderedSelectedInlineWithEffects => {
-      if selected_value_type != result_type {
-        return false
-      }
-      None
-    }
-  }
-  let body : Array[Int] = []
-  for i = 0; i < operand_facts.length(); i = i + 1 {
-    let operand_fact = operand_facts[i]
-    if i == selected_index {
-      match selected_local_fact {
-        Some(fact) =>
-          body.push(
-            @ir.hot_build_local_set(
-              func,
-              fact.selected_local,
-              selected_fact.node_id,
-            ),
-          )
-        None => body.push(selected_fact.node_id)
-      }
-      continue
-    }
-    if operand_fact.purity_fact.proves_pure() {
-      continue
-    }
-    if !operand_fact.append_discard(func, body) {
-      return false
-    }
-  }
-  match selected_local_fact {
-    Some(fact) => body.push(fact.selected_result_id)
-    None => ()
-  }
-  let replacement = @ir.hot_build_block(
-    func,
-    @lib.BlockType::val_type(result_type),
-    body,
-  )
-  let replacement_node = @ir.hot_node_get(func, replacement)
-  @ir.hot_replace_node(func, node_id, replacement_node)
-  @ir.hot_label_owner_set(
-    func,
-    @ir.hot_control_node_label(func, node_id),
-    node_id,
-  )
-  @ir.hot_delete_node(func, replacement)
-  pass_mark_mutated(ctx, func)
   true
 }
 
@@ -25040,87 +24703,6 @@ fn optimize_instructions_try_rewrite_array_new_single_fixed(
     None => return false
   }
   fact.apply_rewrite(ctx, func)
-  true
-}
-
-///|
-fn optimize_instructions_try_fold_struct_get_struct_new(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  if node.child_count != 1 {
-    return false
-  }
-  let (type_idx, field_idx, packed_signed) = match
-    @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::StructGet(type_idx, @lib.U32(field_idx))) =>
-      (type_idx, field_idx.reinterpret_as_int(), None)
-    Some(@lib.Instruction::StructGetS(type_idx, @lib.U32(field_idx))) =>
-      (type_idx, field_idx.reinterpret_as_int(), Some(true))
-    Some(@lib.Instruction::StructGetU(type_idx, @lib.U32(field_idx))) =>
-      (type_idx, field_idx.reinterpret_as_int(), Some(false))
-    _ => return false
-  }
-  let struct_id = @ir.hot_child_get(func, node_id, 0)
-  if !OiLiveNodeFact::proves_node_live(func, dead, struct_id) ||
-    pass_node_use_count(ctx, func, struct_id) != 1 {
-    return false
-  }
-  let struct_node = @ir.hot_node_get(func, struct_id)
-  let value_id = match @ir.hot_node_exact_instr(func, struct_id) {
-    Some(@lib.Instruction::StructNew(new_type_idx)) if new_type_idx == type_idx => {
-      if field_idx < 0 || field_idx >= struct_node.child_count {
-        return false
-      }
-      if packed_signed == None {
-        let operands : Array[Int] = []
-        for i = 0; i < struct_node.child_count; i = i + 1 {
-          operands.push(@ir.hot_child_get(func, struct_id, i))
-        }
-        return optimize_instructions_try_forward_selected_operand_preserving_effects(
-          ctx, func, node_id, operands, field_idx,
-        )
-      }
-      for i = 0; i < struct_node.child_count; i = i + 1 {
-        if i != field_idx &&
-          !optimize_instructions_node_effects_are_pure(
-            ctx,
-            func,
-            @ir.hot_child_get(func, struct_id, i),
-          ) {
-          return false
-        }
-      }
-      @ir.hot_child_get(func, struct_id, field_idx)
-    }
-    Some(@lib.Instruction::StructNewDefault(new_type_idx)) if new_type_idx ==
-      type_idx =>
-      match
-        optimize_instructions_struct_default_field_value(
-          ctx, func, type_idx, field_idx,
-        ) {
-        Some(value_id) => value_id
-        None => return false
-      }
-    _ => return false
-  }
-  match packed_signed {
-    Some(signed) => {
-      let bits = match
-        optimize_instructions_struct_field_pack_bits(ctx, type_idx, field_idx) {
-        Some(bits) => bits
-        None => return false
-      }
-      optimize_instructions_replace_with_packed_i32_value(
-        ctx, func, dead, node_id, value_id, bits, signed,
-      )
-    }
-    None =>
-      optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
-  }
   true
 }
 
@@ -40308,9 +39890,7 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
         ctx, func, node_id,
       ) ||
-      optimize_instructions_try_fold_struct_get_struct_new(
-        ctx, func, dead, node_id,
-      )
+      false
     @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
       optimize_instructions_try_directize_ref_func_call_ref(
         ctx, func, dead, node_id,

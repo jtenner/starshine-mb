@@ -64921,7 +64921,7 @@ test "optimize-instructions keeps value-changing masks before i64 narrow stores"
 }
 
 ///|
-test "optimize-instructions folds pure struct.get of struct.new field values" {
+test "optimize-instructions keeps pure struct.get of struct.new like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -64947,16 +64947,14 @@ test "optimize-instructions folds pure struct.get of struct.new field values" {
   }
   let get0 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   let get1 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_false(get0.contains("struct.get"), msg=get0)
-  assert_false(get0.contains("struct.new"), msg=get0)
-  assert_true(get0.contains("I32(7)"), msg=get0)
-  assert_false(get1.contains("struct.get"), msg=get1)
-  assert_false(get1.contains("struct.new"), msg=get1)
-  assert_true(get1.contains("I64(9)"), msg=get1)
+  for pretty in [get0, get1] {
+    assert_true(pretty.contains("struct.get"), msg=pretty)
+    assert_true(pretty.contains("struct.new"), msg=pretty)
+  }
 }
 
 ///|
-test "optimize-instructions folds struct.get of struct.new_default field defaults" {
+test "optimize-instructions keeps struct.get of struct.new_default like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -64997,25 +64995,14 @@ test "optimize-instructions folds struct.get of struct.new_default field default
   let get_f32 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let get_f64 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let get_ref = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
-  assert_false(get_i32.contains("struct.get"), msg=get_i32)
-  assert_false(get_i32.contains("struct.new_default"), msg=get_i32)
-  assert_true(get_i32.contains("I32(0)"), msg=get_i32)
-  assert_false(get_i64.contains("struct.get"), msg=get_i64)
-  assert_false(get_i64.contains("struct.new_default"), msg=get_i64)
-  assert_true(get_i64.contains("I64(0)"), msg=get_i64)
-  assert_false(get_f32.contains("struct.get"), msg=get_f32)
-  assert_false(get_f32.contains("struct.new_default"), msg=get_f32)
-  assert_true(get_f32.contains("F32(0)"), msg=get_f32)
-  assert_false(get_f64.contains("struct.get"), msg=get_f64)
-  assert_false(get_f64.contains("struct.new_default"), msg=get_f64)
-  assert_true(get_f64.contains("F64(0)"), msg=get_f64)
-  assert_false(get_ref.contains("struct.get"), msg=get_ref)
-  assert_false(get_ref.contains("struct.new_default"), msg=get_ref)
-  assert_true(get_ref.contains("ref.null"), msg=get_ref)
+  for pretty in [get_i32, get_i64, get_f32, get_f64, get_ref] {
+    assert_true(pretty.contains("struct.get"), msg=pretty)
+    assert_true(pretty.contains("struct.new_default"), msg=pretty)
+  }
 }
 
 ///|
-test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new_default defaults" {
+test "optimize-instructions keeps packed struct.get of struct.new_default like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -65045,14 +65032,13 @@ test "optimize-instructions folds packed struct.get_s and struct.get_u of struct
   }
   for i = 0; i < 4; i = i + 1 {
     let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(i.to_uint()))
-    assert_false(pretty.contains("struct.get"), msg=pretty)
-    assert_false(pretty.contains("struct.new_default"), msg=pretty)
-    assert_true(pretty.contains("I32(0)"), msg=pretty)
+    assert_true(pretty.contains("struct.get"), msg=pretty)
+    assert_true(pretty.contains("struct.new_default"), msg=pretty)
   }
 }
 
 ///|
-test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new field values" {
+test "optimize-instructions keeps packed struct.get of struct.new like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -65096,19 +65082,10 @@ test "optimize-instructions folds packed struct.get_s and struct.get_u of struct
   let getu16 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let const_s8 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let const_u16 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_false(gets8.contains("struct.get"), msg=gets8)
-  assert_false(gets8.contains("struct.new"), msg=gets8)
-  assert_true(gets8.contains("i32.extend8s"), msg=gets8)
-  assert_false(getu16.contains("struct.get"), msg=getu16)
-  assert_false(getu16.contains("struct.new"), msg=getu16)
-  assert_true(getu16.contains("i32.and"), msg=getu16)
-  assert_true(getu16.contains("I32(65535)"), msg=getu16)
-  assert_false(const_s8.contains("struct.get"), msg=const_s8)
-  assert_false(const_s8.contains("struct.new"), msg=const_s8)
-  assert_true(const_s8.contains("I32(-1)"), msg=const_s8)
-  assert_false(const_u16.contains("struct.get"), msg=const_u16)
-  assert_false(const_u16.contains("struct.new"), msg=const_u16)
-  assert_true(const_u16.contains("I32(65535)"), msg=const_u16)
+  for pretty in [gets8, getu16, const_s8, const_u16] {
+    assert_true(pretty.contains("struct.get"), msg=pretty)
+    assert_true(pretty.contains("struct.new"), msg=pretty)
+  }
 }
 
 ///|
@@ -80317,7 +80294,43 @@ test "optimize-instructions keeps array.get over fresh array.new_default like Bi
 }
 
 ///|
-test "optimize-instructions preserves later effectful struct.new sibling when forwarding first field" {
+test "optimize-instructions keeps struct.get over fresh constructors like Binaryen v130" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i8)))
+        #|  (func (export "plain") (result i32)
+        #|    i32.const 7
+        #|    i32.const 255
+        #|    struct.new $s
+        #|    struct.get $s 0)
+        #|  (func (export "packed") (result i32)
+        #|    i32.const 7
+        #|    i32.const 255
+        #|    struct.new $s
+        #|    struct.get_s $s 1)
+        #|  (func (export "default") (result i32)
+        #|    struct.new_default $s
+        #|    struct.get $s 0))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected fresh struct.get boundary success, got \{err}")
+  }
+  for func_idx in [0, 1, 2] {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("struct.get"), msg=pretty)
+    assert_true(pretty.contains("struct.new"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions keeps later effectful fresh struct.get like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -80340,15 +80353,13 @@ test "optimize-instructions preserves later effectful struct.new sibling when fo
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_false(pretty.contains("struct.get"), msg=pretty)
-  assert_false(pretty.contains("struct.new"), msg=pretty)
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "I32(7)", "local.set", "call (Func 0)", "drop", "local.get",
-  ])
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
 }
 
 ///|
-test "optimize-instructions preserves earlier effectful struct.new sibling before forwarding second field" {
+test "optimize-instructions keeps earlier effectful fresh struct.get like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -80371,15 +80382,13 @@ test "optimize-instructions preserves earlier effectful struct.new sibling befor
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_false(pretty.contains("struct.get"), msg=pretty)
-  assert_false(pretty.contains("struct.new"), msg=pretty)
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "call (Func 0)", "drop", "I32(8)",
-  ])
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
 }
 
 ///|
-test "optimize-instructions localizes effectful selected struct.new field before later effectful sibling" {
+test "optimize-instructions keeps selected effectful fresh struct.get like Binaryen v130" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -80403,15 +80412,12 @@ test "optimize-instructions localizes effectful selected struct.new field before
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(pretty.contains("struct.get"), msg=pretty)
-  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
   @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "call"),
     2,
   )
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "call (Func 0)", "local.set", "call (Func 1)", "drop", "local.get",
-  ])
 }
 
 ///|

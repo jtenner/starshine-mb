@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Fresh aggregate consumer boundaries
+
+Binaryen v130's `visitStructGet` does not inspect `struct.new` or `struct.new_default`; it only handles null/cast and memory-order concerns. Starshine therefore preserves ordinary, packed, default, and effectful fresh-struct reads. The stale direct field-forwarding rule and its packed/default-value and selected-operand localization fact surface are deleted rather than retained as a producer-shape matrix.
+
 ## Fresh repeated-array consumer boundary
 
 Binaryen v130 keeps `array.get`, `array.set`, and `array.len` over every fresh `array.new`, `array.new_fixed`, and `array.new_default` producer; those visitors do not prove or localize constructor operands. Starshine therefore limits represented fresh-array rules to constructor canonicalization such as size-one `array.new` to `array.new_fixed` and repeated fixed values to repeated/default constructors. Consumer rewrites no longer infer fresh-array results, erase writes, or replace out-of-bounds operations with localized effects and `unreachable`. This is one source-backed producer/consumer boundary, not a profile-shape matrix. Removing the stale consumer rules also deletes their array pack/default, allocation trap-budget, ordered-void, and nop helper debt.
