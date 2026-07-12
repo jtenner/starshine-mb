@@ -29912,21 +29912,16 @@ fn dae_run_core(
     }
   }
   if 237 < selected_scratch_defs.length() {
-    selected_scratch_defs[237] = true
-    let selected_func237_inner_loop_final = dae_try_wrap_selected_func237_inner_iteration_loop_once(
-      current, selected_scratch_defs,
+    let selected_func237_inner_loop_final_application = dae_run_singleton_selected_core_rewrite(
+      current, touched, changed, selected_scratch_defs, 237, dae_try_wrap_selected_func237_inner_iteration_loop_once,
     )
-    selected_scratch_defs[237] = false
-    if selected_func237_inner_loop_final.changed {
-      current = selected_func237_inner_loop_final.mod_out
-      touched = dae_merge_touched(
-        touched,
-        selected_func237_inner_loop_final.touched,
-      )
+    if selected_func237_inner_loop_final_application.applied {
+      current = selected_func237_inner_loop_final_application.mod_out
+      touched = selected_func237_inner_loop_final_application.touched
+      changed = selected_func237_inner_loop_final_application.changed
       trace(
-        "pass[dae-optimizing]:selected-func237-inner-iteration-loop-final primary_def=\{selected_func237_inner_loop_final.primary_def}",
+        "pass[dae-optimizing]:selected-func237-inner-iteration-loop-final primary_def=\{selected_func237_inner_loop_final_application.primary_def}",
       )
-      changed = true
     }
     selected_scratch_defs[237] = true
     let selected_func237_dropped_branch = dae_try_fold_selected_func237_dropped_result_branch_carrier_once(
