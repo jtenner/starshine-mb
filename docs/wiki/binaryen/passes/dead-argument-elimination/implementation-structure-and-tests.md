@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-12
 sources:
   - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
@@ -321,6 +321,10 @@ The same original-boundary setup now collects dead-suffix escaped-result call fa
 `DaeModuleCodeFinalizationPlan` and `DaeModuleCodeTouchedPolicy` are that generic code-applying layer. `dae_module_code_finalization_plan(...)` copies next params/results plus an explicit callee-only or changed-function touched policy; `dae_apply_module_code_finalization(...)` delegates signature replacement to the signature finalizer, installs the caller-owned rewritten function array, and widens touched metadata only when requested. Direct GC refinement, selected dropped-result append-`drop` removal, full-module dropped-result unreachable-callee application, and dead-suffix-only unreachable parameter removal are production consumers. The selected result path requests changed-function widening; the other paths retain callee-only scheduling. Call-count verification, optional type-section pre-update, result legality, call/drop repair timing, dead-suffix repair order, callee-body construction, and parameter retention stay outside the generic plan. Whitebox coverage proves code installation, signature replacement, changed-function touched accounting, and the existing callee-only unreachable mask. Fresh `172/172` whitebox, full Moon/native validation, and unchanged three-lane compare evidence establish generic application ownership rather than a policy merge.
 
 `DaeTypeidxControlRewritePlan` and `DaeTypeidxControlRewriteApplication` are the narrower shared control/type-section application beneath three direct-GC result-refinement branches. `dae_typeidx_control_rewrite_plan(...)` copies params, refined results, primary body, and optional else body while validating block/loop/paired-if shape; `dae_apply_typeidx_control_rewrite(...)` reuses or appends the exact simple function type and rebuilds the corresponding typeidx instruction. Parametric terminal typeidx block/loop/if refinement, zero-input terminal multi-result `if` refinement, and preserved multi-result loop carriers consume it. Candidate/LUB legality, consumed-param stack safety, terminal/body selection, and module finalization remain branch-owned. Whitebox coverage proves type reuse, all three reconstruction kinds, and invalid-shape rejection; fresh `173/173` whitebox, full Moon/native validation, and unchanged three-lane raw-red evidence establish control-application ownership rather than behavior or scheduler drift.
+
+## Current Starshine multi-result operand-sequence proof surface
+
+`DaeMultiResultOperandSequenceEvidence` and `dae_multi_result_operand_sequence_evidence(...)` now separate shared flat multi-result suffix recovery from candidate-specific recognition. The helper carries terminal-return bounds, per-slot operand starts, selected value instruction indices, and specialized-slot markers after skipping trivially dropped prefixes and accepting ordinary single-value fallback slots. `dae_try_refine_multi_result_single_if_operand_body(...)` and `dae_try_refine_multi_result_select_operand_body(...)` are the two production consumers; `if`/select candidate discovery, GC refinement, and body rewrite application remain separate. The red-first whitebox contract covers mixed specialized/fallback slots and rejects an all-fallback sequence. Fresh direct and optimizing compare counts are unchanged, so this is evidence-ownership consolidation rather than a new scheduling or parity claim.
 
 ## Porting takeaway
 

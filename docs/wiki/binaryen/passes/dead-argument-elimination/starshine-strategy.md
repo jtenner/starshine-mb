@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-12
 sources:
   - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
@@ -147,6 +147,10 @@ Acceptance criteria for the first consolidation:
 - focused tests fail before any behavior-widening implementation and pass after it;
 - `moon test src/passes` is run for behavior changes, while docs-only inventory slices may use `git diff --check` and source review;
 - docs and `agent-todo.md` record which scanners were consolidated and which remain scanner-heavy.
+
+### Multi-result operand-sequence evidence consolidation, 2026-07-12
+
+Slice 176 adds `DaeMultiResultOperandSequenceEvidence` / `dae_multi_result_operand_sequence_evidence(...)` as a reusable value/control evidence boundary for the single-result-`if` and typed-select scanners inside flat multi-result result refinement. The shared walker owns terminal-return-aware suffix bounds, trivially dropped prefix recovery, ordered result-slot traversal, ordinary single-producer fallback, exact operand/value indices, and the requirement that at least one specialized slot is present. The two production consumers retain their distinct candidate callbacks, GC LUB/refinement evidence, and rewrite application. Red-first whitebox locks one specialized slot followed by one fallback slot and rejection of an all-fallback sequence. Validation reached whitebox `190/190`, public DAE `303/303`, pass suites `5198/5198`, `moon info` with 9 warnings, full tests `8650/8650`, and a native build. Fresh reduction-disabled lanes remain dedicated direct `5000/10000`, direct random-all `9136/10000`, and normalized optimizing random-all `9633/10000`, all with zero failures and Binaryen cache `10000/0`. Direct DAE remains intentionally raw-red; plain-vs-optimizing scheduling is unchanged.
 
 ### Generic module-signature boundary consolidation, 2026-07-10
 
