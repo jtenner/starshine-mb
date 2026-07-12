@@ -99,6 +99,12 @@ test "descriptor call value graph reuses ordered local operand runs" {
     @lib.LocalIdx::new(1U),
   ])
   @debug.assert_eq(graph.local_args(3, 4), [@lib.LocalIdx::new(3U)])
+  @debug.assert_eq(graph.nontrapping_run_end(0), 2)
+  @debug.assert_eq(graph.nontrapping_run_end(3), 4)
+  @debug.assert_eq(graph.instr_args(0, 2), [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
 }
 
 ///|

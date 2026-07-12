@@ -281,7 +281,7 @@ For the exact helper walk and finer-grained code map, use [`./starshine-hot-ir-s
 
 ## Short version
 
-The active OI architecture migration is fact-driven: candidate roots and immutable raw regions only discover work, while family facts continue to prove exact types, equality, effects, removability, evaluation order, traps, and invalidation. The descriptor stack bridge now has a reusable per-body `RawOiDescriptorCallValueGraphFact`; balanced local direct-call exact-success and exact-miss families query its preclassified operand runs instead of scanning independently. This does not widen either transform family.
+The active OI architecture migration is fact-driven: candidate roots and immutable raw regions only discover work, while family facts continue to prove exact types, equality, effects, removability, evaluation order, traps, and invalidation. The descriptor stack bridge now has a reusable per-body `RawOiDescriptorCallValueGraphFact`; balanced local direct-call exact-success/miss, direct-call exactification, and both-direct-call miss families query its preclassified local, nontrapping-leaf, and exactification operand runs instead of scanning independently. This does not widen either transform family.
 
 Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but it is still narrower than Binaryen `OptimizeInstructions.cpp`. The `[O4Z-AUDIT-OI-A]` `version_130` matrix now makes that gap actionable by assigning each upstream source/lit family to current coverage, an explicit local boundary, or a follow-up slice.
 
