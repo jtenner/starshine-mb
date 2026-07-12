@@ -3024,6 +3024,84 @@ test "dae module code finalization installs code with explicit touched policy" {
 }
 
 ///|
+test "dae module code rewrite finalization uses current sections transactionally" {
+  let result_type = @lib.TypeIdx::new(0U)
+  let void_type = @lib.TypeIdx::new(1U)
+  let callee = @lib.FuncIdx::new(1U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(callee),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let rewritten_funcs = [
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([@lib.Instruction::call(callee)]),
+    ),
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([@lib.Instruction::nop()]),
+    ),
+  ]
+  let result = dae_finalize_module_code_rewrite(
+    mod_,
+    1,
+    rewritten_funcs,
+    [],
+    [],
+    DaeTouchModuleCodeChangedFuncs,
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 1)
+  assert_eq(result.touched, [true, true])
+  assert_eq(result.mod_out.type_sec, mod_.type_sec)
+  match result.mod_out.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs, [result_type, void_type])
+    None => fail("expected finalized function section")
+  }
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs, rewritten_funcs)
+    None => fail("expected finalized code section")
+  }
+  let rejected = dae_finalize_module_code_rewrite(
+    mod_,
+    1,
+    [rewritten_funcs[0]],
+    [],
+    [],
+    DaeTouchModuleCodeChangedFuncs,
+  )
+  assert_false(rejected.changed)
+  assert_eq(rejected.primary_def, -1)
+  assert_eq(rejected.touched, [])
+  assert_eq(rejected.mod_out, mod_)
+}
+
+///|
 test "dae dropped-result scope application centralizes live and anywhere policies" {
   let callee = @lib.FuncIdx::new(2U)
   let original_body = [
