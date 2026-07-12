@@ -3024,6 +3024,64 @@ test "dae module code finalization installs code with explicit touched policy" {
 }
 
 ///|
+test "dae dropped-result scope application centralizes live and anywhere policies" {
+  let callee = @lib.FuncIdx::new(2U)
+  let original_body = [
+    @lib.Instruction::call(callee),
+    @lib.Instruction::drop(),
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::call(callee),
+    @lib.Instruction::drop(),
+  ]
+  let untouched = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new(original_body.copy()),
+  )
+  let live_funcs = [
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new(original_body.copy()),
+    ),
+    untouched,
+  ]
+  let scope = DaeDroppedResultScope::{ caller_defs: [0] }
+  let live_rewrites = dae_rewrite_dropped_result_calls_in_scope_with_policy(
+    live_funcs,
+    scope,
+    2,
+    stop_at_unreachable_root=true,
+  )
+  assert_eq(live_rewrites, 1)
+  let @lib.Func(_, @lib.Expr(live_body)) = live_funcs[0]
+  assert_eq(live_body, [
+    @lib.Instruction::call(callee),
+    @lib.Instruction::unreachable_(),
+  ])
+  assert_eq(live_funcs[1], untouched)
+  let anywhere_funcs = [
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new(original_body.copy()),
+    ),
+    untouched,
+  ]
+  let anywhere_rewrites = dae_rewrite_dropped_result_calls_in_scope_with_policy(
+    anywhere_funcs,
+    scope,
+    2,
+    stop_at_unreachable_root=false,
+  )
+  assert_eq(anywhere_rewrites, 2)
+  let @lib.Func(_, @lib.Expr(anywhere_body)) = anywhere_funcs[0]
+  assert_eq(anywhere_body, [
+    @lib.Instruction::call(callee),
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::call(callee),
+  ])
+  assert_eq(anywhere_funcs[1], untouched)
+}
+
+///|
 test "dae removed-param callee application centralizes cleanup and finalization" {
   let original_type = @lib.TypeIdx::new(0U)
   let callee = @lib.FuncIdx::new(1U)
