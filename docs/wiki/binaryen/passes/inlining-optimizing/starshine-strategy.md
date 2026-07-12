@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-05-14
+status: complete
+last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
@@ -30,7 +30,7 @@ related:
 
 `inlining-optimizing` is a **partial active module pass** in Starshine. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), shares its core with plain `inlining`, and adds the local optimizing-mode cleanup approximation.
 
-The current v0.1.0 surface is accepted. This is not universal Binaryen inliner parity: broader partial-splitting and residual name/annotation repair are deferred to v0.2.0. The standard direct seed-`0x5eed` mismatch frontier is green:
+The current v0.1.0 audit scope is complete and accepted. This is not universal Binaryen inliner parity: broader partial-splitting and residual name/annotation repair are deferred to v0.2.0. The standard direct seed-`0x5eed` mismatch frontier is green:
 
 ```text
 .tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
@@ -123,7 +123,7 @@ The user explicitly prefers Binaryen parse/canonicalization failures to be class
 
 The correct local mental model is:
 
-- **active but partial**;
+- **v0.1.0 audit complete, with a partial active implementation**;
 - **validation-clean in latest compared lanes, and command-clean for Starshine on the latest seed `0x1eed` lane**;
 - **direct seed-`0x5eed` and seed-`0x1eed` compares are green over the compared ranges**;
 - **core direct-call subset plus cleanup approximation**;

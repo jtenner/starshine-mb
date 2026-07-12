@@ -200,7 +200,7 @@ That is why this can still optimize:
 )
 ```
 
-As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, a simple pure-condition self-guard family including `i32.clz` / `i32.ctz` / `i32.popcnt`, `i32.and` / `i32.or` / `i32.xor`, `i32.shl` / `i32.shr_s` / `i32.shr_u` / `i32.rotl` / `i32.rotr`, `i64.eqz` / `i64` compare guards, non-trapping i64 value operators feeding those conditions, and `f32` / `f64` compare guards, nested block-condition, block-wrapped pure-condition and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, no-op const/drop prefixes before the single constant write for self guards, and the same pure-condition subset in the exact direct and block-wrapped whole-body `if return; set` family. It still does not cover Binaryen's full generic safe-condition rule, side-effecting-but-safe condition value-flow positives, or the full iterative `read-only-to-write` family.
+As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, a simple pure-condition self-guard family including `i32.clz` / `i32.ctz` / `i32.popcnt`, `i32.and` / `i32.or` / `i32.xor`, `i32.shl` / `i32.shr_s` / `i32.shr_u` / `i32.rotl` / `i32.rotr`, `i64.eqz` / `i64` compare guards, non-trapping i64 value operators feeding those conditions, `f32` / `f64` compare guards, non-trapping `f32` / `f64` value operators feeding float compares, non-trapping numeric conversions / reinterprets / sign-extension / `trunc_sat` operators feeding final conditions, non-trapping reference predicates `ref.is_null` / `ref.eq` feeding final conditions, and non-trapping `local.get` sibling operands feeding pure final conditions, nested block-condition, block-wrapped pure-condition and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, no-op const/drop prefixes before the single constant write for self guards, and the same pure-condition subset in the exact direct and block-wrapped whole-body `if return; set` family. Starshine also has source-backed side-effecting-but-safe value-flow subsets for result-`if` arms, `select`/compare operands, block-prefix independent effects, nested same-pattern/body guards, and the latest block-prefix void-call guarded-write/if-return form. It still does not cover Binaryen's full generic safe-condition rule or the full iterative `read-only-to-write` family.
 
 ## 6. Actual AST `global.get` / `global.set` nodes matter more than effect summaries
 
@@ -271,7 +271,7 @@ Positive contrast:
 
 Now the side effect exists, but `$g` does not choose whether `foo()` runs. Its value only flows safely out through the final condition result.
 
-That is why the source needs an upward value-flow walk instead of just a flat “side effects yes/no” check. Starshine now has one pure-condition positive plus a flow-into-`local.tee` negative; the official safe-side-effect positive from `simplify-globals-read_only_to_write.wast`, where effects exist but the global's value cannot steer them, remains a separate future slice.
+That is why the source needs an upward value-flow walk instead of just a flat “side effects yes/no” check. Starshine now has pure-condition positives including non-trapping numeric conversion/reinterpret/sign-extension/trunc_sat operators, non-trapping `ref.is_null` / `ref.eq` reference predicates, and `local.get` sibling operands in pure final conditions, block-prefix independent void calls in guarded-write and if-return tails, the source-backed result-`if` arm subset including pure operators in the selected arm, pure post-result operators before the value reaches the final condition, the function-level if-return/set variant, one nested result-if-arm value-flow subset, and the nested result-if-arm pure-suffix subset where an independent no-global prefix feeds the nested `if` and pure operators consume its result, the first official side-effecting `select` value-flow subset where independent load/local.tee operand effects are evaluated regardless of the global-derived select condition, the official `select` result flowing through `i32.eqz` before either a guarded write or Binaryen's function-level `if return; set` matcher, and source-backed `select` operand subsets where the global-derived operand and an independent zero-parameter/result call, `memory.size`, constant-delta `memory.grow`, `table.size`, constant-argument `table.grow`, or independent constant `local.tee` in either direct operand order only flow to the final same-global guard or Binaryen's function-level `if return; set` matcher, independent zero-parameter/result call, independent memory-op, and independent table-op compare operands in both guarded-write and if-return forms, plus source-backed block-condition subsets where an independent zero-parameter/result call, memory op, table op, local write, or global write happens before the final guarded global read for both guarded-write and if-return/set shapes. It also covers two source-backed nested-pattern carveouts: the nested-thrice same-global block-condition shape and the multi-global nested guarded-write body shape. The flow-into-`local.tee`, trapping-load-address, call-argument, flow-into-local-write, flow-into-table-op, extra-read-after-select, flow-into-`memory.grow` (including compare-operand delta), and flow-into-`table.grow` (including compare/select-operand delta) negatives remain guardrails; full Binaryen `FlowScanner` equivalence remains a future slice.
 
 ## 8. Nested appearances of the same pattern are allowed
 
@@ -296,7 +296,9 @@ That is why multi-layer examples like this can still optimize:
 )
 ```
 
-But if the nested form stops being that exact safe family, the optimization stops too.
+Starshine now covers the official nested-thrice subset where a result block first runs a same-global read-only-to-write guard, then yields the same global read to an outer `i32.eqz` guard, then yields one more same-global read to the final guarded write. It also covers the official multi-global nested-body subset where a guarded-write body contains exactly one constant write to the guarded global plus nested different-global `global.get; if { ... }` read-only-to-write guard pairs. Both remain narrow source-backed carveouts, not a general arbitrary-effect block-condition or body-effect proof.
+
+But if the nested form stops being those exact safe families, the optimization stops too.
 
 The test suite has explicit near-miss negatives for:
 
@@ -413,3 +415,76 @@ That is what the implementation really preserves.
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
+
+## 2026-07-06 independent `local.set` compare note
+
+Binaryen `version_130` accepts a block condition that writes a constant to a local and then compares the guarded global with that local when the compare result reaches only the same-global guarded write or function-level if-return tail. Starshine now mirrors that exact subset and still rejects the unsafe value-flow case where the guarded global is written into the local.
+
+## 2026-07-06 independent `global.set` compare note
+
+Binaryen `version_130` accepts compare conditions where the guarded global is compared with a result block that performs an independent constant `global.set` to a different global and yields a constant. Starshine now mirrors that exact direct/reverse compare subset for both guarded-write and function-level if-return tails, while still rejecting the unsafe case where the guarded value is consumed by the independent global write.
+
+## 2026-07-06 memory-store compare operand addendum
+
+The FlowScanner audit now includes one more source-backed side-effect sibling subset: an `i32.store` inside a result-block compare operand whose address/value are constants or `local.get`s. Binaryen `version_130` treats the store as independent when the guarded global only flows to the compare and same-global guarded write or function-level `if return; set` tail; the store remains observable and is preserved. Starshine now matches that narrow shape and keeps the guarded-value-to-store negative mutable. This does not close arbitrary memory-write value flow, non-`local.get` dynamic store operands, or generic parent/child `FlowScanner` equivalence.
+
+## 2026-07-06 local-fed `global.set` compare addendum
+
+The FlowScanner audit now widens the independent `global.set` compare subset from constant-only stored values to constants or `local.get`s. Binaryen `version_130` treats the `$other` write as independent when the guarded global only flows to the compare and same-global guarded write or function-level `if return; set` tail; the `$other` write remains observable and is preserved. Starshine now matches that narrow local-fed shape and keeps the guarded-value-to-`global.set` negative mutable.
+
+## 2026-07-06 local-fed local-write compare addendum
+
+The FlowScanner audit now widens the independent local-write compare subsets from constant-only values to constants or `local.get`s. Binaryen `version_130` treats these local writes as independent when the guarded global only flows to the compare and same-global guarded write or function-level `if return; set` tail; generated unused-local shells may be cleaned away. Starshine now matches the narrow direct `local.tee` and block-condition `local.set` shapes and keeps guarded-value-to-local-write negatives mutable.
+
+## 2026-07-06 local-fed `table.grow` compare addendum
+
+The FlowScanner audit now widens the independent `table.grow` compare subset from constant-only ref/delta operands to constants or `local.get`s. Binaryen `version_130` treats the table growth as independent when the guarded global only flows to the compare and same-global guarded write or function-level `if return; set` tail; the `table.grow` remains observable and is preserved as `table.grow; drop`. Starshine now matches that narrow local-fed shape and keeps guarded-value-to-`table.grow` delta negatives mutable.
+
+## 2026-07-06 local-fed `memory.grow` compare/select addendum
+
+The FlowScanner audit now widens the independent `memory.grow` compare and select subsets from constant-only deltas to constants or `local.get`s. Binaryen `version_130` treats the memory growth as independent when the guarded global only flows to the compare/select guard and same-global guarded write or function-level `if return; set` tail; the `memory.grow` remains observable and is preserved as `memory.grow; drop`. Starshine now matches that narrow local-fed shape and keeps guarded-value-to-`memory.grow` delta negatives mutable. Broad generic `FlowScanner` parent/child equivalence remains open.
+
+## 2026-07-06 local-fed `table.grow` select addendum
+
+The FlowScanner audit now widens the independent `table.grow` select subset from constant-only ref/delta operands to constants or `local.get`s. Binaryen `version_130` treats the table growth as independent when the guarded global only flows through the select to the same-global guarded write or function-level `if return; set` tail; the `table.grow` remains observable and is preserved as `table.grow; drop`. Starshine now matches that narrow local-fed shape and keeps guarded-value-to-`table.grow` delta flow mutable.
+
+## 2026-07-07 independent call `i32.add` addendum
+
+The FlowScanner audit now includes a broader parent/child subset beyond grow-specific operand follow-ups: an independent zero-parameter/result call may be the sibling operand to `global.get $guard` under a pure `i32.add`, with either operand order and with either a same-global guarded write or function-level `if return; set` tail. Binaryen `version_130` treats the call as independent because the guarded value does not determine whether or how it runs; the call remains observable as `call; drop`. Starshine now matches that narrow family and still rejects guarded-value-to-call-argument flow plus unprobed arbitrary side-effect parents.
+
+
+## 2026-07-07 independent call nontrapping `i32` binary addendum
+
+The independent-call parent/child subset is now broader than `i32.add`: local Binaryen `version_130` accepts independent zero-parameter/one-result calls as sibling operands under nontrapping pure `i32` binary operators (`add`, `sub`, `mul`, bitwise ops, shifts, rotates) in either operand order and for both same-global guarded-write and function-level `if return; set` tails. Starshine now matches that narrow family and preserves the independent call as `call; drop`. Trapping `i32.div_*` / `i32.rem_*` forms remain excluded because local Binaryen probes keep the guard mutable; guarded-value-to-call-argument flow, extra guarded reads, arbitrary side-effect parents, and generic `FlowScanner` equivalence remain open.
+
+## 2026-07-07 independent call binary `i32.eqz` suffix addendum
+
+The FlowScanner audit now includes one more source-backed parent/child subset: an independent zero-parameter/one-result call may be the sibling operand under a nontrapping pure `i32` binary parent, and that binary result may flow through `i32.eqz` before the same-global guarded write or function-level `if return; set` tail. Binaryen `version_130` treats the call as independent in direct/reverse and if-return probes; Starshine now matches that narrow shape and preserves the call as `call; drop`. Trapping `i32.div_s; i32.eqz` remains excluded, as do guarded-value-to-call-argument flow, arbitrary pure suffix chains, arbitrary side-effect parents, extra guarded reads, and generic `FlowScanner` equivalence.
+
+The FlowScanner audit now extends the independent-call/nontrapping-`i32` binary parent subset through one additional source-backed pure suffix family: `i32.clz`, `i32.ctz`, or `i32.popcnt` may consume the binary result before the same-global guarded write or function-level `if return; set` tail. Binaryen `version_130` accepted the direct/reverse/if-return unary-suffix probes and preserved the independent call as `call; drop`; the paired `i32.div_s; i32.clz` probe kept the guard mutable. Starshine now matches this narrow unary-suffix shape, but const-fed comparisons, multiple/arbitrary pure suffix chains, non-`i32` call-result parent chains, arbitrary side-effect parents, guarded-value-to-call-argument flow, extra guarded reads, and trapping binary parents remain open.
+
+## 2026-07-07 independent call binary constant-fed comparison addendum
+
+The parent-chain audit now includes one constant-fed equality comparison after the independent-call/nontrapping-`i32` binary result. Binaryen `version_130` accepts `i32.eq` / `i32.ne` with one `i32.const` in either comparison operand order, including reverse call/binary operands and function-level `if return; set` tails; Starshine now matches that narrow family and preserves the call as `call; drop`. A trapping `i32.div_s` parent remains mutable. Relational comparisons, multiple suffixes, arbitrary side-effect parents, guarded-value-to-call-argument flow, extra reads, and generic `FlowScanner` equivalence remain open.
+
+## 2026-07-07 independent `i64` call binary suffix addendum
+
+Local Binaryen `version_130` also accepts the analogous `i64` parent chain: an independent zero-parameter/one-result `i64` call and guarded `i64` global feed a nontrapping `i64` binary parent, whose result reaches exactly one `i64.eqz` or constant-fed `i64.eq` / `i64.ne` before the same-global guard tail. Direct `i64.add; i64.eqz`, constant-first reverse `i64.mul; i64.eq`, and reverse if-return `i64.xor; i64.eqz` probes make the guard immutable and preserve `call; drop`; `i64.div_s; i64.eqz` keeps it mutable. Starshine now matches that narrow family.
+
+## 2026-07-07 independent float call binary-comparison addendum
+
+The typed parent-chain audit now also covers `f32` / `f64`. An independent zero-parameter/one-result float call may be the sibling of the guarded same-typed float global under one IEEE binary operator (`add`, `sub`, `mul`, `div`, `min`, `max`, or `copysign`), and that result may feed exactly one same-typed comparison with a float constant before the same-global guarded-write or function-level if-return tail. Direct/reverse binary operands and result-first/constant-first comparison orders are covered; `f32.div`, NaN-sensitive `f32.min`/`f32.eq`, and `f64.copysign` probes confirm that these nontrapping parents remain safe for the FlowScanner criterion. Starshine preserves the call as `call; drop`. Flow into a call argument, extra guarded reads, deeper pure chains, and arbitrary effectful parents remain rejected.
+
+## 2026-07-07 generic scalar straight-line addendum
+
+The independent-call subset now follows the source-level parent/child rule more directly for scalar straight-line expressions. Once the guarded value and an independent scalar call meet at a nontrapping parent, a typed parser follows repeated result-first nontrapping unary/conversion and constant-fed binary/comparison parents to the outer guard. This removes the former one-suffix limit and covers integer relational, float unary, and float-promotion chains. The parser still rejects trapping integer div/rem and trapping float-to-int truncation parents.
+
+This does not yet generalize the flat instruction analysis to arbitrary independent effect siblings or structured parents. The remaining architecture step is an abstract stack that records guarded dependency separately from independent effects, coupled to cleanup that can replay every independent effect in order.
+
+## 2026-07-07 multiple constant-first scalar parents addendum
+
+Binaryen `version_130` also accepts constant-first parents at more than one depth around the dependent scalar expression. The direct probe `i32.const 9; i32.const 7; global.get $guard; call $imp; i32.add; i32.mul; i32.lt_s` and its reverse first-parent operand order both make `$guard` immutable and retain only `call; drop`. Starshine's typed suffix parser now consumes a contiguous LIFO stack of typed constant-first operands as well as result-first constants, and the cleanup parser uses the same ordering proof. Generic non-constant siblings, structured parents, and arbitrary independent-effect reconstruction remain open.
+
+## 2026-07-07 reverse pre-parent scalar fragment addendum
+
+When the independent call result is transformed before the guarded global reaches the first shared parent, cleanup now distinguishes removable operations from replay-required effects. Same-type unary operations and nontrapping conversions disappear with the fake guard shell, producing `call; drop`. Trapping float-to-int truncations are replayed before the final drop, producing `call; trunc; drop`. The guarded-dependent path still rejects trapping parents. This closes the probed reverse pre-parent cleanup family without claiming generic independent-effect or structured-parent FlowScanner equivalence.
