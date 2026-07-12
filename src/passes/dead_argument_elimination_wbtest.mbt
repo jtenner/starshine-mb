@@ -5693,22 +5693,30 @@ test "dae mixed return-arm rewrite evidence centralizes refined slot repairs" {
     @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
   )
   let scalar_slot = @lib.Instruction::i32_const(@lib.I32(7))
+  let result_body = [old_slot, scalar_slot]
+  let result_slice = match
+    dae_make_multi_result_control_slice(result_body, 0, 2, 0, false, false) {
+    Some(slice) => slice
+    None => fail("expected mixed return-arm result slice")
+  }
+  let control_result = match
+    dae_control_result_slice_gc_evidence(mod_, [], None, result_slice, [
+      base_ref,
+      @lib.ValType::i32(),
+    ]) {
+    Some(evidence) => evidence
+    None => fail("expected shared mixed return-arm control evidence")
+  }
   let evidence : DaeMixedMultiResultReturnArmGcEvidence = {
-    body: [old_slot, scalar_slot],
-    result_start: 0,
+    body: control_result.body,
+    result_start: control_result.result_start,
     flattened: false,
     has_return: true,
     effect_free_fallthrough: false,
+    control_result: Some(control_result),
   }
   match
-    dae_apply_mixed_multi_result_return_arm_refinements(
-      mod_,
-      [],
-      None,
-      evidence,
-      [base_ref, @lib.ValType::i32()],
-      [true, false],
-    ) {
+    dae_apply_mixed_multi_result_return_arm_refinements(evidence, [true, false]) {
     Some(rewrite) => {
       assert_true(rewrite.body_changed)
       assert_eq(
@@ -5728,16 +5736,10 @@ test "dae mixed return-arm rewrite evidence centralizes refined slot repairs" {
     flattened: false,
     has_return: false,
     effect_free_fallthrough: true,
+    control_result: None,
   }
   match
-    dae_apply_mixed_multi_result_return_arm_refinements(
-      mod_,
-      [],
-      None,
-      fallthrough,
-      [base_ref],
-      [true],
-    ) {
+    dae_apply_mixed_multi_result_return_arm_refinements(fallthrough, [true]) {
     Some(rewrite) => {
       assert_false(rewrite.body_changed)
       assert_eq(rewrite.body[0], scalar_slot)

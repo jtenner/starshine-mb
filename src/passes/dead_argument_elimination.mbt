@@ -659,6 +659,7 @@ priv struct DaeMixedMultiResultReturnArmGcEvidence {
   flattened : Bool
   has_return : Bool
   effect_free_fallthrough : Bool
+  control_result : DaeControlResultGcEvidence?
 }
 
 ///|
@@ -10483,20 +10484,13 @@ fn dae_multi_result_if_arm_return_candidate_body(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
   result_count : Int,
-) -> (Array[@lib.Instruction], Int, Bool)? {
-  match
-    dae_find_multi_result_control_slice(
-      mod_,
-      body,
-      result_count,
-      require_terminal_return=true,
-    ) {
-    Some(result_slice) =>
-      Some(
-        (result_slice.body, result_slice.slice.start, result_slice.flattened),
-      )
-    None => None
-  }
+) -> DaeControlResultSlice? {
+  dae_find_multi_result_control_slice(
+    mod_,
+    body,
+    result_count,
+    require_terminal_return=true,
+  )
 }
 
 ///|
@@ -10519,25 +10513,20 @@ fn dae_mixed_multi_result_return_arm_gc_evidence(
       arm_body,
       results.length(),
     ) {
-    Some((candidate_body, candidate_start, flattened)) => {
-      if candidate_start < 0 ||
-        candidate_start + results.length() > candidate_body.length() {
-        return None
+    Some(result_slice) => {
+      let control_result = match
+        dae_control_result_slice_gc_evidence(
+          mod_, func_type_indices, func_locals, result_slice, results,
+        ) {
+        Some(evidence) => evidence
+        None => return None
       }
       let mut result_idx = 0
       while result_idx < results.length() {
         match combined_candidates[result_idx] {
-          Some(current_candidate) => {
-            let instr_idx = candidate_start + result_idx
-            match
-              dae_direct_gc_result_candidate_instr(
-                mod_,
-                func_type_indices,
-                func_locals,
-                candidate_body[instr_idx],
-                results[result_idx],
-              ) {
-              Some((return_candidate, _)) =>
+          Some(current_candidate) =>
+            match control_result.candidates[result_idx] {
+              Some(return_candidate) =>
                 match
                   dae_lub_gc_candidate_ref_type(
                     mod_,
@@ -10550,17 +10539,17 @@ fn dae_mixed_multi_result_return_arm_gc_evidence(
                 }
               None => rejected[result_idx] = true
             }
-          }
           None => ()
         }
         result_idx += 1
       }
       Some({
-        body: candidate_body,
-        result_start: candidate_start,
-        flattened,
+        body: control_result.body,
+        result_start: control_result.result_start,
+        flattened: result_slice.flattened,
         has_return: true,
         effect_free_fallthrough: false,
+        control_result: Some(control_result),
       })
     }
     None =>
@@ -10572,6 +10561,7 @@ fn dae_mixed_multi_result_return_arm_gc_evidence(
             flattened: false,
             has_return: false,
             effect_free_fallthrough: fallthrough.effect_free_fallthrough,
+            control_result: None,
           })
         None => None
       }
@@ -10580,47 +10570,30 @@ fn dae_mixed_multi_result_return_arm_gc_evidence(
 
 ///|
 fn dae_apply_mixed_multi_result_return_arm_refinements(
-  mod_ : @lib.Module,
-  func_type_indices : Array[@lib.TypeIdx],
-  func_locals : @lib.FunctionLocals?,
   evidence : DaeMixedMultiResultReturnArmGcEvidence,
-  results : Array[@lib.ValType],
   refined : Array[Bool],
 ) -> DaeMixedMultiResultReturnArmRewriteEvidence? {
-  if refined.length() != results.length() {
-    return None
-  }
   if !evidence.has_return {
+    if evidence.control_result is Some(_) {
+      return None
+    }
     return Some({ body: evidence.body, body_changed: false })
   }
-  if evidence.result_start < 0 ||
-    evidence.result_start + results.length() > evidence.body.length() {
-    return None
+  let control_result = match evidence.control_result {
+    Some(control_result) => control_result
+    None => return None
   }
-  let rewrites : Array[@lib.Instruction?] = Array::make(results.length(), None)
-  let mut result_idx = 0
-  while result_idx < results.length() {
-    if refined[result_idx] {
-      let instr_idx = evidence.result_start + result_idx
-      match
-        dae_direct_gc_result_candidate_instr(
-          mod_,
-          func_type_indices,
-          func_locals,
-          evidence.body[instr_idx],
-          results[result_idx],
-        ) {
-        Some((_, rewrite)) => rewrites[result_idx] = rewrite
-        None => ()
-      }
-    }
-    result_idx += 1
+  if refined.length() != control_result.candidates.length() ||
+    control_result.rewrites.length() != refined.length() ||
+    evidence.result_start != control_result.result_start ||
+    evidence.body != control_result.body {
+    return None
   }
   match
     dae_apply_result_rewrites_to_body(
-      evidence.body,
-      evidence.result_start,
-      rewrites,
+      control_result.body,
+      control_result.result_start,
+      control_result.rewrites,
       active=Some(refined),
     ) {
     Some((rewritten, application)) => {
@@ -10768,9 +10741,7 @@ fn dae_try_refine_mixed_multi_result_if_fallthrough_body(
   let mut next_then_body = then_body
   let mut if_body_changed = false
   match
-    dae_apply_mixed_multi_result_return_arm_refinements(
-      mod_, func_type_indices, func_locals, then_evidence, results, refined,
-    ) {
+    dae_apply_mixed_multi_result_return_arm_refinements(then_evidence, refined) {
     Some(rewrite) =>
       if rewrite.body_changed {
         next_then_body = rewrite.body
@@ -10782,9 +10753,7 @@ fn dae_try_refine_mixed_multi_result_if_fallthrough_body(
   match else_evidence {
     Some(evidence) =>
       match
-        dae_apply_mixed_multi_result_return_arm_refinements(
-          mod_, func_type_indices, func_locals, evidence, results, refined,
-        ) {
+        dae_apply_mixed_multi_result_return_arm_refinements(evidence, refined) {
         Some(rewrite) =>
           if rewrite.body_changed {
             next_else_body = Some(rewrite.body)
