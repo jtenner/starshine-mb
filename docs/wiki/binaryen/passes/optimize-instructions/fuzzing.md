@@ -1,3 +1,7 @@
+## 2026-07-11 aggregate mismatch grouping helper
+
+Use `bun scripts/oi-mismatch-summary.ts <compare-pass-out-dir>` to group saved mismatch artifacts by `selected_profile`, profile case label, and a stable normalized WAT line-delta signature. Each group reports a representative failure directory plus bounded Starshine-only and Binaryen-only line previews; `--json` emits the same evidence for follow-up tooling. Identifier spelling is normalized before hashing, but the helper deliberately does not classify semantics: every group remains active parity evidence until an agent inspects the transform contract and measures or fixes the difference.
+
 ## 2026-07-11 closeout lane start and current blockers
 
 Fresh native-release signoff completed the regular GenValid lane: requested/compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, mismatches/failures `0`, and Binaryen cache hits/misses `314/99686`. The explicit wasm-smith lane requested `10000`, compared `9956`, normalized `9953`, and left three raw mismatches plus 44 Binaryen/tool command failures (`39` rec-group-zero, `1` invalid tag index, `1` table index out of range, `3` bad section size); cache was wasm-smith `0/10000`, Binaryen `106/9850`, and Binaryen failures `0/44`. The three mismatches are agent-classified Starshine-win pure dead-value cleanup before an unconditional unreachable: dropped constants/nop and one dropped `memory.size` result are removed, with no effect/trap/order loss and smaller normalized output. They are not true semantic mismatches.
