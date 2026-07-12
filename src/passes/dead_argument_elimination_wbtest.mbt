@@ -320,6 +320,74 @@ test "dae singleton-selected core rewrite owns selection and result application"
 }
 
 ///|
+test "dae bounded singleton-selected core rewrite stops after first no-op" {
+  let current = dae_wbtest_call_summary_fixture()
+  let rewritten_once = @lib.Module::new()
+  let rewritten_twice = @lib.Module::new()
+  let selected = [true, false, true]
+  let mut producer_calls = 0
+  let observed_active_modules : Array[Bool] = []
+  let observed_selection : Array[Bool] = []
+  let productive_iterations : Array[Int] = []
+  let productive_primary_defs : Array[Int] = []
+  let rewrite = fn(
+    active : @lib.Module,
+    active_selected : Array[Bool],
+  ) -> DaePassResult {
+    observed_selection.push(active_selected[1])
+    producer_calls += 1
+    if producer_calls == 1 {
+      observed_active_modules.push(active == current)
+      return {
+        mod_out: rewritten_once,
+        touched: [false, true, false],
+        changed: true,
+        primary_def: 1,
+      }
+    }
+    if producer_calls == 2 {
+      observed_active_modules.push(active == rewritten_once)
+      return {
+        mod_out: rewritten_twice,
+        touched: [false, false, true],
+        changed: true,
+        primary_def: 2,
+      }
+    }
+    observed_active_modules.push(active == rewritten_twice)
+    { mod_out: active, touched: [], changed: false, primary_def: -1 }
+  }
+  let on_applied = fn(
+    iteration : Int,
+    application : DaeCoreResultApplication,
+  ) -> Unit {
+    productive_iterations.push(iteration)
+    productive_primary_defs.push(application.primary_def)
+  }
+  let application = dae_run_bounded_singleton_selected_core_rewrite(
+    current,
+    [true, false, false],
+    false,
+    selected,
+    1,
+    8,
+    rewrite,
+    on_applied,
+  )
+  assert_eq(producer_calls, 3)
+  assert_eq(observed_active_modules, [true, true, true])
+  assert_eq(observed_selection, [true, true, true])
+  assert_eq(productive_iterations, [0, 1])
+  assert_eq(productive_primary_defs, [1, 2])
+  assert_eq(selected, [true, false, true])
+  assert_eq(application.mod_out, rewritten_twice)
+  assert_eq(application.touched, [true, true, true])
+  assert_true(application.changed)
+  assert_false(application.applied)
+  assert_eq(application.primary_def, -1)
+}
+
+///|
 test "dae primary-selected core result application clears only the applied primary" {
   let current = dae_wbtest_call_summary_fixture()
   let rewritten = @lib.Module::new()
