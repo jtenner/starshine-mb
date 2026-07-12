@@ -3024,6 +3024,79 @@ test "dae module code finalization installs code with explicit touched policy" {
 }
 
 ///|
+test "dae verified uniform-constant candidate uses shared boundary rewrite transactionally" {
+  let caller_type = @lib.TypeIdx::new(0U)
+  let callee_type = @lib.TypeIdx::new(1U)
+  let callee = @lib.FuncIdx::new(1U)
+  let params = [@lib.ValType::i32(), @lib.ValType::i32()]
+  let caller = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(5)),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::call(callee),
+    ]),
+  )
+  let callee_func = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(params, [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([caller_type, callee_type]))
+    .with_code_sec(@lib.CodeSec::new([caller, callee_func]))
+  let local_use = dae_local_use_for_callee(callee_func, 2, 1, 2)
+  let remove = [false, true]
+  let expected : Array[@lib.Instruction?] = [
+    None, Some(@lib.Instruction::i32_const(@lib.I32(9))),
+  ]
+  let result = dae_try_rewrite_verified_uniform_const_candidate(
+    mod_, 1, params, remove, expected, local_use, 1, [0],
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 1)
+  assert_eq(result.touched, [true, true])
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[0]
+      assert_eq(caller_body, [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::call(callee),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+  let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 1) {
+    Some(@lib.FuncType(rewritten_params, results)) => {
+      assert_eq(rewritten_params, [@lib.ValType::i32()])
+      assert_eq(results, [])
+    }
+    None => fail("expected rewritten callee type")
+  }
+  let mismatched : Array[@lib.Instruction?] = [
+    None, Some(@lib.Instruction::i32_const(@lib.I32(8))),
+  ]
+  let rejected = dae_try_rewrite_verified_uniform_const_candidate(
+    mod_, 1, params, remove, mismatched, local_use, 1, [0],
+  )
+  assert_false(rejected.changed)
+  assert_eq(rejected.primary_def, -1)
+  assert_eq(rejected.touched, [])
+  assert_eq(rejected.mod_out, mod_)
+}
+
+///|
 test "dae module code rewrite finalization uses current sections transactionally" {
   let result_type = @lib.TypeIdx::new(0U)
   let void_type = @lib.TypeIdx::new(1U)
