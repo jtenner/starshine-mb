@@ -276,6 +276,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Syntactic `call_ref` target proof
+
+Directization follows Binaryen v130's syntactic target fallthrough only: direct `ref.func`, supported wrappers, table targets, and select targets remain candidate families, but an earlier `ref.func` assignment does not prove a later `local.get` target. The raw local-use-count bridge and its local-fallthrough admission state are deleted. `RawOiCurrentRootRevisionOverlay` remains a current-root plus immutable-region discovery view and cannot substitute local dataflow for exact target proof.
+
 ## Known-result reference-test preservation
 
 Known `ref.test` success and failure now use one general typed preservation rule: retain the tested operand under `drop`, then materialize the i32 constant. This directly follows Binaryen v130 `visitRefTest` and applies to ordinary and descriptor tests, including pure direct nulls and local reads. Candidate/type relation facts may prove the result, but purity no longer authorizes deleting the explicit operand; the former effect/erasure matrix and direct-constant plan are removed.

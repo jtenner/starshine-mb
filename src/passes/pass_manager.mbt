@@ -25861,7 +25861,6 @@ priv struct RawOiFunctionRevisionFactIndex {
   regions : Array[RawOiInstructionRegionFact]
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
-  local_get_counts : Array[Int]
   bridge_candidates : RawOiRawBridgeCandidateFact
 }
 
@@ -25872,7 +25871,6 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
-  local_get_counts : Array[Int],
   bridge_candidates : RawOiRawBridgeCandidateFact,
 ) -> Int {
   let mut count = 1
@@ -25880,16 +25878,6 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     instr, lowered_stats,
   )
   bridge_candidates.record_instr(instr)
-  match instr {
-    @lib.LocalGet(@lib.LocalIdx(raw)) => {
-      let slot = raw.reinterpret_as_int()
-      while local_get_counts.length() <= slot {
-        local_get_counts.push(0)
-      }
-      local_get_counts[slot] = local_get_counts[slot] + 1
-    }
-    _ => ()
-  }
   match instr {
     @lib.Call(call_idx) =>
       call_sites.push({ call_idx, call_ordinal: call_sites.length() })
@@ -25899,19 +25887,16 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        body, lowered_stats, call_sites, select_anchors, regions, local_get_counts,
-        bridge_candidates,
+        body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
       )
     @lib.If(_, then_body, else_body) => {
       count += RawOiFunctionRevisionFactIndex::collect_body(
-        then_body, lowered_stats, call_sites, select_anchors, regions, local_get_counts,
-        bridge_candidates,
+        then_body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
       )
       match else_body {
         Some(body) =>
           count += RawOiFunctionRevisionFactIndex::collect_body(
-            body, lowered_stats, call_sites, select_anchors, regions, local_get_counts,
-            bridge_candidates,
+            body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
           )
         None => ()
       }
@@ -25928,15 +25913,13 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
   call_sites : Array[RawOiCallSiteFact],
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
-  local_get_counts : Array[Int],
   bridge_candidates : RawOiRawBridgeCandidateFact,
 ) -> Int {
   regions.push(RawOiInstructionRegionFact::from_instrs(instrs))
   let mut count = 0
   for instr in instrs {
     count += RawOiFunctionRevisionFactIndex::collect_instr(
-      instr, lowered_stats, call_sites, select_anchors, regions, local_get_counts,
-      bridge_candidates,
+      instr, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
     )
   }
   count
@@ -25950,11 +25933,9 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
   let call_sites : Array[RawOiCallSiteFact] = []
   let select_anchors : Array[RawOiSelectAnchorFact] = []
   let regions : Array[RawOiInstructionRegionFact] = []
-  let local_get_counts : Array[Int] = []
   let bridge_candidates = RawOiRawBridgeCandidateFact::new()
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
-    instrs, lowered_stats, call_sites, select_anchors, regions, local_get_counts,
-    bridge_candidates,
+    instrs, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
   )
   let top_level_roots = regions[0].roots
   let mut top_level_pure_stack_prefix_count = 0
@@ -25973,35 +25954,18 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
     regions,
     call_sites,
     select_anchors,
-    local_get_counts,
     bridge_candidates,
   }
 }
 
 ///|
-fn RawOiFunctionRevisionFactIndex::local_get_count(
-  self : RawOiFunctionRevisionFactIndex,
-  local_idx : @lib.LocalIdx,
-) -> Int {
-  let @lib.LocalIdx(raw) = local_idx
-  let slot = raw.reinterpret_as_int()
-  if slot < 0 || slot >= self.local_get_counts.length() {
-    0
-  } else {
-    self.local_get_counts[slot]
-  }
-}
-
-///|
 // Mixed-revision root overlay for recursive raw rewrites. The immutable region
-// owns original sibling identity, the current root carries post-child rewrite
-// identity, and the function index owns recursive use facts for the original
-// function revision. Candidate discovery may use the region, but exact target,
-// type, return-call, effect, and binding-preservation proof remains family-owned.
+// owns original sibling identity and the current root carries post-child rewrite
+// identity. Candidate discovery may use the region, but exact target, type,
+// return-call, effect, and order proof remains family-owned.
 priv struct RawOiCurrentRootRevisionOverlay {
   current : @lib.Instruction
   region : RawOiInstructionRegionFact
-  function_index : RawOiFunctionRevisionFactIndex
   start : Int
 }
 
@@ -26382,38 +26346,16 @@ fn RawOiStackCarriedEffectRegionFact::from_index(
 }
 
 ///|
-// Raw OI-H local-use fact for fallback call_ref fallthrough target rewrites.
-// Binaryen v130 `visitCallRef` uses `Properties::getFallthrough(curr->target)`
-// to recover a `ref.func` behind local writes and then preserves target effects
-// only when the local binding may still be read. The raw fallback represents the
-// covered flat shape as `ref.func; local.set $tmp; local.get $tmp; call_ref`, so
-// keep the exact root-local-get count in a source-backed fact instead of letting
-// the call_ref directizer query an unclassified recursive counter.
-priv struct RawOiLocalUseCountFact {
-  target : @lib.LocalIdx
-  exact_get_count : Int
-}
-
-///|
-fn RawOiLocalUseCountFact::from_index(
-  index : RawOiFunctionRevisionFactIndex,
-  target : @lib.LocalIdx,
-) -> RawOiLocalUseCountFact {
-  { target, exact_get_count: index.local_get_count(target) }
-}
-
-///|
 // Accepted raw OI-H child traversal boundary for call_ref/null-trap fallback
 // rewrites. It only descends through structured children; all flat decisions
 // remain in the sibling body facts below.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
   instr : @lib.Instruction,
-  function_index : RawOiFunctionRevisionFactIndex,
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Instruction::Block(bt, @lib.Expr(body)) => {
       let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        body, function_index,
+        body,
       )
       if changed {
         (@lib.Instruction::block(bt, @lib.Expr::new(rewritten)), true)
@@ -26423,7 +26365,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
     }
     @lib.Instruction::Loop(bt, @lib.Expr(body)) => {
       let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        body, function_index,
+        body,
       )
       if changed {
         (@lib.Instruction::loop_(bt, @lib.Expr::new(rewritten)), true)
@@ -26433,12 +26375,12 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
     }
     @lib.Instruction::If(bt, then_body, else_body) => {
       let (rewritten_then, then_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        then_body, function_index,
+        then_body,
       )
       let (rewritten_else, else_changed) = match else_body {
         Some(body) => {
           let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-            body, function_index,
+            body,
           )
           (Some(rewritten), changed)
         }
@@ -26452,7 +26394,7 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
     }
     @lib.Instruction::TryTable(bt, catches, @lib.Expr(body)) => {
       let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-        body, function_index,
+        body,
       )
       if changed {
         (
@@ -26519,10 +26461,6 @@ priv struct RawOiCallRefDirectizeRewriteFact {
   is_direct_ref_func_target : Bool
   is_table_target : Bool
   is_const_select_ref_func_target : Bool
-  is_local_fallthrough_ref_func_target : Bool
-  local_fallthrough_target : @lib.LocalIdx?
-  local_fallthrough_get_count : Int
-  preserves_local_fallthrough_binding : Bool
   is_return : Bool
   rewrite : Array[@lib.Instruction]
 }
@@ -26532,15 +26470,11 @@ fn RawOiCallRefDirectizeRewriteFact::proves_binaryen_call_ref_directization(
   self : RawOiCallRefDirectizeRewriteFact,
 ) -> Bool {
   ignore(self.is_return)
-  ignore(self.local_fallthrough_target)
-  ignore(self.local_fallthrough_get_count)
-  ignore(self.preserves_local_fallthrough_binding)
   self.rewrite.length() > 0 &&
   (
     self.is_direct_ref_func_target ||
     self.is_table_target ||
-    self.is_const_select_ref_func_target ||
-    self.is_local_fallthrough_ref_func_target
+    self.is_const_select_ref_func_target
   )
 }
 
@@ -26569,50 +26503,6 @@ fn RawOiCallRefDirectizeRewriteFact::call_instr(
 }
 
 ///|
-// Raw OI-H fallthrough-target use fact for the local.set/local.get target bridge.
-// A single root `local.get` means the use consumed by `call_ref` is the only read
-// of the temporary target local, so the raw fallback can erase the preceding
-// `ref.func; local.set` target materialization. Any additional read preserves the
-// binding as an evaluated side effect before replacing `call_ref` with a direct
-// call, matching the Binaryen fallthrough-target effect preservation contract.
-priv struct RawOiCallRefLocalFallthroughUseFact {
-  target_local : @lib.LocalIdx
-  exact_get_count : Int
-  preserves_target_binding : Bool
-  rewrite : Array[@lib.Instruction]
-}
-
-///|
-fn RawOiCallRefLocalFallthroughUseFact::from_parts(
-  target_expr : @lib.Instruction,
-  target_set : @lib.Instruction,
-  target_local : @lib.LocalIdx,
-  func_idx : @lib.FuncIdx,
-  is_return : Bool,
-  function_index : RawOiFunctionRevisionFactIndex,
-) -> RawOiCallRefLocalFallthroughUseFact {
-  let use_fact = RawOiLocalUseCountFact::from_index(
-    function_index, target_local,
-  )
-  ignore(use_fact.target)
-  let preserves_target_binding = use_fact.exact_get_count != 1
-  let rewrite : Array[@lib.Instruction] = []
-  if preserves_target_binding {
-    rewrite.push(target_expr)
-    rewrite.push(target_set)
-  }
-  rewrite.push(
-    RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return),
-  )
-  {
-    target_local,
-    exact_get_count: use_fact.exact_get_count,
-    preserves_target_binding,
-    rewrite,
-  }
-}
-
-///|
 fn RawOiCallRefDirectizeRewriteFact::from_table_target(
   overlay : RawOiCurrentRootRevisionOverlay,
 ) -> RawOiCallRefDirectizeRewriteFact? {
@@ -26627,10 +26517,6 @@ fn RawOiCallRefDirectizeRewriteFact::from_table_target(
         is_direct_ref_func_target: false,
         is_table_target: true,
         is_const_select_ref_func_target: false,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: false,
         rewrite: [index, @lib.Instruction::call_indirect(type_idx, table_idx)],
       })
@@ -26644,10 +26530,6 @@ fn RawOiCallRefDirectizeRewriteFact::from_table_target(
         is_direct_ref_func_target: false,
         is_table_target: true,
         is_const_select_ref_func_target: false,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: true,
         rewrite: [
           index,
@@ -26694,10 +26576,6 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
         is_direct_ref_func_target: false,
         is_table_target: false,
         is_const_select_ref_func_target: true,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: false,
         rewrite: [@lib.Instruction::call(selected_func)],
       })
@@ -26708,65 +26586,11 @@ fn RawOiCallRefDirectizeRewriteFact::from_const_select_target(
         is_direct_ref_func_target: false,
         is_table_target: false,
         is_const_select_ref_func_target: true,
-        is_local_fallthrough_ref_func_target: false,
-        local_fallthrough_target: None,
-        local_fallthrough_get_count: 0,
-        preserves_local_fallthrough_binding: false,
         is_return: true,
         rewrite: [@lib.Instruction::return_call(selected_func)],
       })
     _ => None
   }
-}
-
-///|
-fn RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(
-  overlay : RawOiCurrentRootRevisionOverlay,
-) -> RawOiCallRefDirectizeRewriteFact? {
-  let target_expr = match overlay.instr_at(0) {
-    Some(instr) => instr
-    None => return None
-  }
-  let func_idx = match RawOiRefFuncTargetFact::from_instr(target_expr) {
-    Some(fact) if fact.proves_binaryen_ref_func_target() => fact.func_idx
-    _ => return None
-  }
-  let target_set = match overlay.instr_at(1) {
-    Some(instr) => instr
-    None => return None
-  }
-  let local_id = match (target_set, overlay.instr_at(2)) {
-    (
-      @lib.Instruction::LocalSet(set_local),
-      Some(@lib.Instruction::LocalGet(get_local)),
-    ) if set_local == get_local => set_local
-    _ => return None
-  }
-  let is_return = match overlay.instr_at(3) {
-    Some(@lib.Instruction::CallRef(_)) => false
-    Some(@lib.Instruction::ReturnCallRef(_)) => true
-    _ => return None
-  }
-  let use_fact = RawOiCallRefLocalFallthroughUseFact::from_parts(
-    target_expr,
-    target_set,
-    local_id,
-    func_idx,
-    is_return,
-    overlay.function_index,
-  )
-  Some({
-    end: overlay.start + 4,
-    is_direct_ref_func_target: false,
-    is_table_target: false,
-    is_const_select_ref_func_target: false,
-    is_local_fallthrough_ref_func_target: true,
-    local_fallthrough_target: Some(use_fact.target_local),
-    local_fallthrough_get_count: use_fact.exact_get_count,
-    preserves_local_fallthrough_binding: use_fact.preserves_target_binding,
-    is_return,
-    rewrite: use_fact.rewrite,
-  })
 }
 
 ///|
@@ -26791,10 +26615,6 @@ fn RawOiCallRefDirectizeRewriteFact::from_direct_target(
     is_direct_ref_func_target: true,
     is_table_target: false,
     is_const_select_ref_func_target: false,
-    is_local_fallthrough_ref_func_target: false,
-    local_fallthrough_target: None,
-    local_fallthrough_get_count: 0,
-    preserves_local_fallthrough_binding: false,
     is_return,
     rewrite: [RawOiCallRefDirectizeRewriteFact::call_instr(func_idx, is_return)],
   })
@@ -26809,11 +26629,6 @@ fn RawOiCallRefDirectizeRewriteFact::from_overlay(
     None => ()
   }
   match RawOiCallRefDirectizeRewriteFact::from_const_select_target(overlay) {
-    Some(fact) => return Some(fact)
-    None => ()
-  }
-  match
-    RawOiCallRefDirectizeRewriteFact::from_local_fallthrough_target(overlay) {
     Some(fact) => return Some(fact)
     None => ()
   }
@@ -27134,14 +26949,12 @@ fn RawOiRefNullTrapRewriteFact::from_region(
 
 ///|
 // Accepted raw OI-H traversal boundary. One immutable region per visited body
-// discovers candidates. `RawOiCurrentRootRevisionOverlay` combines that region
-// with the post-child current root and one original-revision function index, so
-// call_ref directization no longer rescans the root body for local-use proof.
+// discovers direct, table, select, and null/trap candidates. The current-root
+// overlay never promotes local assignment dataflow into exact target proof.
 // Reopen if this function starts matching target/operand spellings directly or
-// bypasses family-owned type, return-call, effect, binding, and trap proof.
+// bypasses family-owned type, return-call, effect, order, and trap proof.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   instrs : Array[@lib.Instruction],
-  function_index : RawOiFunctionRevisionFactIndex,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let region = RawOiInstructionRegionFact::from_instrs(instrs)
@@ -27150,7 +26963,6 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   while i < instrs.length() {
     let (current, child_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
       instrs[i],
-      function_index,
     )
     changed = changed || child_changed
     match RawOiRefNullTrapRewriteFact::from_region(current, region, i) {
@@ -27168,7 +26980,6 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
     let overlay : RawOiCurrentRootRevisionOverlay = {
       current,
       region,
-      function_index,
       start: i,
     }
     match RawOiCallRefDirectizeRewriteFact::from_overlay(overlay) {
@@ -27187,19 +26998,13 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
 }
 
 ///|
-// Accepted raw OI-H root wrapper. One immutable function index owns recursive
-// local-use facts for the original revision; nested rewrites add current-root
-// overlays rather than rescanning the root body.
+// Accepted raw OI-H root wrapper. Nested rewrites use current-root overlays over
+// immutable region facts and never build a second function-wide index.
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
   instrs : Array[@lib.Instruction],
-  function_index? : RawOiFunctionRevisionFactIndex? = None,
 ) -> (Array[@lib.Instruction], Bool) {
-  let index = match function_index {
-    Some(index) => index
-    None => RawOiFunctionRevisionFactIndex::from_instrs(instrs)
-  }
   run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
-    instrs, index,
+    instrs,
   )
 }
 
@@ -33966,7 +33771,6 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let (directized_body, directized_changed) = if directization_index.bridge_candidates.needs_call_ref_or_null_repair() {
     run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
       exact_miss_body,
-      function_index=Some(directization_index),
     )
   } else {
     (exact_miss_body, false)

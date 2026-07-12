@@ -32422,6 +32422,64 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
 }
 
 ///|
+test "optimize-instructions keeps local-carried call_ref targets like Binaryen" {
+  // Binaryen v130 `visitCallRef` follows the target expression itself through
+  // `Properties::getFallthrough`; it does not propagate a previous ref.func
+  // assignment through a later local.get. Keep the local binding and call_ref
+  // rather than treating local dataflow as a direct-target proof.
+  // Oracle: bounded aggregate case 53 (`oi-call-ref:local-carried-target`).
+  let caller_type = @lib.TypeIdx::new(0U)
+  let callee_type = @lib.TypeIdx::new(1U)
+  let callee_heap = @lib.HeapType::new(callee_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([caller_type, callee_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::ref_null(callee_heap)]),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call_ref(callee_type),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(42))]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_false(pretty.contains("call (Func 1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions directizes call_ref from local.tee ref.func target facts" {
   // OI-H call_ref target fact slice: Binaryen version_130
   // `visitCallRef` calls `getFallthrough(curr->target)`, so a `local.tee` target

@@ -690,65 +690,25 @@ test "optimize-instructions raw function index rebuilds from a changed snapshot"
 }
 
 ///|
-test "optimize-instructions raw function index owns recursive local use counts" {
-  let target = @lib.LocalIdx::new(3U)
-  let other = @lib.LocalIdx::new(8U)
-  let index = RawOiFunctionRevisionFactIndex::from_instrs([
-    @lib.Instruction::local_get(target),
-    @lib.Instruction::block(
-      @lib.BlockType::void_(),
-      @lib.Expr::new([
-        @lib.Instruction::local_get(target),
-        @lib.Instruction::drop(),
-        @lib.Instruction::local_get(other),
-        @lib.Instruction::drop(),
-      ]),
-    ),
-  ])
-  @debug.assert_eq(index.local_get_count(target), 2)
-  @debug.assert_eq(index.local_get_count(other), 1)
-  @debug.assert_eq(index.local_get_count(@lib.LocalIdx::new(99U)), 0)
-}
-
-///|
-test "optimize-instructions call_ref overlay combines current root with original recursive uses" {
+test "optimize-instructions call_ref overlay rejects local-carried target propagation" {
   let target = @lib.FuncIdx::new(7U)
   let type_idx = @lib.TypeIdx::new(3U)
   let target_local = @lib.LocalIdx::new(2U)
   let original = [
-    @lib.Instruction::block(
-      @lib.BlockType::void_(),
-      @lib.Expr::new([@lib.Instruction::ref_func(target)]),
-    ),
+    @lib.Instruction::ref_func(target),
     @lib.Instruction::local_set(target_local),
     @lib.Instruction::local_get(target_local),
     @lib.Instruction::call_ref(type_idx),
-    @lib.Instruction::block(
-      @lib.BlockType::void_(),
-      @lib.Expr::new([
-        @lib.Instruction::local_get(target_local),
-        @lib.Instruction::drop(),
-      ]),
-    ),
   ]
   let overlay : RawOiCurrentRootRevisionOverlay = {
-    current: @lib.Instruction::ref_func(target),
+    current: original[0],
     region: RawOiInstructionRegionFact::from_instrs(original),
-    function_index: RawOiFunctionRevisionFactIndex::from_instrs(original),
     start: 0,
   }
   match RawOiCallRefDirectizeRewriteFact::from_overlay(overlay) {
-    Some(fact) => {
-      assert_true(fact.proves_binaryen_call_ref_directization())
-      @debug.assert_eq(fact.local_fallthrough_get_count, 2)
-      assert_true(fact.preserves_local_fallthrough_binding)
-      @debug.assert_eq(fact.rewrite, [
-        @lib.Instruction::ref_func(target),
-        @lib.Instruction::local_set(target_local),
-        @lib.Instruction::call(target),
-      ])
-    }
-    None => fail("expected mixed-revision call_ref overlay fact")
+    None => ()
+    Some(_) =>
+      fail("local assignment dataflow must not prove a direct call_ref target")
   }
 }
 
@@ -875,28 +835,26 @@ test "optimize-instructions raw directizes constant select ref.func call_ref bef
 }
 
 ///|
-test "optimize-instructions raw directizes dead local ref.func call_ref before skip" {
-  // OI-H target-wrapper residuals include `local.set (ref.func f)` followed by
-  // a single `local.get` call_ref target. The raw skip path may remove the dead
-  // wrapper when the target local has no other reads.
+test "optimize-instructions raw keeps local-carried ref.func call_ref before skip" {
+  // Binaryen v130 does not treat a previous local assignment as the syntactic
+  // fallthrough of a later local.get target. The raw bridge must therefore keep
+  // the binding and call_ref even when the local has only one read.
   let target = @lib.FuncIdx::new(7U)
   let type_idx = @lib.TypeIdx::new(3U)
   let target_local = @lib.LocalIdx::new(0U)
-  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
-      @lib.Instruction::i32_const(@lib.I32(99)),
-      @lib.Instruction::ref_func(target),
-      @lib.Instruction::local_set(target_local),
-      @lib.Instruction::local_get(target_local),
-      @lib.Instruction::call_ref(type_idx),
-      @lib.Instruction::drop(),
-    ],
-  )
-  assert_true(changed)
-  @debug.assert_eq(rewritten, [
+  let original = [
     @lib.Instruction::i32_const(@lib.I32(99)),
-    @lib.Instruction::call(target),
+    @lib.Instruction::ref_func(target),
+    @lib.Instruction::local_set(target_local),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::call_ref(type_idx),
     @lib.Instruction::drop(),
-  ])
+  ]
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
+    original,
+  )
+  assert_false(changed)
+  @debug.assert_eq(rewritten, original)
 }
 
 ///|
