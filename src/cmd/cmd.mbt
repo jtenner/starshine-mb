@@ -1739,6 +1739,7 @@ fn optimize_options_to_hot_pipeline_options(
   options : OptimizeOptions,
   validate_final_module? : Bool = true,
   trace? : ((String) -> Unit)? = None,
+  trace_detail_timings? : Bool = true,
 ) -> @passes.HotPipelineOptions {
   @passes.HotPipelineOptions::new(
     verify_policy=match options.validation_policy {
@@ -1759,6 +1760,7 @@ fn optimize_options_to_hot_pipeline_options(
         Some(
           @passes.HotPerfSession::new(
             trace=cb,
+            trace_detail_timings~,
             trace_checkpoints=false,
             trace_counters=false,
           ),
@@ -1791,13 +1793,13 @@ fn optimize_module_with_pass_flags_trace(
   validate_final_module? : Bool = true,
   trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
 ) -> Result[Module, String] {
-  let _ = trace_level
   @passes.run_hot_pipeline(
     mod,
     optimize_options_to_hot_pipeline_options(
       options,
       validate_final_module~,
       trace=Some(trace),
+      trace_detail_timings=trace_level == OptimizeTracingLevel::helper(),
     ),
     pass_flags,
   )

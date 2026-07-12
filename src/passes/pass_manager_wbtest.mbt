@@ -1,4 +1,126 @@
 ///|
+test "optimize-instructions reports raw admission and HOT setup phase timings" {
+  let trace : Array[String] = []
+  let perf = HotPerfSession::new(
+    trace=fn(line) { trace.push(line) },
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let input = "(module (func (export \"main\") (param i32) (result i32) local.get 0 i32.const 1 i32.add))"
+  match
+    pass_test_run_pipeline(
+      input,
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions timing probe success, got \{err}")
+  }
+  let text = trace.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:raw-descriptor-bridges",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:raw-revision-index",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:unsupported-preflight",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:optimize-instructions:scratch-init"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:optimize-instructions:free-node-init"),
+    msg=text,
+  )
+}
+
+///|
+test "descriptor prefix value graph answers repeated hoist queries without rescanning" {
+  let graph = RawOiDescriptorPrefixValueGraphFact::from_body(
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+      @lib.Instruction::ref_as_non_null(),
+    ],
+    0,
+  )
+  match graph.prefix_hoist(1) {
+    Some(fact) => {
+      @debug.assert_eq(fact.prefix_len, 1)
+      assert_true(fact.proves_binaryen_descriptor_prefix_hoist())
+    }
+    None => fail("expected first descriptor prefix to hoist")
+  }
+  match graph.prefix_hoist(3) {
+    Some(fact) => {
+      @debug.assert_eq(fact.prefix_len, 3)
+      assert_true(fact.proves_binaryen_descriptor_prefix_hoist())
+    }
+    None => fail("expected full descriptor prefix to hoist")
+  }
+  let blocked = RawOiDescriptorPrefixValueGraphFact::from_body(
+    [
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ],
+    0,
+  )
+  assert_true(blocked.prefix_hoist(1) is None)
+}
+
+///|
+test "descriptor call value graph reuses ordered local operand runs" {
+  let graph = RawOiDescriptorCallValueGraphFact::from_body([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+  ])
+  @debug.assert_eq(graph.local_run_end(0), 2)
+  @debug.assert_eq(graph.local_run_end(1), 2)
+  @debug.assert_eq(graph.local_run_end(2), 2)
+  @debug.assert_eq(graph.local_run_end(3), 4)
+  @debug.assert_eq(graph.local_args(0, 2), [
+    @lib.LocalIdx::new(0U),
+    @lib.LocalIdx::new(1U),
+  ])
+  @debug.assert_eq(graph.local_args(3, 4), [@lib.LocalIdx::new(3U)])
+  @debug.assert_eq(graph.nontrapping_run_end(0), 2)
+  @debug.assert_eq(graph.nontrapping_run_end(3), 4)
+  @debug.assert_eq(graph.instr_args(0, 2), [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+  let default_graph = RawOiDescriptorCallValueGraphFact::from_body([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::struct_new_default(@lib.TypeIdx::new(1U)),
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+        exact=true,
+      ),
+    ),
+  ])
+  assert_true(default_graph.has_local_default_candidate_at(0))
+  assert_false(default_graph.has_local_default_candidate_at(1))
+}
+
+///|
 test "optimize-instructions raw function index collects call and select anchors once" {
   let repeated = @lib.FuncIdx::new(3U)
   let other = @lib.FuncIdx::new(9U)
@@ -23,6 +145,28 @@ test "optimize-instructions raw function index collects call and select anchors 
   assert_true(index.has_repeated_call(repeated))
   assert_false(index.has_repeated_call(other))
   assert_true(index.has_select_anchor())
+}
+
+///|
+test "optimize-instructions raw function index classifies bridge candidates once" {
+  let empty = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+  ])
+  assert_false(empty.bridge_candidates.needs_descriptor_reconstruction())
+  assert_false(empty.bridge_candidates.needs_call_ref_or_null_repair())
+  let candidates = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+    @lib.Instruction::ref_get_desc(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+    ),
+    @lib.Instruction::call_ref(@lib.TypeIdx::new(1U)),
+  ])
+  assert_true(candidates.bridge_candidates.needs_descriptor_reconstruction())
+  assert_true(candidates.bridge_candidates.has_ref_get_desc)
+  assert_true(candidates.bridge_candidates.needs_call_ref_or_null_repair())
 }
 
 ///|
@@ -122,6 +266,299 @@ test "optimize-instructions raw function index routes bottom-null descriptor can
 }
 
 ///|
+test "optimize-instructions raw function index routes const-offset load-call bypass" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 4UL)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+  match RawOiConstOffsetLoadThenCallFact::from_index(index) {
+    Some(fact) => assert_true(fact.proves_binaryen_offset_fold_bypass())
+    None => fail("expected indexed const-offset load-call bypass")
+  }
+  let zero_offset = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+  assert_true(
+    RawOiConstOffsetLoadThenCallFact::from_index(zero_offset).is_none(),
+  )
+}
+
+///|
+test "optimize-instructions raw function index routes stack bulk-memory regions" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
+  ])
+  match
+    RawOiStackBulkMemoryRegionFact::from_index(
+      index,
+      @ir.hot_module_context_from_module(@lib.Module::new()),
+    ) {
+    Some(fact) => {
+      @debug.assert_eq(fact.operation_count, 1)
+      assert_true(fact.proves_trap_relaxed_zero_size_drop_region())
+    }
+    None => fail("expected indexed stack bulk-memory region")
+  }
+}
+
+///|
+test "optimize-instructions same-flat memory-copy walker uses per-body region views" {
+  let address = @lib.LocalIdx::new(0U)
+  let fact = RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(address),
+        @lib.Instruction::local_get(address),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_copy(
+          @lib.MemIdx::new(0U),
+          @lib.MemIdx::new(0U),
+        ),
+      ]),
+    ),
+  ])
+  assert_true(fact.changed)
+  match fact.rewritten {
+    [@lib.Block(_, @lib.Expr(body))] => {
+      @debug.assert_eq(body.length(), 6)
+      assert_false(
+        body.any(fn(instr) {
+          match instr {
+            @lib.MemoryCopy(_, _) => true
+            _ => false
+          }
+        }),
+      )
+    }
+    _ => fail("expected rewritten nested block")
+  }
+}
+
+///|
+test "optimize-instructions raw function index owns stack value transfer facts" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::i32_add(),
+  ])
+  let transfers = RawOiFunctionStackValueTransferFacts::from_index(
+    index,
+    @validate.Env::new(),
+  )
+  assert_true(transfers.complete)
+  @debug.assert_eq(transfers.steps.length(), 3)
+  @debug.assert_eq(transfers.steps[0].stack_depth_after, 1)
+  @debug.assert_eq(transfers.steps[1].stack_depth_after, 2)
+  @debug.assert_eq(transfers.steps[2].stack_depth_after, 1)
+  assert_true(transfers.steps.all(fn(step) { step.reachable }))
+}
+
+///|
+test "optimize-instructions descriptor block arguments consume indexed flow facts" {
+  let safe_region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+  ])
+  assert_true(
+    RawOiDescriptorCallArgBlockBodyFact::from_region(safe_region).proves_binaryen_branch_free_operand(),
+  )
+  let blocked_region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  assert_false(
+    RawOiDescriptorCallArgBlockBodyFact::from_region(blocked_region).proves_binaryen_branch_free_operand(),
+  )
+  assert_true(blocked_region.roots[1].flow.has_call)
+}
+
+///|
+test "optimize-instructions bulk lowering consumes indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
+  ])
+  match RawOiBulkLoweringRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_bulk_lowering())
+      @debug.assert_eq(fact.end, 4)
+      assert_true(region.has_root_at(3, RawOiRootKind::BulkMemory))
+    }
+    None => fail("expected indexed bulk lowering rewrite")
+  }
+}
+
+///|
+test "optimize-instructions select rewrites consume indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::select(),
+  ])
+  match RawOiSelectRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_select_rewrite())
+      @debug.assert_eq(fact.end, 4)
+      assert_true(region.has_root_at(3, RawOiRootKind::Select))
+    }
+    None => fail("expected indexed select rewrite")
+  }
+}
+
+///|
+test "optimize-instructions memory-size boolean rewrites consume indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_ne(),
+    @lib.Instruction::if_(@lib.BlockType::void_(), [], None),
+  ])
+  match RawOiMemorySizeNonzeroIfFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_boolean_context_rewrite())
+      @debug.assert_eq(fact.end, 4)
+      assert_true(region.has_root_at(0, RawOiRootKind::MemorySize))
+    }
+    None => fail("expected indexed memory-size boolean rewrite")
+  }
+}
+
+///|
+test "optimize-instructions drop-store masks consume indexed region roots" {
+  let memarg = @lib.MemArg::new(0U, None, 0UL)
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(255)),
+    @lib.Instruction::i32_and(),
+    @lib.Instruction::i32_store8(memarg),
+  ])
+  match RawOiDropStoreMaskRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_i32_narrow_store_mask())
+      @debug.assert_eq(fact.end, 5)
+      assert_true(region.has_root_at(4, RawOiRootKind::MemoryStore))
+    }
+    None => fail("expected indexed drop-store mask rewrite")
+  }
+  let wrong_mask = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(127)),
+    @lib.Instruction::i32_and(),
+    @lib.Instruction::i32_store8(memarg),
+  ])
+  assert_true(
+    RawOiDropStoreMaskRewriteFact::from_region(wrong_mask, 0).is_none(),
+  )
+}
+
+///|
+test "optimize-instructions dropped branch if rewrites consume indexed if roots" {
+  let condition = @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+  let region = RawOiInstructionRegionFact::from_instrs([
+    condition,
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::i32_const(@lib.I32(1)), @lib.Instruction::drop()],
+      Some([@lib.Instruction::i32_const(@lib.I32(2)), @lib.Instruction::drop()]),
+    ),
+  ])
+  match RawOiDroppedConstBranchIfFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_dropped_branch_rewrite())
+      @debug.assert_eq(fact.end, 2)
+      assert_true(region.has_root_at(1, RawOiRootKind::If))
+    }
+    None => fail("expected indexed dropped-branch if rewrite")
+  }
+  let mismatched = RawOiInstructionRegionFact::from_instrs([
+    condition,
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::i32_const(@lib.I32(1)), @lib.Instruction::drop()],
+      Some([@lib.Instruction::i64_const(@lib.I64(2L)), @lib.Instruction::drop()]),
+    ),
+  ])
+  assert_true(
+    RawOiDroppedConstBranchIfFact::from_region(mismatched, 0).is_none(),
+  )
+}
+
+///|
+test "optimize-instructions scalar numeric rewrites consume indexed terminal roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_mul(),
+  ])
+  match RawOiScalarNumericRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_numeric_rewrite())
+      @debug.assert_eq(fact.end, 3)
+      assert_true(region.has_root_at(2, RawOiRootKind::ScalarNumericTerminal))
+    }
+    None => fail("expected indexed scalar numeric rewrite")
+  }
+  let boundary = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(3)),
+    @lib.Instruction::i32_mul(),
+  ])
+  assert_true(RawOiScalarNumericRewriteFact::from_region(boundary, 0).is_none())
+}
+
+///|
+test "optimize-instructions memory offset folds consume indexed region roots" {
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 4UL)),
+  ])
+  match RawOiMemoryOffsetFoldRewriteFact::from_region(region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_memory_offset_fold())
+      @debug.assert_eq(fact.end, 2)
+    }
+    None => fail("expected indexed memory offset fold")
+  }
+  let zero_offset = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+  ])
+  assert_true(
+    RawOiMemoryOffsetFoldRewriteFact::from_region(zero_offset, 0).is_none(),
+  )
+}
+
+///|
+test "optimize-instructions module revision facts reuse indexed direct-call roots" {
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  let facts = RawOiModuleFunctionRevisionFacts::from_index(
+    index,
+    @ir.hot_module_context_from_module(@lib.Module::new()),
+  )
+  assert_true(facts.is_constructor_operand_at(0))
+  assert_false(facts.is_constructor_operand_at(1))
+  assert_true(facts.range_has_direct_call(0, 2))
+}
+
+///|
 test "optimize-instructions raw function index rebuilds from a changed snapshot" {
   let target = @lib.FuncIdx::new(4U)
   let before = RawOiFunctionRevisionFactIndex::from_instrs([
@@ -140,6 +577,98 @@ test "optimize-instructions raw function index rebuilds from a changed snapshot"
   assert_true(after.lowered_stats.instrs > before.lowered_stats.instrs)
   @debug.assert_eq(before.lowered_stats.calls, 1)
   @debug.assert_eq(after.lowered_stats.calls, 2)
+}
+
+///|
+test "optimize-instructions raw function index owns recursive local use counts" {
+  let target = @lib.LocalIdx::new(3U)
+  let other = @lib.LocalIdx::new(8U)
+  let index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(other),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+  @debug.assert_eq(index.local_get_count(target), 2)
+  @debug.assert_eq(index.local_get_count(other), 1)
+  @debug.assert_eq(index.local_get_count(@lib.LocalIdx::new(99U)), 0)
+}
+
+///|
+test "optimize-instructions call_ref overlay combines current root with original recursive uses" {
+  let target = @lib.FuncIdx::new(7U)
+  let type_idx = @lib.TypeIdx::new(3U)
+  let target_local = @lib.LocalIdx::new(2U)
+  let original = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::ref_func(target)]),
+    ),
+    @lib.Instruction::local_set(target_local),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::call_ref(type_idx),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(target_local),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  let overlay : RawOiCurrentRootRevisionOverlay = {
+    current: @lib.Instruction::ref_func(target),
+    region: RawOiInstructionRegionFact::from_instrs(original),
+    function_index: RawOiFunctionRevisionFactIndex::from_instrs(original),
+    start: 0,
+  }
+  match RawOiCallRefDirectizeRewriteFact::from_overlay(overlay) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_call_ref_directization())
+      @debug.assert_eq(fact.local_fallthrough_get_count, 2)
+      assert_true(fact.preserves_local_fallthrough_binding)
+      @debug.assert_eq(fact.rewrite, [
+        @lib.Instruction::ref_func(target),
+        @lib.Instruction::local_set(target_local),
+        @lib.Instruction::call(target),
+      ])
+    }
+    None => fail("expected mixed-revision call_ref overlay fact")
+  }
+}
+
+///|
+test "optimize-instructions ref-null trap repair consumes indexed region roots" {
+  let heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::ref_null(heap),
+    @lib.Instruction::ref_as_non_null(),
+  ])
+  match
+    RawOiRefNullTrapRewriteFact::from_region(region.roots[0].instr, region, 0) {
+    Some(fact) => {
+      assert_true(fact.proves_binaryen_ref_null_trap_repair())
+      @debug.assert_eq(fact.end, 2)
+      assert_true(region.has_root_at(0, RawOiRootKind::RefNull))
+    }
+    None => fail("expected indexed ref-null trap repair")
+  }
+  let boundary = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::ref_null(heap),
+    @lib.Instruction::drop(),
+  ])
+  assert_true(
+    RawOiRefNullTrapRewriteFact::from_region(
+      boundary.roots[0].instr,
+      boundary,
+      0,
+    ).is_none(),
+  )
 }
 
 ///|
