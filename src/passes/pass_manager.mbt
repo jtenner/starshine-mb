@@ -31364,16 +31364,70 @@ fn RawOiDescriptorCallArgFact::append_instrs(
 }
 
 ///|
+priv enum RawOiDescriptorProducerEndpointKind {
+  DescriptorProducerEndpointDirectCall
+  DescriptorProducerEndpointDirectCallRef
+  DescriptorProducerEndpointTableCallRef
+}
+
+///|
+// Syntactic descriptor producer endpoint discovered by the reusable value
+// graph. This is candidate routing only: family facts still prove the resolved
+// signature, target descriptor, exactness, arity, local subtype, and rewrite.
+priv struct RawOiDescriptorProducerEndpointFact {
+  kind : RawOiDescriptorProducerEndpointKind
+  end : Int
+}
+
+///|
+fn RawOiDescriptorProducerEndpointFact::from_instrs(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> RawOiDescriptorProducerEndpointFact? {
+  if start < 0 || start >= instrs.length() {
+    return None
+  }
+  match instrs[start] {
+    @lib.Call(_) if start + 1 < instrs.length() =>
+      match instrs[start + 1] {
+        @lib.RefCastDescEq(_, _, _) =>
+          Some({ kind: DescriptorProducerEndpointDirectCall, end: start + 2 })
+        _ => None
+      }
+    @lib.RefFunc(_) if start + 2 < instrs.length() =>
+      match (instrs[start + 1], instrs[start + 2]) {
+        (@lib.CallRef(_), @lib.RefCastDescEq(_, _, _)) =>
+          Some({ kind: DescriptorProducerEndpointDirectCallRef, end: start + 3 })
+        _ => None
+      }
+    @lib.TableGet(_) if start + 2 < instrs.length() =>
+      match (instrs[start + 1], instrs[start + 2]) {
+        (@lib.CallRef(_), @lib.RefCastDescEq(_, _, _)) =>
+          Some({ kind: DescriptorProducerEndpointTableCallRef, end: start + 3 })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 // Reusable ordered-value graph for the flat descriptor stack bridge. The graph
-// classifies each immutable root once and stores maximal local-get runs. Family
-// facts may use those runs to discover call operands, but exact signature,
-// target, nullability, exactness, trap, and rewrite-order proof stays in the
-// consuming descriptor fact.
+// classifies each immutable root once, stores maximal simple runs, and records
+// richer typed descriptor chunks plus candidate producer endpoints. Family
+// facts may use those runs to discover operands, but exact signature, target,
+// nullability, exactness, trap, and rewrite-order proof stays in the consuming
+// descriptor fact.
 priv struct RawOiDescriptorCallValueGraphFact {
   instrs : Array[@lib.Instruction]
   local_run_ends : Array[Int]
   nontrapping_run_ends : Array[Int]
   exactification_run_ends : Array[Int]
+  descriptor_operand_miss_chunks : Array[RawOiDescriptorCallArgFact?]
+  descriptor_operand_miss_endpoints : Array[
+    RawOiDescriptorProducerEndpointFact?,
+  ]
+  descriptor_operand_miss_run_ends : Array[Int]
+  descriptor_operand_miss_value_counts : Array[Int]
 }
 
 ///|
@@ -31386,6 +31440,18 @@ fn RawOiDescriptorCallValueGraphFact::from_body(
     instrs.length() + 1,
     instrs.length(),
   )
+  let descriptor_operand_miss_chunks : Array[RawOiDescriptorCallArgFact?] = Array::make(
+    instrs.length(),
+    None,
+  )
+  let descriptor_operand_miss_endpoints : Array[
+    RawOiDescriptorProducerEndpointFact?,
+  ] = Array::make(instrs.length(), None)
+  let descriptor_operand_miss_run_ends = Array::make(
+    instrs.length() + 1,
+    instrs.length(),
+  )
+  let descriptor_operand_miss_value_counts = Array::make(instrs.length() + 1, 0)
   let mut idx = instrs.length() - 1
   while idx >= 0 {
     local_run_ends[idx] = match instrs[idx] {
@@ -31409,7 +31475,16 @@ fn RawOiDescriptorCallValueGraphFact::from_body(
     }
     idx = idx - 1
   }
-  { instrs, local_run_ends, nontrapping_run_ends, exactification_run_ends }
+  {
+    instrs,
+    local_run_ends,
+    nontrapping_run_ends,
+    exactification_run_ends,
+    descriptor_operand_miss_chunks,
+    descriptor_operand_miss_endpoints,
+    descriptor_operand_miss_run_ends,
+    descriptor_operand_miss_value_counts,
+  }
 }
 
 ///|
@@ -31418,6 +31493,31 @@ fn RawOiDescriptorCallValueGraphFact::from_module_body(
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorCallValueGraphFact {
   let graph = RawOiDescriptorCallValueGraphFact::from_body(instrs)
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match
+      RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
+        module_ctx, instrs, idx,
+      ) {
+      Some(fact) if fact.proves_binaryen_operand_preservation() =>
+        graph.descriptor_operand_miss_chunks[idx] = Some(fact)
+      _ =>
+        match RawOiDescriptorProducerEndpointFact::from_instrs(instrs, idx) {
+          Some(endpoint) =>
+            graph.descriptor_operand_miss_endpoints[idx] = Some(endpoint)
+          None =>
+            match
+              RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
+                module_ctx,
+                instrs[idx],
+                idx,
+              ) {
+              Some(fact) if fact.proves_binaryen_operand_preservation() =>
+                graph.descriptor_operand_miss_chunks[idx] = Some(fact)
+              _ => ()
+            }
+        }
+    }
+  }
   let mut idx = instrs.length() - 1
   while idx >= 0 {
     let is_exactification_operand = RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
@@ -31430,6 +31530,17 @@ fn RawOiDescriptorCallValueGraphFact::from_module_body(
       graph.exactification_run_ends[idx + 1]
     } else {
       idx
+    }
+    match graph.descriptor_operand_miss_chunks[idx] {
+      Some(fact) if fact.end > idx && fact.end <= instrs.length() => {
+        graph.descriptor_operand_miss_run_ends[idx] = graph.descriptor_operand_miss_run_ends[fact.end]
+        graph.descriptor_operand_miss_value_counts[idx] = fact.value_count +
+          graph.descriptor_operand_miss_value_counts[fact.end]
+      }
+      _ => {
+        graph.descriptor_operand_miss_run_ends[idx] = idx
+        graph.descriptor_operand_miss_value_counts[idx] = 0
+      }
     }
     idx = idx - 1
   }
@@ -31469,6 +31580,42 @@ fn RawOiDescriptorCallValueGraphFact::exactification_run_end(
     start
   } else {
     self.exactification_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_run_end(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    start
+  } else {
+    self.descriptor_operand_miss_run_ends[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_value_count(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> Int {
+  if start < 0 || start >= self.instrs.length() {
+    0
+  } else {
+    self.descriptor_operand_miss_value_counts[start]
+  }
+}
+
+///|
+fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_endpoint(
+  self : RawOiDescriptorCallValueGraphFact,
+  start : Int,
+) -> RawOiDescriptorProducerEndpointFact? {
+  if start < 0 || start >= self.instrs.length() {
+    None
+  } else {
+    self.descriptor_operand_miss_endpoints[start]
   }
 }
 
@@ -31722,96 +31869,90 @@ priv struct RawOiDescriptorLocalOperandMissFact {
 }
 
 ///|
-fn RawOiDescriptorLocalOperandMissFact::from_instrs(
-  instrs : Array[@lib.Instruction],
+fn RawOiDescriptorLocalOperandMissFact::from_graph(
+  graph : RawOiDescriptorCallValueGraphFact,
   start : Int,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> RawOiDescriptorLocalOperandMissFact? {
-  let local_idx = match instrs[start] {
+  if start < 0 || start >= graph.instrs.length() {
+    return None
+  }
+  let local_idx = match graph.instrs[start] {
     @lib.LocalGet(local_idx) => local_idx
     _ => return None
   }
-  let desc_args : Array[@lib.Instruction] = []
-  let mut desc_arg_count = 0
-  let mut scan = start + 1
-  while scan < instrs.length() {
-    match
-      RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
-        module_ctx, instrs, scan,
-      ) {
-      Some(fact) if fact.proves_binaryen_operand_preservation() => {
-        fact.append_instrs(instrs, desc_args)
-        desc_arg_count = desc_arg_count + fact.value_count
-        scan = fact.end
-        continue
+  let desc_start = start + 1
+  let scan = graph.descriptor_operand_miss_run_end(desc_start)
+  let desc_arg_count = graph.descriptor_operand_miss_value_count(desc_start)
+  let desc_args = graph.instr_args(desc_start, scan)
+  let endpoint = match graph.descriptor_operand_miss_endpoint(scan) {
+    Some(endpoint) => endpoint
+    None => return None
+  }
+  match endpoint.kind {
+    DescriptorProducerEndpointDirectCall =>
+      match (graph.instrs[scan], graph.instrs[scan + 1]) {
+        (@lib.Call(descriptor_func), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx, descriptor_func, target, desc_arg_count,
+          ) &&
+          RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+            module_ctx, params, locals, local_idx, target,
+          ) =>
+          Some({
+            end: endpoint.end,
+            kind: DescriptorMissProducerDirectCall,
+            local_idx,
+            descriptor_func: Some(descriptor_func),
+            type_idx: None,
+            table_idx: None,
+            target,
+            desc_value_count: desc_arg_count,
+            desc_args,
+          })
+        _ => None
       }
-      _ => ()
-    }
-    match instrs[scan] {
-      @lib.Call(descriptor_func) if scan + 1 < instrs.length() =>
-        match instrs[scan + 1] {
-          @lib.RefCastDescEq(_, _, target) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-              module_ctx, descriptor_func, target, desc_arg_count,
-            ) &&
-            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-              module_ctx, params, locals, local_idx, target,
-            ) =>
-            return Some({
-              end: scan + 2,
-              kind: DescriptorMissProducerDirectCall,
-              local_idx,
-              descriptor_func: Some(descriptor_func),
-              type_idx: None,
-              table_idx: None,
-              target,
-              desc_value_count: desc_arg_count,
-              desc_args,
-            })
-          _ =>
-            match
-              RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
-                module_ctx,
-                instrs[scan],
-                scan,
-              ) {
-              Some(fact) if fact.proves_binaryen_operand_preservation() => {
-                fact.append_instrs(instrs, desc_args)
-                desc_arg_count = desc_arg_count + fact.value_count
-                scan = fact.end
-              }
-              _ => return None
-            }
-        }
-      @lib.RefFunc(descriptor_func) if scan + 2 < instrs.length() =>
-        match (instrs[scan + 1], instrs[scan + 2]) {
-          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
-              module_ctx, descriptor_func, target, desc_arg_count,
-            ) &&
-            RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
-              module_ctx, type_idx, target, desc_arg_count,
-            ) &&
-            RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
-              module_ctx, params, locals, local_idx, target,
-            ) =>
-            return Some({
-              end: scan + 3,
-              kind: DescriptorMissProducerDirectCallRef,
-              local_idx,
-              descriptor_func: Some(descriptor_func),
-              type_idx: Some(type_idx),
-              table_idx: None,
-              target,
-              desc_value_count: desc_arg_count,
-              desc_args,
-            })
-          _ => return None
-        }
-      @lib.TableGet(table_idx) if desc_arg_count > 0 &&
-        scan + 2 < instrs.length() =>
-        match (instrs[scan + 1], instrs[scan + 2]) {
-          (@lib.CallRef(type_idx), @lib.RefCastDescEq(_, _, target)) if RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+    DescriptorProducerEndpointDirectCallRef =>
+      match
+        (graph.instrs[scan], graph.instrs[scan + 1], graph.instrs[scan + 2]) {
+        (
+          @lib.RefFunc(descriptor_func),
+          @lib.CallRef(type_idx),
+          @lib.RefCastDescEq(_, _, target),
+        ) if RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
+            module_ctx, descriptor_func, target, desc_arg_count,
+          ) &&
+          RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
+            module_ctx, type_idx, target, desc_arg_count,
+          ) &&
+          RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
+            module_ctx, params, locals, local_idx, target,
+          ) =>
+          Some({
+            end: endpoint.end,
+            kind: DescriptorMissProducerDirectCallRef,
+            local_idx,
+            descriptor_func: Some(descriptor_func),
+            type_idx: Some(type_idx),
+            table_idx: None,
+            target,
+            desc_value_count: desc_arg_count,
+            desc_args,
+          })
+        _ => None
+      }
+    DescriptorProducerEndpointTableCallRef =>
+      if desc_arg_count <= 0 {
+        None
+      } else {
+        match
+          (graph.instrs[scan], graph.instrs[scan + 1], graph.instrs[scan + 2]) {
+          (
+            @lib.TableGet(table_idx),
+            @lib.CallRef(type_idx),
+            @lib.RefCastDescEq(_, _, target),
+          ) if RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_count(
               module_ctx,
               type_idx,
               target,
@@ -31820,8 +31961,8 @@ fn RawOiDescriptorLocalOperandMissFact::from_instrs(
             RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
               module_ctx, params, locals, local_idx, target,
             ) =>
-            return Some({
-              end: scan + 3,
+            Some({
+              end: endpoint.end,
               kind: DescriptorMissProducerTableCallRef,
               local_idx,
               descriptor_func: None,
@@ -31831,23 +31972,10 @@ fn RawOiDescriptorLocalOperandMissFact::from_instrs(
               desc_value_count: desc_arg_count,
               desc_args,
             })
-          _ => return None
+          _ => None
         }
-      arg =>
-        match
-          RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
-            module_ctx, arg, scan,
-          ) {
-          Some(fact) if fact.proves_binaryen_operand_preservation() => {
-            fact.append_instrs(instrs, desc_args)
-            desc_arg_count = desc_arg_count + fact.value_count
-            scan = fact.end
-          }
-          _ => return None
-        }
-    }
+      }
   }
-  None
 }
 
 ///|
@@ -32837,8 +32965,8 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
       _ => ()
     }
     match
-      RawOiDescriptorLocalOperandMissFact::from_instrs(
-        instrs, i, module_ctx, params, locals,
+      RawOiDescriptorLocalOperandMissFact::from_graph(
+        graph, i, module_ctx, params, locals,
       ) {
       Some(fact) if fact.proves_binaryen_descriptor_miss() => {
         fact.append_rewrite(rewritten)

@@ -121,6 +121,63 @@ test "descriptor call value graph reuses ordered local operand runs" {
 }
 
 ///|
+test "descriptor call value graph indexes rich operand chunks through producer endpoints" {
+  let value_type = @lib.TypeIdx::new(0U)
+  let no_param_type = @lib.TypeIdx::new(1U)
+  let module_ctx = @ir.hot_module_context_from_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i64()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([value_type, no_param_type])),
+  )
+  let graph = RawOiDescriptorCallValueGraphFact::from_module_body(
+    [
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::select(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::i32_div_u(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(3))]),
+      ),
+      @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(3U)),
+          exact=true,
+        ),
+      ),
+    ],
+    module_ctx,
+  )
+  @debug.assert_eq(graph.descriptor_operand_miss_run_end(0), 13)
+  @debug.assert_eq(graph.descriptor_operand_miss_value_count(0), 6)
+  @debug.assert_eq(graph.descriptor_operand_miss_run_end(13), 13)
+  @debug.assert_eq(graph.descriptor_operand_miss_value_count(13), 0)
+}
+
+///|
 test "optimize-instructions raw function index collects call and select anchors once" {
   let repeated = @lib.FuncIdx::new(3U)
   let other = @lib.FuncIdx::new(9U)
