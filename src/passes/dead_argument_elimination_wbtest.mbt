@@ -170,6 +170,46 @@ test "dae core result application installs changes and preserves scheduler state
 }
 
 ///|
+test "dae cleanup result application preserves scheduler touched ownership" {
+  let current = dae_wbtest_call_summary_fixture()
+  let rewritten = @lib.Module::new()
+  let cleanup_result : DaePassResult = {
+    mod_out: rewritten,
+    touched: [false, true, true],
+    changed: true,
+    primary_def: 2,
+  }
+  let applied = dae_apply_cleanup_result_preserving_touched(
+    current,
+    [true, false, false],
+    false,
+    cleanup_result,
+  )
+  assert_true(applied.applied)
+  assert_eq(applied.mod_out, rewritten)
+  assert_eq(applied.touched, [true, false, false])
+  assert_true(applied.changed)
+  assert_eq(applied.primary_def, 2)
+  let no_change_result : DaePassResult = {
+    mod_out: rewritten,
+    touched: [false, true, true],
+    changed: false,
+    primary_def: 2,
+  }
+  let preserved = dae_apply_cleanup_result_preserving_touched(
+    current,
+    applied.touched,
+    true,
+    no_change_result,
+  )
+  assert_false(preserved.applied)
+  assert_eq(preserved.mod_out, current)
+  assert_eq(preserved.touched, [true, false, false])
+  assert_true(preserved.changed)
+  assert_eq(preserved.primary_def, -1)
+}
+
+///|
 test "dae selected core result application clears the consumed selection" {
   let current = dae_wbtest_call_summary_fixture()
   let rewritten = @lib.Module::new()
