@@ -33692,6 +33692,138 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
 // fallback rewrites and fact-backed skip boundaries before the normal HOT pass
 // path; it should remain an orchestrator over `RawOi*Fact` producers rather
 // than a home for new scanner predicates.
+fn run_hot_pipeline_raw_optimize_instructions_i32_add_is_safe_fold(
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  let sum = lhs + rhs
+  sum >= -2147483648 && sum <= 2147483647
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_const_fold_body_is_fast_path(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.all(fn(instr) {
+    match instr {
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_) => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (@lib.I32Const(@lib.I32(lhs)), @lib.I32Const(@lib.I32(rhs)), @lib.I32Add
+        ) if run_hot_pipeline_raw_optimize_instructions_i32_add_is_safe_fold(
+            lhs, rhs,
+          ) => {
+          out.push(@lib.Instruction::i32_const(@lib.I32(lhs + rhs)))
+          changed = true
+          i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (@lib.I32Const(@lib.I32(raw)), @lib.I32Eqz) => {
+          out.push(
+            @lib.Instruction::i32_const(@lib.I32(if raw == 0 { 1 } else { 0 })),
+          )
+          changed = true
+          i = i + 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[i] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[i]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[i]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        out.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instrs[i]
+          },
+        )
+        changed = changed || then_changed || else_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instrs[i]
+          },
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instrs[i])
+    }
+    i = i + 1
+  }
+  (out, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -33794,8 +33926,29 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   } else {
     (tnh_exact_success_body, false)
   }
+  let (const_fold_body, const_fold_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+    tnh_indirect_exact_success_body,
+  )
+  if const_fold_changed &&
+    locals.length() == 0 &&
+    !exact_success_changed &&
+    !exactification_changed &&
+    !exact_miss_changed &&
+    !directized_changed &&
+    !tnh_exact_success_changed &&
+    !tnh_indirect_exact_success_changed &&
+    run_hot_pipeline_raw_optimize_instructions_const_fold_body_is_fast_path(
+      const_fold_body,
+    ) {
+    return Some({
+      reason: "raw-const-fold-optimize-instructions",
+      func: @lib.Func::new(locals, @lib.Expr::new(const_fold_body)),
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
-    tnh_indirect_exact_success_body, module_ctx,
+    const_fold_body, module_ctx,
   )
   let (
     same_flat_pure_scalar_memory_copy_body,
@@ -33830,7 +33983,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     tnh_indirect_exact_success_changed ||
     effectful_sibling_changed ||
     same_flat_pure_scalar_memory_copy_changed ||
-    escaping_ref_get_desc_changed {
+    escaping_ref_get_desc_changed ||
+    const_fold_changed {
     @lib.Func::new(locals, @lib.Expr::new(escaping_ref_get_desc_body))
   } else {
     original
@@ -33843,7 +33997,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !tnh_indirect_exact_success_changed &&
     !effectful_sibling_changed &&
     !same_flat_pure_scalar_memory_copy_changed &&
-    !escaping_ref_get_desc_changed
+    !escaping_ref_get_desc_changed &&
+    !const_fold_changed
   if exact_success_changed ||
     tnh_exact_success_changed ||
     tnh_indirect_exact_success_changed {
@@ -34030,6 +34185,14 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     ) {
     return Some({
       reason: "raw-partial-optimize-instructions",
+      func: skipped_func,
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
+  if const_fold_changed {
+    return Some({
+      reason: "raw-const-fold-optimize-instructions",
       func: skipped_func,
       unchanged_original: false,
       trace_skip_raw: true,
@@ -58274,6 +58437,7 @@ fn run_hot_pipeline_apply_reorder_locals_to_touched(
     None => return Ok(mod_)
   }
   let params = rl_defined_func_param_cache(mod_)
+  let func_remaps : Array[Array[Int]?] = Array::make(funcs.length(), None)
   let mut rewritten : Array[@lib.Func]? = None
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     if code_idx >= touched.length() || !touched[code_idx] {
@@ -58286,6 +58450,7 @@ fn run_hot_pipeline_apply_reorder_locals_to_touched(
     }
     let rewrite = rl_rewrite_func(funcs[code_idx], func_params)
     if rewrite.changed {
+      func_remaps[code_idx] = Some(rewrite.old_to_new)
       match rewritten {
         Some(copy) => copy[code_idx] = rewrite.func
         None => {
@@ -58297,8 +58462,18 @@ fn run_hot_pipeline_apply_reorder_locals_to_touched(
     }
   }
   match rewritten {
-    Some(copy) =>
-      Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
+    Some(copy) => {
+      let next = mod_.with_code_sec(@lib.CodeSec::new(copy))
+      match
+        rl_rewrite_name_sec(
+          mod_.name_sec,
+          rl_imported_func_count(mod_),
+          func_remaps,
+        ) {
+        Some(name_sec) => Ok(next.with_name_sec(name_sec))
+        None => Ok(next.without_name_sec())
+      }
+    }
     None => Ok(mod_)
   }
 }
@@ -58338,13 +58513,28 @@ fn run_hot_pipeline_touched_function_size_skip_reason(
 }
 
 ///|
+fn run_hot_pipeline_sgo_touched_body_has_dead_tail_after_nonfallthrough(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let mut prev_may_fallthrough = true
+  for instr in body {
+    if !prev_may_fallthrough {
+      return true
+    }
+    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
-) -> (Array[Bool], Int) {
+) -> (Array[Bool], Int, Array[Bool]) {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let filtered = touched.copy()
+      let large_unreachable_touched = Array::make(touched.length(), false)
       let mut filtered_large = 0
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         if code_idx >= filtered.length() || !filtered[code_idx] {
@@ -58355,11 +58545,16 @@ fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
         if locals.length() > 192 || instr_count > 1000 {
           filtered[code_idx] = false
           filtered_large = filtered_large + 1
+          if run_hot_pipeline_sgo_touched_body_has_dead_tail_after_nonfallthrough(
+              body,
+            ) {
+            large_unreachable_touched[code_idx] = true
+          }
         }
       }
-      (filtered, filtered_large)
+      (filtered, filtered_large, large_unreachable_touched)
     }
-    None => (touched, 0)
+    None => (touched, 0, Array::make(touched.length(), false))
   }
 }
 
@@ -58597,6 +58792,359 @@ fn run_hot_pipeline_sgo_nested_cleanup_passes() -> Array[String] {
 }
 
 ///|
+fn run_hot_pipeline_sgo_touched_instr_has_local(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_sgo_touched_body_has_local(body)
+    @lib.If(_, then_body, else_body) => {
+      let else_has = match else_body {
+        Some(body) => run_hot_pipeline_sgo_touched_body_has_local(body)
+        None => false
+      }
+      run_hot_pipeline_sgo_touched_body_has_local(then_body) || else_has
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_body_has_local(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.any(run_hot_pipeline_sgo_touched_instr_has_local)
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_instr_has_load(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_sgo_touched_body_has_load(body)
+    @lib.If(_, then_body, else_body) => {
+      let else_has = match else_body {
+        Some(body) => run_hot_pipeline_sgo_touched_body_has_load(body)
+        None => false
+      }
+      run_hot_pipeline_sgo_touched_body_has_load(then_body) || else_has
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_body_has_load(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.any(run_hot_pipeline_sgo_touched_instr_has_load)
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_instr_has_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(_, _) => true
+    @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_sgo_touched_body_has_block(body)
+    @lib.If(_, then_body, else_body) => {
+      let else_has = match else_body {
+        Some(body) => run_hot_pipeline_sgo_touched_body_has_block(body)
+        None => false
+      }
+      run_hot_pipeline_sgo_touched_body_has_block(then_body) || else_has
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_body_has_block(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.any(run_hot_pipeline_sgo_touched_instr_has_block)
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_instr_has_set(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.LocalSet(_) | @lib.LocalTee(_) | @lib.GlobalSet(_) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_sgo_touched_body_has_set(body)
+    @lib.If(_, then_body, else_body) => {
+      let else_has = match else_body {
+        Some(body) => run_hot_pipeline_sgo_touched_body_has_set(body)
+        None => false
+      }
+      run_hot_pipeline_sgo_touched_body_has_set(then_body) || else_has
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_body_has_set(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.any(run_hot_pipeline_sgo_touched_instr_has_set)
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_instr_has_vacuum(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Drop | @lib.Nop | @lib.Unreachable => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_sgo_touched_body_has_vacuum(body)
+    @lib.If(_, then_body, else_body) => {
+      let else_has = match else_body {
+        Some(body) => run_hot_pipeline_sgo_touched_body_has_vacuum(body)
+        None => false
+      }
+      run_hot_pipeline_sgo_touched_body_has_vacuum(then_body) || else_has
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_body_has_vacuum(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.any(run_hot_pipeline_sgo_touched_instr_has_vacuum)
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_any_declared_local(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      for idx = 0; idx < defs.length(); idx = idx + 1 {
+        if idx < touched.length() && touched[idx] {
+          let @lib.Func(locals, _) = defs[idx]
+          if locals.length() > 0 {
+            return true
+          }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_touched_any(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  pred : (Array[@lib.Instruction]) -> Bool,
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      for idx = 0; idx < defs.length(); idx = idx + 1 {
+        if idx < touched.length() && touched[idx] {
+          let @lib.Func(_, @lib.Expr(body)) = defs[idx]
+          if pred(body) {
+            return true
+          }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_nested_cleanup_has_candidates(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  pass_name : String,
+) -> Bool {
+  match pass_name {
+    "local-cse" | "coalesce-locals" =>
+      run_hot_pipeline_sgo_touched_any(
+        mod_, touched, run_hot_pipeline_sgo_touched_body_has_local,
+      )
+    "reorder-locals" =>
+      run_hot_pipeline_sgo_touched_any_declared_local(mod_, touched)
+    "pick-load-signs" =>
+      run_hot_pipeline_sgo_touched_any(
+        mod_, touched, run_hot_pipeline_sgo_touched_body_has_load,
+      )
+    "merge-blocks" =>
+      run_hot_pipeline_sgo_touched_any(
+        mod_, touched, run_hot_pipeline_sgo_touched_body_has_block,
+      )
+    "redundant-set-elimination" =>
+      run_hot_pipeline_sgo_touched_any(
+        mod_, touched, run_hot_pipeline_sgo_touched_body_has_set,
+      )
+    "vacuum" =>
+      run_hot_pipeline_sgo_touched_any(
+        mod_, touched, run_hot_pipeline_sgo_touched_body_has_vacuum,
+      )
+    "remove-unused-names" =>
+      mod_.name_sec != None || mod_.raw_name_sec_payload != None
+    _ => true
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_label_idx_is_zero(label : @lib.LabelIdx) -> Bool {
+  let @lib.LabelIdx(raw) = label
+  raw == 0U
+}
+
+///|
+fn run_hot_pipeline_sgo_label_idx_array_all_zero(
+  labels : Array[@lib.LabelIdx],
+) -> Bool {
+  labels.all(run_hot_pipeline_sgo_label_idx_is_zero)
+}
+
+///|
+fn run_hot_pipeline_sgo_instr_is_const12_safe_trunc_prefix(
+  value_instr : @lib.Instruction,
+  trunc_instr : @lib.Instruction,
+) -> Bool {
+  let f32_12 = @lib.Instruction::f32_const(@lib.F32(Float::from_double(12.0)))
+  let f64_12 = @lib.Instruction::f64_const(@lib.F64(12.0))
+  if value_instr == f32_12 {
+    return trunc_instr == @lib.Instruction::i32_trunc_f32s() ||
+      trunc_instr == @lib.Instruction::i32_trunc_f32u() ||
+      trunc_instr == @lib.Instruction::i64_trunc_f32s() ||
+      trunc_instr == @lib.Instruction::i64_trunc_f32u()
+  }
+  if value_instr == f64_12 {
+    return trunc_instr == @lib.Instruction::i32_trunc_f64s() ||
+      trunc_instr == @lib.Instruction::i32_trunc_f64u() ||
+      trunc_instr == @lib.Instruction::i64_trunc_f64s() ||
+      trunc_instr == @lib.Instruction::i64_trunc_f64u()
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_sgo_instr_is_void_block_exit_to_next(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) =>
+      match body {
+        [@lib.Br(label)] => run_hot_pipeline_sgo_label_idx_is_zero(label)
+        [@lib.I32Const(_), @lib.BrTable(labels, default_label)] =>
+          run_hot_pipeline_sgo_label_idx_is_zero(default_label) &&
+          run_hot_pipeline_sgo_label_idx_array_all_zero(labels)
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_instr_is_unconditional_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Unreachable => true
+    @lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Unreachable])) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_sgo_large_unreachable_tail_start(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let mut idx = 0
+  while idx + 2 < body.length() && body[idx + 2] == @lib.Instruction::drop() {
+    if run_hot_pipeline_sgo_instr_is_const12_safe_trunc_prefix(
+        body[idx],
+        body[idx + 1],
+      ) {
+      idx = idx + 3
+      continue
+    }
+    break
+  }
+  if idx < body.length() &&
+    run_hot_pipeline_sgo_instr_is_unconditional_unreachable(body[idx]) {
+    return Some(idx)
+  }
+  if idx + 1 < body.length() &&
+    run_hot_pipeline_sgo_instr_is_void_block_exit_to_next(body[idx]) &&
+    run_hot_pipeline_sgo_instr_is_unconditional_unreachable(body[idx + 1]) {
+    return Some(idx)
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_sgo_collapse_large_unreachable_tails(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let out = funcs.copy()
+      let mut changed = false
+      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+        if code_idx >= touched.length() || !touched[code_idx] {
+          continue
+        }
+        let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
+        match run_hot_pipeline_sgo_large_unreachable_tail_start(body) {
+          Some(start_idx) if start_idx > 0 || body.length() > 1 => {
+            ignore(locals)
+            out[code_idx] = @lib.Func::new(
+              @lib.Locals::empty(),
+              @lib.Expr::new([@lib.Instruction::unreachable_()]),
+            )
+            changed = true
+          }
+          _ => ()
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(out))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_sgo_nested_cleanup_descriptor(
   pass_name : String,
 ) -> Result[@ir.HotPassDescriptor, String] {
@@ -58620,31 +59168,68 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   if touched_count == 0 {
     return Ok(mod_)
   }
-  let (cleanup_touched, filtered_large_count) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
+  let (cleanup_touched, filtered_large_count, large_unreachable_touched) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
     mod_, touched,
   )
   let cleanup_touched_count = sgo_count_touched(cleanup_touched)
+  let large_unreachable_count = sgo_count_touched(large_unreachable_touched)
   (options.trace)(
     "pass[simplify-globals-optimizing]:nested-cleanup touched=\{touched_count} prefix=default",
   )
   (options.trace)(
     "pass[simplify-globals-optimizing]:nested-cleanup-stats touched=\{touched_count} cleaned=\{cleanup_touched_count} filtered-large=\{filtered_large_count}",
   )
-  if cleanup_touched_count == 0 && filtered_large_count > 0 {
+  let mut current = mod_
+  if large_unreachable_count > 0 {
     pipeline_trace_hook(
       options.trace,
       "simplify-globals-optimizing",
-      "nested-cleanup-skip",
-      payload="reason=large-touched-function touched=\{touched_count}",
+      "nested-large-vacuum",
+      payload="touched=\{large_unreachable_count}",
     )
-    return Ok(mod_)
+    let vacuum_descriptor = match
+      run_hot_pipeline_sgo_nested_cleanup_descriptor("vacuum") {
+      Ok(descriptor) => descriptor
+      Err(err) => return Err(err)
+    }
+    current = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        current, vacuum_descriptor, large_unreachable_touched, options,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err("SGO nested large vacuum cleanup: \{err}")
+    }
+    current = run_hot_pipeline_sgo_collapse_large_unreachable_tails(
+      current, large_unreachable_touched,
+    )
+  }
+  if cleanup_touched_count == 0 {
+    if filtered_large_count > large_unreachable_count {
+      pipeline_trace_hook(
+        options.trace,
+        "simplify-globals-optimizing",
+        "nested-cleanup-skip",
+        payload="reason=large-touched-function touched=\{touched_count}",
+      )
+    }
+    return Ok(current)
   }
   let nested_total_start_us = perf_start_timer_opt(
     options.perf,
     "detail:sgo:nested-total",
   )
-  let mut current = mod_
   for pass_name in run_hot_pipeline_sgo_nested_cleanup_passes() {
+    if !run_hot_pipeline_sgo_nested_cleanup_has_candidates(
+        current, cleanup_touched, pass_name,
+      ) {
+      pipeline_trace_hook(
+        options.trace,
+        "simplify-globals-optimizing",
+        "nested-pass-skip",
+        payload="name=\{pass_name} reason=no-touched-candidates",
+      )
+      continue
+    }
     pipeline_trace_hook(
       options.trace,
       "simplify-globals-optimizing",

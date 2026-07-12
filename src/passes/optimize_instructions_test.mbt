@@ -190,6 +190,39 @@ test "optimize-instructions public pipeline still cleans neutral add outside raw
 }
 
 ///|
+test "optimize-instructions raw path folds simple constant adds before HOT" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    i32.const 41
+        #|    i32.const 1
+        #|    i32.add))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw const-fold success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=raw-const-fold-optimize-instructions",
+      )
+    }),
+    msg="expected raw const-fold skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
 test "optimize-instructions raw skip removes local-carried add-zero before sign extensions" {
   // OI-E grouped pass-oi-local-facts residual: the call/local-write raw skip
   // path must still remove neutral add wrappers before sign-extension facts.
