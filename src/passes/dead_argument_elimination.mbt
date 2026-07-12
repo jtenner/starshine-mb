@@ -685,6 +685,13 @@ priv struct DaeRemovedParamLocalProjectionEvidence {
 }
 
 ///|
+priv struct DaeRemovedParamCalleeRewriteEvidence {
+  kept_params : Array[@lib.ValType]
+  locals : @lib.Locals
+  body : Array[@lib.Instruction]
+}
+
+///|
 priv struct DaeCallsiteLocalizationContext {
   first_scratch_local : Int
   param_types : Array[@lib.ValType]
@@ -4298,6 +4305,60 @@ fn dae_removed_param_local_projection_evidence(
         body_local_type: None,
       }
   }
+}
+
+///|
+fn dae_removed_param_callee_rewrite_evidence(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  remove : Array[Bool],
+  const_params : Array[@lib.Instruction?],
+  local_use : DaeLocalUse,
+  localized_params : Array[Bool],
+) -> DaeRemovedParamCalleeRewriteEvidence? {
+  if remove.length() != params.length() ||
+    const_params.length() != params.length() ||
+    local_use.writes.length() < params.length() ||
+    localized_params.length() != params.length() {
+    return None
+  }
+  let kept_params : Array[@lib.ValType] = []
+  let removed_local_types : Array[@lib.ValType] = []
+  let mut p = 0
+  while p < params.length() {
+    if remove[p] {
+      let projection = dae_removed_param_local_projection_evidence(
+        params[p],
+        written=local_use.writes[p],
+        localized=localized_params[p],
+      )
+      if !projection.valid {
+        return None
+      }
+      match projection.body_local_type {
+        Some(local_type) => removed_local_types.push(local_type)
+        None => ()
+      }
+    } else {
+      kept_params.push(params[p])
+    }
+    p += 1
+  }
+  let @lib.Func(old_locals, @lib.Expr(old_body)) = func
+  let local_map = dae_build_local_map(
+    params,
+    old_locals.length(),
+    remove,
+    local_use,
+    preserve_removed_params=Some(localized_params),
+  )
+  let body = dae_rewrite_locals_instrs(
+    dae_rewrite_param_const_instrs(old_body, const_params),
+    local_map,
+  )
+  let locals = @lib.Locals::from_types(removed_local_types)
+  locals.append(old_locals)
+  Some({ kept_params, locals, body })
 }
 
 ///|
@@ -11089,10 +11150,8 @@ fn dae_try_rewrite_candidate(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.FuncType(params, results) = func_type
-  let (func_types, funcs) = match
-    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(_)) =>
-      (type_idxs.copy(), funcs)
+  let funcs = match (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(_), Some(@lib.CodeSec(funcs)), Some(_)) => funcs
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let tail_call_boundary = dae_tail_call_boundary_evidence(funcs)
@@ -11100,7 +11159,6 @@ fn dae_try_rewrite_candidate(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()
-  let touched = Array::make(funcs.length(), false)
   let localized_params = Array::make(params.length(), false)
   let mut rewritten_calls = 0
   let mut caller_idx = 0
@@ -11140,7 +11198,6 @@ fn dae_try_rewrite_candidate(
           rewritten_locals,
           @lib.Expr::new(result.instrs),
         )
-        touched[caller_def] = true
         rewritten_calls += result.calls_rewritten
       }
     }
@@ -11149,77 +11206,50 @@ fn dae_try_rewrite_candidate(
   if rewritten_calls != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let kept_params : Array[@lib.ValType] = []
-  let removed_local_types : Array[@lib.ValType] = []
-  let mut p = 0
-  while p < params.length() {
-    if remove[p] {
-      let projection = dae_removed_param_local_projection_evidence(
-        params[p],
-        written=local_use.writes[p],
-        localized=localized_params[p],
-      )
-      if !projection.valid {
-        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-      }
-      match projection.body_local_type {
-        Some(local_type) => removed_local_types.push(local_type)
-        None => ()
-      }
-    } else {
-      kept_params.push(params[p])
-    }
-    p += 1
+  let callee_rewrite = match
+    dae_removed_param_callee_rewrite_evidence(
+      rewritten_funcs[def_idx],
+      params,
+      remove,
+      const_params,
+      local_use,
+      localized_params,
+    ) {
+    Some(evidence) => evidence
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
-  let body_local_count = old_locals.length()
-  let local_map = dae_build_local_map(
-    params,
-    body_local_count,
-    remove,
-    local_use,
-    preserve_removed_params=Some(localized_params),
-  )
-  let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
-  let body_with_rewritten_locals = dae_rewrite_locals_instrs(
-    body_with_consts, local_map,
-  )
-  let new_locals = @lib.Locals::from_types(removed_local_types)
-  new_locals.append(old_locals)
-  let rewritten_total_locals = kept_params.length() + new_locals.length()
+  let rewritten_total_locals = callee_rewrite.kept_params.length() +
+    callee_rewrite.locals.length()
   let rewritten_written_locals = dae_collect_written_locals(
-    body_with_rewritten_locals, rewritten_total_locals,
+    callee_rewrite.body,
+    rewritten_total_locals,
   )
   let new_body = dae_simplify_rewritten_add_zero_instrs(
     dae_simplify_rewritten_control_instrs(
       dae_simplify_default_zero_high_guard_instrs(
-        body_with_rewritten_locals,
-        kept_params.length(),
+        callee_rewrite.body,
+        callee_rewrite.kept_params.length(),
         rewritten_written_locals,
       ),
       def_idx == 505,
     ),
   )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
+    @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
   )
-
-  let (next_type_sec, new_type_idx) = match mod_.type_sec {
-    Some(type_sec) =>
-      dae_update_defined_func_type(
-        mod_, type_sec, func_types, def_idx, kept_params, results,
-      )
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  func_types[def_idx] = new_type_idx
-  let next_mod = mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(func_types))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec()
-  touched[def_idx] = true
-  { mod_out: next_mod, touched, changed: true, primary_def: def_idx }
+  let plan = dae_module_code_finalization_plan(
+    callee_rewrite.kept_params,
+    results,
+    DaeTouchModuleCodeChangedFuncs,
+  )
+  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
@@ -26558,10 +26588,6 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
       call_facts.direct_callers[callee_abs],
     )
   }
-  let (func_types, _) = match (mod_.func_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(_)) => (type_idxs.copy(), true)
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
   let rewritten_caller = match
     dae_try_rewrite_func313_call323_global_suffix(
       mod_, funcs, type_indices, 313, callee_abs,
@@ -26576,68 +26602,37 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   }
   let rewritten_funcs = funcs.copy()
   rewritten_funcs[313] = rewritten_caller
-  let kept_params : Array[@lib.ValType] = []
-  let removed_written_types : Array[@lib.ValType] = []
-  let mut p2 = 0
-  while p2 < params.length() {
-    if remove[p2] {
-      let projection = dae_removed_param_local_projection_evidence(
-        params[p2],
-        written=local_use.writes[p2],
-        localized=false,
-      )
-      match projection.body_local_type {
-        Some(local_type) => removed_written_types.push(local_type)
-        None => ()
-      }
-    } else {
-      kept_params.push(params[p2])
-    }
-    p2 += 1
-  }
-  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
-  let local_map = dae_build_local_map(
-    params,
-    old_locals.length(),
-    remove,
-    local_use,
-  )
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_rewrite_locals_instrs(
-        dae_rewrite_param_const_instrs(old_body, const_params),
-        local_map,
-      ),
-      false,
-    ),
-  )
-  let new_locals = @lib.Locals::from_types(removed_written_types)
-  new_locals.append(old_locals)
-  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
-  )
-  let (next_type_sec, new_type_idx) = match mod_.type_sec {
-    Some(type_sec) =>
-      dae_update_defined_func_type(
-        mod_, type_sec, func_types, def_idx, kept_params, results,
-      )
+  let callee_rewrite = match
+    dae_removed_param_callee_rewrite_evidence(
+      rewritten_funcs[def_idx],
+      params,
+      remove,
+      const_params,
+      local_use,
+      Array::make(params.length(), false),
+    ) {
+    Some(evidence) => evidence
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  func_types[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[313] = true
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(func_types))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(callee_rewrite.body, false),
+  )
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
+  )
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let plan = dae_module_code_finalization_plan(
+    callee_rewrite.kept_params,
+    results,
+    DaeTouchModuleCodeChangedFuncs,
+  )
+  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
@@ -28494,10 +28489,10 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
     )
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let (func_types, current_type_sec) = match (mod_.func_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(type_sec)) =>
-      (type_idxs.copy(), type_sec)
-    _ => {
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
+    None => {
       trace(
         "pass[dae-optimizing]:selected-func3737-wrapper-param skip=no-func-type-sec",
       )
@@ -28528,68 +28523,44 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
     None,
   )
   const_params[3] = Some(@lib.Instruction::i32_const(@lib.I32(1024)))
-  let kept_params : Array[@lib.ValType] = []
-  let removed_written_types : Array[@lib.ValType] = []
-  let mut p = 0
-  while p < params.length() {
-    if remove[p] {
-      let projection = dae_removed_param_local_projection_evidence(
-        params[p],
-        written=local_use.writes[p],
-        localized=false,
-      )
-      match projection.body_local_type {
-        Some(local_type) => removed_written_types.push(local_type)
-        None => ()
-      }
-    } else {
-      kept_params.push(params[p])
-    }
-    p += 1
+  let callee_rewrite = match
+    dae_removed_param_callee_rewrite_evidence(
+      rewritten_funcs[def_idx],
+      params,
+      remove,
+      const_params,
+      local_use,
+      Array::make(params.length(), false),
+    ) {
+    Some(evidence) => evidence
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
-  let local_map = dae_build_local_map(
-    params,
-    old_locals.length(),
-    remove,
-    local_use,
-  )
-  let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
-  let body_with_rewritten_locals = dae_rewrite_locals_instrs(
-    body_with_consts, local_map,
-  )
-  let new_locals = @lib.Locals::from_types(removed_written_types)
-  new_locals.append(old_locals)
-  let rewritten_total_locals = kept_params.length() + new_locals.length()
+  let rewritten_total_locals = callee_rewrite.kept_params.length() +
+    callee_rewrite.locals.length()
   let rewritten_written_locals = dae_collect_written_locals(
-    body_with_rewritten_locals, rewritten_total_locals,
+    callee_rewrite.body,
+    rewritten_total_locals,
   )
   let new_body = dae_simplify_rewritten_add_zero_instrs(
     dae_simplify_rewritten_control_instrs(
       dae_simplify_default_zero_high_guard_instrs(
-        body_with_rewritten_locals,
-        kept_params.length(),
+        callee_rewrite.body,
+        callee_rewrite.kept_params.length(),
         rewritten_written_locals,
       ),
       def_idx == 505,
     ),
   )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
+    @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
   )
-  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-    mod_, current_type_sec, func_types, def_idx, kept_params, results,
+  let plan = dae_module_code_finalization_plan(
+    callee_rewrite.kept_params,
+    results,
+    DaeTouchModuleCodeChangedFuncs,
   )
-  func_types[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[caller_def] = true
-  touched[def_idx] = true
-  let next_mod = mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(func_types))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec()
-  { mod_out: next_mod, touched, changed: true, primary_def: def_idx }
+  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|

@@ -6833,11 +6833,7 @@ test "dae removed-param callee rewrite preserves mapped locals and constants" {
   let evidence = match
     dae_removed_param_callee_rewrite_evidence(
       func,
-      [
-        @lib.ValType::i32(),
-        @lib.ValType::i64(),
-        @lib.ValType::i32(),
-      ],
+      [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::i32()],
       [false, true, true],
       [
         None,
@@ -6857,7 +6853,7 @@ test "dae removed-param callee rewrite preserves mapped locals and constants" {
   )
   assert_eq(evidence.body, [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i64_const(@lib.I64(9L)),
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
   ])
