@@ -3036,9 +3036,7 @@ test "dae module code rewrite finalization uses current sections transactionally
             @lib.CompType::func([], [@lib.ValType::i32()]),
           ),
         ),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(@lib.CompType::func([], [])),
-        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
       ]),
     )
     .with_func_sec(@lib.FuncSec::new([result_type, result_type]))
@@ -3080,7 +3078,8 @@ test "dae module code rewrite finalization uses current sections transactionally
   assert_eq(result.touched, [true, true])
   assert_eq(result.mod_out.type_sec, mod_.type_sec)
   match result.mod_out.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs, [result_type, void_type])
+    Some(@lib.FuncSec(type_idxs)) =>
+      assert_eq(type_idxs, [result_type, void_type])
     None => fail("expected finalized function section")
   }
   match result.mod_out.code_sec {

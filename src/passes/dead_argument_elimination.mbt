@@ -11200,19 +11200,13 @@ fn dae_try_refine_direct_gc_types(
         @lib.Expr::new(next_body),
       )
     }
-    let context = match
-      dae_module_signature_context(update_mod, def_idx, copy_funcs=false) {
-      Some(context) => context
-      None =>
-        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-    }
-    let plan = dae_module_code_finalization_plan(
+    dae_finalize_module_code_rewrite(
+      update_mod,
+      def_idx,
+      rewritten_funcs,
       next_params,
       next_results,
       DaeTouchModuleCodeCalleeOnly,
-    )
-    dae_apply_module_code_finalization(
-      update_mod, context, rewritten_funcs, plan,
     )
   } else {
     dae_try_update_signature_only(
@@ -12025,6 +12019,39 @@ fn dae_apply_module_code_finalization(
     changed: true,
     primary_def: signature_result.primary_def,
   }
+}
+
+///|
+fn dae_finalize_module_code_rewrite(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  rewritten_funcs : Array[@lib.Func],
+  next_params : Array[@lib.ValType],
+  next_results : Array[@lib.ValType],
+  touched_policy : DaeModuleCodeTouchedPolicy,
+  perf? : HotPerfSession? = None,
+  type_update_timer_name? : String = "",
+) -> DaePassResult {
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten_funcs.length() != context.funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let plan = dae_module_code_finalization_plan(
+    next_params, next_results, touched_policy,
+  )
+  dae_apply_module_code_finalization(
+    mod_,
+    context,
+    rewritten_funcs,
+    plan,
+    perf~,
+    type_update_timer_name~,
+  )
 }
 
 ///|
@@ -26832,18 +26859,14 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
   )
-  let context = match
-    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
-    Some(context) => context
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let plan = dae_module_code_finalization_plan(
+  dae_finalize_module_code_rewrite(
+    mod_,
+    def_idx,
+    rewritten_funcs,
     callee_rewrite.kept_params,
     results,
     DaeTouchModuleCodeChangedFuncs,
   )
-  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
