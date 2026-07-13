@@ -8,7 +8,6 @@ sources:
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
@@ -195,7 +194,6 @@ Binaryen immediately emits a prelude block and relies on later cleanup such as `
 - [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md)
 - [`../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md`](../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/ir/hot_core.mbt`](../../../../../src/ir/hot_core.mbt)
 - [`../../../../../src/ir/hot_builders.mbt`](../../../../../src/ir/hot_builders.mbt)

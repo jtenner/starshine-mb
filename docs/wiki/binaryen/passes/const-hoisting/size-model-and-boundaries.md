@@ -8,7 +8,6 @@ sources:
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
@@ -197,7 +196,6 @@ This is one of those passes where “roughly similar behavior” is easy to get 
 - [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
 - [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
