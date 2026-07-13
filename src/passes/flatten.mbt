@@ -452,6 +452,65 @@ fn flatten_try_route_branch_free_multivalue_if(
 }
 
 ///|
+fn flatten_try_route_branch_free_multivalue_loop(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  loop_id : Int,
+) -> Array[Int]? {
+  let loop_node = @ir.hot_node_get(func, loop_id)
+  match loop_node.op {
+    @ir.HotOp::Loop => ()
+    _ => return None
+  }
+  let result_types = @ir.hot_type_results(func, loop_node.ty)
+  if result_types.length() <= 1 {
+    return None
+  }
+  for result_type in result_types {
+    if !flatten_value_type_is_defaultable(result_type) {
+      return None
+    }
+  }
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  if @ir.hot_label_branch_arity(func, label_id) != 0 ||
+    pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count < result_types.length() {
+    return None
+  }
+  let tail_start = body_count - result_types.length()
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 || value_types[0] != result_types[slot] {
+      return None
+    }
+  }
+  let locals = match
+    flatten_ensure_label_temps(func, state, label_id, result_types) {
+    Some(locals) => locals
+    None => return None
+  }
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
+    ignore(
+      pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
+        @ir.hot_build_local_set(func, locals[slot], value_id),
+      ]),
+    )
+  }
+  @ir.hot_control_result_type_set(func, loop_id, @ir.hot_type_void(func))
+  Some(locals)
+}
+
+///|
 fn flatten_multivalue_control_use_span_is_exclusive(
   func : @ir.HotFunc,
   parent_id : Int,
@@ -514,6 +573,8 @@ fn flatten_try_route_multivalue_control_operand(
       flatten_try_route_branch_free_multivalue_block(ctx, func, state, child_id)
     @ir.HotOp::If =>
       flatten_try_route_branch_free_multivalue_if(ctx, func, state, child_id)
+    @ir.HotOp::Loop =>
+      flatten_try_route_branch_free_multivalue_loop(ctx, func, state, child_id)
     _ => None
   }
   let locals = match locals {
