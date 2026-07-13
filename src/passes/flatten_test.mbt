@@ -1330,3 +1330,68 @@ test "flatten routes ordered two-parameter loop br payloads" {
       fail("expected two-parameter loop br routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten routes two-parameter loop br_if payloads and false flow" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32))) (func call 1 call 2 loop (type $carrier) drop drop call 3 call 4 call 5 br_if 0 drop drop i32.const 7 end drop) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 3) (func (result i64) i64.const 4) (func (result i32) i32.const 0))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let branch = @ir.hot_region_get(func, body_ref, 2)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let second_payload = @ir.hot_child_get(func, branch, 1)
+  let condition = @ir.hot_child_get(func, branch, 2)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, branch, 0)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let first_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).imm0
+  let second_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).imm0
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_payload_set = @ir.hot_region_get(func, body_ref, 3)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_payload_set).imm0,
+    first_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_payload_set).imm0,
+    second_entry_local,
+  )
+  let condition_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_child_get(func, condition_set, 0), condition)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
+  let first_false_drop = @ir.hot_region_get(func, body_ref, 6)
+  let second_false_drop = @ir.hot_region_get(func, body_ref, 7)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_false_drop, 0)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_false_drop, 0)).op.to_string(),
+    "LocalGet",
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, condition), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected two-parameter loop br_if routing to verify, got \{err}")
+  }
+}
