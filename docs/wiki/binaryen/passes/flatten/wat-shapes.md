@@ -131,7 +131,7 @@ If yes, Binaryen tries to:
 
 ### Current Starshine multivalue block slice
 
-Starshine routes a defaultable multivalue block when HOT exposes all result uses as one exclusive repeated consumer span. The branch-free family requires independently scalar tail results. The first branch-targeted family admits only plain terminal `br` exits whose independently scalar payloads exactly match the block result vector; each payload is stored once in source order into the same typed label locals before the branch payload is cleared. In both families the block becomes void and the consumer span becomes ordered `local.get` operands. `br_if`, `br_table`, mixed fallthrough/branch layouts, shared consumers, and nonexclusive HOT ownership remain deferred rather than guessing result provenance.
+Starshine routes a defaultable multivalue block when HOT exposes all result uses as one exclusive repeated consumer span. The branch-free family requires independently scalar tail results. The plain-branch family admits terminal or nested `br` exits whose independently scalar payloads exactly match the block result vector; mixed blocks may also retain independently scalar fallthrough tails. Every branch payload and fallthrough tail is stored once in source order into the same typed label locals before branch payloads and the block result are cleared. The consumer span becomes ordered `local.get` operands. `br_if`, `br_table`, shared consumers, and nonexclusive HOT ownership remain deferred rather than guessing result provenance.
 
 ## Shape 4: `if (result ...)` writes arm values into a temp
 

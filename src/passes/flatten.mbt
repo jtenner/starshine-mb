@@ -325,6 +325,30 @@ fn flatten_label_uses_are_routed_scalar_brs(
 }
 
 ///|
+fn flatten_multivalue_region_tail_matches_types(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  result_types : Array[@lib.ValType],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if result_types.length() <= 1 || root_count < result_types.length() {
+    return false
+  }
+  let tail_start = root_count - result_types.length()
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 || value_types[0] != result_types[slot] {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn flatten_try_route_multivalue_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -369,26 +393,15 @@ fn flatten_try_route_multivalue_block(
   }
   if label_is_used {
     let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
-    if !flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
-      return None
+    if flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
+      @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+      return Some(locals)
     }
-    @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
-    return Some(locals)
   }
-  if body_count < result_types.length() {
+  if !flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) {
     return None
   }
   let tail_start = body_count - result_types.length()
-  for slot = 0; slot < result_types.length(); slot = slot + 1 {
-    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
-    let value_types = @ir.hot_type_results(
-      func,
-      @ir.hot_node_get(func, value_id).ty,
-    )
-    if value_types.length() != 1 || value_types[0] != result_types[slot] {
-      return None
-    }
-  }
   for slot = 0; slot < result_types.length(); slot = slot + 1 {
     let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
     ignore(
@@ -1208,13 +1221,15 @@ fn flatten_multivalue_plain_br_target_is_supported(
   }
   let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
   let tail = @ir.hot_node_get(func, tail_id)
-  match tail.op {
+  let has_terminal_target_branch = match tail.op {
     @ir.HotOp::Br =>
-      if tail.imm0 != label_id ||
-        @ir.hot_child_count(func, tail_id) != target_types.length() {
-        return false
-      }
-    _ => return false
+      tail.imm0 == label_id &&
+      @ir.hot_child_count(func, tail_id) == target_types.length()
+    _ => false
+  }
+  if !has_terminal_target_branch &&
+    !flatten_multivalue_region_tail_matches_types(func, body_ref, target_types) {
+    return false
   }
   let mut saw_target = false
   for branch_id = 0
