@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -34,7 +33,7 @@ related:
 - `simplify-locals-notee` is an upstream Binaryen public pass.
 - It is currently **unimplemented** in Starshine.
 - The current local removed-registry placeholder in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) is spelled `simplify-locals-no-tee`; the exact upstream spelling is not registered locally today.
-- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
+- The 2026-04-24 source inventory is retained in [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md), alongside direct tagged source URLs.
 - In Binaryen `version_129`, this pass is **not** part of the canonical no-DWARF `-O` / `-Os` path tracked in [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md).
 - It is still a fair wiki target because it is:
   - a real upstream public pass name in `pass.cpp`
@@ -116,7 +115,6 @@ So `-notee` is **not**:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md)
 - [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

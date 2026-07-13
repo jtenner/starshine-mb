@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt

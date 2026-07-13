@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
 related:
@@ -21,7 +20,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the current source oracle.
-The 2026-04-24 immutable raw manifest for this page is [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
+The 2026-04-24 source inventory is retained in [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md), alongside the direct tagged URLs below.
 
 Primary files:
 

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
 related:
@@ -21,7 +20,7 @@ related:
 
 # `simplify-locals-notee` implementation structure and tests
 
-Use this page with the immutable raw manifest in [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
+Use this page with the retained 2026-04-24 research inventory and direct tagged source URLs.
 It records what each upstream source/test surface proves, so the rest of the dossier can stay focused on strategy and shapes.
 
 ## Owner and registration files

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -30,7 +29,7 @@ related:
 
 # Starshine Strategy For `simplify-locals-notee`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
+Use this page together with the retained 2026-04-24 research inventory and direct tagged source URLs.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, naming mismatch, local code surfaces, and future port shape for the no-tee locals-family sibling.
 
 ## Honest current status

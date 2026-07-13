@@ -87,7 +87,6 @@ sources:
   - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md

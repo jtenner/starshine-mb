@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
 related:
@@ -18,7 +17,7 @@ related:
 # `simplify-locals-notee` WAT shapes
 
 This page focuses on the shapes beginners are most likely to misread.
-It is now anchored by the 2026-04-24 raw primary-source manifest [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
+It is anchored by the retained 2026-04-24 research inventory and direct tagged source URLs.
 
 ## Reading rule
 

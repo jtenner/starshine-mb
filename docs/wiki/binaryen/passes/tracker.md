@@ -56,7 +56,6 @@ sources:
   - ../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -734,7 +733,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md`](../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md)
 - [`../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md`](../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md)
 - [`../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md)
 - [`../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md)
