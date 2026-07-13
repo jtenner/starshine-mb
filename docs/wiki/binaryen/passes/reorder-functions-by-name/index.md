@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
@@ -106,10 +105,11 @@ The real `version_129` contract is small but specific:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real module/boundary pass for it.
 - Keep the split from [`../reorder-functions/index.md`](../reorder-functions/index.md) explicit: this sibling is lexical/debug ordering, while the main pass is static-use-count ordering.
 - Keep the split from [`../reorder-globals/index.md`](../reorder-globals/index.md) and [`../reorder-types/index.md`](../reorder-types/index.md) explicit too: this pass has no count model, dependency DAG, or legality phase.
+- Use the retained current-main recheck and 2026-04-24 follow-up research for the audited source reading; keep the direct `version_129` URLs below as the tagged primary-source anchors.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md)
+- [`../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md)
 - [`../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`](../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md`](../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md)
 - [`../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md`](../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md)
@@ -119,3 +119,7 @@ The real `version_129` contract is small but specific:
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
+- Binaryen `version_129`:
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderFunctions.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/reorder-functions-by-name.wast>

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
@@ -225,7 +224,11 @@ The dedicated lit file proves the core positive family directly through four dec
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md)
+- [`../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md)
 - [`../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`](../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md`](../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md)
 - [`../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md`](../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md)
+- Binaryen `version_129`:
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderFunctions.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/reorder-functions-by-name.wast>
