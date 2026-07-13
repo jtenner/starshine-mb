@@ -69,6 +69,19 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum preserves dropped zero-divisor traps after unsigned canonicalization" {
+  let input = "(module (type (func (result i32 i64))) (func block (type 0) i32.const 1 i32.const 0 i32.div_s drop i32.const 7 i64.const 9 end drop drop))"
+  let optimized = match
+    pass_test_run_pipeline(input, ["optimize-instructions", "vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected trapping vacuum pipeline success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.div_u"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "vacuum removing empty block preserves hot label ownership" {
   let func = pass_test_lift_first_func("(module (func (block)))")
   let ctx = HotPassContext::new(

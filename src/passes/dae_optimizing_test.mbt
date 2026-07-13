@@ -13651,6 +13651,39 @@ test "dae-optimizing nested tuple cleanup preserves trapping multivalue prefixes
 }
 
 ///|
+test "dae-optimizing preserves constant zero-divisor traps through nested cleanup" {
+  let source =
+    #|(module
+    #|  (type $mv (func (result i32 i64)))
+    #|  (func $f (param i32) (local i32 i64)
+    #|    block (type $mv)
+    #|      i32.const 1
+    #|      i32.const 0
+    #|      i32.div_s
+    #|      drop
+    #|      i32.const 7
+    #|      i64.const 9
+    #|    end
+    #|    local.set 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("i32.div_"), msg=target)
+  assert_true(target.contains("drop"), msg=target)
+  assert_false(target.contains("(block (Type"), msg=target)
+  assert_false(target.contains("local.set"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+}
+
+///|
 test "dae-optimizing traces the guarded nested cleanup pass order" {
   let source =
     #|(module

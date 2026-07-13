@@ -153,6 +153,22 @@ test "precompute preserves trapping exact operators it does not fold" {
 }
 
 ///|
+test "precompute preserves dropped zero-divisor traps after unsigned canonicalization" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type (func (result i32 i64))) (func block (type 0) i32.const 1 i32.const 0 i32.div_s drop i32.const 7 i64.const 9 end drop drop))",
+      ["optimize-instructions", "precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute dropped div success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.div_u"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "precompute-propagate folds constant selects while retaining chosen effects" {
   let pretty = match
     pass_test_run_pipeline(

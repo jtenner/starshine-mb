@@ -551,7 +551,6 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::GlobalGet
     | @ir.HotOp::TableSize
     | @ir.HotOp::Unary
-    | @ir.HotOp::Binary
     | @ir.HotOp::Compare
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefIsNull
@@ -559,6 +558,8 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::Select
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract => true
+    @ir.HotOp::Binary =>
+      vacuum_binary_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     _ => false

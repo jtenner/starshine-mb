@@ -3187,11 +3187,43 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
     | @ir.HotOp::GlobalGet
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => true
-    @ir.HotOp::Unary
-    | @ir.HotOp::Binary
-    | @ir.HotOp::Compare
-    | @ir.HotOp::Convert
-    | @ir.HotOp::Select => {
+    @ir.HotOp::Unary | @ir.HotOp::Convert => {
+      let instr = match @ir.hot_node_exact_instr(func, node_id) {
+        Some(instr) => instr
+        None => return false
+      }
+      if !precompute_raw_instr_is_nontrapping_unary_op(instr) {
+        return false
+      }
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !precompute_is_discardable_value(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::Binary | @ir.HotOp::Compare => {
+      let instr = match @ir.hot_node_exact_instr(func, node_id) {
+        Some(instr) => instr
+        None => return false
+      }
+      if !precompute_raw_instr_is_nontrapping_binary_op(instr) {
+        return false
+      }
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !precompute_is_discardable_value(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::Select => {
       for slot = 0; slot < node.child_count; slot = slot + 1 {
         if !precompute_is_discardable_value(
             func,
