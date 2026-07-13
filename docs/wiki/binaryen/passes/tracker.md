@@ -41,7 +41,6 @@ sources:
   - ../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
-  - ../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md

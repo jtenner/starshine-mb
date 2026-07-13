@@ -5,7 +5,6 @@ last_reviewed: 2026-05-19
 sources:
   - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
@@ -23,7 +22,7 @@ related:
 # `simplify-globals-optimizing`: linear traces, `read-only-to-write`, and reruns
 
 This page focuses on the parts of Binaryen `simplify-globals-optimizing` that are easiest to misunderstand.
-It is now anchored to the committed primary-source manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md):
+It is anchored to the retained 2026-04-24 research inventory, direct tagged source URLs, and the 2026-04-25 readiness bridge:
 
 - why startup-time propagation is broader than runtime code propagation
 - what `read-only-to-write` really means in the source
@@ -411,7 +410,6 @@ That is what the implementation really preserves.
 
 - [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
-- [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)

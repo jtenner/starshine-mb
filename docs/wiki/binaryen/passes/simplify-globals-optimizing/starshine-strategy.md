@@ -5,7 +5,6 @@ last_reviewed: 2026-07-07
 sources:
   - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
@@ -34,7 +33,7 @@ related:
 
 # Starshine strategy for `simplify-globals-optimizing`
 
-Use this page with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md).
+Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md).
 The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Honest current status
@@ -251,7 +250,6 @@ It covers the first constant-global / single-use-init / exact-type copy-chain / 
 
 - [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
-- [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
