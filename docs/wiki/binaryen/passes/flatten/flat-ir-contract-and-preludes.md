@@ -188,7 +188,7 @@ Starshine now makes that placement rule explicit in `src/passes/flatten.mbt`:
 - `if` conditions use the enclosing root list, while then/else bodies own separate regional lists;
 - block, loop, and legacy-try bodies are scanned through their own `HotRegionRef` instead of migrating work across a control boundary.
 
-The current implementation applies this plan to supported scalar ordinary operands. Control values, branch payload channels, tees below region roots, unreachable placeholders, and EH repair still require their dedicated rewrite families; they must not be generalized by moving arbitrary work across the recorded owner boundary.
+The current implementation applies this plan to supported scalar ordinary operands and to reachable/unreachable `local.tee` nodes at function roots, structured-region roots, and ordinary operand positions. Reachable tees append their source work before an explicit write to the original local and replace the value position with `local.get`; unreachable tees preserve the real unreachable in the owner prelude and leave an unreachable placeholder at the old operand position. Control values, branch payload channels, generic unreachable placeholders, and EH repair still require their dedicated rewrite families; they must not be generalized by moving arbitrary work across the recorded owner boundary.
 
 So a good mental model is:
 

@@ -39,7 +39,7 @@ The exact current local surfaces are:
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
 | CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
-| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, root-tee lowering, ordered scalar operand preludes, and branch-free defaultable scalar block/if routing are implemented; branch-targeted payloads and broader control work remain open. |
+| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, and branch-free defaultable scalar block/if routing are implemented; branch-targeted payload channels and broader control work remain open. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
@@ -97,8 +97,8 @@ The first tests should prove both positives and non-rewrites:
 
 After basic value routing is green, add the payload-specific cases that make `flatten` more than a simple “spill nested values” pass:
 
-- reachable `local.tee` lowers to `local.set` prelude plus `local.get`;
-- unreachable `local.tee` keeps the unreachable effect and does not invent a reachable write;
+- reachable `local.tee` now lowers to an ordered `local.set` prelude plus `local.get` at function roots, structured-region roots, and ordinary operand positions;
+- unreachable `local.tee` now keeps the real unreachable effect in the owner prelude or region root and does not invent a reachable write;
 - carried `br` stores into a named target temp;
 - carried `br_if` stores into a named target temp and preserves the not-taken flowing-out value;
 - the source-derived `br_if` target-type versus flowing-out-type mismatch gets two temps;

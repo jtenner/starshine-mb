@@ -367,6 +367,108 @@ test "flatten keeps condition preludes outside and arm work inside scalar if" {
 }
 
 ///|
+test "flatten lowers a nested tee in operand prelude order" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (local i32) (i32.add (local.tee 1 (i32.mul (local.get 0) (i32.const 2))) (i32.sub (local.get 0) (i32.const 3)))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 5)
+  let tee_value_set = @ir.hot_root_get(func, 0)
+  let tee_target_set = @ir.hot_root_get(func, 1)
+  let sibling_set = @ir.hot_root_get(func, 2)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, tee_value_set, 0)),
+    Some(@lib.Instruction::i32_mul()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, tee_target_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, tee_target_set).imm0, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, sibling_set, 0)),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested tee operand lowering to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten preserves an unreachable nested tee as an ordered prelude" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let tee = @ir.hot_build_local_tee(func, 0, @ir.hot_build_unreachable(func))
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, tee))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op.to_string(),
+    "Unreachable",
+  )
+  let drop_id = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, drop_id).op.to_string(), "Drop")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+    "Unreachable",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected unreachable nested tee lowering to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten lowers a tee rooted in a structured region" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32) (local i32) (block (result i32) (local.tee 0 (i32.const 7)))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 2)
+  let tee_target_set = @ir.hot_region_get(func, body_ref, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, tee_target_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, tee_target_set).imm0, 0)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected structured-region tee lowering to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten leaves carried scalar if labels for branch payload routing" {
   let func = pass_test_lift_first_func(
     "(module (func (drop (if (result i32) (i32.const 1) (then (br 0 (i32.const 7))) (else (i32.const 9))))))",

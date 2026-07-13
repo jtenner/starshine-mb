@@ -317,6 +317,35 @@ fn flatten_spill_scalar_operand(
 }
 
 ///|
+fn flatten_try_lower_region_root_tee(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  root_idx : Int,
+  node_id : Int,
+) -> Int? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 => ()
+    _ => return None
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 0)
+  let replacement = match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Unreachable => [value_id]
+    _ =>
+      [
+        @ir.hot_build_local_set(func, node.imm0, value_id),
+        @ir.hot_build_local_get(func, node.imm0),
+      ]
+  }
+  let removed = pass_splice_region(
+    ctx, func, region_ref, root_idx, 1, replacement,
+  )
+  pass_delete_detached_nodes(ctx, func, removed)
+  Some(replacement.length())
+}
+
+///|
 fn flatten_rewrite_region_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -336,21 +365,65 @@ fn flatten_rewrite_region_operands(
       changed = true
     }
     let root_idx = idx + inserted
-    match flatten_try_route_scalar_control(ctx, func, node_id) {
-      Some(local_id) => {
-        ignore(
-          pass_splice_region(ctx, func, region_ref, root_idx, 1, [
-            node_id,
-            @ir.hot_build_local_get(func, local_id),
-          ]),
-        )
+    match
+      flatten_try_lower_region_root_tee(
+        ctx, func, region_ref, root_idx, node_id,
+      ) {
+      Some(replacement_count) => {
         changed = true
-        idx = root_idx + 2
+        idx = root_idx + replacement_count
       }
-      None => idx = root_idx + 1
+      None =>
+        match flatten_try_route_scalar_control(ctx, func, node_id) {
+          Some(local_id) => {
+            ignore(
+              pass_splice_region(ctx, func, region_ref, root_idx, 1, [
+                node_id,
+                @ir.hot_build_local_get(func, local_id),
+              ]),
+            )
+            changed = true
+            idx = root_idx + 2
+          }
+          None => idx = root_idx + 1
+        }
     }
   }
   changed
+}
+
+///|
+fn flatten_try_lower_tee_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  parent_id : Int,
+  slot : Int,
+  tee_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let tee = @ir.hot_node_get(func, tee_id)
+  match tee.op {
+    @ir.HotOp::LocalTee if @ir.hot_child_count(func, tee_id) == 1 => ()
+    _ => return false
+  }
+  let value_id = @ir.hot_child_get(func, tee_id, 0)
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Unreachable => {
+      preludes.push(value_id)
+      @ir.hot_child_set(func, parent_id, slot, @ir.hot_build_unreachable(func))
+    }
+    _ => {
+      preludes.push(@ir.hot_build_local_set(func, tee.imm0, value_id))
+      @ir.hot_child_set(
+        func,
+        parent_id,
+        slot,
+        @ir.hot_build_local_get(func, tee.imm0),
+      )
+    }
+  }
+  pass_delete_detached_nodes(ctx, func, [tee_id])
+  true
 }
 
 ///|
@@ -366,6 +439,11 @@ fn flatten_rewrite_operand_slot(
     return false
   }
   let mut changed = flatten_rewrite_node_operands(ctx, func, child_id, preludes)
+  if flatten_try_lower_tee_operand(
+      ctx, func, parent_id, slot, child_id, preludes,
+    ) {
+    return true
+  }
   match flatten_try_route_scalar_control(ctx, func, child_id) {
     Some(local_id) => {
       preludes.push(child_id)
@@ -467,42 +545,6 @@ fn flatten_rewrite_node_operands(
 }
 
 ///|
-fn flatten_rewrite_root_tees(ctx : HotPassContext, func : @ir.HotFunc) -> Bool {
-  let mut changed = false
-  let mut idx = @ir.hot_root_count(func) - 1
-  while idx >= 0 {
-    let node_id = @ir.hot_root_get(func, idx)
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 => {
-        let value_id = @ir.hot_child_get(func, node_id, 0)
-        let replacement = match @ir.hot_node_get(func, value_id).op {
-          @ir.HotOp::Unreachable => [value_id]
-          _ =>
-            [
-              @ir.hot_build_local_set(func, node.imm0, value_id),
-              @ir.hot_build_local_get(func, node.imm0),
-            ]
-        }
-        let removed = pass_splice_region(
-          ctx,
-          func,
-          @ir.HotRegionRef::root(),
-          idx,
-          1,
-          replacement,
-        )
-        pass_delete_detached_nodes(ctx, func, removed)
-        changed = true
-      }
-      _ => ()
-    }
-    idx -= 1
-  }
-  changed
-}
-
-///|
 fn flatten_materialize_scalar_body_result(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -544,9 +586,6 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     func,
     @ir.HotRegionRef::root(),
   )
-  if flatten_rewrite_root_tees(ctx, func) {
-    changed = true
-  }
   if flatten_materialize_scalar_body_result(ctx, func) {
     changed = true
   }
