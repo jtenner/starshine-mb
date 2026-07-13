@@ -9,7 +9,6 @@ sources:
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
 related:
@@ -27,7 +26,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_130` as the current O4Z audit oracle for this pass. The `version_130` owner and dedicated lit files are byte-identical to the previously reviewed `version_129` copies, so older `version_129` prose remains valid as provenance rather than the freshest oracle.
-For the current refresh, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md). For older provenance, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md). For the 2026-05-05 current-main recheck, see [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md) and [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md); the 2026-04-27 validation and preset-readiness recheck remains linked through [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+For the current refresh, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md). For the 2026-05-05 current-main recheck, see [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md) and [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md); the 2026-04-27 validation and preset-readiness recheck remains linked through [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Primary files:
 

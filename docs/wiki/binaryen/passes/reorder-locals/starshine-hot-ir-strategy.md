@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
@@ -40,7 +39,7 @@ This page describes the **current local MoonBit implementation**, not the full u
 
 The 2026-07-12 public-scheduling update keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot cleanup story that the repo already had ordered-neighborhood evidence for. The early one-slot reconciliation note [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) is now superseded for live preset state by [`1561`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md).
 The 2026-07-02 O4Z closeout re-proved the explicit pass against the local `version_130` oracle: dedicated, ordinary, and random-all GenValid lanes each compared/normalized `10000/10000` with zero failures, while the external wasm-smith lane compared `9956/10000` with one unreachable-control-debris compare-normalized case, zero remaining mismatches, and `44` Binaryen/oracle command failures; see [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md).
-For the immutable manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md).
+For the retained manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md).
 
 ## Current local surface
 
