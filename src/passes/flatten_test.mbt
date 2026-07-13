@@ -1395,3 +1395,55 @@ test "flatten routes two-parameter loop br_if payloads and false flow" {
       fail("expected two-parameter loop br_if routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten routes scalar loop br_table payloads through entry locals" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func (param i32) call 1 loop (type $carrier) drop local.get 0 if call 2 call 3 br_table 1 1 end i32.const 7 end drop) (func (result i32) i32.const 1) (func (result i32) i32.const 2) (func (result i32) i32.const 0))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let if_id = @ir.hot_region_get(func, body_ref, 1)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let payload = @ir.hot_child_get(func, branch, 0)
+  let selector = @ir.hot_child_get(func, branch, 1)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).imm0
+  let value_set = @ir.hot_region_get(func, then_ref, 0)
+  let target_set = @ir.hot_region_get(func, then_ref, 1)
+  let selector_set = @ir.hot_region_get(func, then_ref, 2)
+  @debug.assert_eq(@ir.hot_child_get(func, value_set, 0), payload)
+  assert_false(@ir.hot_node_get(func, value_set).imm0 == entry_local)
+  @debug.assert_eq(@ir.hot_node_get(func, target_set).imm0, entry_local)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 3), branch)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 4)
+  let result_set = @ir.hot_region_get(
+    func,
+    body_ref,
+    @ir.hot_region_root_count(func, body_ref) - 1,
+  )
+  assert_false(@ir.hot_node_get(func, result_set).imm0 == entry_local)
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar loop br_table routing to verify, got \{err}")
+  }
+}

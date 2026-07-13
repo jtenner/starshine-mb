@@ -411,7 +411,16 @@ fn flatten_loop_backedges_are_supported(
           func,
           node.imm0,
           label_id,
-        ) => return false
+        ) =>
+        if param_types.length() != 1 ||
+          !flatten_loop_backedge_payloads_are_supported(
+            func,
+            node_id,
+            @ir.hot_child_count(func, node_id) - 1,
+            param_types,
+          ) {
+          return false
+        }
       @ir.HotOp::BrOnNull
       | @ir.HotOp::BrOnNonNull
       | @ir.HotOp::BrOnCast
@@ -1091,34 +1100,51 @@ fn flatten_try_route_scalar_br_table(
     return false
   }
   for target in targets {
-    if target < 0 ||
-      target >= state.break_temps.length() ||
-      @ir.hot_label_branch_arity(func, target) != 1 {
+    if target < 0 || target >= state.break_temps.length() {
       return false
     }
     match @ir.hot_label_kind(func, target) {
-      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
+      @ir.HotLabelKind::LoopLabel => {
+        let locals = state.loop_entry_temps[target]
+        if locals.length() != 1 ||
+          @ir.hot_local_type(func, locals[0]) != Some(value_types[0]) {
+          return false
+        }
+      }
+      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => {
+        if @ir.hot_label_branch_arity(func, target) != 1 {
+          return false
+        }
+        let target_types = @ir.hot_type_results(
+          func,
+          @ir.hot_label_result_type(func, target),
+        )
+        if target_types.length() != 1 ||
+          target_types[0] != value_types[0] ||
+          !flatten_target_can_route_scalar_branches(
+            func,
+            target,
+            value_types[0],
+          ) {
+          return false
+        }
+      }
       _ => return false
-    }
-    let target_types = @ir.hot_type_results(
-      func,
-      @ir.hot_label_result_type(func, target),
-    )
-    if target_types.length() != 1 ||
-      target_types[0] != value_types[0] ||
-      !flatten_target_can_route_scalar_branches(func, target, value_types[0]) {
-      return false
     }
   }
   let value_local = @ir.hot_append_body_local(func, value_types[0])
   preludes.push(@ir.hot_build_local_set(func, value_local, value_id))
   for target in targets {
-    let target_local = if state.break_temps[target] >= 0 {
-      state.break_temps[target]
-    } else {
-      let fresh = @ir.hot_append_body_local(func, value_types[0])
-      state.break_temps[target] = fresh
-      fresh
+    let target_local = match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::LoopLabel => state.loop_entry_temps[target][0]
+      _ =>
+        if state.break_temps[target] >= 0 {
+          state.break_temps[target]
+        } else {
+          let fresh = @ir.hot_append_body_local(func, value_types[0])
+          state.break_temps[target] = fresh
+          fresh
+        }
     }
     preludes.push(
       @ir.hot_build_local_set(
@@ -1265,6 +1291,12 @@ fn flatten_rewrite_region_operands(
     let root_idx = idx + inserted
     state.sequenced_root_holders.push(region_ref.holder)
     state.sequenced_root_nodes.push(node_id)
+    if state.terminal_payloads.contains(node_id) {
+      ignore(pass_splice_region(ctx, func, region_ref, root_idx, 1, []))
+      changed = true
+      idx = root_idx
+      continue
+    }
     match
       flatten_try_lower_region_root_tee(
         ctx, func, region_ref, root_idx, node_id,
