@@ -1945,6 +1945,74 @@ fn flatten_multivalue_br_if_flow_span(
 }
 
 ///|
+fn flatten_multivalue_tuple_branch_payload_values(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  payload_count : Int,
+  target_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if payload_count <= 1 || target_types.length() != payload_count {
+    return None
+  }
+  let tuple_id = @ir.hot_child_get(func, branch_id, 0)
+  for slot = 1; slot < payload_count; slot = slot + 1 {
+    if @ir.hot_child_get(func, branch_id, slot) != tuple_id {
+      return None
+    }
+  }
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake => ()
+    _ => return None
+  }
+  if @ir.hot_type_results(func, tuple.ty) != target_types ||
+    @ir.hot_child_count(func, tuple_id) != payload_count {
+    return None
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
+  if sites.length() != payload_count {
+    return None
+  }
+  let seen_slots : Array[Bool] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    seen_slots.push(false)
+  }
+  for site in sites {
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot => ()
+      _ => return None
+    }
+    if site.user != branch_id ||
+      site.slot < 0 ||
+      site.slot >= payload_count ||
+      seen_slots[site.slot] {
+      return None
+    }
+    seen_slots[site.slot] = true
+  }
+  let values : Array[Int] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    if !seen_slots[slot] {
+      return None
+    }
+    let value_id = @ir.hot_child_get(func, tuple_id, slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 ||
+      value_types[0] != target_types[slot] ||
+      !flatten_value_type_is_defaultable(target_types[slot]) ||
+      !flatten_scalar_branch_payload_has_supported_origin(func, value_id) {
+      return None
+    }
+    values.push(value_id)
+  }
+  Some(values)
+}
+
+///|
 fn flatten_multivalue_branch_target_is_supported_with_table(
   func : @ir.HotFunc,
   label_id : Int,
@@ -2057,19 +2125,27 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
         if @ir.hot_child_count(func, branch_id) != target_types.length() {
           return false
         }
-        for slot = 0; slot < target_types.length(); slot = slot + 1 {
-          let payload_id = @ir.hot_child_get(func, branch_id, slot)
-          let payload_types = @ir.hot_type_results(
+        if flatten_multivalue_tuple_branch_payload_values(
             func,
-            @ir.hot_node_get(func, payload_id).ty,
+            branch_id,
+            target_types.length(),
+            target_types,
           )
-          if payload_types.length() != 1 ||
-            payload_types[0] != target_types[slot] ||
-            !flatten_value_type_is_defaultable(target_types[slot]) ||
-            !flatten_scalar_branch_payload_has_supported_origin(
-              func, payload_id,
-            ) {
-            return false
+          is None {
+          for slot = 0; slot < target_types.length(); slot = slot + 1 {
+            let payload_id = @ir.hot_child_get(func, branch_id, slot)
+            let payload_types = @ir.hot_type_results(
+              func,
+              @ir.hot_node_get(func, payload_id).ty,
+            )
+            if payload_types.length() != 1 ||
+              payload_types[0] != target_types[slot] ||
+              !flatten_value_type_is_defaultable(target_types[slot]) ||
+              !flatten_scalar_branch_payload_has_supported_origin(
+                func, payload_id,
+              ) {
+              return false
+            }
           }
         }
       }
@@ -2164,6 +2240,7 @@ fn flatten_multivalue_branch_target_is_supported(
 
 ///|
 fn flatten_try_route_br(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   node_id : Int,
@@ -2237,16 +2314,25 @@ fn flatten_try_route_br(
       Some(locals) => locals
       None => return false
     }
+    let tuple_values = flatten_multivalue_tuple_branch_payload_values(
+      func, node_id, child_count, target_types,
+    )
     for slot = 0; slot < child_count; slot = slot + 1 {
-      preludes.push(
-        @ir.hot_build_local_set(
-          func,
-          locals[slot],
-          @ir.hot_child_get(func, node_id, slot),
-        ),
-      )
+      let payload_id = match tuple_values {
+        Some(values) => values[slot]
+        None => @ir.hot_child_get(func, node_id, slot)
+      }
+      preludes.push(@ir.hot_build_local_set(func, locals[slot], payload_id))
+    }
+    let tuple_id = if tuple_values is Some(_) {
+      @ir.hot_child_get(func, node_id, 0)
+    } else {
+      -1
     }
     ignore(@ir.hot_replace_child_span(func, node_id, []))
+    if tuple_id >= 0 {
+      pass_delete_detached_nodes(ctx, func, [tuple_id])
+    }
     return true
   }
   if @ir.hot_label_branch_arity(func, label_id) != 1 ||
@@ -3010,7 +3096,7 @@ fn flatten_rewrite_node_operands(
         }
       }
   }
-  if flatten_try_route_br(func, state, node_id, preludes) {
+  if flatten_try_route_br(ctx, func, state, node_id, preludes) {
     changed = true
   }
   if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
@@ -3163,12 +3249,21 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
         if child_count != @ir.hot_label_branch_arity(func, label_id) {
           return true
         }
-        for slot = 0; slot < child_count; slot = slot + 1 {
-          if !flatten_scalar_branch_payload_has_supported_origin(
-              func,
-              @ir.hot_child_get(func, node_id, slot),
-            ) {
-            return true
+        let target_types = @ir.hot_type_results(
+          func,
+          @ir.hot_label_result_type(func, label_id),
+        )
+        if flatten_multivalue_tuple_branch_payload_values(
+            func, node_id, child_count, target_types,
+          )
+          is None {
+          for slot = 0; slot < child_count; slot = slot + 1 {
+            if !flatten_scalar_branch_payload_has_supported_origin(
+                func,
+                @ir.hot_child_get(func, node_id, slot),
+              ) {
+              return true
+            }
           }
         }
       }
