@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
@@ -26,7 +25,7 @@ related:
 # `remove-unused-nonfunction-module-elements` module-shape catalog
 
 This pass is not mainly about inner expression rewrites.
-Direct `version_129` source URLs in this dossier retain the tagged baseline; the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md); the 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). Future local test sequencing for these shapes is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The sibling also inherits the 2026-07-11 shared-engine table-trap boundary in [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md).
+Direct `version_129` source URLs in this dossier retain the tagged baseline; the 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). Future local test sequencing for these shapes is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The sibling also inherits the 2026-07-11 shared-engine table-trap boundary in [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md).
 
 It is about **whole-module retention and cleanup**.
 So the most honest examples are module-shape examples, not tiny isolated arithmetic snippets.

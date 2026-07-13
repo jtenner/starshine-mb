@@ -11,7 +11,6 @@ sources:
   - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
-  - ../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../../src/passes/optimize.mbt
@@ -193,7 +192,6 @@ sources:
   - ../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md

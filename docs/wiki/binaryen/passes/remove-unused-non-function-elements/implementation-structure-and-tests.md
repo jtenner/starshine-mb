@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
-  - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
@@ -33,7 +32,7 @@ related:
 
 ## Why this page exists
 
-Direct `version_129` source URLs in this page retain the tagged baseline. The 2026-04-26 port-readiness recheck and future local validation plan are [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md), [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Direct `version_129` source URLs in this page retain the tagged baseline. The 2026-05-05 current-main recheck and future local validation plan are [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 This pass is tiny at the registration level, which makes it easy to hand-wave.
 That is exactly why it needs a compact file map.

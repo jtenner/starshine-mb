@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
-  - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
@@ -136,7 +135,7 @@ That means the changed surface can include:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-types` research in this repo.
-- Cite the retained 2026-04-24 correction research for the corrected source reading, the 2026-04-26 port-readiness manifest for implementation sequencing, and the 2026-07-11 bridge for current wrapper interface/admission wording; keep the direct tagged URLs below as the primary-source anchors.
+- Cite the retained 2026-04-24 correction research and the 2026-07-11 bridge for the corrected source reading, current wrapper interface, and admission wording; keep the direct tagged URLs below as the primary-source anchors.
 - Keep the 0149 research note as history only; do not reuse its superseded pass-local scanner / whole-old-rec-group explanation as the current algorithm.
 - Keep the page honest about scheduler scope:
   - closed-world GC/type cluster in Binaryen,
@@ -146,7 +145,6 @@ That means the changed surface can include:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md)
 - [`../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md`](../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for algorithm details: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
