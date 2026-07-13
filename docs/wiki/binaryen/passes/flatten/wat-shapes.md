@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-block-table-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-legacy-eh-repair-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -469,7 +470,7 @@ For a zero-input loop with independently scalar defaultable multivalue tails, pa
 
 ### Current Starshine legacy-try slice
 
-Starshine routes branch-free defaultable legacy `try` results when both the do and catch regions end in exact independently scalar values. Scalar results use one shared typed local. Multivalue results use one shared typed vector and require one exclusive repeated HOT consumer span so result ownership is unambiguous. Each region writes its tails in source order, the `try` becomes void, and the outer consumer reads matching `local.get` nodes. The whole function remains pre-gated when legacy EH repair-sensitive `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes are present. Binaryen-equivalent nested-pop repair is still required before those catch shapes, branch-targeted tries, or single multivalue producers can be admitted.
+Starshine routes branch-free defaultable legacy `try` results when both the do and catch regions end in exact independently scalar values. Scalar results use one shared typed local. Multivalue results use one shared typed vector and require one exclusive repeated HOT consumer span so result ownership is unambiguous. Each region writes its tails in source order, the `try` becomes void, and the outer consumer reads matching `local.get` nodes. The whole function remains pre-gated when legacy EH repair-sensitive `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes are present. `flatten_eh_repair_requirement(...)` records whether typed catch-payload tracking or exceptional-transfer repair is missing; current HOT/lib has no first-class Binaryen-style payload `Pop`. Binaryen-equivalent entry extraction and nested-pop repair are still required before those catch shapes, branch-targeted tries, or single multivalue producers can be admitted.
 
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
@@ -498,6 +499,7 @@ The exact output is verbose, but the key source-backed facts are:
 ## Why
 
 - without that repair step, the resulting EH structure would be invalid
+- Starshine currently classifies this prerequisite and fails closed; it does not yet represent the typed payload `pop` needed to perform the move
 
 ## Shape 14: real control effects become preludes plus placeholder `unreachable`
 

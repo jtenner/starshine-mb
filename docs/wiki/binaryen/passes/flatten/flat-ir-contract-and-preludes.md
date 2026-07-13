@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-block-table-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-legacy-eh-repair-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -305,6 +306,8 @@ So the real flatten contract includes:
 - then repairing the EH stack discipline after the structural rewrite
 
 A future port that skips this step would not be faithfully implementing the source contract.
+
+Starshine now makes the missing prerequisites executable as `flatten_eh_repair_requirement(...)`: legacy `Catch`/`CatchAll` require typed catch-payload tracking, while `Rethrow`/`Delegate` require exceptional-transfer repair. The classifier is used by the whole-function fail-closed gate; it is not a repair implementation. Current lib/HOT lift-lower has no first-class Binaryen-style typed catch-payload `Pop`, so entry extraction, exact local typing, nested-catch exclusion, and old-position replacement remain blocked.
 
 ## Unsupported and surprising boundaries
 

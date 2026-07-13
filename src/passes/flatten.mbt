@@ -50,6 +50,49 @@ pub fn FlattenFlatnessReport::is_flat(self : FlattenFlatnessReport) -> Bool {
 }
 
 ///|
+/// Missing local prerequisites for Binaryen-equivalent legacy EH repair.
+priv struct FlattenEhRepairRequirement {
+  mut needs_catch_payload_tracking : Bool
+  mut needs_exceptional_transfer_repair : Bool
+}
+
+///|
+fn FlattenEhRepairRequirement::empty() -> FlattenEhRepairRequirement {
+  {
+    needs_catch_payload_tracking: false,
+    needs_exceptional_transfer_repair: false,
+  }
+}
+
+///|
+fn FlattenEhRepairRequirement::is_clear(
+  self : FlattenEhRepairRequirement,
+) -> Bool {
+  !self.needs_catch_payload_tracking && !self.needs_exceptional_transfer_repair
+}
+
+///|
+/// Classify legacy EH prerequisites before any flatten mutation.
+fn flatten_eh_repair_requirement(
+  func : @ir.HotFunc,
+) -> FlattenEhRepairRequirement {
+  let requirement = FlattenEhRepairRequirement::empty()
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Catch | @ir.HotOp::CatchAll =>
+        requirement.needs_catch_payload_tracking = true
+      @ir.HotOp::Rethrow | @ir.HotOp::Delegate =>
+        requirement.needs_exceptional_transfer_repair = true
+      _ => ()
+    }
+  }
+  requirement
+}
+
+///|
 fn flatten_op_is_control_structure(op : @ir.HotOp) -> Bool {
   match op {
     @ir.HotOp::Block
@@ -1409,19 +1452,7 @@ fn flatten_try_route_scalar_loop(
 
 ///|
 fn flatten_legacy_try_has_deferred_eh_repair(func : @ir.HotFunc) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Catch
-      | @ir.HotOp::CatchAll
-      | @ir.HotOp::Rethrow
-      | @ir.HotOp::Delegate => return true
-      _ => ()
-    }
-  }
-  false
+  !flatten_eh_repair_requirement(func).is_clear()
 }
 
 ///|
