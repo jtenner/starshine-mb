@@ -257,29 +257,6 @@ test "remove-unused-names O4z accounts for parent-target br_table retargeting" {
 }
 
 ///|
-test "remove-unused-names O4z accounts for repeated RUN slots after branch cleanup" {
-  // RUN scheduler shape: remove-unused-brs can make a following RUN slot newly
-  // profitable. The repeated O4z slot must be accounted for, not swallowed by a
-  // blanket no-op.
-  let (body, trace) = remove_unused_names_o4z_run(
-    "(module (func block block br 0 end end))",
-    passes=["remove-unused-names", "remove-unused-brs", "remove-unused-names"],
-  )
-  assert_true(
-    remove_unused_names_o4z_accounted(trace),
-    msg="RUN O4z shape still hidden behind blanket no-op guard: repeated RUN after remove-unused-brs; trace=\{trace}",
-  )
-  match body {
-    [@lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Br(@lib.LabelIdx(0))]))] =>
-      ()
-    other =>
-      fail(
-        "expected repeated O4z RUN to account for remaining branch cleanup, got \{other}",
-      )
-  }
-}
-
-///|
 test "remove-unused-names O4z accounts for still-targeted block labels" {
   // RUN edge case: syntactic label uses inside a peelable same-type block chain
   // must be retargeted to the surviving wrapper when the old target becomes

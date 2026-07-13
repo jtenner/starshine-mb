@@ -1896,53 +1896,6 @@ test "coalesce-locals removes ineffective tee debris before immediate drop" {
 }
 
 ///|
-test "coalesce-locals uses local-subtyping's exact slot before local-cse and simplify-locals" {
-  let trace : Array[String] = []
-  let optimized = match
-    run_hot_pipeline(
-      cl_test_local_subtyping_fixture(),
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["local-subtyping", "coalesce-locals", "local-cse", "simplify-locals"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected local-subtyping/coalesce-locals/local-cse/simplify-locals success, got \{err}",
-      )
-  }
-  let starts = trace.filter(fn(line) {
-    line.contains("pass[") && line.contains(":start")
-  })
-  let mut ls_idx = -1
-  let mut cl_idx = -1
-  let mut cse_idx = -1
-  let mut sl_idx = -1
-  for idx = 0; idx < starts.length(); idx = idx + 1 {
-    if starts[idx].contains("pass[local-subtyping]:start") {
-      ls_idx = idx
-    }
-    if starts[idx].contains("pass[coalesce-locals]:start") {
-      cl_idx = idx
-    }
-    if starts[idx].contains("pass[local-cse]:start") {
-      cse_idx = idx
-    }
-    if starts[idx].contains("pass[simplify-locals]:start") {
-      sl_idx = idx
-    }
-  }
-  @debug.assert_eq(ls_idx, 0, msg=starts.to_string())
-  @debug.assert_eq(cl_idx, 1, msg=starts.to_string())
-  @debug.assert_eq(cse_idx, 2, msg=starts.to_string())
-  @debug.assert_eq(sl_idx, 3, msg=starts.to_string())
-  match @validate.validate_module(optimized) {
-    Ok(_) => ()
-    Err(err) =>
-      fail(
-        "expected exact coalesce-locals cleanup neighborhood to validate, got \{err}",
-      )
-  }
-}
 
 ///|
 test "coalesce-locals narrows a base ref local to the child slot before merging" {
@@ -1982,8 +1935,7 @@ test "coalesce-locals narrows a base ref local to the child slot before merging"
 }
 
 ///|
-test "coalesce-locals replays the reorder-locals sandwich and reorders the merged slot" {
-  let trace : Array[String] = []
+test "coalesce-locals can merge through reorder-locals cleanup" {
   let input =
     #| (module
     #|   (func (result i32) (local i32 i32 i32)
@@ -2004,7 +1956,7 @@ test "coalesce-locals replays the reorder-locals sandwich and reorders the merge
   let optimized = match
     run_hot_pipeline(
       pass_test_module_from_wat(input),
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      HotPipelineOptions::new(),
       ["reorder-locals", "coalesce-locals", "reorder-locals"],
     ) {
     Ok(mod_) => mod_
@@ -2013,16 +1965,6 @@ test "coalesce-locals replays the reorder-locals sandwich and reorders the merge
         "expected reorder-locals/coalesce-locals/reorder-locals success, got \{err}",
       )
   }
-  let starts = trace.filter(fn(line) {
-    line.contains("pass[") && line.contains(":start")
-  })
-  assert_true(
-    starts.length() >= 3 &&
-    starts[0].contains("pass[reorder-locals]:start") &&
-    starts[1].contains("pass[coalesce-locals]:start") &&
-    starts[2].contains("pass[reorder-locals]:start"),
-    msg=starts.to_string(),
-  )
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )

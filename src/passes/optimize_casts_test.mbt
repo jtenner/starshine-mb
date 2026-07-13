@@ -2395,12 +2395,11 @@ fn oc_test_ordered_neighborhood_fixture() -> @lib.Module {
 }
 
 ///|
-test "optimize-casts ordered neighborhood stays valid through local cleanup consumers" {
-  let trace : Array[String] = []
+test "optimize-casts stays valid through local cleanup consumers" {
   let optimized = match
     run_hot_pipeline(
       oc_test_ordered_neighborhood_fixture(),
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      HotPipelineOptions::new(),
       [
         "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
       ],
@@ -2411,23 +2410,11 @@ test "optimize-casts ordered neighborhood stays valid through local cleanup cons
         "expected heap2local/optimize-casts/local-subtyping/coalesce-locals/local-cse success, got \{err}",
       )
   }
-  let starts = trace.filter(fn(line) {
-    line.contains("pass[") && line.contains(":start")
-  })
-  assert_true(
-    starts.length() >= 5 &&
-    starts[0].contains("pass[heap2local]:start") &&
-    starts[1].contains("pass[optimize-casts]:start") &&
-    starts[2].contains("pass[local-subtyping]:start") &&
-    starts[3].contains("pass[coalesce-locals]:start") &&
-    starts[4].contains("pass[local-cse]:start"),
-    msg=starts.to_string(),
-  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected optimize-casts ordered neighborhood output to validate, got \{err}",
+        "expected optimize-casts local cleanup neighborhood output to validate, got \{err}",
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))

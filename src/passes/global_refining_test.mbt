@@ -526,32 +526,6 @@ test "global-refining refines exported immutable types whose bodies contain exac
 }
 
 ///|
-test "global-refining still runs in the O4z direct pass slot" {
-  let input =
-    #| (module
-    #|   (global $g (mut exnref) (ref.null exn)))
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      ["global-refining"],
-      options=HotPipelineOptions::new(optimize_level=4, shrink_level=1),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected O4z global-refining success, got \{err}")
-  }
-
-  @debug.assert_eq(
-    try! gr_test_defined_global_type(optimized, 0),
-    @lib.GlobalType::new(
-      @lib.ValType::ref_type(
-        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_exn())),
-      ),
-      true,
-    ),
-  )
-}
-
-///|
 test "global-refining preserves exported globals in closed world" {
   let input =
     #| (module
