@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-01
+status: supported
+last_reviewed: 2026-07-12
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
@@ -31,7 +31,7 @@ related:
 # Starshine HOT-IR Strategy For `vacuum`
 
 Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md`](../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the local HOT-plus-pipeline split is wired today.
+The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, and why the current direct-pass / checked-ordered-neighborhood audit is considered closed.
 
 ## Exact local code map
 
@@ -243,6 +243,14 @@ Direct oracle evidence for the current slice:
 - `.tmp/pass-fuzz-vacuum-gen-valid`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures after the empty-void-block cleanup landed
 - `.tmp/vacuum-perf-case003694-classified`: five broad random all-profiles inputs all had equal raw wasm or normalized WAT after direct `--vacuum`. Pass-local Starshine/Binaryen timing pairs were `5.539/0.124`, `0.037/0.037`, `0/0.185`, `5.517/0.134`, and `6.943/0.129` ms; median Starshine pass-local time was `5.517ms` vs Binaryen `0.129ms`. This meets the repo `<1s` pass-local target but not the `>=50%` Binaryen-speed target.
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --redundant-set-elimination --vacuum --out-dir .tmp/vacuum-large-nested-rse-debris`: the combined replay still has the inherited first differing function at `defined=208 abs=225`, but the real large-function size gap is mostly closed. Starshine normalized wasm is `3,145,318` bytes vs Binaryen `3,139,705`; `defined=518` shrinks to `497,292` body bytes vs Binaryen `495,884`, and Starshine pass-local time is `174.413ms` vs Binaryen `35,265.000ms`.
+
+Audit-closeout note for the current scope:
+
+- direct regular GenValid signoff is green at `100000/100000` in `.tmp/pass-fuzz-vacuum-genvalid-100000-after-case003694-classification`;
+- explicit wasm-smith is classified in `.tmp/pass-fuzz-vacuum-wasm-smith-10000-case003694-classified` with one inspected non-pass Binaryen materialization / Starshine-size-win residual plus `44` Binaryen/tool failures;
+- broad random-all-profiles is green at `10000/10000` in `.tmp/pass-fuzz-vacuum-random-all-profiles-10000-after-terminal-debris`;
+- the reconstructed checked slot23 replay `.tmp/vacuum-current-o4z-neighborhood/slot23-pre22-vacuum-compare-f7263-i32-le-s-parser` reached normalized WAT equality and canonical function compare equality on 2026-07-04;
+- remaining whole-command wall investigations belong under `[WALL]001` unless a fresh measurement proves a new vacuum-owned bottleneck.
 
 Current Starshine does **not** yet model upstream behaviors such as:
 

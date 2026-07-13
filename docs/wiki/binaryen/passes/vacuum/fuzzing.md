@@ -1,7 +1,7 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-07-04
+status: supported
+last_reviewed: 2026-07-12
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -9,13 +9,17 @@ sources:
 
 # `vacuum` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass.
+
+For the current v0.1.0 direct-pass audit, the required closeout lanes are already in place: regular GenValid is green at `100000/100000`, explicit wasm-smith is classified with one inspected non-pass Binaryen materialization / Starshine-size-win residual plus `44` Binaryen/tool failures, the dedicated `vacuum` aggregate leaves are smoke-green, and broad random-all-profiles is green at `10000/10000`.
+
+Reference command:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Latest direct GenValid evidence:
+Latest direct closeout evidence:
 
 - 2026-06-29: `.tmp/pass-fuzz-vacuum-genvalid-100000-after-case003694-classification` ran `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum-genvalid-100000-after-case003694-classification --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` after `moon build --target native --release src/cmd` reported the current native binary was up to date. Result: compared `100000/100000`, normalized matches `100000`, cleanup-normalized `0`, mismatches `0`, validation/property/generator/command failures `0`, Binaryen cache `10332` hits / `89668` misses.
 - 2026-06-29: `.tmp/pass-fuzz-vacuum-audit-after-const-if-10000-current` used `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd` because the stale `target/native/...` copy was not refreshed in this worktree. Command: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum-audit-after-const-if-10000-current --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures`. Result: compared `10000/10000`, normalized matches `10000`, mismatches `0`, validation failures `0`, property failures `0`, generator failures `0`, command failures `0`, Binaryen cache `1002` hits / `8998` misses. This supersedes the old 2026-06-05 timeout and verifies the constant-condition void-`if` cleanup parity fix.

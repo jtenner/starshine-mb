@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-11
+last_reviewed: 2026-07-12
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
@@ -53,7 +53,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - slot `37`
   - slot `47`
 - The saved Binaryen debug log contains `72` `running pass: vacuum` lines in total, so nested reruns make it far more common than the four visible top-level slots suggest.
-- The local backlog already has dedicated `VQ` work items in `agent-todo.md`, so richer docs directly help future parity work.
+- The local backlog carried dedicated `VQ` work items during the release audit; that audit is now closed for the current direct-pass and checked ordered-neighborhood scope, so future work should reopen only for a new semantic/validation mismatch or a newly proven vacuum-owned wall-time bottleneck.
 
 ## Most important durable takeaways
 
@@ -69,7 +69,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - the function body itself
 - The pass depends heavily on effect analysis, helper-based dropped-child rebuilding, and post-rewrite refinalization.
 - The canonical no-DWARF scheduler uses it as repeated cleanup glue between other local and late cleanup passes, not as a one-shot finalizer.
-- Current Starshine still implements a focused subset of upstream behavior, but it now covers the first effect-aware cleanup slice:
+- Current Starshine still implements a focused subset of upstream behavior, but that subset is now audit-complete for the current direct pass and checked `-O4z` neighborhood evidence. It covers:
   - recursive `nop` region-entry trimming
   - dropped pure scalar result pruning for nontrapping numeric/ref/tuple shapes
   - removing empty void blocks
@@ -113,6 +113,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
+- Treat the current direct-pass and checked ordered-neighborhood audit as closed for v0.1.0: the direct `100000` regular GenValid lane is green, the explicit wasm-smith lane is classified, the broad random-all-profiles lane is green, and the reconstructed checked slot23 replay reached normalized WAT equality plus canonical function compare equality on 2026-07-04.
 - Treat the new raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
