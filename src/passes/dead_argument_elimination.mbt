@@ -27755,67 +27755,83 @@ fn dae_run_broad_dropped_result_payoff_chain(
     return { mod_out: current, touched, changed, productive_defs: [] }
   }
   let total = imported + defined
-  let call_facts = dae_collect_current_call_facts(current, total)
-  let candidates = dae_collect_dropped_result_payoff_chain_candidates(
-    current, call_facts,
-  )
-  while candidates.length() > 0 {
-    let mut best_idx = 0
-    for idx = 1; idx < candidates.length(); idx = idx + 1 {
-      if candidates[idx].payoff > candidates[best_idx].payoff {
-        best_idx = idx
+  let mut current_mod = current
+  let mut current_touched = touched
+  let productive_defs : Array[Int] = []
+  let mut iteration = 0
+  while iteration < 2 {
+    let call_facts = dae_collect_current_call_facts(current_mod, total)
+    let candidates = dae_collect_dropped_result_payoff_chain_candidates(
+      current_mod, call_facts,
+    )
+    let mut applied = false
+    while candidates.length() > 0 && !applied {
+      let mut best_idx = 0
+      for idx = 1; idx < candidates.length(); idx = idx + 1 {
+        if candidates[idx].payoff > candidates[best_idx].payoff {
+          best_idx = idx
+        }
       }
-    }
-    let candidate = candidates[best_idx]
-    ignore(candidates.remove(best_idx))
-    let wrapper_result = dae_try_remove_dropped_result_def_with_facts(
-      current,
-      candidate.wrapper_def,
-      call_facts,
-      perf~,
-    )
-    if !wrapper_result.changed {
-      continue
-    }
-    let next_facts = dae_collect_current_call_facts(
-      wrapper_result.mod_out,
-      total,
-    )
-    let callee_result = dae_try_remove_dropped_result_def_with_facts(
-      wrapper_result.mod_out,
-      candidate.callee_def,
-      next_facts,
-      perf~,
-    )
-    if !callee_result.changed {
-      continue
-    }
-    return {
-      mod_out: callee_result.mod_out,
-      touched: dae_merge_touched(
-        dae_merge_touched(touched, wrapper_result.touched),
+      let candidate = candidates[best_idx]
+      ignore(candidates.remove(best_idx))
+      let wrapper_result = dae_try_remove_dropped_result_def_with_facts(
+        current_mod,
+        candidate.wrapper_def,
+        call_facts,
+        perf~,
+      )
+      if !wrapper_result.changed {
+        continue
+      }
+      let next_facts = dae_collect_current_call_facts(
+        wrapper_result.mod_out,
+        total,
+      )
+      let callee_result = dae_try_remove_dropped_result_def_with_facts(
+        wrapper_result.mod_out,
+        candidate.callee_def,
+        next_facts,
+        perf~,
+      )
+      if !callee_result.changed {
+        continue
+      }
+      current_mod = callee_result.mod_out
+      current_touched = dae_merge_touched(
+        dae_merge_touched(current_touched, wrapper_result.touched),
         callee_result.touched,
-      ),
-      changed: true,
-      productive_defs: [candidate.wrapper_def, candidate.callee_def],
+      )
+      productive_defs.push(candidate.wrapper_def)
+      productive_defs.push(candidate.callee_def)
+      applied = true
     }
+    if !applied {
+      break
+    }
+    iteration += 1
   }
-  { mod_out: current, touched, changed, productive_defs: [] }
+  {
+    mod_out: current_mod,
+    touched: current_touched,
+    changed: changed || productive_defs.length() > 0,
+    productive_defs,
+  }
 }
 
 ///|
-fn dae_collect_dropped_result_payoff_cleanup_candidate(
+fn dae_collect_dropped_result_payoff_cleanup_candidates(
   original : @lib.Module,
   current : @lib.Module,
-) -> DaeDroppedResultPayoffChainCandidate? {
+) -> Array[DaeDroppedResultPayoffChainCandidate] {
+  let candidates : Array[DaeDroppedResultPayoffChainCandidate] = []
   let imported = dae_imported_func_count(original)
   let defined = dae_defined_func_count(original)
   if defined <= 8192 || dae_defined_func_count(current) != defined {
-    return None
+    return candidates
   }
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return None
+    None => return candidates
   }
   let original_types = dae_collect_func_type_indices(original)
   let current_types = dae_collect_func_type_indices(current)
@@ -27826,7 +27842,6 @@ fn dae_collect_dropped_result_payoff_cleanup_candidate(
   let original_boundary_facts = dae_call_boundary_facts_from_current(
     original_call_facts,
   )
-  let mut best : DaeDroppedResultPayoffChainCandidate? = None
   for wrapper_def = 0
       wrapper_def < original_funcs.length()
       wrapper_def = wrapper_def + 1 {
@@ -27861,18 +27876,22 @@ fn dae_collect_dropped_result_payoff_cleanup_candidate(
       callee_def,
       payoff: dae_dropped_result_payoff_instrs(body),
     }
-    if locals.length() < 128 || candidate.payoff < 128 {
-      continue
-    }
-    match best {
-      Some(existing) =>
-        if candidate.payoff > existing.payoff {
-          best = Some(candidate)
-        }
-      None => best = Some(candidate)
+    if locals.length() >= 128 && candidate.payoff >= 128 {
+      candidates.push(candidate)
     }
   }
-  best
+  let selected : Array[DaeDroppedResultPayoffChainCandidate] = []
+  while candidates.length() > 0 && selected.length() < 2 {
+    let mut best_idx = 0
+    for idx = 1; idx < candidates.length(); idx = idx + 1 {
+      if candidates[idx].payoff > candidates[best_idx].payoff {
+        best_idx = idx
+      }
+    }
+    selected.push(candidates[best_idx])
+    ignore(candidates.remove(best_idx))
+  }
+  selected
 }
 
 ///|

@@ -61680,32 +61680,36 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   )
   core_mod = payoff_chain.mod_out
   core_touched = payoff_chain.touched
-  match dae_collect_dropped_result_payoff_cleanup_candidate(mod_, core_mod) {
-    Some(candidate) => {
-      let cleanup_touched = Array::make(dae_defined_func_count(core_mod), false)
+  let payoff_cleanup_candidates = dae_collect_dropped_result_payoff_cleanup_candidates(
+    mod_, core_mod,
+  )
+  if payoff_cleanup_candidates.length() > 0 {
+    let cleanup_touched = Array::make(dae_defined_func_count(core_mod), false)
+    for candidate in payoff_cleanup_candidates {
       cleanup_touched[candidate.callee_def] = true
-      for cleanup_pass in ["simplify-locals", "vacuum"] {
-        let descriptor = match
-          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-          Ok(descriptor) => descriptor
-          Err(err) => return Err(err)
-        }
-        core_mod = match
-          run_hot_pipeline_apply_hot_pass_to_touched(
-            core_mod, descriptor, cleanup_touched, options,
-          ) {
-          Ok(next) => next
-          Err(err) =>
-            return Err(
-              "DAE dropped-result payoff-chain \{cleanup_pass} cleanup: \{err}",
-            )
-        }
+    }
+    for cleanup_pass in ["simplify-locals", "vacuum"] {
+      let descriptor = match
+        run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+        Ok(descriptor) => descriptor
+        Err(err) => return Err(err)
       }
+      core_mod = match
+        run_hot_pipeline_apply_hot_pass_to_touched(
+          core_mod, descriptor, cleanup_touched, options,
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE dropped-result payoff-chain \{cleanup_pass} cleanup: \{err}",
+          )
+      }
+    }
+    for candidate in payoff_cleanup_candidates {
       (options.trace)(
         "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=\{candidate.wrapper_def} callee_def=\{candidate.callee_def} payoff=\{candidate.payoff}",
       )
     }
-    None => ()
   }
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(core_mod, core_touched, options) {

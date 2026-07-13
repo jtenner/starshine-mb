@@ -15448,3 +15448,75 @@ test "dae-optimizing closes a broad dropped-result wrapper chain with bounded se
     msg=trace.to_string(),
   )
 }
+
+///|
+fn dae_test_append_broad_dropped_result_payoff_target(
+  out : StringBuilder,
+  name : String,
+  copy_count : Int,
+) -> Unit {
+  out.write_string("  (func $")
+  out.write_string(name)
+  out.write_string(" (result i32)\n")
+  out.write_string("    (local")
+  for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(")\n")
+  for local_id = 0; local_id < copy_count; local_id = local_id + 1 {
+    out.write_string("    i32.const ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n    local.set ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n    block\n      local.get ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n      drop\n    end\n")
+  }
+  out.write_string("    local.get ")
+  out.write_string((copy_count - 1).to_string())
+  out.write_string(")\n")
+}
+
+///|
+fn dae_test_two_broad_dropped_result_payoff_chains_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  dae_test_append_broad_dropped_result_payoff_target(out, "target0", 40)
+  out.write_string("  (func $wrapper0 (result i32) call $target0)\n")
+  dae_test_append_broad_dropped_result_payoff_target(out, "target1", 32)
+  out.write_string("  (func $wrapper1 (result i32) call $target1)\n")
+  out.write_string(
+    "  (func (export \"run\") call $wrapper0 drop call $wrapper1 drop)\n",
+  )
+  for dummy_idx = 5; dummy_idx < 8193; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing closes two ranked broad dropped-result chains in one bounded transaction" {
+  let (optimized, trace) = dae_test_run_with_perf_trace(
+    dae_test_two_broad_dropped_result_payoff_chains_module(),
+  )
+  for def_idx in [0, 1, 2, 3] {
+    @debug.assert_eq(dae_test_func_results(optimized, def_idx).length(), 0)
+  }
+  for def_idx in [0U, 2U] {
+    let target = optimized.pretty_print_defined_func(def_idx)
+    assert_false(target.contains("local.set"), msg=target)
+  }
+  let payoff_traces = trace.filter(fn(line) {
+    line.contains("pass[dae-optimizing]:payoff-dropped-result-chain")
+  })
+  @debug.assert_eq(payoff_traces.length(), 2)
+  assert_true(
+    payoff_traces[0].contains("wrapper_def=1 callee_def=0"),
+    msg=payoff_traces.to_string(),
+  )
+  assert_true(
+    payoff_traces[1].contains("wrapper_def=3 callee_def=2"),
+    msg=payoff_traces.to_string(),
+  )
+}
