@@ -42,3 +42,33 @@ test "flatten classifier reports upstream unsupported try-table" {
   @debug.assert_eq(report.unsupported_count, 1)
   assert_false(report.is_flat())
 }
+
+///|
+test "flatten materializes an implicit scalar function result before return" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 1)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  let set_id = @ir.hot_root_get(func, 0)
+  let return_id = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, set_id).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, return_id).op.to_string(), "Return")
+  let get_id = @ir.hot_child_get(func, return_id, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, get_id).op.to_string(), "LocalGet")
+  @debug.assert_eq(@ir.hot_node_get(func, set_id).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, get_id).imm0, 0)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected flattened body to verify, got \{err}")
+  }
+}

@@ -1,4 +1,22 @@
 ///|
+pub fn flatten_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("flatten", invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+pub fn flatten_summary() -> String {
+  "Sequence nested values through explicit locals to establish Binaryen Flat IR."
+}
+
+///|
 /// Analysis-only summary of Binaryen Flat IR contract violations in one HOT function.
 pub(all) struct FlattenFlatnessReport {
   mut rich_operand_count : Int
@@ -105,7 +123,15 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
       let child_id = @ir.hot_child_get(func, node_id, slot)
       if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
-        if !flatten_node_is_simple_operand(func, child_id) {
+        let local_set_value_is_allowed = match node.op {
+          @ir.HotOp::LocalSet =>
+            !flatten_op_is_control_structure(
+              @ir.hot_node_get(func, child_id).op,
+            )
+          _ => false
+        }
+        if !local_set_value_is_allowed &&
+          !flatten_node_is_simple_operand(func, child_id) {
           report.rich_operand_count += 1
         }
       }
@@ -120,4 +146,48 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
     }
   }
   report
+}
+
+///|
+fn flatten_materialize_scalar_body_result(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let root_count = @ir.hot_root_count(func)
+  if root_count == 0 {
+    return false
+  }
+  let tail_id = @ir.hot_root_get(func, root_count - 1)
+  let tail = @ir.hot_node_get(func, tail_id)
+  match tail.op {
+    @ir.HotOp::Return => return false
+    _ => ()
+  }
+  let result_types = @ir.hot_type_results(func, tail.ty)
+  if result_types.length() != 1 {
+    return false
+  }
+  let local_id = @ir.hot_append_body_local(func, result_types[0])
+  let set_id = @ir.hot_build_local_set(func, local_id, tail_id)
+  let get_id = @ir.hot_build_local_get(func, local_id)
+  let return_id = @ir.hot_build_return(func, [get_id])
+  ignore(
+    pass_splice_region(ctx, func, @ir.HotRegionRef::root(), root_count - 1, 1, [
+      set_id, return_id,
+    ]),
+  )
+  true
+}
+
+///|
+pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  let before = flatten_classify_hot(func)
+  if before.unsupported_count > 0 {
+    return HotPassResult::unchanged()
+  }
+  if !flatten_materialize_scalar_body_result(ctx, func) {
+    return HotPassResult::unchanged()
+  }
+  pass_mark_mutated(ctx, func)
+  HotPassResult::changed()
 }
