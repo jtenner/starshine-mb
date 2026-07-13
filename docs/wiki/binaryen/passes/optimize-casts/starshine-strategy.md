@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-03
 sources:
   - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
-  - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -43,7 +42,7 @@ related:
 
 # Starshine Strategy For `optimize-casts`
 
-Use this page together with the current-main implementation/test bridge in [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md), the 2026-05-05 freshness recheck in [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md), the direct tagged source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md), and the dedicated port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the retained 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md), the direct tagged source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md), and the dedicated port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future changes must preserve.
 
 ## The honest current status
