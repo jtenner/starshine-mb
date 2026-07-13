@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
-  - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
@@ -366,7 +365,6 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
 - [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
