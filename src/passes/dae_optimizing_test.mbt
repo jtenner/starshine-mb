@@ -7952,6 +7952,35 @@ test "dae-optimizing nested precompute-propagate prefix only rewrites touched fu
 }
 
 ///|
+test "dae-optimizing nested propagation folds effectful block fallthrough constants" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $f (param i32) (result i32) (local i32)
+    #|    (local.set 1
+    #|      (block (result i32)
+    #|        (global.set $g (i32.const 1))
+    #|        (i32.const 7)))
+    #|    (i32.add (local.get 1) (i32.const 1)))
+    #|  (func (export "run") (result i32)
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE block-fallthrough propagation pipeline success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+  let touched = optimized.pretty_print_defined_func(0U)
+  assert_true(touched.contains("global.set"), msg=touched)
+  assert_true(touched.contains("I32(8)"), msg=touched)
+  assert_false(touched.contains("local.set"), msg=touched)
+  assert_false(touched.contains("i32.add"), msg=touched)
+}
+
+///|
 test "dae-optimizing traces oversized touched-function nested cleanup skip" {
   let source = "(module (func $f (param i32)" +
     dae_test_many_i32_locals(129) +
