@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
@@ -232,7 +231,6 @@ Before implementing anything, a future contributor should be able to answer:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./abi-surface-and-opcode-coverage.md`](./abi-surface-and-opcode-coverage.md)

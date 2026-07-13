@@ -62,7 +62,6 @@ sources:
   - ../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
   - ../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
@@ -78,7 +77,6 @@ sources:
   - ../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
@@ -717,7 +715,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md)
 - [`../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
 - [`../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md)

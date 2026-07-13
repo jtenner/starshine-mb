@@ -75,7 +75,6 @@ sources:
   - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
   - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
@@ -93,7 +92,6 @@ sources:
   - ../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
