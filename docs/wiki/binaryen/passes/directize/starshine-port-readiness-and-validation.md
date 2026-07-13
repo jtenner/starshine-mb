@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
