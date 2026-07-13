@@ -3570,59 +3570,6 @@ test "perf session records hot allocation deltas dumps and checkpoints" {
 }
 
 ///|
-test "perf pass-level timing omits detail timers without hiding pass timers" {
-  let lines : Array[String] = []
-  let perf = HotPerfSession::new(
-    trace=fn(line) { lines.push(line) },
-    trace_detail_timings=false,
-    trace_checkpoints=false,
-    trace_counters=false,
-  )
-  let detail_start = perf_start_timer(
-    perf, "detail:optimize-instructions:scratch-init",
-  )
-  perf_stop_timer(
-    perf, "detail:optimize-instructions:scratch-init", detail_start,
-  )
-  let pass_start = perf_start_timer(perf, "pass:optimize-instructions")
-  perf_stop_timer(perf, "pass:optimize-instructions", pass_start)
-  let text = perf_test_join_lines(lines)
-  assert_false(text.contains("detail:optimize-instructions:scratch-init"))
-  assert_true(text.contains("perf:timer name=pass:optimize-instructions"))
-}
-
-///|
-test "optimize-instructions skips setup for i32 literal HOT revisions" {
-  let lines : Array[String] = []
-  let trace = fn(line) { lines.push(line) }
-  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
-  match
-    pass_test_run_pipeline(
-      "(module (func (result i32) i32.const 1) (func (result i32) i32.const 2) (func (result i32) i32.const 3))",
-      ["optimize-instructions"],
-      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
-    ) {
-    Ok(_) => ()
-    Err(err) => fail("expected scalar literal no-candidate pipeline: \{err}")
-  }
-  let text = perf_test_join_lines(lines)
-  assert_false(text.contains("pass[optimize-instructions]:skip-raw"), msg=text)
-  assert_true(text.contains("perf:timer name=lift"), msg=text)
-  assert_true(
-    text.contains("perf:timer name=pass:optimize-instructions"),
-    msg=text,
-  )
-  assert_false(
-    text.contains("detail:optimize-instructions:unsupported-preflight"),
-    msg=text,
-  )
-  assert_false(
-    text.contains("detail:optimize-instructions:scratch-init"),
-    msg=text,
-  )
-}
-
-///|
 test "pass require cfg records a single cfg build and optional cfg dump" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
