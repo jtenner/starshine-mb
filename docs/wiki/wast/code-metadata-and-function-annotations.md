@@ -11,7 +11,7 @@ sources:
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
   - ../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
-  - ../raw/binaryen/2026-04-23-inlining-primary-sources.md
+  - ../binaryen/passes/inlining/binaryen-strategy.md
   - ../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
   - ../../../src/wast/lexer.mbt
   - ../../../src/wast/parser.mbt
@@ -177,5 +177,5 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)
 - WAST identifier/name baseline: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
-- Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md), [`../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../raw/binaryen/2026-04-23-inlining-primary-sources.md), [`../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`](../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md)
+- Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md), direct tagged URLs in [`../binaryen/passes/inlining/binaryen-strategy.md`](../binaryen/passes/inlining/binaryen-strategy.md), and [`../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`](../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md)
 - Starshine code: [`../../../src/wast/lexer.mbt`](../../../src/wast/lexer.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`../../../src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), [`../../../src/passes/duplicate_function_elimination.mbt`](../../../src/passes/duplicate_function_elimination.mbt), [`../../../src/passes/duplicate_import_elimination.mbt`](../../../src/passes/duplicate_import_elimination.mbt), [`../../../src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt)

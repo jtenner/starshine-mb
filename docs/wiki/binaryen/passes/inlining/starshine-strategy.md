@@ -8,7 +8,6 @@ sources:
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt

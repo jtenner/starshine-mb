@@ -9,7 +9,6 @@ sources:
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
-  - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
@@ -45,6 +44,10 @@ Primary upstream URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-unreachable.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-gc.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/no-inline.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/no-inline-monomorphize-inlining.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inline-main.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/inline-hints.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/inline-hints-func.wast>
 
 ## One-sentence contract
 
