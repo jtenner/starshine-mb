@@ -3,9 +3,7 @@ kind: pass-strategy
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md
   - ../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md
-  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md
 related:
   - ./index.md
@@ -104,4 +102,4 @@ A 2026-04-26 spot check of official Binaryen current-main owner/registration/fac
 
 The focused 2026-04-26 source ingest did not find a dedicated pass-named `llvm-memory-copy-fill-lowering.wast` file in the checked official `test/lit/passes` directories. This dossier therefore cites the owner file and registration files as the direct proof surface and treats any future standalone lit fixture as a thing to add when found, not as an already-existing proof.
 
-[^manifest]: [`../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md)
+[^manifest]: Retained [`2026-04-26 source dossier`](../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md) and [`port-readiness follow-up`](../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md).

@@ -3,9 +3,7 @@ kind: implementation-map
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md
   - ../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md
-  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md
 related:
   - ./index.md
@@ -25,7 +23,7 @@ related:
 | `src/passes/pass.cpp` | Registers the public pass name `llvm-memory-copy-fill-lowering`. |
 | `src/passes/passes.h` | Declares the pass factory. |
 
-The first 2026-04-26 current-main spot check found no teaching-relevant drift from the `version_129` source contract recorded in the raw manifest. The later 2026-04-26 port-readiness recheck refined the dossier by confirming helper functions, exact unsupported fatal boundaries, and feature cleanup; it did not find a current-main behavioral drift.
+The retained 2026-04-26 source-dossier current-main spot check found no teaching-relevant drift from the recorded `version_129` contract. The later 2026-04-26 port-readiness recheck refined the dossier by confirming helper functions, exact unsupported fatal boundaries, and feature cleanup; it did not find a current-main behavioral drift.
 
 ## Upstream proof surface
 

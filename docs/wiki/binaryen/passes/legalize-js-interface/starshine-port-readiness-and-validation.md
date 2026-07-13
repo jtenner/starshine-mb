@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
@@ -199,7 +198,6 @@ A correct port also needs at least one `ref.func` body case and one represented 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md)
 - [`../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md`](../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)

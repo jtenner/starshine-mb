@@ -3,9 +3,7 @@ kind: starshine-port-readiness
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/ir/effects.mbt
   - ../../../../../src/validate/validate.mbt

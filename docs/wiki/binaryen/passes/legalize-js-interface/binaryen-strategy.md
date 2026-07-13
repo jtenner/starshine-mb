@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
@@ -39,7 +38,7 @@ The pruning sibling runs the plain pass first and then removes or stubs still-il
 
 ## Main algorithm shape
 
-The 2026-04-26 current-main recheck in [`../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md) found no teaching-relevant drift from this phase order. Future Starshine work should still validate against current Binaryen before landing behavior.
+The retained 2026-04-26 current-main recheck in [`../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md`](../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md) found no teaching-relevant drift from this phase order. Future Starshine work should still validate against current Binaryen before landing behavior.
 
 ## Phase 1: record pass arguments
 

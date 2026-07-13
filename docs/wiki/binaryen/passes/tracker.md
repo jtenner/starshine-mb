@@ -80,7 +80,6 @@ sources:
   - ../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
   - ../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
@@ -717,7 +716,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
 - [`../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
 - [`../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md)
 - [`../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md`](../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md)
 - [`../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
