@@ -238,7 +238,6 @@ sources:
   - ../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
   - ../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
-  - ../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
   - ../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
@@ -702,7 +701,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
 - [`../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md`](../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md)
-- [`../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
 - [`../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
 - [`../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)

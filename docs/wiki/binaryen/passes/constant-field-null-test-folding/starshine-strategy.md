@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
   - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -40,7 +39,7 @@ related:
 
 # Starshine strategy for `constant-field-null-test-folding`
 
-Use this page together with the sibling raw primary-source capture in [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md), the parent CFP Starshine page in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md), and the parent readiness bridge in [`../constant-field-propagation/starshine-port-readiness-and-validation.md`](../constant-field-propagation/starshine-port-readiness-and-validation.md).
+Use this page together with the sibling 2026-05-05 [`current-main bridge`](../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md), the retained 2026-04-25 [`source bridge`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md), the parent CFP Starshine page in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md), and the parent readiness bridge in [`../constant-field-propagation/starshine-port-readiness-and-validation.md`](../constant-field-propagation/starshine-port-readiness-and-validation.md).
 The goal here is to make the local status of the **sibling** explicit so readers do not have to infer it from the parent `constant-field-propagation` dossier.
 
 ## The honest current status
@@ -187,7 +186,6 @@ Until that architecture exists, keep `constant-field-null-test-folding` boundary
 - [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
 - [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
