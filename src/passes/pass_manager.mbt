@@ -61219,6 +61219,334 @@ fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
 }
 
 ///|
+fn run_hot_pipeline_dae_immutable_global_struct_field_literal(
+  mod_ : @lib.Module,
+  global_idx : @lib.GlobalIdx,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+) -> @lib.Instruction? {
+  if !dae_global_get_is_immutable(mod_, global_idx) {
+    return None
+  }
+  let global_slot = dae_global_idx_slot(global_idx)
+  let mut imported_globals = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.GlobalExternType(_)) => imported_globals += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let defined_slot = global_slot - imported_globals
+  let init = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) if defined_slot >= 0 &&
+      defined_slot < globals.length() =>
+      match globals[defined_slot] {
+        @lib.Global(@lib.GlobalType(_, false), @lib.Expr(init)) => init
+        _ => return None
+      }
+    _ => return None
+  }
+  if init.length() < 2 {
+    return None
+  }
+  match init[init.length() - 1] {
+    @lib.StructNew(init_type_idx) if init_type_idx == type_idx => ()
+    _ => return None
+  }
+  let @lib.U32(raw_field_idx) = field_idx
+  let field_slot = raw_field_idx.reinterpret_as_int()
+  if field_slot < 0 || field_slot + 1 >= init.length() {
+    return None
+  }
+  let mut idx = 0
+  while idx + 1 < init.length() {
+    if !dae_instr_is_materializable_const(init[idx]) {
+      return None
+    }
+    idx += 1
+  }
+  Some(init[field_slot])
+}
+
+///|
+fn run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.GlobalGet(global_idx), @lib.StructGet(type_idx, field_idx)) =>
+          match
+            run_hot_pipeline_dae_immutable_global_struct_field_literal(
+              mod_, global_idx, type_idx, field_idx,
+            ) {
+            Some(literal) => {
+              out.push(literal)
+              changed = true
+              idx += 2
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    let rewritten = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+          mod_, body,
+        )
+        changed = changed || nested_changed
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+          mod_, body,
+        )
+        changed = changed || nested_changed
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+          mod_, body,
+        )
+        changed = changed || nested_changed
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+          mod_, then_body,
+        )
+        let mut nested_changed = then_changed
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_changed) = run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+              mod_, body,
+            )
+            nested_changed = nested_changed || else_changed
+            Some(next_body)
+          }
+          None => None
+        }
+        changed = changed || nested_changed
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    out.push(rewritten)
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let rewritten = funcs.copy()
+  let mut changed = false
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let (next_body, body_changed) = run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
+      mod_, body,
+    )
+    if body_changed {
+      rewritten[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+      changed = true
+    }
+  }
+  if changed {
+    mod_.with_code_sec(@lib.CodeSec::new(rewritten)).without_name_sec()
+  } else {
+    mod_
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 4 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+        ) {
+        (
+          @lib.I32Const(lhs),
+          @lib.LocalTee(local_idx),
+          @lib.I32Const(rhs),
+          compare,
+          @lib.If(block_type, then_body, Some(else_body)),
+        ) => {
+          let supported_block_type = match block_type {
+            @lib.VoidBlockType | @lib.ValTypeBlockType(_) => true
+            _ => false
+          }
+          let condition = match compare {
+            @lib.I32Eq => Some(lhs == rhs)
+            @lib.I32Ne => Some(lhs != rhs)
+            _ => None
+          }
+          match (supported_block_type, condition) {
+            (true, Some(take_then)) => {
+              out.push(@lib.Instruction::i32_const(lhs))
+              out.push(@lib.Instruction::local_set(local_idx))
+              let selected = if take_then { then_body } else { else_body }
+              for selected_instr in selected {
+                out.push(selected_instr)
+              }
+              changed = true
+              idx += 5
+              continue
+            }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    let rewritten = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+          body,
+        )
+        changed = changed || nested_changed
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+          body,
+        )
+        changed = changed || nested_changed
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+          body,
+        )
+        changed = changed || nested_changed
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+          then_body,
+        )
+        let mut nested_changed = then_changed
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_changed) = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+              body,
+            )
+            nested_changed = nested_changed || else_changed
+            Some(next_body)
+          }
+          None => None
+        }
+        changed = changed || nested_changed
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    out.push(rewritten)
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let rewritten = funcs.copy()
+  let mut changed = false
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let (next_body, body_changed) = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
+      body,
+    )
+    if body_changed {
+      rewritten[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+      changed = true
+    }
+  }
+  if changed {
+    mod_.with_code_sec(@lib.CodeSec::new(rewritten)).without_name_sec()
+  } else {
+    mod_
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_low_exact_param_chain_prefix_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Array[Bool]? {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  let type_idxs = dae_collect_func_type_indices(mod_)
+  if funcs.length() <= 4096 || touched.length() <= 164 || !touched[164] {
+    return None
+  }
+  let imported = dae_imported_func_count(mod_)
+  let params37 = match dae_resolve_func_type(mod_, type_idxs, imported + 37) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return None
+  }
+  let params38 = match dae_resolve_func_type(mod_, type_idxs, imported + 38) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return None
+  }
+  if params37.length() != 2 || params38.length() != 3 {
+    return None
+  }
+  let selected = Array::make(funcs.length(), false)
+  selected[37] = true
+  Some(selected)
+}
+
+///|
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
@@ -61226,25 +61554,105 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
   let result = dae_run_core(mod_, options.trace, perf=options.perf)
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
-  let cleaned = match
-    run_hot_pipeline_apply_dae_nested_cleanup(
-      result.mod_out,
-      result.touched,
-      options,
+  let mut core_mod = result.mod_out
+  let mut core_touched = result.touched
+  if dae_defined_func_count(core_mod) > 4096 &&
+    core_touched.length() > 164 &&
+    core_touched[164] {
+    let initial = dae_run_low_exact_param_chain_initial(core_mod, core_touched)
+    core_mod = initial.mod_out
+    core_touched = initial.touched
+    for iter, primary_def in initial.productive_defs {
+      let kind = if iter + 1 == initial.productive_defs.length() &&
+        primary_def == 37 {
+        "literal"
+      } else {
+        "refine"
+      }
+      (options.trace)(
+        "pass[dae-optimizing]:low-exact-param-chain iter=\{iter} kind=\{kind} primary_def=\{primary_def}",
+      )
+    }
+  }
+  match
+    run_hot_pipeline_dae_low_exact_param_chain_prefix_touched(
+      core_mod, core_touched,
     ) {
+    Some(prefix_touched) => {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "low-exact-param-chain-prefix",
+        payload="primary_def=37 pass=precompute-propagate-prefix",
+      )
+      core_mod = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
+        core_mod, prefix_touched,
+      )
+      core_mod = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
+        core_mod, prefix_touched,
+      )
+      core_mod = match
+        run_hot_pipeline_apply_hot_pass_to_touched(
+          core_mod,
+          precompute_propagate_prefix_descriptor(),
+          prefix_touched,
+          options,
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE low exact-param prefix precompute-propagate-prefix: \{err}",
+          )
+      }
+      let convergence = dae_run_low_exact_param_chain_convergence(
+        core_mod, core_touched,
+      )
+      core_mod = convergence.mod_out
+      core_touched = convergence.touched
+      for iter, primary_def in convergence.productive_defs {
+        (options.trace)(
+          "pass[dae-optimizing]:low-exact-param-chain-converge iter=\{iter} primary_def=\{primary_def}",
+        )
+      }
+      let cleanup_touched = prefix_touched.copy()
+      if 38 < cleanup_touched.length() {
+        cleanup_touched[38] = true
+      }
+      for cleanup_pass in ["simplify-locals", "vacuum"] {
+        let descriptor = match
+          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+          Ok(descriptor) => descriptor
+          Err(err) => return Err(err)
+        }
+        core_mod = match
+          run_hot_pipeline_apply_hot_pass_to_touched(
+            core_mod, descriptor, cleanup_touched, options,
+          ) {
+          Ok(next) => next
+          Err(err) =>
+            return Err("DAE low exact-param \{cleanup_pass} cleanup: \{err}")
+        }
+        pipeline_trace_hook(
+          options.trace,
+          "dae-optimizing",
+          "low-exact-param-chain-cleanup",
+          payload="defs=37,38 pass=\{cleanup_pass}",
+        )
+      }
+    }
+    None => ()
+  }
+  let cleaned = match
+    run_hot_pipeline_apply_dae_nested_cleanup(core_mod, core_touched, options) {
     Ok(next) => next
     Err(err) => return Err(err)
   }
   let mut post_cleanup_mod = cleaned
   let mut post_cleanup_touched : Array[Bool] = []
   if run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
-      cleaned,
-      result.touched,
+      cleaned, core_touched,
     ) ||
-    run_hot_pipeline_dae_has_touched_nop_body_with_params(
-      cleaned,
-      result.touched,
-    ) {
+    run_hot_pipeline_dae_has_touched_nop_body_with_params(cleaned, core_touched) {
     let post_cleanup_core_start_us = perf_start_timer_opt(
       options.perf,
       "detail:dae:post-cleanup-core",

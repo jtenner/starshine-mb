@@ -6584,6 +6584,13 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       #|(module
       #|  (type $base (sub (struct)))
       #|  (type $leaf (sub final $base (struct)))
+      #|  (type $variant (sub final (struct (field i32) (field (ref null $base)))))
+      #|  (global $variant (ref $variant)
+      #|    i32.const 0
+      #|    ref.null $base
+      #|    struct.new $variant)
+      #|  (import "env" "use_i32" (func $use_i32 (param i32)))
+      #|  (import "env" "use_ref" (func $use_ref (param (ref null $base))))
     ),
   )
   for i = 0; i < 8; i = i + 1 {
@@ -6591,15 +6598,40 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
     )
   }
-  for i = 8; i < 37; i = i + 1 {
+  for i = 8; i < 36; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
   }
   out.write_string(
     (
-      #|  (func $wrap3 (result (ref null $base))
-      #|    call $wrap2)
-      #|  (func $wrap2 (result (ref null $base))
-      #|    call $wrap1)
+      #|  (func $chain-entry (param i32)
+      #|    local.get 0
+      #|    struct.new_default $leaf
+      #|    global.get $variant
+      #|    call $chain0)
+      #|  (func $chain0
+      #|    (param i32 (ref $base) (ref $variant))
+      #|    (local (ref null $base))
+      #|    local.get 2
+      #|    struct.get $variant 0
+      #|    i32.const 1
+      #|    i32.eq
+      #|    if (result (ref null $base))
+      #|      local.get 2
+      #|      struct.get $variant 1
+      #|    else
+      #|      ref.null $base
+      #|    end
+      #|    local.set 3
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 3
+      #|    call $chain1)
+      #|  (func $chain1
+      #|    (param i32 (ref $base) (ref null $base))
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    call $chain2)
       #|  (func $wrap1 (result (ref null $base))
       #|    ref.null $leaf
       #|    ref.null $leaf
@@ -6613,12 +6645,25 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       #|    ref.null $leaf
       #|    call $target)
       #|  (func $pad40)
+      #|  (func $chain2
+      #|    (param i32 (ref $base) (ref null $base))
+      #|    local.get 2
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 0
+      #|    call $use_i32
+      #|    local.get 1
+      #|    call $use_ref)
+      #|  (func $wrap2 (result (ref null $base))
+      #|    call $wrap1)
+      #|  (func $wrap3 (result (ref null $base))
+      #|    call $wrap2)
       #|  (func $top (result i32)
       #|    call $wrap3
       #|    ref.is_null)
     ),
   )
-  for i = 42; i < target_def; i = i + 1 {
+  for i = 45; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
   }
   out.write_string(
@@ -6660,7 +6705,7 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   }
   out.write_string(
     (
-      #|  (func (export "run") (result i32)
+      #|  (func (export "run") (param i32) (result i32)
       #|    i32.const 1
       #|    i32.const 2
       #|    call $g0
@@ -6685,12 +6730,21 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       #|    i32.const 1
       #|    i32.const 2
       #|    call $g7
+      #|    local.get 0
+      #|    call $chain-entry
       #|    call $top)
       #|)
     ),
   )
   let source = out.to_string()
   let optimized = dae_test_run(source)
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(plain, 37).length(), 3)
+  @debug.assert_eq(dae_test_func_params(plain, 38).length(), 3)
+  @debug.assert_eq(dae_test_func_params(plain, 41).length(), 3)
+  let plain_chain0 = plain.pretty_print_defined_func(37U)
+  assert_true(plain_chain0.contains("local.get (Local 2)"), msg=plain_chain0)
+  assert_true(plain_chain0.contains("if"), msg=plain_chain0)
   @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
   let exact_leaf = @lib.ValType::ref_type(
     @lib.RefType::new(
@@ -6699,10 +6753,39 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       exact=true,
     ),
   )
+  let chain_trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced broad-module DAE success, got \{err}")
+  }
+  for
+    expected in [
+      "pass[dae-optimizing]:low-exact-param-chain-prefix primary_def=37 pass=precompute-propagate-prefix",
+      "pass[dae-optimizing]:low-exact-param-chain-converge iter=0 primary_def=38",
+      "pass[dae-optimizing]:low-exact-param-chain-converge iter=1 primary_def=41",
+      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=37,38 pass=simplify-locals",
+      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=37,38 pass=vacuum",
+    ] {
+    assert_true(chain_trace.contains(expected), msg=chain_trace.to_string())
+  }
   @debug.assert_eq(dae_test_func_results(optimized, target_def), [exact_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 43), [exact_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 42), [exact_leaf])
   @debug.assert_eq(dae_test_func_results(optimized, 39), [exact_leaf])
-  @debug.assert_eq(dae_test_func_results(optimized, 38), [exact_leaf])
-  @debug.assert_eq(dae_test_func_results(optimized, 37), [exact_leaf])
+  assert_true(
+    dae_test_func_params(optimized, 37).length() == 2,
+    msg=optimized.pretty_print_defined_func(37U),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 37)[1], exact_leaf)
+  assert_true(
+    dae_test_func_params(optimized, 38).length() == 2,
+    msg=optimized.pretty_print_defined_func(38U),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 38)[1], exact_leaf)
+  assert_true(
+    dae_test_func_params(optimized, 41).length() == 2,
+    msg=optimized.pretty_print_defined_func(41U),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 41)[1], exact_leaf)
   let @lib.Func(target_locals, _) = dae_test_defined_func(optimized, target_def)
   @debug.assert_eq(target_locals.length(), 0)
   let target = optimized.pretty_print_defined_func(
@@ -6710,23 +6793,19 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   )
   assert_false(target.contains("if"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
-  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced broad-module DAE success, got \{err}")
-  }
   assert_true(
-    trace.contains(
+    chain_trace.contains(
       "pass[dae-optimizing]:low-exact-literal-worklist iter=0 primary_def=164",
     ),
-    msg=trace.to_string(),
+    msg=chain_trace.to_string(),
   )
   for
     expected in [
       "pass[dae-optimizing]:low-exact-result-worklist iter=0 primary_def=165", "pass[dae-optimizing]:low-exact-result-worklist iter=1 primary_def=164",
-      "pass[dae-optimizing]:low-exact-result-worklist iter=2 primary_def=39", "pass[dae-optimizing]:low-exact-result-worklist iter=3 primary_def=38",
-      "pass[dae-optimizing]:low-exact-result-worklist iter=4 primary_def=37",
+      "pass[dae-optimizing]:low-exact-result-worklist iter=2 primary_def=39", "pass[dae-optimizing]:low-exact-result-worklist iter=3 primary_def=42",
+      "pass[dae-optimizing]:low-exact-result-worklist iter=4 primary_def=43",
     ] {
-    assert_true(trace.contains(expected), msg=trace.to_string())
+    assert_true(chain_trace.contains(expected), msg=chain_trace.to_string())
   }
   match @validate.validate_module(optimized) {
     Ok(_) => ()

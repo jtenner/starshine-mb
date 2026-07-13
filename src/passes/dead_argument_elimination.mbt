@@ -7013,7 +7013,19 @@ fn dae_direct_gc_actual_candidate_type_for_value_slice(
   mod_ : @lib.Module,
   old_type : @lib.ValType,
   func_type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
 ) -> @lib.ValType? {
+  if slice.start >= 0 &&
+    slice.start + 1 == slice.end &&
+    slice.end <= instrs.length() {
+    match instrs[slice.start] {
+      @lib.LocalGet(local_idx) =>
+        return dae_gc_candidate_local_get_type(
+          mod_, caller_locals, local_idx, old_type,
+        )
+      _ => ()
+    }
+  }
   let shape = match
     dae_gc_actual_value_slice_shape_evidence(
       instrs, slice, mod_, func_type_indices,
@@ -7043,6 +7055,7 @@ fn dae_collect_direct_struct_default_actuals_instr(
   rejected : Array[Bool],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
 ) -> (Int, Bool) {
   match instr {
     @lib.Block(_, @lib.Expr(_))
@@ -7064,6 +7077,7 @@ fn dae_collect_direct_struct_default_actuals_instr(
         child_evidence.entry_stack_values,
         mod_,
         func_type_indices,
+        caller_locals,
       )
       if !primary_ok {
         return (primary_count, false)
@@ -7080,6 +7094,7 @@ fn dae_collect_direct_struct_default_actuals_instr(
             child_evidence.entry_stack_values,
             mod_,
             func_type_indices,
+            caller_locals,
           )
           (primary_count + secondary_count, secondary_ok)
         }
@@ -7101,6 +7116,7 @@ fn dae_collect_direct_struct_default_actuals_instrs(
   entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
 ) -> (Int, Bool) {
   let mut calls = 0
   let mut idx = 0
@@ -7139,6 +7155,7 @@ fn dae_collect_direct_struct_default_actuals_instrs(
                     mod_,
                     params[p],
                     func_type_indices,
+                    caller_locals,
                   ) {
                   Some(candidate) =>
                     match candidates[p] {
@@ -7180,6 +7197,7 @@ fn dae_collect_direct_struct_default_actuals_instrs(
           rejected,
           mod_,
           func_type_indices,
+          caller_locals,
         )
         calls += nested_calls
         if !ok {
@@ -10802,10 +10820,16 @@ fn dae_try_refine_direct_gc_types(
     let mut calls_seen = 0
     for caller_def in direct_caller_defs {
       if caller_def >= 0 && caller_def < funcs.length() {
-        let @lib.Func(_, @lib.Expr(caller_body)) = funcs[caller_def]
+        let @lib.Func(caller_body_locals, @lib.Expr(caller_body)) = funcs[caller_def]
+        let caller_func_locals = match
+          dae_resolve_func_type(mod_, type_indices, imported + caller_def) {
+          Some(@lib.FuncType(caller_params, _)) =>
+            Some(@lib.FunctionLocals::new(caller_params, caller_body_locals))
+          None => None
+        }
         let (caller_calls, ok) = dae_collect_direct_struct_default_actuals_instrs(
           caller_body, callee_abs, params, local_use, candidates, rejected, 0, mod_,
-          type_indices,
+          type_indices, caller_func_locals,
         )
         calls_seen += caller_calls
         if !ok {
@@ -27983,6 +28007,111 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
     }
   }
   { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+}
+
+///|
+fn dae_run_low_exact_param_chain_initial(
+  current : @lib.Module,
+  touched : Array[Bool],
+) -> DaeExactLiteralWorklistApplication {
+  let imported = dae_imported_func_count(current)
+  let total = imported + dae_defined_func_count(current)
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let mut mod_out = current
+  let mut touched_out = touched
+  let mut changed_out = false
+  let productive_defs : Array[Int] = []
+  for chain_def in [37, 38, 41] {
+    let callee_abs = imported + chain_def
+    if callee_abs < 0 ||
+      callee_abs >= call_facts.direct_calls.length() ||
+      callee_abs >= call_facts.direct_callers.length() {
+      continue
+    }
+    let result = dae_try_refine_direct_gc_types(
+      mod_out,
+      callee_abs,
+      call_facts.direct_calls[callee_abs],
+      call_facts.direct_callers[callee_abs],
+    )
+    let application = dae_apply_core_result(
+      mod_out, touched_out, changed_out, result,
+    )
+    if application.applied {
+      mod_out = application.mod_out
+      touched_out = application.touched
+      changed_out = application.changed
+      productive_defs.push(application.primary_def)
+    }
+  }
+  let selected = Array::make(dae_defined_func_count(current), false)
+  if 37 < selected.length() {
+    selected[37] = true
+    let literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      mod_out,
+      selected,
+      call_facts,
+      allow_immutable_global_get=true,
+    )
+    let literal_application = dae_apply_core_result(
+      mod_out, touched_out, changed_out, literal_result,
+    )
+    if literal_application.applied {
+      mod_out = literal_application.mod_out
+      touched_out = literal_application.touched
+      changed_out = literal_application.changed
+      productive_defs.push(literal_application.primary_def)
+    }
+  }
+  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+}
+
+///|
+fn dae_run_low_exact_param_chain_convergence(
+  current : @lib.Module,
+  touched : Array[Bool],
+) -> DaeExactLiteralWorklistApplication {
+  let total = dae_imported_func_count(current) + dae_defined_func_count(current)
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let exact_application = dae_run_exact_literal_candidate_worklist_with_facts(
+    current,
+    touched,
+    false,
+    [38, 41],
+    call_facts,
+    2,
+  )
+  let selected = Array::make(dae_defined_func_count(current), false)
+  if 41 >= selected.length() {
+    return exact_application
+  }
+  selected[41] = true
+  let unread_facts = dae_collect_current_call_facts(
+    exact_application.mod_out,
+    total,
+  )
+  let unread_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+    exact_application.mod_out,
+    selected,
+    unread_facts,
+  )
+  let unread_application = dae_apply_core_result(
+    exact_application.mod_out,
+    exact_application.touched,
+    exact_application.productive_defs.length() > 0,
+    unread_result,
+  )
+  if !unread_application.applied {
+    return exact_application
+  }
+  let productive_defs = exact_application.productive_defs.copy()
+  productive_defs.push(unread_application.primary_def)
+  {
+    mod_out: unread_application.mod_out,
+    touched: unread_application.touched,
+    changed: unread_application.changed,
+    productive_defs,
+  }
 }
 
 ///|

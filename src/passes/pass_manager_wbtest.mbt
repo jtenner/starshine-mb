@@ -19109,3 +19109,73 @@ test "merge-blocks keeps O4z slot-42 no-data func 1355 witness valid" {
   assert_true(pretty.contains("local.tee (Local 131)"), msg=pretty)
   assert_true(pretty.contains("local.tee (Local 88)"), msg=pretty)
 }
+
+///|
+test "DAEO filtered prefix folds immutable struct first-field literals only in selected functions" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $box (struct (field i32) (field i32)))
+      #|  (global $box (ref $box)
+      #|    i32.const 0
+      #|    i32.const 9
+      #|    struct.new $box)
+      #|  (func $selected (result i32) (local i32)
+      #|    global.get $box
+      #|    struct.get $box 0
+      #|    local.tee 0
+      #|    i32.const 1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 7
+      #|    else
+      #|      i32.const 9
+      #|    end)
+      #|  (func $untouched (result i32) (local i32)
+      #|    global.get $box
+      #|    struct.get $box 0
+      #|    local.tee 0
+      #|    i32.const 1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 7
+      #|    else
+      #|      i32.const 9
+      #|    end))
+    ),
+  )
+  let original_untouched = match input.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[1]
+    None => fail("expected code section")
+  }
+  let field_folded = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
+    input,
+    [true, false],
+  )
+  let folded = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
+    field_folded,
+    [true, false],
+  )
+  let (selected, untouched) = match folded.code_sec {
+    Some(@lib.CodeSec(funcs)) => (funcs[0], funcs[1])
+    None => fail("expected rewritten code section")
+  }
+  @debug.assert_eq(untouched, original_untouched)
+  let selected_text = folded.pretty_print_defined_func(0U)
+  assert_true(selected_text.contains("i32.const I32(0)"), msg=selected_text)
+  assert_true(selected_text.contains("local.set (Local 0)"), msg=selected_text)
+  assert_true(selected_text.contains("i32.const I32(9)"), msg=selected_text)
+  assert_false(selected_text.contains("global.get"), msg=selected_text)
+  assert_false(selected_text.contains("struct.get"), msg=selected_text)
+  assert_false(selected_text.contains("local.tee"), msg=selected_text)
+  assert_false(selected_text.contains("i32.eq"), msg=selected_text)
+  assert_false(selected_text.contains("if"), msg=selected_text)
+  match @validate.validate_module(folded) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected filtered immutable-field fold to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ignore(selected)
+}
