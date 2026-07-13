@@ -1652,6 +1652,71 @@ test "flatten routes branch-free multivalue loop results through typed locals" {
 }
 
 ///|
+test "flatten routes plain multivalue block br payloads through typed locals" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) (br 0 (i32.const 7) (i64.const 9))) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, return_id, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, return_id, 1), block_id)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+  let first_payload = @ir.hot_child_get(func, branch_id, 0)
+  let second_payload = @ir.hot_child_get(func, branch_id, 1)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_get(func, 0), block_id)
+  @debug.assert_eq(@ir.hot_root_get(func, 1), return_id)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, block_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  let first_set = @ir.hot_region_get(func, body_ref, 0)
+  let second_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch_id)
+  @debug.assert_eq(@ir.hot_child_get(func, first_set, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_set, 0), second_payload)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 0)
+  let first_local = @ir.hot_node_get(func, first_set).imm0
+  let second_local = @ir.hot_node_get(func, second_set).imm0
+  assert_false(first_local == second_local)
+  @debug.assert_eq(
+    @ir.hot_local_type(func, first_local),
+    Some(@lib.ValType::i32()),
+  )
+  @debug.assert_eq(
+    @ir.hot_local_type(func, second_local),
+    Some(@lib.ValType::i64()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected plain multivalue block br routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes scalar loop br_table payloads through entry locals" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32) (result i32))) (func (param i32) call 1 loop (type $carrier) drop local.get 0 if call 2 call 3 br_table 1 1 end i32.const 7 end drop) (func (result i32) i32.const 1) (func (result i32) i32.const 2) (func (result i32) i32.const 0))",

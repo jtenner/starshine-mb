@@ -325,7 +325,7 @@ fn flatten_label_uses_are_routed_scalar_brs(
 }
 
 ///|
-fn flatten_try_route_branch_free_multivalue_block(
+fn flatten_try_route_multivalue_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
@@ -346,11 +346,35 @@ fn flatten_try_route_branch_free_multivalue_block(
     }
   }
   let label_id = @ir.hot_control_node_label(func, block_id)
-  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
-    return None
+  let label_is_used = pass_label_is_used(
+    label_id,
+    pass_compute_label_used(func),
+  )
+  let locals = if label_is_used {
+    if !flatten_label_temps_match_types(func, state, label_id, result_types) ||
+      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      return None
+    }
+    state.label_temps[label_id]
+  } else {
+    match flatten_ensure_label_temps(func, state, label_id, result_types) {
+      Some(locals) => locals
+      None => return None
+    }
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return None
+  }
+  if label_is_used {
+    let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+    if !flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
+      return None
+    }
+    @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+    return Some(locals)
+  }
   if body_count < result_types.length() {
     return None
   }
@@ -364,11 +388,6 @@ fn flatten_try_route_branch_free_multivalue_block(
     if value_types.length() != 1 || value_types[0] != result_types[slot] {
       return None
     }
-  }
-  let locals = match
-    flatten_ensure_label_temps(func, state, label_id, result_types) {
-    Some(locals) => locals
-    None => return None
   }
   for slot = 0; slot < result_types.length(); slot = slot + 1 {
     let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
@@ -552,6 +571,32 @@ fn flatten_multivalue_control_use_span_is_exclusive(
 }
 
 ///|
+fn flatten_multivalue_control_has_exclusive_consumer_span(
+  func : @ir.HotFunc,
+  child_id : Int,
+) -> Bool {
+  let result_count = @ir.hot_node_result_arity(func, child_id)
+  if result_count <= 1 {
+    return false
+  }
+  for parent_id = 0
+      parent_id < @ir.hot_node_count(func)
+      parent_id = parent_id + 1 {
+    if !@ir.hot_node_is_live(func, parent_id) {
+      continue
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, parent_id); slot = slot + 1 {
+      if @ir.hot_child_get(func, parent_id, slot) == child_id {
+        return flatten_multivalue_control_use_span_is_exclusive(
+          func, parent_id, slot, child_id, result_count,
+        )
+      }
+    }
+  }
+  false
+}
+
+///|
 fn flatten_try_route_multivalue_control_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -570,7 +615,7 @@ fn flatten_try_route_multivalue_control_operand(
   }
   let locals = match @ir.hot_node_get(func, child_id).op {
     @ir.HotOp::Block =>
-      flatten_try_route_branch_free_multivalue_block(ctx, func, state, child_id)
+      flatten_try_route_multivalue_block(ctx, func, state, child_id)
     @ir.HotOp::If =>
       flatten_try_route_branch_free_multivalue_if(ctx, func, state, child_id)
     @ir.HotOp::Loop =>
@@ -1139,7 +1184,87 @@ fn flatten_target_can_route_scalar_branches(
 }
 
 ///|
-fn flatten_try_route_scalar_br(
+fn flatten_multivalue_plain_br_target_is_supported(
+  func : @ir.HotFunc,
+  label_id : Int,
+  target_types : Array[@lib.ValType],
+) -> Bool {
+  if target_types.length() <= 1 ||
+    @ir.hot_label_branch_arity(func, label_id) != target_types.length() {
+    return false
+  }
+  let owner_id = @ir.hot_label_owner(func, label_id)
+  if !flatten_multivalue_control_has_exclusive_consumer_span(func, owner_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, owner_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, owner_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+  let tail = @ir.hot_node_get(func, tail_id)
+  match tail.op {
+    @ir.HotOp::Br =>
+      if tail.imm0 != label_id ||
+        @ir.hot_child_count(func, tail_id) != target_types.length() {
+        return false
+      }
+    _ => return false
+  }
+  let mut saw_target = false
+  for branch_id = 0
+      branch_id < @ir.hot_node_count(func)
+      branch_id = branch_id + 1 {
+    if !@ir.hot_node_is_live(func, branch_id) {
+      continue
+    }
+    let branch = @ir.hot_node_get(func, branch_id)
+    match branch.op {
+      @ir.HotOp::Br if branch.imm0 == label_id => {
+        saw_target = true
+        if @ir.hot_child_count(func, branch_id) != target_types.length() {
+          return false
+        }
+        for slot = 0; slot < target_types.length(); slot = slot + 1 {
+          let payload_id = @ir.hot_child_get(func, branch_id, slot)
+          let payload_types = @ir.hot_type_results(
+            func,
+            @ir.hot_node_get(func, payload_id).ty,
+          )
+          if payload_types.length() != 1 ||
+            payload_types[0] != target_types[slot] ||
+            !flatten_value_type_is_defaultable(target_types[slot]) ||
+            !flatten_scalar_branch_payload_has_supported_origin(
+              func, payload_id,
+            ) {
+            return false
+          }
+        }
+      }
+      @ir.HotOp::BrIf if branch.imm0 == label_id => return false
+      @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate if branch.imm0 == label_id => return false
+      @ir.HotOp::BrTable if flatten_br_table_targets_label(
+          func,
+          branch.imm0,
+          label_id,
+        ) => return false
+      _ => ()
+    }
+  }
+  saw_target
+}
+
+///|
+fn flatten_try_route_br(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   node_id : Int,
@@ -1192,14 +1317,41 @@ fn flatten_try_route_scalar_br(
     @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
     _ => return false
   }
-  if @ir.hot_label_branch_arity(func, label_id) != 1 {
-    return false
-  }
   let target_types = @ir.hot_type_results(
     func,
     @ir.hot_label_result_type(func, label_id),
   )
-  if target_types.length() != 1 ||
+  let child_count = @ir.hot_child_count(func, node_id)
+  if child_count > 1 {
+    match @ir.hot_label_kind(func, label_id) {
+      @ir.HotLabelKind::BlockLabel => ()
+      _ => return false
+    }
+    if target_types.length() != child_count ||
+      !flatten_multivalue_plain_br_target_is_supported(
+        func, label_id, target_types,
+      ) {
+      return false
+    }
+    let locals = match
+      flatten_ensure_label_temps(func, state, label_id, target_types) {
+      Some(locals) => locals
+      None => return false
+    }
+    for slot = 0; slot < child_count; slot = slot + 1 {
+      preludes.push(
+        @ir.hot_build_local_set(
+          func,
+          locals[slot],
+          @ir.hot_child_get(func, node_id, slot),
+        ),
+      )
+    }
+    ignore(@ir.hot_replace_child_span(func, node_id, []))
+    return true
+  }
+  if @ir.hot_label_branch_arity(func, label_id) != 1 ||
+    target_types.length() != 1 ||
     value_types.length() != 1 ||
     target_types[0] != value_types[0] ||
     !flatten_value_type_is_defaultable(target_types[0]) ||
@@ -1871,7 +2023,7 @@ fn flatten_rewrite_node_operands(
         }
       }
   }
-  if flatten_try_route_scalar_br(func, state, node_id, preludes) {
+  if flatten_try_route_br(func, state, node_id, preludes) {
     changed = true
   }
   if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
@@ -1984,6 +2136,17 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
         }
         match @ir.hot_label_kind(func, label_id) {
           @ir.HotLabelKind::LoopLabel => ()
+          @ir.HotLabelKind::BlockLabel => {
+            let target_types = @ir.hot_type_results(
+              func,
+              @ir.hot_label_result_type(func, label_id),
+            )
+            if !flatten_multivalue_plain_br_target_is_supported(
+                func, label_id, target_types,
+              ) {
+              return true
+            }
+          }
           _ => return true
         }
         if child_count != @ir.hot_label_branch_arity(func, label_id) {
