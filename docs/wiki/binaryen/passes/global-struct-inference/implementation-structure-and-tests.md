@@ -133,7 +133,7 @@ Plain `gsi` already visits `ref.get_desc`, but the descriptor-cast rewrite is th
 For that sibling's source and test map, use:
 
 - [`../global-struct-inference-desc-cast/index.md`](../global-struct-inference-desc-cast/index.md)
-- [`../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md)
+- [`../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
 
 ## Starshine implementation map
 
