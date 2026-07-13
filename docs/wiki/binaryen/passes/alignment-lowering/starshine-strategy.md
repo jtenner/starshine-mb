@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -30,7 +29,7 @@ related:
 
 # Starshine Strategy For `alignment-lowering`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md) and the 2026-05-06 current-main recheck in [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md).
+Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md), the direct tagged source URLs it retains, and the 2026-05-06 current-main recheck in [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainties a future parity port still has to resolve honestly.
 
 ## The honest current status

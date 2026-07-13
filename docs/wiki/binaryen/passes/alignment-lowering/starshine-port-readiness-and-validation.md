@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
