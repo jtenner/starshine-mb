@@ -127,7 +127,6 @@ sources:
   - ../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md
   - ../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - ../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
