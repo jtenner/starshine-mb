@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md
   - ../../../raw/research/0397-2026-04-26-instrument-locals-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -64,7 +63,7 @@ The wiki tracks the upstream pass because it is a real public Binaryen pass and 
 ## Why there is no HOT-IR port today
 
 Binaryen's pass is not a local peephole optimizer.
-Per the current-main source reread captured in [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md), with [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md) retained as the tagged-release anchor, it needs all of these module-level behaviors:
+Per the current-main source reread captured in [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md), with [`../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md) retained as the tagged-release anchor, it needs all of these module-level behaviors:
 
 1. inject helper function imports into the module,
 2. select helper signatures from the local value type,

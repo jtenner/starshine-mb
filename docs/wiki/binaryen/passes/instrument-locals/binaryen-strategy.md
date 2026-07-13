@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentLocals.cpp
@@ -25,7 +24,7 @@ related:
 
 ## One-sentence contract
 
-Binaryen `version_129` `instrument-locals` is a small effectful postwalk pass that wraps supported `local.get` and `local.set` / `local.tee` traffic in imported identity-style helper calls and injects those helpers into the module; the 2026-07-11 current-main recheck keeps that contract unchanged, and the 2026-04-24 primary-source capture remains the tagged-release anchor for this dossier.
+Binaryen `version_129` `instrument-locals` is a small effectful postwalk pass that wraps supported `local.get` and `local.set` / `local.tee` traffic in imported identity-style helper calls and injects those helpers into the module; the 2026-07-11 current-main recheck keeps that contract unchanged, and the retained 2026-04-24 follow-up research preserves the tagged-release anchor for this dossier.
 
 ## Public pass identity
 
