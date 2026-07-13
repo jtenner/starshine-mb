@@ -168,6 +168,7 @@ If yes, Binaryen tries to:
 
 - value-carrying `if` is forbidden in Flat IR
 - both arms store into the same temp
+- when an arm exits through a carried `br` or flows through a carried `br_if`, Starshine reuses that same target temp after preflighting the whole if-label use set
 - the outer use sees only `local.get`
 
 ## Shape 5: condition preludes go before the whole `if`, arm preludes stay inside the arms

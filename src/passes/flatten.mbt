@@ -389,6 +389,7 @@ fn flatten_try_route_scalar_loop(
 fn flatten_try_route_scalar_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   if_id : Int,
 ) -> Int? {
   let if_node = @ir.hot_node_get(func, if_id)
@@ -402,8 +403,20 @@ fn flatten_try_route_scalar_if(
     return None
   }
   let label_id = @ir.hot_control_node_label(func, if_id)
-  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
-    return None
+  let label_is_used = pass_label_is_used(
+    label_id,
+    pass_compute_label_used(func),
+  )
+  let routed_local = if label_is_used {
+    if label_id < 0 ||
+      label_id >= state.break_temps.length() ||
+      state.break_temps[label_id] < 0 ||
+      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      return None
+    }
+    state.break_temps[label_id]
+  } else {
+    -1
   }
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
@@ -417,21 +430,37 @@ fn flatten_try_route_scalar_if(
   }
   let then_tail = @ir.hot_region_get(func, then_ref, then_count - 1)
   let else_tail = @ir.hot_region_get(func, else_ref, else_count - 1)
-  if @ir.hot_node_result_arity(func, then_tail) != 1 ||
-    @ir.hot_node_result_arity(func, else_tail) != 1 {
+  let then_has_fallthrough_value = @ir.hot_node_result_arity(func, then_tail) ==
+    1
+  let else_has_fallthrough_value = @ir.hot_node_result_arity(func, else_tail) ==
+    1
+  if !then_has_fallthrough_value &&
+    !flatten_terminal_branch_targets_label(func, then_tail, label_id, false) {
     return None
   }
-  let local_id = @ir.hot_append_body_local(func, result_types[0])
-  ignore(
-    pass_splice_region(ctx, func, then_ref, then_count - 1, 1, [
-      @ir.hot_build_local_set(func, local_id, then_tail),
-    ]),
-  )
-  ignore(
-    pass_splice_region(ctx, func, else_ref, else_count - 1, 1, [
-      @ir.hot_build_local_set(func, local_id, else_tail),
-    ]),
-  )
+  if !else_has_fallthrough_value &&
+    !flatten_terminal_branch_targets_label(func, else_tail, label_id, false) {
+    return None
+  }
+  let local_id = if routed_local >= 0 {
+    routed_local
+  } else {
+    @ir.hot_append_body_local(func, result_types[0])
+  }
+  if then_has_fallthrough_value {
+    ignore(
+      pass_splice_region(ctx, func, then_ref, then_count - 1, 1, [
+        @ir.hot_build_local_set(func, local_id, then_tail),
+      ]),
+    )
+  }
+  if else_has_fallthrough_value {
+    ignore(
+      pass_splice_region(ctx, func, else_ref, else_count - 1, 1, [
+        @ir.hot_build_local_set(func, local_id, else_tail),
+      ]),
+    )
+  }
   @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
   Some(local_id)
 }
@@ -447,7 +476,7 @@ fn flatten_try_route_scalar_control(
     @ir.HotOp::Block =>
       flatten_try_route_scalar_block(ctx, func, state, node_id)
     @ir.HotOp::Loop => flatten_try_route_scalar_loop(ctx, func, node_id)
-    @ir.HotOp::If => flatten_try_route_scalar_if(ctx, func, node_id)
+    @ir.HotOp::If => flatten_try_route_scalar_if(ctx, func, state, node_id)
     _ => None
   }
 }
@@ -460,19 +489,25 @@ fn flatten_target_can_route_scalar_branches(
 ) -> Bool {
   let owner_id = @ir.hot_label_owner(func, label_id)
   let owner = @ir.hot_node_get(func, owner_id)
-  match owner.op {
-    @ir.HotOp::Block => ()
+  let target_regions : Array[@ir.HotRegionRef] = match owner.op {
+    @ir.HotOp::Block => [@ir.hot_region_body_ref(func, owner_id)]
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, owner_id) {
+        Some(else_ref) => [@ir.hot_region_then_ref(func, owner_id), else_ref]
+        None => return false
+      }
     _ => return false
   }
-  let body_ref = @ir.hot_region_body_ref(func, owner_id)
-  let body_count = @ir.hot_region_root_count(func, body_ref)
-  if body_count == 0 {
-    return false
-  }
-  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
-  if @ir.hot_node_result_arity(func, tail_id) != 1 &&
-    !flatten_terminal_branch_targets_label(func, tail_id, label_id, true) {
-    return false
+  for target_region in target_regions {
+    let root_count = @ir.hot_region_root_count(func, target_region)
+    if root_count == 0 {
+      return false
+    }
+    let tail_id = @ir.hot_region_get(func, target_region, root_count - 1)
+    if @ir.hot_node_result_arity(func, tail_id) != 1 &&
+      !flatten_terminal_branch_targets_label(func, tail_id, label_id, true) {
+      return false
+    }
   }
   let mut saw_target = false
   for branch_id = 0
@@ -571,7 +606,7 @@ fn flatten_try_route_scalar_br(
     return false
   }
   match @ir.hot_label_kind(func, label_id) {
-    @ir.HotLabelKind::BlockLabel => ()
+    @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
     _ => return false
   }
   let target_types = @ir.hot_type_results(
@@ -660,7 +695,7 @@ fn flatten_try_route_scalar_br_if(
     return false
   }
   match @ir.hot_label_kind(func, label_id) {
-    @ir.HotLabelKind::BlockLabel => ()
+    @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
     _ => return false
   }
   let target_types = @ir.hot_type_results(
@@ -761,7 +796,7 @@ fn flatten_try_route_scalar_br_table(
       return false
     }
     match @ir.hot_label_kind(func, target) {
-      @ir.HotLabelKind::BlockLabel => ()
+      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
       _ => return false
     }
     let target_types = @ir.hot_type_results(
@@ -1233,6 +1268,19 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
     }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
+      @ir.HotOp::Br => {
+        let child_count = @ir.hot_child_count(func, node_id)
+        if child_count == 0 {
+          continue
+        }
+        if child_count != 1 ||
+          !flatten_scalar_branch_payload_has_supported_origin(
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+          ) {
+          return true
+        }
+      }
       @ir.HotOp::BrIf => {
         let child_count = @ir.hot_child_count(func, node_id)
         if child_count <= 1 {

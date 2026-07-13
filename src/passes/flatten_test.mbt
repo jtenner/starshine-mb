@@ -747,6 +747,33 @@ test "flatten routes scalar if arms through one fresh local" {
 }
 
 ///|
+test "flatten routes scalar br_if flow through a carried if arm" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32) (drop (if (result i32) (local.get 0) (then (br_if 0 (i32.const 7) (local.get 1))) (else (i32.const 9))))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_child_get(func, drop_id, 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected carried scalar if br_if flow to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten keeps condition preludes outside and arm work inside scalar if" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (result i32) (if (result i32) (i32.add (local.get 0) (i32.const 1)) (then (i32.add (local.get 0) (i32.const 2))) (else (i32.sub (local.get 0) (i32.const 3))))))",
@@ -963,9 +990,9 @@ test "flatten moves nested terminal br effects before unreachable placeholders" 
 }
 
 ///|
-test "flatten leaves unsupported root value controls unmaterialized" {
+test "flatten leaves unsupported nondefaultable root controls unmaterialized" {
   let func = pass_test_lift_first_func(
-    "(module (func (result i32) (if (result i32) (i32.const 1) (then (br 0 (i32.const 7))) (else (i32.const 9)))))",
+    "(module (type $box (struct)) (func (result (ref $box)) (if (result (ref $box)) (i32.const 1) (then (br 0 (struct.new_default $box))) (else (struct.new_default $box)))))",
   )
   let if_id = @ir.hot_root_get(func, 0)
   let ctx = HotPassContext::new(
@@ -982,7 +1009,7 @@ test "flatten leaves unsupported root value controls unmaterialized" {
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected unsupported root control to remain valid, got \{err}")
+      fail("expected nondefaultable root control to remain valid, got \{err}")
   }
 }
 
@@ -1017,11 +1044,14 @@ test "flatten lowers a tee rooted in a structured region" {
 }
 
 ///|
-test "flatten leaves carried scalar if labels for branch payload routing" {
+test "flatten routes a carried scalar if label through the arm result temp" {
   let func = pass_test_lift_first_func(
     "(module (func (drop (if (result i32) (i32.const 1) (then (br 0 (i32.const 7))) (else (i32.const 9))))))",
   )
-  let if_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let drop_id = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_child_get(func, drop_id, 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
   let ctx = HotPassContext::new(
     flatten_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -1029,14 +1059,30 @@ test "flatten leaves carried scalar if labels for branch payload routing" {
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
   @debug.assert_eq(
     @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, if_id)),
-    1,
+    0,
   )
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, then_ref, 0)).op.to_string(),
+    "LocalSet",
+  )
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, else_ref, 0)).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+    "LocalGet",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
-    Err(err) => fail("expected deferred carried if to remain valid, got \{err}")
+    Err(err) => fail("expected carried scalar if routing to verify, got \{err}")
   }
 }
