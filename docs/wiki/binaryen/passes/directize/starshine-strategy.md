@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
@@ -40,7 +39,7 @@ related:
 
 # Starshine Strategy For `directize`
 
-Use this page together with the retained 2026-05-05 current-main source bridge in [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md) and the 2026-04-26 port-readiness bridge in [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md), which preserve direct tagged and current source/test URLs for the documented contract.
+Use this page together with the retained 2026-05-05 current-main source bridge in [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md) and the 2026-04-26 port-readiness digest in [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md), which preserve direct tagged and current source/test URLs for the documented contract.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 For the first-slice order and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
@@ -246,7 +245,6 @@ So the right mental model today is:
 
 - [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)

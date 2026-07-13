@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md

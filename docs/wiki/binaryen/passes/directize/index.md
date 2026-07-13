@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
@@ -83,7 +82,7 @@ That is much closer to the real pass than either:
 - The focused 2026-05-05 current-`main` recheck at [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md) found no teaching-relevant drift from the `version_129` contract while keeping the source-only `table.copy` mutation-barrier caveat explicit.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
 - The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
-- A 2026-04-26 port-readiness bridge is now captured at [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md), with the repo-authored digest at [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
+- The retained 2026-04-26 repo-authored port-readiness digest is [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
 - In `version_129`, the main implementation lives in `src/passes/Directize.cpp`.
 - It computes module-wide table facts first with `TableUtils::computeTableInfo(...)`.
 - It only visits `CallIndirect` nodes.
@@ -140,7 +139,6 @@ That is much closer to the real pass than either:
 - [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md)
 - [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)

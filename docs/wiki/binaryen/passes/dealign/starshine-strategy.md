@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -23,7 +22,7 @@ related:
 
 # Starshine Strategy For `dealign`
 
-Use this page together with the retained current-main and port-readiness manifest in [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md).
+Use this page together with the retained port-readiness digest in [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md).
 The goal here is to show the exact current Starshine status and the concrete local files a future port would need to touch, not to imply that a local implementation already exists. The implementation-order and validation details live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
@@ -140,7 +139,6 @@ Current Starshine `dealign` strategy is **do not pretend it exists locally**:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

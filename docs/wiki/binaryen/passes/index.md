@@ -13,7 +13,6 @@ sources:
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
-  - ../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../../src/passes/optimize.mbt
   - ../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
@@ -136,7 +135,7 @@ sources:
   - ../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
   - ../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
+
   - ../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../raw/research/0221-2026-04-21-dealign-binaryen-research.md

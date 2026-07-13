@@ -3,7 +3,6 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -24,7 +23,7 @@ Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` smoke lane fo
 - `dealign` is absent from Starshine's active, boundary-only, and removed registry lists in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). An explicit request therefore reaches the unknown-pass path; it does not execute a transform.
 - Thus a parser rejection, unknown-pass error, or zero compared cases cannot be presented as Binaryen-parity evidence.
 
-The upstream `align=1` rewrite contract is already captured by [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md). This page corrects only the local lane-admission claim.
+The upstream `align=1` rewrite contract is retained in [`./binaryen-strategy.md`](./binaryen-strategy.md) and the port-readiness digest [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md). This page corrects only the local lane-admission claim.
 
 ## Safe inspection now
 

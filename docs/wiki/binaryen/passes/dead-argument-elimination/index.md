@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-12
 sources:
   - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
   - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
@@ -142,7 +141,6 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 ## Sources
 
 - [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md)
 - [`../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md)
 - [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
 - [`../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
