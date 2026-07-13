@@ -5,7 +5,6 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ./index.md

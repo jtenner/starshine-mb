@@ -16,7 +16,6 @@ sources:
   - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../../src/passes/optimize.mbt
   - ../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md

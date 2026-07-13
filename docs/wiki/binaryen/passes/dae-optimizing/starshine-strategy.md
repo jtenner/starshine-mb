@@ -132,7 +132,6 @@ sources:
   - ../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt

@@ -5,7 +5,6 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
@@ -26,7 +25,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
-- The retained 2026-04-25 [`implementation/test-map bridge`](../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md) carries the direct tagged/current source URLs and dedicated lit roster, records no teaching-relevant current-`main` drift, and supplies the compact owner-file / lit-proof map.
+- The retained 2026-04-25 [`implementation/test-map research bridge`](../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md) records the direct tagged/current source map, no teaching-relevant current-`main` drift, and the compact owner-file / lit-proof map.
 - The 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md); it keeps the same contract fresh and points the dossier at the new readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - The core implementation is `src/passes/DeadArgumentElimination.cpp`.
 - CLI registration and top-level scheduler placement come from `src/passes/pass.cpp`.
