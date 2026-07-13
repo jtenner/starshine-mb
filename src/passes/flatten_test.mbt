@@ -1533,6 +1533,70 @@ test "flatten routes branch-free multivalue block results through typed locals" 
 }
 
 ///|
+test "flatten routes branch-free multivalue if results through typed locals" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32 i64) (if (result i32 i64) (i32.eqz (local.get 0)) (then (i32.add (i32.const 1) (i32.const 2)) (i64.add (i64.const 3) (i64.const 4))) (else (i32.sub (i32.const 9) (i32.const 5)) (i64.sub (i64.const 8) (i64.const 6)))) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_child_get(func, return_id, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, return_id, 1), if_id)
+  let condition_id = @ir.hot_child_get(func, if_id, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let condition_set = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, condition_set, 0), condition_id)
+  @debug.assert_eq(@ir.hot_root_get(func, 1), if_id)
+  @debug.assert_eq(@ir.hot_root_get(func, 2), return_id)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, if_id)),
+    0,
+  )
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
+  let then_first_set = @ir.hot_region_get(func, then_ref, 0)
+  let then_second_set = @ir.hot_region_get(func, then_ref, 1)
+  let else_first_set = @ir.hot_region_get(func, else_ref, 0)
+  let else_second_set = @ir.hot_region_get(func, else_ref, 1)
+  let first_local = @ir.hot_node_get(func, then_first_set).imm0
+  let second_local = @ir.hot_node_get(func, then_second_set).imm0
+  @debug.assert_eq(@ir.hot_node_get(func, else_first_set).imm0, first_local)
+  @debug.assert_eq(@ir.hot_node_get(func, else_second_set).imm0, second_local)
+  assert_false(first_local == second_local)
+  @debug.assert_eq(
+    @ir.hot_local_type(func, first_local),
+    Some(@lib.ValType::i32()),
+  )
+  @debug.assert_eq(
+    @ir.hot_local_type(func, second_local),
+    Some(@lib.ValType::i64()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_local,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected branch-free multivalue if routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes scalar loop br_table payloads through entry locals" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32) (result i32))) (func (param i32) call 1 loop (type $carrier) drop local.get 0 if call 2 call 3 br_table 1 1 end i32.const 7 end drop) (func (result i32) i32.const 1) (func (result i32) i32.const 2) (func (result i32) i32.const 0))",

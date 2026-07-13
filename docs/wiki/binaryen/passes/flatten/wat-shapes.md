@@ -175,6 +175,10 @@ Starshine also routes a branch-free defaultable multivalue block when its tail c
 - when an arm exits through a carried `br` or flows through a carried `br_if`, Starshine reuses that same target temp after preflighting the whole if-label use set
 - the outer use sees only `local.get`
 
+### Current Starshine multivalue if slice
+
+Starshine also routes branch-free defaultable multivalue `if` results when both arms end in independently scalar values matching the ordered result types and HOT exposes one exclusive repeated consumer span. Condition preludes remain before the `if`; each arm writes the same typed local vector in result order; the `if` and its label become void; and the consumer reads the vector through ordered `local.get` nodes. Missing else arms, label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
+
 ## Shape 5: condition preludes go before the whole `if`, arm preludes stay inside the arms
 
 ## Before
