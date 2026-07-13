@@ -10,7 +10,6 @@ sources:
   - ../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
   - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../../../src/passes/optimize.mbt
