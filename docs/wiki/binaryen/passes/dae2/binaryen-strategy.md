@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
-  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -26,8 +25,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for `dae2`.
-- The reviewed `version_129` source map is retained through the 2026-04-26 port-readiness capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md).
-- The 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md); it still found no teaching-relevant drift, and the same capture now includes a GitHub web spotcheck of the upstream `main` source pages. The older 2026-04-26 port-readiness bridge remains the implementation-readiness companion in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The reviewed `version_129` source map is retained through the 2026-05-05 current-main recheck and direct tagged Binaryen URLs below.
+- The 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md); it still found no teaching-relevant drift, and the same capture now includes a GitHub web spotcheck of the upstream `main` source pages. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the current implementation-readiness guidance.
 - The 2026-05-05 source-anchor refresh note is [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md).
 - The core implementation is `src/passes/DeadArgumentElimination2.cpp`.
 - Public registration lives in `src/passes/pass.cpp`.
@@ -302,7 +301,6 @@ Binaryen `dae2` is best taught as:
 
 ## Sources
 
-- Port-readiness source capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
 - Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - Original research note: [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
 - Binaryen `DeadArgumentElimination2.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination2.cpp>

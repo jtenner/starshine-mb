@@ -128,7 +128,6 @@ sources:
   - ../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - ../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - ../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md

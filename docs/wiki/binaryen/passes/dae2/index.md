@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
-  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -37,7 +36,7 @@ related:
   - not in the saved generated-artifact `-O4z` skipped-slot queue,
   - and not named in the local Starshine pass registry.
 - Upstream describes it as an **experimental reimplementation of DAE**.
-- As of the 2026-05-05 current-main recheck and GitHub web spotcheck, this folder is anchored to the retained 2026-04-26 port-readiness source bridge and the freshness layer: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md), [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md).
+- As of the 2026-05-05 current-main recheck and GitHub web spotcheck, this folder is anchored to the retained freshness layer: [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md).
 - The current local implementation answer is split into a status/code-map page and a concrete first-slice validation bridge: [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Why this folder exists
@@ -139,7 +138,6 @@ So this folder should stay separate instead of being collapsed into the plain-`d
 - [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-- [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
 - [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)

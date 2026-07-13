@@ -5,7 +5,6 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
@@ -52,7 +51,7 @@ The recheck did **not** find a new Binaryen strategy. It made the Starshine land
 - local IR/validator surfaces already expose the call/type/reference forms a future implementation must analyze;
 - the first safe implementation path should be analyzer-first, not a blind alias to plain DAE.
 
-Primary source capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md). Research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md). Freshness layer: [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md), [`../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md`](../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md).
+Research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md). Freshness layer: [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md), [`../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md`](../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md).
 
 ## Exact local code map
 
@@ -191,7 +190,6 @@ When this page changes, also check:
 
 ## Sources
 
-- 2026-04-26 current-main / port-readiness source capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
 - Research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
 - Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - Starshine registry source: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

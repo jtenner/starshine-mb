@@ -37,7 +37,6 @@ sources:
   - ../../raw/research/0114-2026-04-20-rse-binaryen-research.md
   - ../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
   - ../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -146,7 +145,6 @@ sources:
   - ../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - ../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - ../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
