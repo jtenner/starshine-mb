@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateFunctionElimination.cpp

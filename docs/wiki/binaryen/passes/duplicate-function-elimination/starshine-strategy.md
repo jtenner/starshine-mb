@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
   - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
-  - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt

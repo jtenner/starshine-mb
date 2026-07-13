@@ -9,7 +9,6 @@ sources:
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
   - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
-  - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md
@@ -148,7 +147,7 @@ So the durable rule is:
 
 - treat Binaryen `version_129` as the released algorithm oracle for this dossier
 - keep the current-main note explicit only to say that the checked core logic and tests still match semantically
-- use the raw primary-source manifest when future follow-ups need exact release/source/test provenance without re-deriving it from the living pages
+- use the living dossier's direct `version_129` URLs with the retained 2026-05-13 current-main recheck when future follow-ups need release/source/test provenance
 
 ## 2026-05-06 direct revalidation
 
@@ -177,13 +176,13 @@ This refresh removes `duplicate-function-elimination` from the AUD002 direct-pas
 - [`../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md`](../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md)
 - [`../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md)
 - [`../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md`](../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md)
-- [`../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md)
 - [`../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md`](../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md`](../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md)
 - [`../../../../../src/passes/duplicate_function_elimination.mbt`](../../../../../src/passes/duplicate_function_elimination.mbt)
 - [`../../../../../src/passes/duplicate_function_elimination_test.mbt`](../../../../../src/passes/duplicate_function_elimination_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
+- Binaryen `version_129` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateFunctionElimination.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
