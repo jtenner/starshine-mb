@@ -226,7 +226,6 @@ sources:
   - ../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
   - ../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
@@ -692,7 +691,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md`](../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md)
 - [`../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md)
 - [`../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
 - [`../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)

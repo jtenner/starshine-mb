@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
@@ -35,7 +34,7 @@ related:
 
 # Starshine Strategy For `unsubtyping`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md).
+Use this page together with the direct tagged source URLs and retained current-main/research provenance in this dossier.
 The 2026-07-11 current-main recheck does not change Starshine's boundary-only status, but it corrects the upstream contract: explicit Binaryen `unsubtyping` now supports open-world invocation through a mode-aware public-type boundary. The missing implementation ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 

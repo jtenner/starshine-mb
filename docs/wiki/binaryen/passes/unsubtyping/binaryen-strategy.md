@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
 related:
@@ -23,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass. The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md) captures the official release, source, helper, and lit-test URLs reviewed for this page.
+Use Binaryen `version_129` as the primary source oracle for this pass. The direct tagged source, helper, and lit-test URLs below retain the reviewed source map; the 2026-05-05 and 2026-07-11 rechecks retain the later freshness and world-policy provenance.
 
 Primary files:
 

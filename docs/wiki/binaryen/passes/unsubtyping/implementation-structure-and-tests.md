@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
   - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
 related:
@@ -22,7 +21,7 @@ related:
 
 This page exists because `Unsubtyping.cpp` is not a self-contained algorithm.
 If you read only that one file, you will miss where several of the real rules come from.
-The reviewed primary-source manifest for this file map is [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md); the exact current Starshine status lives in [`./starshine-strategy.md`](./starshine-strategy.md).
+The direct tagged source and lit-test URLs in this page's source list retain the reviewed file map; the exact current Starshine status lives in [`./starshine-strategy.md`](./starshine-strategy.md).
 The 2026-07-11 current-main recheck found a material admission change: explicit open-world runs are now supported through a mode-aware public-type boundary. The file map below remains the source-correct algorithm map; see [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md) for the version boundary.
 
 ## File map
