@@ -44,6 +44,77 @@ test "flatten classifier reports upstream unsupported try-table" {
 }
 
 ///|
+test "flatten routes branch-free scalar legacy try results inside do and catch" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i32_type]),
+  )
+  let body_tail = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, body_tail, @lib.Instruction::i32_add())
+  let catch_tail = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  @ir.hot_node_exact_instr_set(func, catch_tail, @lib.Instruction::i32_sub())
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)), body_tail],
+    catch_body=Some([
+      @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 0)),
+      catch_tail,
+    ]),
+  )
+  let drop_id = @ir.hot_build_drop(func, try_id)
+  @ir.hot_root_append(func, drop_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_get(func, 0), try_id)
+  @debug.assert_eq(@ir.hot_root_get(func, 1), drop_id)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, try_id)),
+    0,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
+  let body_set = @ir.hot_region_get(func, body_ref, 1)
+  let catch_set = @ir.hot_region_get(func, catch_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, body_set, 0), body_tail)
+  @debug.assert_eq(@ir.hot_child_get(func, catch_set, 0), catch_tail)
+  let result_local = @ir.hot_node_get(func, body_set).imm0
+  @debug.assert_eq(@ir.hot_node_get(func, catch_set).imm0, result_local)
+  @debug.assert_eq(@ir.hot_local_type(func, result_local), Some(i32_type))
+  let result_get = @ir.hot_child_get(func, drop_id, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, result_get).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, result_get).imm0, result_local)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected scalar legacy try routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten lowers a root local tee before materializing the function result" {
   let func = pass_test_lift_first_func(
     "(module (func (result i32) (local i32) i32.const 7 local.tee 0))",

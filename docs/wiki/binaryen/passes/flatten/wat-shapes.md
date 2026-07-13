@@ -454,6 +454,10 @@ For a branch-free zero-input/no-backedge loop with independently scalar defaulta
 - Flat IR forbids `try` from carrying a value directly
 - flatten routes both the main body and catch body values through a temp
 
+### Current Starshine legacy-try slice
+
+Starshine now routes branch-free scalar defaultable legacy `try` results when both the do and catch regions end in exact scalar values. Each region writes its tail into one shared typed local, the `try` becomes void, and the outer consumer reads a `local.get`. This first slice deliberately pre-gates the whole function when legacy EH repair-sensitive `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes are present. Binaryen-equivalent nested-pop repair is still required before those catch shapes, branch-targeted tries, or broader result vectors can be admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

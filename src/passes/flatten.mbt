@@ -1006,6 +1006,93 @@ fn flatten_try_route_scalar_loop(
 }
 
 ///|
+fn flatten_legacy_try_has_deferred_eh_repair(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Catch
+      | @ir.HotOp::CatchAll
+      | @ir.HotOp::Rethrow
+      | @ir.HotOp::Delegate => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn flatten_scalar_legacy_try_is_supported(
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> Bool {
+  let try_node = @ir.hot_node_get(func, try_id)
+  match try_node.op {
+    @ir.HotOp::Try => ()
+    _ => return false
+  }
+  let result_types = @ir.hot_type_results(func, try_node.ty)
+  if result_types.length() != 1 ||
+    !flatten_value_type_is_defaultable(result_types[0]) ||
+    flatten_legacy_try_has_deferred_eh_repair(func) {
+    return false
+  }
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    return false
+  }
+  let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
+    let root_count = @ir.hot_region_root_count(func, region_ref)
+    if root_count == 0 {
+      return false
+    }
+    let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+    let tail_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, tail_id).ty,
+    )
+    if tail_types.length() != 1 || tail_types[0] != result_types[0] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn flatten_try_route_scalar_try(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> Int? {
+  if !flatten_scalar_legacy_try_is_supported(func, try_id) {
+    return None
+  }
+  let result_type = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, try_id).ty,
+    )[0]
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  let regions = [@ir.hot_region_body_ref(func, try_id), catch_ref]
+  let local_id = @ir.hot_append_body_local(func, result_type)
+  for region_ref in regions {
+    let tail_index = @ir.hot_region_root_count(func, region_ref) - 1
+    let tail_id = @ir.hot_region_get(func, region_ref, tail_index)
+    ignore(
+      pass_splice_region(ctx, func, region_ref, tail_index, 1, [
+        @ir.hot_build_local_set(func, local_id, tail_id),
+      ]),
+    )
+  }
+  @ir.hot_control_result_type_set(func, try_id, @ir.hot_type_void(func))
+  Some(local_id)
+}
+
+///|
 fn flatten_try_route_scalar_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1097,6 +1184,7 @@ fn flatten_try_route_scalar_control(
       flatten_try_route_scalar_block(ctx, func, state, node_id)
     @ir.HotOp::Loop => flatten_try_route_scalar_loop(ctx, func, node_id)
     @ir.HotOp::If => flatten_try_route_scalar_if(ctx, func, state, node_id)
+    @ir.HotOp::Try => flatten_try_route_scalar_try(ctx, func, node_id)
     _ => None
   }
 }
@@ -2144,6 +2232,24 @@ fn flatten_has_deferred_inputful_loop(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn flatten_has_deferred_legacy_try(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Try =>
+        if @ir.hot_node_result_arity(func, node_id) > 0 &&
+          !flatten_scalar_legacy_try_is_supported(func, node_id) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -2271,6 +2377,7 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let before = flatten_classify_hot(func)
   if before.unsupported_count > 0 ||
     flatten_has_deferred_inputful_loop(func) ||
+    flatten_has_deferred_legacy_try(func) ||
     flatten_has_deferred_rich_branch_payload(func) {
     return HotPassResult::unchanged()
   }
