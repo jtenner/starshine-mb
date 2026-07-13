@@ -535,9 +535,7 @@ fn flatten_target_can_route_scalar_branches(
           func,
           @ir.hot_node_get(func, value_id).ty,
         )
-        if value_types.length() != 1 ||
-          value_types[0] != target_type ||
-          !flatten_node_is_simple_operand(func, value_id) {
+        if value_types.length() != 1 || value_types[0] != target_type {
           return false
         }
       }
@@ -742,8 +740,7 @@ fn flatten_try_route_scalar_br_table(
     @ir.hot_node_get(func, value_id).ty,
   )
   if value_types.length() != 1 ||
-    !flatten_value_type_is_defaultable(value_types[0]) ||
-    !flatten_node_is_simple_operand(func, value_id) {
+    !flatten_value_type_is_defaultable(value_types[0]) {
     return false
   }
   let targets = flatten_unique_br_table_targets(func, branch.imm0)
@@ -1074,6 +1071,18 @@ fn flatten_rewrite_node_operands(
         changed = true
       }
     }
+    @ir.HotOp::BrTable if @ir.hot_child_count(func, node_id) == 2 => {
+      let payload_id = @ir.hot_child_get(func, node_id, 0)
+      if flatten_rewrite_node_operands(ctx, func, state, payload_id, preludes) {
+        changed = true
+      }
+      if flatten_try_route_scalar_br_table(func, state, node_id, preludes) {
+        changed = true
+      }
+      if flatten_rewrite_operand_slot(ctx, func, state, node_id, 0, preludes) {
+        changed = true
+      }
+    }
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         if flatten_rewrite_operand_slot(
@@ -1173,7 +1182,7 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
           continue
         }
         if child_count != 2 ||
-          !flatten_node_is_simple_operand(
+          !flatten_scalar_branch_payload_has_supported_origin(
             func,
             @ir.hot_child_get(func, node_id, 0),
           ) {

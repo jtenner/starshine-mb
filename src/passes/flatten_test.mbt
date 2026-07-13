@@ -568,6 +568,58 @@ test "flatten fans one scalar br_table value out to unique target temps" {
 }
 
 ///|
+test "flatten evaluates rich br_table payloads once before rich selectors" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) (block (result i32) call 1 call 2 br_table 0 1 1)))) (func (result i32) i32.const 7) (func (result i32) i32.const 0))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let outer_block = @ir.hot_child_get(func, drop_id, 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer_block)
+  let inner_block = @ir.hot_region_get(func, outer_body, 0)
+  let inner_body = @ir.hot_region_body_ref(func, inner_block)
+  let branch = @ir.hot_region_get(func, inner_body, 0)
+  let payload = @ir.hot_child_get(func, branch, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_block), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, inner_block), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body), 5)
+  let value_set = @ir.hot_region_get(func, inner_body, 0)
+  let first_target_set = @ir.hot_region_get(func, inner_body, 1)
+  let second_target_set = @ir.hot_region_get(func, inner_body, 2)
+  let selector_set = @ir.hot_region_get(func, inner_body, 3)
+  @debug.assert_eq(@ir.hot_child_get(func, value_set, 0), payload)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_target_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_target_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, selector_set, 0)).op.to_string(),
+    "Call",
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, inner_body, 4), branch)
+  let payload_use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(payload_use_def, payload), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rich scalar br_table routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes a branch-free scalar loop result through a fresh local" {
   let func = pass_test_lift_first_func(
     "(module (func (drop (loop (result i32) (i32.const 7)))))",
