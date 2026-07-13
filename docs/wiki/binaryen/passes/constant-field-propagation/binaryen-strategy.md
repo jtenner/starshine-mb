@@ -5,7 +5,6 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
 related:
@@ -25,17 +24,17 @@ related:
 
 Use Binaryen `version_129` as the current source oracle for this pass family.
 
-Primary files captured in [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md):
+The retained [`2026-05-05 current-main recheck`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md) carries the current comparison anchors. The tagged `version_129` source catalog retained from the consumed manifest is:
 
-- `src/passes/ConstantFieldPropagation.cpp`
-- `src/passes/pass.cpp`
-- `src/ir/possible-constant.h`
-- `src/ir/struct-utils.h`
-- `src/ir/subtypes.h`
-- `src/ir/module-utils.h`
-- `test/lit/passes/cfp.wast`
-- `test/lit/passes/cfp-reftest.wast`
-- `test/lit/passes/gto_and_cfp_in_O.wast`
+- [`src/passes/ConstantFieldPropagation.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ConstantFieldPropagation.cpp)
+- [`src/passes/pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp)
+- [`src/ir/possible-constant.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-constant.h)
+- [`src/ir/struct-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/struct-utils.h)
+- [`src/ir/subtypes.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/subtypes.h)
+- [`src/ir/module-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.h)
+- [`test/lit/passes/cfp.wast`](https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/cfp.wast)
+- [`test/lit/passes/cfp-reftest.wast`](https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/cfp-reftest.wast)
+- [`test/lit/passes/gto_and_cfp_in_O.wast`](https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gto_and_cfp_in_O.wast)
 
 I also did a narrow current-`main` recheck on the same surfaces for the 2026-05-05 freshness pass.
 Durable result:
@@ -416,7 +415,6 @@ That is why the pass matters and why it deserved a dedicated dossier.
 
 - [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
 - [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
