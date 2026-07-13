@@ -1112,6 +1112,43 @@ fn flatten_loop_backedges_are_supported(
 }
 
 ///|
+fn flatten_multivalue_loop_br_if_consumer_matches_payload(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  consumer_id : Int,
+  payload_id : Int,
+) -> Bool {
+  let consumer = @ir.hot_node_get(func, consumer_id)
+  match consumer.op {
+    @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 => ()
+    _ => return false
+  }
+  let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+  if consumed_id == payload_id {
+    return true
+  }
+  let consumed = @ir.hot_node_get(func, consumed_id)
+  match consumed.op {
+    @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => ()
+    _ => return false
+  }
+  if @ir.node_use_count(use_def, consumed_id) != 1 ||
+    @ir.hot_child_get(func, consumed_id, 0) != payload_id ||
+    !flatten_node_is_simple_operand(
+      func,
+      @ir.hot_child_get(func, consumed_id, 1),
+    ) {
+    return false
+  }
+  let payload_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, payload_id).ty,
+  )
+  let consumed_types = @ir.hot_type_results(func, consumed.ty)
+  payload_types.length() == 1 && consumed_types == payload_types
+}
+
+///|
 fn flatten_multivalue_loop_br_if_flows_are_exact(
   func : @ir.HotFunc,
   loop_id : Int,
@@ -1162,13 +1199,12 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
         body_ref,
         branch_root + 1 + offset,
       )
-      let consumer = @ir.hot_node_get(func, consumer_id)
-      match consumer.op {
-        @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 => ()
-        _ => return false
-      }
-      if @ir.hot_child_get(func, consumer_id, 0) !=
-        payloads[payload_count - 1 - offset] {
+      if !flatten_multivalue_loop_br_if_consumer_matches_payload(
+          func,
+          use_def,
+          consumer_id,
+          payloads[payload_count - 1 - offset],
+        ) {
         return false
       }
     }
