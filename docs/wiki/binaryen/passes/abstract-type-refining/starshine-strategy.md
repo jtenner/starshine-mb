@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
-  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -36,7 +35,7 @@ related:
 
 # Starshine Strategy For `abstract-type-refining`
 
-Use this page together with the reviewed `version_130` source/admission refresh in [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md) and the historical raw manifest in [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md).
+Use this page together with the reviewed `version_130` source/admission refresh in [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md), which retains the direct tagged `version_129` source/test URLs and the 2026-04-24 follow-up research route.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status

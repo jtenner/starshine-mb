@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
-  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -89,7 +88,7 @@ It is **closed-world creation-evidence-based struct-type refinement**.
 - Only in `--traps-never-happen` mode can an abstract parent refine to a unique live child branch.
 - Declared subtype edges are intentionally preserved here.
 - Descriptor/exact-cast repair is part of the real contract, not optional polish.
-- The 2026-04-24 raw primary-source manifest now anchors the dossier to the official `version_129` release page and source/test URLs, and the refreshed Starshine page maps the current local boundary-only status to exact code locations.
+- The retained direct `version_129` release/source/test URLs and 2026-04-24 follow-up research anchor the dossier's initial review, while the refreshed Starshine page maps the current local boundary-only status to exact code locations.
 - The 2026-07-11 refresh confirms the reviewed `version_130` owner and fixture contract, but records an internally inconsistent web `main` API snapshot. It deliberately does **not** turn that snapshot into a current-main no-drift claim; a future implementation must recheck one pinned checkout before relying on main-specific behavior.
 
 ## Beginner warning: what the name hides
@@ -155,7 +154,6 @@ What it actually is in `version_129`:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
 - [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

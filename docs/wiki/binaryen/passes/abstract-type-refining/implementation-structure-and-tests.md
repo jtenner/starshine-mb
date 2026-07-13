@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
-  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
 related:
@@ -268,7 +267,6 @@ That is exactly why this pass is easy to underestimate.
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
 - [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - Binaryen `version_129`:

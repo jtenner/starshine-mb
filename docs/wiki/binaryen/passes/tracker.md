@@ -254,7 +254,6 @@ sources:
   - ../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
   - ../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
@@ -734,7 +733,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md)
 - [`../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
 - [`../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - [`../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)

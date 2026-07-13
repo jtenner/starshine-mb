@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
-  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
 related:
@@ -19,7 +18,7 @@ related:
 
 This page focuses on the easiest part of the pass to misread.
 
-This page is anchored by the reviewed `version_130` source/admission refresh [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md), the immutable historical manifest [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md), and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
+This page is anchored by the reviewed `version_130` source/admission refresh [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md), its retained direct tagged URLs and 2026-04-24 follow-up research, and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 If you only remember one thing from this page, remember this:
 
@@ -300,7 +299,6 @@ That is why the preoptimization phase is part of the real algorithm.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
 - [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - Binaryen `version_129`:
