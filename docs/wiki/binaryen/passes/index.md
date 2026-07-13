@@ -119,7 +119,6 @@ sources:
   - ../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - ../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md

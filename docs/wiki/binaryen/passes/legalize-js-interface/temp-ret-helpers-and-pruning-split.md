@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
@@ -138,5 +137,5 @@ A good memory aid is:
 - helper args = choose **how** the temp-ret mechanism is wired
 - prune sibling = **delete or stub** whatever plain wrapping still cannot make JS-legal
 
-The reviewed source set for these claims is now captured in [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md).
+The direct `version_129` source/test URLs in this dossier, retained 2026-04-24 follow-up research, and the later current-main readiness capture document the reviewed source set for these claims.
 For Starshine's current non-adoption and future temp-ret/helper port map, see [`./starshine-strategy.md`](./starshine-strategy.md).

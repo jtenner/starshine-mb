@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -33,7 +32,7 @@ related:
 
 # Starshine Strategy For `legalize-js-interface`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md).
+Use this page with the dossier's direct Binaryen `version_129` source/test URLs, retained 2026-04-24 follow-up research, and the later current-main readiness capture.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code surfaces that already model the needed module shapes, and the main policy question a future port must answer.
 
 ## The honest current status

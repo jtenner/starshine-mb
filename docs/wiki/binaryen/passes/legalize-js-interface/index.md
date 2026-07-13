@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -69,7 +68,7 @@ So this pass is best taught as:
 ## Most important durable takeaways
 
 - The entire reviewed `version_129` contract lives in one shared file, `LegalizeJSInterface.cpp`, with two public registrations in `pass.cpp`: plain `legalize-js-interface` and sibling `legalize-and-prune-js-interface`.
-- The 2026-04-24 raw primary-source capture anchors the folder to the official `version_129` release surface and exact source/test URLs reviewed in this follow-up.
+- Direct `version_129` source/test URLs below, the retained 2026-04-24 follow-up research, and the later current-main readiness capture anchor the folder's reviewed provenance.
 - Plain `legalize-js-interface` only treats function boundary signatures that contain `i64` params or an `i64` result.
 - Illegal exports get `legalstub$...` wrappers; illegal imports get `legalimport$...` legalized imports plus `legalfunc$...` wasm-facing wrappers.
 - Imported-call repair is not just for `call`; Binaryen also rewrites `ref.func` uses and scans module code in addition to ordinary function bodies.
@@ -100,13 +99,12 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `legalize-js-interface` research.
 - Keep it explicitly marked as an **upstream-only** dossier unless Starshine later grows a real registry entry for this surface.
-- Cite [`../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md) and [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md) for raw source provenance, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future implementation sequencing.
+Cite [`../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md), the direct `version_129` URLs below, and retained 2026-04-24 follow-up research for provenance; cite [`./starshine-strategy.md`](./starshine-strategy.md) for current local status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future implementation sequencing.
 - Keep the split from `i64-to-i32-lowering` explicit: `legalize-js-interface` changes the JS boundary ABI, while `i64-to-i32-lowering` changes internal module code.
 - Keep the sibling relationship explicit too: `legalize-and-prune-js-interface` is the same family plus extra pruning, not a wholly different algorithm.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md)
 - [`../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

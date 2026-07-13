@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
@@ -135,7 +134,7 @@ The source makes those limits explicit, and the wiki should keep them explicit t
 
 ## Current-`main` drift check
 
-The immutable source URL set reviewed for this page is captured in [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md).
+The direct `version_129` source/test URLs on this page, retained 2026-04-24 follow-up research, and the later current-main readiness capture document the reviewed provenance.
 A direct spot check found these reviewed surfaces identical or teaching-equivalent between `version_129` and current `main`:
 
 - `src/passes/LegalizeJSInterface.cpp`

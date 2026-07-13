@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
   - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
@@ -251,6 +250,6 @@ A faithful port should preserve these details:
 
 A direct source spot check found the reviewed `version_129` implementation file, helper headers, registration surface, and dedicated lit files unchanged in teaching-relevant ways on current `main`.
 So the wiki can treat the tagged release contract here as current on the inspected surfaces.
-The immutable source URL set reviewed for this claim is captured in [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md).
+The direct `version_129` source/test URLs listed on this page, retained 2026-04-24 follow-up research, and the later current-main readiness capture document the reviewed provenance for this claim.
 
 For the current Starshine status and local code-map bridge, see [`./starshine-strategy.md`](./starshine-strategy.md).
