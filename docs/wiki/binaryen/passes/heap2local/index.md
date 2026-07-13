@@ -6,7 +6,6 @@ sources:
   - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
-  - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
@@ -144,9 +143,7 @@ What it actually is in `version_129`:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current Starshine HOT-IR strategy, now with an exact MoonBit registry / dispatcher / candidate-analysis / rewrite / test map so readers can move directly from the dossier into `src/passes/heap2local.mbt`.
 - [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
-  - Immutable current-main source bridge and exact Starshine code-map refresh for this dossier.
-- [`../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md)
-  - Immutable primary-source manifest for the official Binaryen release, source, and lit-test surfaces re-checked in the earlier run.
+  - Immutable current-main source bridge and exact Starshine code-map refresh; it retains the tagged `version_129` release, source, and lit-test provenance used by this dossier.
 
 ## Freshness note
 
