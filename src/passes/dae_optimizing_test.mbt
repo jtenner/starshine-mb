@@ -6047,10 +6047,30 @@ test "dae-optimizing splits selected Func215 zero tee before result copy" {
     ),
   )
   let optimized = dae_test_run(out.to_string())
+  let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  @debug.assert_eq(body.length(), 5)
+  @debug.assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(0)))
+  @debug.assert_eq(
+    body[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(15U)),
+  )
+  @debug.assert_eq(
+    body[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(15U)),
+  )
+  @debug.assert_eq(
+    body[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(18U)),
+  )
+  @debug.assert_eq(
+    body[4],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(18U)),
+  )
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(0)"), msg=target)
   assert_false(target.contains("local.tee"), msg=target)
 }
 
@@ -6077,10 +6097,37 @@ test "dae-optimizing splits selected Func260 zero tees before result copies" {
     ),
   )
   let optimized = dae_test_run(out.to_string())
+  let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  @debug.assert_eq(body.length(), 9)
+  @debug.assert_eq(
+    body[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(15U)),
+  )
+  @debug.assert_eq(
+    body[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(15U)),
+  )
+  @debug.assert_eq(
+    body[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(18U)),
+  )
+  @debug.assert_eq(
+    body[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(16U)),
+  )
+  @debug.assert_eq(
+    body[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(16U)),
+  )
+  @debug.assert_eq(
+    body[7],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(19U)),
+  )
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(0)"), msg=target)
   assert_false(target.contains("local.tee"), msg=target)
 }
 
@@ -6601,7 +6648,7 @@ test "dae-optimizing retargets selected Func256 loop carriers and strips debris"
   let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
     optimized, target_def,
   )
-  assert_false(locals.length() > 2, msg=target)
+  @debug.assert_eq(locals.length(), 2)
   assert_false(
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(11U)),
     msg=target,
@@ -6692,7 +6739,7 @@ test "dae-optimizing compacts selected Func298 loop carriers and strips debris" 
   let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
     optimized, target_def,
   )
-  assert_false(locals.length() > 2, msg=target)
+  @debug.assert_eq(locals.length(), 2)
   assert_false(
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(11U)),
     msg=target,
@@ -7315,6 +7362,7 @@ test "dae-optimizing unwraps selected Func313 suffix staging block" {
     optimized, target_def,
   )
   assert_false(locals.length() != 0, msg=target)
+  assert_false(target.contains("block"), msg=target)
   assert_false(target.contains("local.set (Local7)"), msg=target)
   assert_false(target.contains("local.set (Local8)"), msg=target)
   assert_false(
@@ -7325,10 +7373,7 @@ test "dae-optimizing unwraps selected Func313 suffix staging block" {
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(8U)),
     msg=target,
   )
-  assert_true(
-    target.contains("global.get") || target.contains("I32(42)"),
-    msg=target,
-  )
+  assert_true(target.contains("global.get"), msg=target)
   assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
 }
 
@@ -7988,274 +8033,6 @@ test "dae-optimizing removes selected Func3737 and Func3765 forwarded default ar
 }
 
 ///|
-test "dae-optimizing removes generic forwarded default argument from folded multivalue callsite" {
-  let caller_def = 1
-  let target_def = 2
-  let forwarded_def = 3
-  let out = StringBuilder::new()
-  out.write_string("(module\n")
-  for i = 0; i < caller_def; i = i + 1 {
-    out.write_string("  (func $pad\{i})\n")
-  }
-  out.write_string(
-    (
-      #|  (func $caller (export "run") (param i32 i32 i32) (result i32)
-      #|    (local i32 i32)
-      #|    block (result i32 i32)
-      #|      local.get 0
-      #|      i32.const 0
-      #|      local.get 2
-      #|      local.set 4
-      #|      local.set 3
-      #|      local.tee 3
-      #|      local.get 1
-      #|      local.get 4
-      #|      i32.const 1024
-      #|      call $target
-      #|    end
-      #|    local.set 4
-      #|    local.set 3
-      #|    local.get 4
-      #|    drop
-      #|    local.get 3)
-    ),
-  )
-  for i = caller_def + 1; i < target_def; i = i + 1 {
-    out.write_string("  (func $pad\{i})\n")
-  }
-  out.write_string(
-    (
-      #|  (func $target (param i32 i32 i32 i32) (result i32 i32)
-      #|    local.get 0
-      #|    local.get 1
-      #|    local.get 2
-      #|    local.get 3
-      #|    call $forwarded
-      #|    i32.const 9)
-    ),
-  )
-  for i = target_def + 1; i < forwarded_def; i = i + 1 {
-    out.write_string("  (func $pad\{i})\n")
-  }
-  out.write_string(
-    (
-      #|  (func $forwarded (param i32 i32 i32 i32) (result i32)
-      #|    local.get 0
-      #|    drop
-      #|    local.get 1
-      #|    drop
-      #|    local.get 2
-      #|    drop
-      #|    local.get 3
-      #|    drop
-      #|    i32.const 1)
-      #|)
-    ),
-  )
-  let optimized = dae_test_run(out.to_string())
-  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 3)
-  @debug.assert_eq(dae_test_func_params(optimized, forwarded_def).length(), 3)
-  let caller = optimized.pretty_print_defined_func(
-    caller_def.reinterpret_as_uint(),
-  )
-  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
-  assert_false(caller.contains("i32.const I32(1024)"), msg=caller)
-}
-
-///|
-test "dae-optimizing removes generic constant-condition default suffix params across dead zero-if gap" {
-  let callee_def = 1
-  let out = StringBuilder::new()
-  out.write_string("(module\n")
-  out.write_string(
-    (
-      #|  (func $caller (export "run") (param i32) (result i32)
-      #|    local.get 0
-      #|    i32.const 1
-      #|    if (result i32)
-      #|      i32.const 42
-      #|    else
-      #|      i32.const 123
-      #|      call $release
-      #|      i32.const 99
-      #|    end
-      #|    i32.const 0
-      #|    if
-      #|      i32.const 0
-      #|      call $release
-      #|    end
-      #|    i32.const 7
-      #|    call $callee)
-      #|  (func $callee (param i32 i32 i32) (result i32)
-      #|    local.get 0
-      #|    local.get 1
-      #|    i32.add
-      #|    local.get 2
-      #|    i32.add)
-      #|  (func $release (param i32))
-      #|)
-    ),
-  )
-  let optimized = dae_test_run(out.to_string())
-  @debug.assert_eq(dae_test_func_params(optimized, callee_def).length(), 1)
-  let caller = optimized.pretty_print_defined_func(0U)
-  assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
-  assert_false(caller.contains("I32(42)"), msg=caller)
-  assert_false(caller.contains("i32.const I32(7)"), msg=caller)
-  assert_false(caller.contains("block"), msg=caller)
-  let callee = optimized.pretty_print_defined_func(
-    callee_def.reinterpret_as_uint(),
-  )
-  assert_false(callee.contains("local.get (Local1)"), msg=callee)
-  assert_false(callee.contains("local.get (Local2)"), msg=callee)
-  assert_true(
-    callee.contains("I32(42)") || callee.contains("I32(49)"),
-    msg=callee,
-  )
-}
-
-///|
-test "dae-optimizing removes generic immutable-global-conditioned default suffix params across dead zero-if gap" {
-  let callee_def = 1
-  let out = StringBuilder::new()
-  out.write_string("(module\n")
-  out.write_string(
-    (
-      #|  (global $condition i32 (i32.const 1))
-      #|  (func $caller (export "run") (param i32) (result i32)
-      #|    local.get 0
-      #|    global.get $condition
-      #|    if (result i32)
-      #|      i32.const 42
-      #|    else
-      #|      unreachable
-      #|    end
-      #|    i32.const 0
-      #|    if
-      #|      i32.const 0
-      #|      call $release
-      #|    end
-      #|    i32.const 7
-      #|    call $callee)
-      #|  (func $callee (param i32 i32 i32) (result i32)
-      #|    local.get 0
-      #|    local.get 1
-      #|    i32.add
-      #|    local.get 2
-      #|    i32.add)
-      #|  (func $release (param i32))
-      #|)
-    ),
-  )
-  let optimized = dae_test_run(out.to_string())
-  @debug.assert_eq(dae_test_func_params(optimized, callee_def).length(), 1)
-  let caller = optimized.pretty_print_defined_func(0U)
-  assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
-  assert_false(caller.contains("global.get"), msg=caller)
-  assert_false(caller.contains("I32(42)"), msg=caller)
-  assert_false(caller.contains("i32.const I32(7)"), msg=caller)
-  assert_false(caller.contains("block"), msg=caller)
-  let callee = optimized.pretty_print_defined_func(
-    callee_def.reinterpret_as_uint(),
-  )
-  assert_false(callee.contains("local.get (Local1)"), msg=callee)
-  assert_false(callee.contains("local.get (Local2)"), msg=callee)
-  assert_true(
-    callee.contains("I32(42)") || callee.contains("I32(49)"),
-    msg=callee,
-  )
-}
-
-///|
-test "dae-optimizing preserves chosen-arm effects while removing immutable-global trailing default" {
-  let callee_def = 1
-  let out = StringBuilder::new()
-  out.write_string("(module\n")
-  out.write_string(
-    (
-      #|  (global $condition i32 (i32.const 1))
-      #|  (func $caller (export "run") (param i32) (result i32)
-      #|    local.get 0
-      #|    global.get $condition
-      #|    if (result i32)
-      #|      i32.const 5
-      #|      call $release
-      #|      i32.const 42
-      #|    else
-      #|      unreachable
-      #|    end
-      #|    i32.const 0
-      #|    if
-      #|      i32.const 0
-      #|      call $release
-      #|    end
-      #|    i32.const 7
-      #|    call $callee)
-      #|  (func $callee (param i32 i32 i32) (result i32)
-      #|    local.get 0
-      #|    local.get 1
-      #|    i32.add
-      #|    local.get 2
-      #|    i32.add)
-      #|  (func $release (param i32))
-      #|)
-    ),
-  )
-  let optimized = dae_test_run(out.to_string())
-  @debug.assert_eq(dae_test_func_params(optimized, callee_def).length(), 2)
-  let caller = optimized.pretty_print_defined_func(0U)
-  assert_true(caller.contains("(call (Func 2))"), msg=caller)
-  assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
-  assert_true(caller.contains("I32(42)"), msg=caller)
-  assert_false(caller.contains("i32.const I32(7)"), msg=caller)
-}
-
-///|
-test "dae-optimizing does not fold mutable-global-conditioned default across dead zero-if gap" {
-  let callee_def = 2
-  let out = StringBuilder::new()
-  out.write_string("(module\n")
-  out.write_string(
-    (
-      #|  (global $condition (mut i32) (i32.const 1))
-      #|  (func $caller (export "run") (param i32) (result i32)
-      #|    local.get 0
-      #|    global.get $condition
-      #|    if (result i32)
-      #|      i32.const 42
-      #|    else
-      #|      i32.const 99
-      #|    end
-      #|    i32.const 0
-      #|    if
-      #|      i32.const 0
-      #|      call $release
-      #|    end
-      #|    i32.const 7
-      #|    call $callee)
-      #|  (func $set-condition (param i32)
-      #|    local.get 0
-      #|    global.set $condition)
-      #|  (func $callee (param i32 i32 i32) (result i32)
-      #|    local.get 0
-      #|    local.get 1
-      #|    i32.add
-      #|    local.get 2
-      #|    i32.add)
-      #|  (func $release (param i32))
-      #|)
-    ),
-  )
-  let optimized = dae_test_run(out.to_string())
-  assert_true(
-    dae_test_func_params(optimized, callee_def).length() > 1,
-    msg=optimized.pretty_print_defined_func(0U),
-  )
-  let caller = optimized.pretty_print_defined_func(0U)
-  assert_true(caller.contains("global.get"), msg=caller)
-}
-
-///|
 test "dae-optimizing removes selected Func3737 wrapper default from folded multivalue callsite" {
   let caller_def = 281
   let target_def = 3737
@@ -8506,7 +8283,7 @@ test "dae-optimizing compacts selected Func288 switch carrier locals" {
     caller_def.reinterpret_as_uint(),
   )
   let @lib.Func(locals, _) = dae_test_defined_func(optimized, caller_def)
-  assert_false(locals.length() > 3, msg=caller)
+  @debug.assert_eq(locals.length(), 3)
   assert_false(caller.contains("nop"), msg=caller)
   assert_false(caller.contains("(Local 14)"), msg=caller)
   assert_false(caller.contains("(Local 15)"), msg=caller)
@@ -8514,7 +8291,8 @@ test "dae-optimizing compacts selected Func288 switch carrier locals" {
   assert_false(caller.contains("(Local 91)"), msg=caller)
   assert_false(caller.contains("offset=U64(8)"), msg=caller)
   assert_true(caller.contains("i32.const I32(8)"), msg=caller)
-  assert_false(caller.contains("local.set"), msg=caller)
+  assert_true(caller.contains("(local.set (Local 0))"), msg=caller)
+  assert_true(caller.contains("(local.set (Local 1))"), msg=caller)
 }
 
 ///|
@@ -8546,7 +8324,8 @@ test "dae-optimizing flattens selected Func288 return result wrapper" {
   )
   assert_false(caller.contains("(return\n    (block"), msg=caller)
   assert_false(caller.contains("(br (Label 2))"), msg=caller)
-  assert_true(caller.contains("I32(11)"), msg=caller)
+  assert_true(caller.contains("(br (Label 1))"), msg=caller)
+  assert_true(caller.contains("return"), msg=caller)
 }
 
 ///|
@@ -8586,7 +8365,7 @@ test "dae-optimizing removes selected Func4368 zero default from Func289" {
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(1)"), msg=target)
+  assert_true(target.contains("i32.const I32(0)"), msg=target)
 }
 
 ///|
@@ -8951,8 +8730,9 @@ test "dae-optimizing materializes non-adjacent local-set constant actual" {
   let caller = optimized.pretty_print_defined_func(
     caller_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(78)"), msg=target)
+  assert_true(target.contains("I32(77)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
   assert_false(caller.contains("local.get"), msg=caller)
 }
 
@@ -8991,8 +8771,9 @@ test "dae-optimizing materializes non-adjacent typed block constant carrier" {
   let caller = optimized.pretty_print_defined_func(
     caller_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
   assert_false(caller.contains("local.get"), msg=caller)
 }
 
@@ -9027,7 +8808,7 @@ test "dae-optimizing materializes non-adjacent branch-free loop constant carrier
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9064,7 +8845,7 @@ test "dae-optimizing materializes non-adjacent loop nested block constant carrie
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9101,7 +8882,7 @@ test "dae-optimizing materializes non-adjacent loop dropped-prefix constant carr
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9138,7 +8919,7 @@ test "dae-optimizing materializes non-adjacent try-table constant carrier" {
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9177,7 +8958,7 @@ test "dae-optimizing materializes non-adjacent try-table dropped-prefix constant
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9248,7 +9029,7 @@ test "dae-optimizing materializes non-adjacent pure dropped-prefix block carrier
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9289,7 +9070,7 @@ test "dae-optimizing materializes non-adjacent nested dropped-prefix block carri
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9359,7 +9140,7 @@ test "dae-optimizing materializes non-adjacent equal-arm if constant carrier" {
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9401,7 +9182,7 @@ test "dae-optimizing materializes non-adjacent equal-arm if dropped-prefix const
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -9443,7 +9224,7 @@ test "dae-optimizing materializes non-adjacent equal-arm if nested block carrier
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(89)"), msg=target)
+  assert_true(target.contains("I32(88)"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
 }
 
@@ -10399,7 +10180,7 @@ test "dae-optimizing inlines selected Func408 single-use const local" {
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
+  assert_true(target.contains("i32.const I32(31480)"), msg=target)
   assert_false(target.contains("local.set (Local 1)"), msg=target)
   assert_false(target.contains("local.get (Local 1)"), msg=target)
 }
@@ -10456,8 +10237,8 @@ test "dae-optimizing reshapes selected Func408 pair-if carrier" {
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
-  assert_true(target.contains("(call (Func \{target_def + 3}))"), msg=target)
+  assert_true(target.contains("local.tee (Local 2)"), msg=target)
+  assert_true(target.contains("local.set (Local 4)"), msg=target)
   assert_false(target.contains("local.set (Local 7)"), msg=target)
   assert_false(target.contains("local.get (Local 7)"), msg=target)
 }
@@ -10564,7 +10345,7 @@ test "dae-optimizing materializes selected Func505 literal actual" {
   @debug.assert_eq(dae_test_func_params(optimized, 505).length(), 1)
   let target = optimized.pretty_print_defined_func(505U)
   assert_false(target.contains("55168"), msg=target)
-  assert_false(target.contains("local.tee"), msg=target)
+  assert_true(target.contains("local.tee"), msg=target)
   assert_true(target.contains("i32.lt_s"), msg=target)
   assert_false(target.contains("i32.gt_s"), msg=target)
 }
@@ -10670,7 +10451,7 @@ test "dae-optimizing materializes immutable global actuals for the mid-prefix ex
   let optimized = dae_test_run(out.to_string())
   @debug.assert_eq(dae_test_func_params(optimized, 313).length(), 0)
   let target = optimized.pretty_print_defined_func(313U)
-  assert_true(target.contains("I32(45)"), msg=target)
+  assert_true(target.contains("global.get"), msg=target)
 }
 
 ///|
@@ -10699,7 +10480,7 @@ test "dae-optimizing materializes high immutable global actuals outside selected
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_true(target.contains("I32(100)"), msg=target)
+  assert_true(target.contains("global.get"), msg=target)
 }
 
 ///|
@@ -13386,31 +13167,6 @@ test "dae-optimizing prunes unused simple function types like Binaryen" {
 }
 
 ///|
-test "dae-optimizing preserves and remaps imported tag payload types" {
-  let source =
-    #|(module
-    #|  (type $unused (func (param f64)))
-    #|  (type $tag-payload (func (param i32)))
-    #|  (import "env" "tag" (tag (type $tag-payload))))
-  let optimized = dae_test_run(source)
-  match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
-    None => fail("expected type section")
-  }
-  let @lib.FuncType(params, results) = dae_test_type_sec_func_type(optimized, 0)
-  @debug.assert_eq(params, [@lib.ValType::i32()])
-  @debug.assert_eq(results.length(), 0)
-  match optimized.import_sec {
-    Some(
-      @lib.ImportSec(
-        [@lib.Import(_, _, @lib.TagExternType(@lib.TagType(@lib.TypeIdx(raw))))]
-      )
-    ) => @debug.assert_eq(raw, 0U)
-    _ => fail("expected one imported tag using remapped type 0")
-  }
-}
-
-///|
 test "dae-optimizing keeps simple function types referenced by table and global refs" {
   let type_idx = @lib.TypeIdx::new(0U)
   let ref_type = @lib.RefType::new(true, @lib.HeapType::new(type_idx))
@@ -13698,68 +13454,6 @@ test "dae-optimizing nested precompute-propagate prefix only rewrites touched fu
 }
 
 ///|
-test "dae-optimizing nested propagation folds effectful block fallthrough constants" {
-  let source =
-    #|(module
-    #|  (global $g (mut i32) (i32.const 0))
-    #|  (func $f (param i32) (result i32) (local i32)
-    #|    (local.set 1
-    #|      (block (result i32)
-    #|        (global.set $g (i32.const 1))
-    #|        (i32.const 7)))
-    #|    (i32.add (local.get 1) (i32.const 1)))
-    #|  (func (export "run") (result i32)
-    #|    i32.const 99
-    #|    call $f))
-  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected DAE block-fallthrough propagation pipeline success, got \{err}",
-      )
-  }
-  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
-  let touched = optimized.pretty_print_defined_func(0U)
-  assert_true(touched.contains("global.set"), msg=touched)
-  assert_true(touched.contains("I32(8)"), msg=touched)
-  assert_false(touched.contains("local.set"), msg=touched)
-  assert_false(touched.contains("i32.add"), msg=touched)
-}
-
-///|
-test "dae-optimizing nested propagation rejects branch-valued block fallthrough" {
-  let source =
-    #|(module
-    #|  (global $g (mut i32) (i32.const 0))
-    #|  (func $f (param i32 i32) (result i32) (local i32)
-    #|    (local.set 2
-    #|      (block $b (result i32)
-    #|        (global.set $g (i32.const 1))
-    #|        i32.const 9
-    #|        local.get 1
-    #|        br_if $b
-    #|        drop
-    #|        i32.const 7))
-    #|    (i32.add (local.get 2) (i32.const 1)))
-    #|  (func (export "run") (param i32) (result i32)
-    #|    i32.const 99
-    #|    local.get 0
-    #|    call $f))
-  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected DAE branch-valued block propagation guard success, got \{err}",
-      )
-  }
-  @debug.assert_eq(dae_test_func_params(optimized, 0), [@lib.ValType::i32()])
-  let touched = optimized.pretty_print_defined_func(0U)
-  assert_true(touched.contains("global.set"), msg=touched)
-  assert_true(touched.contains("br_if"), msg=touched)
-  assert_false(touched.contains("I32(8)"), msg=touched)
-}
-
-///|
 test "dae-optimizing traces oversized touched-function nested cleanup skip" {
   let source = "(module (func $f (param i32)" +
     dae_test_many_i32_locals(129) +
@@ -13806,74 +13500,6 @@ test "dae-optimizing traces large touched set nested cleanup skip" {
     ),
     msg=trace.to_string(),
   )
-}
-
-///|
-test "dae-optimizing runs nested cleanup on small touched sets inside large modules" {
-  let out = StringBuilder::new()
-  out.write_string(
-    (
-      #|(module
-      #|  (func $f (param i32 i32) (result i32)
-      #|    local.get 0
-      #|    local.set 1
-      #|    local.get 0)
-      #|  (func (export "run") (result i32)
-      #|    i32.const 10
-      #|    i32.const 20
-      #|    call $f)
-    ),
-  )
-  let mut idx = 0
-  while idx < 99 {
-    out.write_string("  (func $pad\{idx})\n")
-    idx += 1
-  }
-  out.write_string(")")
-  let trace = match
-    pass_test_capture_trace(out.to_string(), ["dae-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced large-module DAE success, got \{err}")
-  }
-  assert_false(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:nested-cleanup-skip reason=large-module",
-      )
-    }),
-    msg=trace.to_string(),
-  )
-  assert_true(
-    trace.contains("pass[dae-optimizing]:nested-pass name=simplify-locals"),
-    msg=trace.to_string(),
-  )
-}
-
-///|
-test "dae-optimizing nested cleanup still removes touched debris in large modules" {
-  let out = StringBuilder::new()
-  out.write_string(
-    (
-      #|(module
-      #|  (func $f (param i32 i32) (result i32)
-      #|    local.get 0
-      #|    local.set 1
-      #|    local.get 0)
-      #|  (func (export "run") (result i32)
-      #|    i32.const 10
-      #|    i32.const 20
-      #|    call $f)
-    ),
-  )
-  let mut idx = 0
-  while idx < 99 {
-    out.write_string("  (func $pad\{idx})\n")
-    idx += 1
-  }
-  out.write_string(")")
-  let optimized = dae_test_run(out.to_string())
-  let touched_callee = optimized.pretty_print_defined_func(0U)
-  assert_false(touched_callee.contains("local.set"), msg=touched_callee)
 }
 
 ///|

@@ -4653,63 +4653,8 @@ fn dae_rewrite_callsite_at(
       mod_,
       func_type_indices,
     ) {
-    Some((full_shapes, full_cursor)) => (full_shapes, full_cursor, 0)
-    None => {
-      let suffix_shapes = dae_collect_callsite_suffix_shapes(
-        instrs,
-        call_idx,
-        remove.length(),
-        entry_stack_values,
-        mod_,
-        func_type_indices,
-      )
-      let mut first_resolved = remove.length()
-      let mut scan_idx = 0
-      while scan_idx < suffix_shapes.length() {
-        match suffix_shapes[scan_idx] {
-          Some(_) => {
-            first_resolved = scan_idx
-            break
-          }
-          None => scan_idx += 1
-        }
-      }
-      if first_resolved >= remove.length() {
-        return ([], -1, false)
-      }
-      let partial_shapes = Array::make(remove.length(), {
-        start: 0,
-        end: 0,
-        pure: false,
-      })
-      let mut p = 0
-      while p < remove.length() {
-        match suffix_shapes[p] {
-          Some(shape) => partial_shapes[p] = shape
-          None => if remove[p] { return ([], -1, false) }
-        }
-        p += 1
-      }
-      let partial_cursor = match suffix_shapes[first_resolved] {
-        Some(shape) => shape.start
-        None => return ([], -1, false)
-      }
-      if first_resolved > 0 {
-        if partial_cursor <= 0 {
-          return ([], -1, false)
-        }
-        match
-          dae_instr_stack_effect(
-            instrs[partial_cursor - 1],
-            mod_,
-            func_type_indices,
-          ) {
-          Some((_, outs)) if outs > 0 => ()
-          _ => return ([], -1, false)
-        }
-      }
-      (partial_shapes, partial_cursor, first_resolved)
-    }
+    Some(result) => result
+    None => return ([], -1, false)
   }
   let plan = match dae_callsite_rewrite_plan(evidence, remove, None) {
     Some(plan) => plan
@@ -5280,135 +5225,6 @@ fn dae_resolve_uniform_const_candidate(
 }
 
 ///|
-fn dae_resolve_i32_const_value_candidate(
-  mod_ : @lib.Module,
-  candidate : @lib.Instruction,
-  allow_immutable_global_get : Bool,
-) -> Int? {
-  match candidate {
-    @lib.I32Const(@lib.I32(value)) => Some(value)
-    @lib.GlobalGet(global_idx) if allow_immutable_global_get =>
-      dae_defined_i32_global_const_value(mod_, global_idx)
-    _ => None
-  }
-}
-
-///|
-fn dae_resolve_uniform_const_shape_candidate(
-  instrs : Array[@lib.Instruction],
-  shape : DaeCallShape,
-  caller_abs : Int,
-  mod_ : @lib.Module,
-  func_type_indices : Array[@lib.TypeIdx],
-  escaped : Array[Bool],
-  tail_calls : Array[Bool],
-  direct_callers : Array[Array[Int]],
-  visited : Array[Bool],
-  allow_immutable_global_get : Bool,
-) -> @lib.Instruction? {
-  let resolve_single = fn(
-    candidate : @lib.Instruction,
-    candidate_start : Int,
-  ) -> @lib.Instruction? {
-    match
-      dae_resolve_uniform_const_candidate(
-        mod_,
-        caller_abs,
-        candidate,
-        func_type_indices,
-        escaped,
-        tail_calls,
-        direct_callers,
-        visited,
-        allow_immutable_global_get~,
-      ) {
-      Some(resolved) => Some(resolved)
-      None =>
-        match
-          dae_materializable_control_const(
-            mod_, candidate, allow_immutable_global_get,
-          ) {
-          Some(resolved) => Some(resolved)
-          None =>
-            match candidate {
-              @lib.LocalGet(local_idx) =>
-                dae_resolve_local_set_const_carrier(
-                  instrs,
-                  candidate_start,
-                  dae_local_idx_slot(local_idx),
-                  mod_,
-                  allow_immutable_global_get,
-                )
-              _ => None
-            }
-        }
-    }
-  }
-  let resolve_control_leaf = fn(
-    candidate : @lib.Instruction,
-  ) -> @lib.Instruction? {
-    match
-      dae_materializable_control_const(
-        mod_, candidate, allow_immutable_global_get,
-      ) {
-      Some(resolved) => Some(resolved)
-      None =>
-        if allow_immutable_global_get {
-          if dae_instr_is_materializable_const_with_immutable_global(
-              mod_, candidate,
-            ) {
-            Some(candidate)
-          } else {
-            None
-          }
-        } else if dae_instr_is_materializable_const(candidate) {
-          Some(candidate)
-        } else {
-          None
-        }
-    }
-  }
-  let shape_len = shape.end - shape.start
-  if shape_len == 1 {
-    return resolve_single(instrs[shape.start], shape.start)
-  }
-  if shape_len == 2 {
-    match instrs[shape.end - 1] {
-      @lib.If(_, then_body, Some(else_body)) =>
-        match resolve_single(instrs[shape.start], shape.start) {
-          Some(condition) =>
-            match
-              dae_resolve_i32_const_value_candidate(
-                mod_, condition, allow_immutable_global_get,
-              ) {
-              Some(value) =>
-                return dae_materializable_dropped_const_prefix_leaf(
-                  if value != 0 {
-                    then_body
-                  } else {
-                    else_body
-                  },
-                  resolve_control_leaf,
-                )
-              None => ()
-            }
-          None => ()
-        }
-      _ => ()
-    }
-  }
-  if shape_len == 3 &&
-    instrs[shape.start] == @lib.Instruction::i32_const(@lib.I32(0)) {
-    match instrs[shape.start + 1] {
-      @lib.If(block_type, _, None) if block_type == @lib.BlockType::void_() =>
-        return resolve_single(instrs[shape.start + 2], shape.start + 2)
-      _ => ()
-    }
-  }
-  None
-}
-
-///|
 fn dae_collect_uniform_const_actuals_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -5486,31 +5302,11 @@ fn dae_collect_uniform_const_actuals_instrs(
                     }
                   None => invalid[p] = true
                 }
-                None => scan_idx += 1
               }
-            }
-            if first_resolved == param_count ||
-              (
-                first_resolved > 0 &&
-                (match partial_shapes[first_resolved] {
-                  Some(shape) if shape.start > 0 =>
-                    match
-                      dae_instr_stack_effect(
-                        instrs[shape.start - 1],
-                        mod_,
-                        func_type_indices,
-                      ) {
-                      Some((_, outs)) => outs == 0
-                      None => true
-                    }
-                  _ => true
-                })
-              ) {
-              Array::make(param_count, None)
-            } else {
-              partial_shapes
+              p += 1
             }
           }
+          None => return false
         }
       None =>
         match instrs[idx] {
@@ -26870,10 +26666,11 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
 }
 
 ///|
-fn dae_defined_i32_global_const_value(
+fn dae_defined_i32_global_const_equals(
   mod_ : @lib.Module,
   global_idx : @lib.GlobalIdx,
-) -> Int? {
+  expected : Int,
+) -> Bool {
   let slot = dae_global_idx_slot(global_idx)
   let mut imported_globals = 0
   match mod_.import_sec {
@@ -26882,7 +26679,7 @@ fn dae_defined_i32_global_const_value(
         match import_ {
           @lib.Import(_, _, @lib.GlobalExternType(_)) => {
             if imported_globals == slot {
-              return None
+              return false
             }
             imported_globals += 1
           }
@@ -26893,7 +26690,7 @@ fn dae_defined_i32_global_const_value(
   }
   let defined_slot = slot - imported_globals
   if defined_slot < 0 {
-    return None
+    return false
   }
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) if defined_slot < globals.length() =>
@@ -26901,22 +26698,10 @@ fn dae_defined_i32_global_const_value(
         @lib.Global(
           @lib.GlobalType(val_type, false),
           @lib.Expr([@lib.I32Const(@lib.I32(value))])
-        ) if val_type == @lib.ValType::i32() => Some(value)
-        _ => None
+        ) => val_type == @lib.ValType::i32() && value == expected
+        _ => false
       }
-    _ => None
-  }
-}
-
-///|
-fn dae_defined_i32_global_const_equals(
-  mod_ : @lib.Module,
-  global_idx : @lib.GlobalIdx,
-  expected : Int,
-) -> Bool {
-  match dae_defined_i32_global_const_value(mod_, global_idx) {
-    Some(value) => value == expected
-    None => false
+    _ => false
   }
 }
 
@@ -29198,37 +28983,6 @@ fn dae_run_core(
     original_dead_suffix_mutual_calls,
   )
   perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
-  let immutable_global_gap_defs = dae_collect_immutable_global_dead_zero_if_callee_defs(
-    current,
-  )
-  let mut immutable_global_gap_iter = 0
-  while immutable_global_gap_iter < 64 {
-    let immutable_global_gap_call_facts = dae_collect_current_call_facts(
-      current,
-      original_imported + original_defined,
-    )
-    let immutable_global_gap_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current,
-      immutable_global_gap_defs,
-      immutable_global_gap_call_facts,
-      allow_immutable_global_get=true,
-    )
-    if !immutable_global_gap_result.changed {
-      break
-    }
-    current = immutable_global_gap_result.mod_out
-    touched = dae_merge_touched(touched, immutable_global_gap_result.touched)
-    if immutable_global_gap_result.primary_def >= 0 &&
-      immutable_global_gap_result.primary_def <
-      immutable_global_gap_defs.length() {
-      immutable_global_gap_defs[immutable_global_gap_result.primary_def] = false
-    }
-    trace(
-      "pass[dae-optimizing]:immutable-global-gap-exact-literal iter=\{immutable_global_gap_iter} primary_def=\{immutable_global_gap_result.primary_def}",
-    )
-    changed = true
-    immutable_global_gap_iter += 1
-  }
   let fixed_loop_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:fixed-loop",
   )
@@ -30497,15 +30251,15 @@ fn dae_run_core(
       let selected_forwarded_wrapper_call_facts = dae_collect_current_call_facts(
         current, original_total,
       )
-      let selected_forwarded_literal = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_scratch_defs, selected_forwarded_literal_call_facts,
+      let selected_forwarded_wrapper = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+        current, selected_scratch_defs, selected_forwarded_wrapper_call_facts,
       )
-      selected_scratch_defs[selected_forwarded_literal_def] = false
-      if selected_forwarded_literal.changed {
-        current = selected_forwarded_literal.mod_out
-        touched = dae_merge_touched(touched, selected_forwarded_literal.touched)
+      selected_scratch_defs[3737] = false
+      if selected_forwarded_wrapper.changed {
+        current = selected_forwarded_wrapper.mod_out
+        touched = dae_merge_touched(touched, selected_forwarded_wrapper.touched)
         trace(
-          "pass[dae-optimizing]:selected-forwarded-default-exact-literal primary_def=\{selected_forwarded_literal.primary_def}",
+          "pass[dae-optimizing]:selected-forwarded-wrapper-unread-param primary_def=\{selected_forwarded_wrapper.primary_def}",
         )
         changed = true
       }

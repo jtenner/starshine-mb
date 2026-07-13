@@ -1,7 +1,7 @@
 ///|
 fn optimize_instructions_closeout_manifest_selected_profiles(
   requested_profile : String,
-) -> (EmitGenValidBatchArgs, EmitGenValidBatchSelection, Array[String]) {
+) -> (EmitGenValidBatchArgs, GenValidCoverageSelection, Array[String]) raise {
   let args = EmitGenValidBatchArgs::new(
     18,
     0x5eedUL,
@@ -14,13 +14,17 @@ fn optimize_instructions_closeout_manifest_selected_profiles(
     Err(msg) => fail(msg)
   }
   @debug.assert_eq(selection.manifest.length(), 18)
-  let all_profile = match @validate.gen_valid_profile_by_name(requested_profile) {
+  let all_profile = match
+    @validate.gen_valid_profile_by_name(requested_profile) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
   let selected_profiles : Array[String] = []
   for item in selection.manifest {
-    @debug.assert_eq(item.config_label, @validate.gen_valid_profile_name(all_profile))
+    @debug.assert_eq(
+      item.config_label,
+      @validate.gen_valid_profile_name(all_profile),
+    )
     @debug.assert_eq(
       item.selected_profile,
       @validate.gen_valid_profile_name(
@@ -44,8 +48,9 @@ fn optimize_instructions_closeout_manifest_selected_profiles(
 
 ///|
 test "emit gen-valid optimize-instructions aggregate manifest keeps pass-oi-all labels" {
-  let (args, selection, selected_profiles) =
-    optimize_instructions_closeout_manifest_selected_profiles("pass-oi-all")
+  let (args, selection, selected_profiles) = optimize_instructions_closeout_manifest_selected_profiles(
+    "pass-oi-all",
+  )
   let _ = selection
   assert_true(selected_profiles.length() > 1)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
@@ -55,10 +60,9 @@ test "emit gen-valid optimize-instructions aggregate manifest keeps pass-oi-all 
 
 ///|
 test "emit gen-valid optimize-instructions closeout alias keeps aggregate manifest labels" {
-  let (args, selection, selected_profiles) =
-    optimize_instructions_closeout_manifest_selected_profiles(
-      "optimize-instructions-closeout",
-    )
+  let (args, selection, selected_profiles) = optimize_instructions_closeout_manifest_selected_profiles(
+    "optimize-instructions-closeout",
+  )
   let _ = selection
   assert_true(selected_profiles.length() > 1)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)

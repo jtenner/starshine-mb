@@ -421,13 +421,12 @@ fn merge_blocks_node_has_drop_parent_use(
       continue
     }
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Drop => {
+      @ir.HotOp::Drop =>
         for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
           if @ir.hot_child_get(func, node_id, slot) == target_id {
             return true
           }
         }
-      }
       _ => ()
     }
   }

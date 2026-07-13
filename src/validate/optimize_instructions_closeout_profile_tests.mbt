@@ -4,12 +4,11 @@ test "optimize-instructions closeout aliases resolve to the OI aggregate profile
   assert_true(gen_valid_profiles().contains(PassOiAllProfile))
   assert_true(gen_valid_profile_names().contains("pass-oi-all"))
 
-  for alias in [
-    "optimize-instructions",
-    "optimize-instructions-closeout",
-    "optimize-instructions-all-profiles",
-    "oi-all",
-  ] {
+  for
+    alias in [
+      "optimize-instructions", "optimize-instructions-closeout", "optimize-instructions-all-profiles",
+      "oi-all",
+    ] {
     match gen_valid_profile_by_name(alias) {
       Ok(profile) => {
         @debug.assert_eq(profile, PassOiAllProfile)

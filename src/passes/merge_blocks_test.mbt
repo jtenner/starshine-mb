@@ -76,10 +76,15 @@ test "merge-blocks re-lifts multivalue call blocks with trailing drop" {
     #|      call $target
     #|    end
     #|    drop))
-  ignore(match pass_test_run_pipeline(source, ["merge-blocks", "merge-blocks"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected multivalue block merge-blocks relift success, got \{err}")
-  })
+  ignore(
+    match pass_test_run_pipeline(source, ["merge-blocks", "merge-blocks"]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected multivalue block merge-blocks relift success, got \{err}",
+        )
+    },
+  )
 }
 
 ///|
