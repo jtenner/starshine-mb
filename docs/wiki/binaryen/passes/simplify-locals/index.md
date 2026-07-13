@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md
   - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
   - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
   - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
@@ -171,7 +170,7 @@ What I directly re-confirmed:
 So the current durable rule is:
 
 - treat Binaryen `version_129` as the released semantic oracle for this dossier
-- use the raw primary-source manifest when a future thread needs the exact release/source/test provenance again
+- use the `version_129` source links in this page's Sources section when a future thread needs the exact release/source/test provenance again
 - mention current-main drift only when it is more than container cleanup
 
 ## Current maintenance rule
@@ -184,7 +183,6 @@ So the current durable rule is:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md`](../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md)
 - [`../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md`](../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md)
 - [`../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md`](../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md)
 - [`../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md`](../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)

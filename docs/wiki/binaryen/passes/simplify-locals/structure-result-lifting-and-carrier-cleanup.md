@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-21
 sources:
-  - ../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md
   - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
   - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -72,9 +71,7 @@ The most useful reviewed locations from the 2026-04-21 source capture are:
 - the explicit comment above `optimizeIfReturn(...)` calling the one-armed rewrite *speculative*
 - `runLateOptimizations(...)` explaining why equivalent-copy cleanup runs after structure work instead of before it
 
-Those source locations are captured in the raw primary-source manifest:
-
-- [`../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md`](../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md)
+Those source locations remain listed directly in the [`simplify-locals` landing page](./index.md)'s `version_129` source list.
 
 ## Shape family 1: named block exits become block results
 
