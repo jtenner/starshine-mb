@@ -7665,6 +7665,31 @@ test "dae-optimizing prunes unused simple function types like Binaryen" {
 }
 
 ///|
+test "dae-optimizing preserves and remaps imported tag payload types" {
+  let source =
+    #|(module
+    #|  (type $unused (func (param f64)))
+    #|  (type $tag-payload (func (param i32)))
+    #|  (import "env" "tag" (tag (type $tag-payload))))
+  let optimized = dae_test_run(source)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
+    None => fail("expected type section")
+  }
+  let @lib.FuncType(params, results) = dae_test_type_sec_func_type(optimized, 0)
+  @debug.assert_eq(params, [@lib.ValType::i32()])
+  @debug.assert_eq(results.length(), 0)
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec([
+        @lib.Import(_, _, @lib.TagExternType(@lib.TagType(@lib.TypeIdx(raw))))
+      ])
+    ) => @debug.assert_eq(raw, 0U)
+    _ => fail("expected one imported tag using remapped type 0"),
+  }
+}
+
+///|
 test "dae-optimizing keeps simple function types referenced by table and global refs" {
   let type_idx = @lib.TypeIdx::new(0U)
   let ref_type = @lib.RefType::new(true, @lib.HeapType::new(type_idx))
