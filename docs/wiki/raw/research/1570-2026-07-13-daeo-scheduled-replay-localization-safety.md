@@ -92,4 +92,4 @@ A separate direct timing-only compare on the same dedicated input has canonical 
 
 ## Closeout state
 
-The audit remains active. Research note `1571` subsequently refreshed the regular 100000 and explicit wasm-smith 10000 lanes with the post-fix binary; both remain zero-mismatch with no Starshine failures. The random-all 10000 lane from note `1569` still must be refreshed before final closeout. Full `moon test`, `moon info`, full release validation, `.mbti` review, and current-artifact validator ownership also remain.
+The audit remains active. Research notes `1571` and `1572` subsequently refreshed regular GenValid, explicit wasm-smith, and random-all with the post-fix binary, completing the current direct matrix without unknown/risky, size-losing canonical/WAT, validation, or true-semantic residuals. Full `moon test`, `moon info`, full release validation, `.mbti` review, and current-artifact validator ownership remain.

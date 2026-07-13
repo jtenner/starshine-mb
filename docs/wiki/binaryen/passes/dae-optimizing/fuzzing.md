@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/1569-2026-07-13-daeo-fresh-wasm-smith-and-random-all.md
   - ../../../raw/research/1570-2026-07-13-daeo-scheduled-replay-localization-safety.md
   - ../../../raw/research/1571-2026-07-13-daeo-post-scratchfloor-regular-and-wasm-smith.md
+  - ../../../raw/research/1572-2026-07-13-daeo-post-scratchfloor-random-all.md
   - ../dead-argument-elimination/fuzzing.md
 ---
 
@@ -62,4 +63,6 @@ Research note [`1571`](../../../raw/research/1571-2026-07-13-daeo-post-scratchfl
 - regular GenValid `.tmp/pass-fuzz-dae-optimizing-genvalid-100000-post-scratchfloor-20260713`: `100000/100000` normalized, zero mismatches or failures, Binaryen cache `100000/0`;
 - explicit wasm-smith `.tmp/pass-fuzz-dae-optimizing-wasm-smith-10000-post-scratchfloor-20260713`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, zero mismatches and no Starshine failures; the `44` command failures are the unchanged Binaryen/oracle classes (`rec-group-zero=39`, invalid-tag=1, table-index=1, bad-section-size=3), with caches wasm-smith `10000/0`, Binaryen `9956/0`, and Binaryen failures `44/0`.
 
-The post-fix dedicated, regular, and wasm-smith lanes are current. The random-all lane above remains pre-fix evidence and must be refreshed before final closeout.
+Research note [`1572`](../../../raw/research/1572-2026-07-13-daeo-post-scratchfloor-random-all.md) completes the post-fix matrix with `.tmp/pass-fuzz-dae-optimizing-random-all-10000-post-scratchfloor-20260713`: `10000/10000` compared, `9633` normalized, `367` mismatches, and zero validation/generator/property/command failures. The failure-directory set and all `3670` residual files are byte-identical to the pre-fix lane. The residuals remain exactly `dae-effectful-args=124` and `coverage-forced-portable=243`, with aggregate Starshine deltas `-110219` raw / `-797486` canonical / `-5465849` WAT bytes and no canonical/WAT-positive cases. They remain agent-classified measured/source-backed Starshine cleanup wins, not harness claims.
+
+The post-scratch-floor four-lane direct matrix is current. Final closeout still requires artifact-validator ownership, the full test/release gate, docs/backlog reconciliation, and `.mbti` review.

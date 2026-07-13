@@ -63,4 +63,4 @@ Agent classification: all `9956` comparable cases match Binaryen directly or thr
 
 ## Closeout state
 
-The post-scratch-floor dedicated, regular, and wasm-smith lanes are current and green. The random-all `10000` lane from research note `1569` still predates the behavior fix and must be refreshed before final closeout. The current-artifact nondefaultable-local final-validation ownership, full tests/release validation, docs/backlog reconciliation, and `.mbti` review also remain open.
+The post-scratch-floor dedicated, regular, and wasm-smith lanes are current and green. Research note `1572` subsequently refreshed random-all at `10000/10000` with the same `367` byte-identical measured/source-backed Starshine-win residuals and zero failures, completing the direct matrix. The current-artifact nondefaultable-local final-validation ownership, full tests/release validation, docs/backlog reconciliation, and `.mbti` review remain open.
