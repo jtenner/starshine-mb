@@ -5,7 +5,6 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
@@ -133,7 +132,6 @@ For a future Starshine port, use [`starshine-port-readiness-and-validation.md`](
 
 - [`../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md)
 - [`../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md)
 - [`../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md`](../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md)
 - [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md)
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>

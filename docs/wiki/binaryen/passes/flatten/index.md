@@ -4,7 +4,6 @@ status: working
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
-  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
@@ -134,7 +133,7 @@ That is much closer to the real pass than “flatten removes nesting.”
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
+- [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md)
 - [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
 - [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)
 - [`../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md`](../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md)
@@ -146,4 +145,4 @@ That is much closer to the real pass than “flatten removes nesting.”
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- Official Binaryen sources and release surfaces are retained in [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md).
+- Official Binaryen current-main sources and local-status reconciliation are retained in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md).
