@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
   - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -133,7 +132,6 @@ Use the living pass implementation rules in [`../../../../../AGENTS.md`](../../.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
 - [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

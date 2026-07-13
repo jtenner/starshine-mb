@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
   - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
@@ -21,7 +20,7 @@ related:
 
 # `inline-main` implementation structure and tests
 
-This page is anchored by the 2026-04-24 immutable source manifest [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md), which records the exact official URL set and narrow current-main spot-check scope.
+This page is anchored by the 2026-04-24 retained 2026-04-24 source review [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md), which records the exact official URL set and narrow current-main spot-check scope.
 
 ## Core implementation files
 
@@ -211,7 +210,6 @@ That is the smallest faithful implementation shape.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
 - [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>

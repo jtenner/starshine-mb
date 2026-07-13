@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
   - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
@@ -19,7 +18,7 @@ related:
 
 # `inline-main` special-case contract and boundaries
 
-The source-backed contract here is anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md) plus the Starshine status page [`./starshine-strategy.md`](./starshine-strategy.md).
+The source-backed contract here is anchored by the 2026-04-24 source review [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md) plus the Starshine status page [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## The teaching problem
 
@@ -209,7 +208,6 @@ If Starshine ever adds this pass, the minimal honest checklist is:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
 - [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>

@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
   - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -31,7 +30,7 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `inline-main` slice**.
 - Official Binaryen implements it in the same source file as ordinary `inlining`, but as a distinct public pass with a much narrower contract.
-- The current source manifest is [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
+- The retained 2026-04-24 source review is [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Why this pass matters
 
@@ -102,7 +101,6 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
 - [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

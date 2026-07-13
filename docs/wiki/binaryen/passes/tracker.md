@@ -113,7 +113,6 @@ sources:
   - ../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
   - ../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - ../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md
@@ -790,7 +789,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)
-- [`../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
 - [`../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md`](../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md)
