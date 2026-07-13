@@ -224,7 +224,6 @@ sources:
   - ../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
   - ../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
-  - ../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
   - ../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
@@ -692,7 +691,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)
 - [`../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
-- [`../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
 - [`../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md)
 - [`../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`](../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md)

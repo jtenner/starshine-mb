@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -79,7 +78,7 @@ It is **heap-type-level subtype-tightening for nominal function signatures**.
 - Parameter refinement comes from **call operand LUBs**.
 - Result refinement comes from **returned-value LUBs**.
 - `call.without.effects` is part of the real contract, not a side note.
-- The dossier is anchored to the immutable `version_129` source manifest, the superseded 2026-05-05 freshness bridge, and the current [`2026-07-11 version_130/current-main correction`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The dossier is anchored to direct `version_129` source URLs, the retained 2026-04-24 research inventory, the superseded 2026-05-05 freshness bridge, and the current [`2026-07-11 version_130/current-main correction`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 - The 2026-07-11 owner reread found two behavior-bearing current-version corrections: continuation-used signatures now freeze the whole type rather than only params, and `worldMode` now reaches both public-type discovery and the global signature rewriter.
 - The older 2026-05-05 no-drift conclusion is retained as historical provenance but is superseded for current-contract claims.
 
@@ -153,7 +152,6 @@ What it actually is in `version_129`:
 - [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)
 - [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
@@ -176,4 +174,4 @@ What it actually is in `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/signature-refining.wast>
-- Narrow freshness-check sources are captured in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
+- The historical `version_129` source inventory is retained in [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md); current freshness claims use the 2026-07-11 bridge above.
