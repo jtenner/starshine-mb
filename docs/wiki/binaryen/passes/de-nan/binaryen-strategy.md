@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
   - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md
   - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
@@ -26,7 +25,7 @@ related:
 
 # Binaryen strategy for `de-nan` / `denan`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md), and the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md).
+Use this page together with the focused current-main recheck in [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md), and the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md).
 For exact current Starshine status and local code locations, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## What the pass really is
@@ -379,7 +378,6 @@ That is the real Binaryen strategy for `denan`.
 ## Sources
 
 - [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
 - [`../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)

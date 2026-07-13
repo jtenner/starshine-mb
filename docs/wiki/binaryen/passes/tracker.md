@@ -156,7 +156,6 @@ sources:
   - ../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
   - ../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
   - ../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
@@ -834,7 +833,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
 - [`../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md)
-- [`../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
 - [`../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
 - [`../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
