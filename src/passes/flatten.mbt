@@ -202,8 +202,13 @@ fn flatten_label_uses_are_routed_scalar_brs(
           return false
         }
       }
-      @ir.HotOp::BrIf
-      | @ir.HotOp::BrOnNull
+      @ir.HotOp::BrIf if node.imm0 == label_id => {
+        saw_target = true
+        if @ir.hot_child_count(func, node_id) != 1 {
+          return false
+        }
+      }
+      @ir.HotOp::BrOnNull
       | @ir.HotOp::BrOnNonNull
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail
@@ -396,7 +401,7 @@ fn flatten_try_route_scalar_control(
 }
 
 ///|
-fn flatten_target_can_route_plain_scalar_brs(
+fn flatten_target_can_route_scalar_branches(
   func : @ir.HotFunc,
   label_id : Int,
   target_type : @lib.ValType,
@@ -450,8 +455,27 @@ fn flatten_target_can_route_plain_scalar_brs(
           return false
         }
       }
-      @ir.HotOp::BrIf
-      | @ir.HotOp::BrOnNull
+      @ir.HotOp::BrIf if branch.imm0 == label_id => {
+        saw_target = true
+        let child_count = @ir.hot_child_count(func, branch_id)
+        if child_count == 1 {
+          continue
+        }
+        if child_count != 2 {
+          return false
+        }
+        let value_id = @ir.hot_child_get(func, branch_id, 0)
+        let value_types = @ir.hot_type_results(
+          func,
+          @ir.hot_node_get(func, value_id).ty,
+        )
+        if value_types.length() != 1 ||
+          value_types[0] != target_type ||
+          !flatten_node_is_simple_operand(func, value_id) {
+          return false
+        }
+      }
+      @ir.HotOp::BrOnNull
       | @ir.HotOp::BrOnNonNull
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail
@@ -507,7 +531,7 @@ fn flatten_try_route_scalar_br(
     value_types.length() != 1 ||
     target_types[0] != value_types[0] ||
     !flatten_value_type_is_defaultable(target_types[0]) ||
-    !flatten_target_can_route_plain_scalar_brs(func, label_id, target_types[0]) {
+    !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
     return false
   }
   let local_id = if state.break_temps[label_id] >= 0 {
@@ -519,6 +543,98 @@ fn flatten_try_route_scalar_br(
   }
   preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
   ignore(@ir.hot_replace_child_span(func, node_id, []))
+  true
+}
+
+///|
+fn flatten_replace_flowing_value_uses(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  value_id : Int,
+  local_id : Int,
+) -> Bool {
+  let mut replacement = -1
+  let mut replaced = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let child_count = @ir.hot_child_count(func, node_id)
+    for slot = 0; slot < child_count; slot = slot + 1 {
+      if node_id == branch_id && slot == 0 {
+        continue
+      }
+      if @ir.hot_child_get(func, node_id, slot) == value_id {
+        if replacement < 0 {
+          replacement = @ir.hot_build_local_get(func, local_id)
+        }
+        @ir.hot_child_set(func, node_id, slot, replacement)
+        replaced = true
+      }
+    }
+  }
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    if @ir.hot_root_get(func, root_idx) == value_id {
+      if replacement < 0 {
+        replacement = @ir.hot_build_local_get(func, local_id)
+      }
+      @ir.hot_root_set(func, root_idx, replacement)
+      replaced = true
+    }
+  }
+  replaced
+}
+
+///|
+fn flatten_try_route_same_type_scalar_br_if(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  node_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let branch = @ir.hot_node_get(func, node_id)
+  match branch.op {
+    @ir.HotOp::BrIf if @ir.hot_child_count(func, node_id) == 2 => ()
+    _ => return false
+  }
+  let label_id = branch.imm0
+  if label_id < 0 ||
+    label_id >= state.break_temps.length() ||
+    @ir.hot_label_branch_arity(func, label_id) != 1 {
+    return false
+  }
+  match @ir.hot_label_kind(func, label_id) {
+    @ir.HotLabelKind::BlockLabel => ()
+    _ => return false
+  }
+  let target_types = @ir.hot_type_results(
+    func,
+    @ir.hot_label_result_type(func, label_id),
+  )
+  let value_id = @ir.hot_child_get(func, node_id, 0)
+  let value_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, value_id).ty,
+  )
+  if target_types.length() != 1 ||
+    value_types.length() != 1 ||
+    target_types[0] != value_types[0] ||
+    !flatten_value_type_is_defaultable(target_types[0]) ||
+    !flatten_node_is_simple_operand(func, value_id) ||
+    !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
+    return false
+  }
+  let local_id = if state.break_temps[label_id] >= 0 {
+    state.break_temps[label_id]
+  } else {
+    let fresh = @ir.hot_append_body_local(func, target_types[0])
+    state.break_temps[label_id] = fresh
+    fresh
+  }
+  ignore(flatten_replace_flowing_value_uses(func, node_id, value_id, local_id))
+  preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
+  let condition_id = @ir.hot_child_get(func, node_id, 1)
+  ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))
   true
 }
 
@@ -800,6 +916,9 @@ fn flatten_rewrite_node_operands(
       }
   }
   if flatten_try_route_scalar_br(func, state, node_id, preludes) {
+    changed = true
+  }
+  if flatten_try_route_same_type_scalar_br_if(func, state, node_id, preludes) {
     changed = true
   }
   changed

@@ -301,11 +301,12 @@ test "flatten routes a carried scalar br through its block target temp" {
 }
 
 ///|
-test "flatten leaves scalar br_if payloads until flowing values are repaired" {
+test "flatten routes a same-type scalar br_if through its block target temp" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (drop (block (result i32) i32.const 7 local.get 0 br_if 0 drop i32.const 9))))",
   )
-  let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let branch = @ir.hot_region_get(func, body_ref, 0)
   let ctx = HotPassContext::new(
@@ -315,18 +316,29 @@ test "flatten leaves scalar br_if payloads until flowing values are repaired" {
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 1)
-  @debug.assert_eq(@ir.hot_child_count(func, branch), 2)
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let payload_set = @ir.hot_region_get(func, body_ref, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, payload_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+    "LocalGet",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected deferred scalar br_if to remain valid, got \{err}")
+      fail("expected same-type scalar br_if routing to verify, got \{err}")
   }
 }
 
 ///|
-test "flatten does not partially route a block with br and deferred br_if exits" {
+test "flatten routes mixed scalar br and br_if exits through one target temp" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32 i32) (drop (block (result i32) local.get 0 if i32.const 7 br 1 end i32.const 8 local.get 1 br_if 0 drop i32.const 9))))",
   )
@@ -346,13 +358,14 @@ test "flatten does not partially route a block with br and deferred br_if exits"
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_child_count(func, direct_branch), 1)
-  @debug.assert_eq(@ir.hot_child_count(func, conditional_branch), 2)
-  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 1)
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, direct_branch), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, conditional_branch), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
-    Err(err) => fail("expected mixed branch target to remain valid, got \{err}")
+    Err(err) =>
+      fail("expected mixed scalar branch target to verify, got \{err}")
   }
 }
 

@@ -41,7 +41,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 ## The honest current status
 
 `flatten` is now **internal active-partial** in Starshine.
-`src/passes/flatten.mbt` owns a Flat IR classifier plus scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` result routing, zero-input/no-backedge scalar `loop` routing, and plain carried scalar `br` routing through one temp per defaultable scalar block target, with focused coverage in `src/passes/flatten_test.mbt`. The registry and dispatcher intentionally remain public-removed until broader families are safe.
+`src/passes/flatten.mbt` owns a Flat IR classifier plus scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` result routing, zero-input/no-backedge scalar `loop` routing, and plain `br` plus simple same-type scalar `br_if` routing through one temp per defaultable scalar block target, with focused coverage in `src/passes/flatten_test.mbt`. Same-type `br_if` preserves the not-taken flow through one shared `local.get`; rich and target/flow-type-mismatched forms remain open. The registry and dispatcher intentionally remain public-removed until broader families are safe.
 
 That does **not** mean there is no Starshine strategy surface.
 The current local strategy is registry tracking plus batch planning:
@@ -205,7 +205,7 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - public registry, dispatcher, CLI execution, or compare-harness admission for `flatten`
-- complete `br_if`/`br_table` payload channels, branch-targeted `if`, inputful/backedge loop or legacy-try routing, generic unreachable-placeholder, EH, or unsupported-family behavior
+- complete rich/two-temp `br_if` and `br_table` payload channels, branch-targeted `if`, inputful/backedge loop or legacy-try routing, generic unreachable-placeholder, EH, or unsupported-family behavior
 - a pass-specific GenValid profile or four-lane direct closeout
 - aggressive preset scheduling or neighborhood proof
 
