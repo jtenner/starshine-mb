@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-13
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
@@ -41,7 +43,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 ## The honest current status
 
 `flatten` is now **internal active-partial** in Starshine.
-`src/passes/flatten.mbt` owns a Flat IR classifier plus scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` result routing, branch-free defaultable independently produced multivalue `block`/`if` and zero-input `loop` result routing across payloadless backedges through exclusive consumer spans, branch-targeted independently scalar multivalue `if` arms with plain exits, branch-free scalar and independently produced multivalue legacy `try` do/catch routing behind an EH-repair gate, defaultable scalar branch-targeted `if` routing, zero-input and independently scalar inputful scalar-result `loop` routing with payloadless or independently scalar one- and multi-parameter `br`/`br_if` backedges, and plain scalar or independently scalar multivalue block-targeting `br`, including mixed fallthrough plus nested plain exits, scalar `br_if` routing through typed temps, plus independently scalar `br_table` rich-origin and unique-target fanout for defaultable scalar block/if targets and one- or multi-parameter loop entry channels, with focused coverage in `src/passes/flatten_test.mbt`. Same-type `br_if` preserves the not-taken flow through one shared `local.get`; the target/flow-type mismatch uses a second flow temp and one target copy; rich ordinary scalar payloads are evaluated once before the condition and shared across chained false-path uses; `br_table` evaluates rich ordinary payloads once before its selector, copies to deduplicated target temps, and removes the dead terminal origin. Nested terminal `br`/`br_table` operands now become owner-region effects plus `unreachable` placeholders, with already-rooted effects deduplicated, and unsupported root value-controls are not scalar-materialized. Branch-free multivalue blocks and ifs plus zero-input multivalue loops with payloadless backedges and independently scalar defaultable tails now write a typed label-local vector, erase the control result, and replace one exclusive repeated HOT consumer span with ordered local reads. Branch-free scalar legacy tries now write exact do/catch tails into one shared typed local. Branch-free multivalue legacy tries write exact independently scalar do/catch tails into one shared typed vector when one exclusive repeated consumer span owns the results. Functions with legacy `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes remain whole-function fail-closed until Binaryen-equivalent nested-pop repair lands. Multivalue `br_if` and table payloads, inputful or backedge multivalue loop results, branch-targeted multivalue loop controls, and broader legacy-try/EH shapes remain open behind conservative gates. Branch-targeted ifs now share one temp across fallthrough arms and carried `br`/`br_if` flow after preflighting every label use; nondefaultable branch payloads remain whole-function fail-closed. Inputful loops capture each independently scalar defaultable entry once in order, redirect body uses through typed locals, clear the parameter prefix, and route scalar results separately. Payloadless zero-input and independently scalar defaultable one- or multi-parameter `br`/`br_if` backedges now reuse typed entry locals while preserving payload order, one evaluation, and conditional false-path flow; one- or multi-parameter loop tables stage payload vectors once and copy them into entry locals, while nondefaultable and multivalue single-producer table backedges fail closed. The registry and dispatcher intentionally remain public-removed until broader families are safe.
+`src/passes/flatten.mbt` owns a Flat IR classifier plus scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` result routing, branch-free defaultable independently produced multivalue `block`/`if` and zero-input `loop` result routing across payloadless backedges through exclusive consumer spans, branch-targeted independently scalar multivalue `if` arms with plain exits, branch-free scalar and independently produced multivalue legacy `try` do/catch routing behind an EH-repair gate, defaultable scalar branch-targeted `if` routing, zero-input and independently scalar inputful scalar-result `loop` routing with payloadless or independently scalar one- and multi-parameter `br`/`br_if` backedges, and plain scalar or independently scalar multivalue block-targeting `br`, including mixed fallthrough plus nested plain exits, scalar `br_if` routing through typed temps, same-vector multivalue block/if-targeting `br_if` routing across exact exclusive false-path spans, plus independently scalar `br_table` rich-origin and unique-target fanout for defaultable scalar block/if targets and one- or multi-parameter loop entry channels, with focused coverage in `src/passes/flatten_test.mbt`. Same-type `br_if` preserves the not-taken flow through one shared `local.get`; the target/flow-type mismatch uses a second flow temp and one target copy; rich ordinary scalar payloads are evaluated once before the condition and shared across chained false-path uses; `br_table` evaluates rich ordinary payloads once before its selector, copies to deduplicated target temps, and removes the dead terminal origin. Nested terminal `br`/`br_table` operands now become owner-region effects plus `unreachable` placeholders, with already-rooted effects deduplicated, and unsupported root value-controls are not scalar-materialized. Branch-free multivalue blocks and ifs plus zero-input multivalue loops with payloadless backedges and independently scalar defaultable tails now write a typed label-local vector, erase the control result, and replace one exclusive repeated HOT consumer span with ordered local reads. Branch-free scalar legacy tries now write exact do/catch tails into one shared typed local. Branch-free multivalue legacy tries write exact independently scalar do/catch tails into one shared typed vector when one exclusive repeated consumer span owns the results. Functions with legacy `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes remain whole-function fail-closed until Binaryen-equivalent nested-pop repair lands. Same-vector multivalue `br_if` now writes independently scalar payloads once into the shared target vector, replaces one contiguous exclusive false-path tail with matching reads, and preserves the condition; mismatched or ambiguously shared multivalue conditionals, multivalue table payloads, inputful or backedge multivalue loop results, branch-targeted multivalue loop controls, and broader legacy-try/EH shapes remain open behind conservative gates. Branch-targeted ifs now share one temp across fallthrough arms and carried `br`/`br_if` flow after preflighting every label use; nondefaultable branch payloads remain whole-function fail-closed. Inputful loops capture each independently scalar defaultable entry once in order, redirect body uses through typed locals, clear the parameter prefix, and route scalar results separately. Payloadless zero-input and independently scalar defaultable one- or multi-parameter `br`/`br_if` backedges now reuse typed entry locals while preserving payload order, one evaluation, and conditional false-path flow; one- or multi-parameter loop tables stage payload vectors once and copy them into entry locals, while nondefaultable and multivalue single-producer table backedges fail closed. The registry and dispatcher intentionally remain public-removed until broader families are safe.
 
 That does **not** mean there is no Starshine strategy surface.
 The current local strategy is registry tracking plus batch planning:
@@ -50,7 +52,7 @@ The current local strategy is registry tracking plus batch planning:
 - keep the public CLI spelling stable
 - keep the pass in the IR2 execution-order documents as a deliberate next-wave port target
 - keep the downstream dossier cluster honest about which later passes depend on a flattened world
-- record explicitly that the active backlog still lacks a dedicated `flatten` slice today
+- keep the active `[O4Z-FLAT]001` backlog aligned with the internal implementation and remaining public-closeout gates
 
 So this page is intentionally a **status-and-port-map** page rather than a fake implementation page. For the recommended implementation slices and validation gates, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
@@ -205,7 +207,7 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - public registry, dispatcher, CLI execution, or compare-harness admission for `flatten`
-- replace the remaining multivalue single-producer `br_if`/`br_table` gates, or implement legacy-try routing, broader terminal-placeholder families, EH, or unsupported-family behavior
+- close mismatched/shared multivalue `br_if`, multivalue `br_table`, broader terminal-placeholder, EH-repair, and unsupported-family behavior
 - a pass-specific GenValid profile or four-lane direct closeout
 - aggressive preset scheduling or neighborhood proof
 
@@ -214,8 +216,8 @@ So the current repo status is best summarized as:
 - name tracked
 - CLI spelling tracked
 - batch intent tracked
-- active slice still missing
-- transform itself not yet landed
+- internal transform active-partial
+- remaining correctness and signoff slices tracked
 
 ## Validation plan for the eventual port
 
@@ -238,7 +240,7 @@ Current Starshine `flatten` strategy is honest registry tracking plus batch plan
 - the upstream spelling is intentionally preserved in `src/passes/optimize.mbt`
 - the public `--flatten` spelling is intentionally preserved in `src/cli/cli_test.mbt`
 - the IR2 execution-plan docs still place the pass at the front of the next removed-pass batch
-- the active backlog still does **not** have a dedicated `flatten` slice, and the docs now keep that planning gap explicit
+- the active `[O4Z-FLAT]001` backlog records the remaining correctness, public wiring, comparison, timing, and neighborhood gates
 - the surrounding living dossiers already define the practical landing zone for a future port because they explain which later passes depend on the flattened world
 
 So the right mental model today is not “nothing exists locally.”

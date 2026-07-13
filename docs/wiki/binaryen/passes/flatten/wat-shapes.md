@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-13
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
@@ -131,7 +133,7 @@ If yes, Binaryen tries to:
 
 ### Current Starshine multivalue block slice
 
-Starshine routes a defaultable multivalue block when HOT exposes all result uses as one exclusive repeated consumer span. The branch-free family requires independently scalar tail results. The plain-branch family admits terminal or nested `br` exits whose independently scalar payloads exactly match the block result vector; mixed blocks may also retain independently scalar fallthrough tails. Every branch payload and fallthrough tail is stored once in source order into the same typed label locals before branch payloads and the block result are cleared. The consumer span becomes ordered `local.get` operands. `br_if`, `br_table`, shared consumers, and nonexclusive HOT ownership remain deferred rather than guessing result provenance.
+Starshine routes a defaultable multivalue block when HOT exposes all result uses as one exclusive repeated consumer span. The branch-free family requires independently scalar tail results. The plain-branch family admits terminal or nested `br` exits whose independently scalar payloads exactly match the block result vector; mixed blocks may also retain independently scalar fallthrough tails. Every branch payload and fallthrough tail is stored once in source order into the same typed label locals before branch payloads and the block result are cleared. The consumer span becomes ordered `local.get` operands. Same-vector `br_if` is admitted only when each distinct payload has exactly one non-branch use and all false-path uses form one contiguous ordered block-tail span. Mismatched/shared `br_if`, `br_table`, shared consumers, and nonexclusive HOT ownership remain deferred rather than guessing result provenance.
 
 ## Shape 4: `if (result ...)` writes arm values into a temp
 
@@ -177,7 +179,7 @@ Starshine routes a defaultable multivalue block when HOT exposes all result uses
 
 ### Current Starshine multivalue if slice
 
-Starshine routes defaultable multivalue `if` results when both arms end either in independently scalar values matching the ordered result types or in terminal plain `br` exits to the if label with exact independently scalar payload vectors. Condition preludes remain before the `if`; fallthrough arms and branch exits write the same typed local vector in result order; the branch payload, `if`, and label arity are cleared; and one exclusive repeated consumer reads ordered `local.get` nodes. Missing else arms, `br_if`/`br_table` label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
+Starshine routes defaultable multivalue `if` results when both arms end in independently scalar values matching the ordered result types, terminal plain `br` exits with exact independently scalar payload vectors, or same-vector `br_if` flow whose distinct payloads have one exact contiguous false-path arm tail. Condition preludes remain before the `if`; fallthrough arms and branch exits write the same typed local vector in result order; routed branch payloads, the `if`, and label arity are cleared; and one exclusive repeated consumer reads ordered `local.get` nodes. Missing else arms, mismatched/shared `br_if`, `br_table` label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
 
 ## Shape 5: condition preludes go before the whole `if`, arm preludes stay inside the arms
 
@@ -340,6 +342,10 @@ Starshine routes defaultable multivalue `if` results when both arms end either i
 
 - Flat IR does not want branches to carry arbitrary nested value trees directly
 - the target temp becomes the explicit payload channel
+
+### Current Starshine same-vector multivalue slice
+
+For a defaultable block or if target whose result vector exactly matches the multivalue `br_if` payload vector, Starshine admits the route only when every distinct payload origin has exactly one non-branch use and those false-path uses form one contiguous ordered tail in the target region. It evaluates payloads once in source order into the target's typed local vector, replaces the false-path tail with matching reads, removes payload children from the branch, and keeps the condition in place. If control-result routing sees that exact local-read tail, it removes the tail instead of writing the same locals again. Vector mismatch, repeated/shared flow uses, unsupported payload origins, and multivalue table fanout remain fail-closed.
 
 ## Shape 9: `br_if` may need two temps when target type and flowing-out type differ
 
