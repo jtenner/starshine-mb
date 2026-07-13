@@ -5,7 +5,6 @@ last_reviewed: 2026-07-06
 sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
@@ -23,7 +22,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_130` plus the current `main` refresh as the current source oracle for this pass; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
-- The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
+- The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - The actual rewrite surface used by this pass comes from `src/passes/opt-utils.h`, specifically `OptUtils::replaceFunctions(...)`.

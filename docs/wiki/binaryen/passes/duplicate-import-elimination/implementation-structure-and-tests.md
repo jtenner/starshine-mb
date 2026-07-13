@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
@@ -21,7 +20,7 @@ related:
 # `duplicate-import-elimination`: implementation structure and tests
 
 This page is the compact source-confirmed map for how Binaryen `version_130` actually implements `duplicate-import-elimination` and where the shipped tests pin that behavior down.
-The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
+The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**.
 
 ## Why this page exists
 
