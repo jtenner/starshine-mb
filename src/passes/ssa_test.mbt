@@ -45,6 +45,74 @@ fn ssa_full_test_local_get_indices(
 }
 
 ///|
+fn ssa_full_test_collect_local_set_indices(
+  instrs : Array[@lib.Instruction],
+  out : Array[UInt],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(idx)) => out.push(idx)
+      @lib.If(_, then_body, else_body) => {
+        ssa_full_test_collect_local_set_indices(then_body, out)
+        match else_body {
+          Some(else_body) =>
+            ssa_full_test_collect_local_set_indices(else_body, out)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        ssa_full_test_collect_local_set_indices(body, out)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn ssa_full_test_local_set_indices(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  ssa_full_test_collect_local_set_indices(instrs, out)
+  out
+}
+
+///|
+fn ssa_full_test_collect_local_tee_indices(
+  instrs : Array[@lib.Instruction],
+  out : Array[UInt],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(@lib.LocalIdx(idx)) => out.push(idx)
+      @lib.If(_, then_body, else_body) => {
+        ssa_full_test_collect_local_tee_indices(then_body, out)
+        match else_body {
+          Some(else_body) =>
+            ssa_full_test_collect_local_tee_indices(else_body, out)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        ssa_full_test_collect_local_tee_indices(body, out)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn ssa_full_test_local_tee_indices(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  ssa_full_test_collect_local_tee_indices(instrs, out)
+  out
+}
+
+///|
 fn ssa_full_test_instrs_have_ref_null_type(
   instrs : Array[@lib.Instruction],
   expected : @lib.RefType,
@@ -346,7 +414,7 @@ test "full ssa public pass replaces default exact ref reads" {
 }
 
 ///|
-test "full ssa public pass leaves merge families fail-closed until merge materialization" {
+test "full ssa public pass materializes simple explicit-write merge locals" {
   let source =
     #|(module
     #|  (func (param i32) (result i32)
@@ -362,11 +430,44 @@ test "full ssa public pass leaves merge families fail-closed until merge materia
     #|    local.get 1))
   let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected merge-family fail-closed success, got \{err}")
+    Err(err) => fail("expected simple explicit-write merge success, got \{err}")
   }
 
   let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
-  @debug.assert_eq(locals.length(), 1)
+  @debug.assert_eq(locals.length(), 2)
+  @debug.assert_eq(ssa_full_test_local_set_indices(instrs), [1U, 1U])
+  @debug.assert_eq(ssa_full_test_local_tee_indices(instrs), [2U, 2U])
+  assert_true(
+    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 2U }),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 1U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "full ssa public pass leaves parameter-entry merge families fail-closed until prepend materialization" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    else
+    #|      nop
+    #|    end
+    #|    local.get 1))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected parameter-entry merge fail-closed success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 0)
   assert_true(
     ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 1U }),
     msg=instrs.to_string(),

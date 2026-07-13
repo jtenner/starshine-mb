@@ -13,7 +13,7 @@ pub fn ssa_full_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn ssa_full_summary() -> String {
-  "SSA-ify local traffic for non-merge families; merge-local materialization remains fail-closed."
+  "SSA-ify local traffic, including simple explicit-write merge locals; entry/default merge materialization remains fail-closed."
 }
 
 ///|
@@ -129,6 +129,106 @@ fn ssa_full_graph_has_merge_get(
 }
 
 ///|
+fn ssa_full_rewrite_has_only_explicit_writes(
+  rewrite : SsaFullMergeGetRewrite,
+) -> Bool {
+  if rewrite.inputs.length() < 2 {
+    return false
+  }
+  for input in rewrite.inputs {
+    match input {
+      SsaFullMergeInput::ExplicitWrite(_) => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn ssa_full_plan_has_only_simple_explicit_writes(
+  plan : SsaFullRewritePlan,
+) -> Bool {
+  if plan.merge_gets.is_empty() {
+    return false
+  }
+  for rewrite in plan.merge_gets {
+    if !ssa_full_rewrite_has_only_explicit_writes(rewrite) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ssa_full_apply_simple_explicit_merge_rewrite(
+  func : @ir.HotFunc,
+  rewrite : SsaFullMergeGetRewrite,
+) -> Bool {
+  let merge_ty = match @ir.hot_local_type(func, rewrite.original_local) {
+    Some(ty) => ty
+    None => return false
+  }
+  if @ir.hot_append_body_local(func, merge_ty) != rewrite.merge_local {
+    return false
+  }
+  let get_node = @ir.hot_node_get(func, rewrite.get_id)
+  match get_node.op {
+    @ir.HotOp::LocalGet => {
+      let replacement_id = @ir.hot_build_local_get(func, rewrite.merge_local)
+      @ir.hot_replace_node(
+        func,
+        rewrite.get_id,
+        @ir.hot_node_get(func, replacement_id),
+      )
+      @ir.hot_delete_node(func, replacement_id)
+    }
+    _ => return false
+  }
+  for input in rewrite.inputs {
+    let write_id = match input {
+      SsaFullMergeInput::ExplicitWrite(write_id) => write_id
+      _ => return false
+    }
+    let write_node = @ir.hot_node_get(func, write_id)
+    match write_node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+        let value_id = @ir.hot_child_get(func, write_id, 0)
+        let tee_id = @ir.hot_build_local_tee(
+          func,
+          rewrite.merge_local,
+          value_id,
+        )
+        @ir.hot_child_set(func, write_id, 0, tee_id)
+      }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn ssa_full_try_apply_simple_explicit_merge_plan(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  plan : SsaFullRewritePlan,
+) -> HotPassResult {
+  if !ssa_full_plan_has_only_simple_explicit_writes(plan) {
+    return HotPassResult::unchanged()
+  }
+  let before_revision = @ir.hot_revision_current(func)
+  for rewrite in plan.merge_gets {
+    if !ssa_full_apply_simple_explicit_merge_rewrite(func, rewrite) {
+      return HotPassResult::unchanged()
+    }
+  }
+  if @ir.hot_revision_current(func) == before_revision {
+    return HotPassResult::unchanged()
+  }
+  pass_mark_mutated(ctx, func)
+  HotPassResult::changed()
+}
+
+///|
 fn ssa_full_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if !ssa_nomerge_has_local_writes(func) {
     return HotPassResult::unchanged()
@@ -141,8 +241,9 @@ fn ssa_full_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   let cfg = pass_require_cfg(ctx, func)
   let graph = @ir.local_graph_build(func, cfg)
-  if ssa_full_graph_has_merge_get(func, graph) {
-    return HotPassResult::unchanged()
+  if !ssa_full_graph_has_merge_get(func, graph) {
+    return ssa_nomerge_run(ctx, func)
   }
-  ssa_nomerge_run(ctx, func)
+  let plan = ssa_full_build_merge_rewrite_plan(func, graph)
+  ssa_full_try_apply_simple_explicit_merge_plan(ctx, func, plan)
 }

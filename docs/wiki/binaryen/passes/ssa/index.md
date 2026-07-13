@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-12
 sources:
   - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
@@ -44,8 +44,8 @@ related:
 ## Role
 
 - `ssa` is a real public upstream Binaryen pass.
-- It is part of the local Starshine pass registry as an **active partial** hot-pass name for non-merge families.
-- Starshine now has an active partial full-`ssa` hot pass for direct lit-compatible non-merge families; merge-local materialization remains fail-closed.
+- It is part of the local Starshine pass registry as an **active partial** hot-pass name for non-merge families plus the first simple explicit-write merge-local slice.
+- Starshine now has an active partial full-`ssa` hot pass for direct lit-compatible non-merge families and simple explicit-write merge locals; parameter-entry/default-entry merge materialization remains fail-closed.
 - It is worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
 
 The beginner summary is:
@@ -110,7 +110,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 ## Agent-todo note
 
-`agent-todo.md` now tracks dedicated full-`ssa` slices under sibling `[O4Z-AUDIT-SSA-FULL]`, split out from the `SSANM` no-merge backlog by `[SSANM-007c]`. `[SSA-FULL-001]` first made full `ssa` known but boundary-only, `[SSA-FULL-002A]` added the merge-local planner, and `[SSA-FULL-002B]` activates direct non-merge rewrite families without aliasing the registry entry to `ssa-nomerge`. The remaining `[SSA-FULL-002C]` through `[SSA-FULL-003]` slices still own merge-local materialization, entry-prepend/default merge handling, loop/branch/EH/typed-control boundaries, and direct `--pass ssa` closeout signoff.
+`agent-todo.md` now tracks dedicated full-`ssa` slices under sibling `[O4Z-AUDIT-SSA-FULL]`, split out from the `SSANM` no-merge backlog by `[SSANM-007c]`. `[SSA-FULL-001]` first made full `ssa` known but boundary-only, `[SSA-FULL-002A]` added the merge-local planner, `[SSA-FULL-002B]` activated direct non-merge rewrite families without aliasing the registry entry to `ssa-nomerge`, and `[SSA-FULL-002C]` now covers the first simple explicit-write merge-local mutation. The remaining `[SSA-FULL-002D]` through `[SSA-FULL-003]` slices still own parameter-entry/default-entry merge handling, loop/branch/EH/typed-control boundaries, and direct `--pass ssa` closeout signoff.
 
 ## Page map
 
@@ -123,7 +123,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog, with direct `ssa.wast` positives clearly separated from source-derived merge-local families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and port map: active partial local `ssa` registry entry, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations the remaining merge-local slices must bridge.
+  - Current Starshine status and port map: active partial local `ssa` registry entry with simple explicit-write merge-local support, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations the remaining entry/default/control slices must bridge.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Future implementation bridge: registry honesty, source classifier requirements, merge-local rewrite order, `ssa-nomerge` sibling-stability checks, and validation ladder.
 - [`./fuzzing.md`](./fuzzing.md)
@@ -133,7 +133,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 The 2026-07-11 current-main recheck reread `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared full-SSA/no-merge algorithm and the default-pipeline split remain as documented: full `ssa` owns merge-local materialization, while only `ssa-nomerge` occupies the early default function slot. This is a dated source reading, not a byte-for-byte current-main versus `version_130` comparison; [`2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md) records its precise scope.
 
-The same recheck corrects the local status: Starshine exposes `ssa` as an **active partial** direct pass for non-merge families, but the compare-pass harness does not admit `--ssa`. Thus a rejected `compare-pass --pass ssa` request proves only harness admission, not pass parity. Keep `version_129` / `version_130` as the released upstream oracle provenance, and use the living Starshine pages for the active-subset boundary.
+The same recheck corrects the local status: Starshine exposes `ssa` as an **active partial** direct pass for non-merge families plus the first simple explicit-write merge-local slice, but the compare-pass harness does not admit `--ssa`. Thus a rejected `compare-pass --pass ssa` request proves only harness admission, not pass parity. Keep `version_129` / `version_130` as the released upstream oracle provenance, and use the living Starshine pages for the active-subset boundary.
 
 ## Sources
 
