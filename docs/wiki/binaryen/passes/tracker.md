@@ -36,9 +36,7 @@ sources:
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
@@ -609,7 +607,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)
 - [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md)
 - [`../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
-- [`../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
 - [`../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)

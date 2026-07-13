@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
   - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
@@ -21,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass family, anchored by the 2026-04-25 committed raw manifest [`../../../raw/binaryen/2026-04-25-souperify-primary-sources.md`](../../../raw/binaryen/2026-04-25-souperify-primary-sources.md).
+Use Binaryen `version_129` as the source oracle for this pass family, grounded in the retained 2026-04-25 source bridge and the direct official URLs below.
 The core sources are:
 
 - `src/passes/Souperify.cpp`

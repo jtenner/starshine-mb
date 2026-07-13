@@ -42,7 +42,6 @@ sources:
   - ../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
   - ../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
@@ -72,7 +71,6 @@ sources:
   - ../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
   - ../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
   - ../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
-  - ../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md

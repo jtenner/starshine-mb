@@ -5,7 +5,6 @@ last_reviewed: 2026-05-07
 sources:
   - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
   - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
@@ -37,7 +36,7 @@ related:
 
 # Starshine Strategy For `simplify-locals-notee-nostructure`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md) and the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) bridge.
+Use this page together with the retained 2026-04-25 source bridge and the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) bridge.
 A 2026-05-07 backlog-closure review confirmed the current Starshine status is now best described as active direct with the aggressive prelude deferred outside the active no-DWARF parity queue.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, the direct-pass validation evidence, and why no standalone `SLNNS` backlog slice remains open today.
 
@@ -200,7 +199,6 @@ So the right mental model today is:
 
 - [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
 - [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
 - [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)

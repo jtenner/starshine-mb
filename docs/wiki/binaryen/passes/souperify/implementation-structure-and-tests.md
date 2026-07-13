@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
   - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
@@ -16,7 +15,7 @@ related:
 
 # Binaryen `souperify` implementation structure and tests
 
-The source map below is now anchored to the committed raw manifest [`../../../raw/binaryen/2026-04-25-souperify-primary-sources.md`](../../../raw/binaryen/2026-04-25-souperify-primary-sources.md), so future pages should cite that manifest before falling back to direct online URLs.
+The source map below is grounded in the retained 2026-04-25 source bridge and direct official URLs, which should be cited for future updates.
 
 ## Core file map
 

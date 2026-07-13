@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
   - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
