@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -162,7 +161,6 @@ The current in-tree behavior is removed-name tracking and request rejection only
 - [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

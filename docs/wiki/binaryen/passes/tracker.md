@@ -93,7 +93,6 @@ sources:
   - ../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
-  - ../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
@@ -767,7 +766,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
 - [`../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
 - [`../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)

@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -75,11 +74,10 @@ So this pass is best taught as:
 ## Explicit correction to older material
 
 The archived 2026-04-21 research note remains useful history, but its temp-local phrasing is stale.
-Use the 2026-04-24 raw source capture and follow-up as the corrected interpretation, plus the 2026-04-25 bridge and 2026-06-02 recheck as the current-main freshness and Starshine port-readiness sources:
+Use the direct `version_129` source URLs below and retained 2026-04-24 follow-up as the corrected interpretation, plus the 2026-04-25 bridge and 2026-06-02 recheck as the current-main freshness and Starshine port-readiness sources:
 
 - [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
 - [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 
 Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitrary value expressions.
@@ -112,7 +110,6 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
 - [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
