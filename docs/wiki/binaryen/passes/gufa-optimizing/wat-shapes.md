@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-13
 sources:
-  - ../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0189-2026-04-21-gufa-optimizing-binaryen-research.md
 related:

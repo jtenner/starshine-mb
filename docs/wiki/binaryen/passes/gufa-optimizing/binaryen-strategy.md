@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-13
 sources:
-  - ../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md
+  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0189-2026-04-21-gufa-optimizing-binaryen-research.md
 related:
@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the stable source oracle for this pass. The 2026-04-24 raw manifest at [`../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md) captures the exact sources reviewed and the current-`main` freshness check.
+Use Binaryen `version_129` as the stable source oracle for this pass. The retained 2026-07-11 shared-oracle refresh is the current owner-map/uncertainty bridge; the direct tagged URLs below retain the exact `gufa-optimizing` source and test surfaces. It is a focused refresh, not a complete version-to-`main` diff.
 
 Primary online sources:
 
