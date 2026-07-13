@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
@@ -38,7 +37,7 @@ related:
 
 # Starshine Strategy For `const-hoisting`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md), the current-main recheck in [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md), and the 2026-04-27 port-readiness capture in [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md).
+Use this page together with the current-main recheck in [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md), the 2026-04-27 port-readiness capture in [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md), and the direct `version_129` source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into. The step-by-step implementation and validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
