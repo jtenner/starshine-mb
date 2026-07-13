@@ -175,9 +175,60 @@ fn flatten_value_type_is_defaultable(value_type : @lib.ValType) -> Bool {
 }
 
 ///|
+priv struct FlattenRewriteState {
+  break_temps : Array[Int]
+}
+
+///|
+fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
+  { break_temps: Array::make(func.labels.length(), -1) }
+}
+
+///|
+fn flatten_label_uses_are_routed_scalar_brs(
+  func : @ir.HotFunc,
+  label_id : Int,
+) -> Bool {
+  let mut saw_target = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Br if node.imm0 == label_id => {
+        saw_target = true
+        if @ir.hot_child_count(func, node_id) != 0 {
+          return false
+        }
+      }
+      @ir.HotOp::BrIf
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate if node.imm0 == label_id => return false
+      @ir.HotOp::BrTable => {
+        if @ir.hot_branch_table_default_target(func, node.imm0) == label_id {
+          return false
+        }
+        for target in @ir.hot_branch_table_targets(func, node.imm0) {
+          if target == label_id {
+            return false
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_target
+}
+
+///|
 fn flatten_try_route_scalar_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   block_id : Int,
 ) -> Int? {
   let block = @ir.hot_node_get(func, block_id)
@@ -191,8 +242,20 @@ fn flatten_try_route_scalar_block(
     return None
   }
   let label_id = @ir.hot_control_node_label(func, block_id)
-  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
-    return None
+  let label_is_used = pass_label_is_used(
+    label_id,
+    pass_compute_label_used(func),
+  )
+  let routed_local = if label_is_used {
+    if label_id < 0 ||
+      label_id >= state.break_temps.length() ||
+      state.break_temps[label_id] < 0 ||
+      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      return None
+    }
+    state.break_temps[label_id]
+  } else {
+    -1
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
@@ -200,15 +263,27 @@ fn flatten_try_route_scalar_block(
     return None
   }
   let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
-  if @ir.hot_node_result_arity(func, tail_id) != 1 {
-    return None
+  let tail_has_fallthrough_value = @ir.hot_node_result_arity(func, tail_id) == 1
+  if !tail_has_fallthrough_value {
+    let tail = @ir.hot_node_get(func, tail_id)
+    match tail.op {
+      @ir.HotOp::Br if tail.imm0 == label_id &&
+        @ir.hot_child_count(func, tail_id) == 0 => ()
+      _ => return None
+    }
   }
-  let local_id = @ir.hot_append_body_local(func, result_types[0])
-  ignore(
-    pass_splice_region(ctx, func, body_ref, body_count - 1, 1, [
-      @ir.hot_build_local_set(func, local_id, tail_id),
-    ]),
-  )
+  let local_id = if routed_local >= 0 {
+    routed_local
+  } else {
+    @ir.hot_append_body_local(func, result_types[0])
+  }
+  if tail_has_fallthrough_value {
+    ignore(
+      pass_splice_region(ctx, func, body_ref, body_count - 1, 1, [
+        @ir.hot_build_local_set(func, local_id, tail_id),
+      ]),
+    )
+  }
   @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
   Some(local_id)
 }
@@ -268,13 +343,142 @@ fn flatten_try_route_scalar_if(
 fn flatten_try_route_scalar_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   node_id : Int,
 ) -> Int? {
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block => flatten_try_route_scalar_block(ctx, func, node_id)
+    @ir.HotOp::Block =>
+      flatten_try_route_scalar_block(ctx, func, state, node_id)
     @ir.HotOp::If => flatten_try_route_scalar_if(ctx, func, node_id)
     _ => None
   }
+}
+
+///|
+fn flatten_target_can_route_plain_scalar_brs(
+  func : @ir.HotFunc,
+  label_id : Int,
+  target_type : @lib.ValType,
+) -> Bool {
+  let owner_id = @ir.hot_label_owner(func, label_id)
+  let owner = @ir.hot_node_get(func, owner_id)
+  match owner.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, owner_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+  if @ir.hot_node_result_arity(func, tail_id) != 1 {
+    let tail = @ir.hot_node_get(func, tail_id)
+    match tail.op {
+      @ir.HotOp::Br if tail.imm0 == label_id &&
+        (
+          @ir.hot_child_count(func, tail_id) == 0 ||
+          @ir.hot_child_count(func, tail_id) == 1
+        ) => ()
+      _ => return false
+    }
+  }
+  let mut saw_target = false
+  for branch_id = 0
+      branch_id < @ir.hot_node_count(func)
+      branch_id = branch_id + 1 {
+    if !@ir.hot_node_is_live(func, branch_id) {
+      continue
+    }
+    let branch = @ir.hot_node_get(func, branch_id)
+    match branch.op {
+      @ir.HotOp::Br if branch.imm0 == label_id => {
+        saw_target = true
+        let child_count = @ir.hot_child_count(func, branch_id)
+        if child_count == 0 {
+          continue
+        }
+        if child_count != 1 {
+          return false
+        }
+        let value_types = @ir.hot_type_results(
+          func,
+          @ir.hot_node_get(func, @ir.hot_child_get(func, branch_id, 0)).ty,
+        )
+        if value_types.length() != 1 || value_types[0] != target_type {
+          return false
+        }
+      }
+      @ir.HotOp::BrIf
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate if branch.imm0 == label_id => return false
+      @ir.HotOp::BrTable => {
+        if @ir.hot_branch_table_default_target(func, branch.imm0) == label_id {
+          return false
+        }
+        for target in @ir.hot_branch_table_targets(func, branch.imm0) {
+          if target == label_id {
+            return false
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_target
+}
+
+///|
+fn flatten_try_route_scalar_br(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  node_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let branch = @ir.hot_node_get(func, node_id)
+  match branch.op {
+    @ir.HotOp::Br if @ir.hot_child_count(func, node_id) == 1 => ()
+    _ => return false
+  }
+  let label_id = branch.imm0
+  if label_id < 0 ||
+    label_id >= state.break_temps.length() ||
+    @ir.hot_label_branch_arity(func, label_id) != 1 {
+    return false
+  }
+  match @ir.hot_label_kind(func, label_id) {
+    @ir.HotLabelKind::BlockLabel => ()
+    _ => return false
+  }
+  let target_types = @ir.hot_type_results(
+    func,
+    @ir.hot_label_result_type(func, label_id),
+  )
+  let value_id = @ir.hot_child_get(func, node_id, 0)
+  let value_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, value_id).ty,
+  )
+  if target_types.length() != 1 ||
+    value_types.length() != 1 ||
+    target_types[0] != value_types[0] ||
+    !flatten_value_type_is_defaultable(target_types[0]) ||
+    !flatten_target_can_route_plain_scalar_brs(func, label_id, target_types[0]) {
+    return false
+  }
+  let local_id = if state.break_temps[label_id] >= 0 {
+    state.break_temps[label_id]
+  } else {
+    let fresh = @ir.hot_append_body_local(func, target_types[0])
+    state.break_temps[label_id] = fresh
+    fresh
+  }
+  preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
+  ignore(@ir.hot_replace_child_span(func, node_id, []))
+  true
 }
 
 ///|
@@ -349,6 +553,7 @@ fn flatten_try_lower_region_root_tee(
 fn flatten_rewrite_region_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -356,7 +561,7 @@ fn flatten_rewrite_region_operands(
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     let preludes : Array[Int] = []
-    if flatten_rewrite_node_operands(ctx, func, node_id, preludes) {
+    if flatten_rewrite_node_operands(ctx, func, state, node_id, preludes) {
       changed = true
     }
     let inserted = preludes.length()
@@ -374,7 +579,7 @@ fn flatten_rewrite_region_operands(
         idx = root_idx + replacement_count
       }
       None =>
-        match flatten_try_route_scalar_control(ctx, func, node_id) {
+        match flatten_try_route_scalar_control(ctx, func, state, node_id) {
           Some(local_id) => {
             ignore(
               pass_splice_region(ctx, func, region_ref, root_idx, 1, [
@@ -430,6 +635,7 @@ fn flatten_try_lower_tee_operand(
 fn flatten_rewrite_operand_slot(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   parent_id : Int,
   slot : Int,
   preludes : Array[Int],
@@ -438,13 +644,15 @@ fn flatten_rewrite_operand_slot(
   if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
     return false
   }
-  let mut changed = flatten_rewrite_node_operands(ctx, func, child_id, preludes)
+  let mut changed = flatten_rewrite_node_operands(
+    ctx, func, state, child_id, preludes,
+  )
   if flatten_try_lower_tee_operand(
       ctx, func, parent_id, slot, child_id, preludes,
     ) {
     return true
   }
-  match flatten_try_route_scalar_control(ctx, func, child_id) {
+  match flatten_try_route_scalar_control(ctx, func, state, child_id) {
     Some(local_id) => {
       preludes.push(child_id)
       @ir.hot_child_set(
@@ -467,6 +675,7 @@ fn flatten_rewrite_operand_slot(
 fn flatten_rewrite_node_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   node_id : Int,
   preludes : Array[Int],
 ) -> Bool {
@@ -480,38 +689,43 @@ fn flatten_rewrite_node_operands(
       changed = flatten_rewrite_region_operands(
         ctx,
         func,
+        state,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::Loop => {
       let label_id = @ir.hot_control_node_label(func, node_id)
       let input_count = @ir.hot_label_branch_arity(func, label_id)
       for slot = 0; slot < input_count; slot = slot + 1 {
-        if flatten_rewrite_operand_slot(ctx, func, node_id, slot, preludes) {
+        if flatten_rewrite_operand_slot(
+            ctx, func, state, node_id, slot, preludes,
+          ) {
           changed = true
         }
       }
       if flatten_rewrite_region_operands(
           ctx,
           func,
+          state,
           @ir.hot_region_body_ref(func, node_id),
         ) {
         changed = true
       }
     }
     @ir.HotOp::If => {
-      if flatten_rewrite_operand_slot(ctx, func, node_id, 0, preludes) {
+      if flatten_rewrite_operand_slot(ctx, func, state, node_id, 0, preludes) {
         changed = true
       }
       if flatten_rewrite_region_operands(
           ctx,
           func,
+          state,
           @ir.hot_region_then_ref(func, node_id),
         ) {
         changed = true
       }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) =>
-          if flatten_rewrite_region_operands(ctx, func, else_ref) {
+          if flatten_rewrite_region_operands(ctx, func, state, else_ref) {
             changed = true
           }
         None => ()
@@ -521,13 +735,14 @@ fn flatten_rewrite_node_operands(
       if flatten_rewrite_region_operands(
           ctx,
           func,
+          state,
           @ir.hot_region_body_ref(func, node_id),
         ) {
         changed = true
       }
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_ref) =>
-          if flatten_rewrite_region_operands(ctx, func, catch_ref) {
+          if flatten_rewrite_region_operands(ctx, func, state, catch_ref) {
             changed = true
           }
         None => ()
@@ -536,10 +751,15 @@ fn flatten_rewrite_node_operands(
     @ir.HotOp::TryTable => ()
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-        if flatten_rewrite_operand_slot(ctx, func, node_id, slot, preludes) {
+        if flatten_rewrite_operand_slot(
+            ctx, func, state, node_id, slot, preludes,
+          ) {
           changed = true
         }
       }
+  }
+  if flatten_try_route_scalar_br(func, state, node_id, preludes) {
+    changed = true
   }
   changed
 }
@@ -581,9 +801,11 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if before.unsupported_count > 0 {
     return HotPassResult::unchanged()
   }
+  let state = FlattenRewriteState::new(func)
   let mut changed = flatten_rewrite_region_operands(
     ctx,
     func,
+    state,
     @ir.HotRegionRef::root(),
   )
   if flatten_materialize_scalar_body_result(ctx, func) {

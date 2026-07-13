@@ -216,6 +216,8 @@ This map stores:
 
 - one temp local per named branch target
 
+Starshine's first admitted payload slice now mirrors that shape for plain scalar `br` into a defaultable scalar block target: the carried value becomes an ordered `local.set`, the branch child list is cleared, and the target block reuses the same temp when erasing its result type. The rewrite preflights every use of that target and stays unchanged when a deferred `br_if`, `br_table`, `BrOn*`, or other branch family shares the label, preventing partial arity repair. Other branch families still remain gated.
+
 The purpose is simple:
 
 - once Flat IR forbids branch instructions from carrying arbitrary nested value trees directly, those values need somewhere explicit to live
