@@ -176,8 +176,7 @@ fn flatten_value_type_is_defaultable(value_type : @lib.ValType) -> Bool {
 
 ///|
 priv struct FlattenRewriteState {
-  break_temps : Array[Int]
-  loop_entry_temps : Array[Array[Int]]
+  label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
   sequenced_root_holders : Array[Int]
   sequenced_root_nodes : Array[Int]
@@ -185,17 +184,59 @@ priv struct FlattenRewriteState {
 
 ///|
 fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
-  let loop_entry_temps : Array[Array[Int]] = []
+  let label_temps : Array[Array[Int]] = []
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
-    loop_entry_temps.push([])
+    label_temps.push([])
   }
   {
-    break_temps: Array::make(func.labels.length(), -1),
-    loop_entry_temps,
+    label_temps,
     terminal_payloads: [],
     sequenced_root_holders: [],
     sequenced_root_nodes: [],
   }
+}
+
+///|
+fn flatten_label_temps_match_types(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  label_id : Int,
+  value_types : Array[@lib.ValType],
+) -> Bool {
+  if label_id < 0 || label_id >= state.label_temps.length() {
+    return false
+  }
+  let locals = state.label_temps[label_id]
+  if locals.length() != value_types.length() {
+    return false
+  }
+  for slot = 0; slot < locals.length(); slot = slot + 1 {
+    if @ir.hot_local_type(func, locals[slot]) != Some(value_types[slot]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn flatten_ensure_label_temps(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  label_id : Int,
+  value_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if label_id < 0 || label_id >= state.label_temps.length() {
+    return None
+  }
+  let locals = state.label_temps[label_id]
+  if locals.length() == 0 {
+    for value_type in value_types {
+      locals.push(@ir.hot_append_body_local(func, value_type))
+    }
+  } else if !flatten_label_temps_match_types(func, state, label_id, value_types) {
+    return None
+  }
+  Some(locals)
 }
 
 ///|
@@ -307,12 +348,12 @@ fn flatten_try_route_scalar_block(
   )
   let routed_local = if label_is_used {
     if label_id < 0 ||
-      label_id >= state.break_temps.length() ||
-      state.break_temps[label_id] < 0 ||
+      label_id >= state.label_temps.length() ||
+      state.label_temps[label_id].length() != 1 ||
       !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
       return None
     }
-    state.break_temps[label_id]
+    state.label_temps[label_id][0]
   } else {
     -1
   }
@@ -531,7 +572,7 @@ fn flatten_prepare_inputful_scalar_loop(
         @ir.hot_node_get(func, entry_id).ty,
       )[0]
     let local_id = @ir.hot_append_body_local(func, entry_type)
-    state.loop_entry_temps[label_id].push(local_id)
+    state.label_temps[label_id].push(local_id)
     preludes.push(@ir.hot_build_local_set(func, local_id, entry_id))
     let replacement_id = @ir.hot_build_local_get(func, local_id)
     let visited : Array[Int] = []
@@ -650,12 +691,12 @@ fn flatten_try_route_scalar_if(
   )
   let routed_local = if label_is_used {
     if label_id < 0 ||
-      label_id >= state.break_temps.length() ||
-      state.break_temps[label_id] < 0 ||
+      label_id >= state.label_temps.length() ||
+      state.label_temps[label_id].length() != 1 ||
       !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
       return None
     }
-    state.break_temps[label_id]
+    state.label_temps[label_id][0]
   } else {
     -1
   }
@@ -841,7 +882,7 @@ fn flatten_try_route_scalar_br(
     _ => return false
   }
   let label_id = branch.imm0
-  if label_id < 0 || label_id >= state.break_temps.length() {
+  if label_id < 0 || label_id >= state.label_temps.length() {
     return false
   }
   let value_id = @ir.hot_child_get(func, node_id, 0)
@@ -851,7 +892,7 @@ fn flatten_try_route_scalar_br(
   )
   match @ir.hot_label_kind(func, label_id) {
     @ir.HotLabelKind::LoopLabel => {
-      let locals = state.loop_entry_temps[label_id]
+      let locals = state.label_temps[label_id]
       let child_count = @ir.hot_child_count(func, node_id)
       if child_count != locals.length() {
         return false
@@ -896,14 +937,12 @@ fn flatten_try_route_scalar_br(
     !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
     return false
   }
-  let local_id = if state.break_temps[label_id] >= 0 {
-    state.break_temps[label_id]
-  } else {
-    let fresh = @ir.hot_append_body_local(func, target_types[0])
-    state.break_temps[label_id] = fresh
-    fresh
+  let locals = match
+    flatten_ensure_label_temps(func, state, label_id, target_types) {
+    Some(locals) => locals
+    None => return false
   }
-  preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
+  preludes.push(@ir.hot_build_local_set(func, locals[0], value_id))
   ignore(@ir.hot_replace_child_span(func, node_id, []))
   true
 }
@@ -962,7 +1001,7 @@ fn flatten_try_route_scalar_br_if(
   }
   let payload_count = child_count - 1
   let label_id = branch.imm0
-  if label_id < 0 || label_id >= state.break_temps.length() {
+  if label_id < 0 || label_id >= state.label_temps.length() {
     return false
   }
   let value_id = @ir.hot_child_get(func, node_id, 0)
@@ -972,7 +1011,7 @@ fn flatten_try_route_scalar_br_if(
   )
   match @ir.hot_label_kind(func, label_id) {
     @ir.HotLabelKind::LoopLabel => {
-      let locals = state.loop_entry_temps[label_id]
+      let locals = state.label_temps[label_id]
       if locals.length() != payload_count {
         return false
       }
@@ -1023,13 +1062,12 @@ fn flatten_try_route_scalar_br_if(
     !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
     return false
   }
-  let local_id = if state.break_temps[label_id] >= 0 {
-    state.break_temps[label_id]
-  } else {
-    let fresh = @ir.hot_append_body_local(func, target_types[0])
-    state.break_temps[label_id] = fresh
-    fresh
+  let target_locals = match
+    flatten_ensure_label_temps(func, state, label_id, target_types) {
+    Some(locals) => locals
+    None => return false
   }
+  let local_id = target_locals[0]
   let flow_local = if target_types[0] == value_types[0] {
     local_id
   } else {
@@ -1105,12 +1143,12 @@ fn flatten_try_route_br_table(
     return false
   }
   for target in targets {
-    if target < 0 || target >= state.break_temps.length() {
+    if target < 0 || target >= state.label_temps.length() {
       return false
     }
     match @ir.hot_label_kind(func, target) {
       @ir.HotLabelKind::LoopLabel => {
-        let locals = state.loop_entry_temps[target]
+        let locals = state.label_temps[target]
         if locals.length() != payload_count {
           return false
         }
@@ -1152,14 +1190,11 @@ fn flatten_try_route_br_table(
   for target in targets {
     for slot = 0; slot < payload_count; slot = slot + 1 {
       let target_local = match @ir.hot_label_kind(func, target) {
-        @ir.HotLabelKind::LoopLabel => state.loop_entry_temps[target][slot]
+        @ir.HotLabelKind::LoopLabel => state.label_temps[target][slot]
         _ =>
-          if state.break_temps[target] >= 0 {
-            state.break_temps[target]
-          } else {
-            let fresh = @ir.hot_append_body_local(func, payload_types[slot])
-            state.break_temps[target] = fresh
-            fresh
+          match flatten_ensure_label_temps(func, state, target, payload_types) {
+            Some(locals) => locals[slot]
+            None => return false
           }
       }
       preludes.push(
