@@ -1069,32 +1069,6 @@ fn flatten_loop_backedges_are_supported(
 }
 
 ///|
-fn flatten_loop_has_multivalue_table_backedge(
-  func : @ir.HotFunc,
-  label_id : Int,
-  payload_count : Int,
-) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::BrTable if flatten_br_table_targets_label(
-          func,
-          node.imm0,
-          label_id,
-        ) =>
-        if @ir.hot_child_count(func, node_id) == payload_count + 1 {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
   loop_id : Int,
@@ -1123,14 +1097,6 @@ fn flatten_inputful_loop_is_supported(
     _ => return false
   }
   if param_types.length() != input_count || loop_node.child_count <= input_count {
-    return false
-  }
-  if result_types.length() > 1 &&
-    !flatten_loop_has_multivalue_table_backedge(
-      func,
-      label_id,
-      param_types.length(),
-    ) {
     return false
   }
   for slot = 0; slot < input_count; slot = slot + 1 {
