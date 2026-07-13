@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
@@ -64,7 +63,7 @@ Fresh primary-source review found more stale mechanics:
 - the public pass is a `PropagateGlobalsGlobally` subclass that calls only `propagateConstantsToGlobals()`; it is not explained correctly as just “the shared engine with `optimize = false`”
 - the broader `SimplifyGlobals` sibling calls `propagateConstantsToCode()` after startup/global propagation, which is why its behavior differs in the lit test
 
-Those corrections are captured in [`../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md`](../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md) and [`../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`](../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md). A 2026-05-05 current-main recheck of `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` confirmed the same source-backed contract and is filed in [`../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md) and [`../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md).
+Those corrections are retained in [`../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`](../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md), with direct `version_129` source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md). A 2026-05-05 current-main recheck of `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` confirmed the same source-backed contract and is filed in [`../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md) and [`../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md).
 
 ## Purpose and correctness constraints
 
@@ -115,7 +114,6 @@ Keep this folder explicitly marked as **unimplemented** until Starshine grows a 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md`](../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md)
 - [`../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md)
 - [`../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`](../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md)
 - [`../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md)

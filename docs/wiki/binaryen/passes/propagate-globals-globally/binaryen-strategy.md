@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
@@ -23,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass. The 2026-04-24 raw manifest captures the official release page, `SimplifyGlobals.cpp`, `pass.cpp`, the dedicated lit file, helper surfaces, and the first narrow current-`main` spot check; the 2026-05-05 recheck keeps that freshness layer current: [`../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md).
+Use Binaryen `version_129` as the reviewed tagged source oracle for this pass. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and 2026-05-05 recheck retain the reviewed conclusions and freshness layer: [`../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md).
 
 Primary source URLs:
 

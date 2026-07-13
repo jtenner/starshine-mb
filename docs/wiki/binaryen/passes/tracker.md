@@ -270,7 +270,6 @@ sources:
   - ../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
   - ../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
@@ -734,7 +733,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
 - [`../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md`](../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md)
 - [`../../raw/research/0161-2026-04-21-inlining-binaryen-research.md`](../../raw/research/0161-2026-04-21-inlining-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md`](../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md)
 - [`../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md)
 - [`../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`](../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md)
 - [`../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md)

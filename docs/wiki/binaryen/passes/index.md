@@ -271,7 +271,6 @@ sources:
   - ../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
   - ../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
   - ../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
