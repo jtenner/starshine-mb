@@ -3,6 +3,8 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-13
 sources:
+  - ../../../raw/research/1584-2026-07-13-daeo-scheduled-mode-specific-blockers.md
+  - ../../../raw/research/1583-2026-07-13-daeo-post-param-chain-gap-attribution.md
   - ../../../raw/research/1582-2026-07-13-daeo-scheduled-validation-and-timeout.md
   - ../../../raw/research/1581-2026-07-13-daeo-post-param-chain-direct-matrix.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -62,7 +64,9 @@ Research note [`1569`](../../../raw/research/1569-2026-07-13-daeo-fresh-wasm-smi
 - explicit wasm-smith requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, with `44` Binaryen/oracle tool failures and no Starshine failure;
 - random-all requested/compared `10000/10000`, normalized `9633`, left `367` byte-identical previously reviewed residuals (`dae-effectful-args=124`, `coverage-forced-portable=243`), and had zero failures. The two residual families are agent-classified as measured/source-backed Starshine cleanup wins; the aggregate deltas are `-110219` raw, `-797486` canonical, and `-5465849` WAT bytes, with no canonical/WAT-positive case.
 
-Research note [`1582`](../../../raw/research/1582-2026-07-13-daeo-scheduled-validation-and-timeout.md) refreshes scheduled evidence after the current matrix. Dedicated-profile `optimize`, `shrink`, and synthesized O4z each execute DAEO exactly once immediately after late HSO and before `inlining-optimizing`, emit the same valid 38-byte output, and spend `668us`, `665us`, and `733us` in DAEO. The large current-artifact public optimize lane is blocked before DAEO by an earlier vacuum/remove-unused-names neighborhood: traced and no-trace attempts timed out after `7200s` and `3600s` without reaching DAEO.
+Research note [`1582`](../../../raw/research/1582-2026-07-13-daeo-scheduled-validation-and-timeout.md) refreshes scheduled evidence after the current matrix. Dedicated-profile `optimize`, `shrink`, and synthesized O4z each execute DAEO exactly once immediately after late HSO and before `inlining-optimizing`, emit the same valid 38-byte output, and spend `668us`, `665us`, and `733us` in DAEO.
+
+No retained DAEO behavior changed in notes [`1583`](../../../raw/research/1583-2026-07-13-daeo-post-param-chain-gap-attribution.md) and [`1584`](../../../raw/research/1584-2026-07-13-daeo-scheduled-mode-specific-blockers.md), so the note `1581` four-lane direct matrix remains current. Note `1583` rejects both a size-losing result-only Func-12293/8429 endpoint and a size-winning but over-target selected-cleanup endpoint. Note `1584` refines scheduled ownership: large `--optimize` stalls in direct `vacuum`, while large `-O4z` stalls earlier in `ssa-nomerge`; neither reaches DAEO.
 
 Research note [`1570`](../../../raw/research/1570-2026-07-13-daeo-scheduled-replay-localization-safety.md) adds post-fix scheduled evidence: public `optimize`, public `shrink`, and synthesized `-O4z` each run DAEO exactly once in the locked late neighborhood and produce the same valid `38`-byte output as Binaryen O4z on the dedicated profile. It also fixes an artifact-discovered scratch-local collision and reruns the dedicated lane at `10000/10000` normalized. The current stripped wasm-gc artifact meets the pass-local ratio target (`9692.498ms` Starshine versus `8083.49ms` Binaryen) but remains blocked at Starshine final validation on nondefaultable GC body-local initialization.
 
