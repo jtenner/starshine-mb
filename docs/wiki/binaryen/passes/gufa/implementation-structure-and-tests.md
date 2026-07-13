@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
   - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
 related:
@@ -25,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the current tagged source anchor for this page, while retaining [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md) as historical provenance.
+Use Binaryen `version_130` as the current tagged source anchor for this page. The retained 2026-05-05 and 2026-07-11 source bridges plus the direct tagged URLs below preserve the earlier `version_129` provenance without depending on the consumed manifest.
 
 The 2026-07-11 refresh rechecked current `main` on the owner, registration, oracle header **and implementation**, and dedicated lit-test surfaces. It corrects the older owner map by adding `possible-contents.cpp`; it is a focused source reread, not a complete version-to-main diff.
 
@@ -241,7 +240,6 @@ A future Starshine port needs answers to at least these questions:
 - [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
 - [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
 - Binaryen `version_129` sources:

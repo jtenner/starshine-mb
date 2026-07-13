@@ -283,7 +283,6 @@ sources:
   - ../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-gufa-primary-sources.md
   - ../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
   - ../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
@@ -750,7 +749,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md)
 - [`../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md`](../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md)
 - [`../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md`](../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md)
-- [`../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
 - [`../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
 - [`../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md`](../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md)
