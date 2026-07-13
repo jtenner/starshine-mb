@@ -11,7 +11,6 @@ sources:
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
-  - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
   - ../../../../../src/passes/merge_locals.mbt
   - ../../../../../src/passes/merge_locals_test.mbt
   - ../../../../../src/passes/optimize.mbt
