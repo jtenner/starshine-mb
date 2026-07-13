@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md

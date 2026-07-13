@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
-  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
@@ -80,7 +79,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 ## Most important durable takeaways
 
 - Upstream `memory-packing` is not just “split active data segments around zeroes.”
-- The folder now also has an immutable raw primary-source manifest plus a refreshed exact Starshine code-map page, so future readers no longer need to reconstruct release provenance or MoonBit navigation from prose alone.
+- The folder retains direct tagged source links, the current-main overlap refresh, and a refreshed exact Starshine code-map page, so future readers no longer need to reconstruct release provenance or MoonBit navigation from prose alone.
 - The real safety story starts with a whole-module legality gate:
   - exactly one memory only
   - imported memory only when `zeroFilledMemory` is enabled
@@ -139,8 +138,6 @@ What it actually is in `version_129`:
   - Beginner-friendly shape catalog covering positive active and passive families, profitability-driven no-split cases, bailout shapes, and the main “looks safe but is not” layouts.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy and exact MoonBit code map: why this remains a module pass, where the local legality/range/dispatch/test surfaces live, and which major upstream surfaces are still missing.
-- `docs/wiki/raw/binaryen/2026-04-22-memory-packing-primary-sources.md`
-  - Immutable manifest for the official Binaryen release/source/test pages reviewed in this run.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, saved generated-artifact evidence, and the honest remaining gap between local and upstream surface area.
 
@@ -165,11 +162,10 @@ So the durable rule is:
   - upstream `memory-packing` is a segment-plus-segment-op rewrite pass, not just an active-segment splitter
 - Keep the active/passive split, trap-preservation story, imported-memory gate, GC conservative boundary, and memory64/high-bit unsigned handling explicit whenever future docs or code changes touch this pass.
 - Treat the implementation/test-map page as the compact owner map for future follow-ups instead of re-deriving the phase split from chat history.
-- Treat the raw primary-source manifest plus the refreshed Starshine page as the default provenance-and-navigation pair for future `memory-packing` work.
+- Treat the direct tagged URLs, current-main refresh, and refreshed Starshine page as the default provenance-and-navigation set for future `memory-packing` work.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md`](../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md)
 - [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
 - [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md)
 - [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)

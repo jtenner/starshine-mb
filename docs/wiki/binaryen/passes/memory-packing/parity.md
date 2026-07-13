@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
-  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
@@ -79,7 +78,7 @@ This creates one concrete current-main parity gap: Starshine still rejects every
 
 ## Current evidence
 
-The 2026-04-22 raw primary-source capture did not change the upstream-teaching verdict.
+The 2026-04-22 source review did not change the upstream-teaching verdict.
 The 2026-05-07 current-head follow-up sharpened the direct-status note: the narrow saved dead-passive normalization blocker from `[MP]001` was closed, and direct compare evidence was semantically green on all successfully compared cases.
 
 The 2026-06-03 `[O4Z-AUDIT-MP]` refresh keeps that status and adds current direct evidence after pass-local performance work:
@@ -190,7 +189,6 @@ Keep these as reopening watchpoints only if future evidence shows observability;
 ## Sources
 
 - [`../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md`](../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md)
-- [`../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md`](../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md)
 - [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
 - [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md)

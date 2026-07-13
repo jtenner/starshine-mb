@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
-  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
