@@ -104,7 +104,6 @@ sources:
   - ../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - ../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
-  - ../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -123,7 +122,6 @@ sources:
   - ../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - ../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
   - ../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - ../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md

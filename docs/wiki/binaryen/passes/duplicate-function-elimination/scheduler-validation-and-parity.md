@@ -5,7 +5,6 @@ last_reviewed: 2026-06-08
 sources:
   - ../../../raw/research/0719-2026-06-08-duplicate-function-elimination-behavior-gap-inventory.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ./index.md
   - ./binaryen-strategy.md
@@ -144,7 +143,6 @@ Starshine now models Binaryen's two top-level DFE slots in public presets, inclu
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md)
 - [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

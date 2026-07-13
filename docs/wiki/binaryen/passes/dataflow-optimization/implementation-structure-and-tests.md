@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
-  - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -20,7 +19,7 @@ related:
 
 # Implementation structure and tests for `dataflow-optimization` / `dfo`
 
-Use this page together with the retained [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md) bridges; direct historical `version_129` source URLs remain cataloged in [`./binaryen-strategy.md`](./binaryen-strategy.md).
+Use this page with the retained [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md) and [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) bridges; direct historical `version_129` source URLs remain cataloged in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 Binaryen `version_130` is the public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reconciliation did not surface behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Core pass file
@@ -211,7 +210,6 @@ That order mirrors the real contract:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md)
-- [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)

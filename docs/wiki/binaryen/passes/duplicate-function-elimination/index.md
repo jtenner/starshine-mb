@@ -5,7 +5,6 @@ last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
@@ -170,7 +169,6 @@ This refresh removes `duplicate-function-elimination` from the AUD002 direct-pas
 ## Sources
 
 - [`../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md`](../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md)
 - [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
 - [`../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md)
 - [`../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md`](../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md)

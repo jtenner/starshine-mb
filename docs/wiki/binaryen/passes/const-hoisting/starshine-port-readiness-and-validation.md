@@ -7,7 +7,6 @@ sources:
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
@@ -64,7 +63,7 @@ The pass should be read as a function-local raw-size transform over already-mate
 9. emit one entry-prelude `local.set` initialized from the first recorded literal,
 10. replace all recorded use sites with `local.get`, including the first original use.
 
-The key citation chain is the current-main source recheck in [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md), which points to official Binaryen `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, `wasm-builder.h`, and the dedicated `const-hoisting.wast` lit file.
+The current-main source recheck in [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md) anchors the upstream contract through Binaryen `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, and the dedicated `const-hoisting.wast` lit file.
 
 ## Starshine code locations to connect
 
@@ -192,7 +191,6 @@ Binaryen immediately emits a prelude block and relies on later cleanup such as `
 - [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
 - [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md)
 - [`../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md`](../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/ir/hot_core.mbt`](../../../../../src/ir/hot_core.mbt)

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
-  - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -385,7 +384,6 @@ The pass explicitly requires Flat IR.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
