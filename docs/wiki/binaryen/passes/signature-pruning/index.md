@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
@@ -146,7 +145,6 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md)
 - [`../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md`](../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md)
 - [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md)

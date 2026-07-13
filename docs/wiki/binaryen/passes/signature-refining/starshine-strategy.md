@@ -7,7 +7,6 @@ sources:
   - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md

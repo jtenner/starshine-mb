@@ -7,7 +7,6 @@ sources:
   - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
@@ -208,7 +207,6 @@ When it lands, test both:
 - [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)
 - [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)

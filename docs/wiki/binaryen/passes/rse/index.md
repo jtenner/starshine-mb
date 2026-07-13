@@ -8,7 +8,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
   - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
@@ -147,7 +146,6 @@ The current durable claim is:
 - [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md)
 - [`../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md`](../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md)
 - [`../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp>
