@@ -248,7 +248,7 @@ Starshine now handles both the same-type one-temp case and this source-backed tw
 
 ## Why `switch` / `br_table` duplicates work
 
-For switch values, flatten first stores the carried value once and then copies it into all unique target temps. Starshine now implements that route for supported defaultable scalar payload origins and block targets, sequences rich payloads before rich selectors, deduplicates repeated labels, clears the table payload, and removes the HOT terminal payload-root artifact before control-result erasure.
+For switch values, flatten first stores the carried value once and then copies it into all unique target temps. Starshine implements that route for supported defaultable scalar payload origins and block targets, sequences rich payloads before rich selectors, deduplicates repeated labels, clears the table payload, and removes the HOT terminal payload-root artifact before control-result erasure. The first multivalue correspondence admits one exact defaultable block/if target vector: each independently scalar component is staged once in source order, repeated labels produce one target-vector copy, and selector work remains afterwards. Multiple unique block/if targets, mixed fanout, mismatched vectors, and ambiguous ownership remain open. See the tagged v130 switch refresh in [`../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md).
 
 That may look redundant, but it expresses the right truth:
 

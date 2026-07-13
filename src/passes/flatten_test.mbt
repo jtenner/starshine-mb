@@ -2337,3 +2337,72 @@ test "flatten routes scalar loop br_table payloads through entry locals" {
       fail("expected scalar loop br_table routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten deduplicates ordered multivalue br_table block fanout" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) call 1 call 2 call 3 br_table 0 0 0) return) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let second_payload = @ir.hot_child_get(func, branch, 1)
+  let selector = @ir.hot_child_get(func, branch, 2)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, block_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
+  let first_stage = @ir.hot_region_get(func, body_ref, 0)
+  let second_stage = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_stage, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_stage, 0), second_payload)
+  let first_stage_local = @ir.hot_node_get(func, first_stage).imm0
+  let second_stage_local = @ir.hot_node_get(func, second_stage).imm0
+  assert_false(first_stage_local == second_stage_local)
+  let first_copy = @ir.hot_region_get(func, body_ref, 2)
+  let second_copy = @ir.hot_region_get(func, body_ref, 3)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_copy, 0)).imm0,
+    first_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_copy, 0)).imm0,
+    second_stage_local,
+  )
+  let selector_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
+  let first_target_local = @ir.hot_node_get(func, first_copy).imm0
+  let second_target_local = @ir.hot_node_get(func, second_copy).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_target_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_target_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multivalue block br_table fanout to verify, got \{err}")
+  }
+}

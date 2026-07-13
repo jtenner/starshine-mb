@@ -1490,10 +1490,11 @@ fn flatten_multivalue_br_if_flow_span(
 }
 
 ///|
-fn flatten_multivalue_branch_target_is_supported(
+fn flatten_multivalue_branch_target_is_supported_with_table(
   func : @ir.HotFunc,
   label_id : Int,
   target_types : Array[@lib.ValType],
+  admitted_table_id : Int,
 ) -> Bool {
   if target_types.length() <= 1 ||
     @ir.hot_label_branch_arity(func, label_id) != target_types.length() {
@@ -1524,6 +1525,10 @@ fn flatten_multivalue_branch_target_is_supported(
       @ir.HotOp::Br =>
         tail.imm0 == label_id &&
         @ir.hot_child_count(func, tail_id) == target_types.length()
+      @ir.HotOp::BrTable =>
+        tail_id == admitted_table_id &&
+        flatten_br_table_targets_label(func, tail.imm0, label_id) &&
+        @ir.hot_child_count(func, tail_id) == target_types.length() + 1
       _ => false
     }
     if !has_terminal_target_branch &&
@@ -1613,11 +1618,43 @@ fn flatten_multivalue_branch_target_is_supported(
           func,
           branch.imm0,
           label_id,
-        ) => return false
+        ) => {
+        saw_target = true
+        if branch_id != admitted_table_id ||
+          @ir.hot_child_count(func, branch_id) != target_types.length() + 1 {
+          return false
+        }
+        for slot = 0; slot < target_types.length(); slot = slot + 1 {
+          let payload_id = @ir.hot_child_get(func, branch_id, slot)
+          let payload_types = @ir.hot_type_results(
+            func,
+            @ir.hot_node_get(func, payload_id).ty,
+          )
+          if payload_types.length() != 1 ||
+            payload_types[0] != target_types[slot] ||
+            !flatten_value_type_is_defaultable(target_types[slot]) ||
+            !flatten_scalar_branch_payload_has_supported_origin(
+              func, payload_id,
+            ) {
+            return false
+          }
+        }
+      }
       _ => ()
     }
   }
   saw_target
+}
+
+///|
+fn flatten_multivalue_branch_target_is_supported(
+  func : @ir.HotFunc,
+  label_id : Int,
+  target_types : Array[@lib.ValType],
+) -> Bool {
+  flatten_multivalue_branch_target_is_supported_with_table(
+    func, label_id, target_types, -1,
+  )
 }
 
 ///|
@@ -1993,19 +2030,31 @@ fn flatten_try_route_br_table(
         }
       }
       @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => {
-        if payload_count != 1 || @ir.hot_label_branch_arity(func, target) != 1 {
+        if @ir.hot_label_branch_arity(func, target) != payload_count {
           return false
         }
         let target_types = @ir.hot_type_results(
           func,
           @ir.hot_label_result_type(func, target),
         )
-        if target_types.length() != 1 ||
-          target_types[0] != payload_types[0] ||
-          !flatten_target_can_route_scalar_branches(
-            func,
-            target,
-            payload_types[0],
+        if target_types.length() != payload_count {
+          return false
+        }
+        for slot = 0; slot < payload_count; slot = slot + 1 {
+          if target_types[slot] != payload_types[slot] {
+            return false
+          }
+        }
+        if payload_count == 1 {
+          if !flatten_target_can_route_scalar_branches(
+              func,
+              target,
+              payload_types[0],
+            ) {
+            return false
+          }
+        } else if !flatten_multivalue_branch_target_is_supported_with_table(
+            func, target, target_types, node_id,
           ) {
           return false
         }
@@ -2672,6 +2721,17 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
                 if @ir.hot_label_branch_arity(func, target) != payload_count {
                   return true
                 }
+              @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => {
+                let target_types = @ir.hot_type_results(
+                  func,
+                  @ir.hot_label_result_type(func, target),
+                )
+                if !flatten_multivalue_branch_target_is_supported_with_table(
+                    func, target, target_types, node_id,
+                  ) {
+                  return true
+                }
+              }
               _ => return true
             }
           }
