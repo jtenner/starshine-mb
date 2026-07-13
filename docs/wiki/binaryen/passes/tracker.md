@@ -8,7 +8,7 @@ sources:
   - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
-  - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
@@ -85,7 +85,7 @@ sources:
   - ../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - ../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
-  - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
@@ -719,7 +719,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md`](../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md)
 - [`../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md)
+- [Binaryen current `Monomorphize.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp)
 - [`../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md`](../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md)
 - [`../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)

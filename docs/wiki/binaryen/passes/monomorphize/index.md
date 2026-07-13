@@ -3,7 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
   - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
@@ -104,8 +104,8 @@ So this pass is best taught as:
 
 ## Page map
 
-- [`../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md)
-  Retained tagged/current-source recheck and Starshine port-readiness bridge; direct `version_129` source, helper-header, and lit-test URLs remain listed below.
+- [Binaryen current `Monomorphize.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp)
+  Current upstream owner source; direct `version_129` source, helper-header, and lit-test URLs remain listed below.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen implementation, helper dependencies, algorithmic phases, and pass interactions.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
@@ -135,7 +135,7 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md)
+- [Binaryen current `Monomorphize.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp)
 - [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
 - [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)

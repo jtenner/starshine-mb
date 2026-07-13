@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast

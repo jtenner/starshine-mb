@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt

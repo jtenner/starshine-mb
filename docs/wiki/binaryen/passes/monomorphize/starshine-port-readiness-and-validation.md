@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
@@ -47,7 +47,7 @@ There is still no `src/passes/monomorphize.mbt`, no active module dispatcher cas
 ## Binaryen oracle lanes to preserve
 
 The upstream pass is not a simple local peephole.
-A Starshine port should preserve the source-backed lanes from [`../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md):
+A Starshine port should preserve the documented upstream lanes from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
 1. scan direct calls in the original defined-function snapshot
 2. reject imported targets, recursive self-calls, unreachable calls, and indirect calls

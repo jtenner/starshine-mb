@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
@@ -34,7 +34,7 @@ related:
 ## What the pass really is
 
 The original 2026-04-24 release-tag source review is retained through [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md) and the direct tagged URLs below.
-The 2026-04-26 port-readiness recheck in [`../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md) found no teaching-relevant current-main drift, then added the Starshine sequencing bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+A 2026-04-26 current-main reread found no teaching-relevant drift for the reviewed pass surface; the maintained source anchors are Binaryen's [`Monomorphize.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp) and [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp). The Starshine sequencing bridge is [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The reviewed implementation is a **whole-module contextual specialization pass**.
 It is not normal inlining and not just constant propagation.
 

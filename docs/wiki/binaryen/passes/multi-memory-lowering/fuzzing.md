@@ -4,7 +4,7 @@ status: working
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
-  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt

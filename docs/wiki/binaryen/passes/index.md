@@ -9,7 +9,7 @@ sources:
   - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
-  - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md

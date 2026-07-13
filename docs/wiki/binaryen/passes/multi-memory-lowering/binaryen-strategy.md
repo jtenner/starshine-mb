@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
-  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
 related:
@@ -54,7 +54,7 @@ The source-backed contract is concentrated in Binaryen `version_129`:
 - `src/passes/passes.h`
   - public constructor declarations.
 
-See the retained focused 2026-04-26 port-readiness recheck for exact URLs and reviewed surfaces: [`../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md).
+The owner, registration, and factory surfaces are directly available in Binaryen's [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp), and [`passes.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h).
 
 ## Combined memory layout
 

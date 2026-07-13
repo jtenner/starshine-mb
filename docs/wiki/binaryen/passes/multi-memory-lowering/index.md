@@ -5,7 +5,7 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
   - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
-  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
@@ -132,7 +132,7 @@ The 2026-04-26 port-readiness bridge keeps that test order explicit for Starshin
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md)
+- [Binaryen `version_129` `MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp)
 - [`../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md`](../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md)
 - [`../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md`](../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md)
 - Binaryen `MultiMemoryLowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp>

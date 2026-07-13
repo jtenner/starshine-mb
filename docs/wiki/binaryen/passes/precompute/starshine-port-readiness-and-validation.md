@@ -17,7 +17,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
-  - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/precompute.mbt
@@ -189,7 +188,6 @@ Do not treat the older `.tmp/pc-artifact-branch-blockdrop-raw` `Canonical functi
 - [`../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md`](../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md)
 - [`../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md`](../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md)
 - [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md)
-- [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md)
 - [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
 - [`../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md`](../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
