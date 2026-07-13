@@ -7681,11 +7681,11 @@ test "dae-optimizing preserves and remaps imported tag payload types" {
   @debug.assert_eq(results.length(), 0)
   match optimized.import_sec {
     Some(
-      @lib.ImportSec([
-        @lib.Import(_, _, @lib.TagExternType(@lib.TagType(@lib.TypeIdx(raw))))
-      ])
+      @lib.ImportSec(
+        [@lib.Import(_, _, @lib.TagExternType(@lib.TagType(@lib.TypeIdx(raw))))]
+      )
     ) => @debug.assert_eq(raw, 0U)
-    _ => fail("expected one imported tag using remapped type 0"),
+    _ => fail("expected one imported tag using remapped type 0")
   }
 }
 

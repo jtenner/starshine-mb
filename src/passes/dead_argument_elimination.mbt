@@ -3018,6 +3018,8 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
             dae_mark_used_table_type(table_type, used)
           @lib.Import(_, _, @lib.GlobalExternType(global_type)) =>
             dae_mark_used_global_type(global_type, used)
+          @lib.Import(_, _, @lib.TagExternType(@lib.TagType(type_idx))) =>
+            dae_mark_used_type_idx(type_idx, used)
           _ => ()
         }
       }
@@ -3140,6 +3142,22 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
                 base_name,
                 @lib.ExternType::global(
                   dae_rewrite_pruned_global_type(global_type, remap),
+                ),
+              ),
+            )
+          @lib.Import(
+            module_name,
+            base_name,
+            @lib.TagExternType(@lib.TagType(type_idx))
+          ) =>
+            rewritten.push(
+              @lib.Import::new(
+                module_name,
+                base_name,
+                @lib.ExternType::tag(
+                  @lib.TagType::new(
+                    dae_rewrite_pruned_type_idx(type_idx, remap),
+                  ),
                 ),
               ),
             )
