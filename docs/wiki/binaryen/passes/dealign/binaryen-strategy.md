@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -23,7 +22,7 @@ supersedes:
 
 # Binaryen `dealign` strategy
 
-Use this page with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md).
+Use this page with the retained current-main and port-readiness bridge in [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md).
 
 ## What the pass really is
 
@@ -182,7 +181,6 @@ Binaryen `dealign` is a public function-parallel walker that sets `Load`, `Store
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
-- [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
 - [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>

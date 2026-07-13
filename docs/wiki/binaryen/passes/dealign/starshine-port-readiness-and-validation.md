@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
   - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
