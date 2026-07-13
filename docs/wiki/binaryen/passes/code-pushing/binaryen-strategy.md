@@ -10,7 +10,6 @@ sources:
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
