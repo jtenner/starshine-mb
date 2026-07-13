@@ -6627,41 +6627,34 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
       #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
       #|    (result (ref null $base))
-      #|    local.get 0
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 1
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 2
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 3
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 4
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 5
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 6
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 7
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 8
-      #|    ref.is_null
-      #|    drop
-      #|    local.get 9
-      #|    ref.is_null
-      #|    drop
-      #|    call $sink)
-      #|  (func $sink (result (ref null $base))
-      #|    struct.new_default $leaf)
+      #|    (local
     ),
   )
+  for i = 0; i < 10; i = i + 1 {
+    out.write_string("      (ref $leaf) (ref null $leaf)\n")
+  }
+  out.write_string("    )\n")
+  for p = 0; p < 10; p = p + 1 {
+    let result_local = 10 + p * 2
+    let scratch_local = result_local + 1
+    out.write_string(
+      "    local.get \{p}\n    ref.is_null\n    if (result (ref $leaf))\n      struct.new $leaf\n    else\n      local.get \{p}\n      local.tee \{scratch_local}\n      ref.as_non_null\n    end\n    local.set \{result_local}\n",
+    )
+  }
+  for p = 0; p < 10; p = p + 1 {
+    out.write_string("    local.get \{10 + p * 2}\n")
+  }
+  out.write_string("    call $sink)\n")
+  out.write_string(
+    "  (func $sink (param (ref $leaf) (ref $leaf) (ref $leaf) (ref $leaf) (ref $leaf))\n",
+  )
+  out.write_string(
+    "    (param (ref $leaf) (ref $leaf) (ref $leaf) (ref $leaf) (ref $leaf))\n    (result (ref null $base))\n",
+  )
+  for p = 0; p < 10; p = p + 1 {
+    out.write_string("    local.get \{p}\n    drop\n")
+  }
+  out.write_string("    struct.new $leaf)\n")
   for i = target_def + 2; i + 1 < total_defs; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
   }
@@ -6710,6 +6703,13 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   @debug.assert_eq(dae_test_func_results(optimized, 39), [exact_leaf])
   @debug.assert_eq(dae_test_func_results(optimized, 38), [exact_leaf])
   @debug.assert_eq(dae_test_func_results(optimized, 37), [exact_leaf])
+  let @lib.Func(target_locals, _) = dae_test_defined_func(optimized, target_def)
+  @debug.assert_eq(target_locals.length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_false(target.contains("if"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
   let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
     Ok(trace) => trace
     Err(err) => fail("expected traced broad-module DAE success, got \{err}")

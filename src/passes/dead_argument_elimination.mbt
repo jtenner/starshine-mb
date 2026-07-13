@@ -7606,7 +7606,7 @@ fn dae_direct_gc_result_candidate_instr(
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   match instr {
-    @lib.StructNewDefault(type_idx) =>
+    @lib.StructNew(type_idx) | @lib.StructNewDefault(type_idx) =>
       Some((dae_exact_struct_default_ref_type(type_idx), None))
     @lib.LocalGet(idx) =>
       dae_gc_candidate_local_get_type(mod_, func_locals, idx, old_type).map(fn(
@@ -28186,6 +28186,35 @@ fn dae_copy_instr_range(
 }
 
 ///|
+fn dae_fold_ref_null_is_null_if_instrs(
+  body : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 2 < body.length() {
+      match (body[idx], body[idx + 1], body[idx + 2]) {
+        (
+          @lib.RefNull(_),
+          @lib.RefIsNull,
+          @lib.If(@lib.ValTypeBlockType(_), then_body, _),
+        ) => {
+          out.append(then_body)
+          changed = true
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(body[idx])
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
 fn dae_try_inline_terminal_call_local_sets_body_once(
   body : Array[@lib.Instruction],
   arg_count : Int,
@@ -28492,6 +28521,29 @@ fn dae_try_inline_selected_i32_const_local_sets_once(
           ),
         )
       None => None
+    }
+  }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
+}
+
+///|
+fn dae_try_fold_selected_ref_null_is_null_ifs_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let rewrite_func = fn(
+    func : @lib.Func,
+    _ : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    let (rewritten_body, changed) = dae_fold_ref_null_is_null_if_instrs(body)
+    if changed {
+      Some(@lib.Func::new(locals, @lib.Expr::new(rewritten_body)))
+    } else {
+      None
     }
   }
   dae_try_apply_first_selected_func_rewrite_once(
@@ -29792,6 +29844,40 @@ fn dae_run_core(
     for iter, primary_def in low_exact_literal_application.productive_defs {
       trace(
         "pass[dae-optimizing]:low-exact-literal-worklist iter=\{iter} primary_def=\{primary_def}",
+      )
+    }
+    let low_exact_cleanup_defs = Array::make(original_defined, false)
+    for productive_def in low_exact_literal_application.productive_defs {
+      if productive_def >= 0 && productive_def < low_exact_cleanup_defs.length() {
+        low_exact_cleanup_defs[productive_def] = true
+      }
+    }
+    let low_exact_null_if_cleanup = dae_try_fold_selected_ref_null_is_null_ifs_once(
+      current, low_exact_cleanup_defs,
+    )
+    let low_exact_null_if_application = dae_apply_core_result(
+      current, touched, changed, low_exact_null_if_cleanup,
+    )
+    if low_exact_null_if_application.applied {
+      current = low_exact_null_if_application.mod_out
+      touched = low_exact_null_if_application.touched
+      changed = low_exact_null_if_application.changed
+      trace(
+        "pass[dae-optimizing]:low-exact-null-if-cleanup primary_def=\{low_exact_null_if_application.primary_def}",
+      )
+    }
+    let low_exact_terminal_locals = dae_try_inline_selected_terminal_call_local_sets_once(
+      current, low_exact_cleanup_defs,
+    )
+    let low_exact_terminal_application = dae_apply_core_result(
+      current, touched, changed, low_exact_terminal_locals,
+    )
+    if low_exact_terminal_application.applied {
+      current = low_exact_terminal_application.mod_out
+      touched = low_exact_terminal_application.touched
+      changed = low_exact_terminal_application.changed
+      trace(
+        "pass[dae-optimizing]:low-exact-terminal-call-locals primary_def=\{low_exact_terminal_application.primary_def}",
       )
     }
     let low_exact_result_application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(

@@ -11768,6 +11768,45 @@ test "dae terminal call local set operands inline in order" {
 }
 
 ///|
+test "dae null-test if folding exposes repeated default producers" {
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let null_leaf = fn() {
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(true, @lib.HeapType::new(leaf_type)),
+    )
+  }
+  let default_if = fn() {
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(leaf_type)),
+        ),
+      ),
+      [@lib.Instruction::struct_new(leaf_type)],
+      Some([@lib.Instruction::unreachable_()]),
+    )
+  }
+  let body = [
+    null_leaf(),
+    @lib.Instruction::ref_is_null(),
+    default_if(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    null_leaf(),
+    @lib.Instruction::ref_is_null(),
+    default_if(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+  let (rewritten, changed) = dae_fold_ref_null_is_null_if_instrs(body)
+  assert_true(changed)
+  assert_eq(rewritten, [
+    @lib.Instruction::struct_new(leaf_type),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::struct_new(leaf_type),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
 test "dae terminal call local set operands rejects interdependent temps" {
   let temp0 = @lib.LocalIdx::new(3U)
   let temp1 = @lib.LocalIdx::new(4U)
