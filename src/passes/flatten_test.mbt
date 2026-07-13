@@ -2877,3 +2877,114 @@ test "flatten intentionally leaves shared multivalue loop br_if flow fail closed
       )
   }
 }
+
+///|
+test "flatten routes mixed multivalue loop and if table channels" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 5 if $choice (result i32 i64) call 3 call 4 call 6 br_table $loop $choice $choice else i32.const 11 i64.const 13 end end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 1) (func (result i32) i32.const 0))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, return_id, 1), loop_id)
+  let first_entry = @ir.hot_child_get(func, loop_id, 0)
+  let second_entry = @ir.hot_child_get(func, loop_id, 1)
+  let loop_ref = @ir.hot_region_body_ref(func, loop_id)
+  let if_id = @ir.hot_region_get(func, loop_ref, 2)
+  @debug.assert_eq(@ir.hot_region_get(func, loop_ref, 3), if_id)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let second_payload = @ir.hot_child_get(func, branch, 1)
+  let selector = @ir.hot_child_get(func, branch, 2)
+  let first_else = @ir.hot_region_get(func, else_ref, 0)
+  let second_else = @ir.hot_region_get(func, else_ref, 1)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  let first_entry_set = @ir.hot_root_get(func, 0)
+  let second_entry_set = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_entry_set, 0), first_entry)
+  @debug.assert_eq(@ir.hot_child_get(func, second_entry_set, 0), second_entry)
+  @debug.assert_eq(@ir.hot_root_get(func, 2), loop_id)
+  @debug.assert_eq(@ir.hot_root_get(func, 3), return_id)
+  let first_entry_local = @ir.hot_node_get(func, first_entry_set).imm0
+  let second_entry_local = @ir.hot_node_get(func, second_entry_set).imm0
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 8)
+  let first_stage = @ir.hot_region_get(func, then_ref, 0)
+  let second_stage = @ir.hot_region_get(func, then_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_stage, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_stage, 0), second_payload)
+  let first_loop_copy = @ir.hot_region_get(func, then_ref, 2)
+  let second_loop_copy = @ir.hot_region_get(func, then_ref, 3)
+  let first_if_copy = @ir.hot_region_get(func, then_ref, 4)
+  let second_if_copy = @ir.hot_region_get(func, then_ref, 5)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_loop_copy).imm0,
+    first_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_loop_copy).imm0,
+    second_entry_local,
+  )
+  let first_if_local = @ir.hot_node_get(func, first_if_copy).imm0
+  let second_if_local = @ir.hot_node_get(func, second_if_copy).imm0
+  assert_false(first_if_local == first_entry_local)
+  assert_false(second_if_local == second_entry_local)
+  let selector_set = @ir.hot_region_get(func, then_ref, 6)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 7), branch)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, else_ref, 0)).imm0,
+    first_if_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, else_ref, 1)).imm0,
+    second_if_local,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, loop_ref), 6)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, loop_ref, 2)).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, loop_ref, 3), if_id)
+  let first_result_set = @ir.hot_region_get(func, loop_ref, 4)
+  let second_result_set = @ir.hot_region_get(func, loop_ref, 5)
+  let first_result_local = @ir.hot_node_get(func, first_result_set).imm0
+  let second_result_local = @ir.hot_node_get(func, second_result_set).imm0
+  assert_false(first_result_local == first_entry_local)
+  assert_false(first_result_local == first_if_local)
+  assert_false(second_result_local == second_entry_local)
+  assert_false(second_result_local == second_if_local)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, if_id)),
+    0,
+  )
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_else), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_else), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected mixed loop/if table routing to verify, got \{err}")
+  }
+}

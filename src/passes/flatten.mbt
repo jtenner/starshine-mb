@@ -1134,6 +1134,63 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
 }
 
 ///|
+fn flatten_inputful_multivalue_loop_tail_is_supported(
+  func : @ir.HotFunc,
+  loop_id : Int,
+  label_id : Int,
+  result_types : Array[@lib.ValType],
+) -> Bool {
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  if flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) {
+    return true
+  }
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < result_types.length() {
+    return false
+  }
+  let tail_start = root_count - result_types.length()
+  let nested_id = @ir.hot_region_get(func, body_ref, tail_start)
+  for slot = 1; slot < result_types.length(); slot = slot + 1 {
+    if @ir.hot_region_get(func, body_ref, tail_start + slot) != nested_id {
+      return false
+    }
+  }
+  match @ir.hot_node_get(func, nested_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_type_results(func, @ir.hot_node_get(func, nested_id).ty) !=
+    result_types ||
+    !flatten_multivalue_control_has_exclusive_region_tail_span(func, nested_id) {
+    return false
+  }
+  let nested_label = @ir.hot_control_node_label(func, nested_id)
+  let mut admitted_table = -1
+  for table_id = 0; table_id < @ir.hot_node_count(func); table_id = table_id + 1 {
+    if !@ir.hot_node_is_live(func, table_id) {
+      continue
+    }
+    let table = @ir.hot_node_get(func, table_id)
+    match table.op {
+      @ir.HotOp::BrTable => ()
+      _ => continue
+    }
+    if flatten_br_table_targets_label(func, table.imm0, label_id) &&
+      flatten_br_table_targets_label(func, table.imm0, nested_label) {
+      if admitted_table >= 0 {
+        return false
+      }
+      admitted_table = table_id
+    }
+  }
+  admitted_table >= 0 &&
+  @ir.hot_child_count(func, admitted_table) == result_types.length() + 1 &&
+  flatten_multivalue_branch_target_is_supported_with_table(
+    func, nested_label, result_types, admitted_table,
+  )
+}
+
+///|
 fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
   loop_id : Int,
@@ -1203,7 +1260,9 @@ fn flatten_inputful_loop_is_supported(
     flatten_multivalue_control_has_exclusive_consumer_span(func, loop_id) ||
     flatten_multivalue_control_has_exclusive_region_tail_span(func, loop_id)
   ) &&
-  flatten_multivalue_region_tail_matches_types(func, body_ref, result_types)
+  flatten_inputful_multivalue_loop_tail_is_supported(
+    func, loop_id, label_id, result_types,
+  )
 }
 
 ///|
