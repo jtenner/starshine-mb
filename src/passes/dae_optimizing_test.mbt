@@ -7981,6 +7981,39 @@ test "dae-optimizing nested propagation folds effectful block fallthrough consta
 }
 
 ///|
+test "dae-optimizing nested propagation rejects branch-valued block fallthrough" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $f (param i32 i32) (result i32) (local i32)
+    #|    (local.set 2
+    #|      (block $b (result i32)
+    #|        (global.set $g (i32.const 1))
+    #|        i32.const 9
+    #|        local.get 1
+    #|        br_if $b
+    #|        drop
+    #|        i32.const 7))
+    #|    (i32.add (local.get 2) (i32.const 1)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    i32.const 99
+    #|    local.get 0
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE branch-valued block propagation guard success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [@lib.ValType::i32()])
+  let touched = optimized.pretty_print_defined_func(0U)
+  assert_true(touched.contains("global.set"), msg=touched)
+  assert_true(touched.contains("br_if"), msg=touched)
+  assert_false(touched.contains("I32(8)"), msg=touched)
+}
+
+///|
 test "dae-optimizing traces oversized touched-function nested cleanup skip" {
   let source = "(module (func $f (param i32)" +
     dae_test_many_i32_locals(129) +

@@ -2981,6 +2981,7 @@ fn precompute_propagate_prefix_const_for_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
   node_id : Int,
   states : Array[Int],
   value_consts : Array[@ir.HotConstPayload?],
@@ -3001,8 +3002,41 @@ fn precompute_propagate_prefix_const_for_node(
         return None
       }
       return precompute_propagate_prefix_const_for_value(
-        ctx, func, ssa, value_id, states, value_consts,
+        ctx, func, ssa, label_used, value_id, states, value_consts,
       )
+    }
+    // Binaryen's propagate mode reasons from a set value's fallthrough value.
+    // Peel value-preserving tees and unbranched single-result blocks while
+    // leaving the original wrapper and its effects in place.
+    @ir.HotOp::LocalTee =>
+      if @ir.hot_child_count(func, node_id) == 1 {
+        return precompute_propagate_prefix_const_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          value_consts,
+        )
+      }
+    @ir.HotOp::Block => {
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let body_count = @ir.hot_region_root_count(func, body_ref)
+      if @ir.hot_node_result_arity(func, node_id) == 1 &&
+        !pass_label_is_used(label_id, label_used) &&
+        body_count > 0 {
+        return precompute_propagate_prefix_const_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_region_get(func, body_ref, body_count - 1),
+          states,
+          value_consts,
+        )
+      }
     }
     _ => ()
   }
@@ -3017,6 +3051,7 @@ fn precompute_propagate_prefix_const_for_node(
         ctx,
         func,
         ssa,
+        label_used,
         @ir.hot_child_get(func, node_id, 0),
         states,
         value_consts,
@@ -3039,6 +3074,7 @@ fn precompute_propagate_prefix_const_for_node(
         ctx,
         func,
         ssa,
+        label_used,
         @ir.hot_child_get(func, node_id, 0),
         states,
         value_consts,
@@ -3051,6 +3087,7 @@ fn precompute_propagate_prefix_const_for_node(
         ctx,
         func,
         ssa,
+        label_used,
         @ir.hot_child_get(func, node_id, 1),
         states,
         value_consts,
@@ -3079,6 +3116,7 @@ fn precompute_propagate_prefix_const_for_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
   value_id : Int,
   states : Array[Int],
   value_consts : Array[@ir.HotConstPayload?],
@@ -3108,6 +3146,7 @@ fn precompute_propagate_prefix_const_for_value(
             ctx,
             func,
             ssa,
+            label_used,
             @ir.hot_child_get(func, node_id, 0),
             states,
             value_consts,
@@ -3136,6 +3175,7 @@ fn precompute_propagate_prefix_const_for_value(
               ctx,
               func,
               ssa,
+              label_used,
               input.value_id,
               states,
               value_consts,
@@ -3184,6 +3224,7 @@ fn precompute_propagate_prefix_fold_local_gets(
   func : @ir.HotFunc,
 ) -> Bool {
   let ssa = pass_require_ssa(ctx, func)
+  let label_used = pass_compute_label_used(func)
   let states = Array::make(ssa.value_types.length(), 0)
   let value_consts : Array[@ir.HotConstPayload?] = Array::make(
     ssa.value_types.length(),
@@ -3202,7 +3243,7 @@ fn precompute_propagate_prefix_fold_local_gets(
         }
         match
           precompute_propagate_prefix_const_for_value(
-            ctx, func, ssa, value_id, states, value_consts,
+            ctx, func, ssa, label_used, value_id, states, value_consts,
           ) {
           Some(payload) => replacements.push({ node_id, payload })
           None => ()
