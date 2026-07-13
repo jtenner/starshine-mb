@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/string_gathering.mbt
   - ../../../../../src/passes/string_gathering_test.mbt
@@ -39,7 +38,7 @@ related:
 
 # Starshine Strategy For `string-gathering`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
+Use this page together with the tagged `version_129` source URLs listed below and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for the accepted public late-tail suffix and any broader widening beyond it. For the validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status

@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
@@ -23,7 +22,7 @@ related:
 
 # `string-gathering`: implementation structure and tests
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
+Use this page together with the tagged `version_129` source URLs listed below and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
 This page is the compact source-confirmed map for how Binaryen `version_129` actually implements `string-gathering` and where the shipped tests pin that behavior down.
 
 ## Why this page exists
