@@ -5,7 +5,6 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md
   - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
   - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -244,5 +243,4 @@ Until a real port lands, do not claim Starshine supports:
 - Port readiness: [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - Raw source manifest: [`../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md)
 - Research follow-up: [`../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md`](../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md)
-- Legacy raw source manifest: [`../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md`](../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md)
 - Legacy research follow-up: [`../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md)
