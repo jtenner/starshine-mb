@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
-  - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
   - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
@@ -45,7 +44,7 @@ Use it as the quick answer to:
 - Current-main bridge: the 2026-06-01 freshness recheck in [`../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md).
 - Result: no teaching-relevant drift found in the owner/helper/test surfaces reviewed for this page.
 
-The older 2026-04-23 raw manifest remains useful for the original dossier provenance; the 2026-06-01 manifest is the current freshness layer for this implementation/test-map follow-up.
+The 2026-04-25 source bridge retains the original reviewed release/source/test provenance; the 2026-06-01 manifest is the current freshness layer for this implementation/test-map follow-up.
 
 ## Upstream owner and helper map
 
@@ -214,7 +213,6 @@ Those are neighboring concerns with their own dossiers.
 - [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md)
 - [`../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md`](../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md)
-- [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
 - [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
 - [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
