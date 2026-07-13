@@ -11,7 +11,6 @@ sources:
   - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
-  - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
