@@ -9,7 +9,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/simplify_locals.mbt
