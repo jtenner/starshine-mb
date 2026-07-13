@@ -193,7 +193,7 @@ sources:
   - ../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
   - ../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
   - ../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
+  - ../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
   - ../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
   - ../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
@@ -666,7 +666,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - [`../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - [`../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md`](../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md)
+- [`../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
 - [`../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md`](../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md)
 - [`../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
 - [`../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)

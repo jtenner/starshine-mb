@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

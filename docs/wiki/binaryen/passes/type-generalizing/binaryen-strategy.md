@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
   - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
 related:
   - ./index.md
@@ -53,7 +52,7 @@ Specific current-main locations that teach the contract:
 
 The 2026-07-11 recheck found no behavior-bearing divergence between the inspected `version_130` and current-main owner, registration, and fixture surfaces.
 
-The 2026-04-24 raw manifest is superseded for mechanics. It is still useful only as audit history for how the dossier got corrected twice.
+The consumed 2026-04-24 source capture is superseded for mechanics. Its historical role explains why the dossier was corrected twice, but current pages must use the retained correction and current-main sources above.
 
 ## The pass in one sentence
 
