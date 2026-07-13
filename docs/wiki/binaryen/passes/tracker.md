@@ -61,7 +61,6 @@ sources:
   - ../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
   - ../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
-  - ../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
   - ../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
