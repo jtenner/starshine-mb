@@ -6761,6 +6761,36 @@ fn run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let (dead_set_instrs, dead_set_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+    instrs,
+  )
+  let (call_tail_instrs, call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested_fixpoint(
+    dead_set_instrs,
+  )
+  let (pure_suffix_instrs, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+    call_tail_instrs, env,
+  )
+  let (carrier_instrs, carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+    pure_suffix_instrs,
+  )
+  let (rewritten_instrs, effectful_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+    carrier_instrs, env,
+  )
+  (
+    rewritten_instrs,
+    dead_set_rewrites +
+    call_tail_rewrites +
+    pure_suffix_rewrites +
+    carrier_rewrites +
+    effectful_rewrites,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -7824,12 +7854,12 @@ fn run_hot_pipeline_raw_simplify_locals(
       let env = run_hot_pipeline_raw_simplify_locals_func_env(
         mod_, func_idx, module_ctx, locals,
       )
-      let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+      let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
         instrs, env,
       )
       if rewrite_count >= 16 {
         return Some({
-          reason: "structured-pure-copy-call-tail",
+          reason: "structured-pure-copy-call-tail-bounded",
           func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
           unchanged_original: false,
           trace_skip_raw: true,

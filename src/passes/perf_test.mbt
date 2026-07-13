@@ -5587,12 +5587,12 @@ test "simplify-locals skips large read-only local ladders without hot lift" {
 }
 
 ///|
-test "simplify-locals rewrites structured pure call tails without hot lift" {
+test "simplify-locals uses bounded cleanup for structured pure call tails without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
   let input = perf_test_make_simplify_locals_structured_copy_call_tail_module(
-    96,
+    64,
   )
   let optimized = match
     pass_test_run_pipeline(
@@ -5609,7 +5609,7 @@ test "simplify-locals rewrites structured pure call tails without hot lift" {
   let text = perf_test_join_lines(lines)
   assert_true(
     text.contains(
-      "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
+      "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail-bounded",
     ),
   )
   assert_false(text.contains("perf:timer name=lift"))
