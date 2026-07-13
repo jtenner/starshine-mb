@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -30,7 +29,7 @@ related:
 - `optimize-added-constants-propagate` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It shares `version_129` implementation code with the plain sibling [`../optimize-added-constants/index.md`](../optimize-added-constants/index.md), but it enables the extra local-pair propagation mode.
-- The sibling-specific 2026-04-25 source manifest is [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md); the shared family manifest remains [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
+- The sibling-specific 2026-04-25 source manifest is [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md); the shared-family tagged review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and direct source URLs in the plain sibling dossier.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` path because that path is not documented with `--low-memory-unused` enabled.
 
 ## Why this pass matters
@@ -81,7 +80,6 @@ So the pass is best read as:
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md)
-- [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)
 - [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)

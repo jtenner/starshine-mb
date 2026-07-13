@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
@@ -26,7 +25,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_130` as the current release baseline for new research; this page's detailed implementation notes remain anchored to the `version_129` source set and current-main recheck until a dedicated `version_130` reread says otherwise.
-- The immutable release-tag source manifest for the original refresh is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
+- The original release-tag source review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and the direct tagged URLs below.
 - The 2026-04-27 current-main / local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.

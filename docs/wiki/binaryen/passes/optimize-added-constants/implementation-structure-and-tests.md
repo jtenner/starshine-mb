@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
@@ -23,7 +22,7 @@ related:
 # `optimize-added-constants` implementation structure and tests
 
 This page is the file-and-test map for Binaryen `version_129` plain `optimize-added-constants`.
-The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md); the 2026-04-27 current-main and local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
+The original 2026-04-24 tagged source review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and direct tagged URLs; the 2026-04-27 current-main and local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
 
 ## Core source files
 

@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
@@ -35,7 +34,7 @@ related:
 
 - `optimize-added-constants` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The refreshed provenance chain is captured in [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md); the 2026-05-05 current-main source-anchor digest is [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md) with the follow-up research note at [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md), the 2026-04-27 current-main / local-readiness recheck remains [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
+- The retained provenance chain starts with the 2026-04-24 follow-up research [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and direct tagged source URLs; the 2026-05-05 current-main source-anchor digest is [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md) with the follow-up research note at [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md), the 2026-04-27 current-main / local-readiness recheck remains [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen `version_129` also exposes a public sibling name, [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md), backed by the same implementation file.
 - The real pass is a **memory-address to load/store-offset** canonicalizer, not a generic arithmetic-tree optimizer.
 
@@ -106,7 +105,6 @@ So the plain pass is best read as:
 - [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md)
 - [`../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md`](../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)
 - [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
 - [`../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md`](../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md)
