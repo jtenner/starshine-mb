@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
@@ -21,7 +20,7 @@ related:
 
 # `global-struct-inference` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `global-struct-inference` pass. It is backed by the primary-source manifest in [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md) and the `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md), and should be read with the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+This page is the beginner-friendly shape catalog for Binaryen's `global-struct-inference` pass. It is backed by the retained `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md), and should be read with the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 

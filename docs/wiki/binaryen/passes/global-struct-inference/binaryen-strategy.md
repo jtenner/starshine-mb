@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
@@ -24,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the released primary source oracle for this pass. The immutable baseline manifest remains [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md); the current freshness bridge is [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md). The older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
+Use Binaryen `version_130` as the released primary source oracle for this pass. The retained released/current source bridge is [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md); the older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
 
 Primary files:
 

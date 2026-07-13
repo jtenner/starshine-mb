@@ -159,7 +159,7 @@ sources:
   - ../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
@@ -637,7 +637,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
 - [`../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
 - [`../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md)
+- [`../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md)
 - [`../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
 - [`../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
 - [`../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)

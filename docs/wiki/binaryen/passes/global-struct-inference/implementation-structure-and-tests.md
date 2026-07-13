@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
@@ -38,7 +37,7 @@ Read it as a follow-along guide:
 
 ## Binaryen owner-file map
 
-Primary source: [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md), with the released/current owner, registration, and fixture recheck in [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md). Use `version_130` for the released oracle and current `main` only as a drift watch.
+Primary released/current owner, registration, and fixture source bridge: [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md). Use `version_130` for the released oracle and current `main` only as a drift watch.
 
 ### `src/passes/GlobalStructInference.cpp`
 
