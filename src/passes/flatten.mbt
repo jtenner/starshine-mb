@@ -325,6 +325,139 @@ fn flatten_label_uses_are_routed_scalar_brs(
 }
 
 ///|
+fn flatten_try_route_branch_free_multivalue_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  block_id : Int,
+) -> Array[Int]? {
+  let block = @ir.hot_node_get(func, block_id)
+  match block.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let result_types = @ir.hot_type_results(func, block.ty)
+  if result_types.length() <= 1 {
+    return None
+  }
+  for result_type in result_types {
+    if !flatten_value_type_is_defaultable(result_type) {
+      return None
+    }
+  }
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count < result_types.length() {
+    return None
+  }
+  let tail_start = body_count - result_types.length()
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 || value_types[0] != result_types[slot] {
+      return None
+    }
+  }
+  let locals = match
+    flatten_ensure_label_temps(func, state, label_id, result_types) {
+    Some(locals) => locals
+    None => return None
+  }
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
+    ignore(
+      pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
+        @ir.hot_build_local_set(func, locals[slot], value_id),
+      ]),
+    )
+  }
+  @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+  Some(locals)
+}
+
+///|
+fn flatten_multivalue_control_use_span_is_exclusive(
+  func : @ir.HotFunc,
+  parent_id : Int,
+  slot : Int,
+  child_id : Int,
+  result_count : Int,
+) -> Bool {
+  if slot + result_count > @ir.hot_child_count(func, parent_id) {
+    return false
+  }
+  for result_slot = 0; result_slot < result_count; result_slot = result_slot + 1 {
+    if @ir.hot_child_get(func, parent_id, slot + result_slot) != child_id {
+      return false
+    }
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    for child_slot = 0
+        child_slot < @ir.hot_child_count(func, node_id)
+        child_slot = child_slot + 1 {
+      if @ir.hot_child_get(func, node_id, child_slot) == child_id &&
+        (
+          node_id != parent_id ||
+          child_slot < slot ||
+          child_slot >= slot + result_count
+        ) {
+        return false
+      }
+    }
+  }
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    if @ir.hot_root_get(func, root_idx) == child_id {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn flatten_try_route_multivalue_control_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  parent_id : Int,
+  slot : Int,
+  child_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let result_count = @ir.hot_node_result_arity(func, child_id)
+  if result_count <= 1 ||
+    !flatten_multivalue_control_use_span_is_exclusive(
+      func, parent_id, slot, child_id, result_count,
+    ) {
+    return false
+  }
+  let locals = match
+    flatten_try_route_branch_free_multivalue_block(ctx, func, state, child_id) {
+    Some(locals) => locals
+    None => return false
+  }
+  preludes.push(child_id)
+  for result_slot = 0; result_slot < result_count; result_slot = result_slot + 1 {
+    @ir.hot_child_set(
+      func,
+      parent_id,
+      slot + result_slot,
+      @ir.hot_build_local_get(func, locals[result_slot]),
+    )
+  }
+  true
+}
+
+///|
 fn flatten_try_route_scalar_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1428,6 +1561,11 @@ fn flatten_rewrite_operand_slot(
   )
   if flatten_try_lower_tee_operand(
       ctx, func, parent_id, slot, child_id, preludes,
+    ) {
+    return true
+  }
+  if flatten_try_route_multivalue_control_operand(
+      ctx, func, state, parent_id, slot, child_id, preludes,
     ) {
     return true
   }

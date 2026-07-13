@@ -129,6 +129,10 @@ If yes, Binaryen tries to:
 - flatten runs the block earlier as a prelude
 - the outer consumer reads the temp instead
 
+### Current Starshine multivalue block slice
+
+Starshine also routes a branch-free defaultable multivalue block when its tail consists of independently scalar results and HOT exposes all result uses as one exclusive repeated consumer span, such as an explicit two-result `return`. Each tail value is stored into its matching typed label local, the block becomes void, and the consumer span becomes ordered `local.get` operands. Shared or nonexclusive HOT ownership remains deferred rather than guessing result provenance.
+
 ## Shape 4: `if (result ...)` writes arm values into a temp
 
 ## Before
