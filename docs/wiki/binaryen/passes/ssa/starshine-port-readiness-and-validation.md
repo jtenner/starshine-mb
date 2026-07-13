@@ -5,7 +5,6 @@ last_reviewed: 2026-06-13
 sources:
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt

@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
@@ -31,7 +30,7 @@ related:
 
 # `ssa` implementation structure and tests
 
-This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. For immutable tagged provenance URLs and anchors, start with [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md); for the scoped current-main and local-admission refresh, use [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
+This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. Its direct tagged `version_129` URLs below preserve the owner, helper, and lit provenance; for scoped current-main and local-admission freshness, use [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
 
 ## Upstream file map
 
