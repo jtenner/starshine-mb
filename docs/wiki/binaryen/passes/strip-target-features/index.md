@@ -10,8 +10,6 @@ sources:
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
-  - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
-  - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -123,7 +121,5 @@ For a future Starshine port, add tests in this order:
 - [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
 - [`../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md)
 - [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md`](../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md)
-- [`../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md`](../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md)
 - Binaryen `StripTargetFeatures.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StripTargetFeatures.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
