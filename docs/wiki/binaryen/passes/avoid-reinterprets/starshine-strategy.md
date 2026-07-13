@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/avoid_reinterprets.mbt
   - ../../../../../src/passes/avoid_reinterprets_test.mbt
@@ -36,7 +35,7 @@ related:
 
 # Starshine Strategy For `avoid-reinterprets`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
+Use this page together with the retained direct `version_129` source/test URLs and 2026-04-24 follow-up research, the 2026-04-26 port-readiness recheck [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md), and the 2026-07-11 current-main bridge [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the current Starshine status, local code surfaces, and remaining parity boundary.
 
 ## Current status

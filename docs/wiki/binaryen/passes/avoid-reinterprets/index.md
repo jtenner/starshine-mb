@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -40,7 +39,7 @@ related:
 
 - The original parity queue and the first tracker-expansion wave are already dossier-covered, so this folder is an explicit source-backed expansion for a real local pass that has now moved from removed to active-partial.
 - `agent-todo.md` currently has **no dedicated `avoid-reinterprets` slice**.
-- The 2026-04-24 follow-up added an immutable raw primary-source manifest and a dedicated Starshine status page, so future readers no longer need to infer local status from registry snippets alone.
+- The retained direct `version_129` source/test URLs, 2026-04-24 follow-up research, and dedicated Starshine status page mean future readers need not infer local status from registry snippets alone.
 - The 2026-07-11 current-main follow-up refreshed the owner, registration, local-analysis, fixture, local-code, and harness-admission bridge, so future implementers can start from direct `reinterpret(load)` flips before designing a LocalGraph-equivalent proof.
 - The pass name sounds broader than the real contract.
 - A future port needs to preserve exact provenance and helper-local behavior, not just “remove reinterprets somehow.”
@@ -96,7 +95,7 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `avoid-reinterprets` research and port planning.
 - Keep it explicitly marked as **partial** until Starshine grows the indirect single-load-provenance helper-local family.
-- Cite the raw primary-source manifest when restating original Binaryen source provenance: [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md); cite the 2026-07-11 bridge for current-main freshness and current local/harness reconciliation: [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
+- Cite the retained direct `version_129` source/test URLs and 2026-04-24 follow-up research for the initial Binaryen provenance; cite the 2026-07-11 bridge for current-main freshness and current local/harness reconciliation: [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the scope fact explicit: reviewed Binaryen duplicates eligible loads to serve reinterpret users; it does not retarget whole local webs or eliminate every reinterpret in sight.
 - Keep the implementation split explicit: direct `reinterpret(load)` flips are implemented in [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt); indirect `reinterpret(local.get)` rewrites still require an explicit LocalGraph-equivalent proof decision first.
@@ -108,7 +107,6 @@ So this pass is best taught as:
 - [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
 - [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
