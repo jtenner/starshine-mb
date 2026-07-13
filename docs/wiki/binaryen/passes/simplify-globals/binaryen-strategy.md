@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
   - ../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md
   - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
@@ -24,7 +23,7 @@ related:
 
 This page teaches the algorithmic behavior.
 For the compact owner-file and shipped-test map, read [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) alongside it.
-For the immutable reviewed release/source/test URL manifest, read [`../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md) alongside both pages.
+For the reviewed owner/test freshness bridge, read [`../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md) alongside both pages; direct tagged release, source, and test URLs remain below.
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
