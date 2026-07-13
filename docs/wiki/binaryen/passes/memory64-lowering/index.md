@@ -11,7 +11,6 @@ sources:
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
-  - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
@@ -133,7 +132,6 @@ The future Starshine sequencing is spelled out in [`starshine-port-readiness-and
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md)
