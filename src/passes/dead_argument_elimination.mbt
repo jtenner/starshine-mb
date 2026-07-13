@@ -776,6 +776,13 @@ priv struct DaeExactLiteralWorklistApplication {
 }
 
 ///|
+priv struct DaeDroppedResultPayoffChainCandidate {
+  wrapper_def : Int
+  callee_def : Int
+  payoff : Int
+}
+
+///|
 priv struct DaeOriginalCallSummary {
   call_counts : Array[Int]
   prior_call_counts : Array[Int]
@@ -27624,6 +27631,248 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
     helper_start_us,
   )
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_dropped_result_payoff_instrs(instrs : Array[@lib.Instruction]) -> Int {
+  let mut payoff = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(_) | @lib.LocalTee(_) => payoff += 4
+      @lib.LocalGet(_) => payoff += 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        payoff += dae_dropped_result_payoff_instrs(body)
+      @lib.If(_, then_body, else_body) => {
+        payoff += dae_dropped_result_payoff_instrs(then_body)
+        match else_body {
+          Some(body) => payoff += dae_dropped_result_payoff_instrs(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  payoff
+}
+
+///|
+fn dae_terminal_direct_callee_def(
+  func : @lib.Func,
+  imported : Int,
+  defined : Int,
+) -> Int? {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  if body.length() == 0 {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.Call(func_idx) => {
+      let callee_def = dae_func_idx_slot(func_idx) - imported
+      if callee_def >= 0 && callee_def < defined {
+        Some(callee_def)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn dae_func_result_count(
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  func_abs : Int,
+) -> Int {
+  match dae_resolve_func_type(mod_, type_indices, func_abs) {
+    Some(@lib.FuncType(_, results)) => results.length()
+    None => 0
+  }
+}
+
+///|
+fn dae_collect_dropped_result_payoff_chain_candidates(
+  mod_ : @lib.Module,
+  call_facts : DaeCurrentCallFacts,
+) -> Array[DaeDroppedResultPayoffChainCandidate] {
+  let candidates : Array[DaeDroppedResultPayoffChainCandidate] = []
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  if defined <= 8192 {
+    return candidates
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return candidates
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  for wrapper_def = 0
+      wrapper_def < funcs.length()
+      wrapper_def = wrapper_def + 1 {
+    let wrapper_abs = imported + wrapper_def
+    let wrapper_candidate = match
+      dae_dropped_result_candidate_from_boundary_facts(
+        boundary_facts, wrapper_abs,
+      ) {
+      Some(candidate) => candidate
+      None => continue
+    }
+    if !wrapper_candidate.owned_dropped_result_candidate ||
+      dae_func_result_count(mod_, type_indices, wrapper_abs) != 1 {
+      continue
+    }
+    let callee_def = match
+      dae_terminal_direct_callee_def(funcs[wrapper_def], imported, defined) {
+      Some(def_idx) if def_idx != wrapper_def => def_idx
+      _ => continue
+    }
+    let callee_abs = imported + callee_def
+    if dae_func_result_count(mod_, type_indices, callee_abs) != 1 {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(callee_body)) = funcs[callee_def]
+    let payoff = dae_dropped_result_payoff_instrs(callee_body)
+    if locals.length() >= 128 && payoff >= 128 {
+      candidates.push({ wrapper_def, callee_def, payoff })
+    }
+  }
+  candidates
+}
+
+///|
+fn dae_run_broad_dropped_result_payoff_chain(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  perf? : HotPerfSession? = None,
+) -> DaeExactLiteralWorklistApplication {
+  let imported = dae_imported_func_count(current)
+  let defined = dae_defined_func_count(current)
+  if defined <= 8192 {
+    return { mod_out: current, touched, changed, productive_defs: [] }
+  }
+  let total = imported + defined
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let candidates = dae_collect_dropped_result_payoff_chain_candidates(
+    current, call_facts,
+  )
+  while candidates.length() > 0 {
+    let mut best_idx = 0
+    for idx = 1; idx < candidates.length(); idx = idx + 1 {
+      if candidates[idx].payoff > candidates[best_idx].payoff {
+        best_idx = idx
+      }
+    }
+    let candidate = candidates[best_idx]
+    ignore(candidates.remove(best_idx))
+    let wrapper_result = dae_try_remove_dropped_result_def_with_facts(
+      current,
+      candidate.wrapper_def,
+      call_facts,
+      perf~,
+    )
+    if !wrapper_result.changed {
+      continue
+    }
+    let next_facts = dae_collect_current_call_facts(
+      wrapper_result.mod_out,
+      total,
+    )
+    let callee_result = dae_try_remove_dropped_result_def_with_facts(
+      wrapper_result.mod_out,
+      candidate.callee_def,
+      next_facts,
+      perf~,
+    )
+    if !callee_result.changed {
+      continue
+    }
+    return {
+      mod_out: callee_result.mod_out,
+      touched: dae_merge_touched(
+        dae_merge_touched(touched, wrapper_result.touched),
+        callee_result.touched,
+      ),
+      changed: true,
+      productive_defs: [candidate.wrapper_def, candidate.callee_def],
+    }
+  }
+  { mod_out: current, touched, changed, productive_defs: [] }
+}
+
+///|
+fn dae_collect_dropped_result_payoff_cleanup_candidate(
+  original : @lib.Module,
+  current : @lib.Module,
+) -> DaeDroppedResultPayoffChainCandidate? {
+  let imported = dae_imported_func_count(original)
+  let defined = dae_defined_func_count(original)
+  if defined <= 8192 || dae_defined_func_count(current) != defined {
+    return None
+  }
+  let original_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  let original_types = dae_collect_func_type_indices(original)
+  let current_types = dae_collect_func_type_indices(current)
+  let original_call_facts = dae_collect_current_call_facts(
+    original,
+    imported + defined,
+  )
+  let original_boundary_facts = dae_call_boundary_facts_from_current(
+    original_call_facts,
+  )
+  let mut best : DaeDroppedResultPayoffChainCandidate? = None
+  for wrapper_def = 0
+      wrapper_def < original_funcs.length()
+      wrapper_def = wrapper_def + 1 {
+    let callee_def = match
+      dae_terminal_direct_callee_def(
+        original_funcs[wrapper_def],
+        imported,
+        defined,
+      ) {
+      Some(def_idx) if def_idx != wrapper_def => def_idx
+      _ => continue
+    }
+    let wrapper_abs = imported + wrapper_def
+    let wrapper_candidate = match
+      dae_dropped_result_candidate_from_boundary_facts(
+        original_boundary_facts, wrapper_abs,
+      ) {
+      Some(candidate) if candidate.owned_dropped_result_candidate => candidate
+      _ => continue
+    }
+    if wrapper_candidate.direct_call_count == 0 ||
+      dae_func_result_count(original, original_types, wrapper_abs) != 1 ||
+      dae_func_result_count(original, original_types, imported + callee_def) !=
+      1 ||
+      dae_func_result_count(current, current_types, imported + wrapper_def) != 0 ||
+      dae_func_result_count(current, current_types, imported + callee_def) != 0 {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = original_funcs[callee_def]
+    let candidate = {
+      wrapper_def,
+      callee_def,
+      payoff: dae_dropped_result_payoff_instrs(body),
+    }
+    if locals.length() < 128 || candidate.payoff < 128 {
+      continue
+    }
+    match best {
+      Some(existing) =>
+        if candidate.payoff > existing.payoff {
+          best = Some(candidate)
+        }
+      None => best = Some(candidate)
+    }
+  }
+  best
 }
 
 ///|
