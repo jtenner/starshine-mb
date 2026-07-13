@@ -27986,6 +27986,47 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
 }
 
 ///|
+fn dae_append_terminal_result_dependency_postorder(
+  funcs : Array[@lib.Func],
+  def_idx : Int,
+  imported : Int,
+  defined : Int,
+  remaining_depth : Int,
+  queued : Array[Bool],
+  queue : Array[Int],
+) -> Unit {
+  if remaining_depth <= 0 ||
+    def_idx < 0 ||
+    def_idx >= defined ||
+    def_idx >= funcs.length() ||
+    queued[def_idx] {
+    return
+  }
+  queued[def_idx] = true
+  let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+  if body.length() > 0 {
+    match body[body.length() - 1] {
+      @lib.Call(func_idx) => {
+        let callee_def = dae_func_idx_slot(func_idx) - imported
+        if callee_def != def_idx {
+          dae_append_terminal_result_dependency_postorder(
+            funcs,
+            callee_def,
+            imported,
+            defined,
+            remaining_depth - 1,
+            queued,
+            queue,
+          )
+        }
+      }
+      _ => ()
+    }
+  }
+  queue.push(def_idx)
+}
+
+///|
 fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
@@ -27997,7 +28038,17 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
-  let queue = seed_defs.copy()
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return { mod_out: current, touched, changed, productive_defs: [] }
+  }
+  let queue : Array[Int] = []
+  let queued = Array::make(defined, false)
+  for seed_def in seed_defs {
+    dae_append_terminal_result_dependency_postorder(
+      funcs, seed_def, imported, defined, 16, queued, queue,
+    )
+  }
   let seen = Array::make(defined, false)
   let productive_defs : Array[Int] = []
   let mut mod_out = current

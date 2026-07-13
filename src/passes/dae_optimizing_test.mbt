@@ -6657,10 +6657,12 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       #|    local.get 9
       #|    ref.is_null
       #|    drop
+      #|    call $sink)
+      #|  (func $sink (result (ref null $base))
       #|    struct.new_default $leaf)
     ),
   )
-  for i = target_def + 1; i + 1 < total_defs; i = i + 1 {
+  for i = target_def + 2; i + 1 < total_defs; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
   }
   out.write_string(
@@ -6718,6 +6720,14 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
     ),
     msg=trace.to_string(),
   )
+  for
+    expected in [
+      "pass[dae-optimizing]:low-exact-result-worklist iter=0 primary_def=165", "pass[dae-optimizing]:low-exact-result-worklist iter=1 primary_def=164",
+      "pass[dae-optimizing]:low-exact-result-worklist iter=2 primary_def=39", "pass[dae-optimizing]:low-exact-result-worklist iter=3 primary_def=38",
+      "pass[dae-optimizing]:low-exact-result-worklist iter=4 primary_def=37",
+    ] {
+    assert_true(trace.contains(expected), msg=trace.to_string())
+  }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
