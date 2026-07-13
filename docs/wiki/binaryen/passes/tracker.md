@@ -134,7 +134,6 @@ sources:
   - ../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
