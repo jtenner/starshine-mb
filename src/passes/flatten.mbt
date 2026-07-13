@@ -1156,7 +1156,7 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
     }
   }
   match @ir.hot_node_get(func, nested_id).op {
-    @ir.HotOp::If => ()
+    @ir.HotOp::Block | @ir.HotOp::If => ()
     _ => return false
   }
   if @ir.hot_type_results(func, @ir.hot_node_get(func, nested_id).ty) !=

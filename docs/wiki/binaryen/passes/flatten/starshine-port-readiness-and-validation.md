@@ -6,6 +6,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-block-table-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -108,7 +109,7 @@ After basic value routing is green, add the payload-specific cases that make `fl
 - rich ordinary scalar `br_if` payloads are sequenced before rich conditions, evaluated once, and shared across repeated chained conditionals instead of being reevaluated by generic operand spilling;
 - the source-derived `br_if` target-type versus flowing-out-type mismatch uses a second flow-typed temp, one payload evaluation, and a typed copy into the target temp;
 - same-vector multivalue `br_if` into defaultable block/if targets now evaluates each supported scalar payload once in source order, writes the target's shared typed local vector, replaces the exact contiguous false-path tail with matching reads, clears only payload children, and preserves the condition; mismatched vectors, unsupported origins, and ambiguous/shared false-path ownership remain fail-closed before mutation;
-- scalar `br_table` stores rich ordinary payloads once before rich selectors, copies into every unique target temp, deduplicates repeated labels, clears its payload, and removes the HOT terminal payload-root artifact; exact independently scalar multivalue vectors now cover repeated/nested block targets and exact inputful loop-plus-enclosing-block and loop-plus-repeated-if families, while broader mixed-control and nonexclusive fanout remain open.
+- scalar `br_table` stores rich ordinary payloads once before rich selectors, copies into every unique target temp, deduplicates repeated labels, clears its payload, and removes the HOT terminal payload-root artifact; exact independently scalar multivalue vectors now cover repeated/nested block targets and exact inputful loop-plus-enclosing-block, loop-plus-repeated-if, and loop-plus-repeated-block families, while broader mixed-control and nonexclusive fanout remain open.
 
 The two-temp scalar `br_if` family remains a must-have parity test because it is easy to miss and is explicitly motivated by upstream source comments. The v130 concrete-type owner also motivates the same-vector multivalue correspondence, but Starshine keeps stricter ownership gates until broader tuple-flow proof exists.
 
@@ -118,7 +119,7 @@ Only after the simpler families are stable should a port claim broader pass cove
 
 Required tests before any parity claim:
 
-- zero-input and independently scalar inputful scalar-result `loop` route body results through a temp and leave a `local.get` outside; admitted inputful loops capture entries once in order and clear their parameter prefix, payloadless and independently scalar one- or multi-parameter `br`/`br_if` backedges reuse entry locals, and independently scalar one- or multi-parameter `br_table` backedges stage ordered vectors into unique target entry locals. The first inputful multivalue-result lane additionally permits exact loop-plus-enclosing-block table fanout with independently scalar fallthrough tails and a distinct result vector; multivalue single-producer table channels remain explicit negatives;
+- zero-input and independently scalar inputful scalar-result `loop` route body results through a temp and leave a `local.get` outside; admitted inputful loops capture entries once in order and clear their parameter prefix, payloadless and independently scalar one- or multi-parameter `br`/`br_if` backedges reuse entry locals, and independently scalar one- or multi-parameter `br_table` backedges stage ordered vectors into unique target entry locals. The inputful multivalue-result table lanes additionally permit exact loop-plus-enclosing-block fanout with independently scalar fallthrough tails, or one repeated exclusive block/if result tail that feeds a distinct loop-result vector; multivalue single-producer table channels remain explicit negatives;
 - branch-free scalar and independently produced multivalue legacy `try` now route exact do/catch results through shared typed locals; multivalue ownership requires one exclusive repeated consumer span, while repair-sensitive `Catch`/`CatchAll`, `rethrow`, and `delegate` functions are explicitly pre-gated;
 - inserted catch blocks must still validate after Binaryen-equivalent EH pop repair before broader legacy-EH admission;
 - placeholder `unreachable` now preserves nested terminal `br`/`br_table`/`return` effects in their owner region without duplicating effects that HOT already exposes as an earlier root; return payload work remains before the terminal and later sibling preludes remain later, while throw/EH terminal families remain to be proved;
