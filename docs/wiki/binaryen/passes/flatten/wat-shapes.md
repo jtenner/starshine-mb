@@ -456,7 +456,7 @@ For a branch-free zero-input/no-backedge loop with independently scalar defaulta
 
 ### Current Starshine legacy-try slice
 
-Starshine now routes branch-free scalar defaultable legacy `try` results when both the do and catch regions end in exact scalar values. Each region writes its tail into one shared typed local, the `try` becomes void, and the outer consumer reads a `local.get`. This first slice deliberately pre-gates the whole function when legacy EH repair-sensitive `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes are present. Binaryen-equivalent nested-pop repair is still required before those catch shapes, branch-targeted tries, or broader result vectors can be admitted.
+Starshine routes branch-free defaultable legacy `try` results when both the do and catch regions end in exact independently scalar values. Scalar results use one shared typed local. Multivalue results use one shared typed vector and require one exclusive repeated HOT consumer span so result ownership is unambiguous. Each region writes its tails in source order, the `try` becomes void, and the outer consumer reads matching `local.get` nodes. The whole function remains pre-gated when legacy EH repair-sensitive `Catch`/`CatchAll`, `rethrow`, or `delegate` nodes are present. Binaryen-equivalent nested-pop repair is still required before those catch shapes, branch-targeted tries, or single multivalue producers can be admitted.
 
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 

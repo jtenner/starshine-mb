@@ -496,6 +496,82 @@ fn flatten_try_route_multivalue_if(
 }
 
 ///|
+fn flatten_multivalue_legacy_try_is_supported(
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> Bool {
+  let try_node = @ir.hot_node_get(func, try_id)
+  match try_node.op {
+    @ir.HotOp::Try => ()
+    _ => return false
+  }
+  let result_types = @ir.hot_type_results(func, try_node.ty)
+  if result_types.length() <= 1 ||
+    flatten_legacy_try_has_deferred_eh_repair(func) ||
+    !flatten_multivalue_control_has_exclusive_consumer_span(func, try_id) {
+    return false
+  }
+  for result_type in result_types {
+    if !flatten_value_type_is_defaultable(result_type) {
+      return false
+    }
+  }
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    return false
+  }
+  let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
+    if !flatten_multivalue_region_tail_matches_types(
+        func, region_ref, result_types,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn flatten_try_route_multivalue_try(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  try_id : Int,
+) -> Array[Int]? {
+  if !flatten_multivalue_legacy_try_is_supported(func, try_id) {
+    return None
+  }
+  let result_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, try_id).ty,
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let locals = match
+    flatten_ensure_label_temps(func, state, label_id, result_types) {
+    Some(locals) => locals
+    None => return None
+  }
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
+    let tail_start = @ir.hot_region_root_count(func, region_ref) -
+      result_types.length()
+    for slot = 0; slot < result_types.length(); slot = slot + 1 {
+      let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
+      ignore(
+        pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
+          @ir.hot_build_local_set(func, locals[slot], value_id),
+        ]),
+      )
+    }
+  }
+  @ir.hot_control_result_type_set(func, try_id, @ir.hot_type_void(func))
+  Some(locals)
+}
+
+///|
 fn flatten_try_route_branch_free_multivalue_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -644,6 +720,8 @@ fn flatten_try_route_multivalue_control_operand(
     @ir.HotOp::If => flatten_try_route_multivalue_if(ctx, func, state, child_id)
     @ir.HotOp::Loop =>
       flatten_try_route_branch_free_multivalue_loop(ctx, func, state, child_id)
+    @ir.HotOp::Try =>
+      flatten_try_route_multivalue_try(ctx, func, state, child_id)
     _ => None
   }
   let locals = match locals {
@@ -2238,11 +2316,17 @@ fn flatten_has_deferred_legacy_try(func : @ir.HotFunc) -> Bool {
       continue
     }
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Try =>
-        if @ir.hot_node_result_arity(func, node_id) > 0 &&
+      @ir.HotOp::Try => {
+        let result_arity = @ir.hot_node_result_arity(func, node_id)
+        if result_arity == 1 &&
           !flatten_scalar_legacy_try_is_supported(func, node_id) {
           return true
         }
+        if result_arity > 1 &&
+          !flatten_multivalue_legacy_try_is_supported(func, node_id) {
+          return true
+        }
+      }
       _ => ()
     }
   }
