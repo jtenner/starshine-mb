@@ -9,7 +9,6 @@ sources:
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
-  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
