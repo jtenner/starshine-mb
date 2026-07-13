@@ -967,6 +967,92 @@ test "flatten intentionally leaves multivalue loop entry producers fail closed" 
 }
 
 ///|
+test "flatten scalarizes one exact tuple-made inputful loop entry" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32))) (func (param i32 i64) call 1 loop (type $carrier) drop drop i32.const 7 end drop) (func (result i32 i64) i32.const 5 i64.const 6))",
+  )
+  let outer_drop = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, outer_drop, 0)
+  let old_entry = @ir.hot_child_get(func, loop_id, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, loop_id, 1), old_entry)
+  let first_value = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_value, @lib.Instruction::i32_add())
+  let second_value = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i64(func, @lib.I64(2L)),
+  )
+  @ir.hot_node_exact_instr_set(func, second_value, @lib.Instruction::i64_add())
+  let tuple_id = @ir.hot_build_tuple_make(func, [i32_type, i64_type], [
+    first_value, second_value,
+  ])
+  @ir.hot_child_set(func, loop_id, 0, tuple_id)
+  @ir.hot_child_set(func, loop_id, 1, tuple_id)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  for root_idx = 0; root_idx < 2; root_idx = root_idx + 1 {
+    let drop_id = @ir.hot_region_get(func, body_ref, root_idx)
+    @debug.assert_eq(@ir.hot_node_get(func, drop_id).op.to_string(), "Drop")
+    @debug.assert_eq(@ir.hot_child_get(func, drop_id, 0), old_entry)
+    @ir.hot_child_set(func, drop_id, 0, tuple_id)
+  }
+  @ir.hot_delete_node(func, old_entry)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_child_count(func, loop_id), 3)
+  @debug.assert_eq(@ir.hot_root_count(func), 6)
+  let first_value_set = @ir.hot_root_get(func, 0)
+  let second_value_set = @ir.hot_root_get(func, 1)
+  let first_entry_set = @ir.hot_root_get(func, 2)
+  let second_entry_set = @ir.hot_root_get(func, 3)
+  @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_value)
+  @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_value)
+  let first_local = @ir.hot_node_get(func, first_entry_set).imm0
+  let second_local = @ir.hot_node_get(func, second_entry_set).imm0
+  @debug.assert_eq(@ir.hot_local_type(func, first_local), Some(i32_type))
+  @debug.assert_eq(@ir.hot_local_type(func, second_local), Some(i64_type))
+  let first_drop = @ir.hot_region_get(func, body_ref, 0)
+  let second_drop = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_drop, 0)).imm0,
+    second_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_drop, 0)).imm0,
+    first_local,
+  )
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_value), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_value), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-made inputful loop entry routing to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten routes scalar loop results across payloadless backedges" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (drop (loop (result i32) local.get 0 br_if 0 i32.const 7))))",

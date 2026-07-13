@@ -1382,6 +1382,68 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
 }
 
 ///|
+fn flatten_inputful_loop_tuple_entry_values(
+  func : @ir.HotFunc,
+  loop_id : Int,
+  param_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  let input_count = param_types.length()
+  if input_count <= 1 || @ir.hot_child_count(func, loop_id) <= input_count {
+    return None
+  }
+  let tuple_id = @ir.hot_child_get(func, loop_id, 0)
+  for slot = 1; slot < input_count; slot = slot + 1 {
+    if @ir.hot_child_get(func, loop_id, slot) != tuple_id {
+      return None
+    }
+  }
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake => ()
+    _ => return None
+  }
+  if @ir.hot_type_results(func, tuple.ty) != param_types ||
+    @ir.hot_child_count(func, tuple_id) != input_count {
+    return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  if @ir.hot_region_root_count(func, body_ref) < input_count {
+    return None
+  }
+  for offset = 0; offset < input_count; offset = offset + 1 {
+    let consumer_id = @ir.hot_region_get(func, body_ref, offset)
+    let consumer = @ir.hot_node_get(func, consumer_id)
+    match consumer.op {
+      @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 => ()
+      _ => return None
+    }
+    if @ir.hot_child_get(func, consumer_id, 0) != tuple_id {
+      return None
+    }
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  if @ir.node_use_count(use_def, tuple_id) != input_count {
+    return None
+  }
+  let values : Array[Int] = []
+  for slot = 0; slot < input_count; slot = slot + 1 {
+    let value_id = @ir.hot_child_get(func, tuple_id, slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 ||
+      value_types[0] != param_types[slot] ||
+      !flatten_value_type_is_defaultable(param_types[slot]) ||
+      !flatten_scalar_branch_payload_has_supported_origin(func, value_id) {
+      return None
+    }
+    values.push(value_id)
+  }
+  Some(values)
+}
+
+///|
 fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
   loop_id : Int,
@@ -1421,17 +1483,20 @@ fn flatten_inputful_loop_is_supported(
     ) {
     return false
   }
-  for slot = 0; slot < input_count; slot = slot + 1 {
-    let entry_id = @ir.hot_child_get(func, loop_id, slot)
-    let entry_types = @ir.hot_type_results(
-      func,
-      @ir.hot_node_get(func, entry_id).ty,
-    )
-    if entry_types.length() != 1 ||
-      entry_types[0] != param_types[slot] ||
-      !flatten_value_type_is_defaultable(param_types[slot]) ||
-      !flatten_scalar_branch_payload_has_supported_origin(func, entry_id) {
-      return false
+  if flatten_inputful_loop_tuple_entry_values(func, loop_id, param_types)
+    is None {
+    for slot = 0; slot < input_count; slot = slot + 1 {
+      let entry_id = @ir.hot_child_get(func, loop_id, slot)
+      let entry_types = @ir.hot_type_results(
+        func,
+        @ir.hot_node_get(func, entry_id).ty,
+      )
+      if entry_types.length() != 1 ||
+        entry_types[0] != param_types[slot] ||
+        !flatten_value_type_is_defaultable(param_types[slot]) ||
+        !flatten_scalar_branch_payload_has_supported_origin(func, entry_id) {
+        return false
+      }
     }
   }
   if pass_label_is_used(label_id, pass_compute_label_used(func)) &&
@@ -1485,6 +1550,7 @@ fn flatten_replace_loop_entry_in_node(
 
 ///|
 fn flatten_prepare_inputful_scalar_loop(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   loop_id : Int,
@@ -1492,6 +1558,37 @@ fn flatten_prepare_inputful_scalar_loop(
 ) -> Unit {
   let label_id = @ir.hot_control_node_label(func, loop_id)
   let input_count = @ir.hot_label_branch_arity(func, label_id)
+  let param_types = match
+    @ir.hot_type_get(func, @ir.hot_node_get(func, loop_id).ty) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, _) => params
+    _ => []
+  }
+  match flatten_inputful_loop_tuple_entry_values(func, loop_id, param_types) {
+    Some(values) => {
+      let tuple_id = @ir.hot_child_get(func, loop_id, 0)
+      let locals : Array[Int] = []
+      for slot = 0; slot < values.length(); slot = slot + 1 {
+        let local_id = @ir.hot_append_body_local(func, param_types[slot])
+        locals.push(local_id)
+        state.label_temps[label_id].push(local_id)
+        preludes.push(@ir.hot_build_local_set(func, local_id, values[slot]))
+      }
+      let body_ref = @ir.hot_region_body_ref(func, loop_id)
+      for offset = 0; offset < input_count; offset = offset + 1 {
+        let consumer_id = @ir.hot_region_get(func, body_ref, offset)
+        @ir.hot_child_set(
+          func,
+          consumer_id,
+          0,
+          @ir.hot_build_local_get(func, locals[input_count - 1 - offset]),
+        )
+      }
+      ignore(@ir.hot_loop_entry_values_clear(func, loop_id))
+      pass_delete_detached_nodes(ctx, func, [tuple_id])
+      return
+    }
+    None => ()
+  }
   let entries : Array[Int] = []
   for slot = 0; slot < input_count; slot = slot + 1 {
     entries.push(@ir.hot_child_get(func, loop_id, slot))
@@ -2986,7 +3083,9 @@ fn flatten_rewrite_node_operands(
             changed = true
           }
         }
-        flatten_prepare_inputful_scalar_loop(func, state, node_id, preludes)
+        flatten_prepare_inputful_scalar_loop(
+          ctx, func, state, node_id, preludes,
+        )
         changed = true
       } else {
         for slot = 0; slot < input_count; slot = slot + 1 {
