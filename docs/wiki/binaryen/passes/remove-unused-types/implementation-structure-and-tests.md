@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
-  - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
@@ -169,7 +168,6 @@ That is exactly why this pass is easy to underestimate.
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for the corrected file map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:

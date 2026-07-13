@@ -192,7 +192,6 @@ sources:
   - ../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
   - ../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
   - ../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md
@@ -673,7 +672,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md`](../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md)
 - [`../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md`](../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md)
 - [`../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - [`../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md`](../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md)
