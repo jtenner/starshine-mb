@@ -661,10 +661,17 @@ fn flatten_try_route_payloadless_multivalue_loop(
       return None
     }
   }
-  let locals = match
-    flatten_ensure_label_temps(func, state, label_id, result_types) {
-    Some(locals) => locals
-    None => return None
+  let locals = if state.label_temps[label_id].length() > 0 {
+    let result_locals : Array[Int] = []
+    for result_type in result_types {
+      result_locals.push(@ir.hot_append_body_local(func, result_type))
+    }
+    result_locals
+  } else {
+    match flatten_ensure_label_temps(func, state, label_id, result_types) {
+      Some(locals) => locals
+      None => return None
+    }
   }
   for slot = 0; slot < result_types.length(); slot = slot + 1 {
     let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
@@ -1062,7 +1069,33 @@ fn flatten_loop_backedges_are_supported(
 }
 
 ///|
-fn flatten_inputful_scalar_loop_is_supported(
+fn flatten_loop_has_multivalue_table_backedge(
+  func : @ir.HotFunc,
+  label_id : Int,
+  payload_count : Int,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::BrTable if flatten_br_table_targets_label(
+          func,
+          node.imm0,
+          label_id,
+        ) =>
+        if @ir.hot_child_count(func, node_id) == payload_count + 1 {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
   loop_id : Int,
 ) -> Bool {
@@ -1077,15 +1110,27 @@ fn flatten_inputful_scalar_loop_is_supported(
     return false
   }
   let result_types = @ir.hot_type_results(func, loop_node.ty)
-  if result_types.length() != 1 ||
-    !flatten_value_type_is_defaultable(result_types[0]) {
+  if result_types.length() == 0 {
     return false
+  }
+  for result_type in result_types {
+    if !flatten_value_type_is_defaultable(result_type) {
+      return false
+    }
   }
   let param_types = match @ir.hot_type_get(func, loop_node.ty) {
     @ir.HotTypeInfo::BlockResultResolved(_, params, _) => params
     _ => return false
   }
   if param_types.length() != input_count || loop_node.child_count <= input_count {
+    return false
+  }
+  if result_types.length() > 1 &&
+    !flatten_loop_has_multivalue_table_backedge(
+      func,
+      label_id,
+      param_types.length(),
+    ) {
     return false
   }
   for slot = 0; slot < input_count; slot = slot + 1 {
@@ -1110,8 +1155,15 @@ fn flatten_inputful_scalar_loop_is_supported(
   if body_count == 0 {
     return false
   }
-  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
-  @ir.hot_node_result_arity(func, tail_id) == 1
+  if result_types.length() == 1 {
+    let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+    return @ir.hot_node_result_arity(func, tail_id) == 1
+  }
+  (
+    flatten_multivalue_control_has_exclusive_consumer_span(func, loop_id) ||
+    flatten_multivalue_control_has_exclusive_region_tail_span(func, loop_id)
+  ) &&
+  flatten_multivalue_region_tail_matches_types(func, body_ref, result_types)
 }
 
 ///|
@@ -1683,6 +1735,18 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
             ) &&
             flatten_multivalue_branch_target_is_supported_with_table(
               func, nested_label, target_types, admitted_table_id,
+            )
+          }
+          @ir.HotOp::Loop => {
+            let nested_label = @ir.hot_control_node_label(func, nested_id)
+            flatten_br_table_targets_label(
+              func,
+              @ir.hot_node_get(func, admitted_table_id).imm0,
+              nested_label,
+            ) &&
+            (
+              flatten_inputful_loop_is_supported(func, nested_id) ||
+              @ir.hot_label_branch_arity(func, nested_label) == 0
             )
           }
           _ => false
@@ -2542,7 +2606,7 @@ fn flatten_rewrite_node_operands(
     @ir.HotOp::Loop => {
       let label_id = @ir.hot_control_node_label(func, node_id)
       let input_count = @ir.hot_label_branch_arity(func, label_id)
-      if flatten_inputful_scalar_loop_is_supported(func, node_id) {
+      if flatten_inputful_loop_is_supported(func, node_id) {
         for slot = 0; slot < input_count; slot = slot + 1 {
           let entry_id = @ir.hot_child_get(func, node_id, slot)
           if flatten_rewrite_node_operands(
@@ -2739,7 +2803,7 @@ fn flatten_has_deferred_inputful_loop(func : @ir.HotFunc) -> Bool {
     }
     let label_id = @ir.hot_control_node_label(func, node_id)
     if @ir.hot_label_branch_arity(func, label_id) > 0 &&
-      !flatten_inputful_scalar_loop_is_supported(func, node_id) {
+      !flatten_inputful_loop_is_supported(func, node_id) {
       return true
     }
   }

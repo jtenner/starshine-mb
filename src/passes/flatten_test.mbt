@@ -2503,3 +2503,141 @@ test "flatten fans ordered multivalue br_table payloads to nested block targets"
       )
   }
 }
+
+///|
+test "flatten routes multivalue loop and block br_table channels" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) block (result i32 i64) call 1 call 2 loop (type $carrier) drop drop call 5 if call 3 call 4 call 6 br_table 1 2 2 end i32.const 11 i64.const 13 end end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 1) (func (result i32) i32.const 0))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, return_id, 0)
+  let block_ref = @ir.hot_region_body_ref(func, block_id)
+  let loop_id = @ir.hot_region_get(func, block_ref, 0)
+  let first_entry = @ir.hot_child_get(func, loop_id, 0)
+  let second_entry = @ir.hot_child_get(func, loop_id, 1)
+  let loop_ref = @ir.hot_region_body_ref(func, loop_id)
+  let mut if_id = -1
+  for idx = 0; idx < @ir.hot_region_root_count(func, loop_ref); idx = idx + 1 {
+    let candidate = @ir.hot_region_get(func, loop_ref, idx)
+    match @ir.hot_node_get(func, candidate).op {
+      @ir.HotOp::If => if_id = candidate
+      _ => ()
+    }
+  }
+  assert_true(if_id >= 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let second_payload = @ir.hot_child_get(func, branch, 1)
+  let selector = @ir.hot_child_get(func, branch, 2)
+  let initial_loop_root_count = @ir.hot_region_root_count(func, loop_ref)
+  let first_fallthrough = @ir.hot_region_get(
+    func,
+    loop_ref,
+    initial_loop_root_count - 2,
+  )
+  let second_fallthrough = @ir.hot_region_get(
+    func,
+    loop_ref,
+    initial_loop_root_count - 1,
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  let first_entry_set = @ir.hot_region_get(func, block_ref, 0)
+  let second_entry_set = @ir.hot_region_get(func, block_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_entry_set, 0), first_entry)
+  @debug.assert_eq(@ir.hot_child_get(func, second_entry_set, 0), second_entry)
+  let first_entry_local = @ir.hot_node_get(func, first_entry_set).imm0
+  let second_entry_local = @ir.hot_node_get(func, second_entry_set).imm0
+  @debug.assert_eq(
+    @ir.hot_local_type(func, first_entry_local),
+    Some(@lib.ValType::i32()),
+  )
+  @debug.assert_eq(
+    @ir.hot_local_type(func, second_entry_local),
+    Some(@lib.ValType::i64()),
+  )
+  let loop_root = @ir.hot_region_get(func, block_ref, 2)
+  @debug.assert_eq(loop_root, loop_id)
+  let first_result_get = @ir.hot_region_get(func, block_ref, 3)
+  let second_result_get = @ir.hot_region_get(func, block_ref, 4)
+  let first_result_local = @ir.hot_node_get(func, first_result_get).imm0
+  let second_result_local = @ir.hot_node_get(func, second_result_get).imm0
+  assert_false(first_result_local == first_entry_local)
+  assert_false(second_result_local == second_entry_local)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 8)
+  let first_stage = @ir.hot_region_get(func, then_ref, 0)
+  let second_stage = @ir.hot_region_get(func, then_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_stage, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_stage, 0), second_payload)
+  let first_stage_local = @ir.hot_node_get(func, first_stage).imm0
+  let second_stage_local = @ir.hot_node_get(func, second_stage).imm0
+  let first_loop_copy = @ir.hot_region_get(func, then_ref, 2)
+  let second_loop_copy = @ir.hot_region_get(func, then_ref, 3)
+  let first_block_copy = @ir.hot_region_get(func, then_ref, 4)
+  let second_block_copy = @ir.hot_region_get(func, then_ref, 5)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_loop_copy).imm0,
+    first_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_loop_copy).imm0,
+    second_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_loop_copy, 0)).imm0,
+    first_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_loop_copy, 0)).imm0,
+    second_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_block_copy, 0)).imm0,
+    first_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_block_copy, 0)).imm0,
+    second_stage_local,
+  )
+  let selector_set = @ir.hot_region_get(func, then_ref, 6)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 7), branch)
+  let first_block_local = @ir.hot_node_get(func, first_block_copy).imm0
+  let second_block_local = @ir.hot_node_get(func, second_block_copy).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_block_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_block_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_fallthrough), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_fallthrough), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multivalue loop/block table routing to verify, got \{err}")
+  }
+}
