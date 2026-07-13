@@ -54,7 +54,7 @@ related:
 - The saved Binaryen debug log also shows many later reruns of the same local-cleanup neighborhood, which matches the nested rerun story from `opt-utils.h`.
 - The ordered-slot replay that used to live under slice `CL` is now closed: `src/passes/coalesce_locals_test.mbt` covers both exact neighborhoods, and [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md) records the current-head proof.
 - The first `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` slot is now explicitly proven in-tree and remains the public `optimize` / `shrink` cluster.
-- The second `reorder-locals -> coalesce-locals -> reorder-locals` slot is now replayable as a focused neighborhood and compares green on the checked-in debug artifact, while public `reorder-locals` scheduling still stays with the separate reorder-locals policy work.
+- The second `reorder-locals -> coalesce-locals -> reorder-locals` slot is now replayable as a focused neighborhood, compares green on the checked-in debug artifact, and is now reflected in public `optimize` / `shrink` scheduling via the 2026-07-12 reorder-locals preset update.
 
 ## Beginner summary
 

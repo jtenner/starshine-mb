@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-12
 sources:
+  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
   - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
   - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
@@ -63,16 +64,16 @@ Current direct transform-family inventory against `version_130`:
 | Nested local-user reindexing | Focused nested block/loop/if/try-table test covers recursive rewrite. | no current gap found |
 | Local-name repair and raw name payload invalidation | Focused name-section and CLI/binary tests cover metadata repair. | no current gap found |
 | Multivalue scratch-local drift | Documented as Binaryen writer/IR-builder boundary, not `ReorderLocals.cpp`. | standing boundary decision |
-| Repeated scheduler slots | Starshine public presets claim one tuple/no-structure slot; Binaryen has three no-DWARF slots. | not a direct transform blocker; remaining widening belongs to `[O4Z-PRESET-BEHAVIOR]` ordered-neighborhood work |
+| Repeated scheduler slots | Starshine public presets now claim the current Binaryen-shaped three-slot cleanup story: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. | closed for current RL scheduling; remaining preset differences belong to other `[O4Z-PRESET-BEHAVIOR]` owners |
 | TypeIdx/RecIdx invariant comment | Function-section type references are global `TypeIdx`; a local inline comment now marks `RecIdx` as an impossible function-section invariant failure. | `[AUDIT006-E]` closed for this pass |
 | Dedicated GenValid profile | `reorder-locals-all` now covers hot-sort, unused-trim, and name-repair leaves. | closed; 10000-case dedicated lane is green |
 
 ## Preset And Signoff Rule
 
 - In this repo, `reorder-locals` is intentionally available as an explicit module pass.
-- Public `optimize` and `shrink` schedule it exactly once in the proven early tuple/no-structure cleanup lane: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`.
-- Extra upstream-style `reorder-locals` slots are not yet claimed; any future widening still needs neighboring-slot evidence and exact preset tests.
-- Representation-stable comparison, local-name rewrite correctness, explicit module-pass coverage, and the current single public slot are the honest signoff targets.
+- Public `optimize` and `shrink` schedule the current Binaryen-shaped three-slot cleanup story: the early tuple/no-structure lane `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` plus the late cluster `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum`.
+- The 2026-07-12 public scheduling note `1561` closes RL's top-level repeated-slot policy gap using the already-landed ordered-neighborhood evidence; remaining preset divergence is now about neighboring passes such as `code-folding`, `redundant-set-elimination`, the second pre-pass `remove-unused-module-elements`, and the extra Starshine `remove-unused-brs` slot.
+- Representation-stable comparison, local-name rewrite correctness, explicit module-pass coverage, and the current public three-slot cleanup schedule are the honest signoff targets.
 
 ## Refreshed Debug-Artifact Boundary Replay
 
@@ -126,7 +127,8 @@ Use the Binaryen boundary controls when comparing this pass:
 - O4Z closeout: [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md)
 - `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
 - `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
+- Public preset scheduling: [`../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md)
+- Earlier one-slot reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)

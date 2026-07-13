@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-12
 sources:
+  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
   - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
@@ -41,10 +42,10 @@ related:
 `reorder-locals` is already implemented in Starshine, but the old folder split made one important distinction too implicit:
 
 - **explicit-pass correctness** is solved enough for the current supported module pass and covered by focused tests;
-- **current preset coverage** is exactly one public slot in the early tuple/no-structure cleanup lane;
-- **future extra-slot readiness** still needs ordered neighborhood evidence before Starshine claims more of Binaryen's repeated `reorder-locals` placements.
+- **current preset coverage** is the public three-slot cleanup story backed by the early tuple/no-structure lane plus the late simplify/coalesce reorder sandwich;
+- **future preset work** still needs ordered neighborhood evidence for the remaining non-`reorder-locals` no-DWARF gaps before Starshine can claim broader preset parity.
 
-This page is the bridge from the algorithm pages to validation work. Use it when deciding whether a future change only preserves the standalone pass, preserves the current single public slot, or tries to add more `reorder-locals` slots to `optimize` / `shrink`.
+This page is the bridge from the algorithm pages to validation work. Use it when deciding whether a future change only preserves the standalone pass, preserves the current public three-slot cleanup story, or changes `reorder-locals` placement/count inside `optimize` / `shrink`.
 
 ## Current Starshine status
 
@@ -60,15 +61,17 @@ Starshine currently exposes `reorder-locals` as an active module pass:
 - registry category test: `pass registry classifies active, boundary-only, and removed names` in `src/passes/registry_test.mbt`
 - explicit CLI coverage: focused `--reorder-locals` command coverage in `src/cmd/cmd_wbtest.mbt`
 
-Starshine now schedules it exactly once in both public presets:
+Starshine now schedules the public Binaryen-shaped three-slot cleanup story in both public presets:
 
 ```text
 code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs
+...
+local-subtyping -> coalesce-locals -> local-cse -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> merge-blocks
 ```
 
-Current preset tests lock the state by name: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` checks the neighborhood order, and `optimize and shrink presets schedule reorder-locals only inside the tuple no-structure slot` checks that there is exactly one `reorder-locals` occurrence. The 2026-06-04 reconciliation note [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) supersedes older docs that described total preset omission.
+Current preset tests lock that state by name: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` checks the early neighborhood order, `optimize and shrink presets schedule Binaryen-shaped reorder-locals cleanup slots` checks the three public `reorder-locals` occurrences and their immediate neighbors, and `optimize and shrink presets keep the late simplify-locals reorder sandwich together` checks the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. The 2026-07-12 scheduling note [`1561`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) supersedes the earlier one-slot public policy from [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md).
 
-That means new work should not treat the missing second or third Binaryen-style `reorder-locals` slot as an implementation bug by itself. Extra slots are scheduler-policy work and need ordered-neighborhood evidence.
+That means new work should no longer treat repeated top-level public `reorder-locals` scheduling as an open RL policy gap by itself. Remaining preset work is now about the neighboring no-DWARF owners that still diverge from Binaryen, not the `reorder-locals` slot count.
 
 ## Explicit-pass contract to preserve
 
@@ -105,7 +108,7 @@ That is not semantic divergence. It is an IR-shape difference that tests must ke
 
 ## Preset-readiness gate
 
-Do **not** add more `reorder-locals` slots to Starshine `optimize` or `shrink` just because the explicit pass and the current single slot are green.
+Do **not** change the current three public `reorder-locals` slots in Starshine `optimize` or `shrink` just because the explicit pass is green.
 
 Binaryen's no-DWARF optimizer uses `reorder-locals` as repeated glue around neighboring local passes:
 
@@ -113,7 +116,7 @@ Binaryen's no-DWARF optimizer uses `reorder-locals` as repeated glue around neig
 2. `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals`
 3. `... -> coalesce-locals -> reorder-locals -> vacuum`
 
-Starshine currently claims the first public lane only, in the expanded form `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`. A faithful future preset widening should therefore bring evidence for the specific ordered cluster being added, not only for this pass alone.
+Starshine now claims the early public lane plus the late local-cleanup cluster, but a faithful future preset change still needs evidence for the specific ordered cluster being changed, not only for this pass alone.
 
 Minimum evidence for changing preset scheduling:
 
@@ -132,14 +135,14 @@ Start with small, semantic checks before running broader parity:
 3. **Metadata tests:** always include a local-name map and a raw name-section payload when touching name repair; dropping or reordering locals without invalidating raw payload is a binary-output bug.
 4. **CLI/binary roundtrip:** keep an adapter-level wasm input/output test because Binaryen's dedicated print-roundtrip fixtures prove that declaration order must survive serialization.
 5. **Oracle parity:** compare explicit `reorder-locals` against Binaryen for generated modules before changing scheduler behavior.
-6. **Preset replay:** preserve the current single-slot preset tests, and only after the relevant local-pass neighbors are ready, test any wider ordered no-DWARF sequence that adds a second or third Binaryen-style `reorder-locals` slot.
+6. **Preset replay:** preserve the current preset-slot tests, and only after the relevant local-pass neighbors are ready, test any ordered no-DWARF sequence that changes the current three-slot `reorder-locals` public schedule.
 
 ## Non-goals and stale-reference guardrails
 
 - Do not describe `reorder-locals` as `coalesce-locals`, register allocation, dead-store elimination, or a generic liveness pass.
 - Do not use the multivalue-call caveat as evidence that `ReorderLocals.cpp` is more complex than it is; that caveat belongs to writer/lowering compatibility.
 - Do not call the Starshine implementation a HOT pass. It is module-scoped because it needs function type parameters, grouped local declarations, local-name maps, and raw custom-section invalidation.
-- Do not add or remove public preset `reorder-locals` occurrences without updating the exact occurrence-count test and adding the cluster-level scheduling evidence described above.
+- Do not add, remove, or reorder public preset `reorder-locals` occurrences without updating the exact occurrence-count tests and adding the cluster-level scheduling evidence described above.
 
 ## Sources
 

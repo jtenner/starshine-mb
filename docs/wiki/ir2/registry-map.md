@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-06
+last_reviewed: 2026-07-12
 sources:
+  - ../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
   - ../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../src/passes/optimize.mbt
@@ -48,19 +49,22 @@ These have `ModulePass` category and are runnable through the same pass request 
 `optimize` and `shrink` currently expand to the same implemented sequence:
 
 ```text
-memory-packing -> once-reduction -> global-refining -> global-struct-inference ->
-ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs ->
-remove-unused-names -> vacuum -> remove-unused-brs -> optimize-instructions ->
-heap-store-optimization -> pick-load-signs -> precompute -> code-pushing ->
-tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals ->
-remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping ->
-coalesce-locals -> local-cse -> simplify-locals -> merge-blocks ->
-remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute ->
-optimize-instructions -> heap-store-optimization -> simplify-globals-optimizing ->
-remove-unused-module-elements -> string-gathering -> reorder-globals -> directize
+duplicate-function-elimination -> remove-unused-module-elements -> memory-packing ->
+once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge ->
+dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names ->
+vacuum -> remove-unused-brs -> optimize-instructions -> heap-store-optimization ->
+pick-load-signs -> precompute -> code-pushing -> tuple-optimization ->
+simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs ->
+heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse ->
+simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals ->
+vacuum -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks ->
+precompute -> optimize-instructions -> heap-store-optimization -> dae-optimizing ->
+inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination ->
+simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering ->
+reorder-globals -> directize -> strip-debug
 ```
 
-The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the single `reorder-locals` preset slot, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt). The 2026-06-04 reconciliation note [`0709`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) is the current source for why one `reorder-locals` slot is public even though extra Binaryen-style slots remain future scheduler work.
+The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the three public `reorder-locals` cleanup slots, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt). The 2026-07-12 scheduling note [`1561`](../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) is the current source for the public three-slot `reorder-locals` policy.
 
 ## Boundary-Only And Removed Behavior
 

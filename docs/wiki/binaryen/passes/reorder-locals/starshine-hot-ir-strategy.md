@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-12
 sources:
+  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
@@ -37,7 +38,7 @@ related:
 
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract. For signoff sequencing and the distinction between explicit-pass correctness and preset-readiness, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-The 2026-06-04 preset-scheduling reconciliation keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule it exactly once in the early tuple/no-structure cleanup lane. Extra upstream-style `reorder-locals` slots remain future scheduler work until they bring ordered no-DWARF replay evidence; see [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md).
+The 2026-07-12 public-scheduling update keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot cleanup story that the repo already had ordered-neighborhood evidence for. The early one-slot reconciliation note [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) is now superseded for live preset state by [`1561`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md).
 The 2026-07-02 O4Z closeout re-proved the explicit pass against the local `version_130` oracle: dedicated, ordinary, and random-all GenValid lanes each compared/normalized `10000/10000` with zero failures, while the external wasm-smith lane compared `9956/10000` with one unreachable-control-debris compare-normalized case, zero remaining mismatches, and `44` Binaryen/oracle command failures; see [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md).
 For the immutable manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md).
 
@@ -58,7 +59,7 @@ Starshine exposes `reorder-locals` as an active **module pass** with:
 - registry category: `module_pass`
 - explicit module-pass dispatch through `pass_manager.mbt`
 - CLI support through `--reorder-locals`
-- public `optimize` / `shrink` scheduling for exactly one proven lane: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`
+- public `optimize` / `shrink` scheduling for the proven early lane `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` plus the proven late cleanup cluster `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum`
 
 The most important local rule is:
 
@@ -103,7 +104,7 @@ The easiest way to follow the in-tree implementation is this file map:
 - `src/passes/optimize.mbt`
   - `pass_registry_entries()` registry entry and preset-slot arrays
 - `src/passes/optimize_test.mbt`
-  - exact single-slot preset tests: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` and `optimize and shrink presets schedule reorder-locals only inside the tuple no-structure slot`
+  - exact preset tests: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot`, `optimize and shrink presets schedule Binaryen-shaped reorder-locals cleanup slots`, and `optimize and shrink presets keep the late simplify-locals reorder sandwich together`
 - `src/passes/registry_test.mbt`
   - module-pass-category assertion in `pass registry classifies active, boundary-only, and removed names`
 - `src/cmd/cmd_wbtest.mbt`
@@ -221,29 +222,31 @@ This is the strongest reason the pass should be taught as module-scoped in Stars
 
 ## 7. Preset policy is intentionally narrow
 
-The registry exposes `reorder-locals` as implemented, and public presets now schedule it exactly once. The scheduled lane is:
+The registry exposes `reorder-locals` as implemented, and public presets now schedule it three times in the same top-level cleanup shape Binaryen uses for the current implemented neighborhoods. The scheduled lanes are:
 
 ```text
 code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs
+...
+simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum
 ```
 
-That policy is locked by current preset tests in `src/passes/optimize_test.mbt`: one test checks the tuple/no-structure neighborhood order, and another asserts both presets contain exactly one `reorder-locals` occurrence at that lane.
+That policy is locked by current preset tests in `src/passes/optimize_test.mbt`: one test checks the early tuple/no-structure neighborhood order, one checks the three `reorder-locals` occurrences and their immediate neighbors, and one checks the full late simplify/coalesce reorder sandwich.
 
-The reason to keep the policy narrow is not that the local pass is unstable. It is that upstream Binaryen runs `reorder-locals` in multiple local-cleanup clusters, and Starshine should not claim those extra slots until their ordered neighborhoods have evidence.
+The reason the policy can be broader now is not a new direct-pass discovery. It is that the repo already had the ordered-neighborhood evidence for the late reorder/coalesce sandwich, so keeping the public preset at one slot had become a stale scheduler underclaim rather than a conservative safety boundary.
 
 The honest current policy is:
 
 - explicit pass: yes
 - module-pass implementation: yes
-- one public preset slot: yes
-- full Binaryen repeated-slot preset parity: not yet
+- three public preset slots: yes
+- full preset parity for every remaining no-DWARF owner: not yet
 
 ## What the local pass does not do
 
 Compared with the full upstream Binaryen story around repeated scheduler placement and print-roundtrip behavior, Starshine currently does **not** claim these stronger things in the public presets:
 
-- no-DWARF slot-for-slot scheduling parity for every upstream `reorder-locals` occurrence
-- broader neighboring locals-pass interactions beyond the proven single tuple/no-structure lane
+- full no-DWARF preset parity for every remaining neighboring owner outside the now-public `reorder-locals` cleanup slots
+- broader neighboring-pass conclusions beyond the proven early lane and late simplify/coalesce reorder sandwich
 - HOT-IR ownership of the pass
 
 And compared with heavier nearby locals passes, the local implementation still does **not** do:

@@ -5207,7 +5207,7 @@ test "shrink preset replays merge-blocks in both late MB slots" {
 }
 
 ///|
-test "optimize and shrink presets schedule reorder-locals only inside the tuple no-structure slot" {
+test "optimize and shrink presets schedule Binaryen-shaped reorder-locals cleanup slots" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
   for preset in [optimize, shrink] {
@@ -5217,9 +5217,30 @@ test "optimize and shrink presets schedule reorder-locals only inside the tuple 
         reorder_slots.push(idx)
       }
     }
-    @debug.assert_eq(reorder_slots.length(), 1)
+    @debug.assert_eq(reorder_slots.length(), 3)
     @debug.assert_eq(preset[reorder_slots[0] - 1], "vacuum")
     @debug.assert_eq(preset[reorder_slots[0] + 1], "remove-unused-brs")
+    @debug.assert_eq(preset[reorder_slots[1] - 1], "vacuum")
+    @debug.assert_eq(preset[reorder_slots[1] + 1], "coalesce-locals")
+    @debug.assert_eq(preset[reorder_slots[2] - 1], "coalesce-locals")
+    @debug.assert_eq(preset[reorder_slots[2] + 1], "vacuum")
+  }
+}
+
+///|
+test "optimize and shrink presets keep the late simplify-locals reorder sandwich together" {
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  for preset in [optimize, shrink] {
+    let simplify_slots = optimize_test_pass_slots(preset, "simplify-locals")
+    @debug.assert_eq(simplify_slots.length(), 1)
+    let start = simplify_slots[0]
+    @debug.assert_eq(preset[start], "simplify-locals")
+    @debug.assert_eq(preset[start + 1], "vacuum")
+    @debug.assert_eq(preset[start + 2], "reorder-locals")
+    @debug.assert_eq(preset[start + 3], "coalesce-locals")
+    @debug.assert_eq(preset[start + 4], "reorder-locals")
+    @debug.assert_eq(preset[start + 5], "vacuum")
   }
 }
 
@@ -5328,7 +5349,7 @@ test "optimize and shrink presets strip names while preserving non-name custom s
 }
 
 ///|
-test "optimize preset hands simplify-locals output to the late merge-blocks cleanup cluster" {
+test "optimize preset hands simplify-locals output to the late reorder-locals merge-blocks cleanup cluster" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
     "(module (import \"m\" \"id\" (func $id (param i32) (result i32))) (func (export \"f\") (param i32) (result i32) (local i32) local.get 0 if i32.const 1 call $id local.set 1 else i32.const 2 call $id local.set 1 end local.get 1))",
@@ -5367,11 +5388,17 @@ test "optimize preset hands simplify-locals output to the late merge-blocks clea
     starts[sl_idx - 1].contains("pass[local-cse]:start"),
     msg=starts.to_string(),
   )
-  assert_true(
-    sl_idx + 1 < starts.length() &&
-    starts[sl_idx + 1].contains("pass[merge-blocks]:start"),
-    msg=starts.to_string(),
-  )
+  let expected_after = [
+    "pass[reorder-locals]:start", "pass[coalesce-locals]:start", "pass[reorder-locals]:start",
+    "pass[merge-blocks]:start",
+  ]
+  for offset = 0; offset < expected_after.length(); offset = offset + 1 {
+    assert_true(
+      sl_idx + 1 + offset < starts.length() &&
+      starts[sl_idx + 1 + offset].contains(expected_after[offset]),
+      msg=starts.to_string(),
+    )
+  }
 }
 
 ///|

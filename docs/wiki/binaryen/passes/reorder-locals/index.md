@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-12
 sources:
+  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
   - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
   - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
@@ -88,7 +89,7 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
   3. after the second `coalesce-locals`, just before the final `vacuum`
 - That placement is meaningful.
   - Binaryen uses `reorder-locals` as a repeated compactor after cleanup churn, not just as a one-off cosmetic sort.
-- In Starshine today, the pass is intentionally available as an explicit module pass **and** public `optimize` / `shrink` schedule it exactly once in the proven early tuple/no-structure cleanup lane: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`. The 2026-06-04 reconciliation note [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) replaces older dossier wording that said it stayed entirely out of presets.
+- In Starshine today, the pass is intentionally available as an explicit module pass **and** public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot public cleanup story the repo has ordered-neighborhood evidence for: the early tuple/no-structure lane `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`, then the late local-cleanup cluster `... -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum`. The 2026-07-12 scheduling note [`1561`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) supersedes the older one-slot public policy from [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md).
 - The current parity story is also worth teaching clearly:
   - the raw sort rule is already well understood and well tested
   - the persistent multivalue-call instability belongs to Binaryen's tuple packaging and binary writeback layers, not to `ReorderLocals.cpp` itself
@@ -148,7 +149,7 @@ What it actually is in `version_130`:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine module-pass strategy: why the pass stays module-scoped, the exact MoonBit code map, the grouped-local-run rebuild and name-section-rewrite mechanics, and the main representation differences from upstream Binaryen.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  - Validation bridge separating explicit-pass correctness, the current single public preset slot, and future extra-slot readiness: maps the local tests, registry/dispatcher/CLI surfaces, Binaryen repeated scheduler role, neighboring locals-pass gate, and multivalue writer-boundary caveat into actionable signoff rules.
+  - Validation bridge separating explicit-pass correctness from current public preset scheduling: maps the local tests, registry/dispatcher/CLI surfaces, the now-public three-slot cleanup story, remaining preset-neighborhood owners, and the multivalue writer-boundary caveat into actionable signoff rules.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, explicit module-pass status, stable-boundary signoff rule, and the honest remaining compare caveats.
 - [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
@@ -171,14 +172,15 @@ So the durable rule is:
   - upstream `reorder-locals` is a stable frequency sorter plus unused-body-local trimmer, not `coalesce-locals` or dead-store elimination.
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.
 - Keep the multivalue-call writeback distinction explicit whenever future parity work mentions remaining raw-output drift.
-- Keep the preset-state split explicit: one `reorder-locals` slot is public today; extra upstream-style slots remain future scheduler work until they bring ordered-neighborhood evidence.
-- `[O4Z-AUDIT-RL]` is closed as of 2026-07-02: the `version_130` owner-family inventory has no direct gap, `reorder-locals-all` dedicated GenValid coverage is in tree, four compare lanes are green after classifying one external unreachable/control-debris case, pass-local timing is sub-millisecond, and `[AUDIT006-E]` is documented inline. Extra upstream-style scheduler slots remain separate `[O4Z-PRESET-BEHAVIOR]` ordered-neighborhood work, not a direct `reorder-locals` audit blocker.
+- Keep the preset-state split explicit: three `reorder-locals` public cleanup slots are now scheduled, but that does **not** imply full preset parity for unrelated remaining no-DWARF gaps such as the second pre-pass `remove-unused-module-elements` slot, `code-folding`, `redundant-set-elimination`, or the extra Starshine `remove-unused-brs` slot.
+- `[O4Z-AUDIT-RL]` is closed as of 2026-07-02: the `version_130` owner-family inventory has no direct gap, `reorder-locals-all` dedicated GenValid coverage is in tree, four compare lanes are green after classifying one external unreachable/control-debris case, pass-local timing is sub-millisecond, and `[AUDIT006-E]` is documented inline. The 2026-07-12 public preset scheduling change moves the repeated cleanup slots out of RL's reopening surface; remaining preset-order differences stay under `[O4Z-PRESET-BEHAVIOR]`.
 
 ## Sources
 
 - `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
 - `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
+- Public preset scheduling: [`../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md)
+- Earlier one-slot reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md)
 - [`../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)
 - [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
