@@ -33,7 +33,6 @@ sources:
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
   - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
@@ -106,7 +105,7 @@ It is a source-backed clarification pass over a real existing dossier.
 - The real payoff comes later.
   - `tuple-optimization` exposes scalar locals so later local passes can remove dead lanes and dead copies.
 - A narrow 2026-05-04 freshness check found no current-main drift in the core upstream pass file, the dedicated lit suite, or the tuple-specific scheduler / peephole sections relevant to this dossier.
-- The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**.
+- Direct tagged source URLs plus the retained 2026-05-04 current-main recheck record that the reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 
 ## Current status summary
 
@@ -178,7 +177,6 @@ That means the tuple-opt dossier does **not** currently need a current-main drif
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md)
 - [`../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md`](../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md`](../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md)
 - [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)

@@ -5,7 +5,6 @@ last_reviewed: 2026-05-04
 sources:
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
   - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
@@ -37,7 +36,7 @@ The older tuple dossier already explained the broad idea, but it did not have on
 - how small the C++ implementation actually is
 - what the dedicated lit file proves
 - whether current `main` has drifted from `version_129`
-- where the immutable raw primary-source capture for that claim lives
+- where the retained current-main recheck and direct tagged sources anchor that claim
 
 This page is that compact source-map answer.
 
@@ -240,7 +239,6 @@ If a future explanation starts making tuple-opt sound like a general multivalue 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md)
 - [`../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md`](../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
 - Binaryen `version_129` sources:
