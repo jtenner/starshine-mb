@@ -3,13 +3,11 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-01
 sources:
-  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md
   - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -30,7 +28,7 @@ related:
 
 # Starshine Strategy For `type-ssa`
 
-Use this page together with the corrected raw source capture in [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md), the 2026-06-01 freshness recheck in [`../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md`](../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md), and the port-readiness bridge in [`../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md).
+Use this page with the retained [2026-04-26 source-correction research note](../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md), the 2026-06-01 [freshness recheck](../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md), and the retained [port-readiness research note](../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md).
 
 ## Honest current status
 
