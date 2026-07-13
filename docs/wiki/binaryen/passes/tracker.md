@@ -263,7 +263,6 @@ sources:
   - ../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
   - ../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
@@ -739,7 +738,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md)
 - [`../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
 - [`../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md`](../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md)

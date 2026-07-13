@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
   - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
@@ -296,7 +295,6 @@ If the answer to the last question is yes, do not put that cleanup in plain DAE.
 
 - [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md)
 - [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`./wat-shapes.md`](./wat-shapes.md)

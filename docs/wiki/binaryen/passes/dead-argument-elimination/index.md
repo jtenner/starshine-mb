@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
   - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
   - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
@@ -135,8 +134,7 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 
 ## Current maintenance rule
 
-- Treat [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md) as the immutable tagged primary-source manifest for this folder.
-- Treat [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md) as the focused current-main / Starshine-readiness freshness layer above the 2026-04-26 bridge.
+- Treat [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md) as the retained tagged-source/current-main bridge, with the 2026-04-26 readiness check supplying the Starshine implementation bridge.
 - Treat this folder as the canonical home for future `dead-argument-elimination` / `dae` research and port planning.
 - Do not rely on the older **unimplemented** wording in this dossier; treat it as superseded by the local active implementation and keep this page open for a full status refresh.
 - Keep the relationship to [`../dae-optimizing/index.md`](../dae-optimizing/index.md) explicit instead of silently folding plain DAE facts into the optimizing dossier.
@@ -147,7 +145,6 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 - [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md)
 - [`../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md)
 - [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md)
 - [`../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
 - [`../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md`](../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md)

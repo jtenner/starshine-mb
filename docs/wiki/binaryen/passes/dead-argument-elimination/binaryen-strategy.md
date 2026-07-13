@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
   - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
   - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
@@ -25,7 +24,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
-- The immutable source manifest for this dossier is [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md).
+- The retained source bridge for this dossier is the [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md), supplemented by the 2026-04-26 readiness check below.
 - The official `version_129` GitHub release page was re-checked on 2026-04-24 and showed publish date **2026-04-01 14:31**.
 - A focused 2026-05-04 current-`main` recheck on the owner file, registration file, helper headers, and dedicated lit roster again did not surface a teaching-relevant contract drift beyond this page's claims.
 - A focused 2026-04-26 current-`main` port-readiness recheck in [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md) also found no teaching-relevant drift, but it adds the Starshine implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
