@@ -195,7 +195,6 @@ sources:
   - ../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
   - ../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
   - ../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md

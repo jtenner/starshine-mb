@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
   - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
   - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
   - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
@@ -110,7 +109,6 @@ A safe beginner mental model is:
 - [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
-- [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
 - [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
 - [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
