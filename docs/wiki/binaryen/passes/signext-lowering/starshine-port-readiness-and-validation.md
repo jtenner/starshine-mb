@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
