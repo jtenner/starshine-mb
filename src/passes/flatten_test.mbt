@@ -3785,6 +3785,97 @@ test "flatten scalarizes one exact tuple-made loop plain br backedge" {
 }
 
 ///|
+test "flatten scalarizes one exact tuple-made loop br_if flow" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result f32 f64))) (func (result f32 f64) call 1 call 2 loop $loop (type $carrier) drop drop call 3 call 4 call 5 br_if $loop drop drop f32.const 11 f64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let branch_id = @ir.hot_region_get(func, body_ref, 2)
+  let first_payload = @ir.hot_child_get(func, branch_id, 0)
+  let second_payload = @ir.hot_child_get(func, branch_id, 1)
+  let condition_id = @ir.hot_child_get(func, branch_id, 2)
+  let first_drop = @ir.hot_region_get(func, body_ref, 3)
+  let second_drop = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_child_get(func, first_drop, 0), second_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_drop, 0), first_payload)
+  let tuple_id = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [first_payload, second_payload],
+  )
+  @ir.hot_child_set(func, branch_id, 0, tuple_id)
+  @ir.hot_child_set(func, branch_id, 1, tuple_id)
+  @ir.hot_child_set(func, first_drop, 0, tuple_id)
+  @ir.hot_child_set(func, second_drop, 0, tuple_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 12)
+  let first_value_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_value_set = @ir.hot_region_get(func, body_ref, 3)
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 4)
+  let second_payload_set = @ir.hot_region_get(func, body_ref, 5)
+  let condition_set = @ir.hot_region_get(func, body_ref, 6)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch_id)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 8), first_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 9), second_drop)
+  @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_payload)
+  let first_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).imm0
+  let second_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_payload_set).imm0,
+    first_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_payload_set).imm0,
+    second_entry_local,
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, condition_set, 0), condition_id)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_drop, 0)).imm0,
+    second_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_drop, 0)).imm0,
+    first_entry_local,
+  )
+  let first_result_local = @ir.hot_node_get(
+      func,
+      @ir.hot_child_get(func, return_id, 0),
+    ).imm0
+  let second_result_local = @ir.hot_node_get(
+      func,
+      @ir.hot_child_get(func, return_id, 1),
+    ).imm0
+  assert_false(first_result_local == first_entry_local)
+  assert_false(second_result_local == second_entry_local)
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, condition_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tuple-made loop br_if routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes exact inputful multivalue loop br_if flow" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 3 call 4 call 5 br_if $loop drop drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0))",
