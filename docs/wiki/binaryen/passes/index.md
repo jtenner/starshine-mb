@@ -126,7 +126,6 @@ sources:
   - ../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - ../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
