@@ -2359,6 +2359,114 @@ test "flatten scalarizes one exclusively owned tuple-made plain br payload" {
 }
 
 ///|
+test "flatten scalarizes one exclusively owned tuple-made br_table payload" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i64_type, i32_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i64_type]),
+  )
+  let first_value = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_value, @lib.Instruction::i32_add())
+  let second_value = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i64(func, @lib.I64(2L)),
+  )
+  @ir.hot_node_exact_instr_set(func, second_value, @lib.Instruction::i64_add())
+  let tuple_id = @ir.hot_build_tuple_make(func, [i32_type, i64_type], [
+    first_value, second_value,
+  ])
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  @ir.hot_control_result_type_set(
+    func,
+    block_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let selector = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 2),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, selector, @lib.Instruction::i32_add())
+  let branch_id = @ir.hot_build_br_table(func, [label_id], label_id, selector, values=[
+    tuple_id, tuple_id,
+  ])
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch_id])
+  let return_id = @ir.hot_build_return(func, [block_id, block_id])
+  @ir.hot_root_append(func, return_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 8)
+  let first_value_set = @ir.hot_region_get(func, body_ref, 0)
+  let second_value_set = @ir.hot_region_get(func, body_ref, 1)
+  let first_stage = @ir.hot_region_get(func, body_ref, 2)
+  let second_stage = @ir.hot_region_get(func, body_ref, 3)
+  let first_target_set = @ir.hot_region_get(func, body_ref, 4)
+  let second_target_set = @ir.hot_region_get(func, body_ref, 5)
+  let selector_set = @ir.hot_region_get(func, body_ref, 6)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch_id)
+  @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_value)
+  @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_value)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_stage, 0)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_stage, 0)).op.to_string(),
+    "LocalGet",
+  )
+  let first_stage_local = @ir.hot_node_get(func, first_stage).imm0
+  let second_stage_local = @ir.hot_node_get(func, second_stage).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_target_set, 0)).imm0,
+    first_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_target_set, 0)).imm0,
+    second_stage_local,
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_value), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_value), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tuple-made br_table routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes branch-free multivalue if results through typed locals" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (result i32 i64) (if (result i32 i64) (i32.eqz (local.get 0)) (then (i32.add (i32.const 1) (i32.const 2)) (i64.add (i64.const 3) (i64.const 4))) (else (i32.sub (i32.const 9) (i32.const 5)) (i64.sub (i64.const 8) (i64.const 6)))) return))",
