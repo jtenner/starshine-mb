@@ -60,6 +60,29 @@ test "merge-blocks skips large local-heavy json-as shaped functions" {
 }
 
 ///|
+test "merge-blocks re-lifts multivalue call blocks with trailing drop" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i32)))
+    #|  (type $callee (func (param i32 i32 i32) (result i32 i32)))
+    #|  (func $target (type $callee) (param i32 i32 i32) (result i32 i32)
+    #|    local.get 0
+    #|    i32.const 9)
+    #|  (func (param i32 i32 i32) (result i32)
+    #|    block (type $pair)
+    #|      i32.const 0
+    #|      local.get 1
+    #|      local.get 2
+    #|      call $target
+    #|    end
+    #|    drop))
+  ignore(match pass_test_run_pipeline(source, ["merge-blocks", "merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multivalue block merge-blocks relift success, got \{err}")
+  })
+}
+
+///|
 test "merge-blocks flattens nested block roots in parent regions" {
   let optimized = match
     pass_test_run_pipeline(
