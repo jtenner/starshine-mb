@@ -1597,6 +1597,88 @@ test "flatten routes branch-free multivalue if results through typed locals" {
 }
 
 ///|
+test "flatten routes branch-targeted multivalue if arms through typed locals" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32 i64) (if (result i32 i64) (local.get 0) (then i32.const 7 i64.const 9 br 0) (else i32.const 11 i64.const 13)) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_child_get(func, return_id, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, return_id, 1), if_id)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  let branch_id = @ir.hot_region_get(func, then_ref, 0)
+  let first_payload = @ir.hot_child_get(func, branch_id, 0)
+  let second_payload = @ir.hot_child_get(func, branch_id, 1)
+  let first_fallthrough = @ir.hot_region_get(func, else_ref, 0)
+  let second_fallthrough = @ir.hot_region_get(func, else_ref, 1)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, if_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 3)
+  let branch_first_set = @ir.hot_region_get(func, then_ref, 0)
+  let branch_second_set = @ir.hot_region_get(func, then_ref, 1)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 2), branch_id)
+  @debug.assert_eq(@ir.hot_child_get(func, branch_first_set, 0), first_payload)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, branch_second_set, 0),
+    second_payload,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
+  let fallthrough_first_set = @ir.hot_region_get(func, else_ref, 0)
+  let fallthrough_second_set = @ir.hot_region_get(func, else_ref, 1)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, fallthrough_first_set, 0),
+    first_fallthrough,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, fallthrough_second_set, 0),
+    second_fallthrough,
+  )
+  let first_local = @ir.hot_node_get(func, branch_first_set).imm0
+  let second_local = @ir.hot_node_get(func, branch_second_set).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, fallthrough_first_set).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, fallthrough_second_set).imm0,
+    second_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_fallthrough), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_fallthrough), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected branch-targeted multivalue if routing to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten routes branch-free multivalue loop results through typed locals" {
   let func = pass_test_lift_first_func(
     "(module (func (result i32 i64) (loop (result i32 i64) (i32.add (i32.const 1) (i32.const 2)) (i64.add (i64.const 3) (i64.const 4))) return))",

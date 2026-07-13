@@ -177,7 +177,7 @@ Starshine routes a defaultable multivalue block when HOT exposes all result uses
 
 ### Current Starshine multivalue if slice
 
-Starshine also routes branch-free defaultable multivalue `if` results when both arms end in independently scalar values matching the ordered result types and HOT exposes one exclusive repeated consumer span. Condition preludes remain before the `if`; each arm writes the same typed local vector in result order; the `if` and its label become void; and the consumer reads the vector through ordered `local.get` nodes. Missing else arms, label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
+Starshine routes defaultable multivalue `if` results when both arms end either in independently scalar values matching the ordered result types or in terminal plain `br` exits to the if label with exact independently scalar payload vectors. Condition preludes remain before the `if`; fallthrough arms and branch exits write the same typed local vector in result order; the branch payload, `if`, and label arity are cleared; and one exclusive repeated consumer reads ordered `local.get` nodes. Missing else arms, `br_if`/`br_table` label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
 
 ## Shape 5: condition preludes go before the whole `if`, arm preludes stay inside the arms
 

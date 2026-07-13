@@ -415,7 +415,7 @@ fn flatten_try_route_multivalue_block(
 }
 
 ///|
-fn flatten_try_route_branch_free_multivalue_if(
+fn flatten_try_route_multivalue_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
@@ -436,9 +436,10 @@ fn flatten_try_route_branch_free_multivalue_if(
     }
   }
   let label_id = @ir.hot_control_node_label(func, if_id)
-  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
-    return None
-  }
+  let label_is_used = pass_label_is_used(
+    label_id,
+    pass_compute_label_used(func),
+  )
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
     Some(else_ref) => else_ref
@@ -447,29 +448,40 @@ fn flatten_try_route_branch_free_multivalue_if(
   let regions = [then_ref, else_ref]
   for region_ref in regions {
     let root_count = @ir.hot_region_root_count(func, region_ref)
-    if root_count < result_types.length() {
+    if root_count == 0 {
       return None
     }
-    let tail_start = root_count - result_types.length()
-    for slot = 0; slot < result_types.length(); slot = slot + 1 {
-      let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
-      let value_types = @ir.hot_type_results(
-        func,
-        @ir.hot_node_get(func, value_id).ty,
-      )
-      if value_types.length() != 1 || value_types[0] != result_types[slot] {
-        return None
-      }
+    let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+    if label_is_used &&
+      flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
+      continue
+    }
+    if !flatten_multivalue_region_tail_matches_types(
+        func, region_ref, result_types,
+      ) {
+      return None
     }
   }
-  let locals = match
-    flatten_ensure_label_temps(func, state, label_id, result_types) {
-    Some(locals) => locals
-    None => return None
+  let locals = if label_is_used {
+    if !flatten_label_temps_match_types(func, state, label_id, result_types) ||
+      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      return None
+    }
+    state.label_temps[label_id]
+  } else {
+    match flatten_ensure_label_temps(func, state, label_id, result_types) {
+      Some(locals) => locals
+      None => return None
+    }
   }
   for region_ref in regions {
-    let tail_start = @ir.hot_region_root_count(func, region_ref) -
-      result_types.length()
+    let root_count = @ir.hot_region_root_count(func, region_ref)
+    let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+    if label_is_used &&
+      flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
+      continue
+    }
+    let tail_start = root_count - result_types.length()
     for slot = 0; slot < result_types.length(); slot = slot + 1 {
       let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
       ignore(
@@ -629,8 +641,7 @@ fn flatten_try_route_multivalue_control_operand(
   let locals = match @ir.hot_node_get(func, child_id).op {
     @ir.HotOp::Block =>
       flatten_try_route_multivalue_block(ctx, func, state, child_id)
-    @ir.HotOp::If =>
-      flatten_try_route_branch_free_multivalue_if(ctx, func, state, child_id)
+    @ir.HotOp::If => flatten_try_route_multivalue_if(ctx, func, state, child_id)
     @ir.HotOp::Loop =>
       flatten_try_route_branch_free_multivalue_loop(ctx, func, state, child_id)
     _ => None
@@ -1210,26 +1221,35 @@ fn flatten_multivalue_plain_br_target_is_supported(
   if !flatten_multivalue_control_has_exclusive_consumer_span(func, owner_id) {
     return false
   }
-  match @ir.hot_node_get(func, owner_id).op {
-    @ir.HotOp::Block => ()
+  let regions : Array[@ir.HotRegionRef] = match
+    @ir.hot_node_get(func, owner_id).op {
+    @ir.HotOp::Block => [@ir.hot_region_body_ref(func, owner_id)]
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, owner_id) {
+        Some(else_ref) => [@ir.hot_region_then_ref(func, owner_id), else_ref]
+        None => return false
+      }
     _ => return false
   }
-  let body_ref = @ir.hot_region_body_ref(func, owner_id)
-  let body_count = @ir.hot_region_root_count(func, body_ref)
-  if body_count == 0 {
-    return false
-  }
-  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
-  let tail = @ir.hot_node_get(func, tail_id)
-  let has_terminal_target_branch = match tail.op {
-    @ir.HotOp::Br =>
-      tail.imm0 == label_id &&
-      @ir.hot_child_count(func, tail_id) == target_types.length()
-    _ => false
-  }
-  if !has_terminal_target_branch &&
-    !flatten_multivalue_region_tail_matches_types(func, body_ref, target_types) {
-    return false
+  for region_ref in regions {
+    let root_count = @ir.hot_region_root_count(func, region_ref)
+    if root_count == 0 {
+      return false
+    }
+    let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+    let tail = @ir.hot_node_get(func, tail_id)
+    let has_terminal_target_branch = match tail.op {
+      @ir.HotOp::Br =>
+        tail.imm0 == label_id &&
+        @ir.hot_child_count(func, tail_id) == target_types.length()
+      _ => false
+    }
+    if !has_terminal_target_branch &&
+      !flatten_multivalue_region_tail_matches_types(
+        func, region_ref, target_types,
+      ) {
+      return false
+    }
   }
   let mut saw_target = false
   for branch_id = 0
@@ -1339,7 +1359,7 @@ fn flatten_try_route_br(
   let child_count = @ir.hot_child_count(func, node_id)
   if child_count > 1 {
     match @ir.hot_label_kind(func, label_id) {
-      @ir.HotLabelKind::BlockLabel => ()
+      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
       _ => return false
     }
     if target_types.length() != child_count ||
@@ -2151,7 +2171,7 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
         }
         match @ir.hot_label_kind(func, label_id) {
           @ir.HotLabelKind::LoopLabel => ()
-          @ir.HotLabelKind::BlockLabel => {
+          @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => {
             let target_types = @ir.hot_type_results(
               func,
               @ir.hot_label_result_type(func, label_id),
