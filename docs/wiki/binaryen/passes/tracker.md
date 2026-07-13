@@ -91,7 +91,6 @@ sources:
   - ../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
   - ../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md

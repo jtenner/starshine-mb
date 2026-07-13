@@ -9,7 +9,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -163,7 +162,6 @@ For every active slice, require:
 - [`../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md)
 - [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
-- [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)

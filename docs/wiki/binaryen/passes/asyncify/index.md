@@ -9,7 +9,6 @@ sources:
   - ../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
   - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -135,7 +134,6 @@ For a future Starshine port, add tests in this order:
 - [`../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md)
 - [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
-- [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
 - [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
 - Binaryen `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Asyncify.cpp>
