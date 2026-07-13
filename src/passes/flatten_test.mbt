@@ -185,7 +185,7 @@ test "flatten places nested operand preludes in their owning block region" {
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let block_id = @ir.hot_root_get(func, 0)
   @debug.assert_eq(@ir.hot_node_get(func, block_id).op.to_string(), "Block")
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 2)
@@ -197,5 +197,90 @@ test "flatten places nested operand preludes in their owning block region" {
     Ok(_) => ()
     Err(err) =>
       fail("expected region-owned operand preludes to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten routes a scalar value block through a fresh local" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32) (block (result i32) (i32.const 7))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let block_id = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  let block_body = @ir.hot_region_body_ref(func, block_id)
+  let block_tail = @ir.hot_region_get(
+    func,
+    block_body,
+    @ir.hot_region_root_count(func, block_body) - 1,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, block_tail).op.to_string(),
+    "LocalSet",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected scalar block routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten hoists a nested scalar value block to its owning prelude" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32) (i32.add (block (result i32) (i32.const 7)) (i32.const 1))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let block_id = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, block_id).op.to_string(), "Block")
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested scalar block routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten leaves carried scalar blocks for branch payload routing" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) (br 0 (i32.const 7))))))",
+  )
+  let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, block_id)),
+    1,
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected deferred carried block to remain valid, got \{err}")
   }
 }

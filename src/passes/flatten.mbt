@@ -79,6 +79,21 @@ fn flatten_node_is_simple_operand(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn flatten_operand_slot_count(func : @ir.HotFunc, node_id : Int) -> Int {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
+    @ir.HotOp::Loop =>
+      @ir.hot_label_branch_arity(
+        func,
+        @ir.hot_control_node_label(func, node_id),
+      )
+    @ir.HotOp::If => 1
+    _ => @ir.hot_child_count(func, node_id)
+  }
+}
+
+///|
 fn flatten_op_is_unsupported(op : @ir.HotOp) -> Bool {
   match op {
     @ir.HotOp::BrOnNull
@@ -120,7 +135,9 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
         }
       _ => ()
     }
-    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    for slot = 0
+        slot < flatten_operand_slot_count(func, node_id)
+        slot = slot + 1 {
       let child_id = @ir.hot_child_get(func, node_id, slot)
       if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
         let local_set_value_is_allowed = match node.op {
@@ -146,6 +163,54 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
     }
   }
   report
+}
+
+///|
+fn flatten_value_type_is_defaultable(value_type : @lib.ValType) -> Bool {
+  match value_type {
+    @lib.RefTypeValType(ref_type) => @lib.RefType::is_defaultable(ref_type)
+    @lib.BotValType => false
+    _ => true
+  }
+}
+
+///|
+fn flatten_try_route_scalar_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Int? {
+  let block = @ir.hot_node_get(func, block_id)
+  match block.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let result_types = @ir.hot_type_results(func, block.ty)
+  if result_types.length() != 1 ||
+    !flatten_value_type_is_defaultable(result_types[0]) {
+    return None
+  }
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return None
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+  if @ir.hot_node_result_arity(func, tail_id) != 1 {
+    return None
+  }
+  let local_id = @ir.hot_append_body_local(func, result_types[0])
+  ignore(
+    pass_splice_region(ctx, func, body_ref, body_count - 1, 1, [
+      @ir.hot_build_local_set(func, local_id, tail_id),
+    ]),
+  )
+  @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+  Some(local_id)
 }
 
 ///|
@@ -206,7 +271,20 @@ fn flatten_rewrite_region_operands(
       ignore(pass_splice_region(ctx, func, region_ref, idx, 0, preludes))
       changed = true
     }
-    idx += inserted + 1
+    let root_idx = idx + inserted
+    match flatten_try_route_scalar_block(ctx, func, node_id) {
+      Some(local_id) => {
+        ignore(
+          pass_splice_region(ctx, func, region_ref, root_idx, 1, [
+            node_id,
+            @ir.hot_build_local_get(func, local_id),
+          ]),
+        )
+        changed = true
+        idx = root_idx + 2
+      }
+      None => idx = root_idx + 1
+    }
   }
   changed
 }
@@ -224,8 +302,21 @@ fn flatten_rewrite_operand_slot(
     return false
   }
   let mut changed = flatten_rewrite_node_operands(ctx, func, child_id, preludes)
-  if flatten_spill_scalar_operand(func, parent_id, slot, child_id, preludes) {
-    changed = true
+  match flatten_try_route_scalar_block(ctx, func, child_id) {
+    Some(local_id) => {
+      preludes.push(child_id)
+      @ir.hot_child_set(
+        func,
+        parent_id,
+        slot,
+        @ir.hot_build_local_get(func, local_id),
+      )
+      changed = true
+    }
+    None =>
+      if flatten_spill_scalar_operand(func, parent_id, slot, child_id, preludes) {
+        changed = true
+      }
   }
   changed
 }
