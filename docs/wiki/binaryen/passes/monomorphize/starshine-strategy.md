@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
   - ../../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -34,7 +33,7 @@ related:
 
 # Starshine strategy for `monomorphize`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md).
+Use this page together with the retained 2026-04-24 follow-up research in [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md) and the direct tagged source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and option surfaces that already mention the pass family, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status

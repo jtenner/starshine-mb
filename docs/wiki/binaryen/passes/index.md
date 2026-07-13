@@ -122,7 +122,6 @@ sources:
   - ../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - ../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md

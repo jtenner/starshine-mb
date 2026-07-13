@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt

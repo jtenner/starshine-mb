@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
@@ -34,7 +33,7 @@ related:
 
 ## What the pass really is
 
-The 2026-04-24 source refresh is captured in [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md).
+The original 2026-04-24 release-tag source review is retained through [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md) and the direct tagged URLs below.
 The 2026-04-26 port-readiness recheck in [`../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md) found no teaching-relevant current-main drift, then added the Starshine sequencing bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The reviewed implementation is a **whole-module contextual specialization pass**.
 It is not normal inlining and not just constant propagation.
@@ -331,7 +330,6 @@ That is the real Binaryen strategy for `monomorphize`.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
