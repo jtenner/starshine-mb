@@ -443,6 +443,29 @@ fn flatten_multivalue_region_tail_tuple_make_values(
 }
 
 ///|
+fn flatten_replace_multivalue_tuple_make_tail(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  values : Array[Int],
+  locals : Array[Int],
+) -> Unit {
+  let replacement : Array[Int] = []
+  for slot = 0; slot < values.length(); slot = slot + 1 {
+    replacement.push(@ir.hot_build_local_set(func, locals[slot], values[slot]))
+  }
+  let removed = pass_splice_region(
+    ctx,
+    func,
+    region_ref,
+    @ir.hot_region_root_count(func, region_ref) - 1,
+    1,
+    replacement,
+  )
+  pass_delete_detached_nodes(ctx, func, removed)
+}
+
+///|
 fn flatten_multivalue_region_tail_reads_locals(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -522,23 +545,10 @@ fn flatten_try_route_multivalue_block(
     return None
   }
   match tuple_values {
-    Some(values) => {
-      let replacement : Array[Int] = []
-      for slot = 0; slot < values.length(); slot = slot + 1 {
-        replacement.push(
-          @ir.hot_build_local_set(func, locals[slot], values[slot]),
-        )
-      }
-      let removed = pass_splice_region(
-        ctx,
-        func,
-        body_ref,
-        body_count - 1,
-        1,
-        replacement,
+    Some(values) =>
+      flatten_replace_multivalue_tuple_make_tail(
+        ctx, func, body_ref, values, locals,
       )
-      pass_delete_detached_nodes(ctx, func, removed)
-    }
     None => {
       let tail_start = body_count - result_types.length()
       if flatten_multivalue_region_tail_reads_locals(func, body_ref, locals) {
@@ -612,7 +622,11 @@ fn flatten_try_route_multivalue_if(
     }
     if !flatten_multivalue_region_tail_matches_types(
         func, region_ref, result_types,
-      ) {
+      ) &&
+      flatten_multivalue_region_tail_tuple_make_values(
+        func, region_ref, result_types,
+      )
+      is None {
       return None
     }
   }
@@ -635,26 +649,41 @@ fn flatten_try_route_multivalue_if(
       flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
       continue
     }
-    let tail_start = root_count - result_types.length()
-    if flatten_multivalue_region_tail_reads_locals(func, region_ref, locals) {
-      ignore(
-        pass_splice_region(
-          ctx,
-          func,
-          region_ref,
-          tail_start,
-          result_types.length(),
-          [],
-        ),
-      )
-    } else {
-      for slot = 0; slot < result_types.length(); slot = slot + 1 {
-        let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
-        ignore(
-          pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
-            @ir.hot_build_local_set(func, locals[slot], value_id),
-          ]),
+    match
+      flatten_multivalue_region_tail_tuple_make_values(
+        func, region_ref, result_types,
+      ) {
+      Some(values) =>
+        flatten_replace_multivalue_tuple_make_tail(
+          ctx, func, region_ref, values, locals,
         )
+      None => {
+        let tail_start = root_count - result_types.length()
+        if flatten_multivalue_region_tail_reads_locals(func, region_ref, locals) {
+          ignore(
+            pass_splice_region(
+              ctx,
+              func,
+              region_ref,
+              tail_start,
+              result_types.length(),
+              [],
+            ),
+          )
+        } else {
+          for slot = 0; slot < result_types.length(); slot = slot + 1 {
+            let value_id = @ir.hot_region_get(
+              func,
+              region_ref,
+              tail_start + slot,
+            )
+            ignore(
+              pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
+                @ir.hot_build_local_set(func, locals[slot], value_id),
+              ]),
+            )
+          }
+        }
       }
     }
   }

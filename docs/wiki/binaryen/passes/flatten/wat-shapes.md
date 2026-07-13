@@ -12,6 +12,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-consumer-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-terminal-tail-call-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-tuple-block-producer-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-tuple-if-producer-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -187,7 +188,7 @@ Starshine routes a defaultable multivalue block when HOT exposes all result uses
 
 ### Current Starshine multivalue if slice
 
-Starshine routes defaultable multivalue `if` results when both arms end in independently scalar values matching the ordered result types, terminal plain `br` exits with exact independently scalar payload vectors, or same-vector `br_if` flow whose distinct payloads have one exact contiguous false-path arm tail. Condition preludes remain before the `if`; fallthrough arms and branch exits write the same typed local vector in result order; routed branch payloads, the `if`, and label arity are cleared; and one exclusive repeated consumer reads ordered `local.get` nodes. Missing else arms, mismatched/shared `br_if`, `br_table` label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
+Starshine routes defaultable multivalue `if` results when both arms end in independently scalar values matching the ordered result types or one exact exclusively owned `tuple.make` whose already-flat scalar children match that vector, terminal plain `br` exits with exact independently scalar payload vectors, or same-vector `br_if` flow whose distinct payloads have one exact contiguous false-path arm tail. Condition preludes remain before the `if`; fallthrough arms and branch exits write the same typed local vector in result order; routed branch payloads, the `if`, and label arity are cleared; and one exclusive repeated consumer reads ordered `local.get` nodes. Missing else arms, mismatched/shared `br_if`, `br_table` label uses, single multivalue arm producers, and shared/nonexclusive consumers remain fail-closed.
 
 ## Shape 5: condition preludes go before the whole `if`, arm preludes stay inside the arms
 

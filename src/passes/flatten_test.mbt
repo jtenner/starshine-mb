@@ -2242,6 +2242,118 @@ test "flatten routes branch-free multivalue if results through typed locals" {
 }
 
 ///|
+test "flatten scalarizes exclusive tuple-made multivalue if arms" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i64_type, i32_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i64_type]),
+  )
+  let then_first = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, then_first, @lib.Instruction::i32_add())
+  let then_second = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i64(func, @lib.I64(2L)),
+  )
+  @ir.hot_node_exact_instr_set(func, then_second, @lib.Instruction::i64_add())
+  let else_first = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, else_first, @lib.Instruction::i32_sub())
+  let else_second = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i64(func, @lib.I64(4L)),
+  )
+  @ir.hot_node_exact_instr_set(func, else_second, @lib.Instruction::i64_sub())
+  let then_tuple = @ir.hot_build_tuple_make(func, [i32_type, i64_type], [
+    then_first, then_second,
+  ])
+  let else_tuple = @ir.hot_build_tuple_make(func, [i32_type, i64_type], [
+    else_first, else_second,
+  ])
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 2),
+    [then_tuple],
+    else_body=Some([else_tuple]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    if_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let return_id = @ir.hot_build_return(func, [if_id, if_id])
+  @ir.hot_root_append(func, return_id)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, if_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 4)
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_ref), 4)
+  let then_first_result_set = @ir.hot_region_get(func, then_ref, 2)
+  let then_second_result_set = @ir.hot_region_get(func, then_ref, 3)
+  let else_first_result_set = @ir.hot_region_get(func, else_ref, 2)
+  let else_second_result_set = @ir.hot_region_get(func, else_ref, 3)
+  let first_local = @ir.hot_node_get(func, then_first_result_set).imm0
+  let second_local = @ir.hot_node_get(func, then_second_result_set).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, else_first_result_set).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, else_second_result_set).imm0,
+    second_local,
+  )
+  @debug.assert_eq(@ir.hot_local_type(func, first_local), Some(i32_type))
+  @debug.assert_eq(@ir.hot_local_type(func, second_local), Some(i64_type))
+  assert_false(@ir.hot_node_is_live(func, then_tuple))
+  assert_false(@ir.hot_node_is_live(func, else_tuple))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, then_first), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, then_second), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, else_first), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, else_second), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tuple-made multivalue if routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes branch-targeted multivalue if arms through typed locals" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (result i32 i64) (if (result i32 i64) (local.get 0) (then i32.const 7 i64.const 9 br 0) (else i32.const 11 i64.const 13)) return))",
