@@ -17,6 +17,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-tuple-loop-entry-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-tuple-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-tuple-table-producer-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-tuple-conditional-producer-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
@@ -359,7 +360,7 @@ Starshine routes defaultable multivalue `if` results when both arms end in indep
 
 ### Current Starshine same-vector multivalue slice
 
-For a defaultable block or if target whose result vector exactly matches the multivalue `br_if` payload vector, Starshine admits the route only when every distinct payload origin has exactly one non-branch use and those false-path uses form one contiguous ordered tail in the target region. It evaluates payloads once in source order into the target's typed local vector, replaces the false-path tail with matching reads, removes payload children from the branch, and keeps the condition in place. If control-result routing sees that exact local-read tail, it removes the tail instead of writing the same locals again. Vector mismatch, repeated/shared flow uses, unsupported payload origins, and multivalue table fanout remain fail-closed.
+For a defaultable block or if target whose result vector exactly matches the multivalue `br_if` payload vector, Starshine admits the route only when every distinct payload origin has exactly one non-branch use and those false-path uses form one contiguous ordered tail in the target region. It evaluates payloads once in source order into the target's typed local vector, replaces the false-path tail with matching reads, removes payload children from the branch, and keeps the condition in place. If control-result routing sees that exact local-read tail, it removes the tail instead of writing the same locals again. One exact exclusively owned `tuple.make` repeated across every branch slot and the contiguous false-path result span is also scalarized for block/if targets: ordered components write the shared target vector once, false flow becomes matching reads, the condition remains later, and the tuple shell is deleted. Vector mismatch, repeated/shared or noncontiguous flow uses, unsupported payload origins, and ambiguous conditional ownership remain fail-closed.
 
 ## Shape 9: `br_if` may need two temps when target type and flowing-out type differ
 

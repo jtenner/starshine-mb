@@ -392,6 +392,32 @@ fn flatten_multivalue_region_tail_matches_types(
 }
 
 ///|
+fn flatten_multivalue_region_tail_repeats_tuple(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  result_types : Array[@lib.ValType],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if result_types.length() <= 1 || root_count < result_types.length() {
+    return false
+  }
+  let tail_start = root_count - result_types.length()
+  let tuple_id = @ir.hot_region_get(func, region_ref, tail_start)
+  for slot = 1; slot < result_types.length(); slot = slot + 1 {
+    if @ir.hot_region_get(func, region_ref, tail_start + slot) != tuple_id {
+      return false
+    }
+  }
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake =>
+      @ir.hot_type_results(func, tuple.ty) == result_types &&
+      @ir.hot_child_count(func, tuple_id) == result_types.length()
+    _ => false
+  }
+}
+
+///|
 fn flatten_multivalue_region_tail_tuple_make_values(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -2071,6 +2097,87 @@ fn flatten_multivalue_br_if_flow_span(
 }
 
 ///|
+fn flatten_multivalue_tuple_br_if_flow(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  payload_count : Int,
+  target_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if payload_count <= 1 ||
+    target_types.length() != payload_count ||
+    @ir.hot_child_count(func, branch_id) != payload_count + 1 {
+    return None
+  }
+  let tuple_id = @ir.hot_child_get(func, branch_id, 0)
+  for slot = 1; slot < payload_count; slot = slot + 1 {
+    if @ir.hot_child_get(func, branch_id, slot) != tuple_id {
+      return None
+    }
+  }
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake => ()
+    _ => return None
+  }
+  if @ir.hot_type_results(func, tuple.ty) != target_types ||
+    @ir.hot_child_count(func, tuple_id) != payload_count {
+    return None
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
+  if sites.length() != payload_count * 2 {
+    return None
+  }
+  let branch_slots = Array::make(payload_count, false)
+  let flow_slots : Array[Int] = []
+  let mut flow_parent = -1
+  for site in sites {
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot =>
+        if site.user == branch_id && site.slot >= 0 && site.slot < payload_count {
+          if branch_slots[site.slot] {
+            return None
+          }
+          branch_slots[site.slot] = true
+          continue
+        }
+      @ir.HotUseSlotKind::RootUseSlot => ()
+    }
+    if flow_parent < 0 {
+      flow_parent = site.user
+    } else if site.user != flow_parent {
+      return None
+    }
+    if flow_slots.contains(site.slot) {
+      return None
+    }
+    flow_slots.push(site.slot)
+  }
+  if flow_parent < 0 || flow_slots.length() != payload_count {
+    return None
+  }
+  flow_slots.sort()
+  let flow_start = flow_slots[0]
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    if !branch_slots[slot] || flow_slots[slot] != flow_start + slot {
+      return None
+    }
+    let value_id = @ir.hot_child_get(func, tuple_id, slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 ||
+      value_types[0] != target_types[slot] ||
+      !flatten_value_type_is_defaultable(target_types[slot]) ||
+      !flatten_scalar_branch_payload_has_supported_origin(func, value_id) {
+      return None
+    }
+  }
+  Some([tuple_id, flow_parent, flow_start])
+}
+
+///|
 fn flatten_multivalue_tuple_branch_payload_values(
   func : @ir.HotFunc,
   branch_id : Int,
@@ -2287,6 +2394,9 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
       !has_nested_table_target_tail &&
       !flatten_multivalue_region_tail_matches_types(
         func, region_ref, target_types,
+      ) &&
+      !flatten_multivalue_region_tail_repeats_tuple(
+        func, region_ref, target_types,
       ) {
       return false
     }
@@ -2334,29 +2444,41 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
         if @ir.hot_child_count(func, branch_id) != target_types.length() + 1 {
           return false
         }
-        for slot = 0; slot < target_types.length(); slot = slot + 1 {
-          let payload_id = @ir.hot_child_get(func, branch_id, slot)
-          let payload_types = @ir.hot_type_results(
-            func,
-            @ir.hot_node_get(func, payload_id).ty,
-          )
-          if payload_types.length() != 1 ||
-            payload_types[0] != target_types[slot] ||
-            !flatten_value_type_is_defaultable(target_types[slot]) ||
-            !flatten_scalar_branch_payload_has_supported_origin(
-              func, payload_id,
-            ) {
-            return false
+        let tuple_flow = flatten_multivalue_tuple_br_if_flow(
+          func,
+          branch_id,
+          target_types.length(),
+          target_types,
+        )
+        if tuple_flow is None {
+          for slot = 0; slot < target_types.length(); slot = slot + 1 {
+            let payload_id = @ir.hot_child_get(func, branch_id, slot)
+            let payload_types = @ir.hot_type_results(
+              func,
+              @ir.hot_node_get(func, payload_id).ty,
+            )
+            if payload_types.length() != 1 ||
+              payload_types[0] != target_types[slot] ||
+              !flatten_value_type_is_defaultable(target_types[slot]) ||
+              !flatten_scalar_branch_payload_has_supported_origin(
+                func, payload_id,
+              ) {
+              return false
+            }
           }
         }
-        let flow_span = match
-          flatten_multivalue_br_if_flow_span(
-            func,
-            branch_id,
-            target_types.length(),
-          ) {
-          Some(flow_span) => flow_span
-          None => return false
+        let flow_span = match tuple_flow {
+          Some(flow) => [flow[1], flow[2]]
+          None =>
+            match
+              flatten_multivalue_br_if_flow_span(
+                func,
+                branch_id,
+                target_types.length(),
+              ) {
+              Some(flow_span) => flow_span
+              None => return false
+            }
         }
         let mut matches_region_tail = false
         for region_ref in regions {
@@ -2600,6 +2722,7 @@ fn flatten_replace_flowing_value_uses(
 
 ///|
 fn flatten_try_route_multivalue_br_if(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   node_id : Int,
@@ -2629,10 +2752,16 @@ fn flatten_try_route_multivalue_br_if(
     !flatten_multivalue_branch_target_is_supported(func, label_id, target_types) {
     return false
   }
-  let flow_span = match
-    flatten_multivalue_br_if_flow_span(func, node_id, payload_count) {
-    Some(flow_span) => flow_span
-    None => return false
+  let tuple_flow = flatten_multivalue_tuple_br_if_flow(
+    func, node_id, payload_count, target_types,
+  )
+  let flow_span = match tuple_flow {
+    Some(flow) => [flow[1], flow[2]]
+    None =>
+      match flatten_multivalue_br_if_flow_span(func, node_id, payload_count) {
+        Some(flow_span) => flow_span
+        None => return false
+      }
   }
   let locals = match
     flatten_ensure_label_temps(func, state, label_id, target_types) {
@@ -2640,7 +2769,10 @@ fn flatten_try_route_multivalue_br_if(
     None => return false
   }
   for slot = 0; slot < payload_count; slot = slot + 1 {
-    let payload_id = @ir.hot_child_get(func, node_id, slot)
+    let payload_id = match tuple_flow {
+      Some(flow) => @ir.hot_child_get(func, flow[0], slot)
+      None => @ir.hot_child_get(func, node_id, slot)
+    }
     preludes.push(@ir.hot_build_local_set(func, locals[slot], payload_id))
     @ir.hot_child_set(
       func,
@@ -2651,6 +2783,10 @@ fn flatten_try_route_multivalue_br_if(
   }
   let condition_id = @ir.hot_child_get(func, node_id, payload_count)
   ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))
+  match tuple_flow {
+    Some(flow) => pass_delete_detached_nodes(ctx, func, [flow[0]])
+    None => ()
+  }
   true
 }
 
@@ -3271,7 +3407,7 @@ fn flatten_rewrite_node_operands(
           changed = true
         }
       }
-      if flatten_try_route_multivalue_br_if(func, state, node_id, preludes) {
+      if flatten_try_route_multivalue_br_if(ctx, func, state, node_id, preludes) {
         changed = true
       }
       if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
