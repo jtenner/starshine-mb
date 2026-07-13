@@ -3369,6 +3369,57 @@ fn dae_multi_result_control_carrier_chain_slice(
 }
 
 ///|
+fn dae_next_free_local_idx(
+  instrs : Array[@lib.Instruction],
+  declared_total : Int,
+) -> Int {
+  let mut next = if declared_total < 0 { 0 } else { declared_total }
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) => {
+        let candidate = dae_local_idx_slot(idx) + 1
+        if candidate > next {
+          next = candidate
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let candidate = dae_next_free_local_idx(body, next)
+        if candidate > next {
+          next = candidate
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        let then_candidate = dae_next_free_local_idx(then_body, next)
+        if then_candidate > next {
+          next = then_candidate
+        }
+        match else_body {
+          Some(body) => {
+            let else_candidate = dae_next_free_local_idx(body, next)
+            if else_candidate > next {
+              next = else_candidate
+            }
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  next
+}
+
+///|
+fn dae_local_indices_fit_instrs(
+  instrs : Array[@lib.Instruction],
+  total_locals : Int,
+) -> Bool {
+  total_locals >= 0 && dae_next_free_local_idx(instrs, 0) <= total_locals
+}
+
+///|
 fn dae_rewrite_instruction_locals(
   instr : @lib.Instruction,
   local_map : Array[Int],
@@ -4385,6 +4436,12 @@ fn dae_removed_param_callee_rewrite_evidence(
     p += 1
   }
   let @lib.Func(old_locals, @lib.Expr(old_body)) = func
+  if !dae_local_indices_fit_instrs(
+      old_body,
+      params.length() + old_locals.length(),
+    ) {
+    return None
+  }
   let local_map = dae_build_local_map(
     params,
     old_locals.length(),
@@ -4398,6 +4455,9 @@ fn dae_removed_param_callee_rewrite_evidence(
   )
   let locals = @lib.Locals::from_types(removed_local_types)
   locals.append(old_locals)
+  if !dae_local_indices_fit_instrs(body, kept_params.length() + locals.length()) {
+    return None
+  }
   Some({ kept_params, locals, body })
 }
 
@@ -11382,7 +11442,10 @@ fn dae_try_rewrite_candidate(
         }
     }
     let localization = {
-      first_scratch_local: caller_params.length() + locals.length(),
+      first_scratch_local: dae_next_free_local_idx(
+        body,
+        caller_params.length() + locals.length(),
+      ),
       param_types: params,
       scratch_local_types: [],
       localized_params,

@@ -7916,6 +7916,49 @@ test "dae removed-param callee rewrite preserves mapped locals and constants" {
 }
 
 ///|
+test "dae removed-param callee rewrite rejects invalid out-of-range local input" {
+  let invalid = @lib.Func::new(
+    @lib.Locals::new([]),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let evidence = dae_removed_param_callee_rewrite_evidence(
+    invalid,
+    [@lib.ValType::i32(), @lib.ValType::i32()],
+    [false, true],
+    [None, Some(@lib.Instruction::i32_const(@lib.I32(7)))],
+    { gets: [false, false], writes: [false, false] },
+    [false, false],
+  )
+  match evidence {
+    None => ()
+    Some(_) => fail("expected invalid out-of-range local rewrite rejection")
+  }
+}
+
+///|
+test "dae localization scratch floor stays above transient body local indexes" {
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  assert_eq(dae_next_free_local_idx(body, 2), 4)
+  assert_eq(dae_next_free_local_idx(body, 6), 6)
+}
+
+///|
 test "dae callsite removal plan centralizes keep replay and drop repair" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let body = [
