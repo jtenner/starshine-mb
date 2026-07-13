@@ -6,7 +6,7 @@ sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
+  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
   - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
   - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
   - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
@@ -148,7 +148,7 @@ If Starshine ever implements a literal historical pass, the minimum validation m
 - no deletion of globals, memories, tables, tags, data segments, or types except where another explicitly requested pass owns that cleanup;
 - no accidental aliasing to current RUME behavior.
 
-The easiest parity oracle for current Binaryen is **not** a current public tag such as `version_130`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source horizon retained in the 2026-04-27 source recheck [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md).
+The easiest parity oracle for current Binaryen is **not** a current public tag such as `version_130`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source at <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>; the current-main admission recheck does not provide that historical oracle.
 
 ## Main caveat
 
@@ -163,7 +163,7 @@ The local alias relation is an inference, not a proved rename record. No reviewe
 
 - [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
+- [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md)
 - [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
 - [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

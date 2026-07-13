@@ -143,7 +143,7 @@ sources:
   - ../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
-  - ../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
@@ -233,7 +233,7 @@ sources:
   - ../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md
   - ../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
+  - ../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
@@ -613,7 +613,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
 - [`../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
 - [`../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md)
+- [`../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
 - [`../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)
 - [`../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md`](../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md)
 - [`../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
