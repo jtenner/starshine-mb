@@ -357,6 +357,99 @@ test "flatten does not partially route a block with br and deferred br_if exits"
 }
 
 ///|
+test "flatten routes a branch-free scalar loop result through a fresh local" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (loop (result i32) (i32.const 7)))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, drop_id, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_get(func, 0), loop_id)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 0)).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+    "LocalGet",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar loop result routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten intentionally leaves inputful scalar loops for parameter repair" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func i32.const 5 (loop (type $carrier) drop i32.const 7) drop))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, drop_id, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    1,
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected deferred inputful loop to remain valid, got \{err}")
+  }
+}
+
+///|
+test "flatten leaves scalar loops with backedges for loop channel repair" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (drop (loop (result i32) local.get 0 br_if 0 i32.const 7))))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected deferred loop backedge to remain valid, got \{err}")
+  }
+}
+
+///|
 test "flatten routes scalar if arms through one fresh local" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (result i32) local.get 0 if (result i32) i32.const 7 else i32.const 9 end))",

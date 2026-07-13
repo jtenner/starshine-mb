@@ -39,7 +39,7 @@ The exact current local surfaces are:
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
 | CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
-| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar block/if routing, and plain carried scalar `br` routing for defaultable scalar block targets are implemented; `br_if`/`br_table`, branch-targeted `if`, and broader control work remain open. |
+| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar block/if routing, zero-input/no-backedge scalar loop routing, and plain carried scalar `br` routing for defaultable scalar block targets are implemented; `br_if`/`br_table`, inputful/backedge loops, branch-targeted `if`, and broader control work remain open. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
@@ -112,7 +112,7 @@ Only after the simpler families are stable should a port claim broader pass cove
 
 Required tests before any parity claim:
 
-- value-carrying `loop` routes its body result through a temp and leaves a `local.get` outside;
+- branch-free zero-input/no-backedge scalar `loop` now routes its body result through a temp and leaves a `local.get` outside; inputful and backedge-bearing loop channels remain explicit negatives;
 - legacy `try` routes do/catch results through a shared temp;
 - inserted catch blocks still validate after EH pop repair;
 - placeholder `unreachable` preserves real control effects that can no longer stay nested;
