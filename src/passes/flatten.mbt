@@ -178,11 +178,18 @@ fn flatten_value_type_is_defaultable(value_type : @lib.ValType) -> Bool {
 priv struct FlattenRewriteState {
   break_temps : Array[Int]
   terminal_payloads : Array[Int]
+  sequenced_root_holders : Array[Int]
+  sequenced_root_nodes : Array[Int]
 }
 
 ///|
 fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
-  { break_temps: Array::make(func.labels.length(), -1), terminal_payloads: [] }
+  {
+    break_temps: Array::make(func.labels.length(), -1),
+    terminal_payloads: [],
+    sequenced_root_holders: [],
+    sequenced_root_nodes: [],
+  }
 }
 
 ///|
@@ -792,6 +799,44 @@ fn flatten_try_route_scalar_br_table(
 }
 
 ///|
+fn flatten_node_is_admitted_terminal_control_effect(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br | @ir.HotOp::BrTable => true
+    _ => false
+  }
+}
+
+///|
+fn flatten_place_unreachable_control_placeholder(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  owner_region : @ir.HotRegionRef,
+  parent_id : Int,
+  slot : Int,
+  child_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  if !flatten_node_is_admitted_terminal_control_effect(func, child_id) {
+    return false
+  }
+  let mut already_sequenced = false
+  for idx = 0; idx < state.sequenced_root_nodes.length(); idx = idx + 1 {
+    if state.sequenced_root_holders[idx] == owner_region.holder &&
+      state.sequenced_root_nodes[idx] == child_id {
+      already_sequenced = true
+    }
+  }
+  if !already_sequenced {
+    preludes.push(child_id)
+  }
+  @ir.hot_child_set(func, parent_id, slot, @ir.hot_build_unreachable(func))
+  true
+}
+
+///|
 fn flatten_spill_scalar_operand(
   func : @ir.HotFunc,
   parent_id : Int,
@@ -871,7 +916,9 @@ fn flatten_rewrite_region_operands(
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     let preludes : Array[Int] = []
-    if flatten_rewrite_node_operands(ctx, func, state, node_id, preludes) {
+    if flatten_rewrite_node_operands(
+        ctx, func, state, region_ref, node_id, preludes,
+      ) {
       changed = true
     }
     let inserted = preludes.length()
@@ -880,6 +927,8 @@ fn flatten_rewrite_region_operands(
       changed = true
     }
     let root_idx = idx + inserted
+    state.sequenced_root_holders.push(region_ref.holder)
+    state.sequenced_root_nodes.push(node_id)
     match
       flatten_try_lower_region_root_tee(
         ctx, func, region_ref, root_idx, node_id,
@@ -946,6 +995,7 @@ fn flatten_rewrite_operand_slot(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
+  owner_region : @ir.HotRegionRef,
   parent_id : Int,
   slot : Int,
   preludes : Array[Int],
@@ -955,7 +1005,7 @@ fn flatten_rewrite_operand_slot(
     return false
   }
   let mut changed = flatten_rewrite_node_operands(
-    ctx, func, state, child_id, preludes,
+    ctx, func, state, owner_region, child_id, preludes,
   )
   if flatten_try_lower_tee_operand(
       ctx, func, parent_id, slot, child_id, preludes,
@@ -974,7 +1024,13 @@ fn flatten_rewrite_operand_slot(
       changed = true
     }
     None =>
-      if flatten_spill_scalar_operand(func, parent_id, slot, child_id, preludes) {
+      if flatten_place_unreachable_control_placeholder(
+          func, state, owner_region, parent_id, slot, child_id, preludes,
+        ) {
+        changed = true
+      } else if flatten_spill_scalar_operand(
+          func, parent_id, slot, child_id, preludes,
+        ) {
         changed = true
       }
   }
@@ -986,6 +1042,7 @@ fn flatten_rewrite_node_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
+  owner_region : @ir.HotRegionRef,
   node_id : Int,
   preludes : Array[Int],
 ) -> Bool {
@@ -1007,7 +1064,7 @@ fn flatten_rewrite_node_operands(
       let input_count = @ir.hot_label_branch_arity(func, label_id)
       for slot = 0; slot < input_count; slot = slot + 1 {
         if flatten_rewrite_operand_slot(
-            ctx, func, state, node_id, slot, preludes,
+            ctx, func, state, owner_region, node_id, slot, preludes,
           ) {
           changed = true
         }
@@ -1022,7 +1079,9 @@ fn flatten_rewrite_node_operands(
       }
     }
     @ir.HotOp::If => {
-      if flatten_rewrite_operand_slot(ctx, func, state, node_id, 0, preludes) {
+      if flatten_rewrite_operand_slot(
+          ctx, func, state, owner_region, node_id, 0, preludes,
+        ) {
         changed = true
       }
       if flatten_rewrite_region_operands(
@@ -1061,32 +1120,40 @@ fn flatten_rewrite_node_operands(
     @ir.HotOp::TryTable => ()
     @ir.HotOp::BrIf if @ir.hot_child_count(func, node_id) == 2 => {
       let payload_id = @ir.hot_child_get(func, node_id, 0)
-      if flatten_rewrite_node_operands(ctx, func, state, payload_id, preludes) {
+      if flatten_rewrite_node_operands(
+          ctx, func, state, owner_region, payload_id, preludes,
+        ) {
         changed = true
       }
       if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
         changed = true
       }
-      if flatten_rewrite_operand_slot(ctx, func, state, node_id, 0, preludes) {
+      if flatten_rewrite_operand_slot(
+          ctx, func, state, owner_region, node_id, 0, preludes,
+        ) {
         changed = true
       }
     }
     @ir.HotOp::BrTable if @ir.hot_child_count(func, node_id) == 2 => {
       let payload_id = @ir.hot_child_get(func, node_id, 0)
-      if flatten_rewrite_node_operands(ctx, func, state, payload_id, preludes) {
+      if flatten_rewrite_node_operands(
+          ctx, func, state, owner_region, payload_id, preludes,
+        ) {
         changed = true
       }
       if flatten_try_route_scalar_br_table(func, state, node_id, preludes) {
         changed = true
       }
-      if flatten_rewrite_operand_slot(ctx, func, state, node_id, 0, preludes) {
+      if flatten_rewrite_operand_slot(
+          ctx, func, state, owner_region, node_id, 0, preludes,
+        ) {
         changed = true
       }
     }
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         if flatten_rewrite_operand_slot(
-            ctx, func, state, node_id, slot, preludes,
+            ctx, func, state, owner_region, node_id, slot, preludes,
           ) {
           changed = true
         }
@@ -1118,6 +1185,9 @@ fn flatten_materialize_scalar_body_result(
   match tail.op {
     @ir.HotOp::Return => return false
     _ => ()
+  }
+  if flatten_op_is_control_structure(tail.op) {
+    return false
   }
   let result_types = @ir.hot_type_results(func, tail.ty)
   if result_types.length() != 1 {

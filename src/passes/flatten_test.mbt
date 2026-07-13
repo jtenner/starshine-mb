@@ -866,6 +866,127 @@ test "flatten preserves an unreachable nested tee as an ordered prelude" {
 }
 
 ///|
+test "flatten moves nested terminal br_table effects before unreachable placeholders" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let branch = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let select_id = @ir.hot_build_select(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    branch,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch, select_id])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, block_id))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, select_id, 2)).op.to_string(),
+    "Unreachable",
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested terminal br_table placeholder to verify, got \{err}",
+      )
+  }
+}
+
+///|
+test "flatten moves nested terminal br effects before unreachable placeholders" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let branch = @ir.hot_build_br(
+    func,
+    @ir.hot_control_node_label(func, block_id),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let select_id = @ir.hot_build_select(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    branch,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @ir.hot_region_replace_body(func, body_ref, [select_id])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, block_id))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, select_id, 2)).op.to_string(),
+    "Unreachable",
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested terminal br placeholder to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten leaves unsupported root value controls unmaterialized" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32) (if (result i32) (i32.const 1) (then (br 0 (i32.const 7))) (else (i32.const 9)))))",
+  )
+  let if_id = @ir.hot_root_get(func, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  @debug.assert_eq(@ir.hot_root_get(func, 0), if_id)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected unsupported root control to remain valid, got \{err}")
+  }
+}
+
+///|
 test "flatten lowers a tee rooted in a structured region" {
   let func = pass_test_lift_first_func(
     "(module (func (result i32) (local i32) (block (result i32) (local.tee 0 (i32.const 7)))))",

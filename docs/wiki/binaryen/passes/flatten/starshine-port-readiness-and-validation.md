@@ -39,7 +39,7 @@ The exact current local surfaces are:
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
 | CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
-| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar block/if routing, zero-input/no-backedge scalar loop routing, and plain `br`, scalar `br_if` routing including rich ordinary payload origins and the two-temp target/flow mismatch, plus scalar `br_table` rich-origin and unique-target fanout for defaultable scalar block targets are implemented. Multivalue `br_if` and `br_table` payloads remain whole-function fail-closed; inputful/backedge loops, branch-targeted `if`, and broader control work remain open. |
+| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar block/if routing, zero-input/no-backedge scalar loop routing, and plain `br`, scalar `br_if` routing including rich ordinary payload origins and the two-temp target/flow mismatch, plus scalar `br_table` rich-origin and unique-target fanout for defaultable scalar block targets and owner-local terminal placeholders for nested `br`/`br_table` are implemented. Unsupported root value-controls are kept out of scalar body-result materialization. Multivalue `br_if` and `br_table` payloads remain whole-function fail-closed; inputful/backedge loops, branch-targeted `if`, wider terminal families, and broader control work remain open. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
@@ -117,7 +117,7 @@ Required tests before any parity claim:
 - branch-free zero-input/no-backedge scalar `loop` now routes its body result through a temp and leaves a `local.get` outside; inputful and backedge-bearing loop channels remain explicit negatives;
 - legacy `try` routes do/catch results through a shared temp;
 - inserted catch blocks still validate after EH pop repair;
-- placeholder `unreachable` preserves real control effects that can no longer stay nested;
+- placeholder `unreachable` now preserves nested terminal `br`/`br_table` effects in their owner region without duplicating effects that HOT already exposes as an earlier root; wider terminal families remain to be proved;
 - `BrOn*` and `TryTable` have an explicit documented policy.
 
 Binaryen currently hard-fails on `BrOn*` and `TryTable`. Starshine must either match that behavior, pre-gate the pass away from those shapes, or record a deliberate no-op/divergence. Silent divergence should block a parity claim.
