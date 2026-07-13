@@ -86,7 +86,7 @@ Do not widen that claim without evidence. The current implementation resets the 
 
 A 2026-07-11 focused recheck of Binaryen `main` found no behavior-bearing drift for the cleanup sibling itself. Current `main` still publicly registers the pass, resets `Function.effects` for every function, and keeps the pass-runner invalidation path for effect-adding passes. The recheck also preserves the default-pipeline boundary: Binaryen still does not silently make producer/cleanup a standard phase merely because the metadata exists.
 
-The sibling producer `generate-global-effects` still has the known implementation-shape drift in current `main` versus `version_129`: it now uses an SCC/call-graph propagation structure. That drift is documented in [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md), but it does not change `discard-global-effects`' cleanup contract.
+The sibling producer `generate-global-effects` still has the known implementation-shape drift in current `main` versus `version_129`: it now uses an SCC/call-graph propagation structure. The retained 2026-05-05 current-main recheck records that drift, but it does not change `discard-global-effects`' cleanup contract.
 
 The 2026-07-11 recheck supersedes the older freshness claim; it does not alter the pass model, but it makes the `Function.effects` field boundary explicit.
 

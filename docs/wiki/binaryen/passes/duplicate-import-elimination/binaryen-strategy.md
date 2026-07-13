@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-06
 sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
-  - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
@@ -47,7 +46,7 @@ Historical primary source URLs captured on 2026-04-23 and rechecked against curr
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
 
-A narrow 2026-05-04 spot check of current Binaryen `main`, captured in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md), did not surface teaching-relevant drift on the reviewed implementation, helper, registration, or dedicated-test surfaces. The 2026-07-06 refresh found `version_130` and current `main` byte-identical for the pass source, but corrected this dossier's representative wording for mixed-type buckets.
+The 2026-07-06 refresh found `version_130` and current `main` byte-identical for the pass source and corrected this dossier's representative wording for mixed-type buckets; it is the retained current-source freshness evidence for this dossier.
 
 ## Main correction
 

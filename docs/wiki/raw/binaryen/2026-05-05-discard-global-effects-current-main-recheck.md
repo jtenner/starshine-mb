@@ -49,7 +49,7 @@ Captured: 2026-05-05
 
 A 2026-05-05 current-main recheck did not find teaching-relevant drift for the cleanup sibling itself. Current `main` still registers `discard-global-effects` publicly and still clears the same function-level summary state in `GlobalEffects.cpp`.
 
-The neighboring producer `generate-global-effects` still has the current-main SCC-shaped propagation refactor documented in [`./2026-05-04-global-effects-current-main-recheck.md`](./2026-05-04-global-effects-current-main-recheck.md), but that does not change the cleanup sibling's contract.
+The neighboring producer `generate-global-effects` still has the current-main SCC-shaped propagation refactor documented in [`./2026-05-05-global-effects-current-main-recheck.md`](./2026-05-05-global-effects-current-main-recheck.md), but that does not change the cleanup sibling's contract.
 
 ## Uncertainty and contradiction notes
 

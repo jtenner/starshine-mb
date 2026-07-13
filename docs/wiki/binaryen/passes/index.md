@@ -56,7 +56,7 @@ sources:
   - ../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
-  - ../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
+  - ../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
   - ../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md

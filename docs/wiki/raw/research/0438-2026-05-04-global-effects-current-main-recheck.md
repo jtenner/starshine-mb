@@ -6,7 +6,7 @@ Did Binaryen current `main` drift in a teaching-relevant way from the existing `
 
 ## Sources
 
-- `docs/wiki/raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`
+- `docs/wiki/raw/binaryen/2026-05-05-global-effects-current-main-recheck.md` (retained successor source capture)
 - official Binaryen `main` sources for `GlobalEffects.cpp`, `pass.cpp`, `effects.h`, `wasm.h`, `vacuum-global-effects.wast`, and `global-effects_simplify-locals.wast`
 
 ## Findings

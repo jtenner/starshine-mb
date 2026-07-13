@@ -9,8 +9,6 @@ sources:
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
-  - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
-  - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
@@ -180,8 +178,6 @@ Until then, keep the local boundary-only status described in [`./starshine-strat
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
-- [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`./index.md`](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)

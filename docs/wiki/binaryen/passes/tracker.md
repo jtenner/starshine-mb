@@ -41,7 +41,7 @@ sources:
   - ../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
+  - ../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
   - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md

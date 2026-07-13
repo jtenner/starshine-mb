@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
   - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -27,7 +26,7 @@ related:
 
 # Starshine Strategy For `duplicate-import-elimination`
 
-Use this page together with the current `version_130` / `main` refresh in [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md), the retained 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md), and the direct historical `version_129` URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
+Use this page together with the retained `version_130` / `main` refresh in [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md) and the direct historical `version_129` URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas future maintenance or late-preset work must hook into.
 
 ## The honest current status
@@ -113,7 +112,7 @@ The implementation follows the corrected Binaryen `version_130` contract:
 
 The direct-pass signoff evidence is recorded in [`./fuzzing.md`](./fuzzing.md) and [`../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md`](../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md).
 
-That matters because older local planning text used to be broader than upstream and described table/global/memory import-user patching as if it belonged to the reviewed contract. The 2026-05-04 current-main recheck keeps that older broad interpretation stale: the upstream pass is still function-import-only, keyed by `(module, base)`, gated by exact function-type equality, and limited to the function-name rewrite surface described in [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md).
+That matters because older local planning text used to be broader than upstream and described table/global/memory import-user patching as if it belonged to the reviewed contract. The retained 2026-07-06 `version_130` / `main` refresh keeps that older broad interpretation stale: the upstream pass is still function-import-only, keyed by `(module, base)`, gated by exact function-type equality, and limited to the function-name rewrite surface described in [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md).
 
 ## Current direct pass-local timing evidence
 

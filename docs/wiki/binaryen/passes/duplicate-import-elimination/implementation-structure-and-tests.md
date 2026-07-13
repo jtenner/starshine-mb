@@ -5,7 +5,6 @@ last_reviewed: 2026-07-06
 sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
-  - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
@@ -253,7 +252,7 @@ It is another reason the earlier broad dossier needed correction.
 
 ## Current-main drift check
 
-A spot check against current Binaryen `main` re-confirmed on **2026-05-04** found no teaching-relevant drift in the reviewed implementation, helper, registration, or dedicated-test surfaces relative to the `version_129` contract. A 2026-07-06 refresh found `version_130` and current `main` byte-identical for `DuplicateImportElimination.cpp` and corrected the mixed-type bucket representative rule; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
+A 2026-07-06 refresh found `version_130` and current `main` byte-identical for `DuplicateImportElimination.cpp` and corrected the mixed-type bucket representative rule; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
 
 So the corrected story on this page is not just tag-specific historical trivia.
 It still describes the current upstream implementation on the reviewed surface.
