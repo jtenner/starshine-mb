@@ -338,13 +338,14 @@ test "flatten routes a same-type scalar br_if through its block target temp" {
 }
 
 ///|
-test "flatten intentionally leaves rich br_if payloads for shared flow repair" {
+test "flatten evaluates rich br_if payloads once before rich conditions" {
   let func = pass_test_lift_first_func(
-    "(module (func (param i32) (drop (block (result i32) call 1 local.get 0 br_if 0 drop i32.const 9))) (func (result i32) i32.const 7))",
+    "(module (func (drop (block (result i32) call 1 call 2 br_if 0 drop i32.const 9))) (func (result i32) i32.const 7) (func (result i32) i32.const 0))",
   )
   let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let branch = @ir.hot_region_get(func, body_ref, 0)
+  let payload = @ir.hot_child_get(func, branch, 0)
   let ctx = HotPassContext::new(
     flatten_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -352,12 +353,73 @@ test "flatten intentionally leaves rich br_if payloads for shared flow repair" {
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 1)
-  @debug.assert_eq(@ir.hot_child_count(func, branch), 2)
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let payload_set = @ir.hot_region_get(func, body_ref, 0)
+  let condition_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, payload_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, condition_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, payload_set, 0), payload)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, condition_set, 0)).op.to_string(),
+    "Call",
+  )
+  let drop_id = @ir.hot_region_get(func, body_ref, 3)
+  @debug.assert_eq(@ir.hot_node_get(func, drop_id).op.to_string(), "Drop")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+    "LocalGet",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
-    Err(err) => fail("expected deferred rich br_if to remain valid, got \{err}")
+    Err(err) => fail("expected rich br_if routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten shares one rich payload origin across chained br_if flow" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32) (drop (block (result i32) call 1 local.get 0 br_if 0 local.get 1 br_if 0 drop i32.const 9))) (func (result i32) i32.const 7))",
+  )
+  let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let first_branch = @ir.hot_region_get(func, body_ref, 0)
+  let second_branch = @ir.hot_region_get(func, body_ref, 1)
+  let payload = @ir.hot_child_get(func, first_branch, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, second_branch, 0), payload)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, first_branch), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, second_branch), 1)
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, first_payload_set, 0), payload)
+  let payload_use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(payload_use_def, payload), 1)
+  let drop_id = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_node_get(func, drop_id).op.to_string(), "Drop")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+    "LocalGet",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected chained rich br_if routing to verify, got \{err}")
   }
 }
 

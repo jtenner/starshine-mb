@@ -508,8 +508,7 @@ fn flatten_target_can_route_scalar_branches(
           @ir.hot_node_get(func, value_id).ty,
         )
         if value_types.length() != 1 ||
-          !flatten_value_type_is_defaultable(value_types[0]) ||
-          !flatten_node_is_simple_operand(func, value_id) {
+          !flatten_value_type_is_defaultable(value_types[0]) {
           return false
         }
       }
@@ -672,7 +671,6 @@ fn flatten_try_route_scalar_br_if(
     value_types.length() != 1 ||
     !flatten_value_type_is_defaultable(target_types[0]) ||
     !flatten_value_type_is_defaultable(value_types[0]) ||
-    !flatten_node_is_simple_operand(func, value_id) ||
     !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
     return false
   }
@@ -1064,6 +1062,18 @@ fn flatten_rewrite_node_operands(
       }
     }
     @ir.HotOp::TryTable => ()
+    @ir.HotOp::BrIf if @ir.hot_child_count(func, node_id) == 2 => {
+      let payload_id = @ir.hot_child_get(func, node_id, 0)
+      if flatten_rewrite_node_operands(ctx, func, state, payload_id, preludes) {
+        changed = true
+      }
+      if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
+        changed = true
+      }
+      if flatten_rewrite_operand_slot(ctx, func, state, node_id, 0, preludes) {
+        changed = true
+      }
+    }
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         if flatten_rewrite_operand_slot(
@@ -1117,6 +1127,26 @@ fn flatten_materialize_scalar_body_result(
 }
 
 ///|
+fn flatten_scalar_branch_payload_has_supported_origin(
+  func : @ir.HotFunc,
+  value_id : Int,
+) -> Bool {
+  if flatten_node_is_simple_operand(func, value_id) {
+    return true
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  if @ir.hot_node_kind_is_control(func, value_id) {
+    return false
+  }
+  match value.op {
+    @ir.HotOp::LocalTee => return false
+    _ => ()
+  }
+  let value_types = @ir.hot_type_results(func, value.ty)
+  value_types.length() == 1 && flatten_value_type_is_defaultable(value_types[0])
+}
+
+///|
 fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -1124,7 +1154,20 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
     }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
-      @ir.HotOp::BrIf | @ir.HotOp::BrTable => {
+      @ir.HotOp::BrIf => {
+        let child_count = @ir.hot_child_count(func, node_id)
+        if child_count <= 1 {
+          continue
+        }
+        if child_count != 2 ||
+          !flatten_scalar_branch_payload_has_supported_origin(
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+          ) {
+          return true
+        }
+      }
+      @ir.HotOp::BrTable => {
         let child_count = @ir.hot_child_count(func, node_id)
         if child_count <= 1 {
           continue
