@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-13
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -178,6 +178,17 @@ The key source-derived reason flatten preserves side-effect order is:
 
 - a nested effectful computation is not deleted
 - it is merely moved into a prelude that executes immediately before the use site (or before the nearest enclosing control node that can place it correctly)
+
+Starshine now makes that placement rule explicit in `src/passes/flatten.mbt`:
+
+- each structured region is scanned independently;
+- each region root owns one ordered prelude list;
+- ordinary operand trees are visited postorder and sibling operands append spills left to right;
+- the complete list is inserted immediately before the owning root;
+- `if` conditions use the enclosing root list, while then/else bodies own separate regional lists;
+- block, loop, and legacy-try bodies are scanned through their own `HotRegionRef` instead of migrating work across a control boundary.
+
+The current implementation applies this plan to supported scalar ordinary operands. Control values, branch payload channels, tees below region roots, unreachable placeholders, and EH repair still require their dedicated rewrite families; they must not be generalized by moving arbitrary work across the recorded owner boundary.
 
 So a good mental model is:
 

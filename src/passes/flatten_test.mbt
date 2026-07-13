@@ -132,3 +132,70 @@ test "flatten materializes an implicit scalar function result before return" {
     Err(err) => fail("expected flattened body to verify, got \{err}")
   }
 }
+
+///|
+test "flatten spills sibling operand preludes in left to right order" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (i32.mul (i32.add (local.get 0) (i32.const 1)) (i32.sub (local.get 0) (i32.const 2)))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 4)
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  let add_set = @ir.hot_root_get(func, 0)
+  let sub_set = @ir.hot_root_get(func, 1)
+  let result_set = @ir.hot_root_get(func, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, add_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, sub_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, add_set, 0)),
+    Some(@lib.Instruction::i32_add()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, sub_set, 0)),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, result_set, 0)),
+    Some(@lib.Instruction::i32_mul()),
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected ordered operand preludes to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten places nested operand preludes in their owning block region" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (block (result i32) (i32.add (i32.mul (local.get 0) (i32.const 2)) (i32.const 1)))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  @debug.assert_eq(@ir.hot_node_get(func, block_id).op.to_string(), "Block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 2)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 0)).op.to_string(),
+    "LocalSet",
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected region-owned operand preludes to verify, got \{err}")
+  }
+}

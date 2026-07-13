@@ -149,6 +149,169 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
 }
 
 ///|
+fn flatten_spill_scalar_operand(
+  func : @ir.HotFunc,
+  parent_id : Int,
+  slot : Int,
+  child_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let child = @ir.hot_node_get(func, child_id)
+  let parent = @ir.hot_node_get(func, parent_id)
+  let child_is_tee = match child.op {
+    @ir.HotOp::LocalTee => true
+    _ => false
+  }
+  let parent_allows_rich_value = match parent.op {
+    @ir.HotOp::LocalSet => !flatten_op_is_control_structure(child.op)
+    _ => false
+  }
+  if flatten_node_is_simple_operand(func, child_id) ||
+    @ir.hot_node_kind_is_control(func, child_id) ||
+    child_is_tee ||
+    parent_allows_rich_value {
+    return false
+  }
+  let result_types = @ir.hot_type_results(func, child.ty)
+  if result_types.length() != 1 {
+    return false
+  }
+  let local_id = @ir.hot_append_body_local(func, result_types[0])
+  preludes.push(@ir.hot_build_local_set(func, local_id, child_id))
+  @ir.hot_child_set(
+    func,
+    parent_id,
+    slot,
+    @ir.hot_build_local_get(func, local_id),
+  )
+  true
+}
+
+///|
+fn flatten_rewrite_region_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    let preludes : Array[Int] = []
+    if flatten_rewrite_node_operands(ctx, func, node_id, preludes) {
+      changed = true
+    }
+    let inserted = preludes.length()
+    if inserted > 0 {
+      ignore(pass_splice_region(ctx, func, region_ref, idx, 0, preludes))
+      changed = true
+    }
+    idx += inserted + 1
+  }
+  changed
+}
+
+///|
+fn flatten_rewrite_operand_slot(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  parent_id : Int,
+  slot : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let child_id = @ir.hot_child_get(func, parent_id, slot)
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return false
+  }
+  let mut changed = flatten_rewrite_node_operands(ctx, func, child_id, preludes)
+  if flatten_spill_scalar_operand(func, parent_id, slot, child_id, preludes) {
+    changed = true
+  }
+  changed
+}
+
+///|
+fn flatten_rewrite_node_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let mut changed = false
+  match node.op {
+    @ir.HotOp::Block =>
+      changed = flatten_rewrite_region_operands(
+        ctx,
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::Loop => {
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      let input_count = @ir.hot_label_branch_arity(func, label_id)
+      for slot = 0; slot < input_count; slot = slot + 1 {
+        if flatten_rewrite_operand_slot(ctx, func, node_id, slot, preludes) {
+          changed = true
+        }
+      }
+      if flatten_rewrite_region_operands(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        changed = true
+      }
+    }
+    @ir.HotOp::If => {
+      if flatten_rewrite_operand_slot(ctx, func, node_id, 0, preludes) {
+        changed = true
+      }
+      if flatten_rewrite_region_operands(
+          ctx,
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        changed = true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if flatten_rewrite_region_operands(ctx, func, else_ref) {
+            changed = true
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      if flatten_rewrite_region_operands(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        changed = true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          if flatten_rewrite_region_operands(ctx, func, catch_ref) {
+            changed = true
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => ()
+    _ =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        if flatten_rewrite_operand_slot(ctx, func, node_id, slot, preludes) {
+          changed = true
+        }
+      }
+  }
+  changed
+}
+
+///|
 fn flatten_rewrite_root_tees(ctx : HotPassContext, func : @ir.HotFunc) -> Bool {
   let mut changed = false
   let mut idx = @ir.hot_root_count(func) - 1
@@ -221,7 +384,14 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if before.unsupported_count > 0 {
     return HotPassResult::unchanged()
   }
-  let mut changed = flatten_rewrite_root_tees(ctx, func)
+  let mut changed = flatten_rewrite_region_operands(
+    ctx,
+    func,
+    @ir.HotRegionRef::root(),
+  )
+  if flatten_rewrite_root_tees(ctx, func) {
+    changed = true
+  }
   if flatten_materialize_scalar_body_result(ctx, func) {
     changed = true
   }
