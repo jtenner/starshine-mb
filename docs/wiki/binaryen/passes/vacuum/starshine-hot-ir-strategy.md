@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
@@ -30,7 +29,7 @@ related:
 
 # Starshine HOT-IR Strategy For `vacuum`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md`](../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md).
+Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); their direct `version_129` source/test URLs and retained research provide the upstream provenance.
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, and why the current direct-pass / checked-ordered-neighborhood audit is considered closed.
 
 ## Exact local code map

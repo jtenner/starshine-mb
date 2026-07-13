@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
@@ -114,7 +113,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
 - Treat the current direct-pass and checked ordered-neighborhood audit as closed for v0.1.0: the direct `100000` regular GenValid lane is green, the explicit wasm-smith lane is classified, the broad random-all-profiles lane is green, and the reconstructed checked slot23 replay reached normalized WAT equality plus canonical function compare equality on 2026-07-04.
-- Treat the new raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
+- Treat the direct `version_129` source/test URLs, retained research, and refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
@@ -122,7 +121,6 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md`](../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md)
 - [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
 - [`../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md`](../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md)
 - [`../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md`](../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md)
