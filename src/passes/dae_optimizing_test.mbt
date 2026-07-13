@@ -7782,6 +7782,72 @@ test "dae-optimizing traces large touched set nested cleanup skip" {
 }
 
 ///|
+test "dae-optimizing runs nested cleanup on small touched sets inside large modules" {
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (func $f (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 10
+      #|    i32.const 20
+      #|    call $f)
+    ),
+  )
+  let mut idx = 0
+  while idx < 99 {
+    out.write_string("  (func $pad\{idx})\n")
+    idx += 1
+  }
+  out.write_string(")")
+  let trace = match
+    pass_test_capture_trace(out.to_string(), ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced large-module DAE success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:nested-cleanup-skip reason=large-module")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains("pass[dae-optimizing]:nested-pass name=simplify-locals"),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing nested cleanup still removes touched debris in large modules" {
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (func $f (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 10
+      #|    i32.const 20
+      #|    call $f)
+    ),
+  )
+  let mut idx = 0
+  while idx < 99 {
+    out.write_string("  (func $pad\{idx})\n")
+    idx += 1
+  }
+  out.write_string(")")
+  let optimized = dae_test_run(out.to_string())
+  let touched_callee = optimized.pretty_print_defined_func(0U)
+  assert_false(touched_callee.contains("local.set"), msg=touched_callee)
+}
+
+///|
 test "dae-optimizing traces nested local-cse before simplify-locals" {
   let source =
     #|(module
