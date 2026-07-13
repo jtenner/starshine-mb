@@ -401,7 +401,11 @@ This is a very important correctness rule for a future port.
 - flatten does not know which target will be taken
 - so it makes every target payload channel explicit
 
-## Shape 11: value-carrying `try` is flattened through a shared temp
+## Shape 11: inputful no-backedge loops separate entry and result channels
+
+For a typed loop with independently scalar defaultable parameters and one scalar result, Starshine now evaluates each entry once in source order, stores it in a typed local, redirects body uses through local reads, removes the loop parameter prefix, and routes the final result through a distinct temp. Nondefaultable or multivalue entry producers remain whole-function fail-closed, and backedge payloads are a separate channel.
+
+## Shape 12: value-carrying `try` is flattened through a shared temp
 
 ## Before
 
@@ -442,7 +446,7 @@ This is a very important correctness rule for a future port.
 - Flat IR forbids `try` from carrying a value directly
 - flatten routes both the main body and catch body values through a temp
 
-## Shape 12: flatten may create blocks inside `catch`, so EH pop fixup is required
+## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before
 
@@ -470,7 +474,7 @@ The exact output is verbose, but the key source-backed facts are:
 
 - without that repair step, the resulting EH structure would be invalid
 
-## Shape 13: real control effects become preludes plus placeholder `unreachable`
+## Shape 14: real control effects become preludes plus placeholder `unreachable`
 
 ## Before
 
@@ -509,7 +513,7 @@ The exact output is verbose, but the key source-backed facts are:
 - so Binaryen keeps the real effect in earlier code and leaves a placeholder `unreachable`
 - Starshine now implements this owner-local shape for nested terminal `br` and `br_table`, including HOT cases where the real terminal is already an earlier region root and must not be duplicated
 
-## Shape 14: selective non-null support is real
+## Shape 15: selective non-null support is real
 
 ## Before
 
@@ -550,7 +554,7 @@ becoming a temp-local-returned shape in `flatten_all-features.wast`.
 - some non-null families already work in shipped tests
 - that means the open non-nullability TODO is narrower than a blanket “all non-null values are unsupported” claim
 
-## Shape 15: unsupported `BrOn*` and `TryTable` are hard stop families
+## Shape 16: unsupported `BrOn*` and `TryTable` are hard stop families
 
 ## Family
 

@@ -409,6 +409,8 @@ pub fn hot_local_param_count(HotFunc) -> Int
 
 pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
 
+pub fn hot_loop_entry_values_clear(HotFunc, Int) -> Array[Int]
+
 pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
 pub fn hot_lower_body_unverified(HotFunc) -> @lib.Expr

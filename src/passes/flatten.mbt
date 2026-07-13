@@ -346,6 +346,120 @@ fn flatten_try_route_scalar_block(
 }
 
 ///|
+fn flatten_inputful_scalar_loop_is_supported(
+  func : @ir.HotFunc,
+  loop_id : Int,
+) -> Bool {
+  let loop_node = @ir.hot_node_get(func, loop_id)
+  match loop_node.op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  let input_count = @ir.hot_label_branch_arity(func, label_id)
+  if input_count <= 0 ||
+    pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    return false
+  }
+  let result_types = @ir.hot_type_results(func, loop_node.ty)
+  if result_types.length() != 1 ||
+    !flatten_value_type_is_defaultable(result_types[0]) {
+    return false
+  }
+  let param_types = match @ir.hot_type_get(func, loop_node.ty) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, _) => params
+    _ => return false
+  }
+  if param_types.length() != input_count || loop_node.child_count <= input_count {
+    return false
+  }
+  for slot = 0; slot < input_count; slot = slot + 1 {
+    let entry_id = @ir.hot_child_get(func, loop_id, slot)
+    let entry_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, entry_id).ty,
+    )
+    if entry_types.length() != 1 ||
+      entry_types[0] != param_types[slot] ||
+      !flatten_scalar_branch_payload_has_supported_origin(func, entry_id) {
+      return false
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+  @ir.hot_node_result_arity(func, tail_id) == 1
+}
+
+///|
+fn flatten_replace_loop_entry_in_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  entry_id : Int,
+  replacement_id : Int,
+  visited : Array[Int],
+) -> Unit {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    visited.contains(node_id) {
+    return
+  }
+  visited.push(node_id)
+  let child_count = @ir.hot_child_count(func, node_id)
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id == entry_id {
+      @ir.hot_child_set(func, node_id, slot, replacement_id)
+    } else {
+      flatten_replace_loop_entry_in_node(
+        func, child_id, entry_id, replacement_id, visited,
+      )
+    }
+  }
+}
+
+///|
+fn flatten_prepare_inputful_scalar_loop(
+  func : @ir.HotFunc,
+  loop_id : Int,
+  preludes : Array[Int],
+) -> Unit {
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  let input_count = @ir.hot_label_branch_arity(func, label_id)
+  let entries : Array[Int] = []
+  for slot = 0; slot < input_count; slot = slot + 1 {
+    entries.push(@ir.hot_child_get(func, loop_id, slot))
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  for entry_id in entries {
+    let entry_type = @ir.hot_type_results(
+        func,
+        @ir.hot_node_get(func, entry_id).ty,
+      )[0]
+    let local_id = @ir.hot_append_body_local(func, entry_type)
+    preludes.push(@ir.hot_build_local_set(func, local_id, entry_id))
+    let replacement_id = @ir.hot_build_local_get(func, local_id)
+    let visited : Array[Int] = []
+    for root_idx = 0
+        root_idx < @ir.hot_region_root_count(func, body_ref)
+        root_idx = root_idx + 1 {
+      let root_id = @ir.hot_region_get(func, body_ref, root_idx)
+      if root_id == entry_id {
+        ignore(@ir.hot_region_set(func, body_ref, root_idx, replacement_id))
+      } else {
+        flatten_replace_loop_entry_in_node(
+          func, root_id, entry_id, replacement_id, visited,
+        )
+      }
+    }
+  }
+  ignore(@ir.hot_loop_entry_values_clear(func, loop_id))
+}
+
+///|
 fn flatten_try_route_scalar_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1097,11 +1211,24 @@ fn flatten_rewrite_node_operands(
     @ir.HotOp::Loop => {
       let label_id = @ir.hot_control_node_label(func, node_id)
       let input_count = @ir.hot_label_branch_arity(func, label_id)
-      for slot = 0; slot < input_count; slot = slot + 1 {
-        if flatten_rewrite_operand_slot(
-            ctx, func, state, owner_region, node_id, slot, preludes,
-          ) {
-          changed = true
+      if flatten_inputful_scalar_loop_is_supported(func, node_id) {
+        for slot = 0; slot < input_count; slot = slot + 1 {
+          let entry_id = @ir.hot_child_get(func, node_id, slot)
+          if flatten_rewrite_node_operands(
+              ctx, func, state, owner_region, entry_id, preludes,
+            ) {
+            changed = true
+          }
+        }
+        flatten_prepare_inputful_scalar_loop(func, node_id, preludes)
+        changed = true
+      } else {
+        for slot = 0; slot < input_count; slot = slot + 1 {
+          if flatten_rewrite_operand_slot(
+              ctx, func, state, owner_region, node_id, slot, preludes,
+            ) {
+            changed = true
+          }
         }
       }
       if flatten_rewrite_region_operands(
@@ -1261,6 +1388,25 @@ fn flatten_scalar_branch_payload_has_supported_origin(
 }
 
 ///|
+fn flatten_has_deferred_inputful_loop(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Loop => ()
+      _ => continue
+    }
+    let label_id = @ir.hot_control_node_label(func, node_id)
+    if @ir.hot_label_branch_arity(func, label_id) > 0 &&
+      !flatten_inputful_scalar_loop_is_supported(func, node_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -1317,6 +1463,7 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let before = flatten_classify_hot(func)
   if before.unsupported_count > 0 ||
+    flatten_has_deferred_inputful_loop(func) ||
     flatten_has_deferred_rich_branch_payload(func) {
     return HotPassResult::unchanged()
   }

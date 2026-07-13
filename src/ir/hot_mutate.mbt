@@ -484,6 +484,41 @@ pub fn hot_control_result_type_set(
 }
 
 ///|
+pub fn hot_loop_entry_values_clear(
+  func : HotFunc,
+  loop_id : NodeId,
+) -> Array[NodeId] {
+  hot_mutate_require_live_node(func, loop_id, "hot_loop_entry_values_clear")
+  let loop_node = hot_node_get(func, loop_id)
+  if loop_node.op != HotOp::Loop {
+    abort("hot_loop_entry_values_clear requires a loop node")
+  }
+  let label_id = hot_control_node_label(func, loop_id)
+  hot_mutate_require_label_id(
+    func, label_id, "hot_loop_entry_values_clear loop label",
+  )
+  let label = hot_label_get(func, label_id)
+  let input_count = label.branch_arity
+  if input_count < 0 || input_count > loop_node.child_count {
+    abort("hot_loop_entry_values_clear requires a valid loop input prefix")
+  }
+  let removed : Array[NodeId] = []
+  let body : Array[NodeId] = []
+  for slot = 0; slot < loop_node.child_count; slot = slot + 1 {
+    let child_id = hot_child_get(func, loop_id, slot)
+    if slot < input_count {
+      removed.push(child_id)
+    } else {
+      body.push(child_id)
+    }
+  }
+  ignore(hot_replace_child_span(func, loop_id, body))
+  func.labels[label_id] = { ..label, branch_arity: 0 }
+  hot_revision_bump(func)
+  removed
+}
+
+///|
 pub fn hot_replace_child_spans_and_control_result_type(
   func : HotFunc,
   control_id : NodeId,

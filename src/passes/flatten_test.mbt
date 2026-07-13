@@ -660,7 +660,7 @@ test "flatten routes a branch-free scalar loop result through a fresh local" {
 }
 
 ///|
-test "flatten intentionally leaves inputful scalar loops for parameter repair" {
+test "flatten routes a single loop entry and scalar result through locals" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32) (result i32))) (func i32.const 5 (loop (type $carrier) drop i32.const 7) drop))",
   )
@@ -673,8 +673,77 @@ test "flatten intentionally leaves inputful scalar loops for parameter repair" {
     false,
     fn(_) { () },
   )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_root_get(func, 1), loop_id)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected inputful scalar loop to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten captures multiple effectful loop entries once in order" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32))) (func call 1 call 2 loop (type $carrier) drop drop i32.const 7 end drop) (func (result i32) i32.const 5) (func (result i64) i64.const 6))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, drop_id, 0)
+  let first_entry = @ir.hot_child_get(func, loop_id, 0)
+  let second_entry = @ir.hot_child_get(func, loop_id, 1)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  let first_set = @ir.hot_root_get(func, 0)
+  let second_set = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_set, 0), first_entry)
+  @debug.assert_eq(@ir.hot_child_get(func, second_set, 0), second_entry)
+  @debug.assert_eq(@ir.hot_root_get(func, 2), loop_id)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_entry), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected ordered loop entry capture to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten intentionally leaves nondefaultable loop entries fail closed" {
+  let func = pass_test_lift_first_func(
+    "(module (type $box (struct)) (type $carrier (func (param (ref $box)) (result i32))) (func struct.new_default $box loop (type $carrier) drop i32.const 7 end drop))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 1)
   @debug.assert_eq(
     @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
     1,
@@ -682,7 +751,34 @@ test "flatten intentionally leaves inputful scalar loops for parameter repair" {
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected deferred inputful loop to remain valid, got \{err}")
+      fail("expected nondefaultable loop entry to remain valid, got \{err}")
+  }
+}
+
+///|
+test "flatten intentionally leaves multivalue loop entry producers fail closed" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32))) (func call 1 loop (type $carrier) drop drop i32.const 7 end drop) (func (result i32 i64) i32.const 5 i64.const 6))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    2,
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected multivalue loop entry producer to remain valid, got \{err}",
+      )
   }
 }
 
