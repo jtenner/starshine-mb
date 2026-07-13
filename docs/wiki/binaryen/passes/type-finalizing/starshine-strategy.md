@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -112,7 +111,7 @@ Because Starshine has no implementation, the current validation is status valida
 
 - `type-finalizing` must remain rejected as boundary-only when requested directly.
 - It must not appear in the `optimize` or `shrink` preset expansion.
-- Wiki pages must cite the 2026-04-24 raw manifest and this status page instead of only the older 0192 research note.
+- Wiki pages must cite retained direct tagged sources or current-main rechecks and this status page instead of only the older 0192 research note.
 
 If a future port lands, use the repo's standard signoff:
 
@@ -136,10 +135,9 @@ If a future port lands, use the repo's standard signoff:
 
 For the full source-backed chain, read in this order:
 
-1. [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)
-2. [`../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md)
+1. Direct `version_129` URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md)
+2. [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md)
 3. [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md)
-4. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-5. [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
-6. [`./wat-shapes.md`](./wat-shapes.md)
-7. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+4. [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
+5. [`./wat-shapes.md`](./wat-shapes.md)
+6. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)

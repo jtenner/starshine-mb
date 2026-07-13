@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
@@ -21,7 +20,7 @@ related:
 
 # `type-finalizing` implementation structure and tests
 
-This page is source-confirmed by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md). The 2026-07-11 current-main recheck preserves the owner, registration, and lit contract but corrects the helper call shape: `worldMode` now reaches both private-type selection and `GlobalTypeRewriter`; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md). For the current Starshine non-implementation, future-port code map, and validation ladder, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page is source-confirmed by the direct `version_129` source URLs below. The 2026-07-11 current-main recheck preserves the owner, registration, and lit contract but corrects the helper call shape: `worldMode` now reaches both private-type selection and `GlobalTypeRewriter`; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md). For the current Starshine non-implementation, future-port code map, and validation ladder, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Main upstream files
 
@@ -200,7 +199,6 @@ That is unusually good coverage for such a small pass.
 
 ## Source URLs
 
-- [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeFinalizing.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-finalizing.wast>

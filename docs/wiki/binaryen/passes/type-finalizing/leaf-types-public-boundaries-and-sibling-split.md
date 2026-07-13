@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
@@ -20,7 +19,7 @@ related:
 
 # `type-finalizing`: leaf types, public boundaries, and the sibling split
 
-This page covers the easiest part of `type-finalizing` to misread. It is source-confirmed by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md).
+This page covers the easiest part of `type-finalizing` to misread. Its tagged `version_129` provenance is retained by the direct source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md), and its current-main world-mode boundary is recorded in [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
 
 ## The three rules that matter most
 
