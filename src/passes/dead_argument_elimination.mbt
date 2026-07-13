@@ -1640,6 +1640,30 @@ fn dae_build_local_map(
 }
 
 ///|
+fn dae_try_extend_callsite_shape_with_dead_zero_if_gap(
+  instrs : Array[@lib.Instruction],
+  shape : DaeCallShape,
+) -> DaeCallShape {
+  if shape.start >= 4 {
+    match (instrs[shape.start - 4], instrs[shape.start - 3]) {
+      (@lib.I32Const(_), @lib.If(_, _, Some(_))) =>
+        match (instrs[shape.start - 2], instrs[shape.start - 1]) {
+          (@lib.I32Const(@lib.I32(0)), @lib.If(block_type, _, None)) =>
+            if block_type == @lib.BlockType::void_() {
+              { start: shape.start - 2, end: shape.end, pure: false }
+            } else {
+              shape
+            }
+          _ => shape
+        }
+      _ => shape
+    }
+  } else {
+    shape
+  }
+}
+
+///|
 fn dae_collect_callsite_shapes(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
@@ -1657,9 +1681,12 @@ fn dae_collect_callsite_shapes(
       dae_find_value_slice(
         instrs, cursor, ambient_remaining, mod_, func_type_indices,
       ) {
-      Some((shape, next_cursor, next_ambient_remaining)) => {
-        shapes[arg_idx] = shape
-        cursor = next_cursor
+      Some((shape, _, next_ambient_remaining)) => {
+        let widened_shape = dae_try_extend_callsite_shape_with_dead_zero_if_gap(
+          instrs, shape,
+        )
+        shapes[arg_idx] = widened_shape
+        cursor = widened_shape.start
         ambient_remaining = next_ambient_remaining
       }
       None => return None
@@ -1687,9 +1714,12 @@ fn dae_collect_callsite_suffix_shapes(
       dae_find_value_slice(
         instrs, cursor, ambient_remaining, mod_, func_type_indices,
       ) {
-      Some((shape, next_cursor, next_ambient_remaining)) => {
-        shapes[arg_idx] = Some(shape)
-        cursor = next_cursor
+      Some((shape, _, next_ambient_remaining)) => {
+        let widened_shape = dae_try_extend_callsite_shape_with_dead_zero_if_gap(
+          instrs, shape,
+        )
+        shapes[arg_idx] = Some(widened_shape)
+        cursor = widened_shape.start
         ambient_remaining = next_ambient_remaining
       }
       None => break
@@ -2148,6 +2178,135 @@ fn dae_resolve_uniform_const_candidate(
 }
 
 ///|
+fn dae_resolve_i32_const_value_candidate(
+  mod_ : @lib.Module,
+  candidate : @lib.Instruction,
+  allow_immutable_global_get : Bool,
+) -> Int? {
+  match candidate {
+    @lib.I32Const(@lib.I32(value)) => Some(value)
+    @lib.GlobalGet(global_idx) if allow_immutable_global_get =>
+      dae_defined_i32_global_const_value(mod_, global_idx)
+    _ => None
+  }
+}
+
+///|
+fn dae_resolve_uniform_const_shape_candidate(
+  instrs : Array[@lib.Instruction],
+  shape : DaeCallShape,
+  caller_abs : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+  tail_calls : Array[Bool],
+  direct_callers : Array[Array[Int]],
+  visited : Array[Bool],
+  allow_immutable_global_get : Bool,
+) -> @lib.Instruction? {
+  let resolve_single = fn(
+    candidate : @lib.Instruction,
+    candidate_start : Int,
+  ) -> @lib.Instruction? {
+    match
+      dae_resolve_uniform_const_candidate(
+        mod_,
+        caller_abs,
+        candidate,
+        func_type_indices,
+        escaped,
+        tail_calls,
+        direct_callers,
+        visited,
+        allow_immutable_global_get~,
+      ) {
+      Some(resolved) => Some(resolved)
+      None =>
+        match
+          dae_materializable_control_const(
+            mod_, candidate, allow_immutable_global_get,
+          ) {
+          Some(resolved) => Some(resolved)
+          None =>
+            match candidate {
+              @lib.LocalGet(local_idx) =>
+                dae_resolve_local_set_const_carrier(
+                  instrs,
+                  candidate_start,
+                  dae_local_idx_slot(local_idx),
+                  mod_,
+                  allow_immutable_global_get,
+                )
+              _ => None
+            }
+        }
+    }
+  }
+  let resolve_control_leaf = fn(
+    candidate : @lib.Instruction,
+  ) -> @lib.Instruction? {
+    match
+      dae_materializable_control_const(
+        mod_, candidate, allow_immutable_global_get,
+      ) {
+      Some(resolved) => Some(resolved)
+      None =>
+        if allow_immutable_global_get {
+          if dae_instr_is_materializable_const_with_immutable_global(
+              mod_, candidate,
+            ) {
+            Some(candidate)
+          } else {
+            None
+          }
+        } else if dae_instr_is_materializable_const(candidate) {
+          Some(candidate)
+        } else {
+          None
+        }
+    }
+  }
+  let shape_len = shape.end - shape.start
+  if shape_len == 1 {
+    return resolve_single(instrs[shape.start], shape.start)
+  }
+  if shape_len == 2 {
+    match instrs[shape.end - 1] {
+      @lib.If(_, then_body, Some(else_body)) =>
+        match resolve_single(instrs[shape.start], shape.start) {
+          Some(condition) =>
+            match
+              dae_resolve_i32_const_value_candidate(
+                mod_, condition, allow_immutable_global_get,
+              ) {
+              Some(value) =>
+                return dae_materializable_dropped_const_prefix_leaf(
+                  if value != 0 {
+                    then_body
+                  } else {
+                    else_body
+                  },
+                  resolve_control_leaf,
+                )
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if shape_len == 3 &&
+    instrs[shape.start] == @lib.Instruction::i32_const(@lib.I32(0)) {
+    match instrs[shape.start + 1] {
+      @lib.If(block_type, _, None) if block_type == @lib.BlockType::void_() =>
+        return resolve_single(instrs[shape.start + 2], shape.start + 2)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 fn dae_collect_uniform_const_actuals_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2176,12 +2335,7 @@ fn dae_collect_uniform_const_actuals_instrs(
           Some(_) => Array::make(param_count, None)
           None => {
             let partial_shapes = dae_collect_callsite_suffix_shapes(
-              instrs,
-              idx,
-              param_count,
-              entry_stack_values,
-              mod_,
-              func_type_indices,
+              instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
             )
             let mut first_resolved = param_count
             let mut scan_idx = 0
@@ -2195,20 +2349,22 @@ fn dae_collect_uniform_const_actuals_instrs(
               }
             }
             if first_resolved == param_count ||
-              (first_resolved > 0 &&
-              (match partial_shapes[first_resolved] {
-                Some(shape) if shape.start > 0 =>
-                  match
-                    dae_instr_stack_effect(
-                      instrs[shape.start - 1],
-                      mod_,
-                      func_type_indices,
-                    ) {
-                    Some((_, outs)) => outs == 0
-                    None => true
-                  }
-                _ => true
-              })) {
+              (
+                first_resolved > 0 &&
+                (match partial_shapes[first_resolved] {
+                  Some(shape) if shape.start > 0 =>
+                    match
+                      dae_instr_stack_effect(
+                        instrs[shape.start - 1],
+                        mod_,
+                        func_type_indices,
+                      ) {
+                      Some((_, outs)) => outs == 0
+                      None => true
+                    }
+                  _ => true
+                })
+              ) {
               Array::make(param_count, None)
             } else {
               partial_shapes
@@ -2224,67 +2380,25 @@ fn dae_collect_uniform_const_actuals_instrs(
             }
             match shape_opt {
               Some(shape) =>
-                if shape.end - shape.start != 1 {
-                  invalid[p] = true
-                } else {
-                  match
-                    dae_resolve_uniform_const_candidate(
-                      mod_,
-                      caller_abs,
-                      instrs[shape.start],
-                      func_type_indices,
-                      escaped,
-                      tail_calls,
-                      direct_callers,
-                      visited,
-                      allow_immutable_global_get~,
-                    ) {
-                    Some(candidate) =>
-                      if !seen[p] {
-                        seen[p] = true
-                        candidates[p] = Some(candidate)
-                      } else {
-                        match candidates[p] {
-                          Some(existing) =>
-                            if !dae_materialized_const_equal(
-                                existing, candidate,
-                              ) {
-                              invalid[p] = true
-                            }
-                          None => invalid[p] = true
-                        }
-                      }
-                    None =>
-                      match instrs[shape.start] {
-                        @lib.LocalGet(local_idx) =>
-                          match
-                            dae_resolve_local_set_const_carrier(
-                              instrs,
-                              shape.start,
-                              dae_local_idx_slot(local_idx),
-                              mod_,
-                              allow_immutable_global_get,
-                            ) {
-                            Some(candidate) =>
-                              if !seen[p] {
-                                seen[p] = true
-                                candidates[p] = Some(candidate)
-                              } else {
-                                match candidates[p] {
-                                  Some(existing) =>
-                                    if !dae_materialized_const_equal(
-                                        existing, candidate,
-                                      ) {
-                                      invalid[p] = true
-                                    }
-                                  None => invalid[p] = true
-                                }
-                              }
-                            None => invalid[p] = true
+                match
+                  dae_resolve_uniform_const_shape_candidate(
+                    instrs, shape, caller_abs, mod_, func_type_indices, escaped,
+                    tail_calls, direct_callers, visited, allow_immutable_global_get,
+                  ) {
+                  Some(candidate) =>
+                    if !seen[p] {
+                      seen[p] = true
+                      candidates[p] = Some(candidate)
+                    } else {
+                      match candidates[p] {
+                        Some(existing) =>
+                          if !dae_materialized_const_equal(existing, candidate) {
+                            invalid[p] = true
                           }
-                        _ => invalid[p] = true
+                        None => invalid[p] = true
                       }
-                  }
+                    }
+                  None => invalid[p] = true
                 }
               None => invalid[p] = true
             }
@@ -17357,11 +17471,10 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
 }
 
 ///|
-fn dae_defined_i32_global_const_equals(
+fn dae_defined_i32_global_const_value(
   mod_ : @lib.Module,
   global_idx : @lib.GlobalIdx,
-  expected : Int,
-) -> Bool {
+) -> Int? {
   let slot = dae_global_idx_slot(global_idx)
   let mut imported_globals = 0
   match mod_.import_sec {
@@ -17370,7 +17483,7 @@ fn dae_defined_i32_global_const_equals(
         match import_ {
           @lib.Import(_, _, @lib.GlobalExternType(_)) => {
             if imported_globals == slot {
-              return false
+              return None
             }
             imported_globals += 1
           }
@@ -17381,7 +17494,7 @@ fn dae_defined_i32_global_const_equals(
   }
   let defined_slot = slot - imported_globals
   if defined_slot < 0 {
-    return false
+    return None
   }
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) if defined_slot < globals.length() =>
@@ -17389,10 +17502,22 @@ fn dae_defined_i32_global_const_equals(
         @lib.Global(
           @lib.GlobalType(val_type, false),
           @lib.Expr([@lib.I32Const(@lib.I32(value))])
-        ) => val_type == @lib.ValType::i32() && value == expected
-        _ => false
+        ) if val_type == @lib.ValType::i32() => Some(value)
+        _ => None
       }
-    _ => false
+    _ => None
+  }
+}
+
+///|
+fn dae_defined_i32_global_const_equals(
+  mod_ : @lib.Module,
+  global_idx : @lib.GlobalIdx,
+  expected : Int,
+) -> Bool {
+  match dae_defined_i32_global_const_value(mod_, global_idx) {
+    Some(value) => value == expected
+    None => false
   }
 }
 
@@ -20955,9 +21080,7 @@ fn dae_run_core(
         original_imported + original_defined,
       )
       let selected_forwarded_literal = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current,
-        selected_scratch_defs,
-        selected_forwarded_literal_call_facts,
+        current, selected_scratch_defs, selected_forwarded_literal_call_facts,
       )
       selected_scratch_defs[selected_forwarded_literal_def] = false
       if selected_forwarded_literal.changed {

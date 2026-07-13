@@ -1820,7 +1820,10 @@ test "dae-optimizing unwraps selected Func313 suffix staging block" {
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(8U)),
     msg=target,
   )
-  assert_true(target.contains("global.get") || target.contains("I32(42)"), msg=target)
+  assert_true(
+    target.contains("global.get") || target.contains("I32(42)"),
+    msg=target,
+  )
   assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
 }
 
@@ -2600,7 +2603,10 @@ test "dae-optimizing removes generic constant-condition default suffix params ac
   )
   assert_false(callee.contains("local.get (Local1)"), msg=callee)
   assert_false(callee.contains("local.get (Local2)"), msg=callee)
-  assert_true(callee.contains("I32(42)") || callee.contains("I32(49)"), msg=callee)
+  assert_true(
+    callee.contains("I32(42)") || callee.contains("I32(49)"),
+    msg=callee,
+  )
 }
 
 ///|
