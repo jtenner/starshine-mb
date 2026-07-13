@@ -5,7 +5,6 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
   - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
