@@ -15,7 +15,6 @@ sources:
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
   - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
-  - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -50,7 +49,7 @@ related:
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - Its job is to compute per-function global-effect summaries that later passes can consult across calls.
-- The 2026-04-24 source capture adds an immutable primary-source manifest, records a current-`main` propagation refactor, and makes the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
+- The retained current-main source bridges record the propagation refactor and make the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
 - The 2026-05-06 current-main recheck confirms the same teaching contract on the reviewed surfaces, and the 2026-05-05 line-anchor refresh still keeps the SCC-shaped current-main implementation note explicit while tightening the exact local code-map anchors used by the living dossier.
 - The 2026-04-25 follow-up gives the cleanup sibling [`../discard-global-effects/index.md`](../discard-global-effects/index.md) its own canonical home, so this page can focus on producing summaries while the sibling page covers clearing stale summaries.
 - The 2026-04-27 port-readiness bridge adds the missing local implementation ladder: analyzer-only first slice, per-function summary storage, SCC/fixed-point propagation choice, consumer sequencing, and paired Binaryen validation lanes.
@@ -129,7 +128,6 @@ So the pass is best taught as:
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
 - [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
-- [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

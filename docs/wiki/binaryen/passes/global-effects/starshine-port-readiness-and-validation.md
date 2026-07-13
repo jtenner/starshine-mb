@@ -13,7 +13,6 @@ sources:
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
   - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ./index.md
   - ./binaryen-strategy.md

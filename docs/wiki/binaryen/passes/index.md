@@ -95,7 +95,6 @@ sources:
   - ../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
-  - ../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md

@@ -82,7 +82,6 @@ sources:
   - ../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
   - ../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
@@ -776,7 +775,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
-- [`../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
