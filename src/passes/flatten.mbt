@@ -572,7 +572,7 @@ fn flatten_try_route_multivalue_try(
 }
 
 ///|
-fn flatten_try_route_branch_free_multivalue_loop(
+fn flatten_try_route_payloadless_multivalue_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
@@ -594,7 +594,7 @@ fn flatten_try_route_branch_free_multivalue_loop(
   }
   let label_id = @ir.hot_control_node_label(func, loop_id)
   if @ir.hot_label_branch_arity(func, label_id) != 0 ||
-    pass_label_is_used(label_id, pass_compute_label_used(func)) {
+    !flatten_loop_label_uses_are_payloadless(func, label_id) {
     return None
   }
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
@@ -719,7 +719,7 @@ fn flatten_try_route_multivalue_control_operand(
       flatten_try_route_multivalue_block(ctx, func, state, child_id)
     @ir.HotOp::If => flatten_try_route_multivalue_if(ctx, func, state, child_id)
     @ir.HotOp::Loop =>
-      flatten_try_route_branch_free_multivalue_loop(ctx, func, state, child_id)
+      flatten_try_route_payloadless_multivalue_loop(ctx, func, state, child_id)
     @ir.HotOp::Try =>
       flatten_try_route_multivalue_try(ctx, func, state, child_id)
     _ => None
