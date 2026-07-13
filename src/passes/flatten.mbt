@@ -1137,6 +1137,25 @@ fn flatten_try_route_scalar_block(
 }
 
 ///|
+fn flatten_loop_label_param_types(
+  func : @ir.HotFunc,
+  label_id : Int,
+) -> Array[@lib.ValType]? {
+  if label_id < 0 || label_id >= func.labels.length() {
+    return None
+  }
+  let owner_id = @ir.hot_label_owner(func, label_id)
+  match @ir.hot_node_get(func, owner_id).op {
+    @ir.HotOp::Loop => ()
+    _ => return None
+  }
+  match @ir.hot_type_get(func, @ir.hot_node_get(func, owner_id).ty) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, _) => Some(params)
+    _ => None
+  }
+}
+
+///|
 fn flatten_loop_backedge_payloads_are_supported(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1145,6 +1164,16 @@ fn flatten_loop_backedge_payloads_are_supported(
 ) -> Bool {
   if payload_count != param_types.length() {
     return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br =>
+      if flatten_multivalue_tuple_branch_payload_values(
+          func, node_id, payload_count, param_types,
+        )
+        is Some(_) {
+        return true
+      }
+    _ => ()
   }
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let payload_id = @ir.hot_child_get(func, node_id, slot)
@@ -2364,27 +2393,45 @@ fn flatten_try_route_br(
       if child_count != locals.length() {
         return false
       }
-      for slot = 0; slot < child_count; slot = slot + 1 {
-        let payload_id = @ir.hot_child_get(func, node_id, slot)
-        let payload_types = @ir.hot_type_results(
-          func,
-          @ir.hot_node_get(func, payload_id).ty,
-        )
-        if payload_types.length() != 1 ||
-          @ir.hot_local_type(func, locals[slot]) != Some(payload_types[0]) {
-          return false
+      let param_types : Array[@lib.ValType] = []
+      for local_id in locals {
+        match @ir.hot_local_type(func, local_id) {
+          Some(value_type) => param_types.push(value_type)
+          None => return false
+        }
+      }
+      let tuple_values = flatten_multivalue_tuple_branch_payload_values(
+        func, node_id, child_count, param_types,
+      )
+      if tuple_values is None {
+        for slot = 0; slot < child_count; slot = slot + 1 {
+          let payload_id = @ir.hot_child_get(func, node_id, slot)
+          let payload_types = @ir.hot_type_results(
+            func,
+            @ir.hot_node_get(func, payload_id).ty,
+          )
+          if payload_types.length() != 1 ||
+            @ir.hot_local_type(func, locals[slot]) != Some(payload_types[0]) {
+            return false
+          }
         }
       }
       for slot = 0; slot < child_count; slot = slot + 1 {
-        preludes.push(
-          @ir.hot_build_local_set(
-            func,
-            locals[slot],
-            @ir.hot_child_get(func, node_id, slot),
-          ),
-        )
+        let payload_id = match tuple_values {
+          Some(values) => values[slot]
+          None => @ir.hot_child_get(func, node_id, slot)
+        }
+        preludes.push(@ir.hot_build_local_set(func, locals[slot], payload_id))
+      }
+      let tuple_id = if tuple_values is Some(_) {
+        @ir.hot_child_get(func, node_id, 0)
+      } else {
+        -1
       }
       ignore(@ir.hot_replace_child_span(func, node_id, []))
+      if tuple_id >= 0 {
+        pass_delete_detached_nodes(ctx, func, [tuple_id])
+      }
       return true
     }
     @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
@@ -3348,10 +3395,18 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
         if child_count != @ir.hot_label_branch_arity(func, label_id) {
           return true
         }
-        let target_types = @ir.hot_type_results(
-          func,
-          @ir.hot_label_result_type(func, label_id),
-        )
+        let target_types = match @ir.hot_label_kind(func, label_id) {
+          @ir.HotLabelKind::LoopLabel =>
+            match flatten_loop_label_param_types(func, label_id) {
+              Some(param_types) => param_types
+              None => return true
+            }
+          _ =>
+            @ir.hot_type_results(
+              func,
+              @ir.hot_label_result_type(func, label_id),
+            )
+        }
         if flatten_multivalue_tuple_branch_payload_values(
             func, node_id, child_count, target_types,
           )
