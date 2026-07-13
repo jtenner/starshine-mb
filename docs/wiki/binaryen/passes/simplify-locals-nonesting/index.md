@@ -8,7 +8,6 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md
   - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
   - ../../../../../agent-todo.md
@@ -150,7 +149,6 @@ A dedicated folder was still justified because:
 - [`../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md)
 - [`../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
 - [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

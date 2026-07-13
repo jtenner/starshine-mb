@@ -5,7 +5,6 @@ last_reviewed: 2026-07-07
 sources:
   - ../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md
   - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
-  - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
@@ -72,7 +71,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 
 ## Current durable takeaways
 
-- The reviewed official Binaryen `version_129` release page on 2026-04-24 showed publish date **2026-04-01**; the retained 2026-04-24 research inventory, direct source URLs, and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md) retain the exact source, lit-test, and current-main port-readiness record for this folder. The 2026-05-18 refresh in [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md) rechecked official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) and found no SGO semantic drift from the `version_129` contract; the only `SimplifyGlobals.cpp` changes were comment typo fixes. The 2026-07-06 audit kickoff in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) refreshed the behavior-family matrix against official Binaryen `version_130` source/lit surfaces and found the next local blocker is Starshine coverage/signoff, not known upstream SGO churn.
+- The reviewed official Binaryen `version_129` release page on 2026-04-24 showed publish date **2026-04-01**; the retained 2026-04-24 research inventory, direct source URLs, and [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md) retain the exact source, lit-test, and current-main port-readiness record for this folder. The 2026-05-18 refresh in [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md) rechecked official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) and found no SGO semantic drift from the `version_129` contract; the only `SimplifyGlobals.cpp` changes were comment typo fixes. The 2026-07-06 audit kickoff in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) refreshed the behavior-family matrix against official Binaryen `version_130` source/lit surfaces and found the next local blocker is Starshine coverage/signoff, not known upstream SGO churn.
 - `simplify-globals-optimizing` is a **module / boundary** pass, not a function-local peephole.
 - The pass has several distinct algorithm families, not one:
   - practical-immutability discovery
@@ -119,7 +118,6 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 ## Sources
 
 - [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
-- [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)

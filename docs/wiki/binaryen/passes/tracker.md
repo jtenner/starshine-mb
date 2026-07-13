@@ -34,7 +34,6 @@ sources:
   - ../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
@@ -61,7 +60,6 @@ sources:
   - ../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
   - ../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
-  - ../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
   - ../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
   - ../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
@@ -257,7 +255,6 @@ sources:
   - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md
   - ../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
-  - ../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
   - ../../../../agent-todo.md
@@ -713,7 +710,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md)
 - [`../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
-- [`../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
 - [`../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)
 - [`../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md`](../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md)

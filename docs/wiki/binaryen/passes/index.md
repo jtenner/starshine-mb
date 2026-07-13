@@ -58,7 +58,6 @@ sources:
   - ../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
   - ../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
