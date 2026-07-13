@@ -24,7 +24,6 @@ sources:
   - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../no-dwarf-default-optimize-path.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - ../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md

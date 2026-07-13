@@ -42,7 +42,6 @@ sources:
   - ../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
   - ../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
