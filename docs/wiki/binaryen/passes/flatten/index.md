@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-13
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -33,7 +33,7 @@ related:
 ## Role
 
 - `flatten` is an upstream Binaryen aggressive flat-IR preparation pass.
-- It now has an **internal active-partial** Starshine owner with a Flat IR classifier, scalar function-result materialization, and root-tee lowering; the public registry remains `Removed` while broader correctness work continues.
+- It now has an **internal active-partial** Starshine owner with a Flat IR classifier, scalar function-result materialization, root-tee lowering, ordered scalar operand preludes, and branch-free defaultable scalar `block`/`if` routing; the public registry remains `Removed` while broader correctness work continues.
 - In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path used elsewhere in this repo.
 - Instead, it appears only in the more aggressive `optimizeLevel >= 4` function pipeline, where it starts the trio:
   - `flatten`

@@ -39,7 +39,7 @@ The exact current local surfaces are:
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
 | CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
-| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, root-tee lowering, ordered scalar operand preludes, and branch-free defaultable scalar block routing are implemented; branch-targeted block payloads and broader control work remain open. |
+| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, root-tee lowering, ordered scalar operand preludes, and branch-free defaultable scalar block/if routing are implemented; branch-targeted payloads and broader control work remain open. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
@@ -90,7 +90,7 @@ The first tests should prove both positives and non-rewrites:
 - concrete function body becomes explicit `return` / local-read shape;
 - branch-free defaultable scalar block results are routed through a temp, while branch-targeted blocks stay deferred until their payload channel can be repaired;
 - value-carrying if arms write the same temp;
-- effectful condition work does not move into only one arm;
+- condition work stays in the owning prelude while arm work remains inside its selected arm;
 - `ref.as_non_null` remains governed by the special flatness rule rather than spilled blindly.
 
 ## Second slice: tees and branch payload channels

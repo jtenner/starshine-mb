@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-13
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -41,7 +41,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 ## The honest current status
 
 `flatten` is now **internal active-partial** in Starshine.
-`src/passes/flatten.mbt` owns an analysis-only Flat IR classifier plus the first scalar-result and root-tee rewrites, with focused coverage in `src/passes/flatten_test.mbt`. The registry and dispatcher intentionally remain public-removed until broader families are safe.
+`src/passes/flatten.mbt` owns a Flat IR classifier plus scalar body-result materialization, root-tee lowering, ordered scalar operand preludes, and branch-free defaultable scalar `block`/`if` result routing, with focused coverage in `src/passes/flatten_test.mbt`. The registry and dispatcher intentionally remain public-removed until broader families are safe.
 
 That does **not** mean there is no Starshine strategy surface.
 The current local strategy is registry tracking plus batch planning:
@@ -205,7 +205,7 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - public registry, dispatcher, CLI execution, or compare-harness admission for `flatten`
-- complete nested-prelude, value-carrying control, branch-payload, loop/try/EH, or unsupported-family behavior
+- complete branch-targeted control, loop/try, branch-payload, nested-tee, unreachable-placeholder, EH, or unsupported-family behavior
 - a pass-specific GenValid profile or four-lane direct closeout
 - aggressive preset scheduling or neighborhood proof
 

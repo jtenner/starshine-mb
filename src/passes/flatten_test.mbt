@@ -284,3 +284,109 @@ test "flatten leaves carried scalar blocks for branch payload routing" {
       fail("expected deferred carried block to remain valid, got \{err}")
   }
 }
+
+///|
+test "flatten routes scalar if arms through one fresh local" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) local.get 0 if (result i32) i32.const 7 else i32.const 9 end))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 3)
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let if_id = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  let then_set = @ir.hot_region_get(func, then_ref, 0)
+  let else_set = @ir.hot_region_get(func, else_ref, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, then_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, else_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, then_set).imm0,
+    @ir.hot_node_get(func, else_set).imm0,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected scalar if routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten keeps condition preludes outside and arm work inside scalar if" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (if (result i32) (i32.add (local.get 0) (i32.const 1)) (then (i32.add (local.get 0) (i32.const 2))) (else (i32.sub (local.get 0) (i32.const 3))))))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  let condition_set = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, condition_set, 0)),
+    Some(@lib.Instruction::i32_add()),
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, if_id).op.to_string(), "If")
+  let then_set = @ir.hot_region_get(
+    func,
+    @ir.hot_region_then_ref(func, if_id),
+    0,
+  )
+  let else_set = @ir.hot_region_get(
+    func,
+    @ir.hot_region_else_ref(func, if_id).unwrap(),
+    0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, then_set, 0)),
+    Some(@lib.Instruction::i32_add()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, else_set, 0)),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar if prelude placement to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten leaves carried scalar if labels for branch payload routing" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (if (result i32) (i32.const 1) (then (br 0 (i32.const 7))) (else (i32.const 9))))))",
+  )
+  let if_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, if_id)),
+    1,
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected deferred carried if to remain valid, got \{err}")
+  }
+}
