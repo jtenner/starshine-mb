@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
 related:
   - ./index.md

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
-  - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -137,7 +136,6 @@ For the full source-backed chain, read in this order:
 
 1. Direct `version_129` URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md)
 2. [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md)
-3. [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md)
-4. [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
-5. [`./wat-shapes.md`](./wat-shapes.md)
-6. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+3. [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
+4. [`./wat-shapes.md`](./wat-shapes.md)
+5. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)

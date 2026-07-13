@@ -47,7 +47,6 @@ sources:
   - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
@@ -165,7 +164,6 @@ sources:
   - ../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
   - ../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
-  - ../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
   - ../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
@@ -630,7 +628,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
 - [`../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
 - Historical superseded note: [`../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md`](../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md)
 - [`../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md`](../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md)
 - [`../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md)
 - [`../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md`](../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md)
