@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-13
 sources:
   - ../../../tooling/pass-fuzz-compare.md
+  - ../../../raw/research/1574-2026-07-13-daeo-artifact-gap-attribution.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/research/1568-2026-07-13-daeo-fresh-dedicated-and-regular-compare.md
   - ../../../raw/research/1569-2026-07-13-daeo-fresh-wasm-smith-and-random-all.md
@@ -73,4 +74,4 @@ Research note [`1573`](../../../raw/research/1573-2026-07-13-daeo-flattened-rec-
 - wasm-smith: `9955` normalized plus `1` cleanup-normalized out of `9956` comparable cases, zero mismatches and no Starshine failures, with the same `44` Binaryen/oracle failures;
 - random-all: `9633` normalized plus the same `367` measured/source-backed Starshine cleanup wins, zero failures, and `0` changed files across `3670` comparisons with the preceding lane.
 
-The current direct matrix is complete. Final closeout remains blocked by the current artifact's measured size-losing canonical gap after valid direct emission, not by generated semantic or validation residuals.
+The current direct matrix is complete. Research note [`1574`](../../../raw/research/1574-2026-07-13-daeo-artifact-gap-attribution.md) attributes the remaining artifact loss without changing behavior, so this matrix remains current. The note corrects the final touched count to `22` and shows a valid safe nested-replay probe closes only `21/16350` canonical bytes while adding `6` raw bytes; the larger inspected owner is bounded low-candidate/exact-reference convergence around Funcs `164`, `39`, `37`, `38`, and `41`. Final closeout remains blocked by that measured size-losing core/artifact gap, not by generated semantic or validation residuals.
