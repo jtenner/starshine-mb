@@ -61,7 +61,6 @@ sources:
   - ../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
-  - ../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
   - ../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md

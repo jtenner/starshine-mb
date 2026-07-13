@@ -39,7 +39,6 @@ sources:
   - ../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../raw/binaryen/2026-04-25-rse-source-correction.md
   - ../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
