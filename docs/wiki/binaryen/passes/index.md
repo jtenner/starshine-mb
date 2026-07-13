@@ -26,7 +26,6 @@ sources:
   - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md

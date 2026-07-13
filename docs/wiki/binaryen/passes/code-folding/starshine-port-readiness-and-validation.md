@@ -5,7 +5,6 @@ last_reviewed: 2026-06-06
 sources:
   - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
@@ -374,7 +373,6 @@ That keeps Starshine aligned with Binaryen's actual `code-folding` contract inst
 ## Sources
 
 - [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
 - [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)

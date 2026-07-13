@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
   - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
@@ -87,7 +86,7 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - The 2026-04-22 tagged `version_129` source recheck has been ingested; its direct primary-source URLs remain in [`./binaryen-strategy.md`](./binaryen-strategy.md), with a retained current-main bridge below.
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - A 2026-05-05 focused current-`main` recheck in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md) did not surface teaching-relevant drift beyond the existing Binaryen pages. The current-main bridge specifically rechecked `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
-- A second 2026-04-25 port-readiness manifest in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md) reuses those official primary sources to anchor the local first-slice and validation plan without changing the upstream semantic contract.
+- The retained 2026-04-25 port-readiness research reuses those official primary sources to anchor the local first-slice and validation plan without changing the upstream semantic contract.
 
 ## Page map
 
@@ -114,7 +113,6 @@ That split is important. The pass is not one generic “merge any duplicate regi
 
 - [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md)
 - [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
 - [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
