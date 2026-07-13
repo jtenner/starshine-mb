@@ -1579,6 +1579,151 @@ test "flatten moves nested throw_ref effects before unreachable placeholders" {
 }
 
 ///|
+fn flatten_test_nested_tail_call_placeholder(mode : Int) -> Unit raise {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let first_arg = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_arg, @lib.Instruction::i32_add())
+  let mut second_origin = -1
+  let terminal_id = match mode {
+    0 => @ir.hot_build_return_call(func, 1, [first_arg])
+    1 => {
+      second_origin = @ir.hot_build_binary(
+        func,
+        i32_type,
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+      )
+      @ir.hot_node_exact_instr_set(
+        func,
+        second_origin,
+        @lib.Instruction::i32_add(),
+      )
+      @ir.hot_build_return_call_indirect(
+        func,
+        @lib.TypeIdx::new(0U),
+        @lib.TableIdx::new(0U),
+        [first_arg],
+        second_origin,
+      )
+    }
+    _ => {
+      second_origin = @ir.hot_build_ref_null(
+        func,
+        @lib.RefType::abs(@lib.AbsHeapType::func()),
+      )
+      @ir.hot_build_return_call_ref(
+        func,
+        @lib.TypeIdx::new(0U),
+        [first_arg],
+        second_origin,
+      )
+    }
+  }
+  let sibling = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  @ir.hot_node_exact_instr_set(func, sibling, @lib.Instruction::i32_sub())
+  let add_id = @ir.hot_build_binary(func, i32_type, terminal_id, sibling)
+  @ir.hot_node_exact_instr_set(func, add_id, @lib.Instruction::i32_add())
+  @ir.hot_root_append(func, add_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut first_arg_root = -1
+  let mut second_origin_root = -1
+  let mut terminal_root = -1
+  let mut sibling_root = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    if root_id == terminal_id {
+      terminal_root = idx
+    }
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        if child_id == first_arg {
+          first_arg_root = idx
+        }
+        if child_id == second_origin {
+          second_origin_root = idx
+        }
+        if child_id == sibling {
+          sibling_root = idx
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(first_arg_root >= 0)
+  if mode == 1 {
+    assert_true(second_origin_root > first_arg_root)
+    assert_true(terminal_root > second_origin_root)
+  } else {
+    assert_true(terminal_root > first_arg_root)
+  }
+  assert_true(sibling_root > terminal_root)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, terminal_id, 0)).op.to_string(),
+    "LocalGet",
+  )
+  if mode == 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, terminal_id, 1)).op.to_string(),
+      "LocalGet",
+    )
+  } else if mode == 2 {
+    @debug.assert_eq(@ir.hot_child_get(func, terminal_id, 1), second_origin)
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, add_id, 0)).op.to_string(),
+    "Unreachable",
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_arg), 1)
+  if second_origin >= 0 {
+    @debug.assert_eq(@ir.node_use_count(use_def, second_origin), 1)
+  }
+  @debug.assert_eq(@ir.node_use_count(use_def, sibling), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested tail-call placeholder to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten moves nested return_call effects before unreachable placeholders" {
+  flatten_test_nested_tail_call_placeholder(0)
+}
+
+///|
+test "flatten moves nested return_call_indirect effects before placeholders" {
+  flatten_test_nested_tail_call_placeholder(1)
+}
+
+///|
+test "flatten moves nested return_call_ref effects before placeholders" {
+  flatten_test_nested_tail_call_placeholder(2)
+}
+
+///|
 test "flatten leaves unsupported nondefaultable root controls unmaterialized" {
   let func = pass_test_lift_first_func(
     "(module (type $box (struct)) (func (result (ref $box)) (if (result (ref $box)) (i32.const 1) (then (br 0 (struct.new_default $box))) (else (struct.new_default $box)))))",

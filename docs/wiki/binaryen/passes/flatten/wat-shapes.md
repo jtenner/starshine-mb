@@ -10,6 +10,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-legacy-eh-repair-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-terminal-throw-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-consumer-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-terminal-tail-call-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
@@ -540,7 +541,7 @@ The exact output is verbose, but the key source-backed facts are:
 - the real control effect must still happen
 - but Flat IR cannot keep that control effect nested in the old child slot
 - so Binaryen keeps the real effect in earlier code and leaves a placeholder `unreachable`
-- Starshine now implements this owner-local shape for nested terminal `br`, `br_table`, `return`, `throw`, and `throw_ref`, including HOT cases where the real terminal is already an earlier region root and must not be duplicated; payloads and throw arguments are flattened before the terminal in source order and later sibling preludes remain later
+- Starshine now implements this owner-local shape for nested terminal `br`, `br_table`, `return`, `return_call`, `return_call_indirect`, `return_call_ref`, `throw`, and `throw_ref`, including HOT cases where the real terminal is already an earlier region root and must not be duplicated; branch payloads, tail-call operands, and throw arguments are flattened before the terminal in source order and later sibling preludes remain later
 
 ## Shape 15: selective non-null support is real
 

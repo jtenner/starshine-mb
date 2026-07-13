@@ -2496,6 +2496,9 @@ fn flatten_node_is_admitted_terminal_control_effect(
     @ir.HotOp::Br
     | @ir.HotOp::BrTable
     | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::ThrowRef => true
     _ => false
