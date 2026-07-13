@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
-  - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
@@ -155,7 +154,6 @@ For a future Starshine port, add tests in this order:
 - [`../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md)
 - [`../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md`](../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md`](../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md)
-- [`../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md`](../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md)
 - [`../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md`](../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md)
 - [`../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md`](../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md)
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
