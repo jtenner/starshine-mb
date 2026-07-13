@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
   - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
-  - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
 related:
