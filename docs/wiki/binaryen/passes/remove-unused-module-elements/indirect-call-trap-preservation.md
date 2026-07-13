@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
 related:
@@ -83,6 +82,5 @@ A future fixture should assert both that the module validates after RUME and tha
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)

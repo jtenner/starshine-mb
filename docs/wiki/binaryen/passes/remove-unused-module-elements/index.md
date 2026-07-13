@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
   - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -56,9 +55,7 @@ That is much closer to the official source than “remove dead functions.”
 ## Why this pass matters
 
 - The old tracker queues are now clear enough that this thread had to justify an already-`deep` fallback pick.
-- `remove-unused-module-elements` stayed worth revisiting because the upstream-side dossier was already strong, but the folder still lacked two practical durability surfaces:
-  - an immutable raw primary-source manifest anchoring the reviewed official Binaryen release / source / test pages
-  - an exact Starshine code-location map for the current MoonBit registry / dispatcher / liveness / rewrite / type-cleanup flow
+- `remove-unused-module-elements` stayed worth revisiting because the upstream-side dossier needed durable source routing and an exact Starshine code-location map for the current MoonBit registry / dispatcher / liveness / rewrite / type-cleanup flow. The retained 2026-07-11 current-main capture and direct tagged URLs below now carry the active source routing after the duplicate historical manifest is consumed.
 - The canonical no-DWARF `-O` / `-Os` scheduler still runs the pass **three** times:
   - pre slot `2`
   - pre slot `6`
@@ -132,7 +129,7 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
   - `binaryen-strategy.md` for the overall upstream algorithm
   - `implementation-structure-and-tests.md` for file/test mapping
   - `roots-reference-only-and-nullification.md` for the most easily misunderstood semantic core
-- Keep `version_129` as the tagged algorithm anchor and use the 2026-07-11 current-main recheck for the `call_indirect` wrong-type-trap rule; record future source drift explicitly instead of silently rewriting either layer.
+- Keep the direct `version_129` URLs below as the tagged algorithm anchor and use the 2026-07-11 current-main recheck for the `call_indirect` wrong-type-trap rule; record future source drift explicitly instead of silently rewriting either layer.
 - If new Starshine work changes the local retention or remap surface, update both:
   - [`./retention-and-index-rewrites.md`](./retention-and-index-rewrites.md)
   - [`./parity.md`](./parity.md)
@@ -140,7 +137,6 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md)
 - [`../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md`](../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/pass_manager.mbt
