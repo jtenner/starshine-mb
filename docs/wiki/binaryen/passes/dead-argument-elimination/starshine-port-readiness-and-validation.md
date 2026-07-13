@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ./binaryen-strategy.md

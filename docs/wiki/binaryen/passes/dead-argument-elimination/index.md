@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
@@ -133,14 +132,13 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 
 ## Current maintenance rule
 
-- Treat [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md) as the retained tagged-source/current-main bridge, with the 2026-04-26 readiness check supplying the Starshine implementation bridge.
+Treat the retained 2026-05-04 current-main research digest and the 2026-04-26 readiness digest as the retained tagged-source/current-main and Starshine implementation bridges.
 - Treat this folder as the canonical home for future `dead-argument-elimination` / `dae` research and port planning.
 - Do not rely on the older **unimplemented** wording in this dossier; treat it as superseded by the local active implementation and keep this page open for a full status refresh.
 - Keep the relationship to [`../dae-optimizing/index.md`](../dae-optimizing/index.md) explicit instead of silently folding plain DAE facts into the optimizing dossier.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md)
 - [`../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md)
 - [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
 - [`../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)

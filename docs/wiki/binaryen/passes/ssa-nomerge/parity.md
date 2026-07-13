@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
   - ../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
   - ../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md
-  - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
@@ -745,7 +744,7 @@ The 2026-06-11 threshold slices raised the branch-bearing structured raw instruc
 ## Sources
 
 - 2026-06-09 exceptional-edge/default-local audit: `[../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)`
-- Implementation/test-map refresh: `[../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)`
+- Implementation/test-map provenance: the retained 2026-05-01 structure research digest plus [`../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md).
 - Research note for this refresh: `[../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)`
 - Archived research doc: `[../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md](../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md)`
 - Pass implementation: `[../../../../../src/passes/ssa_nomerge.mbt](../../../../../src/passes/ssa_nomerge.mbt)`

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-14
 sources:
-  - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
