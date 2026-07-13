@@ -19,7 +19,6 @@ sources:
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
-  - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
@@ -204,8 +203,8 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
-- Treat [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) as the immutable provenance anchor for the reviewed official release, source, and test URLs.
-- Treat [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md) as the current-main / local-code-location bridge until the project deliberately bumps the Binaryen oracle baseline; the 2026-05-05 recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) confirms no teaching-relevant drift on the reviewed surfaces.
+- Treat [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) as the retained release/source/test provenance bridge; its direct `version_130` and current-main URLs supersede the consumed duplicate `version_129` manifest as the active routing surface.
+- Treat [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md) and the 2026-05-05 recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) as retained current-main / local-code-location bridges; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
 - Use Binaryen `version_130` as the current public release baseline for new conclusions. Keep the detailed `version_129` source reading as historical provenance until a behavior-specific v130 reread replaces that exact claim.
@@ -232,7 +231,6 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 - [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md)
 - [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md)
 - [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
 - [`../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md`](../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md)
 - [`../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md`](../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md)

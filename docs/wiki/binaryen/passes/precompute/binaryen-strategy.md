@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
 related:
@@ -24,7 +23,7 @@ related:
 
 Use Binaryen `version_130` as the current public release baseline for this pass family. The detailed algorithm reading on this page was initially captured from `version_129`; retain that tag as historical provenance rather than calling it the current release oracle.
 
-The focused 2026-07-11 reread of `version_130` and current `main` in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) confirmed the public plain-versus-propagate split, shared owner, scheduler boundary, and representative test families without finding a behavior-bearing change that requires rewriting this teaching map. It is not a byte-for-byte three-way source diff. For the immutable older release/source/test manifest, see [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md).
+The focused 2026-07-11 reread of `version_130` and current `main` in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) confirmed the public plain-versus-propagate split, shared owner, scheduler boundary, and representative test families without finding a behavior-bearing change that requires rewriting this teaching map. It is not a byte-for-byte three-way source diff. The retained bridge and the direct tagged URLs on the landing page preserve the older historical source/test routing after the duplicate manifest is consumed.
 
 Primary files:
 

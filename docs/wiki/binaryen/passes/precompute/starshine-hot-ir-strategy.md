@@ -11,7 +11,6 @@ sources:
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
-  - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
