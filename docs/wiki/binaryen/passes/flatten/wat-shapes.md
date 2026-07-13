@@ -403,7 +403,7 @@ This is a very important correctness rule for a future port.
 
 ## Shape 11: inputful no-backedge loops separate entry and result channels
 
-For a typed loop with independently scalar defaultable parameters and one scalar result, Starshine now evaluates each entry once in source order, stores it in a typed local, redirects body uses through local reads, removes the loop parameter prefix, and routes the final result through a distinct temp. Nondefaultable or multivalue entry producers remain whole-function fail-closed, and backedge payloads are a separate channel.
+For a typed loop with independently scalar defaultable parameters and one scalar result, Starshine now evaluates each entry once in source order, stores it in a typed local, redirects body uses through local reads, removes the loop parameter prefix, and routes the final result through a distinct temp. Payloadless zero-input backedges continue to work; one-parameter defaultable scalar `br`/`br_if` backedges write the entry local before branching, with rich conditional payloads evaluated once before the condition and reused on the false path. Nondefaultable or multivalue entry producers and multi-parameter or `br_table` backedges remain whole-function fail-closed.
 
 ## Shape 12: value-carrying `try` is flattened through a shared temp
 

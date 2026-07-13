@@ -783,7 +783,7 @@ test "flatten intentionally leaves multivalue loop entry producers fail closed" 
 }
 
 ///|
-test "flatten leaves scalar loops with backedges for loop channel repair" {
+test "flatten routes scalar loop results across payloadless backedges" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (drop (loop (result i32) local.get 0 br_if 0 i32.const 7))))",
   )
@@ -795,16 +795,102 @@ test "flatten leaves scalar loops with backedges for loop channel repair" {
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 1)
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
   @debug.assert_eq(
     @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
     0,
   )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected payloadless loop backedge to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten routes an effectful scalar loop br payload through the entry local" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func (param i32) i32.const 0 loop (type $carrier) drop local.get 0 if call 1 br 1 end i32.const 7 end drop) (func (result i32) i32.const 5))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let if_id = @ir.hot_region_get(func, body_ref, 1)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let payload = @ir.hot_child_get(func, branch, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  let payload_use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(payload_use_def, payload), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected deferred loop backedge to remain valid, got \{err}")
+      fail("expected scalar loop br payload routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten routes repeated effectful scalar loop backedge payloads once" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func (param i32 i32) i32.const 0 loop (type $carrier) drop call 1 local.get 0 br_if 0 drop call 1 local.get 1 br_if 0 drop i32.const 7 end drop) (func (result i32) i32.const 5))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let first_branch = @ir.hot_region_get(func, body_ref, 1)
+  let second_branch = @ir.hot_region_get(func, body_ref, 3)
+  let first_payload = @ir.hot_child_get(func, first_branch, 0)
+  let second_payload = @ir.hot_child_get(func, second_branch, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, first_branch), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, second_branch), 1)
+  let entry_set = @ir.hot_root_get(func, 0)
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 1)
+  let second_payload_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_child_get(func, first_payload_set, 0), first_payload)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, second_payload_set, 0),
+    second_payload,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_payload_set).imm0,
+    @ir.hot_node_get(func, entry_set).imm0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_payload_set).imm0,
+    @ir.hot_node_get(func, entry_set).imm0,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), first_branch)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), second_branch)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar loop backedge routing to verify, got \{err}")
   }
 }
 
