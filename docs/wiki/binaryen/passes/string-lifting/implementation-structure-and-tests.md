@@ -10,7 +10,6 @@ sources:
   - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
   - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
-  - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
   - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
 related:
@@ -38,7 +37,7 @@ This page maps the source ownership and proof surface so readers know which clai
 | `src/passes/string-utils.h` | Shared module-name constants such as `wasm:js-string`, default string constants module, and `string.consts` section naming |
 | `test/lit/passes/string-lifting.wast` | Direct lit proof for magic-import constants, recognized `wasm:js-string` helpers, and wrong-module / wrong-name negatives |
 
-Primary URLs are captured in [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md).
+The direct tagged `version_129` URLs in this page's source list preserve the owner, helper, and lit provenance; retained current-main rechecks record freshness.
 
 ## `StringLifting.cpp`
 
@@ -133,7 +132,6 @@ A future Starshine implementation should have at least:
 - [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
 - [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
-- [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
 - [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLifting.cpp>
