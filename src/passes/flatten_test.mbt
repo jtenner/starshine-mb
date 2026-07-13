@@ -1356,6 +1356,73 @@ test "flatten moves nested terminal br effects before unreachable placeholders" 
 }
 
 ///|
+test "flatten moves nested return effects before unreachable placeholders" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let return_value = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, return_value, @lib.Instruction::i32_add())
+  let return_id = @ir.hot_build_return(func, [return_value])
+  let sibling = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  @ir.hot_node_exact_instr_set(func, sibling, @lib.Instruction::i32_sub())
+  let add_id = @ir.hot_build_binary(func, i32_type, return_id, sibling)
+  @ir.hot_node_exact_instr_set(func, add_id, @lib.Instruction::i32_add())
+  @ir.hot_root_append(func, add_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut return_root = -1
+  let mut return_value_root = -1
+  let mut sibling_root = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    if root_id == return_id {
+      return_root = idx
+    }
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        if child_id == return_value {
+          return_value_root = idx
+        }
+        if child_id == sibling {
+          sibling_root = idx
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(return_value_root >= 0)
+  assert_true(return_root > return_value_root)
+  assert_true(sibling_root > return_root)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, add_id, 0)).op.to_string(),
+    "Unreachable",
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested return placeholder to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten leaves unsupported nondefaultable root controls unmaterialized" {
   let func = pass_test_lift_first_func(
     "(module (type $box (struct)) (func (result (ref $box)) (if (result (ref $box)) (i32.const 1) (then (br 0 (struct.new_default $box))) (else (struct.new_default $box)))))",

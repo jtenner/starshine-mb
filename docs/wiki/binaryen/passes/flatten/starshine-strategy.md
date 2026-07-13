@@ -209,7 +209,7 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - public registry, dispatcher, CLI execution, or compare-harness admission for `flatten`
-- close mismatched/shared multivalue `br_if`, mixed if/loop or nonexclusive multivalue `br_table`, broader terminal-placeholder, EH-repair, and unsupported-family behavior
+- close mismatched/shared multivalue `br_if`, broader mixed/nonexclusive multivalue `br_table`, throw/EH terminal-placeholder, EH-repair, and unsupported-family behavior
 - a pass-specific GenValid profile or four-lane direct closeout
 - aggressive preset scheduling or neighborhood proof
 

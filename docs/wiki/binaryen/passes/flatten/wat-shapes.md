@@ -535,7 +535,7 @@ The exact output is verbose, but the key source-backed facts are:
 - the real control effect must still happen
 - but Flat IR cannot keep that control effect nested in the old child slot
 - so Binaryen keeps the real effect in earlier code and leaves a placeholder `unreachable`
-- Starshine now implements this owner-local shape for nested terminal `br` and `br_table`, including HOT cases where the real terminal is already an earlier region root and must not be duplicated
+- Starshine now implements this owner-local shape for nested terminal `br`, `br_table`, and `return`, including HOT cases where the real terminal is already an earlier region root and must not be duplicated; return payloads are flattened before the terminal and later sibling preludes remain later
 
 ## Shape 15: selective non-null support is real
 
