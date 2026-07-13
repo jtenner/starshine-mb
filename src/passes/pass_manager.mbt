@@ -59674,8 +59674,8 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // facts before the narrower cleanup subset.
     "precompute-propagate", "dead-code-elimination", "optimize-instructions", "local-cse",
     "pick-load-signs", "heap-store-optimization", "heap2local", "optimize-casts",
-    "code-pushing", "simplify-locals", "code-folding", "precompute", "merge-blocks",
-    "remove-unused-brs", "remove-unused-names", "merge-blocks", "coalesce-locals",
+    "code-pushing", "simplify-locals", "code-folding", "precompute", "tuple-optimization",
+    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "coalesce-locals",
     "reorder-locals", "vacuum",
   ]
 }

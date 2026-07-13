@@ -13537,6 +13537,120 @@ test "dae-optimizing perf trace breaks down core, nested cleanup, and type pruni
 }
 
 ///|
+test "dae-optimizing nested tuple cleanup elides pure dropped multivalue spills" {
+  let source =
+    #|(module
+    #|  (type $mv (func (result i32 i64)))
+    #|  (func $f (param i32) (local i32 i64)
+    #|    block (type $mv)
+    #|      i32.const 7
+    #|      i64.const 9
+    #|    end
+    #|    local.set 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_false(target.contains("block (type"), msg=target)
+  assert_false(target.contains("local.set"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_false(target.contains("drop"), msg=target)
+}
+
+///|
+test "plain DAE keeps tuple spill cleanup out of the shared core" {
+  let source =
+    #|(module
+    #|  (type $mv (func (result i32 i64)))
+    #|  (func $f (param i32)
+    #|    block (type $mv)
+    #|      i32.const 7
+    #|      i64.const 9
+    #|    end
+    #|    drop
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("(block (Type"), msg=target)
+  assert_true(target.contains("drop"), msg=target)
+}
+
+///|
+test "dae-optimizing nested tuple cleanup preserves effectful multivalue prefixes" {
+  let source =
+    #|(module
+    #|  (type $mv (func (result i32 i64)))
+    #|  (import "env" "effect" (func $effect))
+    #|  (func $f (param i32) (local i32 i64)
+    #|    block (type $mv)
+    #|      call $effect
+    #|      i32.const 7
+    #|      i64.const 9
+    #|    end
+    #|    local.set 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("call (Func 0)"), msg=target)
+  assert_false(target.contains("(block (Type"), msg=target)
+  assert_false(target.contains("local.set"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+}
+
+///|
+test "dae-optimizing nested tuple cleanup preserves trapping multivalue prefixes" {
+  let source =
+    #|(module
+    #|  (type $mv (func (result i32 i64)))
+    #|  (memory 1)
+    #|  (func $f (param i32) (local i32 i64)
+    #|    block (type $mv)
+    #|      memory.size
+    #|      i32.const 16
+    #|      i32.shl
+    #|      i32.load
+    #|      drop
+    #|      i32.const 7
+    #|      i64.const 9
+    #|    end
+    #|    local.set 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("i32.load"), msg=target)
+  assert_false(target.contains("(block (Type"), msg=target)
+  assert_false(target.contains("local.set"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+}
+
+///|
 test "dae-optimizing traces the guarded nested cleanup pass order" {
   let source =
     #|(module
@@ -13566,10 +13680,10 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=heap2local", "pass[dae-optimizing]:nested-pass name=optimize-casts",
     "pass[dae-optimizing]:nested-pass name=code-pushing", "pass[dae-optimizing]:nested-pass name=simplify-locals",
     "pass[dae-optimizing]:nested-pass name=code-folding", "pass[dae-optimizing]:nested-pass name=precompute",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=remove-unused-brs",
-    "pass[dae-optimizing]:nested-pass name=remove-unused-names", "pass[dae-optimizing]:nested-pass name=merge-blocks",
-    "pass[dae-optimizing]:nested-pass name=coalesce-locals", "pass[dae-optimizing]:nested-pass name=reorder-locals",
-    "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=tuple-optimization", "pass[dae-optimizing]:nested-pass name=merge-blocks",
+    "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=coalesce-locals",
+    "pass[dae-optimizing]:nested-pass name=reorder-locals", "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
 }
 

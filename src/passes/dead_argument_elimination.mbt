@@ -18838,6 +18838,27 @@ fn dae_instr_is_nontrapping_pure_tee_suffix_binary(
 }
 
 ///|
+fn dae_block_type_zero_param_result_count(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> Int? {
+  match block_type {
+    @lib.VoidBlockType => Some(0)
+    @lib.ValTypeBlockType(_) => Some(1)
+    @lib.TypeIdxBlockType(type_idx) =>
+      match type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) if params.length() == 0 =>
+              Some(results.length())
+            _ => None
+          }
+        None => None
+      }
+  }
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -19096,6 +19117,178 @@ fn dae_local_get_range_evidence_is_consistent(
   evidence.singleton == (evidence.end - evidence.start == 1) &&
   evidence.local_free == !evidence.has_local_get &&
   evidence.range_allows_cleanup == (evidence.singleton || evidence.local_free)
+}
+
+///|
+fn dae_instr_dropped_pure_multivalue_block_prefix(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> (Int, Array[@lib.Instruction])? {
+  let (block_type, body) = match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => (block_type, body)
+    _ => return None
+  }
+  let result_count = match
+    dae_block_type_zero_param_result_count(block_type, type_sec) {
+    Some(count) if count > 1 => count
+    _ => return None
+  }
+  let mut remaining = body.length()
+  let mut values = 0
+  while remaining > 0 && values < result_count {
+    let candidate : Array[@lib.Instruction] = []
+    for idx = 0; idx < remaining; idx = idx + 1 {
+      candidate.push(body[idx])
+    }
+    remaining = match
+      dae_find_droppable_pure_stack_expr_start(candidate, type_sec) {
+      Some(start) => start
+      None => return None
+    }
+    values += 1
+  }
+  if values != result_count {
+    return None
+  }
+  let prefix : Array[@lib.Instruction] = []
+  for idx = 0; idx < remaining; idx = idx + 1 {
+    if dae_instr_has_branch(body[idx]) {
+      return None
+    }
+    prefix.push(body[idx])
+  }
+  Some((result_count, prefix))
+}
+
+///|
+fn dae_strip_dropped_pure_multivalue_blocks(
+  instrs : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    let prefix = dae_instr_dropped_pure_multivalue_block_prefix(
+      instrs[idx],
+      type_sec,
+    )
+    match prefix {
+      Some((result_count, prefix)) =>
+        if idx + result_count < instrs.length() {
+          let mut all_dropped = true
+          for offset = 1; offset <= result_count; offset = offset + 1 {
+            if instrs[idx + offset] != @lib.Instruction::drop() {
+              all_dropped = false
+              break
+            }
+          }
+          if all_dropped {
+            dae_push_instrs(out, prefix)
+            idx += result_count + 1
+            continue
+          }
+        }
+      None => ()
+    }
+    out.push(instrs[idx])
+    idx += 1
+  }
+  out
+}
+
+///|
+fn dae_strip_dropped_pure_multivalue_blocks_recursive(
+  instrs : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              dae_strip_dropped_pure_multivalue_blocks_recursive(body, type_sec),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              dae_strip_dropped_pure_multivalue_blocks_recursive(body, type_sec),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              dae_strip_dropped_pure_multivalue_blocks_recursive(body, type_sec),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_strip_dropped_pure_multivalue_blocks_recursive(
+              then_body, type_sec,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  dae_strip_dropped_pure_multivalue_blocks_recursive(
+                    body, type_sec,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instr)
+    }
+  }
+  dae_strip_dropped_pure_multivalue_blocks(rewritten, type_sec)
+}
+
+///|
+fn dae_cleanup_touched_dropped_pure_multivalue_blocks(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let mut next_funcs : Array[@lib.Func]? = None
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let rewritten = dae_strip_dropped_pure_multivalue_blocks_recursive(
+      body,
+      mod_.type_sec,
+    )
+    if rewritten != body {
+      if next_funcs == None {
+        next_funcs = Some(funcs.copy())
+      }
+      next_funcs.unwrap()[def_idx] = @lib.Func::new(
+        locals,
+        @lib.Expr::new(rewritten),
+      )
+    }
+  }
+  match next_funcs {
+    Some(funcs) => mod_.with_code_sec(@lib.CodeSec::new(funcs))
+    None => mod_
+  }
 }
 
 ///|
