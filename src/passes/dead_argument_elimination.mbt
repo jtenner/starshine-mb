@@ -10758,6 +10758,7 @@ fn dae_try_refine_direct_gc_types(
   callee_abs : Int,
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
+  refine_params? : Bool = true,
 ) -> DaePassResult {
   if direct_call_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -10795,7 +10796,7 @@ fn dae_try_refine_direct_gc_types(
   let mut result_body_changed = false
   let mut rewrite_type_sec : @lib.TypeSec? = None
   let mut changed = false
-  if params.length() > 0 {
+  if refine_params && params.length() > 0 {
     let candidates : Array[@lib.ValType?] = Array::make(params.length(), None)
     let rejected = Array::make(params.length(), false)
     let mut calls_seen = 0
@@ -27985,6 +27986,72 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
 }
 
 ///|
+fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  seed_defs : Array[Int],
+  call_facts : DaeCurrentCallFacts,
+  productive_limit : Int,
+) -> DaeExactLiteralWorklistApplication {
+  let imported = dae_imported_func_count(current)
+  let defined = dae_defined_func_count(current)
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let queue = seed_defs.copy()
+  let seen = Array::make(defined, false)
+  let productive_defs : Array[Int] = []
+  let mut mod_out = current
+  let mut touched_out = touched
+  let mut changed_out = changed
+  let mut queue_idx = 0
+  while queue_idx < queue.length() {
+    if productive_limit >= 0 && productive_defs.length() >= productive_limit {
+      break
+    }
+    let def_idx = queue[queue_idx]
+    queue_idx += 1
+    if def_idx < 0 || def_idx >= defined || seen[def_idx] {
+      continue
+    }
+    seen[def_idx] = true
+    let callee_abs = imported + def_idx
+    let boundary_candidate = match
+      dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+      Some(candidate) => candidate
+      None => continue
+    }
+    if !boundary_candidate.owned ||
+      boundary_candidate.has_self_direct_caller ||
+      !boundary_candidate.allows_nonself_direct_rewrite {
+      continue
+    }
+    let result = dae_try_refine_direct_gc_types(
+      mod_out,
+      callee_abs,
+      boundary_candidate.direct_call_count,
+      boundary_candidate.direct_callers,
+      refine_params=false,
+    )
+    let application = dae_apply_core_result(
+      mod_out, touched_out, changed_out, result,
+    )
+    if !application.applied {
+      continue
+    }
+    mod_out = application.mod_out
+    touched_out = application.touched
+    changed_out = application.changed
+    productive_defs.push(application.primary_def)
+    for caller_def in boundary_candidate.direct_callers {
+      if caller_def >= 0 && caller_def < defined && !seen[caller_def] {
+        queue.push(caller_def)
+      }
+    }
+  }
+  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+}
+
+///|
 fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -29674,6 +29741,22 @@ fn dae_run_core(
     for iter, primary_def in low_exact_literal_application.productive_defs {
       trace(
         "pass[dae-optimizing]:low-exact-literal-worklist iter=\{iter} primary_def=\{primary_def}",
+      )
+    }
+    let low_exact_result_application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+      current,
+      touched,
+      changed,
+      low_exact_literal_application.productive_defs,
+      low_exact_literal_call_facts,
+      16,
+    )
+    current = low_exact_result_application.mod_out
+    touched = low_exact_result_application.touched
+    changed = low_exact_result_application.changed
+    for iter, primary_def in low_exact_result_application.productive_defs {
+      trace(
+        "pass[dae-optimizing]:low-exact-result-worklist iter=\{iter} primary_def=\{primary_def}",
       )
     }
   }

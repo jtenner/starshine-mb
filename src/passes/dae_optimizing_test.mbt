@@ -6697,6 +6697,17 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   let source = out.to_string()
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+  let exact_leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, target_def), [exact_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 39), [exact_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 38), [exact_leaf])
+  @debug.assert_eq(dae_test_func_results(optimized, 37), [exact_leaf])
   let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
     Ok(trace) => trace
     Err(err) => fail("expected traced broad-module DAE success, got \{err}")
