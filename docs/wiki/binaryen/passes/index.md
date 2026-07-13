@@ -60,7 +60,6 @@ sources:
   - ../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
   - ../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md

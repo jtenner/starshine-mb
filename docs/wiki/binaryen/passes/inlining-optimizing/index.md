@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/research/1551-2026-07-05-inlining-optimizing-o4z-audit.md
-  - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/research/0725-2026-06-15-inlining-optimizing-cache-followup.md
   - ../../../raw/research/0724-2026-06-15-inlining-optimizing-wall-time-root-cause.md

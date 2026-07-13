@@ -4,7 +4,6 @@ status: complete
 last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt
