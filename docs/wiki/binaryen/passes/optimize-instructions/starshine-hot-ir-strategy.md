@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md

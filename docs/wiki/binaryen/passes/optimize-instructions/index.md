@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-06
 sources:
-  - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
@@ -541,7 +540,6 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
-  - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md
   - ../../../raw/research/0727-2026-06-19-optimize-instructions-oi-b-baseline.md
   - ../../../raw/research/0728-2026-06-19-optimize-instructions-oi-c-raw-gates.md
@@ -735,8 +733,6 @@ What it actually is in `version_129`:
   - Family-based parity sweep workflow and runner usage for replacing the old one-behavior / one-doc loop with grouped compare-pass discovery.
 - [`./fuzzing.md`](./fuzzing.md)
   - Compare-pass smoke lane plus OI-specific GenValid profiles and first-layer metamorphic smoke transforms used by the parity matrix.
-- [`../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md)
-  - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
 - [`../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md)
   - Immutable capture of the 2026-05-05 current-main spot check for the same contract surfaces.
 - [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md)
@@ -782,7 +778,6 @@ The older 2026-06-19 behavior inventory and `version_130` source matrix were the
 - [`../../../raw/research/1253-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-select-arms.md`](../../../raw/research/1253-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-select-arms.md) adds narrow same-instruction/same-local SIMD splat select-arm folding, matching Binaryen for the direct `i8x16.splat(local.get)` oracle while avoiding SIMD algebraic, lane-equivalent, or arbitrary structural equality claims.
 - [`../../../raw/research/1252-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-nine-effects-boundary.md`](../../../raw/research/1252-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-nine-effects-boundary.md) extends the public `tuple-optimization` effect-count boundary ladder to fifty-nine later non-selected effects, recording Binaryen's `tuple.make 60` localization and Starshine's current tuple-scratch gap.
 - [`../../../raw/research/1251-2026-06-26-optimize-instructions-oi-f-identical-v128-select-arms.md`](../../../raw/research/1251-2026-06-26-optimize-instructions-oi-f-identical-v128-select-arms.md) adds direct byte-identical `v128.const` select-arm folding, matching Binaryen's direct vector-constant oracle while avoiding SIMD algebraic, lane-equivalent, or arbitrary structural equality claims.
-- [`../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md)
 - [`../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md`](../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md)
 - [`../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md`](../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md)
 - [`../../../../../src/passes/optimize_instructions.mbt`](../../../../../src/passes/optimize_instructions.mbt)
