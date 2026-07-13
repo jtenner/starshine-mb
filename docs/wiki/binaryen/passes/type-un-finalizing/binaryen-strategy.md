@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
 related:
@@ -24,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the tagged source oracle for this pass, anchored by the committed raw manifest [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The 2026-07-11 current-main recheck preserves the owner/registration/lit contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global rewriting. This is **not** a closed-world-only gate; it is one policy a future port must apply consistently. See [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
+Use Binaryen `version_129` direct source URLs as the tagged algorithm baseline for this pass. The 2026-07-11 current-main recheck preserves the owner/registration/lit contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global rewriting. This is **not** a closed-world-only gate; it is one policy a future port must apply consistently. See [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
 
 The core sources are:
 
