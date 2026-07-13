@@ -32,7 +32,7 @@ related:
 ## Role
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is currently **partially implemented** in Starshine as an active module pass. The focused `[DAE]003` and `[DAE]004` breadth slices are now closed by research notes `0661` and `0687`, and the pass remains direct-pass-only for v0.1.0 rather than part of public `optimize` / `shrink` presets.
+- It is currently **partially implemented** in Starshine as an active module pass. The focused `[DAE]003` and `[DAE]004` breadth slices are closed by research notes `0661` and `0687`, and the recovered current preset tables schedule `dae-optimizing` once in both public `optimize` and `shrink`, immediately after `heap-store-optimization` and before `inlining-optimizing`.
 - The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, backlog language, and now the local active registry.
 - The descriptive local name `dead-argument-elimination-optimizing` remains as an active compatibility alias for the same optimizing module pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the current scope and remaining parity caveats.
 - Binaryen also exposes the related plain pass name `dae`, tracked locally and in the neighboring dossier as `dead-argument-elimination`; both plain spellings are now wired as active Starshine module-pass entries with focused Moon validation green, but direct DAE compare closeout remains open.
@@ -50,7 +50,7 @@ related:
   - `12` nested `code-folding` executions
   - `36` nested `precompute-propagate` executions
 - The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md), with explicit work for call-graph pruning / touched-function tracking and nested `optimizeAfterInlining` replay. The `0687` closeout evidence now retires the active `[DAE]004` result-removal broadening on the debug-artifact surface, so future scheduler work should reopen only from new artifact or fuzz evidence rather than from the retired handpicked selected-def fallback list.
-- It is also the first missing pass in the current late boundary-only neighborhood:
+- It is also the first pass in the current late scheduled post-pass neighborhood:
   - `dae-optimizing`
   - `inlining-optimizing`
   - `duplicate-function-elimination`
@@ -116,6 +116,6 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `dae-optimizing` research and port planning.
-- Keep it explicitly marked as **partial**; `[DAE]003` and `[DAE]004` are now signed off by notes `0661` and `0687`, but `[DAE]002` only closes the current guarded touched scheduler boundary and `[DAE]013` keeps preset / ordered-neighborhood integration direct-pass-only for v0.1.0 rather than claiming full Binaryen byte/shape replay.
+- Keep it explicitly marked as **partial**; `[DAE]003` and `[DAE]004` are signed off by notes `0661` and `0687`, and the current `optimize` / `shrink` tables now include the late DAEO slot, but `[DAE]002` still closes only the guarded touched scheduler boundary and no full Binaryen byte/shape replay is claimed.
 - Describe `dae-optimizing` as an exact current Starshine registry spelling, but do not claim full Binaryen parity yet.
 - New `dae-optimizing` findings should update the strategy page, implementation/test-map page, signature/rerun page, and readiness bridge so the source ownership, boundary algorithm, scheduler story, and implementation checklist stay aligned.

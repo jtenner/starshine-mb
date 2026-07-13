@@ -363,6 +363,52 @@ test "aggressive presets schedule the Binaryen flatten cleanup prelude" {
 }
 
 ///|
+fn registry_test_assert_dae_optimizing_late_slot(
+  label : String,
+  passes : Array[String],
+) -> Unit raise {
+  let mut dae_idx = -1
+  let mut dae_count = 0
+  for idx, name in passes {
+    if name == "dae-optimizing" {
+      dae_idx = idx
+      dae_count += 1
+    }
+  }
+  @debug.assert_eq(dae_count, 1)
+  assert_true(dae_idx > 0, msg="expected \{label} DAEO predecessor")
+  assert_true(
+    dae_idx + 1 < passes.length(),
+    msg="expected \{label} DAEO successor",
+  )
+  @debug.assert_eq(passes[dae_idx - 1], "heap-store-optimization")
+  @debug.assert_eq(passes[dae_idx + 1], "inlining-optimizing")
+}
+
+///|
+test "O4z optimize and shrink presets schedule dae-optimizing in the late postpass slot" {
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=1)
+  registry_test_assert_dae_optimizing_late_slot(
+    "runtime optimize",
+    optimize_preset_passes(options),
+  )
+  registry_test_assert_dae_optimizing_late_slot(
+    "runtime shrink",
+    shrink_preset_passes(options),
+  )
+  for preset_name in ["optimize", "shrink"] {
+    match pass_registry_lookup(preset_name) {
+      Some(entry) =>
+        registry_test_assert_dae_optimizing_late_slot(
+          "registry \{preset_name}",
+          entry.expanded_passes,
+        )
+      None => fail("expected registered \{preset_name} preset")
+    }
+  }
+}
+
+///|
 test "run_hot_pipeline rejects removed registry names" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) i32.const 1))",
