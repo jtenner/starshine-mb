@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
   - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
@@ -147,7 +146,6 @@ Three things are easy to miss without the source map:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
 - [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
 - [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)

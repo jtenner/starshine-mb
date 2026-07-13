@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderGlobals.cpp
@@ -129,7 +128,7 @@ That is why the wiki should teach the sibling as a real pass, not as an unnamed 
 
 ## Current-main drift result
 
-Reviewed again on 2026-04-25 using the source set captured in [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md):
+Reviewed again on 2026-04-25 using the retained [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md) and the direct `version_129` / current-main URLs below:
 
 - `version_129` `src/passes/ReorderGlobals.cpp`
 - current `main` `src/passes/ReorderGlobals.cpp`
@@ -154,7 +153,6 @@ If you only remember one thing, remember this:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
 - [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderGlobals.cpp>

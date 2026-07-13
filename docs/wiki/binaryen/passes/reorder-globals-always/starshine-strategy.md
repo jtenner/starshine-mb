@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -23,7 +22,7 @@ related:
 
 # Starshine strategy for `reorder-globals-always`
 
-Use this page together with the sibling-specific raw manifest in [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md).
+Use this page together with the retained [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md) and the current [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md).
 This is a **status-and-port-strategy** page: Starshine does not implement the transform today, so the goal is to show exactly what is tracked locally, where active requests stop, and which code surfaces a future implementation would have to touch.
 
 ## Honest current status

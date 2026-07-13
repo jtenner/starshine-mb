@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast
@@ -212,7 +211,6 @@ These WAT shapes describe Binaryen behavior. In Starshine, the pass name is curr
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
 - [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
