@@ -11,7 +11,6 @@ sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -145,8 +144,7 @@ What it actually is in `version_129`:
   - Refreshed direct pass-fuzz signoff after the 2026-05-06 harness audit.
 - [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
   - Current-main refresh manifest for this folder's freshness bridge.
-- [`../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md`](../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md)
-  - Immutable manifest of the official Binaryen release/source/test URLs reviewed for this folder on 2026-04-22.
+- Direct Binaryen `version_129` source/test URLs below preserve the original tagged-source route; the retained 2026-05-05 bridge records the reviewed current-main comparison.
 
 ## Freshness note
 
