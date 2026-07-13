@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
-  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
@@ -24,7 +23,7 @@ related:
 
 # Binaryen `flatten` strategy
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md), the 2026-04-25 owner/test-map bridge, and the current-main/local-status recheck in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md). The July recheck found no teaching-relevant upstream transform drift; it preserves the existing Flat-IR/prelude explanation while distinguishing local helper names from a public pass implementation.
+Use this page together with the direct tagged `version_129` source URLs in the upstream source rule below, the 2026-04-25 owner/test-map bridge, and the current-main/local-status recheck in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md). The July recheck found no teaching-relevant upstream transform drift; it preserves the existing Flat-IR/prelude explanation while distinguishing local helper names from a public pass implementation.
 
 ## Upstream source rule
 
