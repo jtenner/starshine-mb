@@ -58484,12 +58484,8 @@ fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
   touched : Array[Bool],
 ) -> String? {
   match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      if funcs.length() > 100 {
-        return Some("large-module")
-      }
+    Some(@lib.CodeSec(funcs)) =>
       run_hot_pipeline_touched_function_size_skip_reason(funcs, touched)
-    }
     None => None
   }
 }
