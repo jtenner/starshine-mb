@@ -5,7 +5,6 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast

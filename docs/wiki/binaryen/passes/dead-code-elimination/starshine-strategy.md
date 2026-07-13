@@ -6,7 +6,6 @@ sources:
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -124,7 +123,6 @@ That keeps the pass honest for Starshine today while leaving the upstream Binary
 - [`../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md`](../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md)
 - [`../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md)
 - [`../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md`](../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md`](../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md)
 - [`../../../../../src/passes/dead_code_elimination.mbt`](../../../../../src/passes/dead_code_elimination.mbt)
