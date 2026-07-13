@@ -98,7 +98,6 @@ sources:
   - ../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md

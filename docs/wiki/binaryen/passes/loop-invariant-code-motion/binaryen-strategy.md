@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-02
 sources:
-  - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
@@ -64,7 +63,7 @@ The source-backed correction is:
 
 This is a major porting constraint: a future Starshine implementation should start from none-result statement motion, not a generic value-preheader cache.
 
-The 2026-06-02 current-main recheck in [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md), together with the earlier 2026-04-25 bridge in [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md), found no teaching-relevant drift from this corrected contract.
+The 2026-06-02 current-main recheck in [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md), together with the retained 2026-04-25 [`port-readiness research`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md), found no teaching-relevant drift from this corrected contract.
 
 ## Scheduler placement
 
@@ -282,7 +281,6 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
 - [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)

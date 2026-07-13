@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-02
 sources:
-  - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
