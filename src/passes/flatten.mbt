@@ -1069,6 +1069,71 @@ fn flatten_loop_backedges_are_supported(
 }
 
 ///|
+fn flatten_multivalue_loop_br_if_flows_are_exact(
+  func : @ir.HotFunc,
+  loop_id : Int,
+  label_id : Int,
+  payload_count : Int,
+) -> Bool {
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  let use_def = @ir.use_def_build(func)
+  for branch_id = 0
+      branch_id < @ir.hot_node_count(func)
+      branch_id = branch_id + 1 {
+    if !@ir.hot_node_is_live(func, branch_id) {
+      continue
+    }
+    let branch = @ir.hot_node_get(func, branch_id)
+    match branch.op {
+      @ir.HotOp::BrIf if branch.imm0 == label_id => ()
+      _ => continue
+    }
+    if @ir.hot_child_count(func, branch_id) != payload_count + 1 {
+      return false
+    }
+    let mut branch_root = -1
+    for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+      if @ir.hot_region_get(func, body_ref, root_idx) == branch_id {
+        if branch_root >= 0 {
+          return false
+        }
+        branch_root = root_idx
+      }
+    }
+    if branch_root < 0 || branch_root + payload_count >= root_count {
+      return false
+    }
+    let payloads : Array[Int] = []
+    for slot = 0; slot < payload_count; slot = slot + 1 {
+      let payload_id = @ir.hot_child_get(func, branch_id, slot)
+      if payloads.contains(payload_id) ||
+        @ir.node_use_count(use_def, payload_id) != 2 {
+        return false
+      }
+      payloads.push(payload_id)
+    }
+    for offset = 0; offset < payload_count; offset = offset + 1 {
+      let consumer_id = @ir.hot_region_get(
+        func,
+        body_ref,
+        branch_root + 1 + offset,
+      )
+      let consumer = @ir.hot_node_get(func, consumer_id)
+      match consumer.op {
+        @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 => ()
+        _ => return false
+      }
+      if @ir.hot_child_get(func, consumer_id, 0) !=
+        payloads[payload_count - 1 - offset] {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
 fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
   loop_id : Int,
@@ -1097,6 +1162,15 @@ fn flatten_inputful_loop_is_supported(
     _ => return false
   }
   if param_types.length() != input_count || loop_node.child_count <= input_count {
+    return false
+  }
+  if result_types.length() > 1 &&
+    !flatten_multivalue_loop_br_if_flows_are_exact(
+      func,
+      loop_id,
+      label_id,
+      param_types.length(),
+    ) {
     return false
   }
   for slot = 0; slot < input_count; slot = slot + 1 {

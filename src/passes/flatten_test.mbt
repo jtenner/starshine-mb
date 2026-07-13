@@ -2745,3 +2745,135 @@ test "flatten routes inputful multivalue loop plain br channels" {
       fail("expected inputful multivalue loop br routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten routes exact inputful multivalue loop br_if flow" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 3 call 4 call 5 br_if $loop drop drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let first_entry = @ir.hot_child_get(func, loop_id, 0)
+  let second_entry = @ir.hot_child_get(func, loop_id, 1)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let branch = @ir.hot_region_get(func, body_ref, 2)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let second_payload = @ir.hot_child_get(func, branch, 1)
+  let condition = @ir.hot_child_get(func, branch, 2)
+  let first_fallthrough = @ir.hot_region_get(
+    func,
+    body_ref,
+    @ir.hot_region_root_count(func, body_ref) - 2,
+  )
+  let second_fallthrough = @ir.hot_region_get(
+    func,
+    body_ref,
+    @ir.hot_region_root_count(func, body_ref) - 1,
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let first_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).imm0
+  let second_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).imm0
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 10)
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_payload_set = @ir.hot_region_get(func, body_ref, 3)
+  let condition_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_child_get(func, first_payload_set, 0), first_payload)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, second_payload_set, 0),
+    second_payload,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_payload_set).imm0,
+    first_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_payload_set).imm0,
+    second_entry_local,
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, condition_set, 0), condition)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
+  for idx = 6; idx < 8; idx = idx + 1 {
+    let drop_id = @ir.hot_region_get(func, body_ref, idx)
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op.to_string(),
+      "LocalGet",
+    )
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let first_result_local = @ir.hot_node_get(
+      func,
+      @ir.hot_child_get(func, return_id, 0),
+    ).imm0
+  let second_result_local = @ir.hot_node_get(
+      func,
+      @ir.hot_child_get(func, return_id, 1),
+    ).imm0
+  assert_false(first_result_local == first_entry_local)
+  assert_false(second_result_local == second_entry_local)
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, condition), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_fallthrough), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_fallthrough), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact inputful multivalue loop br_if to verify, got \{err}",
+      )
+  }
+}
+
+///|
+test "flatten intentionally leaves shared multivalue loop br_if flow fail closed" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (param i32 i64 i32) (result i32 i64) local.get 0 local.get 1 loop $loop (type $carrier) drop drop local.get 0 local.get 1 local.get 2 br_if $loop drop drop i32.const 11 i64.const 13 end return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let branch = @ir.hot_region_get(func, body_ref, 2)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  let roots : Array[Int] = []
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    roots.push(@ir.hot_region_get(func, body_ref, idx))
+    if idx == 2 {
+      roots.push(@ir.hot_build_drop(func, first_payload))
+    }
+  }
+  @ir.hot_region_replace_body(func, body_ref, roots)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 3)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 2)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected shared multivalue loop br_if boundary to verify, got \{err}",
+      )
+  }
+}
