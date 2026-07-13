@@ -2457,7 +2457,11 @@ fn flatten_node_is_admitted_terminal_control_effect(
   node_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Br | @ir.HotOp::BrTable | @ir.HotOp::Return => true
+    @ir.HotOp::Br
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef => true
     _ => false
   }
 }

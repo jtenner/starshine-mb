@@ -1423,6 +1423,162 @@ test "flatten moves nested return effects before unreachable placeholders" {
 }
 
 ///|
+test "flatten moves nested throw effects after ordered argument preludes" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let first_arg = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_arg, @lib.Instruction::i32_add())
+  let second_arg = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_const_i64(func, @lib.I64(9L)),
+    @ir.hot_build_const_i64(func, @lib.I64(2L)),
+  )
+  @ir.hot_node_exact_instr_set(func, second_arg, @lib.Instruction::i64_sub())
+  let throw_id = @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+    first_arg, second_arg,
+  ])
+  let sibling = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, sibling, @lib.Instruction::i32_sub())
+  let add_id = @ir.hot_build_binary(func, i32_type, throw_id, sibling)
+  @ir.hot_node_exact_instr_set(func, add_id, @lib.Instruction::i32_add())
+  @ir.hot_root_append(func, add_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut first_arg_root = -1
+  let mut second_arg_root = -1
+  let mut throw_root = -1
+  let mut sibling_root = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    if root_id == throw_id {
+      throw_root = idx
+    }
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        if child_id == first_arg {
+          first_arg_root = idx
+        }
+        if child_id == second_arg {
+          second_arg_root = idx
+        }
+        if child_id == sibling {
+          sibling_root = idx
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(first_arg_root >= 0)
+  assert_true(second_arg_root > first_arg_root)
+  assert_true(throw_root > second_arg_root)
+  assert_true(sibling_root > throw_root)
+  @debug.assert_eq(@ir.hot_child_count(func, throw_id), 2)
+  for slot = 0; slot < 2; slot = slot + 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, throw_id, slot)).op.to_string(),
+      "LocalGet",
+    )
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, add_id, 0)).op.to_string(),
+    "Unreachable",
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_arg), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_arg), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, sibling), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested throw placeholder to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten moves nested throw_ref effects before unreachable placeholders" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let exnref = @ir.hot_build_ref_null(
+    func,
+    @lib.RefType::abs(@lib.AbsHeapType::exn()),
+  )
+  let throw_ref_id = @ir.hot_build_throw_ref(func, exnref)
+  let sibling = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(13)),
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+  )
+  @ir.hot_node_exact_instr_set(func, sibling, @lib.Instruction::i32_sub())
+  let add_id = @ir.hot_build_binary(func, i32_type, throw_ref_id, sibling)
+  @ir.hot_node_exact_instr_set(func, add_id, @lib.Instruction::i32_add())
+  @ir.hot_root_append(func, add_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut throw_root = -1
+  let mut sibling_root = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    if root_id == throw_ref_id {
+      throw_root = idx
+    }
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 =>
+        if @ir.hot_child_get(func, root_id, 0) == sibling {
+          sibling_root = idx
+        }
+      _ => ()
+    }
+  }
+  assert_true(throw_root >= 0)
+  assert_true(sibling_root > throw_root)
+  @debug.assert_eq(@ir.hot_child_count(func, throw_ref_id), 1)
+  @debug.assert_eq(@ir.hot_child_get(func, throw_ref_id, 0), exnref)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, add_id, 0)).op.to_string(),
+    "Unreachable",
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, exnref), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, sibling), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested throw_ref placeholder to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten leaves unsupported nondefaultable root controls unmaterialized" {
   let func = pass_test_lift_first_func(
     "(module (type $box (struct)) (func (result (ref $box)) (if (result (ref $box)) (i32.const 1) (then (br 0 (struct.new_default $box))) (else (struct.new_default $box)))))",
