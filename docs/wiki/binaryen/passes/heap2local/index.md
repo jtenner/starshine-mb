@@ -5,7 +5,6 @@ last_reviewed: 2026-07-02
 sources:
   - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
@@ -142,8 +141,8 @@ What it actually is in `version_129`:
   - Current in-tree Starshine parity state, focused coverage, dedicated GenValid profile status, and the current boundary between active Starshine parity and broader upstream-only fixup surface.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current Starshine HOT-IR strategy, now with an exact MoonBit registry / dispatcher / candidate-analysis / rewrite / test map so readers can move directly from the dossier into `src/passes/heap2local.mbt`.
-- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
-  - Immutable current-main source bridge and exact Starshine code-map refresh; it retains the tagged `version_129` release, source, and lit-test provenance used by this dossier.
+- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+  - Absorbed 2026-04-25 source/code-map follow-up retaining the tagged `version_129` release, source, and lit-test provenance used by this dossier.
 
 ## Freshness note
 
@@ -179,7 +178,6 @@ Current durable rule:
 
 - [`../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md`](../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md)
 - [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
 - [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md`](../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md)

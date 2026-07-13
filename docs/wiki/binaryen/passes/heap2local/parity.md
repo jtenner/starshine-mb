@@ -6,7 +6,6 @@ sources:
   - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
   - ../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
@@ -86,8 +85,7 @@ The 2026-07-02 audit added a dedicated GenValid aggregate, `heap2local-all`, wit
 - GenValid profile start: [`../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md`](../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md)
 - Backlog-closure review: [`../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md`](../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md)
 - Refreshed direct revalidation: [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
-- Current source/code-map manifest: [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
-- Current follow-up note: [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- Current source/code-map follow-up: [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
 - Implementation/test-map page: [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - Archived research doc: [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)

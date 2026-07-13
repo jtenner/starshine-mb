@@ -4,7 +4,6 @@ status: working
 last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
-  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
@@ -284,7 +283,6 @@ If Starshine rewrites this pass again, keep these lessons explicit:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
 - [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)

@@ -166,7 +166,6 @@ sources:
   - ../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
   - ../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
