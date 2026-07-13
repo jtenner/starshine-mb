@@ -12,7 +12,6 @@ sources:
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
   - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
   - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
   - ../../../../../src/passes/rse.mbt

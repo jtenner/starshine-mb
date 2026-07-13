@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
-  - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
