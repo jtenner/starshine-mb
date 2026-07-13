@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
@@ -32,7 +31,7 @@ related:
 ## Why this pass is easy to misread
 
 The name sounds like a broad whole-module optimizer.
-The actual `version_129` implementation is tiny. The 2026-04-24 raw primary-source manifest for this page is [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), and the 2026-07-11 reread keeps the shipped current-main contract fresh without finding behavior-bearing drift. An open similarity-ordering proposal is deliberately separate; see [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
+The actual `version_129` implementation is tiny. Retained 2026-04-24 follow-up research plus the direct tagged URLs in this page preserve the audited release source map, and the 2026-07-11 reread keeps the shipped current-main contract fresh without finding behavior-bearing drift. An open similarity-ordering proposal is deliberately separate; see [`compression-oriented-similarity-proposal.md`](compression-oriented-similarity-proposal.md).
 
 It does **not** optimize function bodies.
 It does **not** compute dynamic hotness.

@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
@@ -30,7 +29,7 @@ related:
 
 ## Why this page exists
 
-This page is anchored by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), with the 2026-07-11 reread keeping the two shipped siblings' freshness layer current.
+This page is anchored by retained 2026-04-24 follow-up research and direct tagged source URLs, with the 2026-07-11 reread keeping the two shipped siblings' freshness layer current.
 
 `reorder-functions` is small enough that it is easy to skip over.
 That makes it easy to misremember too.

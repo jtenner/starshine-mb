@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
@@ -75,7 +74,7 @@ So this pass is best taught as:
 
 ## Most important durable takeaways
 
-- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; the 2026-04-24 raw manifest records the official `version_129` release/source/test URLs, while the 2026-07-11 reread found no behavior-bearing drift in the two shipped current-main siblings.
+- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; retained 2026-04-24 follow-up research and direct tagged `version_129` URLs preserve the source map, while the 2026-07-11 reread found no behavior-bearing drift in the two shipped current-main siblings.
 - `reorder-functions` only changes function declaration order; it does not rewrite bodies, and the pass explicitly reports `requiresNonNullableLocalFixups() == false`.
 - The counted surfaces in `version_129` are:
   - direct `call` targets
@@ -114,11 +113,11 @@ So this pass is best taught as:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real module pass and dispatcher case for it.
 - Keep the split from [`../reorder-functions-by-name`](../reorder-functions-by-name/index.md) explicit: the sibling is lexical/debug ordering, while the main pass is static-use-count ordering. The local source-map reminder for that split lives in [`./implementation-structure-and-tests.md#the-sibling-pass-matters`](./implementation-structure-and-tests.md#the-sibling-pass-matters).
 - Keep the split from [`../reorder-globals/index.md`](../reorder-globals/index.md) and [`../reorder-types/index.md`](../reorder-types/index.md) explicit too: this pass has no dependency DAG or type-graph legality phase.
+- Use the retained 2026-04-24 research and later current-main rechecks for the audited source story; keep the direct tagged URLs below as the primary-source anchors.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md`](../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md)
 - [`../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md`](../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md)
 - [`../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md`](../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md)

@@ -121,7 +121,6 @@ sources:
   - ../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - ../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
@@ -785,7 +784,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md`](../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
 - [`../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
-- [`../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md)
 - [`../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md`](../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md`](../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md)
 - [`../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`](../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md)

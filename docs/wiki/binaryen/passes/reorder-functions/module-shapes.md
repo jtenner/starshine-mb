@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderFunctions.cpp
@@ -31,7 +30,7 @@ So the most honest examples here are tiny module-order families.
 
 ## How to read these examples
 
-Each example focuses on which functions get extra static-use counts from the real `version_129` source captured in [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md):
+Each example focuses on which functions get extra static-use counts from the retained `version_129` source reading, whose direct tagged URLs remain in this dossier:
 
 - direct calls
 - start function
