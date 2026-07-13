@@ -5,7 +5,6 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - ../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md

@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
@@ -27,7 +26,7 @@ related:
 
 # Upstream implementation structure and tests for `avoid-reinterprets`
 
-The retained direct `version_129` source/test URLs and 2026-04-24 follow-up research establish the initial review, with a focused 2026-04-26 port-readiness recheck in [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md) and a 2026-07-11 current-main bridge in [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md), which supersedes the 2026-05-05 freshness bridge.
+The retained direct `version_129` source/test URLs and 2026-04-24 follow-up research establish the initial review; the [`2026-07-11 current-main bridge`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md) supersedes the 2026-05-05 freshness bridge.
 Use [`./starshine-strategy.md`](./starshine-strategy.md) for the local status and exact Starshine code-map bridge, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future first-slice plan.
 
 ## Main reviewed files
@@ -182,7 +181,6 @@ A future port should preserve:
 - [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
 - [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
