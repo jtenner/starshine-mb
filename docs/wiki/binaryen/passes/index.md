@@ -55,7 +55,6 @@ sources:
   - ../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
   - ../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md

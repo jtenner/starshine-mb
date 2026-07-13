@@ -13,7 +13,6 @@ sources:
   - ../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
-  - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
