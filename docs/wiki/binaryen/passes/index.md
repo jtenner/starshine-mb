@@ -155,7 +155,6 @@ sources:
   - ../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - ../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - ../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
-  - ../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
   - ../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
