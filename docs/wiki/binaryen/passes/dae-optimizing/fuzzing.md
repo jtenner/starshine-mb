@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-07-13
 sources:
   - ../../../tooling/pass-fuzz-compare.md
+  - ../../../raw/research/1575-2026-07-13-daeo-wide-null-default-worklist.md
   - ../../../raw/research/1574-2026-07-13-daeo-artifact-gap-attribution.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/research/1568-2026-07-13-daeo-fresh-dedicated-and-regular-compare.md
@@ -74,4 +75,4 @@ Research note [`1573`](../../../raw/research/1573-2026-07-13-daeo-flattened-rec-
 - wasm-smith: `9955` normalized plus `1` cleanup-normalized out of `9956` comparable cases, zero mismatches and no Starshine failures, with the same `44` Binaryen/oracle failures;
 - random-all: `9633` normalized plus the same `367` measured/source-backed Starshine cleanup wins, zero failures, and `0` changed files across `3670` comparisons with the preceding lane.
 
-The current direct matrix is complete. Research note [`1574`](../../../raw/research/1574-2026-07-13-daeo-artifact-gap-attribution.md) attributes the remaining artifact loss without changing behavior, so this matrix remains current. The note corrects the final touched count to `22` and shows a valid safe nested-replay probe closes only `21/16350` canonical bytes while adding `6` raw bytes; the larger inspected owner is bounded low-candidate/exact-reference convergence around Funcs `164`, `39`, `37`, `38`, and `41`. Final closeout remains blocked by that measured size-losing core/artifact gap, not by generated semantic or validation residuals.
+Research note [`1574`](../../../raw/research/1574-2026-07-13-daeo-artifact-gap-attribution.md) attributed the remaining artifact loss without changing behavior. Research note [`1575`](../../../raw/research/1575-2026-07-13-daeo-wide-null-default-worklist.md) then changes behavior by adding the measured wide nullable-default worklist and reaching Func `164`. Therefore the matrix above is historical and stale, not current closeout evidence. The retained artifact output is valid and improves committed Starshine by `20` raw / `55` canonical / `675` current-tool WAT bytes at `3646.647ms` pass-local, but the remaining Func `164` exact-result/body and Func `39 -> 37 -> 38 -> 41` propagation gap is still open. Refresh all four required lanes with both normalizers and a fresh explicit native binary after the next behavior slice or before any closeout claim.

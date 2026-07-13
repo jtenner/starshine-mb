@@ -1081,6 +1081,60 @@ test "dae exact-literal worklist batches multiple candidates from one call-fact 
 }
 
 ///|
+test "dae exact-literal candidate worklist can select wide nullable-default boundaries" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $leaf (sub final (struct)))
+      #|  (func $wide
+      #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
+      #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
+      #|    (result i32)
+      #|    local.get 0 ref.is_null drop
+      #|    local.get 1 ref.is_null drop
+      #|    local.get 2 ref.is_null drop
+      #|    local.get 3 ref.is_null drop
+      #|    local.get 4 ref.is_null drop
+      #|    local.get 5 ref.is_null drop
+      #|    local.get 6 ref.is_null drop
+      #|    local.get 7 ref.is_null)
+      #|  (func $mixed
+      #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
+      #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) i32)
+      #|    (result i32)
+      #|    local.get 0 ref.is_null drop
+      #|    local.get 1 ref.is_null drop
+      #|    local.get 2 ref.is_null drop
+      #|    local.get 3 ref.is_null drop
+      #|    local.get 4 ref.is_null drop
+      #|    local.get 5 ref.is_null drop
+      #|    local.get 6 ref.is_null drop
+      #|    local.get 7)
+      #|  (func (export "run") (result i32)
+      #|    ref.null $leaf ref.null $leaf ref.null $leaf ref.null $leaf
+      #|    ref.null $leaf ref.null $leaf ref.null $leaf ref.null $leaf
+      #|    call $wide
+      #|    drop
+      #|    ref.null $leaf ref.null $leaf ref.null $leaf ref.null $leaf
+      #|    ref.null $leaf ref.null $leaf ref.null $leaf i32.const 0
+      #|    call $mixed))
+    ),
+  )
+  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, total)
+  assert_eq(
+    dae_collect_exact_literal_candidate_defs_with_facts(
+      mod_,
+      call_facts,
+      2,
+      min_param_count=8,
+      require_all_nullable_refs=true,
+    ),
+    [0],
+  )
+}
+
+///|
 test "dae dropped result candidate centralizes call facts and owned eligibility" {
   let current : DaeCurrentCallFacts = {
     direct_calls: [2, 1, 3],

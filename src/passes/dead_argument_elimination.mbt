@@ -27847,6 +27847,8 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
   call_facts : DaeCurrentCallFacts,
   max_def_exclusive : Int,
   allow_immutable_global_get? : Bool = false,
+  min_param_count? : Int = 1,
+  require_all_nullable_refs? : Bool = false,
 ) -> Array[Int] {
   let candidates : Array[Int] = []
   let imported = dae_imported_func_count(mod_)
@@ -27887,9 +27889,22 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
       }
     }
     let @lib.FuncType(params, _) = func_type
-    if params.length() == 0 {
+    if params.length() < min_param_count {
       def_idx += 1
       continue
+    }
+    if require_all_nullable_refs {
+      let mut all_nullable_refs = true
+      for param in params {
+        match param {
+          @lib.RefTypeValType(@lib.HeapTypeRefType(true, _, _)) => ()
+          _ => all_nullable_refs = false
+        }
+      }
+      if !all_nullable_refs {
+        def_idx += 1
+        continue
+      }
     }
     let @lib.Func(locals, _) = funcs[def_idx]
     let local_use = dae_local_use_for_callee(
@@ -29643,7 +29658,11 @@ fn dae_run_core(
       current, original_total,
     )
     let low_exact_literal_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
-      current, low_exact_literal_call_facts, 4096,
+      current,
+      low_exact_literal_call_facts,
+      4096,
+      min_param_count=8,
+      require_all_nullable_refs=true,
     )
     let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
       current, touched, changed, low_exact_literal_candidates, low_exact_literal_call_facts,
