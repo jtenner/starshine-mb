@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../release-horizon-and-oracles.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
-  - ../../../raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
