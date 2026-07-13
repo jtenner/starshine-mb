@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-01
 sources:
+  - ../../../raw/research/1562-2026-07-12-dae-large-module-nested-cleanup-guard-relaxation.md
   - ../../../raw/research/0687-2026-05-27-dae004-closeout-evidence.md
   - ../../../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../../../raw/research/0661-2026-05-26-dae003-closeout-evidence.md
@@ -67,11 +68,11 @@ Starshine currently has:
 
 - public pass names `dae-optimizing` and `dead-argument-elimination-optimizing` in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt);
 - a live module-pass dispatcher path in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) that runs the shared DAE boundary rewrite plus a guarded touched-function nested cleanup slice;
-- focused regressions for touched-only nested cleanup order, size-skip tracing, touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior, a narrow every-direct-caller-same-literal constant-actual family, and a small-module fact-discovered dropped-result candidate outside the artifact selected-def list in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
+- focused regressions for touched-only nested cleanup order, size-skip tracing, large-module small-touched-set cleanup, touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior, a narrow every-direct-caller-same-literal constant-actual family, and a small-module fact-discovered dropped-result candidate outside the artifact selected-def list in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
 - a touched-only private `precompute-propagate-prefix` helper that folds SSA-backed default-init and direct local constant facts, then reruns plain `precompute`, but still not the real public `precompute-propagate` pass family itself;
 - a narrow constant-actual materialization slice for exact literals on read-only params, now including scalar memory-load sibling carriers and typed single-result `TypeIdxBlockType` wrappers in the callsite-slice recovery path, but no broader operand localization, GC refinement, or result-refinement family yet;
 - a usefully shrinking raw-cleanup slice in [`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt) that strips live integer identities (`+0`, `-0`, `|0`, `^0`, `<<0`, `>>0`, `rotl0`, `rotr0`, `*1`, and `& -1`) on DAE-touched functions, including guarded left-constant forms when the constant producer is a stack-neutral value leaf, but still deliberately stops short of Binaryen's full optimizing replay;
-- no full default-function-pipeline replay on all touched functions, no broad-module nested replay, and no green debug-artifact compare yet;
+- no full default-function-pipeline replay on all touched functions, no real public `precompute-propagate` sibling, remaining `large-touched-set` / `large-touched-function` nested-cleanup guards, and no green debug-artifact compare yet;
 - a closed `[DAE]005` default-raw frontier policy: the `defined=336 abs=353` type-section/type-index first diff is a documented diagnostic boundary for the raw helper, while body work should use both-canonical diagnostics unless the byte-reference contract changes;
 - a closed `[DAE]006` both-canonical Func509 diagnostic investigation: [`0591`](../../../raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md) documents the current `defined=509 abs=526` frontier as a lowerer/diagnostic boundary rather than a safe DAE final-hook matcher miss.
 
@@ -176,7 +177,7 @@ Missing code surfaces for a faithful port:
 
 - ordered-prefix / preset evidence before adding DAE to public `optimize` or `shrink`;
 - a real `precompute-propagate` sibling or equivalent nested prefix replay;
-- a performant default-function-pipeline replay for touched functions without the current small-module guards;
+- a performant default-function-pipeline replay for touched functions without the current `large-touched-set` / `large-touched-function` guards;
 - broader function-filtered adapters or safe batching for still-module-shaped cleanup passes that Binaryen reruns after productive DAE changes;
 - final debug-artifact output parity and pass-local runtime attribution closure;
 - Binaryen-oracle focused test coverage for any newly enabled cleanup families beyond the current guarded slice.

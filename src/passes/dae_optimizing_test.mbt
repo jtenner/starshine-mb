@@ -7810,7 +7810,9 @@ test "dae-optimizing runs nested cleanup on small touched sets inside large modu
   }
   assert_false(
     trace.any(fn(line) {
-      line.contains("pass[dae-optimizing]:nested-cleanup-skip reason=large-module")
+      line.contains(
+        "pass[dae-optimizing]:nested-cleanup-skip reason=large-module",
+      )
     }),
     msg=trace.to_string(),
   )

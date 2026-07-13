@@ -308,7 +308,8 @@ Reopened from prior removed audits because committed docs still list behavior ga
 - [O4Z-AUDIT-DAE] - Deep audit `dae-optimizing`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: dead argument/result removal, nested cleanup scheduler, selected-shape genericization, raw cleanup policy, type liveness, and pass-local runtime.
-  - Deliverables: apply the common checklist; coordinate with `[AUDIT003-*]`; refresh DAE-normalized direct compare and late `DAE` slot evidence; keep accepted raw-cleanup drift separate from semantic mismatches.
+  - Current finding: research note `1562-2026-07-12-dae-large-module-nested-cleanup-guard-relaxation.md` removes the coarse `>100` defined-function nested-cleanup skip. Targeted large-module regressions and a 1000-case normalized direct compare are green, but `moon test src/passes` is not yet signable: high-defined-function DAE tests still encode pre-cleanup expectations, and `dae-optimizing removes selected Func3737 wrapper default from folded multivalue callsite` now aborts under the broader lane.
+  - Deliverables: apply the common checklist; coordinate with `[AUDIT003-*]`; refresh DAE-normalized direct compare and late `DAE` slot evidence; keep accepted raw-cleanup drift separate from semantic mismatches; classify/update the high-defined-function expectation set and either guard or fix the folded-multivalue `Func3737` nested-cleanup case before claiming broader large-module signoff.
 
 - [O4Z-AUDIT-SG] - Deep audit `string-gathering`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
