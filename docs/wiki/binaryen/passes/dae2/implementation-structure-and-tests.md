@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
 related:
@@ -253,9 +252,9 @@ It needs to preserve:
 
 ## Source bridge update
 
-The 2026-04-25 source bridge adds an immutable source manifest and Starshine status page:
+The retained source bridge and 2026-04-26 port-readiness capture provide the upstream source map and Starshine status context:
 
-- [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
 - [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

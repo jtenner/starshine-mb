@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -194,7 +193,6 @@ When this page changes, also check:
 
 - 2026-04-26 current-main / port-readiness source capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
 - Research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
-- Original raw source manifest: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
 - Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - Starshine registry source: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Starshine module dispatcher: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
