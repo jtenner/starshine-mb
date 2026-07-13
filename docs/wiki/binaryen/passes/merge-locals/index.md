@@ -9,7 +9,6 @@ sources:
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../raw/research/0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
@@ -132,7 +131,6 @@ Remaining implementation debt is the broader LocalGraph-equivalent retargeting e
 - [`../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md)
 - [`../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md)
 - [`../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md`](../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md)
 - Binaryen `version_129` source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeLocals.cpp>
 - Binaryen current `main` source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>

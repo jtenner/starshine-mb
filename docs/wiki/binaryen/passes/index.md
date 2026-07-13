@@ -73,7 +73,6 @@ sources:
   - ../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
   - ../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
-  - ../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md

@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
 related:
   - ./index.md
