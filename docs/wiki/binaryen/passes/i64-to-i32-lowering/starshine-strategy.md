@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
@@ -184,7 +183,6 @@ For this pass, read in this order:
 
 - [`../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md)
 - [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
 - [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)

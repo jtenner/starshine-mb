@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
@@ -69,7 +68,7 @@ So this pass is best taught as:
 - It rewrites direct and indirect calls, `ref.func` signatures, locals, globals, loads, stores, many unary ops, many binary ops, `select`, `drop`, and `return`.
 - Some families still require helper imports or prior cleanup: reinterpret uses wasm2js scratch-memory helpers, some atomic families use wasm2js runtime helpers, and ops like `mul` / `div` / `rem` / `rot` / `popcnt` are expected to be gone already.
 - The refreshed dossier now also has a dedicated ABI/opcode coverage ledger so future readers can see, in one place, which families are directly pair-lowered, helper-backed, fallback-only, or still explicitly unsupported.
-- The folder is now anchored by an immutable 2026-04-24 raw primary-source manifest plus a 2026-04-26 port-readiness source recheck; the recheck did not correct the upstream algorithm, but it makes first-slice sequencing and local code surfaces explicit.
+- The folder is anchored by direct `version_129` sources plus the retained 2026-04-26 port-readiness source recheck; the recheck did not correct the upstream algorithm, but it makes first-slice sequencing and local code surfaces explicit.
 - The dedicated Starshine strategy page records the exact current local truth: boundary-only registry name, request rejection, no module-pass dispatcher case, no owner file, no active preset role, and no active backlog slice.
 - The 2026-04-26 port-readiness bridge adds the missing implementation sequence: registry honesty first, then analyzer-only classification, then a deliberately narrow scalar type/param/local split before calls, globals, returns, memory, helper imports, or atomics.
 
@@ -94,7 +93,7 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `i64-to-i32-lowering` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
-- Cite [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md) when restating upstream source-backed claims, cite [`./starshine-strategy.md`](./starshine-strategy.md) when restating local implementation status, and cite [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) when discussing implementation order or validation lanes.
+- Cite [`./binaryen-strategy.md`](./binaryen-strategy.md) and its direct tagged URLs when restating upstream source-backed claims, cite [`./starshine-strategy.md`](./starshine-strategy.md) when restating local implementation status, and cite [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) when discussing implementation order or validation lanes.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the structural fact explicit too: the reviewed upstream pass expects flattened input and does not by itself cover every remaining `i64` opcode family.
 - When future docs summarize the pass quickly, link the ABI/opcode coverage page instead of implying this is a universal arbitrary-`i64` legalizer.
@@ -103,7 +102,6 @@ So this pass is best taught as:
 
 - [`../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md)
 - [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
 - [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)

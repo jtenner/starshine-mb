@@ -115,7 +115,6 @@ sources:
   - ../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - ../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md

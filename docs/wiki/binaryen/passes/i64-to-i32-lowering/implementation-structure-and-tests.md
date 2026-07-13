@@ -5,7 +5,6 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
@@ -174,8 +173,8 @@ So the source file remains the primary truth for unsupported shapes.
 
 ## Current-main freshness note
 
-The immutable 2026-04-24 raw manifest now records the `version_129` owner, helper, test, and current-`main` URLs used by the dossier.
-The older 2026-04-21 comparison found only a comment typo fix on the checked owner-file surface; this run did not discover a new teaching-relevant contract to add beyond that `version_129` story.
+The direct `version_129` owner, helper, and test URLs on this page plus the retained 2026-04-26 port-readiness source recheck preserve the dossier's reviewed source set.
+The older 2026-04-21 comparison found only a comment typo fix on the checked owner-file surface; the retained sources do not add a new teaching-relevant contract beyond that `version_129` story.
 Treat this as a narrow freshness note, not a whole-repository equivalence proof.
 
 ## Practical reading order for future port work
