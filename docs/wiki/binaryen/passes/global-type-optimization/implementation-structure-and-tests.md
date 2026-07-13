@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
   - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
 related:
@@ -289,7 +288,7 @@ The tests prove the pass must still preserve:
 
 ## Freshness note
 
-The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md) records the reviewed official release page, source files, helper files, and lit-test URLs.
+The retained current-main bridges and direct `version_129` URLs below preserve the reviewed official release, source-file, helper-file, and lit-test catalog after the earlier manifest is consumed.
 I did a narrow current-`main` check on:
 
 - `src/passes/GlobalTypeOptimization.cpp`
@@ -329,7 +328,6 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md)
 - [`../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
 - Binaryen `version_129`:

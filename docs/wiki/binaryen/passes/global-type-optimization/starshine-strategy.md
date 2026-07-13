@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
   - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -44,7 +43,7 @@ related:
 
 # Starshine Strategy For `global-type-optimization`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md) and the older 2026-04-24 manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md).
+Use this page together with the retained current-main source bridge [`../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md); the related living pages retain direct tagged source URLs for the earlier contract.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
