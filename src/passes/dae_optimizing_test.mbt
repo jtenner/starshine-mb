@@ -2610,6 +2610,147 @@ test "dae-optimizing removes generic constant-condition default suffix params ac
 }
 
 ///|
+test "dae-optimizing removes generic immutable-global-conditioned default suffix params across dead zero-if gap" {
+  let callee_def = 1
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    (
+      #|  (global $condition i32 (i32.const 1))
+      #|  (func $caller (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    global.get $condition
+      #|    if (result i32)
+      #|      i32.const 42
+      #|    else
+      #|      unreachable
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      i32.const 0
+      #|      call $release
+      #|    end
+      #|    i32.const 7
+      #|    call $callee)
+      #|  (func $callee (param i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add
+      #|    local.get 2
+      #|    i32.add)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, callee_def).length(), 1)
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
+  assert_false(caller.contains("global.get"), msg=caller)
+  assert_false(caller.contains("I32(42)"), msg=caller)
+  assert_false(caller.contains("i32.const I32(7)"), msg=caller)
+  assert_false(caller.contains("block"), msg=caller)
+  let callee = optimized.pretty_print_defined_func(
+    callee_def.reinterpret_as_uint(),
+  )
+  assert_false(callee.contains("local.get (Local1)"), msg=callee)
+  assert_false(callee.contains("local.get (Local2)"), msg=callee)
+  assert_true(
+    callee.contains("I32(42)") || callee.contains("I32(49)"),
+    msg=callee,
+  )
+}
+
+///|
+test "dae-optimizing preserves chosen-arm effects while removing immutable-global trailing default" {
+  let callee_def = 1
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    (
+      #|  (global $condition i32 (i32.const 1))
+      #|  (func $caller (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    global.get $condition
+      #|    if (result i32)
+      #|      i32.const 5
+      #|      call $release
+      #|      i32.const 42
+      #|    else
+      #|      unreachable
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      i32.const 0
+      #|      call $release
+      #|    end
+      #|    i32.const 7
+      #|    call $callee)
+      #|  (func $callee (param i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add
+      #|    local.get 2
+      #|    i32.add)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, callee_def).length(), 2)
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("(call (Func 2))"), msg=caller)
+  assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
+  assert_true(caller.contains("global.get"), msg=caller)
+  assert_false(caller.contains("i32.const I32(7)"), msg=caller)
+}
+
+///|
+test "dae-optimizing does not fold mutable-global-conditioned default across dead zero-if gap" {
+  let callee_def = 2
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    (
+      #|  (global $condition (mut i32) (i32.const 1))
+      #|  (func $caller (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    global.get $condition
+      #|    if (result i32)
+      #|      i32.const 42
+      #|    else
+      #|      i32.const 99
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      i32.const 0
+      #|      call $release
+      #|    end
+      #|    i32.const 7
+      #|    call $callee)
+      #|  (func $set-condition (param i32)
+      #|    local.get 0
+      #|    global.set $condition)
+      #|  (func $callee (param i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add
+      #|    local.get 2
+      #|    i32.add)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  assert_true(
+    dae_test_func_params(optimized, callee_def).length() > 1,
+    msg=optimized.pretty_print_defined_func(0U),
+  )
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("global.get"), msg=caller)
+}
+
+///|
 test "dae-optimizing removes selected Func3737 wrapper default from folded multivalue callsite" {
   let caller_def = 281
   let target_def = 3737
