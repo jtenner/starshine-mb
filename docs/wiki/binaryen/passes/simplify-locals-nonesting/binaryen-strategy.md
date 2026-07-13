@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
@@ -64,6 +65,8 @@ It explicitly says:
 - no nesting at all
 - preserves flatness
 
+The focused 2026-07-11 current-main recheck confirms that the public wording,
+constructor route, and shared owner remain unchanged on the reviewed surfaces.
 That is the durable wording a future port should preserve.
 
 ## Shared engine, stricter movement rule
@@ -281,6 +284,7 @@ A future honest Starshine port should preserve these facts:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
 - [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)

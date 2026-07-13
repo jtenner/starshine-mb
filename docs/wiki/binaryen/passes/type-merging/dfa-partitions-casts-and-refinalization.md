@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -23,7 +24,7 @@ related:
 # `type-merging`: DFA partitions, cast barriers, and refinalization
 
 This is the hardest part of `type-merging` to teach clearly.
-The 2026-04-24 primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) is the current immutable source anchor for the Binaryen algorithm described here.
+The 2026-04-24 primary-source manifest anchors the partition algorithm. The later [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md) corrects its old current-main freshness claim: current candidate visibility and final rewriting are both parameterized by a non-open `WorldMode`. This page describes the graph proof after that admission/visibility policy has been chosen.
 
 If you remember only one thing, remember this:
 
@@ -198,6 +199,7 @@ then it does not yet implement Binaryen `type-merging` honestly.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
 - [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)

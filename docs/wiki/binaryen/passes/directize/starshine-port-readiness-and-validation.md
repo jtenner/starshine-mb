@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: current
-last_reviewed: 2026-05-20
+status: supported
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md

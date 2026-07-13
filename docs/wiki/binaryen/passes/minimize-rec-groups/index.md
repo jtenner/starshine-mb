@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
@@ -58,6 +59,7 @@ It is **SCC-based rec-group minimization plus identity preservation under Binary
 - `minimize-rec-groups` is already named in the local boundary-only registry, so this is a real Starshine-facing pass name.
 - The current `late-pipeline-dispatch` and tracker docs already record it as an upstream-only Binaryen pass name visible in public terminology and release-horizon checks.
 - `agent-todo.md` still has **no dedicated `minimize-rec-groups` slice**, so a stable wiki home matters even more here.
+- The 2026-07-11 current-main recheck corrects the former “no drift” freshness claim: `WorldMode` now flows through both heap-type visibility collection and final global type rewriting. The SCC/brand algorithm remains, but a port must keep that policy coherent across both boundaries.
 - The official implementation hides several teaching traps that deserve an explicit dossier:
   - the pass is **GC-gated** but not closed-world-gated
   - it is **not** part of Binaryen's default no-DWARF optimize schedule in `version_129`
@@ -83,7 +85,7 @@ It is **SCC-based rec-group minimization plus identity preservation under Binary
 - Exactness can therefore matter in one run and disappear in another.
 - The pass prefers **valid permutations** of isomorphic groups before adding **brand types**.
 - Brand insertion is part of the intended algorithm, not an accidental fallback.
-- The final rewrite updates not just type definitions, but also type names and recorded indices.
+- The final rewrite updates not just type definitions, but also type names and recorded indices under the same explicit world/visibility policy used to select candidates.
 
 ## Beginner warning: what the name hides
 
@@ -123,7 +125,7 @@ What it actually is in `version_129`:
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual Binaryen `version_129` algorithm, helper dependencies, scheduler placement, and the exact phase structure.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - File map for `MinimizeRecGroups.cpp`, `pass.cpp`, `module-utils.h`, `type-updating.*`, `strongly_connected_components.h`, `topological_sort.h`, `disjoint_sets.h`, `wasm-type-shape.*`, and the official lit roster, plus the important fact that current `main` still matches `version_129` on the reviewed surfaces.
+  - File map for `MinimizeRecGroups.cpp`, `pass.cpp`, `module-utils.h`, `type-updating.*`, `strongly_connected_components.h`, `topological_sort.h`, `disjoint_sets.h`, `wasm-type-shape.*`, and the official lit roster, including the current-main correction that `WorldMode` must flow consistently through visibility collection and global rewriting.
 - [`./permutations-brands-and-public-conflicts.md`](./permutations-brands-and-public-conflicts.md)
   - Focused guide to the hardest half of the pass: why SCC splitting is not enough, how canonicalization and valid topological permutations work, when brands become necessary, how public groups constrain private output, and why exactness is feature-sensitive.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -145,11 +147,12 @@ What it actually is in `version_129`:
   - shape collisions are the hard part
   - brands are part of the real contract
 - Keep the public/private split explicit instead of implying the pass can rewrite ABI-visible groups.
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract. The 2026-07-11 recheck supersedes the old no-drift freshness claim with one concrete policy-interface correction.
 - Keep [`./fuzzing.md`](./fuzzing.md) planned-only until a real module pass, harness admission, and a GC-rec-group-aware input profile can produce meaningful compared cases.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)

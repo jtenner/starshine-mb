@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
@@ -45,7 +46,7 @@ Use it with:
 
 ## Current local reality
 
-`merge-locals` has an active Starshine module-pass owner and direct explicit-pass parity under the refreshed 2026-05-06 harness. The current implementation covers a conservative same-typed linear copy-retargeting slice, guarded by write invalidation, and is wired through registry, dispatcher, tests, and compare-pass tooling.
+`merge-locals` has an active Starshine module-pass owner and direct explicit-pass parity under the refreshed 2026-05-06 harness. The current implementation covers a conservative same-typed, forward `src -> dst` linear copy-retargeting slice, guarded by destination write-epoch invalidation, and is wired through registry, dispatcher, tests, and compare-pass tooling. It clears parent aliases at every structured-control boundary, so recursive traversal does not imply control-flow-spanning proof.
 
 It is still not a full `LocalGraph`-equivalent port and should stay out of public presets until the broader local-cleanup neighborhood is oracle-proven.
 
@@ -81,7 +82,7 @@ The remaining work is to extend from the current linear same-typed copy slice to
 1. add a `LocalGraph`-style set-influence representation;
 2. decide source-side versus destination-side ownership with graph evidence;
 3. reject or roll back candidates that fail post-rewrite graph validation;
-4. expand tests for type-mismatch negatives, rollback cases, and `between-unreachable` conservatism;
+4. expand tests for control-flow influence, type-mismatch negatives, rollback cases, and `between-unreachable` conservatism;
 5. rerun direct compare-pass parity after each semantic expansion;
 6. only then test the late local-cleanup neighborhood.
 

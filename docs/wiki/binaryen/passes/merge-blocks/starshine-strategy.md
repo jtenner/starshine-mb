@@ -1,26 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
-  - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
-  - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
-  - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
-  - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
-  - ../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md
-  - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
-  - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/merge_blocks.mbt
-  - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../src/ir/hot_lower_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -34,93 +22,89 @@ related:
 
 # Starshine Strategy For `merge-blocks`
 
-Current Starshine `merge-blocks` is a HOT-region cleanup pass, not a direct port of Binaryen's `MergeBlocks.cpp` contract.
+Current Starshine `merge-blocks` is a HOT-region cleanup pass. It is not a direct AST port of Binaryen, but it deliberately has two analogous operations:
 
-Use this page as the strategy overview, then follow [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) for the exact MoonBit line map.
+1. **region-root flattening** for a branch-free nested `Block`; and
+2. **expression-child prefix lifting** for an eligible block-valued operand.
 
-## What Starshine does
+The second operation is important: the local pass does not only flatten region roots. It can lift prefixes from the `if` condition, `drop`, `i32.store`, and `throw` fixtures covered in the direct test file.
 
-Starshine flattens branch-free HOT region-root `Block` nodes into their parent regions.
+## Region-root flattening
 
-In practice that means:
+For a region-root `Block`, Starshine:
 
-- scan for live `Block` nodes cheaply;
-- compute whole-function label use through the shared `pass_common.mbt` helper;
-- recurse through block, loop, `if`, `try`, and `try-table` regions;
-- refuse any region-root block whose label is referenced anywhere in the function;
-- flatten only the branch-free cases that keep typed-carrier lowering stable;
-- rewrite dead values before `unreachable` as explicit `drop`s before splicing;
-- mark the function mutated only after a real splice.
+- computes whole-function label use;
+- retains every live-label block;
+- rejects unsupported typed block-parameter/carrier combinations;
+- rejects blocks containing loops;
+- rewrites dead value roots before `unreachable` into explicit `drop`s;
+- splices the remaining roots into the parent region; and
+- marks the function mutated only after an actual splice.
 
-## How that differs from Binaryen
+This is a HOT/writeback safety contract. It is stricter than simply removing syntactic wrappers.
 
-Binaryen's upstream pass still merges nested block children, loop tails, `if` conditions, and some `drop(block ...)` / `throw` shapes inside `MergeBlocks.cpp`.
+## Expression-child prefix lifting
 
-Starshine does **not** try to retarget branch names or emulate Binaryen's AST-level helper proof. Instead, it uses a much simpler HOT rule:
+`merge_blocks_lift_expression_block_children(...)` examines ordinary child slots of a HOT node. When a child is a legal `Block`, it:
 
-- if the label is live, keep the block;
-- if the label is dead and the carrier shape is safe, splice the roots upward.
+1. keeps the final child-region root as the operand tail;
+2. inserts preceding roots immediately before the parent expression in the surrounding region; and
+3. replaces the original child slot with that tail.
 
-That makes Starshine intentionally narrower in one direction and broader in another:
+The implementation does **not** descend through block/loop/try/try-table nodes by this route. For `if`, it considers only child slot `0`, the condition; arms remain regions.
 
-- narrower: no recursive branch-target rename proof;
-- broader: it can flatten unlabeled HOT region-root blocks because it is not tied to Binaryen's AST naming contract.
+### Local guards
 
-## Exact code locations
+The HOT helper requires more than Binaryen's AST-level shape:
+
+- block label unused in the whole function;
+- no typed block parameters;
+- no loop anywhere in the candidate body;
+- at least two body roots;
+- one-result tail whose result type matches the block's result type;
+- no branch in the lifted prefix;
+- no effect-order violation: either the prefix or all earlier sibling operands must be pure.
+
+These guards make the local rewrite safe for the present HOT representation. They also mean a matching WAT outline is not evidence that every upstream `MergeBlocks.cpp` case is implemented.
+
+## Upstream relationship
+
+Current Binaryen has generic non-control expression-child extraction alongside special drop/if/throw visitors. Starshine uses one HOT helper for its supported `drop`, `if`, store, and `throw` fixtures, so the local routing is not a literal visitor-for-visitor port. The representations differ:
+
+| Topic | Binaryen | Starshine |
+| --- | --- | --- |
+| IR | expression tree | HOT regions plus ordered child slots |
+| generic extraction | `visitExpression(...)` over eligible **non-control** children; separate special visitors for drop/if/throw | `merge_blocks_lift_expression_block_children(...)` across supported HOT child slots |
+| label policy | unnamed AST block / source helper proof | hard whole-function live-label bailout |
+| prefix branch policy | source-level structural proof | explicit recursive branch rejection |
+| type repair | AST refinalization | HOT guards plus later lowering/validation |
+
+Do not describe the local `i32.store` family as full parity or as a dedicated upstream fixture. The current local tests are targeted examples; broader reference, GC, bulk-memory, call, exception, and multivalue operand families still need direct source-review and compare evidence before they become parity claims.
+
+## Exact current locations
 
 | File | Lines | Role |
 | --- | --- | --- |
-| `src/passes/pass_common.mbt` | `2-45` | Shared whole-function label-use collection and live-label bailout helper. |
-| `src/passes/merge_blocks.mbt` | `2-13` | `merge_blocks_descriptor()` and invalidated analyses. |
-| `src/passes/merge_blocks.mbt` | `15-17` | `merge_blocks_summary()`. |
-| `src/passes/merge_blocks.mbt` | `20-32` | fast live-`Block` candidate scan. |
-| `src/passes/merge_blocks.mbt` | `34-45` | region-root collection helper. |
-| `src/passes/merge_blocks.mbt` | `47-57` | block-result type extraction. |
-| `src/passes/merge_blocks.mbt` | `59-77` | typed block-param counting through `HotModuleContext`. |
-| `src/passes/merge_blocks.mbt` | `79-86` | boolean typed-parameter gate. |
-| `src/passes/merge_blocks.mbt` | `88-132` | dead-before-`unreachable` root repair. |
-| `src/passes/merge_blocks.mbt` | `134-232` | recursive region visitor for block, loop, `if`, `try`, and `try-table`. |
-| `src/passes/merge_blocks.mbt` | `234-281` | root-block flattening helper. |
-| `src/passes/merge_blocks.mbt` | `283-314` | repeated region traversal and splice attempts. |
-| `src/passes/merge_blocks.mbt` | `316-335` | pass entry point and mutation marking. |
-| `src/passes/optimize.mbt` | `249-251` | active hot-pass registry entry. |
-| `src/passes/optimize.mbt` | `288-291` / `300-303` | repeated late preset placement in `optimize` and `shrink`. |
-| `src/passes/optimize.mbt` | `444-447` / `458-461` | static preset arrays with the same repeated placement. |
-| `src/passes/pass_manager.mbt` | `9002` | dispatcher call to `merge_blocks_run(ctx, func)`. |
-| `src/passes/registry_test.mbt` | `64` / `189-190` / `206-207` / `214-215` | registry category, descriptor, and preset-expansion coverage. |
-| `src/passes/optimize_test.mbt` | `382-403` / `407-428` / `469-512` | repeated preset-slot exposure and `simplify-locals -> merge-blocks` handoff. |
-| `src/cmd/cmd_wbtest.mbt` | `1959-1993` | direct `--merge-blocks` CLI surface. |
-| `src/ir/hot_lower_test.mbt` | `1861-2506` | neighboring lower/writeback tests for Binaryen-stable typed carrier output. |
+| `src/passes/merge_blocks.mbt` | `293-334` | Candidate legality for a block-valued expression child. |
+| `src/passes/merge_blocks.mbt` | `336-414` | Prefix lift, ordered-child replacement, and HOT effect gate. |
+| `src/passes/merge_blocks.mbt` | `415-490` | Recursive branch detection for prefixes. |
+| `src/passes/merge_blocks.mbt` | `492-583` | Region-root flattening and traversal. |
+| `src/passes/merge_blocks_test.mbt` | `2138-2166` | Live-label boundary. |
+| `src/passes/merge_blocks_test.mbt` | `2168-2295` | `if` condition, `drop`, store, and `throw` expression-child cases. |
 
-## Latest validation evidence
+## Existing validation evidence
 
 The 2026-05-06 direct revalidation ran `moon info`, `moon fmt`, `moon test`, mixed-generator `pass-fuzz-compare` for `--merge-blocks`, and debug-artifact `self-optimize-compare` for `--merge-blocks`.
 
-Key outcomes:
-
 - `moon test`: `2798` passed, `0` failed.
-- `.tmp/pass-fuzz-merge-blocks`: `9975/10000` comparable cases, `9975` normalized matches, `0` mismatches, `25` Binaryen/tool command failures in wasm-smith lanes.
-- debug artifact: normalized WAT equality and canonical function equality; Starshine pass runtime `214.434 ms` versus Binaryen pass runtime `1526.350 ms`.
+- `.tmp/pass-fuzz-merge-blocks`: `9975/10000` comparable cases, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures in wasm-smith lanes.
+- Debug artifact: normalized WAT equality and canonical function equality; Starshine pass runtime `214.434 ms` versus Binaryen `1526.350 ms`.
 
-See [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md).
-
-## Reading order
-
-1. [`./index.md`](./index.md)
-2. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-3. [`./wat-shapes.md`](./wat-shapes.md)
-4. [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-5. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+This is historical validation, not a substitute for a new pass signoff after behavior changes. See [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md).
 
 ## Sources
 
-- [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
-- [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
-- [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
-- [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
+- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
-- [`../../../../../src/passes/pass_common.mbt`](../../../../../src/passes/pass_common.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

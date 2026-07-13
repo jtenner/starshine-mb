@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
@@ -40,7 +41,7 @@ related:
 
 # Starshine Strategy For `signature-refining`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
+Use this page together with the current source correction in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), the call-ref refresh in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the historical 2026-05-05 bridge [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 For implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That bridge spells out the safe no-rewrite analyzer, first direct-call param-refinement slice, later result/`call_ref`/`call.without.effects` slices, and validation ladder.
@@ -50,7 +51,7 @@ For implementation sequencing, use [`./starshine-port-readiness-and-validation.m
 `signature-refining` is still **unimplemented** in Starshine.
 There is no `src/passes/signature_refining.mbt`, `src/passes/signature-refining.mbt`, or similarly named owner file today.
 
-The 2026-05-05 current-main recheck did not find teaching-relevant Binaryen drift from the `version_129` dossier, and the 2026-05-20 call-ref refresh keeps the two local blockers explicit: ordinary non-tail `call_ref` is present in library/binary/validator/generator surfaces but not in high-level Starshine WAST text beside `return_call_ref`, and `call.without.effects` has no local spelling under `src/`.
+The 2026-07-11 `version_130` / current-main reread corrects the old no-drift conclusion: continuation-used signature types are now full blockers, and `worldMode` reaches both public-type classification and global signature rewriting. The 2026-05-20 call-ref refresh keeps two local blockers explicit: ordinary non-tail `call_ref` is present in library/binary/validator/generator surfaces but not in high-level Starshine WAST text beside `return_call_ref`, and `call.without.effects` has no local spelling under `src`.
 
 The current Starshine strategy is deliberately limited:
 
@@ -211,7 +212,8 @@ A faithful port should preserve the source-backed contract from the rest of this
 - collect direct calls, `call_ref` users, `call.without.effects` extra calls, and returned-value evidence separately from table-mediated calls;
 - freeze imported and public signature families;
 - freeze tag-used and subtype-linked function types completely;
-- freeze JS-called and continuation-used params unless Starshine has a documented stronger proof;
+- freeze only JS-called params; treat continuation-used signatures as full no-change blockers unless Starshine has a documented stronger proof;
+- apply one consistent world/visibility policy to public-type discovery and signature rewriting;
 - refine params from actual argument LUBs and results from returned-value LUBs;
 - insert parameter fixup locals before rewriting signatures when narrowed params would otherwise break old local writes;
 - rewrite `TypeSec`, `FuncSec`, direct call result types, `call_ref` type immediates, and surrounding expression types coherently;
@@ -262,11 +264,12 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 
 - Starshine has no local `call.without.effects` spelling under `src/` today. A future parity port needs a real intrinsic model or an explicit scoped exclusion.
 - Direct `CallRef` exists in the library, validator, generator, and binary encoder/decoder, but the current WAST text layer only exposes `return_call_ref`; future text fixture work should add direct `call_ref` parser/lowerer/printer coverage before relying on WAST-only regression tests.
-- The upstream pass body itself does not require `--closed-world`, while the default scheduler only runs it in the closed-world GC cluster. This dossier treats that as a scheduler-vs-pass-body split and should keep the distinction visible.
+- The upstream pass body itself does not require `--closed-world`, while the default scheduler only runs it in the closed-world GC cluster. Current source also threads `worldMode` through public-heap-type discovery and global signature rewriting; retain that policy link in any local design rather than treating direct invocation as proof that visibility does not matter.
 - No current Starshine module pass provides reusable public-heap-type discovery, returned-value LUBs, parameter local repair, nominal signature rewriting, or `call.without.effects` import cloning. A future implementation should design that shared infrastructure before trying to port the pass as a one-off rewrite.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)

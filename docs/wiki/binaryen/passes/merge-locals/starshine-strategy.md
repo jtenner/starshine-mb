@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
@@ -34,7 +35,7 @@ related:
 `merge-locals` is now an active Starshine module pass for direct `--merge-locals` execution.
 It is no longer a removed-name placeholder.
 
-The landed slice rewrites same-typed copy-shaped local traffic in one function: after a `local.set dst (local.get src)` copy, later source-local gets can be retargeted to the destination local until either side is written. This covers the direct O4z copy-balancing lane that was signed off against Binaryen, but it is still narrower than Binaryen's full `LocalGraph`-checked retargeting and rollback engine.
+The landed slice rewrites same-typed copy-shaped local traffic in one expression body: after adjacent `local.get src; local.set dst` instructions, later source-local gets can be retargeted to the destination local while the destination's write epoch remains unchanged. It recursively handles nested bodies but clears parent aliases at every structured-control boundary. This covers the direct O4z copy-balancing lane that was signed off against Binaryen, but it is still narrower than Binaryen's full `LocalGraph`-checked, bidirectional retargeting and rollback engine.
 
 ## Exact local code and doc map
 
@@ -62,10 +63,10 @@ The compare-pass run reported 6759 compared cases, 6759 normalized matches, 0 se
 
 A fuller Binaryen-equivalent port still needs:
 
-1. a `LocalGraph`-equivalent set-influence proof;
-2. source-side and destination-side orientation decisions beyond the current linear same-typed copy slice;
+1. a `LocalGraph`-equivalent set-influence proof across control flow;
+2. destination-to-source as well as source-to-destination orientation decisions;
 3. post-rewrite validation / rollback for graph-invalidated candidates;
-4. conservative coverage for `between-unreachable` and other control-flow-spanning shapes;
+4. conservative coverage for `between-unreachable`, type mismatch, and other control-flow-spanning shapes;
 5. late local-cleanup neighborhood proof before any public preset scheduling.
 
 Neighboring local-cleanup dossiers remain the right context:

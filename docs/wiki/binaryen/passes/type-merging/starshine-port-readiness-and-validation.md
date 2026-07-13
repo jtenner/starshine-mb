@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -33,7 +34,7 @@ related:
 
 # Starshine port-readiness and validation for `type-merging`
 
-Use this page together with the current status page in [`./starshine-strategy.md`](./starshine-strategy.md), the Binaryen contract pages in [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./dfa-partitions-casts-and-refinalization.md`](./dfa-partitions-casts-and-refinalization.md), and [`./wat-shapes.md`](./wat-shapes.md), plus the fresh 2026-05-05 raw bridge in [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md).
+Use this page with the current status and Binaryen contract pages, plus the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). It supersedes the older fresh bridge's Boolean-only current-main conclusion.
 
 This is a **future-port** page, not an implementation page.
 Starshine still does not implement `type-merging`.
@@ -89,7 +90,7 @@ That means the future Starshine shape must own:
 
 - the whole module's private heap-type inventory
 - public-vs-private visibility classification
-- GC and closed-world gating
+- GC plus one explicit non-open-world policy, threaded through admission, private-type classification, and rewrite
 - cast / exact-cast / `ref.test` / `br_on_cast*` / `call_indirect` observability scanning
 - descriptor-chain-aware merge candidates
 - supertype-first target choice
@@ -110,8 +111,10 @@ Those are module/type-graph responsibilities, not single-function HOT peepholes.
 ### 2. Feature and world gates
 
 - no-GC modules should remain unchanged
-- closed-world should stay the gating precondition for the real rewrite
-- if Starshine chooses a different API shape, the docs must say so explicitly instead of implying Binaryen semantics where they do not exist
+- reject Starshine's open-world equivalent before rewriting
+- test every non-open mode Starshine exposes; do not claim their relationship from the current source inspection alone
+- thread the chosen mode through candidate visibility and type remapping, not only the gate
+- if Starshine chooses a different API shape, document the semantic difference explicitly instead of implying Binaryen parity
 
 ### 3. Type-graph positives
 

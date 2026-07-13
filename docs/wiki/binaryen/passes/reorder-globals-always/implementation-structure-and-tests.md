@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
@@ -44,17 +45,16 @@ That file structure proves the key point:
 - `reorder-globals-always` is a sibling pass
 - but it is not a sibling implementation file
 
-The two public names are different policy surfaces built on one engine.
+The production and test-registered names are different policy surfaces built on one engine.
 
 ## `src/passes/pass.cpp`
 
-This file proves the public pass surface.
-It registers both:
+This file proves the deliberate registration split:
 
-- `reorder-globals`
-- `reorder-globals-always`
+- production `reorder-globals` uses the ordinary pass-registration surface;
+- `reorder-globals-always` uses `registerTestPass`.
 
-That is the clearest official proof that the sibling is deliberate pass API surface, not a local repo invention.
+The sibling is therefore an intentional Binaryen test/internal-fixup surface, not a local repo invention—but it is not the ordinary production optimizer registration.
 
 ## `src/passes/passes.h`
 
@@ -122,7 +122,7 @@ If the goal is a faithful `reorder-globals-always` port, the best upstream readi
 1. `ReorderGlobals.cpp`
    - understand the shared engine and find where the always-vs-production split happens
 2. `pass.cpp`
-   - confirm public pass-name identity
+   - confirm the production-versus-test registration split
 3. `passes.h`
    - confirm separate constructor identity
 4. `reorder-globals.wast`
@@ -140,12 +140,13 @@ If the goal is a faithful `reorder-globals-always` port, the best upstream readi
 
 Three things are easy to miss without the source map:
 
-1. The sibling is a real pass name even though it reuses the same main implementation file.
+1. The sibling is a deliberately test-registered pass name even though it reuses the same main implementation file.
 2. The difference is small in code structure but large in user-facing semantics.
 3. The official tests rely on the sibling to reveal small-module reorder cases that the default pass intentionally hides.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
 - [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)

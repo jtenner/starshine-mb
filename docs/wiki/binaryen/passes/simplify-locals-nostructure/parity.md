@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: closed-with-accepted-performance-caveat
-last_reviewed: 2026-07-01
+status: working
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md

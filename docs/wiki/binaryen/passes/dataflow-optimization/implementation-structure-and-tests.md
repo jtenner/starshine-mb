@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -21,7 +22,7 @@ related:
 # Implementation structure and tests for `dataflow-optimization` / `dfo`
 
 Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md), [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md).
-On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**. The 2026-04-25, 2026-04-27, and 2026-05-05 current-`main` rechecks did not surface teaching-relevant drift beyond the owner/test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Binaryen `version_130` is the public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reconciliation did not surface behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Core pass file
 
@@ -152,7 +153,7 @@ The pass is not just "run dfo on arbitrary code." It is a shaped pipeline tool.
 
 ## What the absence of a dedicated pure lit file means
 
-During this review I did **not** find a dedicated standalone `dfo.wast` in the official `version_129` lit roster.
+During this review I did **not** find a dedicated standalone `dfo.wast` in the official `version_130` lit roster.
 That is itself a useful fact.
 
 It suggests:
@@ -163,7 +164,7 @@ It suggests:
 
 ## Freshness check against current `main`
 
-The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md) covered the same implementation, helper, registration, flat-IR, and combo-lit surfaces.
+The 2026-07-11 `version_130`/current-main reconciliation in [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) covered the same implementation, helper, registration, flat-IR, and combo-lit surfaces.
 
 Durable result:
 
@@ -210,6 +211,7 @@ That order mirrors the real contract:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md)
 - [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)

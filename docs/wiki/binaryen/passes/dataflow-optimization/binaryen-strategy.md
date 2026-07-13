@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -21,8 +22,8 @@ related:
 
 # Binaryen strategy for `dataflow-optimization` / `dfo`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md), [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md).
-On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**. The 2026-04-25, 2026-04-27, and 2026-05-05 current-`main` rechecks found no teaching-relevant drift: this pass is still a flat-input DataFlow SSA IR simplifier, not a broader dataflow optimizer. For Starshine implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the current [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) and the older manifests it preserves as historical provenance.
+Use Binaryen `version_130` as the public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reread found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: this remains a flat-input DataFlow SSA IR simplifier, not a broader dataflow optimizer. For Starshine implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## One-sentence summary
 
@@ -95,7 +96,7 @@ Important teaching consequences:
 
 and relevant locals are defined in terms of that filter.
 
-That means the reviewed `version_129` pass is not a broad GC/f32/f64 optimizer.
+That means the reviewed current-baseline pass is not a broad GC/f32/f64 optimizer.
 It focuses on flattened integer-value traffic.
 
 This one detail changes how a future port should be scoped.
@@ -238,7 +239,7 @@ Important nuance:
 
 - the replacement helper asserts the replacement target is constant today
 
-So the practical `version_129` contract is narrower than generic phi simplification.
+So the practical current-baseline contract is narrower than generic phi simplification.
 It is really:
 
 - identical incoming values
@@ -354,7 +355,7 @@ That explains several otherwise surprising choices:
 ### Misunderstanding 1: "This is Binaryen's generic dataflow optimizer"
 
 No.
-In `version_129` it is a small flat-integer side-graph simplifier.
+In the current baseline it is a small flat-integer side-graph simplifier.
 
 ### Misunderstanding 2: "The pass itself knows how to evaluate everything"
 

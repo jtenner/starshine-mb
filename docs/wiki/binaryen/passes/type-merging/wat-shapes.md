@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -21,8 +22,7 @@ related:
 
 # `type-merging` WAT and module shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `type-merging`.
-It is anchored to the 2026-04-24 primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and cross-links the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
+This page is the beginner-friendly shape catalog for Binaryen `type-merging`. It is anchored to the 2026-04-24 primary-source manifest, the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md), and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md). These examples describe graph behavior only after Binaryen's current non-open-world admission/visibility policy has admitted the module.
 
 The pass is module-shaped, so many of the most important "shapes" are really **type-graph patterns**, not tiny one-expression peepholes.
 
@@ -381,6 +381,7 @@ If any of those fail, Binaryen usually preserves the type.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
 - [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)

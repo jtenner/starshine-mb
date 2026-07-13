@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
@@ -37,7 +38,7 @@ Read it as a follow-along guide:
 
 ## Binaryen owner-file map
 
-Primary source: [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md), which points to the official `version_129` and current-main source URLs. Use [`../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md) as the freshness bridge above it.
+Primary source: [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md), with the released/current owner, registration, and fixture recheck in [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md). Use `version_130` for the released oracle and current `main` only as a drift watch.
 
 ### `src/passes/GlobalStructInference.cpp`
 
@@ -140,21 +141,17 @@ Current local implementation is intentionally smaller than Binaryen's full `gsi`
 
 ### `src/passes/optimize.mbt`
 
-- `src/passes/optimize.mbt:279-280`
-  - active module-pass registry entry for `global-struct-inference`.
-- `src/passes/optimize.mbt:310`
-  - local `optimize` preset placement after `global-refining`.
-- `src/passes/optimize.mbt:326`
-  - local `shrink` preset placement with the same early module cluster.
-- `src/passes/optimize.mbt:131`
-  - keeps `global-struct-inference-desc-cast` boundary-only, which is the sibling pass, not the active plain local pass.
+- `src/passes/optimize.mbt:279-285`
+  - active module-pass registry entries for both `global-struct-inference` and its distinct `global-struct-inference-desc-cast` sibling.
+- `src/passes/optimize.mbt:317` and `:335`
+  - local `optimize` and `shrink` preset placement for plain GSI after `global-refining`; the desc-cast sibling remains direct-pass-only.
 
 ### `src/passes/pass_manager.mbt`
 
-- `src/passes/pass_manager.mbt:12308-12309`
-  - dispatches the active module pass through `global_struct_inference_run_module_pass(mod_, options.closed_world)`.
+- `src/passes/pass_manager.mbt:102629-102635`
+  - dispatches plain GSI through `global_struct_inference_run_module_pass(mod_, options.closed_world)` and the active desc-cast sibling through `global_struct_inference_desc_cast_run_module_pass(mod_, options.closed_world)`.
 
-This line shows the dispatcher still passes `closed_world`. The current direct-global subset no longer gates open-world folds on that flag; when the flag is true, Starshine now builds conservative closed-world candidate/poison facts before running the same direct rewrite layer.
+Both entries receive `closed_world`. Plain GSI no longer gates open-world folds on that flag; when it is true, Starshine builds conservative closed-world candidate/poison facts before running the same direct rewrite layer. Desc-cast instead requires those closed-world descriptor facts by contract.
 
 ### `src/passes/global_struct_inference.mbt`
 
@@ -204,7 +201,7 @@ Current focused white-box tests prove the new closed-world fact builder:
 - poisoned child types poison parents, including modules with no global section
 - child candidate globals propagate upward to parent types in deterministic global-index order
 
-These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension un-nesting, closed-world singleton-select coverage for fresh `f32.sqrt`, `f64.nearest`, `i32.extend16_s`, and `i64.extend32_s` operands, and small-module `ref.get_desc` folds. The WAT/binary/validation opcode surface now accepts `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` with `seq_cst` / `acq_rel` orderings, and GSI folds immutable-field direct-global and closed-world local/param atomic reads through the same value/origin/select machinery as ordinary struct gets. These tests are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, full refinalization, and unbounded large-module un-nesting remain absent.
+These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension un-nesting, closed-world singleton-select coverage for fresh `f32.sqrt`, `f64.nearest`, `i32.extend16_s`, and `i64.extend32_s` operands, and small-module `ref.get_desc` folds. The WAT/binary/validation opcode surface now accepts `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` with `seq_cst` / `acq_rel` orderings, and GSI folds immutable-field direct-global and closed-world local/param atomic reads through the same value/origin/select machinery as ordinary struct gets. The separately active desc-cast sibling owns `ref.cast` to `ref.cast_desc_eq` behavior; ordinary GSI still remains narrower than upstream in refinalization and unbounded large-module un-nesting.
 
 ## Current local-vs-Binaryen matrix
 
@@ -224,7 +221,7 @@ These tests now cover the direct-global O4z audit surfaces, the subtype-aware cl
 | Packed-field repair | yes | yes for `i32.const` direct payloads and fresh-global `global.get` payloads produced by guarded direct-global or closed-world local/param un-nesting |
 | Atomic gets | yes | yes for `struct.atomic.get*` opcode/WAT/binary/validation plus immutable-field GSI direct-global and closed-world local/param folds/selects; generic passes still model atomic reads conservatively |
 | `ref.get_desc` | yes | yes for small-module direct and closed-world local/param folds/selects over descriptor-constructor globals |
-| `gsi-desc-cast` | sibling pass | boundary-only sibling name, no implementation |
+| `gsi-desc-cast` | sibling pass | active direct-pass sibling with closed-world singleton-descriptor `ref.cast` to `ref.cast_desc_eq` rewriting; see [`../global-struct-inference-desc-cast/index.md`](../global-struct-inference-desc-cast/index.md) |
 | Refinalization | explicit Binaryen `ReFinalize` | represented differently; no equivalent full typed-AST repair layer in this pass |
 
 ## Beginner-to-advanced reading order

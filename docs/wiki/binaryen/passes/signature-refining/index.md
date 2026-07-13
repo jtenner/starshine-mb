@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
@@ -63,7 +64,7 @@ It is **heap-type-level subtype-tightening for nominal function signatures**.
   - the default scheduler places it only in the closed-world GC cluster, but the pass body itself does **not** require `--closed-world`
   - any table in the module disables the entire pass today
   - public, imported, tag-used, and signature-subtyped types are blocked for different reasons
-  - JS-called and continuation-used signatures freeze **param refinement only**, not the whole type
+  - JS-called signatures freeze **parameter refinement only**, while continuation-used signatures are a **full current-version blocker** for both params and results
   - `call.without.effects` participates in parameter refinement and later needs cloned intrinsic imports when results sharpen
 
 ## Most important durable takeaways
@@ -78,9 +79,9 @@ It is **heap-type-level subtype-tightening for nominal function signatures**.
 - Parameter refinement comes from **call operand LUBs**.
 - Result refinement comes from **returned-value LUBs**.
 - `call.without.effects` is part of the real contract, not a side note.
-- The dossier is now anchored to the immutable raw primary-source manifests in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md) and [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
-- A narrow 2026-04-24 freshness check on the owner file, registration surface, helpers, and dedicated lit file did not find teaching-relevant drift from the reviewed `version_129` story; keep that claim narrow.
-- A 2026-05-05 current-main recheck of `SignatureRefining.cpp`, `pass.cpp`, and `signature-refining.wast` again found no teaching-relevant drift on the reviewed surfaces; keep that claim narrow.
+- The dossier is anchored to the immutable `version_129` source manifest, the superseded 2026-05-05 freshness bridge, and the current [`2026-07-11 version_130/current-main correction`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The 2026-07-11 owner reread found two behavior-bearing current-version corrections: continuation-used signatures now freeze the whole type rather than only params, and `worldMode` now reaches both public-type discovery and the global signature rewriter.
+- The older 2026-05-05 no-drift conclusion is retained as historical provenance but is superseded for current-contract claims.
 
 ## Beginner warning: what the name hides
 
@@ -149,6 +150,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)
 - [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)

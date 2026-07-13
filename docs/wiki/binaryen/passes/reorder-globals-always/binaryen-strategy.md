@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
@@ -24,7 +25,7 @@ related:
 
 ## What the pass really is
 
-The reviewed source makes `reorder-globals-always` a **whole-module declaration-layout sibling** of `reorder-globals`.
+The reviewed source makes `reorder-globals-always` a **test-registered whole-module declaration-layout sibling** of production `reorder-globals`.
 
 The best mental model is:
 
@@ -117,8 +118,8 @@ The source comments describe this as unrealistic but smooth, and mainly useful f
 
 A good beginner summary is:
 
-- public pass = real byte model
-- always sibling = smooth teaching and small-module model
+- production pass = real byte model
+- test-registered always sibling = smooth teaching and small-module model
 
 ## Why validity still matters
 
@@ -175,7 +176,7 @@ This is the most important beginner correction to the word `always`.
 
 ## What a future Starshine port must preserve
 
-See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact current local status and code map. The short version is that Starshine tracks the name as boundary-only, rejects active requests, omits it from presets, and has no owner file or sibling-specific backlog slice today.
+See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact current local status and code map. The short version is that Starshine tracks only the always name as boundary-only, rejects active requests, and omits it from presets; production [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt) is active and preset-scheduled, but has no always-mode entrypoint or sibling-specific backlog slice today.
 
 A future implementation must preserve:
 

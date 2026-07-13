@@ -1,6 +1,7 @@
 ---
 kind: entity
 status: supported
+starshine_status: upstream-only
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
@@ -41,7 +42,7 @@ For an implementer: keep this page separate from [`strip-toolchain-annotations`]
 | Starshine prerequisite representation | Present: `FuncAnnotation`, `FuncAnnotationAssoc`, `FuncAnnotationSec`, and `Module.func_annotation_sec` in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt). |
 | Starshine text support | Present for the annotation itself: WAST parse/lower tests cover `(@binaryen.js.called)` on function imports and definitions in [`src/wast/parser.mbt`](../../../../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt), and [`src/wast/module_wast_tests.mbt`](../../../../../src/wast/module_wast_tests.mbt). |
 
-Because Starshine already parses and lowers the annotation but has no pass that synthesizes it from configureAll calls, the correct current wiki status is **upstream-only / local-unknown**, not `boundary-only`, `removed`, or implemented-by-WAST-support.
+Because Starshine already parses and lowers the annotation but has no pass that synthesizes it from configureAll calls, the correct current local classification is **upstream-only / local-unknown**, not `boundary-only`, `removed`, or implemented-by-WAST-support. The frontmatter separates that implementation fact from evidence health: `status: supported` means this dossier has current primary and repository support, while `starshine_status: upstream-only` means no local pass exists or is reserved.
 
 ## Upstream Behavior Shape
 

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
@@ -27,7 +28,7 @@ related:
 
 ## Role
 
-- `reorder-globals-always` is a real upstream Binaryen sibling of [`../reorder-globals/index.md`](../reorder-globals/index.md).
+- `reorder-globals-always` is Binaryen's **test-registered** small-module/internal-fixup sibling of production [`../reorder-globals/index.md`](../reorder-globals/index.md).
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-globals-always` slice**.
@@ -80,23 +81,23 @@ So this pass is best taught as:
   - no public `< 128` bailout
   - exact smooth synthetic cost scoring `1.0 + (i / 128.0)`
   - dedicated official lit-backed small-module proof in `reorder-globals.wast`
-  - no reviewed current-`main` drift on `ReorderGlobals.cpp`
+  - current-main `registerTestPass` registration, distinct from production `reorder-globals`' ordinary registration
 - The strongest source-backed internal interaction is:
   - `GlobalStructInference` runs nested `reorder-globals-always` after adding helper globals.
-- Current Starshine keeps the pass boundary-only, rejects active requests, omits it from presets, has no owner file or sibling-specific backlog slice, and would need a whole-module `GlobalIdx` remap layer before it could run.
+- Current Starshine keeps only the always sibling boundary-only, rejects active requests, and omits it from presets. Production `reorder-globals` is active and preset-scheduled in [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt); there is no dedicated always-mode entrypoint or sibling-specific backlog slice, and a future mode still needs a whole-module `GlobalIdx` remap layer.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the exact sibling contract, the shared engine, and the precise policy split from ordinary `reorder-globals`.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  File-by-file and test-by-test map of the upstream sources that define the sibling's public and practical role.
+  File-by-file and test-by-test map of the upstream sources that define the sibling's test-registration and practical role.
 - [`./small-module-threshold-scoring-and-proof.md`](./small-module-threshold-scoring-and-proof.md)
   Focused source-confirmed guide to the exact `< 128` cutoff removal, exact `1.0 + (i / 128.0)` scoring formula, strongest lit-backed proof families, nested `GlobalStructInference` caller, and current-`main` no-drift result.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly module/WAT shape catalog showing tiny-module positives, dependency-preserving reorders, internal-fixup shapes, and main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: boundary-only registry entry, request rejection, preset omission, no owner file, no sibling backlog slice, and the numeric `GlobalIdx` repair surface a faithful port would need.
+  Current Starshine status and future-port map: boundary-only always-mode registry entry, request rejection, preset omission, active production-owner distinction, no sibling backlog slice, and the numeric `GlobalIdx` repair surface a faithful port would need.
 
 ## Current maintenance rule
 
@@ -107,6 +108,7 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
 - [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)

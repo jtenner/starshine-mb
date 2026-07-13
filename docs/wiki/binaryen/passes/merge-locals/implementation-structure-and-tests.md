@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
@@ -73,33 +74,31 @@ It visibly anchors the conservative `between-unreachable` family, which is enoug
 
 ## Current-main check
 
-The 2026-05-05 current-main recheck compared the same owner, registration, helper, and test surfaces on current `main`.
-No teaching-relevant drift was found from the corrected `version_129` contract, and the new freshness layer only extends the provenance.
+The 2026-07-11 recheck compared the upstream owner, registration, and dedicated fixture on current `main`. No teaching-relevant drift was found from the corrected `version_129` contract: Binaryen still combines temporary-tee instrumentation, eager `LocalGraph` influences, two orientation choices, post-graph rollback, and DWARF invalidation.
 
 ## Starshine implementation/test status
 
-Starshine has no dedicated implementation or test file today:
+Starshine now has a dedicated active direct-pass slice:
 
-- no `src/passes/merge_locals.mbt`
-- no `src/passes/merge_locals_test.mbt`
-- no exact `merge-locals` active backlog slice in `agent-todo.md`
+| Local surface | What it proves |
+| --- | --- |
+| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | Owns a same-typed, forward `src -> dst` epoch-alias rewrite for adjacent `local.get src; local.set dst` copies. |
+| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Proves public spelling, a forward positive, destination-write invalidation, and a structured-control boundary negative. |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Registers `merge-locals` as an active module pass. |
+| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Dispatches the module pass. |
+| [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Admits `--merge-locals` to direct Binaryen comparison. |
 
-The existing local proof surface is only registry-level:
+The local pass is deliberately not an upstream algorithm port: it has no `LocalGraph`, no destination-to-source orientation, and no post-rewrite rollback. It recursively rewrites nested expression bodies, but clears parent aliases after `block`, `loop`, `if`, and `try_table`; control-flow-spanning aliasing is therefore intentionally out of scope.
 
-- removed-name registration in [`../../../../../src/passes/optimize.mbt:144-151`](../../../../../src/passes/optimize.mbt)
-- removed-pass request rejection in [`../../../../../src/passes/optimize.mbt:455-473`](../../../../../src/passes/optimize.mbt)
-- generic removed-pass rejection test in [`../../../../../src/passes/registry_test.mbt:171-179`](../../../../../src/passes/registry_test.mbt)
+## Validation checklist for a fuller local port
 
-## Validation checklist for a future local port
+The landed direct subset already has focused tests and historical 10,000-case comparison evidence. A fuller Binaryen-equivalent expansion should add, in order:
 
-A faithful Starshine implementation should add tests in this order:
+1. destination-to-source orientation positives;
+2. control-flow-spanning `LocalGraph` influence positives and negatives;
+3. type-mismatch and `between-unreachable` regressions;
+4. post-graph rollback cases;
+5. focused pass-targeted parity after each expansion; and
+6. late-local-cleanup neighborhood proof before preset scheduling.
 
-1. source-to-destination retargeting positives
-2. destination-to-source retargeting positives
-3. type-mismatch negatives
-4. post-graph rollback cases
-5. conservative `between-unreachable` coverage
-6. Binaryen pass-targeted parity comparison
-
-Until those exist, keep `merge-locals` documented as removed/unimplemented locally.
-See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the exact first-slice bridge.
+See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the exact active-subset versus full-parity boundary.

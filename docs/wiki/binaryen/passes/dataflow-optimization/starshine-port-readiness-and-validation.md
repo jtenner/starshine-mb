@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -45,10 +46,10 @@ Recheck these before any coding branch:
   - [`src/passes/optimize.mbt#L143-L146`](../../../../../src/passes/optimize.mbt#L143-L146)
   - `pass_registry_removed_names()` includes `dataflow-optimization`.
 - no active registry entry
-  - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279)
+  - [`src/passes/optimize.mbt#L151-L275`](../../../../../src/passes/optimize.mbt#L151-L275)
   - no `HotPass` or `ModulePass` entry currently owns the name.
 - explicit request rejection
-  - [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
+  - [`src/passes/optimize.mbt#L575-L589`](../../../../../src/passes/optimize.mbt#L575-L589)
   - removed names return the removed-registry error instead of no-oping.
 - closest local constant-folding neighbor
   - [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)

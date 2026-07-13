@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
@@ -191,20 +192,27 @@ Those are exactly the misconceptions the dedicated folder should prevent.
 
 ## Narrow freshness check
 
-A same-day current-main check found:
+The focused 2026-07-11 current-main recheck found:
 
-- `src/passes/SimplifyLocals.cpp`: only small container drift on checked declarations, not a checked semantic nonesting rewrite change
-- `test/passes/simplify-locals-nonesting.wast`: unchanged
-- `test/passes/simplify-locals-nonesting.txt`: unchanged
+- `src/passes/SimplifyLocals.cpp` still owns the same three-axis shared-engine
+  variant and its specific nonesting gate;
+- `pass.cpp` still exposes the same public spelling and flatness description;
+- `passes.h` still declares the same factory; and
+- `test/passes/simplify-locals-nonesting.wast` plus `.txt` remain the dedicated
+  golden pair.
 
-So the practical rule for this dossier is:
+It found no behavior-bearing drift in those reviewed surfaces. The practical
+rule remains:
 
-- teach `version_129` as the released oracle
-- cite the 2026-04-25 raw primary-source manifest for durable provenance
-- record only a narrow freshness note unless later source checks show real semantic drift
+- teach `version_130` as the released oracle;
+- use the 2026-07-11 capture for current-main freshness and the 2026-04-25
+  manifest for broader provenance; and
+- reopen the dossier only for a source change that affects the no-tee,
+  no-structure, no-new-nesting contract or its dedicated proof surface.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
 - [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)

@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -34,7 +35,7 @@ The upstream pass is GC-aware and operates on nominal function heap types. Its d
 
 Before a runnable lane exists, focused fixtures must cover at least:
 
-- absent-GC, table-present, public/import/tag/subtype, JS-called, and continuation-used no-change boundaries;
+- absent-GC, table-present, public/import/tag/subtype, JS-called params-only, and continuation-used full no-change boundaries;
 - several functions sharing one nominal signature, so the test rejects a false per-function rewrite;
 - parameter-LUB and result-LUB positives separately, including body-local repair after parameter tightening;
 - direct calls first, then binary/library `call_ref` and `return_call_ref` until ordinary `call_ref` WAST text is supported; and

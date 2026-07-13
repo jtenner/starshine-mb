@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
@@ -18,7 +19,7 @@ related:
 
 This page exists because `MinimizeRecGroups.cpp` is not a self-contained “just run SCCs” file.
 If you read only the top-level pass name, you will miss why Binaryen needs shape comparison, permutation search, and synthetic brand types.
-The source URLs reviewed for this page are now captured in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md), and the local Starshine status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+The tagged source URLs are captured in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md). The current-main correction is captured in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md): the algorithm and lit roster remain, but `WorldMode` now connects visibility collection with global rewriting. Local status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## File map
 
@@ -26,8 +27,8 @@ The source URLs reviewed for this page are now captured in [`../../../raw/binary
 | --- | --- |
 | `src/passes/MinimizeRecGroups.cpp` | Core pass logic: GC gate, visibility split, private SCC computation, valid-order repair, shape-conflict resolution, canonicalization, permutation/brand updates, and final rewrite |
 | `src/passes/pass.cpp` | Registers the CLI pass name `minimize-rec-groups` and proves the reviewed `version_129` surface treats it as an explicit pass rather than a default optimize-preset slot |
-| `src/ir/module-utils.h` | Supplies `collectHeapTypeInfo(...)`, which defines the whole-module private/public heap-type inventory the pass relies on |
-| `src/ir/type-updating.h` / `src/ir/type-updating.cpp` | Supply `GlobalTypeRewriter::mapTypes(...)` and `mapTypeNamesAndIndices(...)`, which explain how the finished type rewrite is threaded through the module and metadata |
+| `src/ir/module-utils.h` | Supplies `collectHeapTypeInfo(...)`; current `main` threads the pass `WorldMode` into this whole-module private/public inventory. |
+| `src/ir/type-updating.h` / `src/ir/type-updating.cpp` | Supply `GlobalTypeRewriter::mapTypes(...)` and `mapTypeNamesAndIndices(...)`; current `main` constructs this rewriter with that same `WorldMode`, keeping candidate visibility and rewrite policy coherent. |
 | `src/support/strongly_connected_components.h` | Supplies the generic Tarjan-style SCC utility that `TypeSCCs` builds on |
 | `src/support/topological_sort.h` | Supplies `TopologicalOrders`, which enumerates valid intra-group orders while respecting subtype and descriptor constraints |
 | `src/support/disjoint_sets.h` | Supplies the equivalence-class tracking used to organize shape-conflicting isomorphic groups |
@@ -48,7 +49,7 @@ The core flow in `version_129` is short but layered.
 This pass method does six big things:
 
 1. enforce the GC gate
-2. collect all heap types with private/public visibility info
+2. collect all heap types with private/public visibility info under one explicit `WorldMode`
 3. record public rec-group shapes as immutable collisions and private types as rewrite candidates
 4. compute private-type SCCs and put each SCC into a valid topological order
 5. resolve shape conflicts through lazy equivalence classes, permutations, and brands
@@ -221,7 +222,7 @@ Public groups still block private groups from taking the same shape.
 
 ## Freshness note
 
-I did a narrow current-`main` check on:
+The old 2026-04-24 current-main check said no teaching-relevant drift. The 2026-07-11 recheck supersedes that statement with one material interface correction: current `main` obtains `getPassOptions().worldMode` and passes it to both `collectHeapTypeInfo(...)` and `GlobalTypeRewriter`. I then checked:
 
 - `src/passes/MinimizeRecGroups.cpp`
 - `src/passes/pass.cpp`
@@ -229,9 +230,10 @@ I did a narrow current-`main` check on:
 
 Durable result:
 
-- the checked core pass file is identical to `version_129`
-- the checked dedicated lit files are unchanged
+- the core SCC/collision/permutation/brand algorithm remains the `version_129` teaching contract
+- the checked dedicated lit files remain the behavior map
 - the reviewed `pass.cpp` surface still registers `minimize-rec-groups` without adding it to the default optimize presets on the reviewed surface
+- a future port must carry one explicit world/visibility policy through both candidate selection and final type rewriting; this focused recheck does not claim mode-by-mode fixture completeness
 
 That is a narrow freshness note, not a proof that every helper file is identical.
 
@@ -262,6 +264,7 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)

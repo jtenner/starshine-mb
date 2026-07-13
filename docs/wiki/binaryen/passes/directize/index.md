@@ -1,7 +1,8 @@
 ---
 kind: entity
-status: current
-last_reviewed: 2026-05-20
+status: supported
+starshine_status: active
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md

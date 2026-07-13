@@ -3,6 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -52,6 +53,6 @@ bun fuzz compare-pass --pass minimize-rec-groups --count 10000 --seed 0x5eed \
 1. **Harness:** admit `--minimize-rec-groups` and test that it maps to Binaryen's public flag.
 2. **Starshine:** replace the boundary-only entry with an active module pass, dispatcher route, owner, and focused tests.
 3. **GC reachability:** add fixtures or a profile that creates private and public recursive groups, rather than ordinary scalar-only valid modules that never exercise type-graph rewriting.
-4. **Semantic coverage:** require a meaningful compared-case threshold and cover private singleton splitting, public shape conflicts, valid permutation resolution, required brand insertion, descriptor/subtype constraints, feature-sensitive exactness, and complete type-use/name/index remapping.
+4. **Semantic coverage:** require a meaningful compared-case threshold and cover private singleton splitting, public shape conflicts, valid permutation resolution, required brand insertion, descriptor/subtype constraints, feature-sensitive exactness, complete type-use/name/index remapping, and an explicit world/visibility-policy fixture matrix. The current-main owner uses one `WorldMode` for both candidate visibility and final rewriting; separate modes need evidence before they count as parity.
 
 Until then, targeted Binaryen fixtures are upstream-oracle preparation only. Do not infer local support from Binaryen's public registration or from a boundary-only registry entry.

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
@@ -23,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass, anchored by the committed raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
+Use Binaryen `version_129` as the historical algorithm anchor for this pass, anchored by the committed raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md). Current-contract claims must use the later `version_130` / current-main bridge below.
 
 Primary files:
 
@@ -42,14 +43,12 @@ Primary files:
 
 This dossier also has a dedicated Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
-I also did a 2026-05-05 current-`main` recheck on the same surfaces.
-Durable result:
+The 2026-05-05 current-`main` recheck is now historical only. The focused `version_130` / current-main reread in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md) found two current-contract corrections:
 
-- the checked `main` pass logic still matches the reviewed `version_129` algorithm on the important gates, phase split, and helper usage
-- the checked dedicated lit file still matches the reviewed `version_129` surface exactly
-- the new freshness manifest in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md) captures that no-drift result on the reviewed surfaces
+- a continuation-used signature now gets `canModify = false`, so neither params nor results may refine; `version_129` only froze params;
+- `worldMode` now reaches both `getPublicHeapTypes(...)` and `GlobalTypeRewriter::updateSignatures(...)`.
 
-So this dossier treats `version_129` as the normative algorithm oracle.
+The GC/no-table gates, heap-type aggregation, LUB phases, intrinsic repair, public registration, and closed-world scheduler neighborhood remain on the reviewed surface. Use `version_129` for the historical teaching algorithm, but use the 2026-07-11 bridge for current behavior and do not repeat the older no-drift conclusion.
 
 ## High-level intent
 
@@ -74,7 +73,7 @@ The real contract is closer to:
 | Gate on GC + tables | Require GC and bail out if any table exists | The current implementation only handles the direct/`call_ref` world it can rewrite safely |
 | Collect function-local facts in parallel | Gather direct calls, `call_ref`s, and result LUBs | The pass starts from per-function evidence |
 | Combine by heap type | Union calls and result info per nominal signature type | Decisions are made per heap type, not per function |
-| Freeze unsupported/public types | Exclude imports, public types, tags, and subtype-linked signatures; freeze params only for JS-called and continuation-used types | These surfaces are observable or not fully updated today |
+| Freeze unsupported/public types | Exclude imports, public types, tags, continuation-used signatures, and subtype-linked signatures; freeze params only for JS-called types | These surfaces are observable or not fully updated today |
 | Compute param LUBs | Use all direct-call, `call_ref`, and `call.without.effects` actuals | Param refinement is driven by inputs |
 | Compute result LUBs | Use function body and explicit/implicit returns | Result refinement is driven by outputs |
 | Repair function bodies | `TypeUpdating::updateParamTypes(...)` inserts fixup locals as needed | Sharper params can otherwise invalidate broader local writes |
@@ -246,15 +245,13 @@ That means:
 
 This is one of the most important differences between what the pass sounds like and what it really does.
 
-## 3. Continuation-used signatures also freeze params only
+## 3. Continuation-used signatures are a full current-version blocker
 
-If stack switching is enabled, Binaryen scans all heap types and, for any continuation type, marks its underlying signature with:
+`version_129` marked a continuation's underlying signature with `canModifyParams = false`. In `version_130` and current `main`, Binaryen instead sets:
 
-- `canModifyParams = false`
+- `canModify = false`
 
-again not full `canModify = false`.
-
-The source comment is explicit that continuation users like `cont.bind` and `resume` are not updated today.
+So neither params nor results refine for a continuation-used function signature. The source comment still gives the reason: continuation users such as `cont.bind` and `resume` are not updated with new types. This is a behavior-bearing upstream correction, not a wording cleanup; see [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md).
 
 ## 4. Tag-used signatures freeze the whole type
 
@@ -379,11 +376,11 @@ When Binaryen has collected all improvements, it stores them in:
 
 - `newSignatures: HeapType -> Signature`
 
-and commits them through:
+and commits them through the current API:
 
-- `GlobalTypeRewriter::updateSignatures(newSignatures, *module)`
+- `GlobalTypeRewriter::updateSignatures(newSignatures, *module, getPassOptions().worldMode)`
 
-This is the module-wide type-identity commit point.
+This is the module-wide type-identity commit point. The same current `worldMode` is also supplied to public-heap-type discovery, so future ports must keep visibility policy coherent across classification and rewrite rather than treating one as an isolated option.
 It is exactly why the pass can refine signatures whose references are taken.
 
 ## Phase 9: `call.without.effects` needs custom result repair
@@ -445,6 +442,7 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)

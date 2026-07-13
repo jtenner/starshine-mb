@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
@@ -17,7 +18,7 @@ related:
 # `minimize-rec-groups` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `minimize-rec-groups`.
-The source provenance is captured in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md), and the current local Starshine status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+The tagged source provenance is captured in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md). The current-main policy correction is captured in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md): these WAT shapes retain their algorithmic meaning, but future implementation fixtures must make the selected world/visibility mode explicit. Current Starshine status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 The easiest way to read these examples is to remember that the pass owns **module type-section shapes**, not function-body optimization shapes.
 
@@ -489,6 +490,7 @@ It is a larger source-backed set of families:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)

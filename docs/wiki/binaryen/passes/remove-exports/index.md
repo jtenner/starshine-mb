@@ -1,6 +1,7 @@
 ---
 kind: entity
 status: supported
+starshine_status: upstream-only
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
@@ -43,7 +44,7 @@ For an implementer: do not confuse `remove-exports` with [`remove-unused-module-
 | Starshine prerequisite representation | Present: `Export`, `ExportSec`, and `Module.export_sec` in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt). |
 | Starshine codec/text prerequisites | The normal binary encode/decode and WAST parse/lower paths already know exports; a future pass should reuse those surfaces instead of inventing a pass-local export model. |
 
-The correct current wiki status is **upstream-only / local-unknown**. It is not a boundary-only registry entry, and it is not safe to infer preset membership from the v130 changelog alone.
+The correct current local classification is **upstream-only / local-unknown**. It is not a boundary-only registry entry, and it is not safe to infer preset membership from the v130 changelog alone. The frontmatter separates that implementation fact from evidence health: `status: supported` means this dossier has current primary and repository support, while `starshine_status: upstream-only` means no local pass exists or is reserved.
 
 ## Upstream Behavior Shape
 

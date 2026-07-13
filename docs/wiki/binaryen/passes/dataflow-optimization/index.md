@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-06-01
+status: supported
+starshine_status: removed
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -40,7 +42,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `dataflow-optimization` / `dfo` slice**.
-- The reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01** on 2026-04-23. The 2026-04-25, 2026-04-27, and 2026-05-05 current-`main` rechecks found no teaching-relevant drift: upstream still has the same flat-input DataFlow SSA IR pass, and Starshine still only tracks the local removed spelling `dataflow-optimization`.
+- Binaryen `version_130` is the current public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reconciliation found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: upstream remains a flat-input DataFlow SSA IR pass, while Starshine only tracks the local removed spelling `dataflow-optimization`.
 - The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md).
 
 ## Why this pass matters
@@ -50,7 +52,7 @@ So this folder is an explicit tracker expansion for another real local registry 
 
 This pass is worth teaching because its name is misleading.
 A beginner may hear `dataflow-optimization` and imagine a huge generic optimizer.
-The real `version_129` contract is much smaller:
+The current `version_130` contract is much smaller:
 
 - run only on already **flat** code
 - build a separate **DataFlow SSA IR**
@@ -82,7 +84,7 @@ So this is best taught as:
 - Upstream public CLI name is `dfo`; local Starshine registry name is `dataflow-optimization`.
 - The implementation begins with `Flat::verifyFlatness(func)`, so flat input is a hard precondition.
 - The helper IR is a small SSA-like graph with nodes such as `Var`, `Expr`, `Phi`, `Cond`, `Block`, `Zext`, and `Bad`.
-- Only **integer** local/value traffic is treated as relevant in the reviewed `version_129` implementation.
+- Only **integer** local/value traffic is treated as relevant in the reviewed current-baseline implementation.
 - Unsupported instructions usually degrade to unknown `Var` / `Bad` values instead of being optimized directly.
 - Loop precision is intentionally cut off: real loop-varying values become fresh unknown vars rather than rich loop phis.
 - The actual optimizer logic is small:
@@ -114,6 +116,7 @@ So this is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md)
 - [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)
@@ -128,15 +131,15 @@ So this is best taught as:
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
-- Binaryen `version_129` implementation and test sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/node.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/users.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_simplify-locals-nonesting_dfo_O3.wast>
+- Current Binaryen `version_130` implementation and test sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/graph.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/node.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/users.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/flat.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/flatten_simplify-locals-nonesting_dfo_O3.wast>
   - current-main spot checks:
     - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp>
     - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten_simplify-locals-nonesting_dfo_O3.wast>

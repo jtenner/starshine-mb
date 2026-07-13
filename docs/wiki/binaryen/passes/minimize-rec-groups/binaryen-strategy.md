@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
@@ -20,7 +21,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the committed raw manifest at [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md).
-The 2026-04-24 follow-up also records a narrow current-`main` spot check that did not find teaching-relevant drift on the reviewed owner, registration, helper, or dedicated lit surfaces.
+The historical 2026-04-24 follow-up recorded a narrow current-`main` no-drift claim. That claim is superseded by the 2026-07-11 recheck in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md): current `main` preserves the algorithm and test roster, but threads one `getPassOptions().worldMode` policy through heap-type visibility collection and final global type rewriting.
 
 Primary files:
 
@@ -102,7 +103,7 @@ The pass uses:
 
 - `ModuleUtils::collectHeapTypeInfo(*module, TypeInclusion::AllTypes, VisibilityHandling::FindVisibility)`
 
-That gives the pass a full heap-type inventory plus public/private classification.
+In current `main`, that call carries the pass `worldMode`, giving the pass a full heap-type inventory plus public/private classification under the same explicit policy later used for rewriting.
 
 ### Private types
 
@@ -314,9 +315,8 @@ Brand types do not correspond to original module types, so they are skipped when
 
 ### Rewrite module uses and metadata
 
-The pass then calls:
+The pass then constructs `GlobalTypeRewriter` with the same `worldMode` used during visibility collection, then calls:
 
-- `GlobalTypeRewriter rewriter(wasm)`
 - `rewriter.mapTypes(oldToNew)`
 - `rewriter.mapTypeNamesAndIndices(oldToNew)`
 
@@ -383,6 +383,7 @@ The public one-line summary in `pass.cpp` hides almost all of that story.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)

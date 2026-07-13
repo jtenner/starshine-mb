@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../../binary/function-import-export-and-code-sections.md
   - ../../../../../src/lib/types.mbt
@@ -29,8 +30,8 @@ The upstream owner implements those actions in `visitCall` and `visitModule`,
 respectively. The `visitCall` rule is not conditioned on whether the import
 will later remain in an element segment. Consequently, keeping a declaration
 for a table reference does **not** keep its direct calls. The current owner
-and `ElementUtils::iterAllElementFunctionNames` helper are captured in the
-[2026-07-10 primary-source read](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md).
+and `ElementUtils::iterAllElementFunctionNames` helper remain current in the
+[2026-07-11 current-main recheck](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md).
 
 This is a specialized reference-interpreter preparation tool, not a
 behavior-preserving optimization. Replacing a host call with a `nop` or a
@@ -161,7 +162,9 @@ planned-only [fuzzing guidance](fuzzing.md).
 
 ## Sources
 
-- Upstream owner, element-helper, registration, and current local-status read:
+- Upstream current-main owner, element-helper, registration/scheduler, and local-status recheck:
+  [`../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md)
+- Earlier detailed owner/element-helper source read:
   [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Local function-index repair inventory:
   [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md)

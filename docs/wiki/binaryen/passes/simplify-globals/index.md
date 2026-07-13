@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
   - ../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md
@@ -83,7 +84,7 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 - The plain pass does **not** own the nested cleanup rerun that the optimizing suffix adds.
 - The dossier now also has immutable raw primary-source and 2026-05-05 current-main recheck manifests plus a dedicated Starshine status/port-strategy page and port-readiness bridge, closing the biggest remaining provenance and local-status gaps in this folder.
 - On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**.
-- On 2026-05-05 the current-main recheck of the shared `SimplifyGlobals.cpp` family found no teaching-relevant drift on the reviewed plain-pass surfaces.
+- On 2026-05-05 the current-main recheck of the shared `SimplifyGlobals.cpp` family found no teaching-relevant drift on the reviewed plain-pass surfaces. A 2026-07-11 registration/admission recheck additionally confirms that current Binaryen still registers the plain name separately, while Starshine remains boundary-only and the compare-pass harness does not admit it; see [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md).
 
 ## Page map
 
@@ -110,6 +111,7 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md)
 - [`../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md`](../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md)
 - [`../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md`](../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md)

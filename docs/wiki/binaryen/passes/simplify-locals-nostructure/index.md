@@ -1,7 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-01
+starshine_status: active
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
   - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md

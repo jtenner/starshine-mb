@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
+starshine_status: upstream-only
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/lib/module.mbt
@@ -24,7 +26,7 @@ related:
 
 ## Overview
 
-`remove-imports` is a public Binaryen module-rewrite pass that removes a narrow class of **function imports**. It is not a normal dead-code-elimination pass and not a general import-section cleaner. Its reviewed source comment says it exists to make a module more inspectable by Binaryen's reference interpreter, which does not validate JavaScript-environment imports. The owner walker replaces direct calls to imported functions with `nop` when they return no value, or with a default `Literal(type)` when they do; it then removes imports absent from `ElementUtils::iterAllElementFunctionNames`. The source-backed contract is captured in [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md).
+`remove-imports` is a public Binaryen module-rewrite pass that removes a narrow class of **function imports**. It is not a normal dead-code-elimination pass and not a general import-section cleaner. Its reviewed source comment says it exists to make a module more inspectable by Binaryen's reference interpreter, which does not validate JavaScript-environment imports. The owner walker replaces direct calls to imported functions with `nop` when they return no value, or with a default `Literal(type)` when they do; it then removes imports absent from `ElementUtils::iterAllElementFunctionNames`. The 2026-07-11 current-main recheck found no contract drift and confirms that the public pass is not placed in the reviewed default optimization builders. The source-backed contract is captured in [`../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md).
 
 For a beginner: an imported function normally represents a host capability. Replacing `(call $host ...)` removes the call's observable host effects. If the call produces a value, Binaryen supplies a default value only to keep the surrounding expression type-valid; it does not preserve the host result. Therefore this is only sensible when some earlier toolchain stage has established that the call and its result are disposable. It is **not** safe to treat it as a default optimization merely because the resulting module validates.
 
@@ -35,6 +37,7 @@ For a beginner: an imported function normally represents a host capability. Repl
 | Binaryen identity | `RemoveImports.cpp` and `pass.cpp` register the public `remove-imports` name in reviewed `version_130` and current `main` sources. |
 | Upstream transform | `RemoveImports.cpp` itself walks direct calls and module imports: it replaces an imported `none`-result call with `nop`, a resultful call with a default `Literal(type)`, then removes imported functions absent from `ElementUtils::iterAllElementFunctionNames`. Non-function imports are outside the reviewed walker scope. |
 | Upstream tests | This source read did not identify a dedicated pass-named lit fixture. The current documented evidence is owner/element-helper/registration code, not an inferred fixture contract. |
+| Upstream scheduling | Current `pass.cpp` registers the public spelling but the reviewed default optimization builders do not schedule it. Public availability is therefore not evidence of ordinary `-O` / `-Os` use. |
 | Starshine registry | No local `remove-imports` spelling exists in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); Starshine therefore must not claim direct-pass or compare-pass support. |
 | Starshine substrate | [`ImportSec(Array[Import])`](../../../../../src/lib/types.mbt), imported-prefix index accounting in [`src/lib/module.mbt`](../../../../../src/lib/module.mbt), validation, and WAST lowering already model imports. Those are prerequisites, not a local port. |
 
@@ -92,7 +95,8 @@ Do not create a compare-pass smoke lane yet: the local dispatcher and harness do
 
 ## Sources
 
-- Upstream owner/element-helper/registration source read: [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
+- Current-main owner/registration/scheduler/helper recheck: [`../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md)
+- Earlier detailed source read: [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Starshine import/index model: [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md), [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt), [`../../../../../src/lib/module.mbt`](../../../../../src/lib/module.mbt)
 - Starshine validation and WAST lowering prerequisites: [`../../../../../src/validate/validate.mbt`](../../../../../src/validate/validate.mbt), [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt)
 - Fuzzing/admission boundary: [`fuzzing.md`](fuzzing.md), [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)

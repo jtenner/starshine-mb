@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -50,7 +51,7 @@ A better beginner summary is:
 
 - The original no-DWARF queue, the saved generated-artifact `-O4z` queue, and the first widened upstream-only dossier wave are already covered, so this folder is an explicit tracker expansion for another real local registry pass.
 - `type-merging` sits directly beside already-documented GC/type neighbors like `type-refining`, `signature-*`, `remove-unused-types`, `abstract-type-refining`, and `unsubtyping`, but it solves a different problem from all of them.
-- It is easy to misread from the name alone as “dead type cleanup” or “duplicate type removal.” The real pass is richer: it is a **late closed-world equivalence merge over private used types**.
+- It is easy to misread from the name alone as “dead type cleanup” or “duplicate type removal.” The real pass is richer: it is a **late non-open-world equivalence merge over private used types**.
 - The pass comment also says it can unlock later size optimizations like function merging, so it matters to future shrink-oriented work even though it is outside today's open-world no-DWARF path.
 
 ## Beginner summary
@@ -72,7 +73,7 @@ So this pass is best taught as:
 
 ## Most important durable takeaways
 
-- The pass only runs when **GC is enabled** and **`--closed-world`** is set.
+- The current owner only runs when **GC is enabled** and `PassOptions::worldMode` is **not `Open`**. That mode is also passed into private-type classification and the final type rewrite; it is not merely an entry Boolean.
 - Only **private** original heap types are merge candidates.
 - Observable cast sites block merges:
   - `ref.cast`
@@ -85,7 +86,7 @@ So this pass is best taught as:
 - Binaryen first merges into identical **supertypes**, then iteratively merges identical **siblings**.
 - The pass may need **`ReFinalize`** afterwards because exact result types and LUBs can sharpen after merging.
 - The 2026-04-24 raw primary-source capture keeps the official `version_129` release provenance explicit: the reviewed GitHub release page showed publish date **2026-04-01 14:31**.
-- A narrow 2026-05-05 current-`main` recheck on the owner file, registration surface, helper headers, and dedicated lit file did not expose teaching-relevant contract drift, so `version_129` remains the source oracle for this dossier. The new freshness bridge now lives beside the original tagged capture and the new Starshine port-readiness page.
+- The earlier 2026-05-05 “comment typo only” current-main conclusion is superseded. `version_130` and current `main` use `worldMode`: they reject only `Open`, and pass the selected mode into both `getPrivateHeapTypes(...)` and `TypeMapper(...)`. See the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). The algorithm remains a useful `version_129` teaching baseline, but future ports must not copy its Boolean gate as current parity.
 
 ## What this pass sounds like versus what it actually does
 
@@ -117,9 +118,9 @@ What it actually is in `version_129`:
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: boundary-only registry entry, honest active-request rejection, no owner file or backlog slice, reusable local type-section surfaces, and the shared type-graph infrastructure a future closed-world module pass would need.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Future-port bridge covering exact local code locations, validation ladder, GC / closed-world gate sequencing, and the Binaryen oracle path for an eventual implementation.
+  Future-port bridge covering exact local code locations, validation ladder, GC plus explicit world-policy sequencing, and the Binaryen oracle path for an eventual implementation.
 - [`./fuzzing.md`](./fuzzing.md)
-  Current planned-only compare-pass status, the boundary-only/harness-admission distinction, and the directed closed-world GC fixture requirements for a future lane.
+  Current planned-only compare-pass status, the boundary-only/harness-admission distinction, and the directed GC/world-policy fixture requirements for a future lane.
 
 ## Current maintenance rule
 
@@ -130,6 +131,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)

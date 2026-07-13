@@ -18,6 +18,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - control-flow-authoring.md
+  - ../wasm-multivalue-core-boundary.md
   - ../validate/stack-polymorphism-and-bottom.md
   - variable-instruction-authoring.md
   - numeric-instruction-authoring.md
@@ -35,7 +36,8 @@ related:
 
 Use this page when writing, reducing, or reviewing WAST fixtures that use WebAssembly's **parametric instructions**: `drop`, untyped `select`, and typed `select (result ...)`.
 
-These instructions are "parametric" because their core behavior is about stack values rather than a fixed numeric, memory, table, or reference operation:
+These instructions are "parametric" because their core behavior is about stack values rather than a fixed numeric, memory, table, or reference operation. Ordinary multi-value function/control/branch vectors are Core behavior and are documented separately in [`../wasm-multivalue-core-boundary.md`](../wasm-multivalue-core-boundary.md); this page owns the narrower local typed-`select` portability caveat:
+
 
 - `drop` consumes one stack value of any value type and produces no value;
 - untyped `select` consumes two candidate values plus an `i32` condition and produces one selected value;

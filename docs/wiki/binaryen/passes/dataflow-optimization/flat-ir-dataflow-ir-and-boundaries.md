@@ -1,19 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/node.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/graph.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/node.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/flat.h
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -32,7 +33,7 @@ related:
 2. Binaryen **Flat IR**
 3. Binaryen **DataFlow IR**
 
-If those layers get mixed together, the pass becomes almost impossible to explain correctly. The 2026-04-25, 2026-04-27, and 2026-05-05 current-main rechecks found no reason to change this layer split: upstream still begins from flatness verification, then builds the separate DataFlow graph, then writes only proven constants back into the flat wasm. The Starshine port-readiness page keeps the resulting substrate choice explicit instead of assuming local HOT IR is already equivalent.
+If those layers get mixed together, the pass becomes almost impossible to explain correctly. The 2026-07-11 `version_130`/current-main reconciliation found no reason to change this layer split: upstream still begins from flatness verification, then builds the separate DataFlow graph, then writes only proven constants back into the flat wasm. The Starshine port-readiness page keeps the resulting substrate choice explicit instead of assuming local HOT IR is already equivalent.
 
 ## Layer 1: ordinary Binaryen tree IR
 
@@ -145,7 +146,7 @@ A tempting oversimplification would be:
 - see all inputs constant
 - evaluate the node directly
 
-That is **not** what `version_129` does.
+That is **not** what the current `version_130` baseline does.
 It deliberately routes actual constant evaluation through nested `precompute`.
 
 That preserves real Binaryen folding semantics for things like:
@@ -208,8 +209,8 @@ If several of those answers are no, the right prediction is usually:
 - [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/node.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/graph.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/node.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/flat.h>

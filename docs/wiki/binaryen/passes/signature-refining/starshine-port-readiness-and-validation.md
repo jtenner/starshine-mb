@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
@@ -62,11 +63,12 @@ A faithful port must preserve these source-backed facts from [`./binaryen-strate
 5. Use argument LUBs for parameter refinement.
 6. Use returned-value LUBs for result refinement.
 7. Freeze public, imported, tag-used, and subtype-linked function types.
-8. Freeze only parameter refinement for JS-called and continuation-used signatures.
-9. Repair function bodies before rewriting nominal signatures when sharper params would invalidate old local writes.
-10. Rewrite signature heap types atomically, including `call_ref` users.
-11. Clone `call.without.effects` imports when result refinement changes the intrinsic signature.
-12. Refinalize after all type and call-surface updates.
+8. Freeze only parameter refinement for JS-called signatures; treat continuation-used signatures as a full no-change boundary.
+9. Carry one world/visibility policy through public-type classification and nominal signature rewriting.
+10. Repair function bodies before rewriting nominal signatures when sharper params would invalidate old local writes.
+11. Rewrite signature heap types atomically, including `call_ref` users.
+12. Clone `call.without.effects` imports when result refinement changes the intrinsic signature.
+13. Refinalize after all type and call-surface updates.
 
 The simplest correct Starshine implementation is therefore a module/type-graph pass, not a HOT peephole.
 
@@ -104,7 +106,7 @@ Minimum facts to prove in tests:
 - GC feature absent => no work.
 - any table present => no work.
 - function heap types are collected by nominal type index.
-- imports and tag-used signatures are classified as frozen.
+- imports, tag-used signatures, and continuation-used signatures are classified as full blockers.
 - direct-call argument types are visible to the analyzer.
 
 Exit criterion: the pass can print or test its analysis decisions without mutating signatures.
@@ -195,14 +197,15 @@ When it lands, test both:
 - Do not claim `call.without.effects` parity while the local IR has no such spelling.
 - Do not add the pass to `optimize` / `shrink` merely because the explicit pass flag works.
 
-## Health notes from the 2026-05-05 check
+## Health notes from the 2026-07-11 recheck
 
-- The existing folder was internally source-correct, so this follow-up adds a freshness bridge rather than superseding the Binaryen strategy.
-- The current-main source recheck again found no teaching-relevant drift from the `version_129` dossier.
-- The most actionable local hygiene issue is still the direct `call_ref` text-surface gap: the 2026-05-20 call-ref refresh keeps ordinary non-tail `call_ref` as core/binary/validator/generator-visible but not high-level Starshine WAST text, so future tests should not assume WAST can express every Binaryen proof family until that gap is closed.
+- The new primary-source bridge supersedes the older no-drift conclusion for current-contract claims: `version_130` / current main make continuation-used signatures full blockers, not params-only blockers.
+- Current Binaryen also threads `worldMode` through public-type classification and the global signature rewriter. A Starshine port should first choose one conservative visibility policy and test it at both steps rather than making an unrelated rewrite-time choice.
+- The most actionable local hygiene issue remains the direct `call_ref` text-surface gap: the 2026-05-20 call-ref refresh keeps ordinary non-tail `call_ref` as core/binary/validator/generator-visible but not high-level Starshine WAST text, so future tests should not assume WAST can express every Binaryen proof family until that gap is closed.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)

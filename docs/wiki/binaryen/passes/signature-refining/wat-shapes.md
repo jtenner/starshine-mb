@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
@@ -19,7 +20,7 @@ related:
 # `signature-refining` WAT shapes
 
 This page is a beginner-friendly catalog of the main WAT / module-shape families Binaryen `signature-refining` rewrites, preserves, or bails out on.
-The source provenance is now captured in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), and the current Starshine status is in [`./starshine-strategy.md`](./starshine-strategy.md).
+The current-source correction is captured in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), and the current Starshine status is in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 The pass is shape-driven, but the important shapes are not just inside one function body.
 They often include:
@@ -426,7 +427,7 @@ The official implementation does not attempt subtype-cluster rewrites or contrav
 
 The pass does not update tag users of the signature type.
 
-## Negative shape 8: continuation-used signatures freeze params, not every other type in the module
+## Negative shape 8: continuation-used signatures are fully frozen, not every other type in the module
 
 ### Before
 
@@ -440,12 +441,12 @@ The pass does not update tag users of the signature type.
 
 ### After
 
-- functions using `$sig` keep their params unchanged
+- functions using `$sig` keep both params and results unchanged
 - a different signature like `$other` can still refine
 
 ### Why it bails out
 
-The pass does not yet update continuation instructions with new param types.
+`version_130` and current `main` do not update continuation instructions with new types, so the whole signature is blocked. The `version_129` params-only rule is no longer current behavior.
 
 ## Corner-case shape 1: sharper params can require broader fixup locals inside the body
 
@@ -499,7 +500,7 @@ The real source-backed families are:
 - heap-type-wide direct plus `call_ref` param positives
 - result-refining positives from actual returned values
 - public/import/table/tag/subtyping no-ops
-- params-only blockers for JS-called and continuation-used signatures
+- the params-only JS-called blocker versus the full continuation-used blocker
 - `call.without.effects` param evidence and result-import repair
 - body-fixup locals and refinalization corner cases
 
@@ -507,6 +508,7 @@ Those are the shapes a future port must preserve if it wants to match upstream B
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)

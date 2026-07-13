@@ -1,7 +1,8 @@
 ---
 kind: entity
-status: implemented
-last_reviewed: 2026-07-04
+status: strong
+starshine_status: active
+last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
   - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md

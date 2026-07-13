@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/lib/module.mbt
@@ -20,13 +21,13 @@ related:
 ## Upstream Owner Map
 
 The reviewed Binaryen implementation is intentionally compact. Its durable
-source map is recorded in the [2026-07-10 source read](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md):
+source map is refreshed by the [2026-07-11 current-main recheck](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md) and recorded in detail by the [2026-07-10 source read](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md):
 
 | Upstream location | Responsibility | What it does **not** prove |
 | --- | --- | --- |
 | `src/passes/RemoveImports.cpp` | Owns the transform. Its direct-call visitor stubs calls to imported functions; its module visitor decides which imported functions to delete. | A general import-section filter, host-effect equivalence, or a default optimization policy. |
 | `src/ir/element-utils.h` | Supplies `ElementUtils::iterAllElementFunctionNames`, the retention source for imported function declarations referenced by element lists. | Whole-module liveness for every possible `FuncIdx` carrier. |
-| `src/passes/pass.cpp` | Registers the public `remove-imports` spelling with no reviewed user argument. | Starshine registry support or compare-harness admission. |
+| `src/passes/pass.cpp` | Registers the public `remove-imports` spelling with no reviewed user argument; the reviewed default optimization builders do not schedule it. | Starshine registry support, ordinary default-optimization use, or compare-harness admission. |
 | `src/ir/module-utils.h` | Was checked specifically because an earlier description hypothesized a helper-based removal API. The reviewed source has no `ModuleUtils::removeImports(...)` delegation. | Ownership of the pass rewrite. |
 
 The source read did not identify a dedicated `remove-imports` lit fixture.
@@ -113,7 +114,9 @@ meaningful compared-case threshold all exist.
 
 ## Sources
 
-- Primary Binaryen owner/helper/registration read:
+- Current-main owner/helper/registration/scheduler recheck:
+  [`../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md)
+- Earlier detailed owner/helper/registration read:
   [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Local representations and lowerer:
   [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt),

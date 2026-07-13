@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
@@ -26,7 +27,7 @@ This page exists because the easiest way to misunderstand `signature-refining` i
 - handling `call.without.effects`
 
 Binaryen treats those as separate problems.
-The official source URLs and the 2026-05-05 freshness check are captured in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), and the local Starshine status is tracked in [`./starshine-strategy.md`](./starshine-strategy.md).
+The current correction is captured in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md); it supersedes the older 2026-05-05 freshness conclusion for continuation behavior. The local Starshine status is tracked in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## The most important split: `canModify` vs `canModifyParams`
 
@@ -47,6 +48,7 @@ The pass sets this for:
 - imported functions
 - public function types
 - tag-used function types
+- continuation-used function types in `version_130` and current `main`
 - signature types with subtypes
 - signature types with supertypes
 
@@ -59,9 +61,8 @@ When this is false, Binaryen keeps the **params** unchanged, but can still refin
 The pass sets this for:
 
 - JS-called function types
-- continuation-used function types
 
-Those are params-only blockers.
+That is the remaining params-only blocker on the reviewed current surface.
 
 ## Why that split exists
 
@@ -191,38 +192,19 @@ It is both:
 - part of the param-side evidence
 - part of the result-side repair work
 
-## Why tags and continuations differ
+## Why tags and continuations now share a full blocker
 
-The pass treats tags and continuations differently.
-That is easy to miss.
+Both families now set `canModify = false`, so params and results are frozen.
 
 ## Tags
 
-Tag-used signatures get:
-
-- `canModify = false`
-
-So params and results are both frozen.
-
-Reason from the source:
-
-- Binaryen does not analyze and optimize EH or stack-switching instructions here
+Tag-used signatures are full blockers because the pass does not analyze and update EH users.
 
 ## Continuations
 
-Continuation-used signatures get:
+`version_129` was narrower: it set `canModifyParams = false`. `version_130` and current `main` now make continuation-used signatures full blockers. The owner comment still points at continuation users such as `cont.bind` and `resume`, which the pass does not update with new types.
 
-- `canModifyParams = false`
-
-So params stay unchanged, but the pass does not explicitly freeze result refinement the same way.
-
-Reason from the source:
-
-- Binaryen does not yet update continuation users like `cont.bind` / `resume` with new param types
-
-The dedicated lit file proves the param-freeze story directly.
-It does not include a standalone continuation-result refinement example, so that narrower point should stay labeled as source-backed but only partially test-backed.
-
+The dedicated fixture remains useful for the continuation boundary, but the full-blocker conclusion is owner-source-backed; do not infer a result-only optimization from an old params-only fixture expectation.
 ## Why subtype-linked signatures are a hard no-op
 
 The pass refuses to optimize signatures that:
@@ -269,7 +251,7 @@ A heap type can be fully refined only when all of these are true:
 - GC is enabled
 - the module has no tables
 - the heap type is not imported/public/tag-used/subtype-linked
-- parameter refinement is not blocked by JS-called or continuation usage
+- parameter refinement is not blocked by JS-called usage, and the heap type is not continuation-used
 - there is enough call-site evidence for every parameter you want to refine
 - there is enough returned-value evidence for every result you want to refine
 - body-local writes can be repaired when params get sharper
@@ -291,6 +273,7 @@ Once that split is clear, the pass becomes much easier to teach and to port.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)

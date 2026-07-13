@@ -148,6 +148,7 @@ Keep three layers in the wiki architecture:
 - Cite the source pages, raw sources, or numbered research docs that support the page's claims.
 - Record contradictions, caveats, and uncertainty explicitly instead of smoothing them away.
 - When useful, add lightweight frontmatter for `kind`, `status`, `last_reviewed`, `sources`, `related`, `supersedes`, or `superseded_by`.
+- `status` records **knowledge confidence/lifecycle** (`working`, `supported`, `strong`, `stale`, or `superseded`); it never claims that Starshine implements an upstream feature or pass. A Binaryen pass entity should add `starshine_status` when local availability matters, using one of `active`, `active-partial`, `boundary-only`, `upstream-only`, `removed`, or `unknown`, and should still cite the registry, dispatcher, and harness evidence that justifies it.
 - Use links to related files, passes, proposals, and research docs so the page is navigable without chat history.
 
 ### Ingest Rules

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -25,8 +26,7 @@ related:
 
 # Binaryen strategy for `type-merging`
 
-This page is now anchored to the immutable 2026-04-24 primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md).
-That manifest pair records the official `version_129` release page, owner source, helper headers, dedicated lit file, and the narrow current-`main` spot check used for this dossier.
+This page is anchored to the immutable 2026-04-24 primary-source manifest and the later source bridges. The [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md) supersedes the earlier current-main bridge's “comment typo only” conclusion: `version_130` and current `main` carry `worldMode` through admission, private-type collection, and `TypeMapper` rewriting. The older `version_129` sources remain the algorithm baseline; the newer bridge is the current policy correction.
 
 ## What the pass really is
 
@@ -59,14 +59,12 @@ So a future port should treat `type-merging` as a **late cleanup / shrink neighb
 
 `TypeMerging::run` has two hard gates before it does anything meaningful:
 
-- `module->features.hasGC()` must be true
-- `getPassOptions().closedWorld` must be true
+- `module->features.hasGC()` must be true;
+- `getPassOptions().worldMode` must not be `WorldMode::Open`.
 
-If closed-world mode is absent, the pass aborts.
+The current owner passes that same `worldMode` to `ModuleUtils::getPrivateHeapTypes(...)` and later to `TypeMapper(...)`; it therefore affects candidate visibility and writeback, not merely admission. The pass still relies on a non-open-world claim about observability: if the outside world can manufacture or distinguish heap-type identities freely, private-type merging is not safe to reason about the same way.
 
-This makes sense because the pass relies on a closed-world claim about observability:
-
-- if the outside world can manufacture or distinguish heap-type identities freely, then private-type merging is not safe to reason about the same way
+Do not infer the exact relationship among Binaryen's non-open modes from this page alone. A port must review the `WorldMode` definitions and test the precise local modes it exposes.
 
 ## Core data the pass tracks
 
@@ -260,11 +258,11 @@ The pass first:
 - flattens transitive merge trees
 - expands each original-to-target merge across corresponding descriptor-chain members
 
-Then it uses:
+Then it uses the selected world policy:
 
-- `TypeMapper(*module, replacements).map()`
+- `TypeMapper(*module, replacements, worldMode).map()`
 
-That is the real whole-module rewrite surface.
+That is the real whole-module rewrite surface; current Binaryen keeps world/visibility policy coupled to the rewrite.
 It updates every static heap-type reference that the mapper knows how to touch.
 
 ## Phase 11: refinalize when needed
@@ -365,6 +363,7 @@ That is the real Binaryen strategy for `type-merging`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)

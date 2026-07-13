@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
@@ -32,7 +33,7 @@ The easiest way to misread `merge-locals` is to choose one wrong extreme:
 
 The reviewed Binaryen implementation is in between.
 It starts from a concrete copy-shaped local traffic pair, uses `LocalGraph` set influences to decide which side should own the influenced gets, and then verifies the rewrite against a post-graph snapshot.
-The 2026-05-05 freshness layer keeps that reading current without changing the contract.
+The 2026-07-11 freshness layer keeps that reading current without changing the contract. It also makes the local boundary explicit: Starshine's active direct pass is a forward epoch-alias subset, not this `LocalGraph` engine.
 
 ## The central question
 
@@ -131,9 +132,19 @@ can become a shape where the later gets live on `$y` instead.
 
 The pass does not claim those two locals are identical; it chooses the side that still has a clean graph story.
 
+## Starshine boundary
+
+Starshine's current `src/passes/merge_locals.mbt` deliberately proves less:
+
+- it recognizes adjacent same-typed `local.get src; local.set dst` copies;
+- it only retargets later `src` gets toward `dst` while the destination write epoch stays unchanged; and
+- it clears aliases at structured-control boundaries instead of proving a cross-control graph relation.
+
+Do not use a direct-pass normalized match to claim the opposite orientation, cross-control influence, or rollback parity. Those remain future work described in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+
 ## What to remember
 
-`merge-locals` is a **copy-oriented `LocalGraph` rewrite**:
+Binaryen `merge-locals` is a **copy-oriented `LocalGraph` rewrite**:
 
 - the copy is made explicit with a trivial tee
 - `LocalGraph` decides whether the source or destination side should own the influenced gets

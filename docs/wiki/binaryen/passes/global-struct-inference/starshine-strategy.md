@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
@@ -122,7 +123,7 @@ The final `[GSI-PARITY-007]` signoff kept this page's subset as the v0.1.0 contr
 Compared with upstream Binaryen `version_129`, Starshine currently does **not** implement:
 
 - full closed-world `typeGlobals` candidate consumption beyond exact/subtype-propagated local/param one-global origins and exact or subtype-propagated one-value/two-value direct-candidate rewrites
-- sibling `gsi-desc-cast` rewrites
+- sibling `gsi-desc-cast` rewrites **when this plain-pass entrypoint runs**; those rewrites belong to the separately active [`global-struct-inference-desc-cast`](../global-struct-inference-desc-cast/index.md) pass
 - explicit `ReFinalize`-style repair after type refinement beyond validation-preserving replacement typing; the 2026-06-04 `[GSI-PARITY-006]` trigger audit found the current direct-global, block-carried, origin/value/select, packed, atomic-get, and descriptor replacements derive valid replacement types before rewriting, so this is closed as a v0.1.0 no-op until a future narrowing rewrite supplies a failing fixture
 - generic-pass atomic optimizations; `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` fold only inside GSI when the field is immutable, while generic passes still treat the opcodes as conservative atomic reads
 - non-adjacent cast-aware direct reads; descriptor-cast/ref.cast/refinalization-shaped atomic opportunities remain separate from the adjacent-pair direct-global and closed-world local/param fold machinery
@@ -142,7 +143,7 @@ The upstream contract is about trusted origin restriction plus value grouping, n
 If Starshine grows toward the full Binaryen contract, preserve the current subset while adding the missing layers in this order:
 
 1. broaden non-constant operand un-nesting beyond the current small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension read-gated subset only if pass-local runtime remains green
-2. implement the sibling `gsi-desc-cast` pass only as a separately scheduled boundary-to-active slice
+2. keep the separately active `gsi-desc-cast` sibling independently dispatched, tested, and signed off; do not fold its evidence into plain GSI
 3. broaden atomic-get coverage only from the current immutable-field adjacent direct-global/local-param GSI subset, keeping generic passes conservative and proving each new fold with focused null-trap, subtype, packed-field, and effect-ordering tests
 4. add explicit typed-AST repair/refinalization only if future rewrites need more than validation-preserving replacement typing; `[GSI-PARITY-006]` found no current plain-GSI trigger
 
@@ -161,7 +162,7 @@ If Starshine grows toward the full Binaryen contract, preserve the current subse
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md)
 - [`../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md`](../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md)
 - [`../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md)

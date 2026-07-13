@@ -1,16 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
-  - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
-  - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
-  - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
-  - ../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md
-  - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
-  - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -21,27 +16,22 @@ related:
 
 # `merge-blocks` WAT Shapes
 
-This is the beginner-friendly shape catalog for Binaryen `merge-blocks`, corrected against current-main and `version_129`.
+This beginner-oriented catalog separates Binaryen's current `merge-blocks` routes:
 
-## Correct mental model
+- **structural merge:** remove a safe block wrapper by splicing its roots into a parent block or loop body;
+- **special visitors:** dropped-block cleanup, an `if` condition, and `throw` operands; and
+- **generic non-control child extraction:** move a safe prefix out of an ordinary block-valued operand while retaining its tail as the operand.
 
-Binaryen `merge-blocks` is a local motion pass:
-
-- it merges safe child blocks into their parent block list;
-- it merges safe loop tails;
-- it moves safe work out of `drop(block ...)`, `if` conditions, and `throw` operands;
-- it preserves branch semantics and refinalizes after edits.
-
-It is **not** a generic label-retargeting pass.
+The current-source correction is that special visitors are not the whole pass: ordinary expression children have a generic route too.
 
 ## Quick glossary
 
-- **splicing**: moving a child's roots into the parent root list.
-- **loop tail**: the trailing block-shaped part of a loop body that can sometimes be merged upward.
-- **drop(block ...) cleanup**: removing a block that is only being discarded while preserving any needed break values.
-- **effect-safe**: safe to move without changing observable work.
+- **prefix:** all block roots except the final root.
+- **tail:** the final root; it remains where the parent expression needs a value.
+- **child slot:** one ordered operand of an expression, such as a store address or value.
+- **effect order:** WebAssembly evaluates operands in order. A rewrite must not swap observable work.
 
-## Positive family 1: unnamed child block spliced into parent
+## Structural positive: child block spliced into a parent
 
 Before:
 
@@ -64,13 +54,9 @@ After:
   (i32.const 4))
 ```
 
-Why it merges:
+The wrapper can disappear only when the list/result/branch shape remains legal.
 
-- the child block is safe to absorb;
-- the roots can be moved into the parent list;
-- the final expression shape still makes sense after refinalization.
-
-## Positive family 2: safe loop-tail merge
+## Structural positive: loop-tail merge
 
 Before:
 
@@ -91,154 +77,141 @@ After, schematically:
   (br 0))
 ```
 
-Why it merges:
+The loop backedge and result behavior remain the safety boundary; not every tail block is mergeable.
 
-- the loop body has a tail-shaped block that can be merged upward;
-- the backedge still behaves the same;
-- Binaryen keeps the loop contract intact.
-
-## Positive family 3: `drop(block ...)` cleanup
+## Special-visitor positive: `drop`
 
 Before:
 
 ```wat
 (drop
-  (block
-    (i32.const 1)
-    (i32.const 2)))
+  (block (result i32)
+    (drop (i32.const 7))
+    (i32.const 9)))
 ```
 
-After, schematically:
+After:
 
 ```wat
-(i32.const 1)
-(drop (i32.const 2))
+(drop (i32.const 7))
+(drop (i32.const 9))
 ```
 
-Why it matters:
+The first `drop` is the moved prefix. The final `i32.const 9` remains the value consumed by the outer `drop`.
 
-- dropping a block can expose earlier values that still need to be preserved;
-- the pass uses the break-value cleanup path to avoid silently losing work.
-
-## Positive family 4: `if` condition motion
+## Special-visitor positive: `if` condition
 
 Before:
 
 ```wat
-(if
-  (block
-    (call $side_effect_free)
+(if (result i32)
+  (block (result i32)
+    (drop (i32.const 7))
     (local.get 0))
-  (then (nop))
-  (else (nop)))
+  (then (i32.const 1))
+  (else (i32.const 2)))
 ```
 
 After, schematically:
 
 ```wat
-(call $side_effect_free)
-(if
+(drop (i32.const 7))
+(if (result i32)
   (local.get 0)
-  (then (nop))
-  (else (nop)))
+  (then (i32.const 1))
+  (else (i32.const 2)))
 ```
 
-Why it matters:
+Only the condition is an ordinary expression child. The arm bodies are not hoisted through the `if`.
 
-- the pass can move safe work out of the condition;
-- this is a real upstream surface, not just a block-list trick.
-
-## Positive family 5: `throw` operand motion
+## Generic non-control child extraction: representative `i32.store` operands
 
 Before:
 
 ```wat
-(throw $tag
-  (block
-    (call $side_effect_free)
+(i32.store
+  (block (result i32)
+    (drop (i32.const 7))
+    (i32.const 0))
+  (block (result i32)
+    (drop (i32.const 8))
     (local.get 0)))
 ```
 
 After, schematically:
 
 ```wat
-(call $side_effect_free)
+(drop (i32.const 7))
+(drop (i32.const 8))
+(i32.store (i32.const 0) (local.get 0))
+```
+
+This is a representative ordinary non-control operand shape for the generic owner-file route. The focused upstream fixture demonstrates generic extraction with aggregate and call operands; Starshine has the direct store fixture.
+
+## Special-visitor positive: `throw` argument
+
+Before:
+
+```wat
 (throw $tag
-  (local.get 0))
+  (block (result i32)
+    (drop (i32.const 7))
+    (i32.const 9)))
 ```
 
-Why it matters:
-
-- the operand can sometimes be simplified the same way as a block body;
-- `merge-blocks` is broader than plain block flattening.
-
-## Negative family 1: unsafe branch interaction
-
-Before stays after when the move would change branch semantics:
+After:
 
 ```wat
-(block
-  (block
-    (br 0)))
+(drop (i32.const 7))
+(throw $tag (i32.const 9))
 ```
 
-Why it can stay:
+## Negative: effect ordering blocks the move
 
-- the pass will not move code if the surrounding branch structure is unsafe;
-- branch safety is part of the proof, not an afterthought.
-
-## Negative family 2: unsafe loop backedge
-
-Before stays after when the tail cannot be merged without changing the loop backedge meaning:
+Conceptually, this must stay nested when moving `PREFIX` past an earlier effectful operand would swap observable work:
 
 ```wat
-(loop
-  (block
-    (call $must_stay)
-    (br 0)))
+(i32.store
+  (call $effectful_address)
+  (block (result i32)
+    PREFIX
+    (local.get 0)))
 ```
 
-Why it can stay:
+If `PREFIX` is also effectful, extracting it before `call $effectful_address` would be wrong. The current source uses `EffectAnalyzer::orderedBefore(...)` to reject effect-order violations.
 
-- some loop tails are effectful or structurally important;
-- the pass only merges safe tails.
+## Negative: one-expression block
 
-## Negative family 3: side effects block movement
-
-Before stays after when moving work would skip an observable effect:
+This is not a prefix-extraction opportunity:
 
 ```wat
-(block
-  (call $has_effect)
-  (block
-    (i32.const 1)))
+(drop (block (result i32) (i32.const 9)))
 ```
 
-Why it can stay:
+There is no prefix to move and the tail must stay the `drop` operand.
 
-- the pass does not reorder effectful work across a merge boundary;
-- effect safety is part of the contract.
+## Negative: arm bodies are not condition operands
 
-## Negative family 4: live-label HOT shapes are a Starshine difference, not a Binaryen positive
+The pass does not move this arm prefix outside the `if` merely because the arm contains a block:
 
-Binaryen's upstream `merge-blocks` does not use the HOT live-label rule that current Starshine uses.
+```wat
+(if
+  (local.get 0)
+  (then
+    (block
+      PREFIX
+      (nop))))
+```
 
-If you are looking for the local HOT behavior, read [`./starshine-strategy.md`](./starshine-strategy.md).
+Control-region traversal has separate branch, result, and reachability constraints.
 
-## What this pass unlocks later
+## Starshine reading boundary
 
-`merge-blocks` often exposes simpler shapes for:
-
-- `remove-unused-brs`
-- `remove-unused-names`
-- `vacuum`
-- later `merge-blocks` reruns in the preset cluster
+Current Starshine has tests for the `if` condition, `drop`, `i32.store`, and `throw` examples at [`src/passes/merge_blocks_test.mbt:2168-2295`](../../../../../src/passes/merge_blocks_test.mbt). Its HOT rules add live-label, typed-carrier, loop-containing-region, branch-prefix, and local effect guards, so do not infer full upstream expression-family parity from these four fixtures.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
-- [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
-- [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
-- [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
-- Binaryen current-main `merge-blocks.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast>
-- Binaryen `version_129` `merge-blocks.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-blocks.wast>
+- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current-main [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp)
+- Binaryen current-main [`merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast)
+- [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

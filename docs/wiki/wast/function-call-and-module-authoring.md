@@ -25,6 +25,7 @@ sources:
 related:
   - index.md
   - ../wasm-typed-function-references-boundary.md
+  - ../wasm-multivalue-core-boundary.md
   - table-instruction-authoring.md
   - tail-call-authoring.md
   - reference-instruction-authoring.md
@@ -55,7 +56,7 @@ Neighbor pages own the parts that are easy to conflate with this topic:
 
 - [`table-instruction-authoring.md`](table-instruction-authoring.md) owns table-index defaults, `call_indirect` table compatibility, table64 caveats, and runtime table instructions.
 - [`tail-call-authoring.md`](tail-call-authoring.md) owns `return_call`, `return_call_indirect`, and `return_call_ref` because tail calls are also return-family terminators.
-- [`gc-type-authoring.md`](gc-type-authoring.md) owns WAST type definitions, rec groups, subtypes, and shared type-use rules for `(type $sig)` and inline `(param ...)` / `(result ...)` signatures.
+- [`gc-type-authoring.md`](gc-type-authoring.md) owns WAST type definitions, rec groups, subtypes, and shared type-use rules for `(type $sig)` and inline `(param ...)` / `(result ...)` signatures. [`../wasm-multivalue-core-boundary.md`](../wasm-multivalue-core-boundary.md) owns the cross-layer rule that repeated results are ordered Core stack values, not a tuple object.
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) own `ref.func`, declaration sources, and the current start-section declaration divergence.
 - [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, the parameter-local versus encoded-body-local split, and module-pass remap checklists.
 

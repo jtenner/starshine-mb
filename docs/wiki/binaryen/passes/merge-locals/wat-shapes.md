@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
@@ -22,8 +23,8 @@ related:
 
 # `merge-locals` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `merge-locals`.
-Examples are intentionally small and conceptual; exact final WAT can differ after the later cleanup passes that run around it.
+This page is the beginner-friendly shape catalog for upstream Binaryen `merge-locals`.
+Examples are intentionally small and conceptual; exact final WAT can differ after the later cleanup passes that run around it. They are not all current Starshine promises: the active local subset supports only the sequential forward source-to-destination family, clears aliases around structured control, and has neither reverse orientation nor `LocalGraph` rollback; see [`starshine-strategy.md`](starshine-strategy.md).
 
 ## Correct mental model
 
@@ -171,5 +172,6 @@ Why this matters:
 
 ## Bottom line
 
-`merge-locals` rewrites copy-shaped local traffic, not arbitrary locals.
-The shapes to remember are the two ownership directions, the graph-guided control-flow positive, the type-mismatch negative, and the conservative unreachable-boundary regression.
+Binaryen `merge-locals` rewrites copy-shaped local traffic, not arbitrary locals. The shapes to remember are the two ownership directions, the graph-guided control-flow positive, the type-mismatch negative, and the conservative unreachable-boundary regression.
+
+For Starshine today, treat only a same-typed sequential source-to-destination copy as implemented direct-pass behavior. Treat reverse ownership, cross-control flow, and rollback as source-backed future parity work rather than “safe enough” representation drift.

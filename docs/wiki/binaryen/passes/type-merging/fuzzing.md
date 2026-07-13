@@ -3,6 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -33,11 +34,11 @@ bun fuzz compare-pass --list-passes
 
 ## Future executable lane
 
-A future lane needs all four compare-pass preflight gates plus a directed closed-world GC corpus. Generic valid modules do not prove this module-wide type-graph transform.
+A future lane needs all four compare-pass preflight gates plus a directed GC type-graph corpus with an explicit non-open-world policy. Generic valid modules do not prove this module-wide transform; the current Binaryen owner threads `worldMode` through admission, candidate selection, and rewriting.
 
 Minimum fixtures/profile coverage:
 
-- GC and closed-world gates;
+- GC plus every supported world-mode gate, including an Open-world rejection case;
 - private versus exported/public heap types;
 - supertype and sibling merge positives;
 - ordinary and exact cast, `ref.test`, `br_on_cast*`, and `call_indirect` blockers;
@@ -49,7 +50,7 @@ Only after Starshine has an active implementation, the harness maps the public B
 ```text
 moon build --target native --release src/cmd
 bun fuzz compare-pass --pass type-merging --count 10000 --seed 0x5eed \
-  --gen-valid-profile <closed-world-gc-type-graph-profile> \
+  --gen-valid-profile <non-open-world-gc-type-graph-profile> \
   --out-dir .tmp/pass-fuzz-type-merging --jobs auto \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
   --min-compared <meaningful-threshold>

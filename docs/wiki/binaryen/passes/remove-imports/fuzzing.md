@@ -5,6 +5,7 @@ last_reviewed: 2026-07-11
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
+  - ../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -36,7 +37,7 @@ bun fuzz compare-pass --list-passes
 
 ## Why generic generated modules are insufficient
 
-The upstream pass is intentionally semantics-changing: it replaces direct calls to imported functions with `nop` or a default result literal, then removes imported functions not retained by element/table references. Its purpose is reference-interpreter inspection, not ordinary behavior-preserving optimization. See [`index.md`](index.md) and [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md).
+The upstream pass is intentionally semantics-changing: it replaces direct calls to imported functions with `nop` or a default result literal, then removes imported functions not retained by element/table references. Its purpose is reference-interpreter inspection, not ordinary behavior-preserving optimization. See [`index.md`](index.md) and the [`2026-07-11 current-main recheck`](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md).
 
 Therefore, a future fuzz lane needs an **explicit stubbing/disposability policy**. It must not report a normalized WAT match as evidence that arbitrary host-call effects or results are irrelevant. In particular, an ordinary `gen-valid` module with arbitrary imports cannot establish that it is valid to erase those imports' calls.
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
@@ -24,7 +25,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` plus the 2026-05-05 current-`main` recheck as the source oracle for this page.
+Use Binaryen `version_129` plus the 2026-07-11 current-`main` recheck as the source oracle for this page.
 The corrected source-backed owner surface is:
 
 - `src/passes/MergeLocals.cpp`
@@ -34,7 +35,7 @@ The corrected source-backed owner surface is:
 - `test/lit/passes/merge-locals.wast`
 
 The living dossier is about copy-shaped local traffic balancing, not one-set-local merging.
-The 2026-05-05 recheck keeps that correction fresh without changing the source-backed contract.
+The 2026-07-11 recheck keeps that correction fresh without changing the source-backed contract. It also distinguishes that upstream graph-based contract from Starshine's active, forward-only linear epoch-alias subset; see [`starshine-strategy.md`](starshine-strategy.md).
 The earlier overread that centered `computeInfluences()`, one-set candidate discovery, and fresh-temp canonicalization is superseded for this pass.
 
 ## High-level intent

@@ -1,16 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
-  - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
-  - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
-  - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
-  - ../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md
-  - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
-  - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -22,82 +17,106 @@ related:
 
 # Binaryen `merge-blocks` Strategy
 
-## Correct source-backed model
+## Correct current-source model
 
-Binaryen `merge-blocks` is a block-merging and loop-tail-merging pass.
+Binaryen `merge-blocks` is a function-local structured-cleanup pass with three connected routes:
 
-It does **not** implement the named-block deblocking story that older local notes drifted toward. The source-backed contract is:
+1. **structural merging:** `visitBlock(...)` and `visitLoop(...)` remove eligible nested block/list structure;
+2. **special control/cleanup visitors:** `visitDrop(...)`, `visitIf(...)`, and `visitThrow(...)` handle their particular safe motion surfaces; and
+3. **generic non-control child extraction:** `visitExpression(...)` moves a legal prefix out of an eligible block-valued child while retaining its tail in that child slot.
 
-- merge safe child block content into the parent block list;
-- merge safe loop-tail block content into the loop body;
-- move safe code out of `drop(block ...)`, `if` conditions, and `throw` operands;
-- preserve break semantics with the break-value cleanup helper path;
-- refinalize after edits.
+The third route is the key current-source clarification. It covers ordinary expression operands such as `array.set`, calls, and stores; it is not limited to the named special visitors. Conversely, `drop`, an `if` condition, and `throw` must not be falsely described as generic `visitExpression(...)` cases: current Binaryen has dedicated visitors for them.
 
-## One-table overview
+This is neither a named-label retargeting pass nor permission to flatten arbitrary nested blocks.
 
-| Source helper | Job |
+## Owner-file structure
+
+| Current owner surface | Job |
 | --- | --- |
-| `optimizeDroppedBlock(...)` | Clean up `(drop (block ...))` shapes and remove dead break values when the branch structure allows it. |
-| `optimizeBlock(...)` | Main recursive block/loop merger that splices eligible child roots into their parent. |
-| `optimizeIf(...)` | Move safe work out of `if` conditions. |
-| `optimizeThrow(...)` | Move safe work out of `throw` operands. |
-| `visitFunction(...)` | Run the pass and refinalize when the body changed. |
-| `ProblemFinder` | Guard the dropped-block / break-value cleanup path, not a named-block retargeting engine. |
+| `visitBlock(...)` / `optimizeBlock(...)` | Merge eligible child blocks into a parent block list. |
+| `visitLoop(...)` | Merge an eligible tail block into a loop body without changing the backedge contract. |
+| `visitDrop(...)` / `optimizeDroppedBlock(...)` | Clean up a dropped block while preserving needed branch values. |
+| `visitIf(...)` | Move a legal block prefix out of the condition only; arms remain regions. |
+| `visitThrow(...)` | Simplify eligible throw operands under the pass's effect boundary. |
+| `visitExpression(...)` | Extract a legal prefix from ordinary non-control expression children. |
+| `visitFunction(...)` | Run the traversal and refinalize after a change. |
+| `ProblemFinder` / break-value helpers | Protect structural cleanup paths that need branch/value reasoning. |
 
-## How the main block merge works
+The previous live table mixed real helpers with nonexistent `optimizeIf(...)` / `optimizeThrow(...)` names and omitted generic `visitExpression(...)`; use this map instead.
 
-The core walk scans a block's root list and looks for child blocks that can be safely absorbed into the parent.
+## Generic non-control expression-child extraction
 
-Typical safe cases are:
+Conceptually, a non-control child can change from:
 
-- an unnamed child block whose roots can be spliced into the parent;
-- a child block at the end of a loop body whose tail can be merged without changing the loop backedge;
-- a child whose leading or trailing work can be moved upward while preserving the final value shape.
+```wat
+(i32.store
+  (block (result i32)
+    PREFIX
+    ADDRESS)
+  VALUE)
+```
 
-The important point is that Binaryen is not just deleting wrappers blindly. It checks the surrounding shape, keeps branch semantics intact, and preserves the block's final expression behavior.
+into:
 
-## Dropped-block cleanup is a separate surface
+```wat
+PREFIX
+(i32.store ADDRESS VALUE)
+```
 
-`optimizeDroppedBlock(...)` handles `drop(block ...)`-style shapes.
+The tail remains in the address child slot. The same generic mechanism applies to other ordinary expression children; the current focused fixture demonstrates this route with aggregate and call operands.
 
-That path can remove break-value work only when the pass can prove the transformed shape is still safe. This is where `ProblemFinder` participates: it protects the break-value cleanup path from unsafe branch interactions.
+### Preconditions
 
-## `if` and `throw` are real pass surfaces
+The generic path is deliberately narrow:
 
-The upstream owner file also moves safe work out of:
+- the child is an **unnamed** list block;
+- it has at least a prefix and a tail;
+- the tail type matches the block result type;
+- the tail remains in the original child slot; and
+- moving the prefix passes Binaryen's effect-order proof against earlier children.
 
-- `if` conditions;
-- `throw` operands.
+The relevant source test is `EffectAnalyzer::orderedBefore(...)`, not a casual “both sides look pure” rule. The rewrite must preserve WebAssembly's left-to-right operand evaluation order.
 
-Those surfaces matter because they show the pass is broader than “merge adjacent blocks.” It is a small local motion pass over several control shapes, not just one syntax pattern.
+## Special visitor routes
 
-## Correctness constraints
+`visitDrop(...)`, `visitIf(...)`, and `visitThrow(...)` are still important source surfaces:
 
-- Do not change branch targets unless the source helper already proved the move is safe.
-- Do not treat `ProblemFinder` as a whole-pass named-label guard; it is a helper in one cleanup path.
-- Do not assume every child block can be absorbed. Shape, effect, and backedge safety all matter.
-- Do not skip refinalization after structural edits.
+- dropped blocks may need break-value handling;
+- only the `if` condition is movable, never an arm body; and
+- throw operands have their own effect-sensitive route.
+
+The right beginner model is therefore: **special visitors cover important control shapes; generic child extraction covers the remaining ordinary expression shapes.**
+
+## Structural block and loop merging
+
+The pass also retains its classic work:
+
+- splice eligible child block roots into a parent block list;
+- merge a safe trailing block in a loop body;
+- preserve branch and result behavior while changing list shape; and
+- refinalize the rewritten AST.
+
+Child-prefix extraction keeps the final block expression as an operand; structural merging can remove the wrapper itself. They share a cleanup goal but have different proof obligations.
+
+## What the pass does **not** prove
+
+- It does not generally rename or retarget labels.
+- It does not move `if` arm bodies through the condition.
+- It does not hoist arbitrary blocks or reorder observable operand effects.
+- It does not replace downstream dead-code cleanup, branch cleanup, or refinalization.
 
 ## What this means for Starshine
 
-Current Starshine `merge-blocks` is related but intentionally different:
+Starshine has two HOT operations:
 
-- it operates on HOT regions, not Binaryen AST nodes;
-- it refuses live labels instead of retargeting them;
-- it repairs dead-before-`unreachable` values before splicing;
-- it keeps the local contract centered on branch-free region-root cleanup.
+- region-root block flattening guarded by label, type-carrier, loop, and writeback constraints; and
+- one narrower expression-child-prefix helper with branch and local effect-order gates.
 
-Read [`./starshine-strategy.md`](./starshine-strategy.md) for the local strategy and [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) for the exact code map.
+This is useful correspondence, not blanket parity evidence. Starshine's single HOT helper supports its local `drop`, `if`, store, and `throw` fixtures; Binaryen reaches those shapes through both special and generic visitor routes. Read [`./starshine-strategy.md`](./starshine-strategy.md) for the local boundary.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
-- [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
-- [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
-- [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
-- [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
-- [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md)
-- Binaryen current-main `MergeBlocks.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
-- Binaryen current-main `merge-blocks.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast>
-- Binaryen `version_129` `MergeBlocks.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeBlocks.cpp>
+- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current-main [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp)
+- Binaryen current-main [`merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast)
+- Binaryen `version_130` [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MergeBlocks.cpp)

@@ -25,6 +25,7 @@ related:
   - exception-tag-authoring.md
   - reference-instruction-authoring.md
   - parametric-instruction-authoring.md
+  - ../wasm-multivalue-core-boundary.md
   - table-instruction-authoring.md
   - gc-type-authoring.md
   - ../validate/module-validation-phases.md
@@ -48,7 +49,7 @@ Use this page when writing, reducing, or widening WAST fixtures that use ordinar
 
 The 2026-06-04 current-source refresh is [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md). The broad original primary-source and local-code manifest remains [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md). The main maintenance split is now explicit: this page owns **ordinary structured-control and label-payload mechanics**, while specialized families route elsewhere instead of duplicating their stack rules here.
 
-Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Reference-sensitive branches (`br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`) are documented in [`reference-instruction-authoring.md`](reference-instruction-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). Detailed `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select caveats live in [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md). This page focuses on the ordinary label stack, branch payloads, fallthrough, and WAST shapes for unreachable continuations. The focused validator-side bottom-value model is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
+Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Reference-sensitive branches (`br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`) are documented in [`reference-instruction-authoring.md`](reference-instruction-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). Detailed `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select caveats live in [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md). Ordinary Core multi-value function/block/branch vectors and Starshine's cross-layer representation are centralized in [`../wasm-multivalue-core-boundary.md`](../wasm-multivalue-core-boundary.md). This page focuses on the ordinary label stack, branch payloads, fallthrough, and WAST shapes for unreachable continuations. The focused validator-side bottom-value model is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 
 ## Beginner Mental Model
 

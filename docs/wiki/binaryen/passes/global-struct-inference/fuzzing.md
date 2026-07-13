@@ -1,19 +1,23 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-06-16
+last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
+  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
 
 # `global-struct-inference` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+Recommended smoke lane: first build the native CLI, then run the ordinary GenValid compare-pass lane for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --out-dir .tmp/pass-fuzz-global-struct-inference --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+moon build --target native --release src/cmd
+bun fuzz compare-pass --count 10000 --seed 0x5eed --pass global-struct-inference --out-dir .tmp/pass-fuzz-global-struct-inference --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
+
+The documented wrapper reaches the same harness implementation as the direct script. Do not substitute a merely present `target/native/...` artifact for the freshly built `_build/native/...` executable unless a timestamp or hash confirms it is current; see [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
 
 Dedicated GenValid profile: none documented for this pass yet.
 

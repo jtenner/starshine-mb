@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
@@ -52,7 +53,7 @@ So the beginner mental model is **copy-shape local traffic balancing with graph-
   - [`../optimize-casts/index.md`](../optimize-casts/index.md)
   - [`../local-subtyping/index.md`](../local-subtyping/index.md)
   - [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
-- The 2026-05-05 current-main recheck keeps that correction fresh without changing the reviewed `MergeLocals.cpp` contract.
+- The 2026-07-11 current-main recheck keeps that upstream contract fresh and reconciles the living dossier with the landed Starshine direct pass: local status is active, but its deliberately linear forward-alias subset is not a `LocalGraph` parity claim.
 
 ## Inputs and outputs
 
@@ -94,7 +95,9 @@ It does **not** rewrite function signatures, heap types, globals, imports, expor
 
 ## Starshine status
 
-Current Starshine has an active `src/passes/merge_locals.mbt` owner file and module-pass dispatcher arm. The pass is no longer a removed-name rejection: `src/passes/optimize.mbt` classifies `merge-locals` as a module pass, `src/passes/pass_manager.mbt` dispatches it, `src/passes/merge_locals_test.mbt` covers the public pipeline spelling plus same-typed copy retargeting and write invalidation, and `scripts/lib/pass-fuzz-compare-task.ts` exposes the direct oracle lane.
+Current Starshine has an active `src/passes/merge_locals.mbt` owner file and module-pass dispatcher arm. The pass is no longer a removed-name rejection: `src/passes/optimize.mbt` classifies `merge-locals` as a module pass, `src/passes/pass_manager.mbt` dispatches it, `src/passes/merge_locals_test.mbt` covers the public pipeline spelling, same-typed forward retargeting, destination-write invalidation, and control-boundary invalidation, and `scripts/lib/pass-fuzz-compare-task.ts` exposes the direct oracle lane.
+
+The exact local boundary matters: the owner scans one expression body at a time, recognizes adjacent `local.get src; local.set dst` copies, records only the forward `src -> dst` alias, invalidates it with destination write epochs, and clears outer aliases around structured control. It has no upstream-style `LocalGraph`, reverse orientation, or post-rewrite rollback. Direct green fuzzing proves this narrower transform family, not full upstream graph parity.
 
 Validation evidence from the 2026-05-06 post-fuzzer-change direct revalidation:
 
@@ -124,6 +127,7 @@ Remaining implementation debt is the broader LocalGraph-equivalent retargeting e
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md`](../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md)
 - [`../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md`](../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md)
 - [`../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md)

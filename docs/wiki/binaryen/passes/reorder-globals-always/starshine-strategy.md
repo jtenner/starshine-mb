@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
@@ -35,8 +36,8 @@ That means:
 - it is not available in the active hot or module optimizer pipeline
 - explicit user requests are rejected with the standard boundary-only error
 - public `optimize` and `shrink` presets do not schedule it
-- there is no `src/passes/reorder_globals_always.mbt` owner file today
-- there is also no shared `src/passes/reorder_globals.mbt` owner file that could host both the production and always variants today
+- there is no dedicated `src/passes/reorder_globals_always.mbt` owner file today
+- active production [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt) is the natural future shared-engine home, but it does not expose an always-mode entrypoint today
 
 The important local distinction is:
 
@@ -49,11 +50,10 @@ The fastest local read-along path is:
 
 - boundary-only name tracking
   - [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
-  - `pass_registry_boundary_only_names()` includes both `"reorder-globals"` and `"reorder-globals-always"`
-- preset omission
-  - [`src/passes/optimize.mbt#L242-L270`](../../../../../src/passes/optimize.mbt#L242-L270)
-  - [`src/passes/optimize.mbt#L382-L410`](../../../../../src/passes/optimize.mbt#L382-L410)
-  - the public `optimize` / `shrink` pass lists do not include either global-reorder sibling
+  - `pass_registry_boundary_only_names()` includes `"reorder-globals-always"`; production `reorder-globals` is an active module-pass entry
+- preset distinction
+  - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+  - the public `optimize` / `shrink` late tail includes production `reorder-globals` but omits the boundary-only always sibling
 - active request rejection
   - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
   - boundary-only entries return `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
@@ -69,14 +69,14 @@ The fastest local read-along path is:
   - [`src/lib/types.mbt#L539-L540`](../../../../../src/lib/types.mbt#L539-L540) defines `GlobalGet` / `GlobalSet`
   - [`src/lib/types.mbt#L8059-L8061`](../../../../../src/lib/types.mbt#L8059-L8061) constructs a `GlobalSec`
 
-This is enough to prove the current local state precisely: recognized name, rejected active request, no scheduled preset, no owner file, and a clear future whole-module remap surface.
+This is enough to prove the current local state precisely: the always name is recognized and rejected, production `reorder-globals` is active and preset-scheduled, no dedicated always entrypoint exists, and the sibling still needs a clear whole-module remap surface.
 
 ## What Starshine currently does for the pass name
 
 ### 1. Keeps the spelling known
 
 Keeping `reorder-globals-always` in `pass_registry_boundary_only_names()` prevents the pass from becoming an unknown spelling.
-That is useful because Binaryen exposes the sibling as a real pass name and because the neighboring `reorder-globals` / `global-struct-inference` docs need the split to stay explicit.
+That is useful because Binaryen deliberately registers the sibling for tests/internal fixup and because the neighboring `reorder-globals` / `global-struct-inference` docs need the split to stay explicit.
 
 ### 2. Rejects explicit execution honestly
 
@@ -105,7 +105,7 @@ A faithful future Starshine design should probably share one module-pass engine 
 | Cost model | real stepped index-size model | smooth `1.0 + (i / 128.0)` model |
 | Legality | imports-first and initializer dependencies | same |
 | Tie behavior | original index remains the stable fallback | same |
-| Starshine status today | boundary-only with `RG` backlog | boundary-only with no dedicated sibling slice |
+| Starshine status today | active module pass in the late preset tail | boundary-only with no dedicated sibling slice |
 
 The shared local engine would need to:
 
@@ -181,7 +181,7 @@ For production parity, use the `RG` backlog and [`../reorder-globals/starshine-s
 
 Current Starshine strategy for `reorder-globals-always` is:
 
-- keep the real Binaryen pass spelling tracked in [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
+- keep the test-registered Binaryen spelling tracked in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) without conflating it with active production `reorder-globals`
 - keep active requests honest through the boundary-only guard at [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
 - keep it out of public presets until a shared global-reorder module engine exists
 - reuse the production [`reorder-globals`](../reorder-globals/index.md) port plan whenever the project implements the family

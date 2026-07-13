@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
@@ -190,10 +191,10 @@ Without those tests it would be very easy to misdescribe `call.without.effects` 
 The final tests show:
 
 - signatures used by tags are frozen completely
-- signatures used by continuations keep their params unchanged
+- continuation-used signatures are fully unchanged in `version_130` / current `main`, including results
 - a different signature in the same continuation-using module can still refine
 
-Those families matter because the source applies different blocker strengths to tags and continuations.
+The current source applies the same full-blocker strength to tags and continuations, although their unupdated user families differ. The older params-only continuation rule is historical `version_129` behavior.
 
 ## The tests teach four especially important misconceptions to avoid
 
@@ -220,20 +221,12 @@ The dedicated late-file tests show it matters for both param and result refineme
 
 ## Freshness note
 
-The 2026-05-05 raw manifest in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md) refreshes the official source and test URLs used for this dossier.
-I did a 2026-05-05 current-`main` recheck on:
+The older 2026-05-05 manifest is retained as historical provenance, but the current source bridge is [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md). Its `version_130` / current-main reread found two corrections:
 
-- `src/passes/SignatureRefining.cpp`
-- `src/passes/pass.cpp`
-- `test/lit/passes/signature-refining.wast`
+- continuation-used signature types now receive the full `canModify = false` blocker, rather than `version_129`'s params-only freeze; and
+- `worldMode` is passed to both public-heap-type discovery and the global signature rewriter.
 
-Durable result:
-
-- the checked core pass structure still matches `version_129` on the important reviewed surfaces
-- the dedicated lit file still matches exactly on the reviewed surface
-- the new freshness manifest records the no-drift result on the reviewed surfaces
-
-That is a narrow freshness note, not a proof that every neighboring helper file is identical.
+The reviewed owner, registration/default scheduler, and dedicated fixture otherwise preserve the documented gates and phase structure. This remains a focused source reconciliation, not proof that every helper is byte-identical.
 
 ## Porting checklist
 
@@ -243,7 +236,7 @@ A future Starshine port would need to mirror at least these file-level responsib
 - GC + no-table gate behavior
 - per-function direct-call, `call_ref`, and returned-value collection
 - heap-type-level aggregation across sibling functions
-- public/import/tag/JS-called/continuation/subtyping freeze rules
+- public/import/tag/continuation/subtyping full-freeze rules plus the narrower JS-called params-only rule
 - caller-driven parameter LUB computation
 - returned-value-driven result LUB computation
 - body repair for sharper params via fixup locals when needed
@@ -263,6 +256,7 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)

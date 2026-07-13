@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
@@ -111,7 +112,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
   - and the sibling `gsi-desc-cast` variant can rewrite some `ref.cast` checks to descriptor-equality casts
 - Atomic gets are **not automatically excluded**.
   - if the field is immutable, Binaryen treats atomic reads as safe to optimize because there are no writes to synchronize with
-- A focused 2026-05-06 current-main recheck found **no teaching-relevant post-`version_129` drift** in the reviewed owner, registration, helper, and dedicated-lit surfaces.
+- The 2026-07-11 `version_130` / current-main recheck found **no behavior-bearing drift** in the reviewed owner, registration, and dedicated plain-pass fixture surfaces; the older 2026-05-06 bridge remains historical provenance for the `version_129` correction.
 
 ## Biggest beginner correction
 
@@ -162,14 +163,14 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A focused 2026-05-06 current-main recheck found **no teaching-relevant post-`version_129` drift** in the owning official surfaces used for this dossier.
+The 2026-07-11 `version_130` / current-main recheck found **no behavior-bearing drift** in the owning official surfaces used for this dossier.
 
-- current `main` still shows the same `run` mode split, open-world optimizer call, closed-world `typeGlobals` gate, un-nesting repair, and plain/sibling factory split
-- current `main` `test/lit/passes/gsi.wast` remains the relevant dedicated plain-pass proof surface in the reviewed source bridge
+- released `version_130` and current `main` retain the same GC/world-mode gate, open-world optimizer call, closed-world `typeGlobals` analysis, bounded one/two-value replacement policy, un-nesting repair, refinalization, and plain/sibling factory split
+- both reviewed `gsi.wast` fixtures remain the relevant dedicated plain-pass proof surface
 
 So the durable rule is:
 
-- treat Binaryen `version_129` as the released oracle for this dossier
+- treat Binaryen `version_130` as the released oracle for this dossier
 - keep the current-main note explicit only to say there is no visible source or dedicated-lit semantic drift right now
 
 ## Current maintenance rule

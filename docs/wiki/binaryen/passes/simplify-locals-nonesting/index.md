@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
   - ../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md
@@ -44,8 +45,8 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) under the alias `simplify-locals-no-nesting`.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `simplify-locals-nonesting` or `simplify-locals-no-nesting` slice**.
-- A 2026-04-25 refresh added an immutable Binaryen primary-source manifest and a dedicated Starshine status page; a 2026-04-26 bridge added current-main port-readiness sources plus a first-slice / validation page. Older note `0186` remains useful for mechanics but is superseded for raw-source provenance and local status.
-- Official Binaryen `pass.cpp` describes it as a locals pass with **no nesting at all** that **preserves flatness**.
+- A 2026-04-25 refresh added an immutable Binaryen primary-source manifest and a dedicated Starshine status page; a 2026-04-26 bridge added port-readiness sources plus a first-slice / validation page. The focused 2026-07-11 current-main recheck confirms the shared owner, public spelling, flatness wording, factory, and dedicated golden pair remain current; it found no behavior-bearing drift in those reviewed surfaces. Older note `0186` remains useful for mechanics but is superseded for raw-source provenance and local status.
+- Official Binaryen `pass.cpp` still describes it as a locals pass with **no nesting at all** that **preserves flatness**.
 
 ## Why this pass matters
 
@@ -146,6 +147,7 @@ A dedicated folder was still justified because:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md)
 - [`../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)

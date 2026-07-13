@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
@@ -17,7 +18,7 @@ related:
 # `minimize-rec-groups`: permutations, brands, and public conflicts
 
 This page is the focused guide to the hardest half of `minimize-rec-groups`.
-It should be read with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md) and the Starshine status map in [`./starshine-strategy.md`](./starshine-strategy.md).
+It should be read with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md), the current-main world-policy correction in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md), and the Starshine status map in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 If you only remember one thing from this dossier, remember this:
 
@@ -42,7 +43,7 @@ That is the real reason the pass is more than Tarjan's algorithm.
 ## Public groups are immutable collisions
 
 Public groups are never rewritten.
-But the pass still records their shapes before it rewrites any private types.
+But the pass still records their shapes before it rewrites any private types. Current `main` makes the policy dependency explicit: the same `WorldMode` used to classify that public/private boundary must be passed to final global rewriting, so a port cannot safely treat visibility as a one-off prepass detail.
 
 That means a later private group can collide with:
 
@@ -297,6 +298,7 @@ It is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)

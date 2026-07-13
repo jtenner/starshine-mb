@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -29,8 +30,7 @@ related:
 
 # Upstream implementation structure and test map for `type-merging`
 
-Use this page with the 2026-04-24 raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md).
-The manifest pair is the immutable source list; this page is the teaching map.
+Use this page with the 2026-04-24 raw primary-source manifest and the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). The latter supersedes the prior current-main bridge's claim that `version_129` differed only cosmetically; this page remains the teaching map.
 
 ## Why this page exists
 
@@ -41,7 +41,7 @@ This page maps the actual upstream source surface that defines the pass contract
 
 | File | Why it matters | What it proves |
 | --- | --- | --- |
-| `src/passes/TypeMerging.cpp` | Core implementation | The real pass: closed-world+GC gates, cast scanning, private-type candidate pool, supertype-vs-sibling partitioning, DFA refinement, descriptor-chain handling, `TypeMapper` rewrite, and post-merge `ReFinalize`. |
+| `src/passes/TypeMerging.cpp` | Core implementation | The real pass: GC plus non-open `WorldMode` gate, world-aware private-type candidate pool and `TypeMapper` rewrite, cast scanning, supertype-vs-sibling partitioning, DFA refinement, descriptor-chain handling, and post-merge `ReFinalize`. |
 | `src/passes/pass.cpp` | Public registration | `type-merging` is a real public Binaryen pass with a stable CLI name and a tiny public description. |
 | `src/wasm-type-ordering.h` | Ancestor ordering helper | The pass's target-choice and partition seeding are deliberately supertype-first rather than arbitrary set iteration. |
 | `src/support/dfa_minimization.h` | Partition-refinement engine | The pass's equivalence proof is a generic DFA partition minimizer, not an ad hoc loop over local type syntax. |
@@ -61,25 +61,9 @@ The implementation file is what expands it into the real contract.
 
 ## Freshness check against current `main`
 
-I did a narrow current-`main` spot check and recorded it in the 2026-04-24 raw primary-source manifest.
+The [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md) corrects the old conclusion. Compared with `version_129`, `version_130` and current `main` replace the Boolean `closedWorld` entry check with a `WorldMode::Open` rejection and carry `worldMode` through both `ModuleUtils::getPrivateHeapTypes(...)` and `TypeMapper(...)`.
 
-### `TypeMerging.cpp`
-
-The checked diff from `version_129` to current `main` on the reviewed surface is only:
-
-- a comment typo fix (`differentiatable` -> `differentiable`)
-
-No reviewed algorithmic drift appeared in that diff.
-
-### `pass.cpp`
-
-Current `main` still registers `type-merging` under the same public name.
-
-### `type-merging.wast`
-
-Current `main` still ships the dedicated lit file and its leading run line matches the reviewed `version_129` surface.
-
-So `version_129` is a safe source oracle for this dossier.
+Current `main` still registers the same public name and retains the dedicated lit file. The partition-refinement algorithm and test families remain the right teaching baseline, but `version_129` is **not** sufficient as the current world-policy oracle. Future ports must model one world/visibility policy across gate, candidate collection, and rewrite.
 
 ## What the dedicated lit file proves
 
@@ -191,6 +175,7 @@ If you want the shortest high-confidence ownership map:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
 - [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)

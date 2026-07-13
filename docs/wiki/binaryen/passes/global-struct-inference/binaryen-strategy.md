@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
@@ -23,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the released primary source oracle for this pass, with the immutable source capture in [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md) as the repo-local manifest and the 2026-05-06 current-main recheck in [`../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md) as the freshness bridge.
+Use Binaryen `version_130` as the released primary source oracle for this pass. The immutable baseline manifest remains [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md); the current freshness bridge is [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md). The older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
 
 Primary files:
 
@@ -421,14 +422,14 @@ That is much broader than the current local MoonBit test surface.
 
 ## Current freshness note
 
-A focused 2026-05-06 current-main recheck found no teaching-relevant drift here on the reviewed owner, registration, helper, and dedicated-lit surfaces:
+The 2026-07-11 `version_130` / current-main recheck found no behavior-bearing drift here on the reviewed owner, registration, and dedicated-lit surfaces:
 
 - current `main` still shows the same mode split: optional closed-world analysis followed by `optimize(module)` in all modes
 - current `main` still shows un-nesting plus nested `reorder-globals-always`
 - current `main` still shows the plain `gsi` / sibling `gsi-desc-cast` factory split
 - current `main` `gsi.wast` remains the dedicated plain-pass proof surface reviewed for this dossier
 
-So the current wiki should continue treating `version_129` as the released semantic oracle without an active trunk-drift caveat. The 2026-05-06 check was a focused source bridge, not a full post-`version_129` trunk audit.
+So the current wiki should treat `version_130` as the released semantic oracle without an active trunk-drift caveat. The 2026-07-11 check is a focused owner/registration/fixture bridge, not a full semantic diff across all post-release history.
 
 ## What a future port or parity pass must preserve
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
   - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -32,7 +33,7 @@ related:
 
 # Starshine Strategy For `minimize-rec-groups`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md) and the current-main policy correction in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
@@ -143,8 +144,8 @@ That matches the reviewed Binaryen story for this pass: `version_129` registers 
 A faithful port should preserve the source-backed contract from the rest of this folder:
 
 - require GC/type-section support before rewriting
-- collect all heap types and classify public versus private groups
-- rewrite only private groups
+- choose one explicit world/visibility policy, then collect all heap types and classify public versus private groups under it
+- rewrite only private groups under that same policy
 - record public group shapes as immutable collision targets
 - compute private-type SCCs without public edges merging private SCCs
 - build valid intra-SCC order graphs for subtype and descriptor constraints
@@ -156,6 +157,7 @@ A faithful port should preserve the source-backed contract from the rest of this
 - rebuild new rec groups and maintain old-to-new type maps
 - update type uses, type names, and type indices across the module
 - validate or refinalize after rewrite
+- add focused mode-specific fixtures before claiming parity for each supported world/visibility policy
 
 For the upstream details, use:
 
@@ -240,6 +242,6 @@ So the right mental model today is:
 
 - **no transform yet**
 - **clear boundary-only registry behavior**
-- **source-backed Binaryen `minimize-rec-groups` contract**
+- **source-backed Binaryen `minimize-rec-groups` contract, including coherent world/visibility policy across candidate selection and rewriting**
 - **future module/type-section infrastructure still required**
 - **no open-world no-DWARF parity obligation today**

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
@@ -38,8 +39,7 @@ related:
 
 # Starshine Strategy For `type-merging`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, the new port-readiness bridge, and the main infrastructure gaps a future parity port must resolve.
+Use this page with the raw primary-source manifest and the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). That recheck supersedes the older current-main bridge's Boolean-gate conclusion: current Binaryen carries `worldMode` from admission into private-type classification and type rewriting. The goal here is to show the exact current Starshine status and the infrastructure a future parity port must resolve.
 
 ## The honest current status
 
@@ -109,7 +109,7 @@ A faithful Starshine port would need to reason over:
 
 - the module's full heap-type inventory
 - public versus private heap-type visibility
-- GC and closed-world gates
+- GC plus explicit non-open-world admission, private-type classification, and rewrite policy
 - cast-like observability in all function bodies and module-scope expressions
 - exact cast targets as a stricter barrier than ordinary casts
 - supertype-first target ordering
@@ -153,8 +153,9 @@ That matches the current local strategy: `type-merging` has no open-world no-DWA
 
 A faithful port should preserve the source-backed contract from the rest of this folder:
 
-- require GC support and closed-world mode before rewriting
-- collect all private heap types as candidate sources
+- require GC support and define an explicit non-open-world policy before rewriting
+- use that same policy for private-type classification and every type rewrite, rather than copying only Binaryen `version_129`'s Boolean gate
+- collect all policy-eligible private heap types as candidate sources
 - treat public types and casts as observability boundaries
 - scan `ref.cast`, exact casts, `ref.test`, `br_on_cast` / `br_on_cast_fail`, and `call_indirect` heap-type targets
 - merge private types into safe supertypes before attempting sibling merges
@@ -252,7 +253,7 @@ A future implementation should validate in layers:
 
 ## Current uncertainty and recommendation
 
-The main local uncertainty is where the shared type-graph rewrite infrastructure should live.
+The main local uncertainties are where the shared type-graph rewrite infrastructure should live **and** which explicit world/visibility modes Starshine will expose. The current Binaryen owner proves only that `Open` is rejected and that its selected `worldMode` reaches candidate selection and `TypeMapper`; it does not authorize a local Boolean shortcut.
 A one-off `type-merging` implementation would duplicate machinery that nearby passes also need:
 
 - [`remove-unused-types`](../remove-unused-types/index.md) needs public/private heap-type reachability and module-wide type-section rewriting.

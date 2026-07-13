@@ -1,7 +1,7 @@
 ---
 kind: workflow
-status: active
-last_reviewed: 2026-07-01
+status: working
+last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
