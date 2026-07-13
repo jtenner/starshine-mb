@@ -243,7 +243,6 @@ sources:
   - ../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
   - ../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md
   - ../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
   - ../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
@@ -713,7 +712,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
 - [`../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
-- [`../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
 - [`../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)

@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
   - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cli/cli.mbt
@@ -129,7 +128,6 @@ Neighboring pass pages:
 - [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)
