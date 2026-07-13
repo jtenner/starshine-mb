@@ -7,7 +7,6 @@ sources:
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
-  - ../../../raw/binaryen/2026-04-22-local-subtyping-primary-sources.md
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
   - ../../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
