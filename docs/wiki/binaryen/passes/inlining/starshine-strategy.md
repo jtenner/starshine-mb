@@ -4,7 +4,6 @@ status: working
 last_reviewed: 2026-06-02
 sources:
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md

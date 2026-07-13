@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
-  - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
