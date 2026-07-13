@@ -9,7 +9,6 @@ sources:
   - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
   - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
 related:

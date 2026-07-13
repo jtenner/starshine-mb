@@ -44,7 +44,6 @@ sources:
   - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md

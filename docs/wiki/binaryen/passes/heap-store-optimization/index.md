@@ -293,7 +293,6 @@ sources:
   - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
@@ -327,7 +326,6 @@ related:
   - ./starshine-port-readiness-and-validation.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../optimize-instructions/index.md
@@ -632,9 +630,7 @@ What it actually is in `version_129`:
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Compact validation bridge for the active local implementation, with the exact unit, perf, CLI replay, source-spotcheck, and refreshed direct `pass-fuzz-compare` parity surfaces.
 - [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
-  - Focused current-main source bridge plus exact Starshine code-map refresh for this dossier on 2026-05-05.
-- [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
-  - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
+  - Focused current-main source bridge plus exact Starshine code-map refresh; its retained direct `version_129`/current source and lit URLs preserve the earlier manifest's useful provenance.
 
 ## Freshness and naming note
 
@@ -670,7 +666,6 @@ Current durable answer:
 ## Sources
 
 - [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
 - [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md`](../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md)
 - [`../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md`](../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md)
@@ -682,6 +677,7 @@ Current durable answer:
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- Binaryen `version_129` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
 - Binaryen `version_130` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/HeapStoreOptimization.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
@@ -693,6 +689,10 @@ Current durable answer:
 - Historical Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/HeapStoreOptimization.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/cfg-traversal.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/heap-store-optimization.wast>
 - Narrow freshness and naming sources:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/HeapStoreOptimization.cpp>

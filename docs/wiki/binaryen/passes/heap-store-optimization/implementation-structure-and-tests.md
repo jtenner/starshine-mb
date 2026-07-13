@@ -226,7 +226,6 @@ sources:
   - ../../../raw/research/0798-2026-06-20-heap-store-optimization-active-catch-throw-negative.md
   - ../../../raw/research/0797-2026-06-20-heap-store-optimization-external-exits.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0796-2026-06-20-heap-store-optimization-disappearing-bad-get.md
   - ../../../raw/research/0795-2026-06-20-heap-store-optimization-nested-control-sequence.md
@@ -744,7 +743,6 @@ It also does not claim that Starshine's wrapper-cleanup machinery exists upstrea
 ## Sources
 
 - [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
 - [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
