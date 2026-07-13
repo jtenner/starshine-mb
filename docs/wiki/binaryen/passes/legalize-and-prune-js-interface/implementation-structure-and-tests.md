@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
   - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
@@ -19,7 +18,7 @@ related:
 
 # `legalize-and-prune-js-interface` implementation structure and tests
 
-Use this page with the 2026-04-24 raw primary-source capture in [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md). The capture records the official release page, shared owner file, registration source, and dedicated lit fixture reviewed for this dossier.
+The direct Binaryen `version_129` release, shared-owner-file, registration, and dedicated-lit-fixture URLs listed in this dossier, together with the retained 2026-04-24 follow-up research, record the reviewed provenance.
 
 ## Owner file map
 

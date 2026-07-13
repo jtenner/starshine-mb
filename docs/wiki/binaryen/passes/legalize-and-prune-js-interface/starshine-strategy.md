@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
   - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -31,7 +30,7 @@ related:
 
 # Starshine Strategy For `legalize-and-prune-js-interface`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md).
+Use this page with the dossier's direct Binaryen `version_129` source and fixture URLs plus the retained 2026-04-24 follow-up research.
 The goal here is not to re-explain upstream Binaryen; it is to make the exact current Starshine status and future port surface easy to follow.
 
 ## The honest current status

@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
   - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - ../legalize-js-interface/index.md
@@ -62,7 +61,7 @@ So this pass is best taught as:
 ## Most important durable takeaways
 
 - The entire reviewed `version_129` contract still lives in the same shared owner file as the plain sibling: `LegalizeJSInterface.cpp`.
-- The 2026-04-24 raw capture anchors this claim to the official Binaryen `version_129` release page, shared owner file, `pass.cpp` registration, and dedicated prune lit fixture.
+- Direct Binaryen `version_129` release, owner-file, registration, and dedicated prune-fixture URLs below, plus the retained 2026-04-24 follow-up research, anchor this claim.
 - The pass is implemented as `LegalizeAndPruneJSInterface : LegalizeJSInterface`, and its `run(...)` literally calls the plain pass first and `prune(module)` second.
 - The prune legality rule is broader than the plain pass's `i64` test: it rejects boundary-visible types whose feature set includes SIMD, multivalue, exception handling, or stack switching.
 - Multivalue **params** are tolerated, but multivalue **results** are not.
@@ -94,7 +93,6 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md)
 - [`../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md`](../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md`](../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

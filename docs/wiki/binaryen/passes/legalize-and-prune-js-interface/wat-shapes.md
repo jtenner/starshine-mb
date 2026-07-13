@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
   - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/legalize-and-prune-js-interface.wast
@@ -18,7 +17,7 @@ related:
 
 # WAT shapes for `legalize-and-prune-js-interface`
 
-Use this page with the 2026-04-24 raw primary-source capture in [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md). The examples below are teaching shapes distilled from Binaryen's dedicated prune fixture and the inherited plain JS-interface wrapper fixture family.
+These teaching shapes are distilled from the direct Binaryen `version_129` dedicated prune fixture and inherited plain JS-interface wrapper fixture family; the retained 2026-04-24 follow-up research documents the review.
 
 ## Purpose
 
