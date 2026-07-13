@@ -1233,24 +1233,31 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
     return true
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
-  match consumed.op {
-    @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => ()
-    _ => return false
-  }
   if @ir.node_use_count(use_def, consumed_id) != 1 ||
-    @ir.hot_child_get(func, consumed_id, 0) != payload_id ||
-    !flatten_node_is_simple_operand(
-      func,
-      @ir.hot_child_get(func, consumed_id, 1),
-    ) {
+    @ir.hot_child_count(func, consumed_id) == 0 ||
+    @ir.hot_child_get(func, consumed_id, 0) != payload_id {
     return false
   }
-  let payload_types = @ir.hot_type_results(
-    func,
-    @ir.hot_node_get(func, payload_id).ty,
-  )
-  let consumed_types = @ir.hot_type_results(func, consumed.ty)
-  payload_types.length() == 1 && consumed_types == payload_types
+  match consumed.op {
+    @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => {
+      if !flatten_node_is_simple_operand(
+          func,
+          @ir.hot_child_get(func, consumed_id, 1),
+        ) {
+        return false
+      }
+      let payload_types = @ir.hot_type_results(
+        func,
+        @ir.hot_node_get(func, payload_id).ty,
+      )
+      let consumed_types = @ir.hot_type_results(func, consumed.ty)
+      payload_types.length() == 1 && consumed_types == payload_types
+    }
+    @ir.HotOp::Unary | @ir.HotOp::Convert =>
+      @ir.hot_child_count(func, consumed_id) == 1 &&
+      @ir.hot_node_exact_instr(func, consumed_id) is Some(_)
+    _ => false
+  }
 }
 
 ///|
