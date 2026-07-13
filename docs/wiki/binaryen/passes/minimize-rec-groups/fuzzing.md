@@ -4,7 +4,6 @@ status: planned
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
-  - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt

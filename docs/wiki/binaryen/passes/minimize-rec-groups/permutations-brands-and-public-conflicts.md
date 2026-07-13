@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
-  - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
 related:
@@ -18,7 +17,7 @@ related:
 # `minimize-rec-groups`: permutations, brands, and public conflicts
 
 This page is the focused guide to the hardest half of `minimize-rec-groups`.
-It should be read with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md), the current-main world-policy correction in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md), and the Starshine status map in [`./starshine-strategy.md`](./starshine-strategy.md).
+It should be read with the retained 2026-04-24 primary-source follow-up research, the current-main world-policy correction in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md), and the Starshine status map in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 If you only remember one thing from this dossier, remember this:
 
@@ -299,7 +298,6 @@ It is:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - Binaryen `version_129`:

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
-  - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -153,7 +152,6 @@ What it actually is in `version_129`:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
