@@ -63,7 +63,7 @@ sources:
   - ../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
+  - ../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md

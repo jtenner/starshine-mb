@@ -14,7 +14,7 @@ sources:
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
+  - ../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../../src/passes/optimize.mbt
@@ -54,7 +54,7 @@ sources:
   - ../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
-  - ../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
+  - ../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
   - ../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
   - ../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md

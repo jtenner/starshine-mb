@@ -10,7 +10,6 @@ sources:
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
-  - ../../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
