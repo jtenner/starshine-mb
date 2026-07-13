@@ -350,15 +350,6 @@ fn merge_blocks_lift_expression_block_children(
       return 0
     _ => ()
   }
-  match root_node.op {
-    @ir.HotOp::Drop => {
-      // Dropped block expressions can still carry additional tuple lanes that
-      // survive past the drop. Lifting child block prefixes into sibling roots
-      // breaks that grouped carrier shape and can lower to invalid stack traffic.
-      return 0
-    }
-    _ => ()
-  }
   let child_count = @ir.hot_child_count(func, root_id)
   if child_count == 0 {
     return 0
@@ -418,6 +409,29 @@ fn merge_blocks_lift_expression_block_children(
   ignore(@ir.hot_replace_child_span(func, root_id, next_children))
   ignore(@ir.hot_region_splice(func, region_ref, idx, 0, lifted_prefixes))
   lifted_prefixes.length()
+}
+
+///|
+fn merge_blocks_node_has_drop_parent_use(
+  func : @ir.HotFunc,
+  target_id : Int,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Drop => {
+        for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+          if @ir.hot_child_get(func, node_id, slot) == target_id {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -522,13 +536,6 @@ fn merge_blocks_flatten_region_root_block(
     func,
     @ir.hot_node_type(func, block_id),
   ).length()
-  if @ir.node_use_count(@ir.use_def_build(func), block_id) > 1 {
-    // Shared block nodes can appear both as region roots and as value children
-    // (for example, a multivalue block fed into `drop` while another lane stays
-    // live). Flattening the root copy empties the shared node out from under the
-    // child user and lowers invalid stack traffic.
-    return false
-  }
   if pass_label_is_used(label_id, label_used) {
     // Keep live-label blocks intact. Pulling prefixes out of a block that is
     // still a branch target can change the active label stack seen by branches
@@ -544,11 +551,13 @@ fn merge_blocks_flatten_region_root_block(
     ) {
     return false
   }
-  if result_count > 1 && idx + 1 < @ir.hot_region_root_count(func, region_ref) {
-    // Multi-result root blocks can legally feed later roots such as `drop`, but
-    // flattening them into sibling roots loses the grouped result boundary that
-    // lowering relies on to preserve stack order. Keep the wrapper until the
-    // parent region consumes the tuple at once.
+  if param_count == 0 &&
+    result_count > 1 &&
+    merge_blocks_node_has_drop_parent_use(func, block_id) {
+    // Zero-param multivalue root blocks can be shared with a sibling `drop`
+    // that discards one lane while another stays live. Flattening the rooted
+    // copy empties the shared node out from under the drop user and lowers
+    // invalid stack traffic. Keep that grouped carrier intact.
     return false
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
