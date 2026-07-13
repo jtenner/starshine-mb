@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-03
 sources:
-  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
@@ -631,4 +631,4 @@ Its job is to clean up a narrow family of run-once control scaffolding early eno
 
 ## Freshness note
 
-The 2026-04-22 raw primary-source capture rechecked the official `version_129` release page plus the current `main` `OnceReduction.cpp` and dedicated `once-reduction.wast` file, and did not surface a new teaching-relevant drift in the positive or bailout shape families summarized here.
+The 2026-04-22 source review rechecked the official `version_129` release page plus the current-`main` `OnceReduction.cpp` and dedicated `once-reduction.wast` file, without finding a teaching-relevant drift in these positive or bailout shape families. The retained 2026-06-08 behavior inventory later confirmed that `version_130` kept the same owner and dedicated lit surface.

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-22
 sources:
-  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
 related:
@@ -235,4 +235,4 @@ A future strict-parity implementation must keep these durable facts explicit:
 
 ## Freshness note
 
-The 2026-04-22 raw primary-source capture rechecked the official `version_129` release page plus the current `main` `OnceReduction.cpp` and dedicated `once-reduction.wast` surfaces, and did not surface a new teaching-relevant drift in the dominance, summary-propagation, or wrapper-cycle rules described here.
+The 2026-04-22 source review rechecked the official `version_129` release page plus the current-`main` `OnceReduction.cpp` and dedicated `once-reduction.wast` surfaces, without finding a teaching-relevant drift in these dominance, summary-propagation, or wrapper-cycle rules. The retained 2026-06-08 behavior inventory later confirmed that `version_130` kept the same owner and dedicated lit surface.

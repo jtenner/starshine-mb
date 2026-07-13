@@ -3,7 +3,6 @@ kind: comparison
 status: signed-off
 last_reviewed: 2026-06-08
 sources:
-  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
@@ -95,11 +94,7 @@ The compare run reported `9975` compared cases, `9975` normalized matches, `0` s
 
 ## Current evidence
 
-The dossier now has an immutable raw provenance capture at:
-
-- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
-
-That 2026-04-22 capture records that the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**, and that a narrow current-`main` spot check did not surface a new teaching-relevant drift in the upstream source/test surfaces this parity note depends on.
+The 2026-04-22 source review recorded that the official Binaryen `version_129` release page showed publish date **2026-04-01** and found no teaching-relevant drift in the reviewed current-`main` source/test surfaces at that time. The retained 2026-06-08 behavior inventory later confirmed that local Binaryen `version_130` kept the same `OnceReduction.cpp` and dedicated lit source for this pass.
 
 ## Saved generated-artifact audit
 

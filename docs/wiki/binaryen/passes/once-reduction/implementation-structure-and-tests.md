@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-22
 sources:
-  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
 related:
@@ -141,11 +141,10 @@ If Starshine eventually tightens or re-ports `once-reduction`, the local port sh
 
 ## Freshness note
 
-The 2026-04-22 raw primary-source capture rechecked the official release page, `OnceReduction.cpp`, `intrinsics.h`, `pass.cpp`, and the dedicated `once-reduction.wast` file, and did not surface a new teaching-relevant implementation or test-map drift beyond this page's current claims.
+The 2026-04-22 source review rechecked the official release page, `OnceReduction.cpp`, `intrinsics.h`, `pass.cpp`, and the dedicated `once-reduction.wast` file without finding a teaching-relevant implementation or test-map drift. The retained 2026-06-08 behavior inventory later confirmed that `version_130` kept the same owner and dedicated lit surface for this pass.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
 - [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

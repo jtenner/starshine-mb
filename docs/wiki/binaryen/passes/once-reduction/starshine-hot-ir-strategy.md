@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-08
 sources:
-  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
@@ -234,4 +233,4 @@ Future work on this pass should keep behavior parity and implementation-shape pa
 
 ## Freshness note
 
-The 2026-04-22 raw primary-source capture re-anchored this page to the reviewed official `version_129` release/source/test surfaces. The 2026-06-03 O4z audit refreshed the local implementation map and direct parity evidence after adding block-root, defined-idempotent, boundary, and escape-shape coverage.
+The 2026-04-22 source review re-anchored this page to the reviewed official `version_129` release/source/test surfaces. The retained 2026-06-08 behavior inventory confirmed that the `version_130` owner and dedicated lit file were unchanged for this pass, while the 2026-06-03 O4z audit refreshed the local implementation map and direct parity evidence after adding block-root, defined-idempotent, boundary, and escape-shape coverage.

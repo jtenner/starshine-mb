@@ -181,7 +181,7 @@ sources:
   - ../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
   - ../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
-  - ../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
@@ -682,7 +682,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
 - [`../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md`](../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md)
 - [`../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
-- [`../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
 - [`../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
 - [`../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
 - [`../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md)

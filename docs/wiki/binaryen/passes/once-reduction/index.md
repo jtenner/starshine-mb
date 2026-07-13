@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-08
 sources:
-  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
@@ -141,18 +140,14 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-The dossier now has an immutable raw provenance capture at:
+The 2026-04-22 source review recorded that the official Binaryen `version_129` release page showed publish date **2026-04-01** and found no teaching-relevant drift in the reviewed `version_129` and current-`main` pass/test surfaces at that time.
 
-- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
-
-That 2026-04-22 capture rechecked the official Binaryen GitHub release page for `version_129`, where GitHub showed publish date **2026-04-01**, and also rechecked the core pass/test surfaces on `version_129` and `main`.
-
-The narrow current-`main` spot check did **not** surface a new teaching-relevant contract drift beyond the dossier's existing claims. The 2026-06-03 O4z audit updated only the Starshine-local status and evidence; it did not re-open the upstream source freshness check.
+The retained 2026-06-08 behavior inventory then rechecked local Binaryen `version_130`: its `OnceReduction.cpp` and dedicated lit file were unchanged from `version_129` for this pass. The 2026-06-03 O4z audit updated Starshine-local status and evidence without reopening a later upstream source difference.
 
 So the durable rule is:
 
-- treat Binaryen `version_129` as the released oracle for this dossier
-- keep the current-main note explicit only to say there is no visible source or dedicated-lit drift on the reviewed surfaces right now
+- treat Binaryen `version_129` / `version_130` as the released oracle for this dossier; and
+- treat the retained source/lit inventory and direct tagged URLs as the provenance path for the reviewed no-drift conclusion.
 
 ## Current behavior-gap inventory
 
@@ -167,7 +162,6 @@ The 2026-06-08 audit [`../../../raw/research/0717-2026-06-08-once-reduction-beha
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
 - [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
 - [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
 - [`../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md`](../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md)
