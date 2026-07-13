@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
   - ../../no-dwarf-default-optimize-path.md
@@ -47,7 +46,7 @@ The tracker now has no obvious remaining pass entries with wiki status `none`, s
 - The neighboring `instrument-locals` dossier depends on keeping the split from `instrument-memory` explicit.
 - The public help text is easy to misread: `pass.cpp` describes this as intercepting "all loads and stores", but the current `version_130` / `main` contract also covers `memory.grow` and selected GC `struct.*` / `array.*` traffic.
 - The pass intentionally adds effects through imported helper calls, so it belongs in the same instrumentation-analysis neighborhood as `instrument-locals` and `global-effects`, not in the optimizer families.
-- The folder now has the same provenance and local-status shape as newer deep dossiers: immutable raw primary-source manifests, a dedicated Starshine status page, and a first-slice / validation page for future port planning.
+- The folder now has the same provenance and local-status shape as newer deep dossiers: retained source reviews, a dedicated Starshine status page, and a first-slice / validation page for future port planning.
 
 ## Beginner summary
 
@@ -86,7 +85,7 @@ So this pass is best taught as:
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Main implementation walkthrough: public registration, postwalk rewrite mechanics, helper signatures, memory64 behavior, GC extension, and the nearby instrumentation/effects story.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  Compact owner-file and proof-surface map for `InstrumentMemory.cpp`, `pass.cpp`, and the four dedicated lit files, now anchored to the raw primary-source manifest.
+  Compact owner-file and proof-surface map for `InstrumentMemory.cpp`, `pass.cpp`, and the four dedicated lit files, now anchored to the retained 2026-04-24 source review.
 - [`./helper-import-roster-filters-and-unsupported-types.md`](./helper-import-roster-filters-and-unsupported-types.md)
   Focused guide to the most non-obvious half of the pass: unconditional-vs-GC helper import injection, exact filter strings, shared ID numbering, scalar-only GC payload coverage, and the current unsupported instruction/type boundaries.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -110,7 +109,6 @@ So this pass is best taught as:
 - [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
 - [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

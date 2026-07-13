@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
 related:
@@ -327,7 +326,7 @@ This is the same basic instrumentation-story neighborhood as `instrument-locals`
 
 ## Release provenance and current-main spot check
 
-The older raw primary-source manifest anchors historical teaching detail to Binaryen `version_129`; the public release baseline is now `version_130`.
+The retained 2026-04-24 source review anchors historical teaching detail to Binaryen `version_129`; the public release baseline is now `version_130`.
 
 A focused 2026-07-11 reread of `version_130` and current-`main` `InstrumentMemory.cpp`, `pass.cpp`, `passes.h`, and the four dedicated lit files found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness statement, not that capture's historical port-readiness reasoning. Both reviews are narrower than a full upstream history audit, so keep future source corrections explicit if Binaryen changes the pass.
 
@@ -377,6 +376,5 @@ If someone remembers only one sentence, it should be this:
 - [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
 - [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)

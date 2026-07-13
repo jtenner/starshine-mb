@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
-  - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
 related:
@@ -152,7 +151,7 @@ Why this order helps:
 
 ## Release provenance and current-main spot check
 
-The older raw primary-source manifest anchors this page's historical `version_129` evidence; `version_130` is now the public release baseline.
+The retained 2026-04-24 source review anchors this page's historical `version_129` evidence; `version_130` is now the public release baseline.
 
 A focused 2026-07-11 reread of the `version_130` and current-`main` owner, registration, factory, and four dedicated lit fixtures found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness claim; both rechecks are focused source reads, not full upstream history audits.
 
@@ -179,6 +178,5 @@ The current local status page, [`./starshine-strategy.md`](./starshine-strategy.
 - [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
 - [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
