@@ -33,7 +33,7 @@ related:
 ## Role
 
 - `flatten` is an upstream Binaryen aggressive flat-IR preparation pass.
-- It now has an **internal active-partial** Starshine owner with a Flat IR classifier, scalar function-result materialization, reachable/unreachable tee lowering across region roots and operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` routing, zero-input/no-backedge scalar `loop` routing, and plain `br` plus simple scalar `br_if` routing, including the target/flow two-temp mismatch, for defaultable scalar block targets; the public registry remains `Removed` while broader correctness work continues.
+- It now has an **internal active-partial** Starshine owner with a Flat IR classifier, scalar function-result materialization, reachable/unreachable tee lowering across region roots and operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` routing, zero-input/no-backedge scalar `loop` routing, and plain `br`, simple scalar `br_if` routing including the target/flow two-temp mismatch, plus simple scalar `br_table` unique-target fanout for defaultable scalar block targets; the public registry remains `Removed` while broader correctness work continues.
 - In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path used elsewhere in this repo.
 - Instead, it appears only in the more aggressive `optimizeLevel >= 4` function pipeline, where it starts the trio:
   - `flatten`

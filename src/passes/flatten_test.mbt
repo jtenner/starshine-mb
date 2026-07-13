@@ -338,6 +338,30 @@ test "flatten routes a same-type scalar br_if through its block target temp" {
 }
 
 ///|
+test "flatten intentionally leaves rich br_if payloads for shared flow repair" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (drop (block (result i32) call 1 local.get 0 br_if 0 drop i32.const 9))) (func (result i32) i32.const 7))",
+  )
+  let block_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 2)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected deferred rich br_if to remain valid, got \{err}")
+  }
+}
+
+///|
 test "flatten uses distinct target and flow temps for mismatched scalar br_if" {
   let func = pass_test_lift_first_func(
     "(module (type $base (sub (struct))) (type $child (sub $base (struct))) (func (param i32) (drop (block (result (ref null $base)) (block (result (ref null $child)) ref.null $child local.get 0 br_if 1)))))",
@@ -423,6 +447,61 @@ test "flatten routes mixed scalar br and br_if exits through one target temp" {
     Ok(_) => ()
     Err(err) =>
       fail("expected mixed scalar branch target to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten fans one scalar br_table value out to unique target temps" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (drop (block (result i32) (block (result i32) i32.const 7 local.get 0 br_table 0 1 1)))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let outer_block = @ir.hot_child_get(func, drop_id, 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer_block)
+  let inner_block = @ir.hot_region_get(func, outer_body, 0)
+  let inner_body = @ir.hot_region_body_ref(func, inner_block)
+  let branch = @ir.hot_region_get(func, inner_body, 0)
+  let table_id = @ir.hot_node_get(func, branch).imm0
+  @debug.assert_eq(@ir.hot_branch_table_targets(func, table_id).length(), 2)
+  @debug.assert_eq(
+    @ir.hot_branch_table_default_target(func, table_id),
+    @ir.hot_control_node_label(func, outer_block),
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_block), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, inner_block), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body), 4)
+  let value_set = @ir.hot_region_get(func, inner_body, 0)
+  let first_target_set = @ir.hot_region_get(func, inner_body, 1)
+  let second_target_set = @ir.hot_region_get(func, inner_body, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, value_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_target_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_target_set).op.to_string(),
+    "LocalSet",
+  )
+  let value_local = @ir.hot_node_get(func, value_set).imm0
+  let first_target_local = @ir.hot_node_get(func, first_target_set).imm0
+  let second_target_local = @ir.hot_node_get(func, second_target_set).imm0
+  assert_false(value_local == first_target_local)
+  assert_false(value_local == second_target_local)
+  assert_false(first_target_local == second_target_local)
+  @debug.assert_eq(@ir.hot_region_get(func, inner_body, 3), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected scalar br_table fanout to verify, got \{err}")
   }
 }
 

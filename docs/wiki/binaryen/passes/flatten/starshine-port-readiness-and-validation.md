@@ -39,7 +39,7 @@ The exact current local surfaces are:
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
 | CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
-| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar block/if routing, zero-input/no-backedge scalar loop routing, and plain `br` plus simple scalar `br_if` routing for defaultable scalar block targets are implemented, including the two-temp target/flow type mismatch. Rich `br_if`, `br_table`, inputful/backedge loops, branch-targeted `if`, and broader control work remain open. |
+| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, reachable/unreachable tee lowering across function roots, structured-region roots, and ordinary operand positions, ordered scalar operand preludes, branch-free defaultable scalar block/if routing, zero-input/no-backedge scalar loop routing, and plain `br`, simple scalar `br_if` routing including the two-temp target/flow mismatch, plus simple scalar `br_table` unique-target fanout for defaultable scalar block targets are implemented. Rich/multivalue `br_if` and `br_table` payloads are whole-function fail-closed before operand spilling until shared-origin routing lands; inputful/backedge loops, branch-targeted `if`, and broader control work remain open. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
@@ -102,8 +102,8 @@ After basic value routing is green, add the payload-specific cases that make `fl
 - carried scalar `br` into a defaultable scalar block target now stores into one named-target temp, clears the branch payload, and lets a terminal branch-targeted block erase its result type;
 - simple same-type carried `br_if` now stores once into the named target temp, clears the branch payload, and redirects the peeked false-path flow through one shared `local.get`;
 - the source-derived `br_if` target-type versus flowing-out-type mismatch now uses a second flow-typed temp, one payload evaluation, and a typed copy into the target temp;
-- rich carried values still need their broader route;
-- `br_table` stores the value once and copies it into every unique target temp.
+- rich/multivalue carried values still need their broader shared-origin route and currently fail closed before any rewrite;
+- simple scalar `br_table` now stores the value once, copies it into every unique target temp, deduplicates repeated labels, and clears its payload; rich/mixed payload-table shapes remain open.
 
 The two-temp `br_if` family is a must-have parity test because it is easy to miss and is explicitly motivated by upstream source comments.
 
