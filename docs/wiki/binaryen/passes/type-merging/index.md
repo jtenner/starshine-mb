@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
   - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
   - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -85,7 +84,7 @@ So this pass is best taught as:
 - Descriptor chains are merged as **linked units**, not as independent nodes.
 - Binaryen first merges into identical **supertypes**, then iteratively merges identical **siblings**.
 - The pass may need **`ReFinalize`** afterwards because exact result types and LUBs can sharpen after merging.
-- The 2026-04-24 raw primary-source capture keeps the official `version_129` release provenance explicit: the reviewed GitHub release page showed publish date **2026-04-01 14:31**.
+- Retained direct `version_129` source URLs preserve the official tagged-release provenance: the reviewed GitHub release page showed publish date **2026-04-01 14:31**.
 - The earlier 2026-05-05 “comment typo only” current-main conclusion is superseded. `version_130` and current `main` use `worldMode`: they reject only `Open`, and pass the selected mode into both `getPrivateHeapTypes(...)` and `TypeMapper(...)`. See the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). The algorithm remains a useful `version_129` teaching baseline, but future ports must not copy its Boolean gate as current parity.
 
 ## What this pass sounds like versus what it actually does
@@ -134,7 +133,6 @@ What it actually is in `version_129`:
 - [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
 - [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

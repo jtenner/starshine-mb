@@ -142,7 +142,6 @@ sources:
   - ../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
   - ../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
   - ../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
-  - ../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
   - ../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - ../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
