@@ -6,6 +6,7 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/research/1568-2026-07-13-daeo-fresh-dedicated-and-regular-compare.md
+  - ../../../raw/research/1569-2026-07-13-daeo-fresh-wasm-smith-and-random-all.md
   - ../dead-argument-elimination/fuzzing.md
 ---
 
@@ -47,4 +48,9 @@ Research note [`1568`](../../../raw/research/1568-2026-07-13-daeo-fresh-dedicate
 - dedicated `.tmp/pass-fuzz-dae-optimizing-dedicated-10000-20260713-post-tuple`: `10000/10000` normalized, zero cleanup-normalized matches, mismatches, or failures, selected `dae-optimizing=10000`, Binaryen cache `10000/0`;
 - regular `.tmp/pass-fuzz-dae-optimizing-genvalid-100000-20260713-post-tuple`: `100000/100000` normalized, zero cleanup-normalized matches, mismatches, or failures, Binaryen cache `100000/0`.
 
-The explicit wasm-smith, random-all, and scheduled O4z neighborhood/performance evidence still require a fresh post-change refresh before final closeout.
+Research note [`1569`](../../../raw/research/1569-2026-07-13-daeo-fresh-wasm-smith-and-random-all.md) completes the fresh direct matrix:
+
+- explicit wasm-smith requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, with `44` Binaryen/oracle tool failures and no Starshine failure;
+- random-all requested/compared `10000/10000`, normalized `9633`, left `367` byte-identical previously reviewed residuals (`dae-effectful-args=124`, `coverage-forced-portable=243`), and had zero failures. The two residual families are agent-classified as measured/source-backed Starshine cleanup wins; the aggregate deltas are `-110219` raw, `-797486` canonical, and `-5465849` WAT bytes, with no canonical/WAT-positive case.
+
+The scheduled public O4z neighborhood, artifact/performance evidence, full validation, and final API/backlog review remain before closeout.
