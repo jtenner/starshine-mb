@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
-  - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -138,10 +137,9 @@ If a future port lands, use the repo's standard signoff:
 For the full source-backed chain, read in this order:
 
 1. [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md)
-2. [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md)
-3. [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
-4. [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
-5. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-6. [`./private-boundaries-sibling-split-and-no-leaf-rule.md`](./private-boundaries-sibling-split-and-no-leaf-rule.md)
-7. [`./wat-shapes.md`](./wat-shapes.md)
-8. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+2. [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
+3. [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
+4. [`./binaryen-strategy.md`](./binaryen-strategy.md)
+5. [`./private-boundaries-sibling-split-and-no-leaf-rule.md`](./private-boundaries-sibling-split-and-no-leaf-rule.md)
+6. [`./wat-shapes.md`](./wat-shapes.md)
+7. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
