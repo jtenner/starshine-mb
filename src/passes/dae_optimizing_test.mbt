@@ -6575,6 +6575,146 @@ test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
 }
 
 ///|
+test "dae-optimizing batches low null-default candidates on broad modules" {
+  let target_def = 164
+  let total_defs = 4097
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (type $base (sub (struct)))
+      #|  (type $leaf (sub final $base (struct)))
+    ),
+  )
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < 37; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $wrap3 (result (ref null $base))
+      #|    call $wrap2)
+      #|  (func $wrap2 (result (ref null $base))
+      #|    call $wrap1)
+      #|  (func $wrap1 (result (ref null $base))
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    ref.null $leaf
+      #|    call $target)
+      #|  (func $pad40)
+      #|  (func $top (result i32)
+      #|    call $wrap3
+      #|    ref.is_null)
+    ),
+  )
+  for i = 42; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target
+      #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
+      #|    (param (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf) (ref null $leaf))
+      #|    (result (ref null $base))
+      #|    local.get 0
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 1
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 2
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 3
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 4
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 5
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 6
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 7
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 8
+      #|    ref.is_null
+      #|    drop
+      #|    local.get 9
+      #|    ref.is_null
+      #|    drop
+      #|    struct.new_default $leaf)
+    ),
+  )
+  for i = target_def + 1; i + 1 < total_defs; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func (export "run") (result i32)
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g0
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g1
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g2
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g3
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g4
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g5
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g6
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $g7
+      #|    call $top)
+      #|)
+    ),
+  )
+  let source = out.to_string()
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced broad-module DAE success, got \{err}")
+  }
+  assert_true(
+    trace.contains(
+      "pass[dae-optimizing]:low-exact-literal-worklist iter=0 primary_def=164",
+    ),
+    msg=trace.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected broad-module low-candidate output to validate, got \{err}")
+  }
+}
+
+///|
 test "dae-optimizing revisits wrapper boundaries for unread callee params" {
   for
     boundary_def in [

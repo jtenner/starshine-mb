@@ -768,6 +768,14 @@ priv struct DaeCoreResultApplication {
 }
 
 ///|
+priv struct DaeExactLiteralWorklistApplication {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  changed : Bool
+  productive_defs : Array[Int]
+}
+
+///|
 priv struct DaeOriginalCallSummary {
   call_counts : Array[Int]
   prior_call_counts : Array[Int]
@@ -27739,9 +27747,9 @@ fn dae_try_remove_descending_dropped_results_with_facts_once(
 }
 
 ///|
-fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+fn dae_try_rewrite_exact_literal_def_with_facts_once(
   mod_ : @lib.Module,
-  selected_defs : Array[Bool],
+  def_idx : Int,
   call_facts : DaeCurrentCallFacts,
   allow_immutable_global_get? : Bool = false,
 ) -> DaePassResult {
@@ -27753,12 +27761,108 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < selected_defs.length() {
-    if !selected_defs[def_idx] {
-      def_idx += 1
-      continue
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_abs = imported + def_idx
+  let boundary_candidate = match
+    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+    Some(candidate) => candidate
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if !boundary_candidate.owned ||
+    boundary_candidate.has_self_direct_caller ||
+    !boundary_candidate.allows_nonself_direct_rewrite {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, _) = func_type
+  if params.length() == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let uniform_const_params = dae_collect_uniform_const_actuals_from_boundary_facts(
+    mod_,
+    callee_abs,
+    params.length(),
+    type_indices,
+    boundary_facts,
+    allow_immutable_global_get~,
+  )
+  let remove = Array::make(params.length(), false)
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let mut any_const = false
+  let mut has_dead_param = false
+  let mut p = 0
+  while p < params.length() {
+    if !local_use.gets[p] {
+      has_dead_param = true
+    } else if !local_use.writes[p] {
+      match uniform_const_params {
+        Some(values) =>
+          match values[p] {
+            Some(value) => {
+              remove[p] = true
+              const_params[p] = Some(value)
+              any_const = true
+            }
+            None => ()
+          }
+        None => ()
+      }
     }
+    p += 1
+  }
+  if !any_const || has_dead_param {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_rewrite_candidate(
+    mod_,
+    callee_abs,
+    remove,
+    const_params,
+    local_use,
+    boundary_candidate.direct_call_count,
+    boundary_candidate.direct_callers,
+  )
+}
+
+///|
+fn dae_collect_exact_literal_candidate_defs_with_facts(
+  mod_ : @lib.Module,
+  call_facts : DaeCurrentCallFacts,
+  max_def_exclusive : Int,
+  allow_immutable_global_get? : Bool = false,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let imported = dae_imported_func_count(mod_)
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return candidates
+  }
+  let limit = if max_def_exclusive >= 0 && max_def_exclusive < funcs.length() {
+    max_def_exclusive
+  } else {
+    funcs.length()
+  }
+  let mut def_idx = 0
+  while def_idx < limit {
     let callee_abs = imported + def_idx
     let boundary_candidate = match
       dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
@@ -27802,11 +27906,6 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
       boundary_facts,
       allow_immutable_global_get~,
     )
-    let remove = Array::make(params.length(), false)
-    let const_params : Array[@lib.Instruction?] = Array::make(
-      params.length(),
-      None,
-    )
     let mut any_const = false
     let mut has_dead_param = false
     let mut p = 0
@@ -27817,11 +27916,7 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         match uniform_const_params {
           Some(values) =>
             match values[p] {
-              Some(value) => {
-                remove[p] = true
-                const_params[p] = Some(value)
-                any_const = true
-              }
+              Some(_) => any_const = true
               None => ()
             }
           None => ()
@@ -27830,14 +27925,65 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
       p += 1
     }
     if any_const && !has_dead_param {
-      let result = dae_try_rewrite_candidate(
+      candidates.push(def_idx)
+    }
+    def_idx += 1
+  }
+  candidates
+}
+
+///|
+fn dae_run_exact_literal_candidate_worklist_with_facts(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  candidate_defs : Array[Int],
+  call_facts : DaeCurrentCallFacts,
+  productive_limit : Int,
+  allow_immutable_global_get? : Bool = false,
+) -> DaeExactLiteralWorklistApplication {
+  let mut mod_out = current
+  let mut touched_out = touched
+  let mut changed_out = changed
+  let productive_defs : Array[Int] = []
+  for candidate_def in candidate_defs {
+    if productive_limit >= 0 && productive_defs.length() >= productive_limit {
+      break
+    }
+    let result = dae_try_rewrite_exact_literal_def_with_facts_once(
+      mod_out,
+      candidate_def,
+      call_facts,
+      allow_immutable_global_get~,
+    )
+    let application = dae_apply_core_result(
+      mod_out, touched_out, changed_out, result,
+    )
+    if application.applied {
+      mod_out = application.mod_out
+      touched_out = application.touched
+      changed_out = application.changed
+      productive_defs.push(application.primary_def)
+    }
+  }
+  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+}
+
+///|
+fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  call_facts : DaeCurrentCallFacts,
+  allow_immutable_global_get? : Bool = false,
+) -> DaePassResult {
+  let mut def_idx = 0
+  while def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let result = dae_try_rewrite_exact_literal_def_with_facts_once(
         mod_,
-        callee_abs,
-        remove,
-        const_params,
-        local_use,
-        boundary_candidate.direct_call_count,
-        boundary_candidate.direct_callers,
+        def_idx,
+        call_facts,
+        allow_immutable_global_get~,
       )
       if result.changed {
         return result
@@ -29486,6 +29632,31 @@ fn dae_run_core(
       "pass[dae-optimizing]:low-forwarded-const-revisit iter=\{low_revisit_iter} primary_def=\{low_revisit_application.primary_def}",
     )
     low_revisit_iter += 1
+  }
+  if original_defined > 4096 {
+    // Broad modules can contain profitable low exact/default candidates that the
+    // fixed eight-iteration core never reaches. Build the ordered low worklist
+    // once from one current caller-fact snapshot, then revalidate and apply each
+    // candidate against the evolving module. Signature and operand rewrites do
+    // not change direct-call edges, so the snapshot remains valid for this batch.
+    let low_exact_literal_call_facts = dae_collect_current_call_facts(
+      current, original_total,
+    )
+    let low_exact_literal_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
+      current, low_exact_literal_call_facts, 4096,
+    )
+    let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
+      current, touched, changed, low_exact_literal_candidates, low_exact_literal_call_facts,
+      64,
+    )
+    current = low_exact_literal_application.mod_out
+    touched = low_exact_literal_application.touched
+    changed = low_exact_literal_application.changed
+    for iter, primary_def in low_exact_literal_application.productive_defs {
+      trace(
+        "pass[dae-optimizing]:low-exact-literal-worklist iter=\{iter} primary_def=\{primary_def}",
+      )
+    }
   }
   let mut immutable_global_revisit_iter = 0
   while original_defined <= 4096 && immutable_global_revisit_iter < 64 {

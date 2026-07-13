@@ -1036,6 +1036,51 @@ test "dae call boundary candidate centralizes owned callee counts" {
 }
 
 ///|
+test "dae exact-literal worklist batches multiple candidates from one call-fact snapshot" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $leaf (sub final (struct)))
+      #|  (func $first (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func $second (param (ref null $leaf)) (result i32)
+      #|    local.get 0
+      #|    ref.is_null)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $first
+      #|    drop
+      #|    ref.null $leaf
+      #|    call $second))
+    ),
+  )
+  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, total)
+  let candidates = dae_collect_exact_literal_candidate_defs_with_facts(
+    mod_, call_facts, 2,
+  )
+  assert_eq(candidates, [0, 1])
+  let application = dae_run_exact_literal_candidate_worklist_with_facts(
+    mod_,
+    [],
+    false,
+    candidates,
+    call_facts,
+    8,
+  )
+  assert_eq(application.productive_defs, [0, 1])
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    None => fail("expected rewritten first candidate type")
+  }
+  match dae_resolve_func_type(application.mod_out, type_indices, 1) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    None => fail("expected rewritten second candidate type")
+  }
+}
+
+///|
 test "dae dropped result candidate centralizes call facts and owned eligibility" {
   let current : DaeCurrentCallFacts = {
     direct_calls: [2, 1, 3],
