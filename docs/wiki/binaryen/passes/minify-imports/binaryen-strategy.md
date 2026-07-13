@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
-  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
   - ./index.md
@@ -81,4 +80,4 @@ This pass is therefore unlike internal cleanup passes such as local simplificati
 
 The reviewed official pass-test surface did not include a dedicated plain-`minify-imports.wast` / expected-output pair. The contract above is source-backed by the shared owner, factory registration, and current-main recheck. A future Starshine port should use direct Binaryen oracle comparisons for the plain mode and follow the local staging plan in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
-[^raw]: [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md) records the exact official sources and the superseded 2026-04-25 claims.
+[^raw]: [`../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md) and [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md) record the official-source correction and its current-main confirmation.
