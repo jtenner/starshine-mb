@@ -6628,6 +6628,13 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       #|    call $chain1)
       #|  (func $chain1
       #|    (param i32 (ref $base) (ref null $base))
+      #|    (local i32)
+      #|    i32.const 9
+      #|    local.set 3
+      #|    block
+      #|      local.get 3
+      #|      drop
+      #|    end
       #|    local.get 0
       #|    local.get 1
       #|    local.get 2
@@ -6762,8 +6769,8 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
       "pass[dae-optimizing]:low-exact-param-chain-prefix primary_def=37 pass=precompute-propagate-prefix",
       "pass[dae-optimizing]:low-exact-param-chain-converge iter=0 primary_def=38",
       "pass[dae-optimizing]:low-exact-param-chain-converge iter=1 primary_def=41",
-      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=37,38 pass=simplify-locals",
-      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=37,38 pass=vacuum",
+      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=[37, 38, 41] pass=simplify-locals",
+      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=[37, 38, 41] pass=vacuum",
     ] {
     assert_true(chain_trace.contains(expected), msg=chain_trace.to_string())
   }
@@ -6786,6 +6793,8 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
     msg=optimized.pretty_print_defined_func(41U),
   )
   @debug.assert_eq(dae_test_func_params(optimized, 41)[1], exact_leaf)
+  let chain2 = optimized.pretty_print_defined_func(41U)
+  assert_false(chain2.contains("local.set"), msg=chain2)
   let @lib.Func(target_locals, _) = dae_test_defined_func(optimized, target_def)
   @debug.assert_eq(target_locals.length(), 0)
   let target = optimized.pretty_print_defined_func(

@@ -61648,6 +61648,17 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       if 38 < cleanup_touched.length() {
         cleanup_touched[38] = true
       }
+      for def_idx in convergence.productive_defs {
+        if def_idx >= 0 && def_idx < cleanup_touched.length() {
+          cleanup_touched[def_idx] = true
+        }
+      }
+      let cleanup_defs : Array[Int] = []
+      for def_idx = 0; def_idx < cleanup_touched.length(); def_idx = def_idx + 1 {
+        if cleanup_touched[def_idx] {
+          cleanup_defs.push(def_idx)
+        }
+      }
       for cleanup_pass in ["simplify-locals", "vacuum"] {
         let descriptor = match
           run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
@@ -61666,7 +61677,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
           options.trace,
           "dae-optimizing",
           "low-exact-param-chain-cleanup",
-          payload="defs=37,38 pass=\{cleanup_pass}",
+          payload="defs=\{cleanup_defs.to_string()} pass=\{cleanup_pass}",
         )
       }
     }
