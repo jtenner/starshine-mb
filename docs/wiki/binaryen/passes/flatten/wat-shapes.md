@@ -417,7 +417,7 @@ This is a very important correctness rule for a future port.
 
 ### Current Starshine multivalue table slice
 
-For one exact defaultable block/if target vector, Starshine stages each independently scalar payload component once in source order, deduplicates repeated labels, copies the staged vector once into the shared target locals, then evaluates any rich selector prelude. This mirrors Binaryen v130's one concrete tuple staging value at HOT's ordered-child representation boundary. Multiple unique block/if targets, mixed block/if/loop fanout, mismatched vectors, single multivalue producers, and ambiguous ownership remain fail-closed. Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md).
+For exact defaultable target vectors, Starshine stages each independently scalar payload component once in source order, deduplicates repeated labels, copies the staged vector once into every admitted nested block target, then evaluates any rich selector prelude. A nested target can feed its enclosing target only when HOT exposes one exclusive ordered repeated-control tail, which is replaced by the inner control plus matching local reads before the outer result is erased. This mirrors Binaryen v130's one concrete tuple staging value at HOT's ordered-child representation boundary. Mixed block/if/loop fanout, mismatched vectors, single multivalue producers, and ambiguous ownership remain fail-closed. Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md).
 
 ## Shape 11: inputful no-backedge loops separate entry and result channels
 
