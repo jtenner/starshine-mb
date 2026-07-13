@@ -1497,27 +1497,101 @@ fn dae_collect_func_type_indices(mod_ : @lib.Module) -> Array[@lib.TypeIdx] {
 }
 
 ///|
+fn dae_type_sec_flattened_length(type_sec : @lib.TypeSec) -> Int {
+  let @lib.TypeSec(rec_types) = type_sec
+  let mut length = 0
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(_) => length += 1
+      @lib.GroupRecType(group) => length += group.length()
+    }
+  }
+  length
+}
+
+///|
+fn dae_type_sec_single_rec_entry_slot(
+  type_sec : @lib.TypeSec,
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let target = match type_idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    @lib.RecIdx(_) => return None
+  }
+  if target < 0 {
+    return None
+  }
+  let @lib.TypeSec(rec_types) = type_sec
+  let mut flat_idx = 0
+  let mut entry_idx = 0
+  while entry_idx < rec_types.length() {
+    match rec_types[entry_idx] {
+      @lib.SingleRecType(_) => {
+        if flat_idx == target {
+          return Some(entry_idx)
+        }
+        flat_idx += 1
+      }
+      @lib.GroupRecType(group) => {
+        let group_end = flat_idx + group.length()
+        if target >= flat_idx && target < group_end {
+          return None
+        }
+        flat_idx = group_end
+      }
+    }
+    entry_idx += 1
+  }
+  None
+}
+
+///|
+fn dae_type_sec_subtype(
+  type_sec : @lib.TypeSec,
+  type_idx : @lib.TypeIdx,
+) -> @lib.SubType? {
+  let target = match type_idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    @lib.RecIdx(_) => return None
+  }
+  if target < 0 {
+    return None
+  }
+  let @lib.TypeSec(rec_types) = type_sec
+  let mut flat_idx = 0
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if flat_idx == target {
+          return Some(subtype)
+        }
+        flat_idx += 1
+      }
+      @lib.GroupRecType(group) => {
+        let group_end = flat_idx + group.length()
+        if target >= flat_idx && target < group_end {
+          return Some(group[target - flat_idx])
+        }
+        flat_idx = group_end
+      }
+    }
+  }
+  None
+}
+
+///|
 fn dae_type_sec_func_type(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
 ) -> @lib.FuncType? {
-  match (type_sec, type_idx) {
-    (@lib.TypeSec(rec_types), @lib.TypeIdx(raw)) => {
-      let slot = raw.reinterpret_as_int()
-      if slot < 0 || slot >= rec_types.length() {
-        return None
+  match dae_type_sec_subtype(type_sec, type_idx) {
+    Some(subtype) =>
+      match subtype.get_comptype() {
+        @lib.FuncCompType(params, results) =>
+          Some(@lib.FuncType::new(params, results))
+        _ => None
       }
-      match rec_types[slot] {
-        @lib.SingleRecType(subtype) =>
-          match subtype.get_comptype() {
-            @lib.FuncCompType(params, results) =>
-              Some(@lib.FuncType::new(params, results))
-            _ => None
-          }
-        @lib.GroupRecType(_) => None
-      }
-    }
-    _ => None
+    None => None
   }
 }
 
@@ -6120,7 +6194,9 @@ fn dae_append_new_func_type(
 ) -> (@lib.TypeSec, @lib.TypeIdx) {
   let @lib.TypeSec(rec_types) = type_sec
   let next = rec_types.copy()
-  let idx = @lib.TypeIdx::new(next.length().reinterpret_as_uint())
+  let idx = @lib.TypeIdx::new(
+    dae_type_sec_flattened_length(type_sec).reinterpret_as_uint(),
+  )
   next.push(
     @lib.RecType::new(
       @lib.SubType::comp_type(@lib.CompType::func(params, results)),
@@ -6136,23 +6212,25 @@ fn dae_find_equivalent_simple_func_type(
   results : Array[@lib.ValType],
 ) -> @lib.TypeIdx? {
   let @lib.TypeSec(rec_types) = type_sec
-  if !dae_simple_func_type_section(rec_types) {
-    return None
-  }
-  let mut slot = 0
-  while slot < rec_types.length() {
-    match rec_types[slot] {
-      @lib.SingleRecType(subtype) =>
-        match subtype.get_comptype() {
-          @lib.FuncCompType(existing_params, existing_results) if existing_params ==
-            params &&
-            existing_results == results =>
-            return Some(@lib.TypeIdx::new(slot.reinterpret_as_uint()))
-          _ => ()
+  let mut flat_idx = 0
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if subtype.super_types().is_empty() &&
+          subtype.describes_type() is None &&
+          subtype.descriptor_type() is None {
+          match subtype.get_comptype() {
+            @lib.FuncCompType(existing_params, existing_results) if existing_params ==
+              params &&
+              existing_results == results =>
+              return Some(@lib.TypeIdx::new(flat_idx.reinterpret_as_uint()))
+            _ => ()
+          }
         }
-      @lib.GroupRecType(_) => ()
+        flat_idx += 1
+      }
+      @lib.GroupRecType(group) => flat_idx += group.length()
     }
-    slot += 1
   }
   None
 }
@@ -6255,11 +6333,15 @@ fn dae_can_replace_unique_defined_func_type(
     Some(slot) => slot
     None => return false
   }
-  let rec_len = match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) => rec_types.length()
+  let type_sec = match mod_.type_sec {
+    Some(type_sec) => type_sec
     None => return false
   }
-  if old_slot < 0 || old_slot >= rec_len {
+  let flat_len = dae_type_sec_flattened_length(type_sec)
+  if old_slot < 0 || old_slot >= flat_len {
+    return false
+  }
+  if dae_type_sec_single_rec_entry_slot(type_sec, old_type_idx) is None {
     return false
   }
   match mod_.import_sec {
@@ -6288,7 +6370,7 @@ fn dae_can_replace_unique_defined_func_type(
   if user_count != 1 {
     return false
   }
-  let used = Array::make(rec_len, false)
+  let used = Array::make(flat_len, false)
   dae_mark_non_funcsec_type_refs(mod_, used)
   !used[old_slot]
 }
@@ -6310,11 +6392,11 @@ fn dae_update_defined_func_type(
   if dae_can_replace_unique_defined_func_type(
       mod_, func_types, def_idx, old_type_idx,
     ) {
-    match dae_type_idx_slot(old_type_idx) {
-      Some(old_slot) => {
+    match dae_type_sec_single_rec_entry_slot(type_sec, old_type_idx) {
+      Some(entry_slot) => {
         let @lib.TypeSec(rec_types) = type_sec
         let next = rec_types.copy()
-        next[old_slot] = @lib.RecType::new(
+        next[entry_slot] = @lib.RecType::new(
           @lib.SubType::comp_type(@lib.CompType::func(params, results)),
         )
         return (@lib.TypeSec::new(next), old_type_idx)

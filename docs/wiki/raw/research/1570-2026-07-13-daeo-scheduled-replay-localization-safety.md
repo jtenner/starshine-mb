@@ -92,4 +92,4 @@ A separate direct timing-only compare on the same dedicated input has canonical 
 
 ## Closeout state
 
-The audit remains active. Research notes `1571` and `1572` subsequently refreshed regular GenValid, explicit wasm-smith, and random-all with the post-fix binary, completing the current direct matrix without unknown/risky, size-losing canonical/WAT, validation, or true-semantic residuals. Full `moon test`, `moon info`, full release validation, `.mbti` review, and current-artifact validator ownership remain.
+The audit remains active. Research notes `1571` and `1572` refreshed the direct matrix after this scratch-floor fix. Research note `1573` then superseded the provisional validator attribution: flattened rec-group type lookup and append indexing were DAEO-owned correctness bugs. Those bugs are fixed, the current artifact emits valid output, the full direct matrix and release gate are current, and no `.mbti` diff exists. The remaining artifact blocker is a measured size-losing canonical parity gap associated with a skipped large touched-function cleanup set.

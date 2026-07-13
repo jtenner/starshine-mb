@@ -14317,6 +14317,72 @@ test "dae-optimizing nested heap-store-optimization only rewrites touched functi
 }
 
 ///|
+test "dae-optimizing preserves grouped function results while removing params" {
+  let target_type = @lib.TypeIdx::new(1U)
+  let caller_type = @lib.TypeIdx::new(3U)
+  let grouped_struct = @lib.SubType::comp_type(@lib.CompType::struct_([]))
+  let grouped_target = @lib.SubType::comp_type(
+    @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+      @lib.ValType::i32(),
+    ]),
+  )
+  let misleading_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([], [@lib.ValType::f64(), @lib.ValType::i64()]),
+    ),
+  )
+  let caller_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([grouped_struct, grouped_target]),
+        misleading_type,
+        caller_func_type,
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([target_type, caller_type]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected grouped-type DAE pipeline success, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs[0], caller_type)
+    None => abort("missing rewritten function section")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected grouped-type DAE output to validate, got \{err}")
+  }
+}
+
+///|
 test "dae-optimizing nested heap2local only rewrites touched functions" {
   let source =
     #|(module

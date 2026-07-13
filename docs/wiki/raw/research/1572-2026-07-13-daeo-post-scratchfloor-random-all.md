@@ -56,4 +56,4 @@ The complete direct post-scratch-floor matrix is current:
 - explicit wasm-smith: `9956` compared, `9955` normalized plus `1` cleanup-normalized, zero mismatches and no Starshine failures; `44` Binaryen/oracle failures;
 - random-all: `10000` compared, `9633` normalized plus `367` unchanged measured/source-backed Starshine-win residuals, zero failures.
 
-DAEO is not yet closed. The current-artifact nondefaultable-local final-validation owner, full `moon test`, full release validation, docs/backlog reconciliation, and `.mbti` review remain open.
+DAEO is not yet closed. Research note `1573` subsequently fixes a separate DAEO flattened rec-group type-index bug, reruns the full direct matrix, produces valid artifact output, completes full tests/release validation, and finds no `.mbti` diff. The remaining blocker is the current artifact's measured size-losing canonical parity gap.

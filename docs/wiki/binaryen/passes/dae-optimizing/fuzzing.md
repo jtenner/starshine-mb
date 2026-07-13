@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/1570-2026-07-13-daeo-scheduled-replay-localization-safety.md
   - ../../../raw/research/1571-2026-07-13-daeo-post-scratchfloor-regular-and-wasm-smith.md
   - ../../../raw/research/1572-2026-07-13-daeo-post-scratchfloor-random-all.md
+  - ../../../raw/research/1573-2026-07-13-daeo-flattened-rec-group-type-repair.md
   - ../dead-argument-elimination/fuzzing.md
 ---
 
@@ -65,4 +66,11 @@ Research note [`1571`](../../../raw/research/1571-2026-07-13-daeo-post-scratchfl
 
 Research note [`1572`](../../../raw/research/1572-2026-07-13-daeo-post-scratchfloor-random-all.md) completes the post-fix matrix with `.tmp/pass-fuzz-dae-optimizing-random-all-10000-post-scratchfloor-20260713`: `10000/10000` compared, `9633` normalized, `367` mismatches, and zero validation/generator/property/command failures. The failure-directory set and all `3670` residual files are byte-identical to the pre-fix lane. The residuals remain exactly `dae-effectful-args=124` and `coverage-forced-portable=243`, with aggregate Starshine deltas `-110219` raw / `-797486` canonical / `-5465849` WAT bytes and no canonical/WAT-positive cases. They remain agent-classified measured/source-backed Starshine cleanup wins, not harness claims.
 
-The post-scratch-floor four-lane direct matrix is current. Final closeout still requires artifact-validator ownership, the full test/release gate, docs/backlog reconciliation, and `.mbti` review.
+Research note [`1573`](../../../raw/research/1573-2026-07-13-daeo-flattened-rec-group-type-repair.md) fixes a DAEO-owned flattened rec-group type lookup/append correctness bug and reruns the full matrix with native binary SHA-256 `be413f169ff1cc8fc779168c4093fca8291fa86fa7d672d2c2a4bb54fae73c6d`:
+
+- dedicated: `10000/10000` normalized, zero failures;
+- regular: `100000/100000` normalized, zero failures;
+- wasm-smith: `9955` normalized plus `1` cleanup-normalized out of `9956` comparable cases, zero mismatches and no Starshine failures, with the same `44` Binaryen/oracle failures;
+- random-all: `9633` normalized plus the same `367` measured/source-backed Starshine cleanup wins, zero failures, and `0` changed files across `3670` comparisons with the preceding lane.
+
+The current direct matrix is complete. Final closeout remains blocked by the current artifact's measured size-losing canonical gap after valid direct emission, not by generated semantic or validation residuals.

@@ -13917,6 +13917,64 @@ test "dae raw cleanup strips dropped pure value try_tables without catches" {
 }
 
 ///|
+test "dae resolves flattened function type indexes inside rec groups" {
+  let group_first = @lib.SubType::comp_type(
+    @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+  )
+  let expected_params = [
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+    ),
+  ]
+  let expected_results = [@lib.ValType::i32()]
+  let group_second = @lib.SubType::comp_type(
+    @lib.CompType::func(expected_params, expected_results),
+  )
+  let misleading_entry = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([], [@lib.ValType::f64(), @lib.ValType::i64()]),
+    ),
+  )
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::group([group_first, group_second]),
+    misleading_entry,
+  ])
+  match dae_type_sec_func_type(type_sec, @lib.TypeIdx::new(1U)) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, expected_params)
+      assert_eq(results, expected_results)
+    }
+    None => fail("expected flattened rec-group function type")
+  }
+}
+
+///|
+test "dae appends function types after flattened rec-group members" {
+  let grouped = @lib.RecType::group([
+    @lib.SubType::comp_type(@lib.CompType::struct_([])),
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+    ),
+  ])
+  let single = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let (next, appended_idx) = dae_append_new_func_type(
+    @lib.TypeSec::new([grouped, single]),
+    [],
+    [@lib.ValType::i32()],
+  )
+  assert_eq(appended_idx, @lib.TypeIdx::new(3U))
+  match dae_type_sec_func_type(next, appended_idx) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [])
+      assert_eq(results, [@lib.ValType::i32()])
+    }
+    None => fail("expected appended flattened function type")
+  }
+}
+
+///|
 test "dae raw cleanup strips empty zero-result try_tables even with catches" {
   let param_void_typeidx_block_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
