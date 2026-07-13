@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
@@ -22,8 +21,8 @@ related:
 
 # Binaryen strategy for `untee`
 
-Use this page together with the tagged primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the current freshness capture in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
-The older manifest records Binaryen `version_129` release provenance; the 2026-07-11 reread found no behavior-bearing drift in the reviewed `main` owner, registration/default-scheduler, constructor, or focused test surface. Its scope is deliberately narrow, not a full upstream audit.
+Use this page together with the tagged `version_129` source URLs listed below and the current freshness capture in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
+The direct tagged URLs below preserve Binaryen `version_129` release provenance; the 2026-07-11 reread found no behavior-bearing drift in the reviewed `main` owner, registration/default-scheduler, constructor, or focused test surface. Its scope is deliberately narrow, not a full upstream audit.
 
 ## What the pass really is
 
@@ -312,7 +311,6 @@ The 2026-07-11 reread supersedes the 2026-04-25 freshness claim. `version_129` r
 
 - [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>

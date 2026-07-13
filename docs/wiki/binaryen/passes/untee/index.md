@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
-  - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
@@ -82,7 +81,7 @@ So this pass is best taught as:
 - If the tee's value is already `unreachable`, the tee wrapper is deleted instead of expanded.
 - Nested tees expand inside-out because the walk is postorder.
 - The source comment explicitly says this flatter form can help passes like `code-pushing`.
-- The 2026-04-23 raw primary-source manifest records the exact official release, source, and test URLs reviewed for this dossier, and the checked official Binaryen `version_129` release page showed publish date **2026-04-01**.
+- The direct `version_129` source URLs below preserve the reviewed release, source, and test provenance; the checked official Binaryen release page showed publish date **2026-04-01**.
 - The 2026-07-11 current-main reread found no behavior-bearing drift in the owner, registration/default-scheduler surface, constructor declaration, or focused lit oracle; it supersedes the 2026-04-25 freshness claim while preserving that capture as history.
 - Binaryen builds an expression-tree sequence, while Starshine's raw stack-program representation appends `local.set` then `local.get`; focused root, nested, unreachable, and structured-body tests make that representation distinction explicit. Direct Binaryen-oracle comparison remains required for future changes.
 - The 2026-05-06 direct pass-fuzz revalidation remains the recorded direct-pass parity evidence after the fuzzer / compare-harness refresh.
@@ -125,7 +124,6 @@ What it actually is in `version_129`:
 
 - [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - [`../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md`](../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md)
