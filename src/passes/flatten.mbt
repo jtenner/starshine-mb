@@ -470,7 +470,7 @@ fn flatten_target_can_route_scalar_branches(
           @ir.hot_node_get(func, value_id).ty,
         )
         if value_types.length() != 1 ||
-          value_types[0] != target_type ||
+          !flatten_value_type_is_defaultable(value_types[0]) ||
           !flatten_node_is_simple_operand(func, value_id) {
           return false
         }
@@ -586,7 +586,7 @@ fn flatten_replace_flowing_value_uses(
 }
 
 ///|
-fn flatten_try_route_same_type_scalar_br_if(
+fn flatten_try_route_scalar_br_if(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   node_id : Int,
@@ -618,8 +618,8 @@ fn flatten_try_route_same_type_scalar_br_if(
   )
   if target_types.length() != 1 ||
     value_types.length() != 1 ||
-    target_types[0] != value_types[0] ||
     !flatten_value_type_is_defaultable(target_types[0]) ||
+    !flatten_value_type_is_defaultable(value_types[0]) ||
     !flatten_node_is_simple_operand(func, value_id) ||
     !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
     return false
@@ -631,8 +631,26 @@ fn flatten_try_route_same_type_scalar_br_if(
     state.break_temps[label_id] = fresh
     fresh
   }
-  ignore(flatten_replace_flowing_value_uses(func, node_id, value_id, local_id))
-  preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
+  let flow_local = if target_types[0] == value_types[0] {
+    local_id
+  } else {
+    @ir.hot_append_body_local(func, value_types[0])
+  }
+  ignore(
+    flatten_replace_flowing_value_uses(func, node_id, value_id, flow_local),
+  )
+  if flow_local == local_id {
+    preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
+  } else {
+    preludes.push(@ir.hot_build_local_set(func, flow_local, value_id))
+    preludes.push(
+      @ir.hot_build_local_set(
+        func,
+        local_id,
+        @ir.hot_build_local_get(func, flow_local),
+      ),
+    )
+  }
   let condition_id = @ir.hot_child_get(func, node_id, 1)
   ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))
   true
@@ -918,7 +936,7 @@ fn flatten_rewrite_node_operands(
   if flatten_try_route_scalar_br(func, state, node_id, preludes) {
     changed = true
   }
-  if flatten_try_route_same_type_scalar_br_if(func, state, node_id, preludes) {
+  if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
     changed = true
   }
   changed

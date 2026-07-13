@@ -338,6 +338,63 @@ test "flatten routes a same-type scalar br_if through its block target temp" {
 }
 
 ///|
+test "flatten uses distinct target and flow temps for mismatched scalar br_if" {
+  let func = pass_test_lift_first_func(
+    "(module (type $base (sub (struct))) (type $child (sub $base (struct))) (func (param i32) (drop (block (result (ref null $base)) (block (result (ref null $child)) ref.null $child local.get 0 br_if 1)))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let outer_block = @ir.hot_child_get(func, drop_id, 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer_block)
+  let inner_block = @ir.hot_region_get(func, outer_body, 0)
+  let inner_body = @ir.hot_region_body_ref(func, inner_block)
+  let branch = @ir.hot_region_get(func, inner_body, 0)
+  let payload = @ir.hot_child_get(func, branch, 0)
+  let target_type = @ir.hot_type_results(
+      func,
+      @ir.hot_label_result_type(
+        func,
+        @ir.hot_control_node_label(func, outer_block),
+      ),
+    )[0]
+  let flow_type = @ir.hot_type_results(func, @ir.hot_node_get(func, payload).ty)[0]
+  assert_false(target_type == flow_type)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_block), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, inner_block), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let flow_set = @ir.hot_region_get(func, inner_body, 0)
+  let target_set = @ir.hot_region_get(func, inner_body, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, flow_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, target_set).op.to_string(),
+    "LocalSet",
+  )
+  let flow_local = @ir.hot_node_get(func, flow_set).imm0
+  let target_local = @ir.hot_node_get(func, target_set).imm0
+  assert_false(flow_local == target_local)
+  @debug.assert_eq(@ir.hot_local_type(func, flow_local), Some(flow_type))
+  @debug.assert_eq(@ir.hot_local_type(func, target_local), Some(target_type))
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, target_set, 0)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, inner_body, 2), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected mismatched scalar br_if routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes mixed scalar br and br_if exits through one target temp" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32 i32) (drop (block (result i32) local.get 0 if i32.const 7 br 1 end i32.const 8 local.get 1 br_if 0 drop i32.const 9))))",

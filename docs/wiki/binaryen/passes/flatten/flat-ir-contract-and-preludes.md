@@ -216,7 +216,7 @@ This map stores:
 
 - one temp local per named branch target
 
-Starshine's admitted payload slices now mirror that shape for plain scalar `br` and simple same-type scalar `br_if` into a defaultable scalar block target: the carried value becomes an ordered `local.set`, the branch payload is cleared, and the target block reuses the same temp when erasing its result type. For `br_if`, every later HOT use of the peeked payload is redirected to one shared `local.get`, preserving the false-path flowing value without reevaluating it. The rewrite preflights every use of the target, permits mixed supported `br`/`br_if` exits to share one temp, and still refuses rich or type-mismatched `br_if`, `br_table`, `BrOn*`, or other deferred families so label arity cannot be partially repaired.
+Starshine's admitted payload slices now mirror that shape for plain scalar `br` and simple scalar `br_if` into a defaultable scalar block target: the carried value becomes ordered local traffic, the branch payload is cleared, and the target block reuses the named-target temp when erasing its result type. For same-type `br_if`, every later HOT use of the peeked payload is redirected to one shared `local.get`. For the Binaryen v130 target-type versus flowing-out-type mismatch, Starshine allocates a second flow-typed temp, evaluates the payload into it once, copies its `local.get` into the target-typed temp, and redirects false-path uses to the flow temp. The rewrite preflights every use of the target, permits mixed supported `br`/`br_if` exits, and still refuses rich `br_if`, `br_table`, `BrOn*`, or other deferred families so label arity cannot be partially repaired.
 
 The purpose is simple:
 
@@ -242,7 +242,7 @@ When that happens, Binaryen may need:
 - one temp for the target block’s carried type
 - another temp for the value that can still flow outward when the branch is not taken
 
-Starshine now handles the same-type one-temp case for simple scalar payloads. Rich payloads and this source-backed two-temp mismatch remain explicit next slices rather than being collapsed into the plain-branch channel. That double-temp rule is one of the most important beginner-unfriendly details in the whole pass.
+Starshine now handles both the same-type one-temp case and this source-backed two-temp mismatch for simple scalar payloads. The mismatch route intentionally evaluates the simple payload once through the flow temp before copying it into the target channel. Rich payload roots remain a separate slice rather than being collapsed into the plain-branch channel. That double-temp rule is one of the most important beginner-unfriendly details in the whole pass.
 
 ## Why `switch` / `br_table` duplicates work
 
