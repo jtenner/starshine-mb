@@ -24,7 +24,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
 | `ssa-nomerge` | Closed. | None; full `ssa` is separate future work. |
-| `flatten` | Removed/unimplemented. | **Open implementation.** |
+| `flatten` | Internal active-partial implementation; public registry remains `Removed`. | **Open implementation and public wiring.** |
 | `simplify-locals-notee-nostructure` | Direct pass active; omitted from presets. | **Open modern closeout and scheduling.** |
 | `local-cse` | Direct behavior closed. | **Open scheduler gap:** aggressive-prelude slot. |
 | `dead-code-elimination` / `dce` | Closed. | None. |
@@ -60,9 +60,10 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ### [O4Z-FLAT]001 - Implement `flatten`
 
-- **Status:** unimplemented; registry category is `Removed`.
+- **Status:** internal active-partial owner and focused tests now exist; registry category remains `Removed` until the admitted surface is safe to expose.
 - **Goal:** implement Binaryen v130 `flatten` sufficiently for the O4z aggressive local-cleanup prelude.
 - **Why:** O4z slot 9 is the first missing executable owner and blocks the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood.
+- **Current progress:** analysis-only Flat IR classification, scalar function-result materialization, and root `local.tee` lowering are implemented with focused verifier-backed tests; nested preludes, value-carrying control, branch payloads, EH, profiles, and public wiring remain open.
 - **Deliverables:**
   - [ ] Refresh the v130 owner/lit matrix and select the safe first Flat-IR/control linearization slice.
   - [ ] Add red-first focused fixtures for supported block/loop/if/EH shapes and explicit fail-closed negatives.

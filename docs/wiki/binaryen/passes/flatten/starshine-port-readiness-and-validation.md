@@ -30,7 +30,7 @@ This page answers a narrower question: **what should the first Starshine impleme
 
 ## Current hold point
 
-Starshine still does not implement `flatten`.
+Starshine now has the first internal implementation slices, but does not yet expose `flatten` as a public runnable pass.
 
 The exact current local surfaces are:
 
@@ -39,12 +39,12 @@ The exact current local surfaces are:
 | Removed-name registry | `src/passes/optimize.mbt:143-151` | `flatten` is known and intentionally tracked, but not runnable. |
 | CLI pass-token preservation | `src/cli/cli_test.mbt:305-309` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:340-342` | explicit `--flatten` survives beside an optimization-level flag. |
-| Dispatcher absence | `src/passes/pass_manager.mbt` | no active public `flatten` case exists; unrelated private helpers whose names contain `flatten` are not dispatcher evidence. |
+| Internal owner | `src/passes/flatten.mbt` | Flat IR classification, scalar body-result materialization, and root-tee lowering are implemented; nested control and payload work remains open. |
 | Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
-| Active backlog gap | `agent-todo.md` | no dedicated active `flatten` slice exists today. |
+| Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
 
-Do not read that as partial implementation. It is compatibility and planning scaffolding only.
+Read this as a deliberately internal partial implementation, not as public pass availability or parity evidence.
 
 ## First decision: local Flat IR contract
 

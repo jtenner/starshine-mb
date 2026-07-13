@@ -149,6 +149,42 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
 }
 
 ///|
+fn flatten_rewrite_root_tees(ctx : HotPassContext, func : @ir.HotFunc) -> Bool {
+  let mut changed = false
+  let mut idx = @ir.hot_root_count(func) - 1
+  while idx >= 0 {
+    let node_id = @ir.hot_root_get(func, idx)
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 => {
+        let value_id = @ir.hot_child_get(func, node_id, 0)
+        let replacement = match @ir.hot_node_get(func, value_id).op {
+          @ir.HotOp::Unreachable => [value_id]
+          _ =>
+            [
+              @ir.hot_build_local_set(func, node.imm0, value_id),
+              @ir.hot_build_local_get(func, node.imm0),
+            ]
+        }
+        let removed = pass_splice_region(
+          ctx,
+          func,
+          @ir.HotRegionRef::root(),
+          idx,
+          1,
+          replacement,
+        )
+        pass_delete_detached_nodes(ctx, func, removed)
+        changed = true
+      }
+      _ => ()
+    }
+    idx -= 1
+  }
+  changed
+}
+
+///|
 fn flatten_materialize_scalar_body_result(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -185,7 +221,11 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if before.unsupported_count > 0 {
     return HotPassResult::unchanged()
   }
-  if !flatten_materialize_scalar_body_result(ctx, func) {
+  let mut changed = flatten_rewrite_root_tees(ctx, func)
+  if flatten_materialize_scalar_body_result(ctx, func) {
+    changed = true
+  }
+  if !changed {
     return HotPassResult::unchanged()
   }
   pass_mark_mutated(ctx, func)

@@ -33,7 +33,7 @@ related:
 ## Role
 
 - `flatten` is an upstream Binaryen aggressive flat-IR preparation pass.
-- It is currently **unimplemented** in Starshine.
+- It now has an **internal active-partial** Starshine owner with a Flat IR classifier, scalar function-result materialization, and root-tee lowering; the public registry remains `Removed` while broader correctness work continues.
 - In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path used elsewhere in this repo.
 - Instead, it appears only in the more aggressive `optimizeLevel >= 4` function pipeline, where it starts the trio:
   - `flatten`
@@ -59,7 +59,7 @@ related:
   - `src/cli/cli_test.mbt:305-309` and `src/cli/cli_test.mbt:340-342` still preserve the public `--flatten` spelling
   - `src/passes/pass_manager.mbt` has no active public `flatten` dispatcher case; helpers whose names contain `flatten` serve other passes and do not change this status
   - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` and `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` still place `flatten` at the front of the old removed-pass batch
-  - `agent-todo.md` still has **no dedicated `flatten` slice today**, which is a real local planning gap rather than something to smooth over
+  - `agent-todo.md` now carries `[O4Z-FLAT]001`, including the remaining control, branch-payload, EH, fuzzing, and scheduler work
 
 The 2026-07-11 current-main/local-status recheck found no teaching-relevant upstream transform drift. It does, however, make the two local non-implementation boundaries explicit: the aggressive-neighborhood readiness predicate is intentionally false until all three passes are active, and text matches on `flatten` helper names do not prove pass registration. See Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp) and local registry evidence in `src/passes/optimize.mbt`.
 
@@ -125,7 +125,7 @@ That is much closer to the real pass than “flatten removes nesting.”
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
+- Keep it explicitly marked **internal active-partial / public removed** until the direct pass surface is safe to register and dispatch.
 - Keep the strategy, implementation/test-map, and flat-IR/preludes pages in sync whenever new evidence changes the answer to any of these:
   - “what exact AST properties does Binaryen flatten enforce?”
   - “which owner/test/helper surfaces prove that behavior?”

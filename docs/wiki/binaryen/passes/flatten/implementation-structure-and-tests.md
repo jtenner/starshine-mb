@@ -32,7 +32,7 @@ Read it when you want to move from the conceptual pages to exact files.
 
 ## Status in one sentence
 
-Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine currently has no implementation file and keeps `flatten` as a known removed pass name with preserved CLI spelling and old Batch 2 planning breadcrumbs.
+Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has an internal active-partial `src/passes/flatten.mbt` owner and focused tests, while keeping `flatten` publicly removed until nested control, payload, EH, and signoff work is complete.
 
 ## Upstream owner map
 
@@ -132,17 +132,17 @@ This is not optional cleanup: flatten can insert blocks inside `catch`, and lega
 
 ## Current Starshine code map
 
-Starshine does not implement the transform today, but the status is represented in code and docs.
+Starshine implements only the first internal transform slices today; the public removed status and remaining gaps are represented in code and docs.
 
 | Local surface | Exact location | Meaning |
 | --- | --- | --- |
 | Removed-name registry | `src/passes/optimize.mbt:144-151` | `flatten` is a known removed pass name, not an unknown typo. |
 | CLI trap-mode filtering test | `src/cli/cli_test.mbt:305-309` | Explicit `--flatten` survives trap-mode flag filtering in pass-token resolution. |
 | CLI `-O` flag interaction test | `src/cli/cli_test.mbt:340-342` | Explicit `--flatten` survives alongside an optimization-level flag in pass-token resolution. |
-| Missing dispatcher owner | `src/passes/pass_manager.mbt` has no public `flatten` match | There is no active HOT/module dispatch path today. Private helpers with `flatten` in their names belong to other transforms and are not contrary evidence. |
+| Internal owner | `src/passes/flatten.mbt` and `src/passes/flatten_test.mbt` | The first slices classify Flat IR violations, materialize scalar function results, and lower root tees; they are not yet a complete public pass. |
 | Old IR2 batch intent | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` still leads the old preferred Batch 2 implementation order. |
 | Old registry-map batch status | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains documented as removed until implementation lands. |
-| Active backlog gap | `agent-todo.md` has no dedicated `flatten` slice | The current backlog has shape mentions such as “flattened,” but no focused pass implementation plan. |
+| Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | Tracks the remaining source refresh, control/EH implementation, public wiring, profile, closeout, and aggressive-neighborhood proof. |
 
 ## What a faithful Starshine test ladder should start with
 

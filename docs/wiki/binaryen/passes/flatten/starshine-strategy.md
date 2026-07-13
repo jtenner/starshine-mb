@@ -40,8 +40,8 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-`flatten` is still **unimplemented** in Starshine.
-There is no `src/passes/flatten.mbt` or `src/passes/flatten_hot.mbt` owner file today.
+`flatten` is now **internal active-partial** in Starshine.
+`src/passes/flatten.mbt` owns an analysis-only Flat IR classifier plus the first scalar-result and root-tee rewrites, with focused coverage in `src/passes/flatten_test.mbt`. The registry and dispatcher intentionally remain public-removed until broader families are safe.
 
 That does **not** mean there is no Starshine strategy surface.
 The current local strategy is registry tracking plus batch planning:
@@ -78,7 +78,7 @@ The fastest read-along path through the current Starshine status is:
     - `flatten` still sits in Batch 2 removed-until-implemented planning
 - active backlog truth
   - `agent-todo.md`
-    - there is still **no dedicated `flatten` slice** today; shape mentions such as “flattened” in hot-lower or merge-blocks text are not a pass implementation plan
+    - `[O4Z-FLAT]001` tracks implementation, public wiring, direct closeout, and aggressive-neighborhood proof
 - exact neighboring living dossiers that define the future landing zone
   - [`../simplify-locals-notee-nostructure/index.md`](../simplify-locals-notee-nostructure/index.md)
   - [`../local-cse/index.md`](../local-cse/index.md)
@@ -102,7 +102,7 @@ That means:
 - the name is preserved in the registry-level compatibility surface
 - the pass remains visible in tracker and batch-planning work instead of silently falling out of scope
 
-That is the right current behavior for an unimplemented parity pass.
+That remains the right public behavior for an internal active-partial parity pass.
 
 ### 2. The CLI spelling is intentionally stable
 
@@ -112,7 +112,7 @@ That matters for two reasons:
 - docs and future parity commands can keep using the upstream pass spelling consistently
 - once a real implementation lands, the public spelling does not need a second documentation migration first
 
-### 3. The repo has planning intent, but not yet an active slice
+### 3. The repo now has an active implementation slice
 
 The repo still has real planning intent for `flatten`:
 
@@ -121,10 +121,9 @@ The repo still has real planning intent for `flatten`:
 
 But the active backlog surface is intentionally less mature:
 
-- `agent-todo.md` still has no dedicated `flatten` section with deliverables and exit criteria
+- `agent-todo.md` now has `[O4Z-FLAT]001` with deliverables and exit criteria
 
-That mismatch is worth keeping explicit.
-It means the local story today is real planning, but not yet an active execution slice.
+The active slice is intentionally broader than the landed first steps and keeps all public-wiring and parity blockers visible.
 
 ## The right future Starshine implementation shape
 
@@ -205,10 +204,10 @@ That is another reason to document the pass as a structural root rather than a o
 A future contributor should be careful not to overread the current local surface.
 Starshine does **not** currently have:
 
-- a MoonBit implementation file for `flatten`
-- a committed local equivalent of Binaryen's formal `flat.h` verifier contract
-- a dedicated active backlog slice in `agent-todo.md`; current “flattened” wording there describes lowered/control-flow shapes, not a `flatten` pass slice
-- pass-specific tests or replay lanes beyond the preserved CLI spelling and the broader batch-planning docs
+- public registry, dispatcher, CLI execution, or compare-harness admission for `flatten`
+- complete nested-prelude, value-carrying control, branch-payload, loop/try/EH, or unsupported-family behavior
+- a pass-specific GenValid profile or four-lane direct closeout
+- aggressive preset scheduling or neighborhood proof
 
 So the current repo status is best summarized as:
 
@@ -245,8 +244,8 @@ Current Starshine `flatten` strategy is honest registry tracking plus batch plan
 So the right mental model today is not “nothing exists locally.”
 It is:
 
-- **no transform yet**
-- **clear tracked status**
+- **first internal transform slices landed**
+- **clear tracked public-removed status**
 - **clear public spelling**
 - **clear future cluster**
-- **clear warning that the active backlog still needs a real `flatten` slice before implementation work begins**
+- **clear active backlog for the remaining implementation and signoff work**

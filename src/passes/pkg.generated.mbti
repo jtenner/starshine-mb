@@ -45,6 +45,14 @@ pub fn die_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn die_summary() -> String
 
+pub fn flatten_classify_hot(@ir.HotFunc) -> FlattenFlatnessReport
+
+pub fn flatten_descriptor() -> @ir.HotPassDescriptor
+
+pub fn flatten_run(HotPassContext, @ir.HotFunc) -> HotPassResult
+
+pub fn flatten_summary() -> String
+
 pub fn global_refining_run_module_pass(@lib.Module, closed_world? : Bool) -> @lib.Module
 
 pub fn global_refining_summary() -> String
@@ -334,6 +342,17 @@ pub fn untee_summary() -> String
 // Errors
 
 // Types and methods
+pub(all) struct FlattenFlatnessReport {
+  mut rich_operand_count : Int
+  mut value_control_count : Int
+  mut local_tee_count : Int
+  mut control_local_set_count : Int
+  mut body_value_flow_count : Int
+  mut unsupported_count : Int
+} derive(Eq, @debug.Debug)
+pub fn FlattenFlatnessReport::empty() -> Self
+pub fn FlattenFlatnessReport::is_flat(Self) -> Bool
+
 pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
