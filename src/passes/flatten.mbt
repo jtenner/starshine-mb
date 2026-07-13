@@ -392,6 +392,57 @@ fn flatten_multivalue_region_tail_matches_types(
 }
 
 ///|
+fn flatten_multivalue_region_tail_tuple_make_values(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  result_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if result_types.length() <= 1 || root_count == 0 {
+    return None
+  }
+  let tail_index = root_count - 1
+  let tuple_id = @ir.hot_region_get(func, region_ref, tail_index)
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake => ()
+    _ => return None
+  }
+  if @ir.hot_type_results(func, tuple.ty) != result_types ||
+    @ir.hot_child_count(func, tuple_id) != result_types.length() {
+    return None
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
+  if sites.length() != 1 {
+    return None
+  }
+  let site = sites[0]
+  match site.kind {
+    @ir.HotUseSlotKind::RootUseSlot => ()
+    _ => return None
+  }
+  if site.user != region_ref.holder || site.slot != tail_index {
+    return None
+  }
+  let values : Array[Int] = []
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_child_get(func, tuple_id, slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 ||
+      value_types[0] != result_types[slot] ||
+      !flatten_node_is_simple_operand(func, value_id) {
+      return None
+    }
+    values.push(value_id)
+  }
+  Some(values)
+}
+
+///|
 fn flatten_multivalue_region_tail_reads_locals(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -463,29 +514,54 @@ fn flatten_try_route_multivalue_block(
       return Some(locals)
     }
   }
-  if !flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) {
+  let tuple_values = flatten_multivalue_region_tail_tuple_make_values(
+    func, body_ref, result_types,
+  )
+  if !flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) &&
+    tuple_values is None {
     return None
   }
-  let tail_start = body_count - result_types.length()
-  if flatten_multivalue_region_tail_reads_locals(func, body_ref, locals) {
-    ignore(
-      pass_splice_region(
+  match tuple_values {
+    Some(values) => {
+      let replacement : Array[Int] = []
+      for slot = 0; slot < values.length(); slot = slot + 1 {
+        replacement.push(
+          @ir.hot_build_local_set(func, locals[slot], values[slot]),
+        )
+      }
+      let removed = pass_splice_region(
         ctx,
         func,
         body_ref,
-        tail_start,
-        result_types.length(),
-        [],
-      ),
-    )
-  } else {
-    for slot = 0; slot < result_types.length(); slot = slot + 1 {
-      let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
-      ignore(
-        pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
-          @ir.hot_build_local_set(func, locals[slot], value_id),
-        ]),
+        body_count - 1,
+        1,
+        replacement,
       )
+      pass_delete_detached_nodes(ctx, func, removed)
+    }
+    None => {
+      let tail_start = body_count - result_types.length()
+      if flatten_multivalue_region_tail_reads_locals(func, body_ref, locals) {
+        ignore(
+          pass_splice_region(
+            ctx,
+            func,
+            body_ref,
+            tail_start,
+            result_types.length(),
+            [],
+          ),
+        )
+      } else {
+        for slot = 0; slot < result_types.length(); slot = slot + 1 {
+          let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
+          ignore(
+            pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
+              @ir.hot_build_local_set(func, locals[slot], value_id),
+            ]),
+          )
+        }
+      }
     }
   }
   @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
