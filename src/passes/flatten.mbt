@@ -412,8 +412,7 @@ fn flatten_loop_backedges_are_supported(
           node.imm0,
           label_id,
         ) =>
-        if param_types.length() != 1 ||
-          !flatten_loop_backedge_payloads_are_supported(
+        if !flatten_loop_backedge_payloads_are_supported(
             func,
             node_id,
             @ir.hot_child_count(func, node_id) - 1,
@@ -1075,25 +1074,31 @@ fn flatten_unique_br_table_targets(
 }
 
 ///|
-fn flatten_try_route_scalar_br_table(
+fn flatten_try_route_br_table(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   node_id : Int,
   preludes : Array[Int],
 ) -> Bool {
   let branch = @ir.hot_node_get(func, node_id)
+  let child_count = @ir.hot_child_count(func, node_id)
   match branch.op {
-    @ir.HotOp::BrTable if @ir.hot_child_count(func, node_id) == 2 => ()
+    @ir.HotOp::BrTable if child_count > 1 => ()
     _ => return false
   }
-  let value_id = @ir.hot_child_get(func, node_id, 0)
-  let value_types = @ir.hot_type_results(
-    func,
-    @ir.hot_node_get(func, value_id).ty,
-  )
-  if value_types.length() != 1 ||
-    !flatten_value_type_is_defaultable(value_types[0]) {
-    return false
+  let payload_count = child_count - 1
+  let payload_types : Array[@lib.ValType] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    let value_id = @ir.hot_child_get(func, node_id, slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 ||
+      !flatten_value_type_is_defaultable(value_types[0]) {
+      return false
+    }
+    payload_types.push(value_types[0])
   }
   let targets = flatten_unique_br_table_targets(func, branch.imm0)
   if targets.length() == 0 {
@@ -1106,13 +1111,17 @@ fn flatten_try_route_scalar_br_table(
     match @ir.hot_label_kind(func, target) {
       @ir.HotLabelKind::LoopLabel => {
         let locals = state.loop_entry_temps[target]
-        if locals.length() != 1 ||
-          @ir.hot_local_type(func, locals[0]) != Some(value_types[0]) {
+        if locals.length() != payload_count {
           return false
+        }
+        for slot = 0; slot < payload_count; slot = slot + 1 {
+          if @ir.hot_local_type(func, locals[slot]) != Some(payload_types[slot]) {
+            return false
+          }
         }
       }
       @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => {
-        if @ir.hot_label_branch_arity(func, target) != 1 {
+        if payload_count != 1 || @ir.hot_label_branch_arity(func, target) != 1 {
           return false
         }
         let target_types = @ir.hot_type_results(
@@ -1120,11 +1129,11 @@ fn flatten_try_route_scalar_br_table(
           @ir.hot_label_result_type(func, target),
         )
         if target_types.length() != 1 ||
-          target_types[0] != value_types[0] ||
+          target_types[0] != payload_types[0] ||
           !flatten_target_can_route_scalar_branches(
             func,
             target,
-            value_types[0],
+            payload_types[0],
           ) {
           return false
         }
@@ -1132,30 +1141,37 @@ fn flatten_try_route_scalar_br_table(
       _ => return false
     }
   }
-  let value_local = @ir.hot_append_body_local(func, value_types[0])
-  preludes.push(@ir.hot_build_local_set(func, value_local, value_id))
-  for target in targets {
-    let target_local = match @ir.hot_label_kind(func, target) {
-      @ir.HotLabelKind::LoopLabel => state.loop_entry_temps[target][0]
-      _ =>
-        if state.break_temps[target] >= 0 {
-          state.break_temps[target]
-        } else {
-          let fresh = @ir.hot_append_body_local(func, value_types[0])
-          state.break_temps[target] = fresh
-          fresh
-        }
-    }
-    preludes.push(
-      @ir.hot_build_local_set(
-        func,
-        target_local,
-        @ir.hot_build_local_get(func, value_local),
-      ),
-    )
+  let value_locals : Array[Int] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    let value_id = @ir.hot_child_get(func, node_id, slot)
+    let value_local = @ir.hot_append_body_local(func, payload_types[slot])
+    value_locals.push(value_local)
+    preludes.push(@ir.hot_build_local_set(func, value_local, value_id))
+    state.terminal_payloads.push(value_id)
   }
-  state.terminal_payloads.push(value_id)
-  let selector_id = @ir.hot_child_get(func, node_id, 1)
+  for target in targets {
+    for slot = 0; slot < payload_count; slot = slot + 1 {
+      let target_local = match @ir.hot_label_kind(func, target) {
+        @ir.HotLabelKind::LoopLabel => state.loop_entry_temps[target][slot]
+        _ =>
+          if state.break_temps[target] >= 0 {
+            state.break_temps[target]
+          } else {
+            let fresh = @ir.hot_append_body_local(func, payload_types[slot])
+            state.break_temps[target] = fresh
+            fresh
+          }
+      }
+      preludes.push(
+        @ir.hot_build_local_set(
+          func,
+          target_local,
+          @ir.hot_build_local_get(func, value_locals[slot]),
+        ),
+      )
+    }
+  }
+  let selector_id = @ir.hot_child_get(func, node_id, payload_count)
   ignore(@ir.hot_replace_child_span(func, node_id, [selector_id]))
   true
 }
@@ -1518,14 +1534,17 @@ fn flatten_rewrite_node_operands(
         changed = true
       }
     }
-    @ir.HotOp::BrTable if @ir.hot_child_count(func, node_id) == 2 => {
-      let payload_id = @ir.hot_child_get(func, node_id, 0)
-      if flatten_rewrite_node_operands(
-          ctx, func, state, owner_region, payload_id, preludes,
-        ) {
-        changed = true
+    @ir.HotOp::BrTable if @ir.hot_child_count(func, node_id) > 1 => {
+      let payload_count = @ir.hot_child_count(func, node_id) - 1
+      for slot = 0; slot < payload_count; slot = slot + 1 {
+        let payload_id = @ir.hot_child_get(func, node_id, slot)
+        if flatten_rewrite_node_operands(
+            ctx, func, state, owner_region, payload_id, preludes,
+          ) {
+          changed = true
+        }
       }
-      if flatten_try_route_scalar_br_table(func, state, node_id, preludes) {
+      if flatten_try_route_br_table(func, state, node_id, preludes) {
         changed = true
       }
       if flatten_rewrite_operand_slot(
@@ -1549,7 +1568,7 @@ fn flatten_rewrite_node_operands(
   if flatten_try_route_scalar_br_if(func, state, node_id, preludes) {
     changed = true
   }
-  if flatten_try_route_scalar_br_table(func, state, node_id, preludes) {
+  if flatten_try_route_br_table(func, state, node_id, preludes) {
     changed = true
   }
   changed
@@ -1710,12 +1729,28 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
         if child_count <= 1 {
           continue
         }
-        if child_count != 2 ||
-          !flatten_scalar_branch_payload_has_supported_origin(
-            func,
-            @ir.hot_child_get(func, node_id, 0),
-          ) {
-          return true
+        let payload_count = child_count - 1
+        for slot = 0; slot < payload_count; slot = slot + 1 {
+          if !flatten_scalar_branch_payload_has_supported_origin(
+              func,
+              @ir.hot_child_get(func, node_id, slot),
+            ) {
+            return true
+          }
+        }
+        if payload_count > 1 {
+          for target in flatten_unique_br_table_targets(func, node.imm0) {
+            if target < 0 || target >= func.labels.length() {
+              return true
+            }
+            match @ir.hot_label_kind(func, target) {
+              @ir.HotLabelKind::LoopLabel =>
+                if @ir.hot_label_branch_arity(func, target) != payload_count {
+                  return true
+                }
+              _ => return true
+            }
+          }
         }
       }
       _ => ()
