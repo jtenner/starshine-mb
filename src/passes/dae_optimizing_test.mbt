@@ -2701,7 +2701,7 @@ test "dae-optimizing preserves chosen-arm effects while removing immutable-globa
   let caller = optimized.pretty_print_defined_func(0U)
   assert_true(caller.contains("(call (Func 2))"), msg=caller)
   assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
-  assert_true(caller.contains("global.get"), msg=caller)
+  assert_true(caller.contains("I32(42)"), msg=caller)
   assert_false(caller.contains("i32.const I32(7)"), msg=caller)
 }
 

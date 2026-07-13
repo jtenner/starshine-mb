@@ -1643,23 +1643,29 @@ fn dae_build_local_map(
 fn dae_try_extend_callsite_shape_with_dead_zero_if_gap(
   instrs : Array[@lib.Instruction],
   shape : DaeCallShape,
+  mod_ : @lib.Module,
 ) -> DaeCallShape {
-  if shape.start >= 4 {
-    match (instrs[shape.start - 4], instrs[shape.start - 3]) {
-      (@lib.I32Const(_), @lib.If(_, _, Some(_))) =>
-        match (instrs[shape.start - 2], instrs[shape.start - 1]) {
-          (@lib.I32Const(@lib.I32(0)), @lib.If(block_type, _, None)) =>
-            if block_type == @lib.BlockType::void_() {
-              { start: shape.start - 2, end: shape.end, pure: false }
-            } else {
-              shape
-            }
-          _ => shape
-        }
-      _ => shape
-    }
-  } else {
-    shape
+  if shape.start < 4 {
+    return shape
+  }
+  let condition_is_static = match instrs[shape.start - 4] {
+    @lib.I32Const(_) => true
+    @lib.GlobalGet(global_idx) =>
+      dae_defined_i32_global_const_value(mod_, global_idx) is Some(_)
+    _ => false
+  }
+  if !condition_is_static {
+    return shape
+  }
+  match
+    (instrs[shape.start - 3], instrs[shape.start - 2], instrs[shape.start - 1]) {
+    (
+      @lib.If(_, _, Some(_)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.If(block_type, _, None),
+    ) if block_type == @lib.BlockType::void_() =>
+      { start: shape.start - 2, end: shape.end, pure: false }
+    _ => shape
   }
 }
 
@@ -1683,7 +1689,7 @@ fn dae_collect_callsite_shapes(
       ) {
       Some((shape, _, next_ambient_remaining)) => {
         let widened_shape = dae_try_extend_callsite_shape_with_dead_zero_if_gap(
-          instrs, shape,
+          instrs, shape, mod_,
         )
         shapes[arg_idx] = widened_shape
         cursor = widened_shape.start
@@ -1716,7 +1722,7 @@ fn dae_collect_callsite_suffix_shapes(
       ) {
       Some((shape, _, next_ambient_remaining)) => {
         let widened_shape = dae_try_extend_callsite_shape_with_dead_zero_if_gap(
-          instrs, shape,
+          instrs, shape, mod_,
         )
         shapes[arg_idx] = Some(widened_shape)
         cursor = widened_shape.start
@@ -1727,6 +1733,83 @@ fn dae_collect_callsite_suffix_shapes(
     arg_idx -= 1
   }
   shapes
+}
+
+///|
+fn dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+  imported : Int,
+  selected_defs : Array[Bool],
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if idx >= 5 =>
+        match
+          (
+            instrs[idx - 5],
+            instrs[idx - 4],
+            instrs[idx - 3],
+            instrs[idx - 2],
+            instrs[idx - 1],
+          ) {
+          (
+            @lib.GlobalGet(global_idx),
+            @lib.If(_, _, Some(_)),
+            @lib.I32Const(@lib.I32(0)),
+            @lib.If(dead_block_type, _, None),
+            @lib.I32Const(_),
+          ) if dead_block_type == @lib.BlockType::void_() &&
+            dae_defined_i32_global_const_value(mod_, global_idx) is Some(_) => {
+            let callee_def = dae_func_idx_slot(func_idx) - imported
+            if callee_def >= 0 && callee_def < selected_defs.length() {
+              selected_defs[callee_def] = true
+            }
+          }
+          _ => ()
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
+          mod_, body, imported, selected_defs,
+        )
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
+          mod_, then_body, imported, selected_defs,
+        )
+        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
+          mod_, else_body, imported, selected_defs,
+        )
+      }
+      @lib.If(_, then_body, None) =>
+        dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
+          mod_, then_body, imported, selected_defs,
+        )
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_collect_immutable_global_dead_zero_if_callee_defs(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let selected_defs = Array::make(funcs.length(), false)
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    dae_collect_immutable_global_dead_zero_if_callee_defs_instrs(
+      mod_, body, imported, selected_defs,
+    )
+  }
+  selected_defs
 }
 
 ///|
@@ -17599,110 +17682,9 @@ fn dae_try_strip_func313_dropped_call323_global_suffix(
 }
 
 ///|
-fn dae_try_rewrite_func313_call323_global_suffix(
-  mod_ : @lib.Module,
-  funcs : Array[@lib.Func],
-  type_indices : Array[@lib.TypeIdx],
-  caller_def : Int,
-  callee_abs : Int,
-) -> @lib.Func? {
-  if caller_def < 0 || caller_def >= funcs.length() {
-    return None
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
-  if body.length() < 4 {
-    return None
-  }
-  let call_idx = body.length() - 1
-  match body[call_idx] {
-    @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => ()
-    _ => return None
-  }
-  if body.length() >= 6 {
-    let global_idx = body.length() - 6
-    let global_if_idx = body.length() - 5
-    let dead_const_idx = body.length() - 4
-    let dead_if_idx = body.length() - 3
-    let const_idx = body.length() - 2
-    match
-      (
-        body[global_idx],
-        body[global_if_idx],
-        body[dead_const_idx],
-        body[dead_if_idx],
-      ) {
-      (
-        @lib.GlobalGet(suffix_global),
-        @lib.If(global_block_type, _, _),
-        @lib.I32Const(@lib.I32(0)),
-        @lib.If(dead_block_type, _, _),
-      ) if global_block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
-        dead_block_type == @lib.BlockType::void_() &&
-        dae_defined_i32_global_const_equals(mod_, suffix_global, 169472) &&
-        body[const_idx] == @lib.Instruction::i32_const(@lib.I32(35864)) => {
-        let rewritten = dae_copy_instr_prefix(body, global_idx)
-        rewritten.push(body[call_idx])
-        return Some(
-          @lib.Func::new(
-            dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
-            @lib.Expr::new(rewritten),
-          ),
-        )
-      }
-      _ => ()
-    }
-  }
-  if body.length() >= 3 {
-    let block_idx = body.length() - 3
-    let const_idx = body.length() - 2
-    if body[const_idx] == @lib.Instruction::i32_const(@lib.I32(35864)) &&
-      dae_instr_matches_func313_global_suffix_block(mod_, body[block_idx]) {
-      let rewritten = dae_copy_instr_prefix(body, block_idx)
-      rewritten.push(body[call_idx])
-      return Some(
-        @lib.Func::new(
-          dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
-          @lib.Expr::new(rewritten),
-        ),
-      )
-    }
-  }
-  let (shapes, cursor) = match
-    dae_collect_callsite_shapes(body, call_idx, 9, 0, mod_, type_indices) {
-    Some(result) => result
-    None => return None
-  }
-  if cursor != 0 {
-    return None
-  }
-  if shapes[7].end != shapes[7].start + 1 ||
-    !dae_instr_matches_func313_global_suffix_block(mod_, body[shapes[7].start]) {
-    return None
-  }
-  if shapes[8].end != shapes[8].start + 1 ||
-    body[shapes[8].start] != @lib.Instruction::i32_const(@lib.I32(35864)) {
-    return None
-  }
-  let rewritten : Array[@lib.Instruction] = []
-  let mut p = 0
-  while p < 7 {
-    let mut j = shapes[p].start
-    while j < shapes[p].end {
-      rewritten.push(body[j])
-      j += 1
-    }
-    p += 1
-  }
-  rewritten.push(body[call_idx])
-  Some(
-    @lib.Func::new(
-      dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
-      @lib.Expr::new(rewritten),
-    ),
-  )
-}
-
-///|
+// The 8/9-parameter default rewrite is generic now. Keep only the post-rewrite
+// seven-parameter artifact cleanup for a dropped folded suffix block; reopening
+// it requires a reduced non-artifact carrier with the same residual shape.
 fn dae_try_rewrite_selected_func323_global_suffix_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -17713,7 +17695,6 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let imported = dae_imported_func_count(mod_)
-  let defined = dae_defined_func_count(mod_)
   let callee_abs = imported + def_idx
   let type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
@@ -17748,139 +17729,10 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
       None => ()
     }
   }
-  if (params.length() != 8 && params.length() != 9) ||
-    results != [@lib.ValType::i32()] {
-    trace(
-      "pass[dae-optimizing]:selected-func323-global-suffix skip=type params=\{params.length()} results=\{results.length()}",
-    )
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let mut p = 0
-  while p < params.length() {
-    if params[p] != @lib.ValType::i32() {
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-    }
-    p += 1
-  }
-  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
-  if callee_abs >= call_facts.direct_calls.length() ||
-    call_facts.direct_calls[callee_abs] != 1 ||
-    call_facts.escaped[callee_abs] ||
-    call_facts.tail_calls[callee_abs] ||
-    call_facts.direct_callers[callee_abs].length() != 1 ||
-    call_facts.direct_callers[callee_abs][0] != 313 {
-    trace("pass[dae-optimizing]:selected-func323-global-suffix skip=calls")
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.Func(locals, _) = funcs[def_idx]
-  let local_use = dae_local_use_for_callee(
-    funcs[def_idx],
-    params.length() + locals.length(),
-    callee_abs,
-    params.length(),
+  trace(
+    "pass[dae-optimizing]:selected-func323-global-suffix skip=artifact-cleanup-only params=\{params.length()} results=\{results.length()}",
   )
-  if local_use.writes[7] || (params.length() == 9 && local_use.writes[8]) {
-    trace("pass[dae-optimizing]:selected-func323-global-suffix skip=written")
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let remove = Array::make(params.length(), false)
-  remove[7] = true
-  if params.length() == 9 {
-    remove[8] = true
-  }
-  let const_params : Array[@lib.Instruction?] = Array::make(
-    params.length(),
-    None,
-  )
-  const_params[7] = Some(@lib.Instruction::i32_const(@lib.I32(169472)))
-  if params.length() == 9 {
-    const_params[8] = Some(@lib.Instruction::i32_const(@lib.I32(35864)))
-  }
-  if params.length() != 9 {
-    return dae_try_rewrite_candidate(
-      mod_,
-      callee_abs,
-      remove,
-      const_params,
-      local_use,
-      call_facts.direct_calls[callee_abs],
-      call_facts.direct_callers[callee_abs],
-    )
-  }
-  let (func_types, _) = match (mod_.func_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(_)) => (type_idxs.copy(), true)
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_caller = match
-    dae_try_rewrite_func313_call323_global_suffix(
-      mod_, funcs, type_indices, 313, callee_abs,
-    ) {
-    Some(func) => func
-    None => {
-      trace(
-        "pass[dae-optimizing]:selected-func323-global-suffix skip=caller-suffix",
-      )
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-    }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[313] = rewritten_caller
-  let kept_params : Array[@lib.ValType] = []
-  let removed_written_types : Array[@lib.ValType] = []
-  let mut p2 = 0
-  while p2 < params.length() {
-    if remove[p2] {
-      if local_use.writes[p2] {
-        removed_written_types.push(params[p2])
-      }
-    } else {
-      kept_params.push(params[p2])
-    }
-    p2 += 1
-  }
-  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
-  let local_map = dae_build_local_map(
-    params.length(),
-    old_locals.length(),
-    remove,
-    local_use,
-  )
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_rewrite_locals_instrs(
-        dae_rewrite_param_const_instrs(old_body, const_params),
-        local_map,
-      ),
-      false,
-    ),
-  )
-  let new_locals = @lib.Locals::from_types(removed_written_types)
-  new_locals.append(old_locals)
-  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
-  )
-  let (next_type_sec, new_type_idx) = match mod_.type_sec {
-    Some(type_sec) =>
-      dae_update_defined_func_type(
-        mod_, type_sec, func_types, def_idx, kept_params, results,
-      )
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  func_types[def_idx] = new_type_idx
-  let touched = Array::make(funcs.length(), false)
-  touched[313] = true
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_type_sec(next_type_sec)
-    .with_func_sec(@lib.FuncSec::new(func_types))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
 }
 
 ///|
@@ -19799,6 +19651,37 @@ fn dae_run_core(
     original_dead_suffix_mutual_calls,
   )
   perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
+  let immutable_global_gap_defs = dae_collect_immutable_global_dead_zero_if_callee_defs(
+    current,
+  )
+  let mut immutable_global_gap_iter = 0
+  while immutable_global_gap_iter < 64 {
+    let immutable_global_gap_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let immutable_global_gap_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current,
+      immutable_global_gap_defs,
+      immutable_global_gap_call_facts,
+      allow_immutable_global_get=true,
+    )
+    if !immutable_global_gap_result.changed {
+      break
+    }
+    current = immutable_global_gap_result.mod_out
+    touched = dae_merge_touched(touched, immutable_global_gap_result.touched)
+    if immutable_global_gap_result.primary_def >= 0 &&
+      immutable_global_gap_result.primary_def <
+      immutable_global_gap_defs.length() {
+      immutable_global_gap_defs[immutable_global_gap_result.primary_def] = false
+    }
+    trace(
+      "pass[dae-optimizing]:immutable-global-gap-exact-literal iter=\{immutable_global_gap_iter} primary_def=\{immutable_global_gap_result.primary_def}",
+    )
+    changed = true
+    immutable_global_gap_iter += 1
+  }
   let fixed_loop_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:fixed-loop",
   )
