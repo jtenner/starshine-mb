@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
 related:
@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md) as the current provenance anchor. Its focused reread found no behavior-bearing drift in the owner, registration, ordinary all-features, or GC/refinement surfaces. It supersedes the 2026-05-05 freshness claim while keeping that bridge and the earlier 2026-04-26 CFG/value-flow correction as historical provenance.
+Use the direct current-main owner, registration, ordinary all-features, and GC/refinement links cited on this page as the current provenance anchors. They support the reviewed surface without replacing the retained 2026-05-05 and 2026-04-26 historical evidence.
 
 Primary source URLs:
 

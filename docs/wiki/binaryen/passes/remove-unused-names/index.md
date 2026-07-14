@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
   - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
@@ -143,7 +143,7 @@ The 2026-07-11 primary-source reread found **no behavior-bearing drift between `
 - `src/shared-constants.h` caller-delegate sentinel
 - the dedicated `remove-unused-names.wast` / `.txt` fixture pair
 
-That is deliberately narrow. It does not claim that every neighboring cleanup-combination fixture is unchanged, nor that current Starshine's narrower structural subset implements every Binaryen label-clear behavior. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
+That is deliberately narrow. It does not claim that every neighboring cleanup-combination fixture is unchanged, nor that current Starshine's narrower structural subset implements every Binaryen label-clear behavior.
 
 ## Current maintenance rule
 
@@ -159,7 +159,7 @@ That is deliberately narrow. It does not claim that every neighboring cleanup-co
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp>
 - [`../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
 - [`../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md`](../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md)
 - [`../../../../../src/passes/remove_unused_names.mbt`](../../../../../src/passes/remove_unused_names.mbt)

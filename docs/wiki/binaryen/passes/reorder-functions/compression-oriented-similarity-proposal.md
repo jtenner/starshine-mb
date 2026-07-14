@@ -3,7 +3,6 @@ kind: decision
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
   - https://github.com/WebAssembly/binaryen/pull/8696
   - ./index.md
   - ./binaryen-strategy.md
@@ -112,7 +111,7 @@ Until then, `bun fuzz compare-pass --list-passes` is only a roster inspection to
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md`](../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md)
+- Binaryen PR [#8696](https://github.com/WebAssembly/binaryen/pull/8696) — proposal status and discussion
 - Binaryen PR [#8696](https://github.com/WebAssembly/binaryen/pull/8696) (open proposal; not current-main behavior)
 - [`index.md`](index.md) — shipped pass status
 - [`binaryen-strategy.md`](binaryen-strategy.md) — shipped static-frequency pass

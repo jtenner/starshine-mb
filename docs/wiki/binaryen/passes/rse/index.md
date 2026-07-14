@@ -5,7 +5,7 @@ last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
-  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
@@ -142,7 +142,7 @@ The current durable claim is:
 
 - [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md)
 - [`../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md`](../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md)
-- [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp>
 - [`../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md`](../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md)
 - [`../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>

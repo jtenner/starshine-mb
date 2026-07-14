@@ -3,7 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -22,7 +22,7 @@ Do **not** run or advertise this as a runnable `compare-pass` lane today.
 
 `remove-unused-types` is absent from the harness `SUPPORTED_PASS_FLAGS` allowlist in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts), so `bun fuzz compare-pass --pass remove-unused-types ...` is rejected during argument parsing. It is also a boundary-only registry name in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), not an active Starshine transform. A 10,000-case command that stops at either gate is not Binaryen-parity evidence.
 
-The source and admission recheck is [`../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md).
+The upstream owner is linked in the page metadata; the local registry and harness sources cited above establish the admission boundary.
 
 ## Safe inspection now
 

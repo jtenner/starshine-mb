@@ -3,7 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -26,7 +26,7 @@ Binaryen publishes the transform as `rereloop`, but Starshine's preserved local 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lists `re-reloop` as **Removed**, not active. Its request path deliberately rejects that known local name instead of dispatching a transform.
 - The harness has no current `--re-reloop` → Binaryen `--rereloop` alias. Do not treat the spelling mismatch as harmless: mapping must be explicit before a future lane can be evidence.
 
-A parser rejection, removed-pass rejection, or zero compared cases is a **status result**, not Binaryen-parity evidence. The upstream `rereloop` contract remains current through the released-`version_130` / current-main bridge in [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md); this page records only the local lane-admission boundary.
+A parser rejection, removed-pass rejection, or zero compared cases is a **status result**, not Binaryen-parity evidence. The linked released-`version_130` and current-main sources establish the upstream contract; this page records only the local lane-admission boundary.
 
 ## Safe inspection now
 

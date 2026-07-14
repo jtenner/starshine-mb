@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
@@ -339,7 +339,7 @@ These non-goals are important to keep explicit:
 
 ## Current-source caveat
 
-The 2026-07-11 reread is a freshness layer, not a replacement for the source-backed mechanics on this page. It confirms the current owner/helper/scheduler/fixture contract; it does not convert historical `version_129` research into a claim that all unreviewed current-main test families are identical. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
+The 2026-07-11 reread is a freshness layer, not a replacement for the source-backed mechanics on this page. The direct current-main owner, helper, scheduler, and fixture links in this dossier support only that reviewed surface; they do not establish that all neighboring current-main test families are identical.
 
 ## Bottom line
 

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/test/passes/rse_all-features.wast
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
 related:
@@ -19,7 +19,7 @@ related:
 # `rse` WAT Shapes
 
 This is the beginner-friendly shape catalog for the corrected Binaryen `version_129` `rse` contract.
-Use it with the current-main bridge in [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md), which found no behavior-bearing owner/test drift.
+Use it with the direct current-main owner and fixture links cited by this dossier.
 
 ## Read this page with one mental model
 

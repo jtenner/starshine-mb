@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-types-current-main-and-fuzzing-admission-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md

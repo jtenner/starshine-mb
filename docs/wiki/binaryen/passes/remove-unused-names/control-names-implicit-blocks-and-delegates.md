@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/ir/branch-utils.h
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
@@ -223,7 +223,7 @@ then a future port should preserve the real contract in semantic form:
 
 ## Freshness boundary
 
-The 2026-07-11 `version_130` / current-main reread preserved the owner, generic target-helper, caller-delegate sentinel, scheduler, and dedicated-fixture contract summarized here. It is a narrow source check, not an assertion that every cleanup-combination fixture is unchanged. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
+The linked `version_130` and current-main owner, helper, scheduler, and fixture sources support the contract summarized here. They are a narrow source basis, not an assertion that every cleanup-combination fixture is unchanged.
 
 ## Bottom line
 

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
   - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
@@ -211,7 +211,7 @@ The local pass still does **not** implement the upstream `handleBreakTarget(...)
 
 ## Current upstream freshness boundary
 
-The current Binaryen owner still tracks exact generic scope-name users and can clear labels on structurally retained scopes; Starshine still does not. The 2026-07-11 source reread found no behavior-bearing upstream drift that would narrow this documented parity gap. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
+The current Binaryen owner still tracks exact generic scope-name users and can clear labels on structurally retained scopes; Starshine still does not. The linked current-main owner source does not narrow this documented parity gap.
 
 ## Biggest local-vs-upstream difference
 

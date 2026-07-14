@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
@@ -21,7 +21,7 @@ related:
 
 # `reorder-functions` count surfaces, ordering, and omissions
 
-This page focuses on the part of the **shipped** `reorder-functions` pass that is easiest to mis-teach. It is backed by retained 2026-04-24 follow-up research, direct tagged `version_129` source URLs, and the 2026-07-11 current-main reread: [`../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md`](../../../raw/binaryen/2026-07-11-reorder-functions-current-main-and-similarity-proposal-recheck.md).
+This page focuses on the part of the **shipped** `reorder-functions` pass that is easiest to mis-teach. It is backed by retained 2026-04-24 follow-up research and the direct tagged/current-main source URLs cited below.
 
 It covers:
 

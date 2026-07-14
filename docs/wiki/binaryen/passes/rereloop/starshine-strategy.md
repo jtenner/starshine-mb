@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -30,7 +30,7 @@ related:
 
 # Starshine strategy for `rereloop` / `re-reloop`
 
-Use this page together with the retained 2026-04-24 source follow-up [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md) and the current `version_130` / current-main bridge [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md).
+Use this page together with the retained 2026-04-24 source follow-up and the direct `version_130` / current-main sources cited below.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete future-port constraints implied by the upstream strategy.
 
 ## The honest current status

@@ -5,7 +5,7 @@ last_reviewed: 2026-07-05
 sources:
   - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
-  - ../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../../../src/passes/rse.mbt
@@ -37,7 +37,7 @@ related:
 
 # Starshine Strategy For `rse`
 
-Use this page with the 2026-07-11 current-main bridge in [`../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rse-current-main-recheck.md), which supersedes the older freshness claim without changing the upstream contract.
+Use this page with the direct current-main owner and fixture links cited by the dossier; the retained historical research preserves older freshness evidence.
 The most important teaching point remains the same: the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
 
 ## Honest current status

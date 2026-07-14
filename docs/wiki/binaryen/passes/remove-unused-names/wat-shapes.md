@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.wast
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.wast
@@ -447,7 +447,7 @@ If your IR or writer does not have the same implicit-block rule, you must recrea
 
 ## Freshness boundary
 
-This catalog's direct fixture claims are current through the 2026-07-11 `version_130` / current-main reread. The reread did not re-audit every neighboring combination fixture, so retain their existing source links as historical proof rather than silently treating all of them as freshly compared. See [`../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-names-current-main-recheck.md).
+This catalog's direct fixture claims are grounded in the linked `version_130` and current-main fixture sources. They do not establish that every neighboring combination fixture was freshly compared.
 
 ## Bottom line
 

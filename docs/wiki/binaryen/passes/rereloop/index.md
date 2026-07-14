@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp
   - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
@@ -136,7 +136,7 @@ What it actually is in reviewed `version_129` sources:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-rereloop-version-130-current-main-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp>
 - [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
