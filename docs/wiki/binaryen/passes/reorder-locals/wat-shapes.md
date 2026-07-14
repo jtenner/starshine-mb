@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
 related:

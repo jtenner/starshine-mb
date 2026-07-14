@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
-  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
@@ -37,7 +36,7 @@ The 2026-04-26 primary-source recheck found, and the 2026-06-20 `version_130` re
 - cached `EffectAnalyzer` / `Properties` reasoning,
 - and `doWalkFunction(...)` running the analysis plus the walker.
 
-Use [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md) as the current local-oracle source manifest. The older 2026-05-05 and 2026-04-26 files stay as historical provenance for local-status notes. The 2026-06-20 `version_130` refresh kept the reviewed owner and scheduler surfaces intact and found one audit-relevant source drift: `optimizeSegment(...)` and `optimizeIntoIf(...)` now use `effects.orderedBefore(cumulativeEffects)` where the older `version_129` source used a coarser invalidation check.
+Use the direct Binaryen `version_130` source and lit URLs cited on the living pages as the current local-oracle source manifest. The older 2026-05-05 and 2026-04-26 files stay as historical provenance for local-status notes. The 2026-06-20 `version_130` refresh kept the reviewed owner and scheduler surfaces intact and found one audit-relevant source drift: `optimizeSegment(...)` and `optimizeIntoIf(...)` now use `effects.orderedBefore(cumulativeEffects)` where the older `version_129` source used a coarser invalidation check.
 
 Primary sources:
 

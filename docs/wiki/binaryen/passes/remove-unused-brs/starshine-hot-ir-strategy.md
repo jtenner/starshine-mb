@@ -39,7 +39,7 @@ related:
 
 # Starshine HOT-IR Strategy For `remove-unused-brs`
 
-Use this page together with the retained 2026-05-06 research and release-oracle source bridges in [`../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md) and [`../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md).
+Use this page together with the retained 2026-05-06 research bridge and the direct Binaryen `version_130` source/test URLs cited by the living dossier.
 For the compact strategy overview, see [`./starshine-strategy.md`](./starshine-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the raw-plus-HOT split is wired today.
 

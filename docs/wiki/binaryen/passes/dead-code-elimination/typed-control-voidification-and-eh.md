@@ -3,14 +3,13 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-28
 sources:
-  - ../../../raw/binaryen/2026-06-28-dead-code-elimination-version-130-source-refresh.md
   - ../../../raw/research/1354-2026-06-28-dead-code-elimination-recursive-audit-kickoff.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
   - ../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md
   - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md

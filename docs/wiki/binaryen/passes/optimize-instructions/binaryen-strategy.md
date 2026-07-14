@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-19
 sources:
-  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -22,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the pass model. For release-gating O4z implementation work, use the 2026-06-19 `version_130` matrix in [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md) as the current source/lit owner map.
+This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the pass model. For release-gating O4z implementation work, use the direct Binaryen `version_130` owner and lit sources cited below as the current source/lit map.
 
 A 2026-05-05 current-main spot check on `OptimizeInstructions.cpp`, `pass.cpp`, `opt-utils.h`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests did not surface teaching-relevant drift on the reviewed surfaces. The later `version_130` O4z matrix preserves the same broad contract shape and routes remaining Starshine gaps to `[O4Z-AUDIT-OI-B]` through `[O4Z-AUDIT-OI-N]`.
 

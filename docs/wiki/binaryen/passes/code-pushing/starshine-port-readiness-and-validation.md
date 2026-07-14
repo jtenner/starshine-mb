@@ -48,7 +48,6 @@ sources:
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
   - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
-  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
   - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
   - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md

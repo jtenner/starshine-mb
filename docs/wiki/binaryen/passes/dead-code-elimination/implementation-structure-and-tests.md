@@ -1,18 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-13
 sources:
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DeadCodeElimination.cpp
 related:
   - ./index.md
@@ -27,8 +27,7 @@ related:
 
 This page closes a real teaching gap in the older dossier.
 The earlier pages described a much broader pass with helper walkers, effect-driven dead-result pruning, flattening, and refinalization.
-A direct re-read of Binaryen `version_129` shows the real pass is much smaller and more specific.
-The 2026-05-05 current-main recheck keeps that source map fresh without changing the contract story.
+A direct re-read of Binaryen `version_129` established that the real pass is much smaller and more specific; the 2026-06-28 `version_130` source/lit refresh confirmed that contract without teaching-relevant drift.
 
 ## Why this follow-up was needed
 

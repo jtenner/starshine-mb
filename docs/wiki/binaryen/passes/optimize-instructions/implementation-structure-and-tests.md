@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-19
 sources:
-  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
 related:
