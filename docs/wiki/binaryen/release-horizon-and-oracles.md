@@ -3,12 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
+  - https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c
   - ../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
-  - ../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
   - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_130
@@ -55,7 +53,7 @@ That `v130` baseline is substantive, not just a renumbering. The changelog inclu
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
 | Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
-| Oracle/security boundary | `docs/wiki/raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md` | Current-source bridge for the `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
+| Oracle/security boundary | Official Binaryen commit `1251efb` | The `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
 | Durable local evidence | research note 0704 plus the official release/changelog URLs below | The retained repo-authored summary and its primary sources for the latest release-horizon read. |
 | Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past the newest tag in a way that matters to the docs. The 2026-07-10 `memory-packing` drift and the 2026-07-11 `mark-js-called` / `remove-exports` no-drift recheck are current examples. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
@@ -82,7 +80,7 @@ The key wiki-maintenance consequence is that `version_130` is the public release
 
 ## BrOn Assertion And Oracle-Failure Boundary
 
-The 2026-06-05 BrOn assertion recheck in [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) records an important current-tooling caveat. Binaryen commit `1251efb` fixed a reachable assertion in `IRBuilder::makeBrOn(...)` where malformed `br_on*` / descriptor-branch operands could reach later reference-only finalization logic. The upstream issue and PR were on `main` in April 2026; `version_130` was tagged after that fix.
+The upstream Binaryen `IRBuilder::makeBrOn` fix records an important current-tooling caveat. Binaryen commit `1251efb` fixed a reachable assertion in `IRBuilder::makeBrOn(...)` where malformed `br_on*` / descriptor-branch operands could reach later reference-only finalization logic. The upstream issue and PR were on `main` in April 2026; `version_130` was tagged after that fix.
 
 For Starshine, this is an oracle-classification rule, not a new Starshine behavior claim:
 
@@ -103,10 +101,10 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 
 - Retained release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Pass-specific `mark-js-called` / `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Historical v130 behavior/source reads for `mark-js-called` / `remove-exports`: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md), [`../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
+- Retained `mark-js-called` / `remove-exports` tracker expansion: [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Historical 2026-06-01 bridge: ingested and removed; its release-horizon facts are retained in the 0704 recheck above.
-- BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
+- Official BrOn assertion-fix commit: <https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c>
 - Current-main `memory-packing` drift bridge: [`../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
 - Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>

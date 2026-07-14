@@ -5,9 +5,7 @@ last_reviewed: 2026-07-12
 sources:
   - ../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
-  - ../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md

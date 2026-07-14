@@ -179,7 +179,7 @@ So the durable rule is:
 ## Sources
 
 - [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
-- [`../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md)
+- [`../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md)
 - [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
 - [`../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
 - [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt)

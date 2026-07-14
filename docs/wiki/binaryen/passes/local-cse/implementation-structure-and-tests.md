@@ -3,10 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-07
 sources:
-  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md

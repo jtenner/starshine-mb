@@ -6,7 +6,7 @@ sources:
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
   - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
+  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
@@ -172,7 +172,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Current code-metadata / branch-hint status refresh: [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md)
 - Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
 - Binaryen `mark-js-called` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Historical Binaryen behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
+- Current Binaryen behavior recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)
 - WAST identifier/name baseline: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)

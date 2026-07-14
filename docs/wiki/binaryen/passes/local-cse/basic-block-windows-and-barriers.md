@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md

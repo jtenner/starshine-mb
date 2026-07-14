@@ -5,7 +5,7 @@ last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
-  - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
+  - ../binaryen/release-horizon-and-oracles.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -184,7 +184,7 @@ BrOnCastFail(LabelIdx, CastOp(source_nullable, target_nullable), source_heap, ta
 
 When a pass regression needs one of these forms today, prefer a programmatic `@lib.Instruction` fixture or a binary fixture. If the goal is WAST coverage, the first slice is not an optimizer change; it is a parser/printer/lowerer widening with tests in `src/wast` and validation coverage in `src/validate`.
 
-The Binaryen-specific BrOn assertion bridge [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) is only tool-oracle guidance for malformed-input assertions in older `wasm-opt` builds. It does not change Starshine's local reference-branch stack rules, does not add WAST text support, and should not be used to override the source map above.
+The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) is only tool-oracle guidance for malformed-input assertions in older `wasm-opt` builds. It does not change Starshine's local reference-branch stack rules, does not add WAST text support, and should not be used to override the source map above.
 
 ## Rewrite And Validation Checklist
 
@@ -200,7 +200,7 @@ The Binaryen-specific BrOn assertion bridge [`../raw/binaryen/2026-06-05-binarye
 ## Source Map
 
 - Cross-layer GC boundary refresh: [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
-- Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
+- Binaryen BrOn assertion / oracle boundary: [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md)
 - Descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Primary-source and local-code manifests: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md), [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md), [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

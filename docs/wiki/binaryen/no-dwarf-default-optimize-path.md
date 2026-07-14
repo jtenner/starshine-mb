@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-14
 sources:
   - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
-  - ../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
+  - ../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
@@ -47,7 +47,7 @@ related:
 
 | Anchor | Current fact | Source / proof surface |
 | --- | --- | --- |
-| Binaryen `version_130` registration | `pass.cpp` still registers public `ssa-nomerge` through `createSSAifyNoMergePass`. | [`../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md`](../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md) confirms the registration did not drift from `version_129`; local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`. |
+| Binaryen `version_130` registration | `pass.cpp` still registers public `ssa-nomerge` through `createSSAifyNoMergePass`. | [`../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md) confirms the registration did not drift from `version_129`; local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`. |
 | Binaryen early function-pipeline slot | `addDefaultFunctionOptimizationPasses()` still schedules `ssa-nomerge` when `optimizeLevel >= 3 || shrinkLevel >= 1`, subject to DWARF gating. For `-O4z`, that condition is true before the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude and before `dce -> remove-unused-names -> remove-unused-brs`. | Same source refresh; it records the official `version_130` `src/passes/pass.cpp` source URL and the local downloaded-file comparison. |
 | Starshine public preset expansion | `optimize` and `shrink` both contain an early `ssa-nomerge` slot after `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> global-struct-inference`, then `dead-code-elimination -> remove-unused-names -> remove-unused-brs`. They do not currently add the Binaryen O4z-only `flatten` prelude. | [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) `optimize_preset_passes` / `shrink_preset_passes`; [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) `preset expansion stays on implemented active pass names`. |
 | Starshine O4z no-op guard | Superseded on 2026-06-15 by `[SSANM-010c]` / `[SSANM-010d]`: the `o4z-ssa-nomerge-noop` raw-dispatch guard was removed, so `ssa-nomerge` now runs when the public preset queue reaches the early O4z-shaped slot. `-O4z` still resolves to a shrink preset with both optimize and shrink levels set. | [`../../../src/passes/pass_manager.mbt`](../../../src/passes/pass_manager.mbt) raw dispatch no longer contains the guard; [`../../../src/passes/ssa_nomerge_test.mbt`](../../../src/passes/ssa_nomerge_test.mbt) `ssa-nomerge runs in O4z scheduling mode`; [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) `resolve_optimize_levels`. |
