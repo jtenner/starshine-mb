@@ -15825,6 +15825,172 @@ test "dae-optimizing converges through an unread callee before a computed cycle 
 }
 
 ///|
+test "dae-optimizing removes a forwarding-only parameter component and preserves an effectful incoming producer" {
+  let source =
+    #|(module
+    #|  (import "env" "effect" (func $effect (result i32)))
+    #|  (func $a (param i32 i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func $bridge (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")
+    #|    call $effect
+    #|    call $bridge))
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(plain, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_params(plain, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(plain, 2).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
+  let run = optimized.pretty_print_defined_func(3U)
+  assert_true(run.contains("call (Func 0)"), msg=run)
+  assert_true(run.contains("drop"), msg=run)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:forwarded-param-component-transaction defs=[0, 1, 2] params=3",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing keeps a forwarding-component parameter with one semantic use" {
+  let source =
+    #|(module
+    #|  (import "env" "effect" (func $effect (result i32)))
+    #|  (func $a (param i32 i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func $bridge (param i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")
+    #|    call $effect
+    #|    call $bridge))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects a written forwarding-only parameter component" {
+  let source =
+    #|(module
+    #|  (func $a (param i32 i32)
+    #|    local.get 0
+    #|    call $b
+    #|    i32.const 4
+    #|    local.set 0)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    i32.const 9
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects an exported forwarding-only parameter component" {
+  let source =
+    #|(module
+    #|  (func $a (export "escaped") (param i32 i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects a ref-func-escaped forwarding-only parameter component" {
+  let source =
+    #|(module
+    #|  (elem declare func $a)
+    #|  (func $a (param i32 i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects a tail-call forwarding-only parameter boundary" {
+  let source =
+    #|(module
+    #|  (func $a (param i32 i32)
+    #|    local.get 0
+    #|    return_call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    i32.const 9
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects a non-exact forwarding-only operand slice" {
+  let source =
+    #|(module
+    #|  (func $a (param i32 i32)
+    #|    block (result i32)
+    #|      local.get 0
+    #|    end
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    i32.const 9
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+}
+
+///|
 test "dae-optimizing removes a constant-anchored forwarded-parameter cycle transactionally" {
   let source =
     #|(module
