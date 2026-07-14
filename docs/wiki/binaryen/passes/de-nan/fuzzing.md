@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md
-  - ../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt

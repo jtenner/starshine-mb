@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
@@ -63,7 +62,7 @@ The pass should be read as a function-local raw-size transform over already-mate
 9. emit one entry-prelude `local.set` initialized from the first recorded literal,
 10. replace all recorded use sites with `local.get`, including the first original use.
 
-The current-main source recheck in [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md) anchors the upstream contract through Binaryen `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, and the dedicated `const-hoisting.wast` lit file.
+The current-main source recheck in [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md) anchors the upstream contract through Binaryen `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, and the dedicated `const-hoisting.wast` lit file.
 
 ## Starshine code locations to connect
 
@@ -188,7 +187,6 @@ Binaryen immediately emits a prelude block and relies on later cleanup such as `
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
 - [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md`](../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md)

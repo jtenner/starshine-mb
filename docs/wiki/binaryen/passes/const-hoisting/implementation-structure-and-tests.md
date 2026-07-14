@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
@@ -119,7 +118,7 @@ So the extra wrapper block is not an accidental current artifact; it is part of 
 
 ## Freshness check against `main`
 
-A focused 2026-05-06 recheck captured in [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md) compared these teaching surfaces against the existing `version_129` dossier:
+A focused 2026-05-06 recheck captured in [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md) compared these teaching surfaces against the existing `version_129` dossier:
 
 - `src/passes/ConstHoisting.cpp`
 - `test/lit/passes/const-hoisting.wast`
@@ -184,7 +183,6 @@ When this pass is eventually ported, these are the source-backed obligations to 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
 - [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)

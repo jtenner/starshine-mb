@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
@@ -192,7 +191,6 @@ This is one of those passes where “roughly similar behavior” is easy to get 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
 - [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)

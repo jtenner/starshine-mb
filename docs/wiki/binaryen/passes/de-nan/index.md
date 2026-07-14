@@ -5,7 +5,6 @@ last_reviewed: 2026-07-13
 sources:
   - ../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md
   - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md
   - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
   - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
@@ -128,7 +127,6 @@ What it actually is in `version_129`:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md`](../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md)
-- [`../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md)
 - [`../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
