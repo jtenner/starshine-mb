@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1606-2026-07-14-daeo-dead-callee-final-matrix.md
   - ../../../raw/research/1605-2026-07-14-daeo-computed-carrier-root-cause.md
   - ../../../raw/research/1604-2026-07-14-daeo-forwarded-cycle-final-matrix.md
   - ../../../raw/research/1603-2026-07-14-daeo-forwarded-cycle-precompute.md
