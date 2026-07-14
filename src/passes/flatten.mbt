@@ -873,23 +873,6 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
     @ir.HotOp::BrTable => ()
     _ => return false
   }
-  let targets = flatten_unique_br_table_targets(
-    func,
-    @ir.hot_node_get(func, node_id).imm0,
-  )
-  if targets.length() > 3 &&
-    @ir.hot_child_count(func, node_id) == payload_count + 1 {
-    let target_types = @ir.hot_type_results(
-      func,
-      @ir.hot_label_result_type(func, label_id),
-    )
-    if flatten_multivalue_tuple_branch_payload_values(
-        func, node_id, payload_count, target_types,
-      )
-      is Some(_) {
-      return false
-    }
-  }
   flatten_try_terminal_br_table_targets_label(
     func, node_id, label_id, payload_count, allow_mixed_targets,
   )
@@ -3867,9 +3850,6 @@ fn flatten_tuple_mixed_try_table_is_supported(
   )
   if tuple_values is None || targets.length() <= 1 {
     return true
-  }
-  if targets.length() > 3 {
-    return false
   }
   let mut try_label = -1
   let mut block_count = 0
