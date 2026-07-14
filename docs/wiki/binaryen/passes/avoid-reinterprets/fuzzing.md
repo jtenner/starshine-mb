@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
   - ../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md
   - ../../../../../src/passes/avoid_reinterprets.mbt
   - ../../../../../src/passes/avoid_reinterprets_test.mbt
@@ -53,7 +53,7 @@ Keep the focused local tests and add future cases in the layers below before tre
 | Indirect bailouts | Parameter/default entry, merged reaching definitions, non-fallthrough wrapper, unsupported cycle, partial/unreachable source load | Upstream-only parity gap. |
 | Address width | Memory32 and memory64 indirect fixtures; inspect `i32` versus `i64` pointer helper local typing | Upstream-only parity gap. |
 
-The exact upstream shape contract and the reasons for these boundaries are in [`./wat-shapes.md`](./wat-shapes.md) and [`./single-load-chains-and-bailouts.md`](./single-load-chains-and-bailouts.md). The current-main source capture confirms that these are still Binaryen's reviewed owner/fixture families: [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
+The exact upstream shape contract and the reasons for these boundaries are in [`./wat-shapes.md`](./wat-shapes.md) and [`./single-load-chains-and-bailouts.md`](./single-load-chains-and-bailouts.md). The current [Binaryen owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp) and [memory32](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets.wast)/[memory64](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets64.wast) fixtures retain these reviewed families.
 
 ## Missing dedicated profile
 

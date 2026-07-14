@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
@@ -25,7 +25,7 @@ related:
 - Use Binaryen `version_130` as the current public release baseline. The detailed `version_129` reading remains historical provenance until a behavior-specific `version_130` source study replaces it.
 - The 2026-04-22 `version_129` tagged recheck has been ingested; its direct owner, scheduler, helper, and lit-test URLs are retained under **Primary source URLs** below.
 - The retained 2026-05-05 research recheck found no semantic teaching drift in the reviewed owner, registry, helper, constructor, or lit-test surfaces.
-- The later [`2026-07-11 terminating-tail performance recheck`](../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md) records the already-present `version_130`/current-main cost structure: per-iteration exiting-branch caching, one lazy function-body target set per recursive search, and deterministic subset exploration. It supplements the semantic contract rather than superseding older raw provenance.
+- The current [`CodeFolding.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp) owner records the already-present `version_130`/current-main cost structure: per-iteration exiting-branch caching, one lazy function-body target set per recursive search, and deterministic subset exploration. It supplements the semantic contract rather than superseding older retained provenance.
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - The core implementation is `src/passes/CodeFolding.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.

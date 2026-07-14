@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
@@ -18,7 +18,7 @@ related:
 
 # Implementation structure and tests for `dataflow-optimization` / `dfo`
 
-Use this page with the retained [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) bridge; direct historical `version_129` source URLs remain cataloged in [`./binaryen-strategy.md`](./binaryen-strategy.md).
+Use this page with the [`version_130` owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp), [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), and direct historical `version_129` source URLs cataloged in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 Binaryen `version_130` is the public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reconciliation did not surface behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Core pass file
@@ -161,7 +161,7 @@ It suggests:
 
 ## Freshness check against current `main`
 
-The 2026-07-11 `version_130`/current-main reconciliation in [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) covered the same implementation, helper, registration, flat-IR, and combo-lit surfaces.
+The 2026-07-11 `version_130`/current-main reconciliation covered the same [`DataFlowOpts.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), helper, registration, Flat-IR, and [combo-lit](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten_simplify-locals-nonesting_dfo_O3.wast) surfaces.
 
 Durable result:
 
@@ -208,7 +208,7 @@ That order mirrors the real contract:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md)
+- [Binaryen `version_130` `DataFlowOpts.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)

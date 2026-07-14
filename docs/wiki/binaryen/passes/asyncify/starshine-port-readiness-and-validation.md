@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
   - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
@@ -155,7 +155,7 @@ For every active slice, require:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md`](../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md)
+- [Binaryen current `Asyncify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp)
 - [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
@@ -19,7 +19,7 @@ related:
 
 # Binaryen strategy for `dataflow-optimization` / `dfo`
 
-Use this page together with the current [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) and the older manifests it preserves as historical provenance.
+Use this page together with the current [`version_130` owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp), [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), and the older retained manifests as historical provenance.
 Use Binaryen `version_130` as the public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reread found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: this remains a flat-input DataFlow SSA IR simplifier, not a broader dataflow optimizer. For Starshine implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## One-sentence summary

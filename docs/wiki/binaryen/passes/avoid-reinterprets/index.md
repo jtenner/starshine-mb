@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
@@ -93,14 +93,14 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `avoid-reinterprets` research and port planning.
 - Keep it explicitly marked as **partial** until Starshine grows the indirect single-load-provenance helper-local family.
-- Cite the retained direct `version_129` source/test URLs and 2026-04-24 follow-up research for the initial Binaryen provenance; cite the 2026-07-11 bridge for current-main freshness and current local/harness reconciliation: [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
+- Cite the retained direct `version_129` source/test URLs and 2026-04-24 follow-up research for the initial Binaryen provenance; cite the current [Binaryen owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp), [memory32 fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets.wast), local registry, and harness for current freshness and reconciliation.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the scope fact explicit: reviewed Binaryen duplicates eligible loads to serve reinterpret users; it does not retarget whole local webs or eliminate every reinterpret in sight.
 - Keep the implementation split explicit: direct `reinterpret(load)` flips are implemented in [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt); indirect `reinterpret(local.get)` rewrites still require an explicit LocalGraph-equivalent proof decision first.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md)
+- [Binaryen current `AvoidReinterprets.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp)
 - [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)

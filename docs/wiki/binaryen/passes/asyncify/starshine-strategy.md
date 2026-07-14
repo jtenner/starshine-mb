@@ -155,7 +155,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md`](../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md)
+- [Binaryen current `Asyncify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp)
 - [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)

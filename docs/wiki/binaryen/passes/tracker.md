@@ -54,7 +54,7 @@ sources:
   - ../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
   - ../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
-  - ../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
   - ../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
@@ -191,7 +191,7 @@ sources:
   - ../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
   - ../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
-  - ../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
   - ../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md

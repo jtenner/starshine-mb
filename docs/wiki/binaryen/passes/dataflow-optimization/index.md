@@ -4,7 +4,7 @@ status: supported
 starshine_status: removed
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
@@ -113,7 +113,7 @@ So this is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md)
+- [Binaryen `version_130` `DataFlowOpts.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)

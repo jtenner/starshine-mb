@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../raw/binaryen/2026-07-11-binaryen-ir-starshine-representation-boundary.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/ir/flat.h
   - ../../../src/ir/README.md
   - ../../../src/ir/hot_core.mbt
   - ../../../src/ir/hot_lift.mbt
@@ -41,7 +41,7 @@ Wasm bytes / WAT
   -> writer / validator
 ```
 
-These flows are analogous, not representation-identical. The upstream and local source bridge is [`../raw/binaryen/2026-07-11-binaryen-ir-starshine-representation-boundary.md`](../raw/binaryen/2026-07-11-binaryen-ir-starshine-representation-boundary.md).
+These flows are analogous, not representation-identical. The upstream Flat-IR contract and local IR ownership sources below establish this boundary.
 
 ## The four concepts not to conflate
 
@@ -122,7 +122,7 @@ A raw WAT diff can help discovery, but it cannot replace this checklist. The pro
 
 ## Source and navigation map
 
-- Upstream representation/Flat-IR source capture: [`../raw/binaryen/2026-07-11-binaryen-ir-starshine-representation-boundary.md`](../raw/binaryen/2026-07-11-binaryen-ir-starshine-representation-boundary.md)
+- [Binaryen current Flat-IR contract](https://github.com/WebAssembly/binaryen/blob/main/src/ir/flat.h)
 - Binaryen release/oracle policy: [`release-horizon-and-oracles.md`](release-horizon-and-oracles.md)
 - Flat-IR contract and ordered preludes: [`passes/flatten/flat-ir-contract-and-preludes.md`](passes/flatten/flat-ir-contract-and-preludes.md)
 - Binaryen named control labels: [`passes/remove-unused-names/control-names-implicit-blocks-and-delegates.md`](passes/remove-unused-names/control-names-implicit-blocks-and-delegates.md)

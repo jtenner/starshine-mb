@@ -3,7 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md

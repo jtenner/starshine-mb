@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
@@ -80,7 +80,7 @@ The broader implementation sequence remains in [the Starshine readiness ladder](
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md`](../../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md)
+- [Binaryen current `Asyncify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp)
 - [Binaryen current `Asyncify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp)
 - [Binaryen current `asyncify.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/asyncify.wast)
 - [Emscripten Asyncify guide](https://emscripten.org/docs/porting/asyncify.html)

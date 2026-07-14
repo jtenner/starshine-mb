@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
@@ -33,7 +33,7 @@ related:
 
 # Starshine Strategy For `avoid-reinterprets`
 
-Use this page together with the retained direct `version_129` source/test URLs, 2026-04-24 follow-up research, and the [`2026-07-11 current-main bridge`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md).
+Use this page together with the retained direct `version_129` source/test URLs, 2026-04-24 follow-up research, and the current [Binaryen owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp).
 The goal here is not to re-explain upstream Binaryen, but to show the current Starshine status, local code surfaces, and remaining parity boundary.
 
 ## Current status
@@ -131,7 +131,7 @@ Future indirect-slice validation must add positive and negative reduced fixtures
 
 ## Current-source reconciliation
 
-The 2026-07-11 upstream refresh found no behavior-bearing drift in Binaryen's owner, registration, `LocalGraph`/fallthrough dependencies, or dedicated memory32/memory64 fixtures. The local roster now also confirms the harness admits this pass, but that only makes generic comparison an integration smoke: it does not add the unimplemented indirect provenance/helper-local family. See [`../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md) and [`./fuzzing.md`](./fuzzing.md).
+The 2026-07-11 upstream refresh found no behavior-bearing drift in Binaryen's current [owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp), [registration](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), `LocalGraph`/fallthrough dependencies, or dedicated [memory32](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets.wast)/[memory64](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets64.wast) fixtures. The local roster now also confirms the harness admits this pass, but that only makes generic comparison an integration smoke: it does not add the unimplemented indirect provenance/helper-local family. See [`./fuzzing.md`](./fuzzing.md).
 
 ## Bottom line
 

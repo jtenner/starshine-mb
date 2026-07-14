@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
@@ -30,7 +30,7 @@ related:
 
 # Starshine Strategy For `dataflow-optimization`
 
-Use this page together with the current [`../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md) and the older source manifests it preserves as historical provenance.
+Use this page together with the [`version_130` owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp), [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), and the older retained source manifests as historical provenance.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and planning surfaces that already answer whether the pass exists, and the nearest concrete files a future port would need to study. For first-slice sequencing and validation gates, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status

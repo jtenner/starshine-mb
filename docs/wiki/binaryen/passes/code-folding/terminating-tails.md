@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
@@ -19,7 +19,7 @@ related:
 
 # Binaryen `code-folding` terminating tails
 
-The 2026-05-05 current-main bridge rechecked the owner and dedicated lit-test surfaces and found no semantic teaching drift. The later [`2026-07-11 primary-source recheck`](../../../raw/binaryen/2026-07-11-code-folding-terminating-tail-performance-recheck.md) adds the release/current search-cost structure that the earlier prose omitted. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file and test-family map.
+The 2026-05-05 current-main bridge rechecked the owner and dedicated lit-test surfaces and found no semantic teaching drift. The current [`CodeFolding.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp) owner adds the release/current search-cost structure that the earlier prose omitted. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file and test-family map.
 
 This page focuses on the part of `code-folding` that is easiest to misunderstand:
 
