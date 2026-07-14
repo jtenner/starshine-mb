@@ -851,9 +851,6 @@ fn flatten_try_terminal_br_table_targets_label(
       _ => return false
     }
   }
-  if if_count > 1 && payload_count > 1 {
-    return false
-  }
   let mut directly_enclosed = try_id
   let mut reached_if = false
   while remaining_controls.length() > 0 {
