@@ -924,7 +924,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
         }
         @ir.HotOp::Binary => {
           match @ir.hot_node_exact_instr(func, argument_id) {
-            Some(@lib.I32Add) => ()
+            Some(@lib.I32Add) | Some(@lib.I32DivS) => ()
             _ => return None
           }
           if @ir.hot_child_count(func, argument_id) != 2 {
