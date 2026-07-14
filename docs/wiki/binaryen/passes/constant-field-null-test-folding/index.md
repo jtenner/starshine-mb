@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md
   - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
   - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
@@ -104,7 +103,6 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
 - [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
 - [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
@@ -33,7 +32,7 @@ related:
 # Starshine port readiness and validation for `constant-field-propagation`
 
 Use this page as the implementation bridge between Binaryen's source-backed CFP contract and Starshine's current boundary-only status.
-The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md) repeated the same narrow source-level check and found no teaching-relevant drift.
+The archived [`2026-05-05 research recheck`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md) records the same narrow source-level check and no teaching-relevant upstream-contract drift.
 The pass is still unimplemented locally; this page exists so a future port starts with the right module/type rewrite shape instead of a misleading HOT peephole.
 
 ## Current local decision

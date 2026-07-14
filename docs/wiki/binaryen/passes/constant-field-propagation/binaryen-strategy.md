@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
@@ -24,7 +23,7 @@ related:
 
 Use Binaryen `version_129` as the current source oracle for this pass family.
 
-The retained [`2026-05-05 current-main recheck`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md) carries the current comparison anchors. The tagged `version_129` source catalog retained from the consumed manifest is:
+The retained [`2026-05-05 archived research recheck`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md) records the current comparison anchors. The tagged `version_129` source catalog retained from the consumed manifest is:
 
 - [`src/passes/ConstantFieldPropagation.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ConstantFieldPropagation.cpp)
 - [`src/passes/pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp)
@@ -413,7 +412,6 @@ That is why the pass matters and why it deserved a dedicated dossier.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
