@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
   - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
@@ -42,7 +42,7 @@ related:
 
 # Starshine `precompute` strategy today
 
-This page describes the **current in-tree Starshine implementation**, not the full upstream Binaryen `version_130` contract. The detailed historical algorithm reading began at `version_129`; the focused v130/current-main reconciliation is recorded in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md). For the future-slice and validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page describes the **current in-tree Starshine implementation**, not the full upstream Binaryen `version_130` contract. The detailed historical algorithm reading began at `version_129`; a focused v130/current-main reread found no behavior-bearing drift on the reviewed surfaces. For the future-slice and validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Short version
 

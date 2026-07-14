@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-print-boundary-current-main-source-read.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/PrintBoundary.cpp
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wat/wat_api.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -20,7 +20,7 @@ related:
 
 ## Overview
 
-`print-boundary` is Binaryen's public **diagnostic reporting** pass. It emits a machine-readable description of the module's import and export boundary; it is not an optimizer, a validator, or a feature-lowering pass. The current owner/registration/fixture read is captured in [`../../../raw/binaryen/2026-07-11-print-boundary-current-main-source-read.md`](../../../raw/binaryen/2026-07-11-print-boundary-current-main-source-read.md).
+`print-boundary` is Binaryen's public **diagnostic reporting** pass. It emits a machine-readable description of the module's import and export boundary; it is not an optimizer, a validator, or a feature-lowering pass. The current owner, registration, and fixture are [`PrintBoundary.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/PrintBoundary.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and the [focused fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/print-boundary.wast).
 
 For a beginner, imports are host requirements and exports are host-visible capabilities. This pass reports both sides of that ABI boundary as JSON: the import module/base names and external kinds, and the export names and external kinds, together with their types. It does **not** change what the module does.
 
@@ -114,6 +114,6 @@ Do **not** use ordinary `compare-pass` as the initial proof: its canonical-Wasm 
 
 ## Sources
 
-- Primary-source read and current-main recursive-type note: [`../../../raw/binaryen/2026-07-11-print-boundary-current-main-source-read.md`](../../../raw/binaryen/2026-07-11-print-boundary-current-main-source-read.md)
+- Current-main owner, registration, fixture, and recursive-type repair: [`PrintBoundary.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/PrintBoundary.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), [fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/print-boundary.wast), and [PR #8786](https://github.com/WebAssembly/binaryen/pull/8786)
 - Starshine module/section substrate: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt), [`../../../binary/module-section-map.md`](../../../binary/module-section-map.md), [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md)
 - Current local output/harness boundaries: [`../../../../../src/wat/wat_api.mbt`](../../../../../src/wat/wat_api.mbt), [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)

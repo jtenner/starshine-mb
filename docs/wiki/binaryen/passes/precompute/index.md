@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
   - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
@@ -201,7 +201,7 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
-- Treat [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) as the retained release/source/test provenance bridge; its direct `version_130` and current-main URLs supersede the consumed duplicate `version_129` manifest as the active routing surface.
+- Treat Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp), and [`opt-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h), plus their current-main counterparts, as the release/source/test provenance bridge; they supersede the consumed duplicate `version_129` manifest as the active routing surface.
 - Treat the retained 2026-05-05 research mirror, [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
@@ -217,7 +217,7 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md)
+- Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp), and [`opt-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h), plus current-main equivalents
 - [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md)
 - [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md)
 - [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
@@ -27,7 +27,7 @@ related:
 
 This page is anchored by direct tagged source URLs in the dossier and the retained 2026-05-05 current-main recheck summary [`../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). The local implementation ladder for this exact defined-vs-imported boundary is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-This is the easiest part of the sibling to misread. It explains the special **function-root** policy only; it does not replace shared RUME constraints such as preserving trap-sensitive table initialization for `call_indirect`. The 2026-07-11 current-main shared-engine reread is [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md).
+This is the easiest part of the sibling to misread. It explains the special **function-root** policy only; it does not replace shared RUME constraints such as preserving trap-sensitive table initialization for `call_indirect`. The shared-engine current-main source is [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp).
 
 The pass name suggests one thing:
 

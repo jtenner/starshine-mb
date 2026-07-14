@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
 related:
@@ -15,7 +15,7 @@ related:
 
 # `precompute`: propagation, partial precompute, and GC identity
 
-This page covers the three parts of Binaryen `precompute` that are easiest to underestimate. The focused v130/current-main reread in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) kept this split and the GC-identity / emitability teaching story stable on reviewed surfaces; it is a baseline reconciliation, not a full source diff.
+This page covers the three parts of Binaryen `precompute` that are easiest to underestimate. The focused reread of [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp) and [current `main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp) kept this split and the GC-identity / emitability teaching story stable on reviewed surfaces; it is a baseline reconciliation, not a full source diff.
 
 1. `precompute` and `precompute-propagate` are not the same pass mode
 2. partial precompute is a separate upward-moving algorithm, not a minor special case

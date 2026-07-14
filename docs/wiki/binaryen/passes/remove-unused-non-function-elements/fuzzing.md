@@ -3,7 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -86,4 +86,4 @@ command failures separately from comparable optimizer results.
 
 ## Maintenance boundary
 
-No new raw capture was needed for this runnable-lane refresh: the active spelling is settled by the current local registry, dispatcher, harness allowlist, and focused pass tests. The shared-engine [`2026-07-11 current-main recheck`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md) is the primary-source evidence for the inherited indirect-call trap boundary; older sibling manifests remain the source evidence for the root-all-defined-functions policy.
+No new raw capture was needed for this runnable-lane refresh: the active spelling is settled by the current local registry, dispatcher, harness allowlist, and focused pass tests. The shared-engine [current-main source](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp) is the primary-source evidence for the inherited indirect-call trap boundary; older sibling manifests remain the source evidence for the root-all-defined-functions policy.

@@ -3,7 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -26,7 +26,7 @@ Do **not** run or advertise `bun fuzz compare-pass --pass remove-unused ...` as 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) keeps `remove-unused` as a **boundary-only** registry name. The active module passes are the differently scoped [`remove-unused-module-elements`](../remove-unused-module-elements/index.md) and `remove-unused-nonfunction-module-elements` siblings.
 - A rejected request, zero compared cases, or a nominal 10,000-case command establishes only **admission status**. It is not evidence of historical `remove-unused-functions` behavior, modern RUME parity, output validity, or performance.
 
-The current source/admission recheck is [`../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md). It confirms that Binaryen current `main` does not revive the short spelling on the reviewed registration/help surfaces and that the local harness still rejects it.
+Current-main Binaryen [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp) and its [CLI help fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/help/wasm-opt.test) show the modern spelling boundary. It confirms that Binaryen current `main` does not revive the short spelling on the reviewed registration/help surfaces and that the local harness still rejects it.
 
 Safe roster inspection only:
 

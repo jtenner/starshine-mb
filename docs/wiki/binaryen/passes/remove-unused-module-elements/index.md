@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
@@ -136,7 +136,7 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md)
+- Binaryen [current-main `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp)
 - [`../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md`](../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

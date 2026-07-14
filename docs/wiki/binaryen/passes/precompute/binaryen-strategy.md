@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
@@ -22,7 +22,7 @@ related:
 
 Use Binaryen `version_130` as the current public release baseline for this pass family. The detailed algorithm reading on this page was initially captured from `version_129`; retain that tag as historical provenance rather than calling it the current release oracle.
 
-The focused 2026-07-11 reread of `version_130` and current `main` in [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) confirmed the public plain-versus-propagate split, shared owner, scheduler boundary, and representative test families without finding a behavior-bearing change that requires rewriting this teaching map. It is not a byte-for-byte three-way source diff. The retained bridge and the direct tagged URLs on the landing page preserve the older historical source/test routing after the duplicate manifest is consumed.
+The focused 2026-07-11 reread of Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp) and [current `main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp) confirmed the public plain-versus-propagate split, shared owner, scheduler boundary, and representative test families without finding a behavior-bearing change that requires rewriting this teaching map. It is not a byte-for-byte three-way source diff. The retained bridge and the direct tagged URLs on the landing page preserve the older historical source/test routing after the duplicate manifest is consumed.
 
 Primary files:
 

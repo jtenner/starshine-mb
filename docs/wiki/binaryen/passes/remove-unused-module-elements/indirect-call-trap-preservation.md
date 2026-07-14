@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
 related:
@@ -81,6 +81,6 @@ A future fixture should assert both that the module validates after RUME and tha
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md)
+- Binaryen [current-main `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp) and [all-features fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/remove-unused-module-elements_all-features.wast)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)
