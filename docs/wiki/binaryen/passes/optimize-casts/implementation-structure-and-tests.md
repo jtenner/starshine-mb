@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-03
 sources:
   - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
-  - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
@@ -264,7 +263,6 @@ Those may be useful future work, but they are not the reviewed `optimize-casts` 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md)
 - [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
 - [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/OptimizeCasts.cpp>

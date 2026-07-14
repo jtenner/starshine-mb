@@ -221,9 +221,8 @@ sources:
   - ../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md
   - ../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
 related:
   - ../no-dwarf-default-optimize-path.md

@@ -3,9 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-01
 sources:
-  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -26,7 +24,7 @@ related:
 
 - Use Binaryen `version_130` as the current release baseline for new research; this page's detailed implementation notes remain anchored to the `version_129` source set and current-main recheck until a dedicated `version_130` reread says otherwise.
 - The original release-tag source review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and the direct tagged URLs below.
-- The retained 2026-05-05 current-main source-anchor recheck is [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md).
+- The retained 2026-05-05 current-main source-anchor recheck is [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The low-memory threshold comes from `src/pass.h`.

@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -79,7 +78,6 @@ So the pass is best read as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md)
 - [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)

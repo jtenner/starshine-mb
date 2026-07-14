@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-03
 sources:
   - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
-  - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md
   - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md

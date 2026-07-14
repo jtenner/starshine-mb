@@ -24,7 +24,6 @@ sources:
   - ../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
-  - ../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
@@ -219,9 +218,8 @@ sources:
   - ../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md
   - ../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
   - ../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md

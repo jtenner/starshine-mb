@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-03
 sources:
-  - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
   - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -96,7 +95,6 @@ That is narrower than “optimize all casts.”
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md)
 - [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
 - [`../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md`](../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)

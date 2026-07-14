@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
-  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
@@ -17,7 +16,7 @@ related:
 # `optimize-added-constants-propagate`: implementation structure and tests
 
 This page is the file-and-test map for Binaryen `version_129` `optimize-added-constants-propagate`.
-It is anchored to the retained 2026-05-05 shared-owner recheck [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md) and the sibling-specific source/test map preserved in [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md).
+It is anchored to the retained 2026-05-05 shared-owner recheck [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md) and the sibling-specific source/test map preserved in [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md).
 
 ## Core source files
 
