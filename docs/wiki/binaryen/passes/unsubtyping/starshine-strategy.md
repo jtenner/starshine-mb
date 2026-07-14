@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
-  - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt

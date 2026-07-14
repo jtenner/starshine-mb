@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
-  - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
@@ -31,7 +30,6 @@ Use the 2026-07-11 `version_130` / current-main source recheck as the corrected 
 
 - [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
 - [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
-- [`../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
 - [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
 
 The main official sources are Binaryen `version_129` and current `main`:
