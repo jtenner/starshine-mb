@@ -851,10 +851,11 @@ fn flatten_try_terminal_br_table_targets_label(
       _ => return false
     }
   }
-  if if_count > 0 && if_count != 1 {
+  if if_count > 1 && payload_count > 1 {
     return false
   }
   let mut directly_enclosed = try_id
+  let mut reached_if = false
   while remaining_controls.length() > 0 {
     let mut enclosing_index = -1
     for candidate_index = 0
@@ -872,13 +873,16 @@ fn flatten_try_terminal_br_table_targets_label(
       return false
     }
     directly_enclosed = remaining_controls[enclosing_index]
-    ignore(remaining_controls.remove(enclosing_index))
-  }
-  if if_count == 1 {
     match @ir.hot_node_get(func, directly_enclosed).op {
-      @ir.HotOp::If => ()
+      @ir.HotOp::Block if reached_if => return false
+      @ir.HotOp::Block => ()
+      @ir.HotOp::If => reached_if = true
       _ => return false
     }
+    ignore(remaining_controls.remove(enclosing_index))
+  }
+  if if_count > 0 && !reached_if {
+    return false
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
