@@ -1001,16 +1001,8 @@ fn flatten_try_table_dead_suffix_root_nodes(
           }
         }
         @ir.HotOp::Binary => {
-          match @ir.hot_node_exact_instr(func, value_id) {
-            Some(instr) =>
-              match instr {
-                @lib.I32DivS => ()
-                @lib.I32Add => ()
-                @lib.I32Sub => ()
-                @lib.I32Mul => ()
-                @lib.I32And => ()
-                _ => return None
-              }
+          let instr = match @ir.hot_node_exact_instr(func, value_id) {
+            Some(instr) => instr
             None => return None
           }
           if @ir.hot_child_count(func, value_id) != 2 {
@@ -1020,6 +1012,61 @@ fn flatten_try_table_dead_suffix_root_nodes(
           let right_id = @ir.hot_child_get(func, value_id, 1)
           if left_id == right_id {
             return None
+          }
+          match instr {
+            @lib.I32Add =>
+              match
+                (
+                  @ir.hot_node_get(func, left_id).op,
+                  @ir.hot_node_get(func, right_id).op,
+                ) {
+                (@ir.HotOp::Const, @ir.HotOp::Binary) =>
+                  if @ir.hot_node_exact_instr(func, right_id) ==
+                    Some(@lib.Instruction::i32_mul()) &&
+                    @ir.hot_child_count(func, right_id) == 2 {
+                    let multiply_left = @ir.hot_child_get(func, right_id, 0)
+                    let multiply_right = @ir.hot_child_get(func, right_id, 1)
+                    let nested_nodes = [
+                      root_id, value_id, left_id, right_id, multiply_left, multiply_right,
+                    ]
+                    for outer = 0
+                        outer < nested_nodes.length()
+                        outer = outer + 1 {
+                      for inner = outer + 1
+                          inner < nested_nodes.length()
+                          inner = inner + 1 {
+                        if nested_nodes[outer] == nested_nodes[inner] {
+                          return None
+                        }
+                      }
+                    }
+                    match
+                      (
+                        @ir.hot_node_get(func, multiply_left).op,
+                        @ir.hot_node_get(func, multiply_right).op,
+                      ) {
+                      (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+                      _ => return None
+                    }
+                    if @ir.node_use_count(use_def, left_id) != 1 ||
+                      @ir.node_use_count(use_def, right_id) != 1 ||
+                      @ir.node_use_count(use_def, multiply_left) != 1 ||
+                      @ir.node_use_count(use_def, multiply_right) != 1 {
+                      return None
+                    }
+                    return Some(nested_nodes)
+                  }
+                _ => ()
+              }
+            _ => ()
+          }
+          match instr {
+            @lib.I32DivS => ()
+            @lib.I32Add => ()
+            @lib.I32Sub => ()
+            @lib.I32Mul => ()
+            @lib.I32And => ()
+            _ => return None
           }
           match
             (
