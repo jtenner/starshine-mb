@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

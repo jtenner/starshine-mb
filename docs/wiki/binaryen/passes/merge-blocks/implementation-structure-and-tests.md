@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
-  - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/merge_blocks.mbt

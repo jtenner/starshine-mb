@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
   - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
 related:

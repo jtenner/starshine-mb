@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
   - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
