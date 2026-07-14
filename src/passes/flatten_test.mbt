@@ -3688,6 +3688,16 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
 }
 
 ///|
+test "flatten intentionally keeps one tuple-made multivalue br_table through a legacy try two enclosing blocks and six if vectors fail closed as an audit boundary" {
+  flatten_assert_tuple_try_table_block_if_chain(2, 6, false)
+}
+
+///|
+test "flatten routes one tuple-made multivalue br_table through a legacy try enclosing block and six if vectors" {
+  flatten_assert_tuple_try_table_block_if_chain(1, 6, true)
+}
+
+///|
 test "flatten routes one tuple-made multivalue br_table through a legacy try two enclosing blocks and five if vectors" {
   flatten_assert_tuple_try_table_block_if_chain(2, 5, true)
 }
