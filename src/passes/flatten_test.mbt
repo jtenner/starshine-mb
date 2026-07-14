@@ -4675,7 +4675,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try two
 }
 
 ///|
-test "flatten intentionally rejects one tuple-made multivalue br_table through a legacy try two enclosing blocks and four if vectors pending the larger block roster" {
+test "flatten routes one tuple-made multivalue br_table through a legacy try two enclosing blocks and four if vectors" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()
   let result_types = [i32_type, i64_type]
@@ -4830,14 +4830,133 @@ test "flatten intentionally rejects one tuple-made multivalue br_table through a
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_child_count(func, branch), 3)
-  assert_true(@ir.hot_node_is_live(func, tuple_id))
-  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 2)
-  @debug.assert_eq(@ir.hot_node_result_arity(func, outermost_if_id), 2)
-  @debug.assert_eq(@ir.hot_label_branch_arity(func, try_label), 2)
-  @debug.assert_eq(@ir.hot_label_branch_arity(func, outermost_if_label), 2)
-  assert_false(flatten_classify_hot(func).is_flat())
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  for
+    control_id in [
+      try_id, inner_block_id, outer_block_id, inner_if_id, middle_if_id, outer_if_id,
+      outermost_if_id,
+    ] {
+    @debug.assert_eq(@ir.hot_node_result_arity(func, control_id), 0)
+  }
+  for
+    label_id in [
+      try_label, inner_block_label, outer_block_label, inner_if_label, middle_if_label,
+      outer_if_label, outermost_if_label,
+    ] {
+    @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  }
+  @debug.assert_eq(@ir.hot_region_root_count(func, try_body), 20)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 0), 0),
+    first_payload,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
+    second_payload,
+  )
+  let target_locals : Array[Array[Int]] = []
+  for target_index = 0; target_index < 7; target_index = target_index + 1 {
+    target_locals.push([
+      @ir.hot_node_get(
+        func,
+        @ir.hot_region_get(func, try_body, 4 + target_index * 2),
+      ).imm0,
+      @ir.hot_node_get(
+        func,
+        @ir.hot_region_get(func, try_body, 5 + target_index * 2),
+      ).imm0,
+    ])
+  }
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    for left = 0; left < target_locals.length(); left = left + 1 {
+      for right = left + 1; right < target_locals.length(); right = right + 1 {
+        assert_false(target_locals[left][slot] == target_locals[right][slot])
+      }
+    }
+  }
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 18), 0),
+    selector,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, try_body, 19), branch)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, slot)).imm0,
+      target_locals[0][slot],
+    )
+  }
+  let blocks = [inner_block_id, outer_block_id]
+  let block_children = [try_id, inner_block_id]
+  for block_index = 0
+      block_index < blocks.length()
+      block_index = block_index + 1 {
+    let body_ref = @ir.hot_region_body_ref(func, blocks[block_index])
+    @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+    @debug.assert_eq(
+      @ir.hot_region_get(func, body_ref, 0),
+      block_children[block_index],
+    )
+    for slot = 0; slot < result_types.length(); slot = slot + 1 {
+      let copy_set = @ir.hot_region_get(func, body_ref, slot + 1)
+      @debug.assert_eq(
+        @ir.hot_node_get(func, copy_set).imm0,
+        target_locals[block_index + 1][slot],
+      )
+      @debug.assert_eq(
+        @ir.hot_node_get(func, @ir.hot_child_get(func, copy_set, 0)).imm0,
+        target_locals[block_index][slot],
+      )
+    }
+  }
+  let ifs = [inner_if_id, middle_if_id, outer_if_id, outermost_if_id]
+  let if_children = [outer_block_id, inner_if_id, middle_if_id, outer_if_id]
+  for if_index = 0; if_index < ifs.length(); if_index = if_index + 1 {
+    let then_ref = @ir.hot_region_then_ref(func, ifs[if_index])
+    @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 3)
+    @debug.assert_eq(
+      @ir.hot_region_get(func, then_ref, 0),
+      if_children[if_index],
+    )
+    for slot = 0; slot < result_types.length(); slot = slot + 1 {
+      let copy_set = @ir.hot_region_get(func, then_ref, slot + 1)
+      @debug.assert_eq(
+        @ir.hot_node_get(func, copy_set).imm0,
+        target_locals[if_index + 3][slot],
+      )
+      @debug.assert_eq(
+        @ir.hot_node_get(func, @ir.hot_child_get(func, copy_set, 0)).imm0,
+        target_locals[if_index + 2][slot],
+      )
+    }
+    let else_ref = @ir.hot_region_else_ref(func, ifs[if_index]).unwrap()
+    for slot = 0; slot < result_types.length(); slot = slot + 1 {
+      @debug.assert_eq(
+        @ir.hot_node_get(func, @ir.hot_region_get(func, else_ref, slot)).imm0,
+        target_locals[if_index + 3][slot],
+      )
+    }
+  }
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, slot)).imm0,
+      target_locals[6][slot],
+    )
+  }
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-made multivalue try-two-block-four-if table routing to verify, got \{err}",
+      )
+  }
 }
 
 ///|
