@@ -15411,6 +15411,80 @@ test "dae-optimizing preserves case 000690 escaped self-call operand param" {
 }
 
 ///|
+fn dae_test_broad_removed_param_local_cleanup_module() -> String {
+  let helper_count = 10
+  let total_defs = 4097
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $target (param i32) (result i32) (local")
+  for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(")\n    block\n    end\n")
+  for local_idx = 0; local_idx < 32; local_idx = local_idx + 1 {
+    out.write_string("    i32.const ")
+    out.write_string(local_idx.to_string())
+    out.write_string("\n    local.set ")
+    out.write_string((local_idx + 1).to_string())
+    out.write_string("\n    local.get ")
+    out.write_string((local_idx + 1).to_string())
+    out.write_string("\n    drop\n")
+  }
+  out.write_string("    i32.const 7)\n")
+  for helper_idx = 0; helper_idx < helper_count; helper_idx = helper_idx + 1 {
+    out.write_string("  (func $helper")
+    out.write_string(helper_idx.to_string())
+    out.write_string(" (param i32))\n")
+  }
+  out.write_string("  (func (export \"run\") (result i32)\n")
+  for helper_idx = 0; helper_idx < helper_count; helper_idx = helper_idx + 1 {
+    out.write_string("    i32.const ")
+    out.write_string(helper_idx.to_string())
+    out.write_string("\n    call $helper")
+    out.write_string(helper_idx.to_string())
+    out.write_string("\n")
+  }
+  out.write_string("    i32.const 99\n    call $target)\n")
+  for dummy_idx = helper_count + 2
+      dummy_idx < total_defs
+      dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing cleans one ranked broad removed-param local family" {
+  let source = dae_test_broad_removed_param_local_cleanup_module()
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(plain, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, 0)
+  let @lib.Func(optimized_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(plain_locals.length(), 128)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:broad-removed-param-local-cleanup def=0 removed_locals=96",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  @debug.assert_eq(optimized_locals.length(), 32)
+  let plain_func = plain.pretty_print_defined_func(0U)
+  let optimized_func = optimized.pretty_print_defined_func(0U)
+  assert_true(plain_func.contains("local.set"), msg=plain_func)
+  assert_true(optimized_func.contains("local.set"), msg=optimized_func)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected broad removed-param cleanup output to validate: \{err}")
+  }
+}
+
+///|
 fn dae_test_broad_exact_param_adjacent_cleanup_module() -> String {
   let root_def = 7000
   let pair_first_def = 7004

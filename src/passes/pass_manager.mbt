@@ -61577,6 +61577,84 @@ fn run_hot_pipeline_dae_low_exact_param_chain_prefix_touched(
 }
 
 ///|
+fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
+  original : @lib.Module,
+  current : @lib.Module,
+  touched : Array[Bool],
+) -> (@lib.Module, Int, Int) {
+  if dae_defined_func_count(current) <= 4096 {
+    return (current, -1, 0)
+  }
+  let original_type_idxs = dae_collect_func_type_indices(original)
+  let current_type_idxs = dae_collect_func_type_indices(current)
+  let imported = dae_imported_func_count(current)
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (current, -1, 0)
+  }
+  let mut best_def = -1
+  let mut best_removed_locals = 0
+  let mut best_func : @lib.Func? = None
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let func = funcs[def_idx]
+    let @lib.Func(locals, _) = func
+    if locals.length() < 128 {
+      continue
+    }
+    let abs_idx = imported + def_idx
+    let original_params = match
+      dae_resolve_func_type(original, original_type_idxs, abs_idx) {
+      Some(@lib.FuncType(params, _)) => params
+      None => continue
+    }
+    let current_params = match
+      dae_resolve_func_type(current, current_type_idxs, abs_idx) {
+      Some(@lib.FuncType(params, _)) => params
+      None => continue
+    }
+    if original_params.length() <= current_params.length() {
+      continue
+    }
+    let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)
+    let (compacted, locals_changed) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+      cleaned, current_params, 0,
+    )
+    if !locals_changed {
+      continue
+    }
+    let @lib.Func(compacted_locals, _) = compacted
+    let removed_locals = locals.length() - compacted_locals.length()
+    if removed_locals < 16 {
+      continue
+    }
+    if removed_locals > best_removed_locals ||
+      (
+        removed_locals == best_removed_locals &&
+        (best_def < 0 || def_idx < best_def)
+      ) {
+      best_def = def_idx
+      best_removed_locals = removed_locals
+      best_func = Some(compacted)
+    }
+  }
+  match best_func {
+    Some(func) => {
+      let rewritten = funcs.copy()
+      rewritten[best_def] = func
+      (
+        current.with_code_sec(@lib.CodeSec::new(rewritten)).without_name_sec(),
+        best_def,
+        best_removed_locals,
+      )
+    }
+    None => (current, -1, 0)
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
@@ -61682,6 +61760,15 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       }
     }
     None => ()
+  }
+  let (removed_param_local_cleaned, removed_param_local_def, removed_locals) = run_hot_pipeline_dae_broad_removed_param_local_cleanup(
+    mod_, core_mod, core_touched,
+  )
+  core_mod = removed_param_local_cleaned
+  if removed_param_local_def >= 0 {
+    (options.trace)(
+      "pass[dae-optimizing]:broad-removed-param-local-cleanup def=\{removed_param_local_def} removed_locals=\{removed_locals}",
+    )
   }
   let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
     core_mod,
