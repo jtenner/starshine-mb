@@ -860,30 +860,12 @@ fn flatten_direct_enclosing_target_controls(
 }
 
 ///|
-fn flatten_target_chain_has_blocks_before_ifs(
-  func : @ir.HotFunc,
-  chain : Array[Int],
-) -> Bool {
-  let mut reached_if = false
-  for owner_id in chain {
-    match @ir.hot_node_get(func, owner_id).op {
-      @ir.HotOp::Block if reached_if => return false
-      @ir.HotOp::Block => ()
-      @ir.HotOp::If => reached_if = true
-      _ => return false
-    }
-  }
-  true
-}
-
-///|
 fn flatten_try_terminal_br_table_targets_label(
   func : @ir.HotFunc,
   node_id : Int,
   label_id : Int,
   payload_count : Int,
   allow_mixed_targets : Bool,
-  require_blocks_before_ifs : Bool,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -911,14 +893,10 @@ fn flatten_try_terminal_br_table_targets_label(
       _ => return false
     }
   }
-  let target_chain = match
+  match
     flatten_direct_enclosing_target_controls(func, try_id, target_controls) {
-    Some(target_chain) => target_chain
+    Some(_) => ()
     None => return false
-  }
-  if require_blocks_before_ifs &&
-    !flatten_target_chain_has_blocks_before_ifs(func, target_chain) {
-    return false
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
@@ -953,7 +931,7 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
     _ => return false
   }
   flatten_try_terminal_br_table_targets_label(
-    func, node_id, label_id, payload_count, allow_mixed_targets, false,
+    func, node_id, label_id, payload_count, allow_mixed_targets,
   )
 }
 
@@ -2886,7 +2864,7 @@ fn flatten_target_can_route_scalar_branches(
         match owner.op {
           @ir.HotOp::Try =>
             if !flatten_try_terminal_br_table_targets_label(
-                func, branch_id, label_id, 1, true, false,
+                func, branch_id, label_id, 1, true,
               ) {
               return false
             }
@@ -3955,7 +3933,6 @@ fn flatten_tuple_mixed_try_table_is_supported(
     try_label,
     payload_types.length(),
     true,
-    true,
   )
 }
 
@@ -4049,7 +4026,7 @@ fn flatten_try_route_br_table(
         let try_id = @ir.hot_label_owner(func, target)
         if payload_count == 1 {
           if !flatten_try_terminal_br_table_targets_label(
-              func, node_id, target, 1, true, false,
+              func, node_id, target, 1, true,
             ) ||
             !flatten_scalar_legacy_try_is_supported(func, try_id) {
             return false

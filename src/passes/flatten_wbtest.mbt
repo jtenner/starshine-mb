@@ -129,9 +129,6 @@ test "flatten extracts direct try target ancestry in structural order" {
     flatten_direct_enclosing_target_controls(func, try_id, [if_id, block_id]),
     Some([block_id, if_id]),
   )
-  assert_true(
-    flatten_target_chain_has_blocks_before_ifs(func, [block_id, if_id]),
-  )
 }
 
 ///|
@@ -160,7 +157,7 @@ test "flatten rejects skipped direct try target ancestry" {
 }
 
 ///|
-test "flatten keeps reverse if-inside-block ancestry as an explicit policy boundary" {
+test "flatten extracts reverse if-inside-block target ancestry in structural order" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
     func,
@@ -180,7 +177,6 @@ test "flatten keeps reverse if-inside-block ancestry as an explicit policy bound
     block_id, if_id,
   ])
   @debug.assert_eq(chain, Some([if_id, block_id]))
-  assert_false(flatten_target_chain_has_blocks_before_ifs(func, chain.unwrap()))
 }
 
 ///|
