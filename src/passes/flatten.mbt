@@ -2545,12 +2545,28 @@ fn flatten_scalar_try_br_if_consumer_matches_payload(
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
   if @ir.node_use_count(use_def, consumed_id) != 1 ||
-    @ir.hot_child_count(func, consumed_id) != 1 ||
+    @ir.hot_child_count(func, consumed_id) == 0 ||
     @ir.hot_child_get(func, consumed_id, 0) != value_id {
     return false
   }
   match consumed.op {
+    @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => {
+      if !flatten_node_is_simple_operand(
+          func,
+          @ir.hot_child_get(func, consumed_id, 1),
+        ) ||
+        @ir.hot_node_exact_instr(func, consumed_id) is None {
+        return false
+      }
+      let value_types = @ir.hot_type_results(
+        func,
+        @ir.hot_node_get(func, value_id).ty,
+      )
+      value_types.length() == 1 &&
+      @ir.hot_type_results(func, consumed.ty) == value_types
+    }
     @ir.HotOp::Unary | @ir.HotOp::Convert =>
+      @ir.hot_child_count(func, consumed_id) == 1 &&
       @ir.hot_node_exact_instr(func, consumed_id) is Some(_)
     _ => false
   }
