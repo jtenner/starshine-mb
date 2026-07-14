@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
   - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
@@ -20,7 +19,7 @@ related:
 # `reorder-types`: implementation structure and tests
 
 This page is the compact file/test map for the real Binaryen `version_129` `reorder-types` contract.
-The retained 2026-04-24 source follow-up is [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md), the archived 2026-05-04 current-main recheck is [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md), and the 2026-05-05 freshness refresh is [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md).
+The retained 2026-04-24 source follow-up is [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md), the archived 2026-05-04 current-main recheck is [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md), and the retained 2026-05-05 port-readiness bridge is [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md).
 
 ## Core implementation files
 
@@ -117,7 +116,6 @@ If Starshine eventually implements `reorder-types`, the local port should preser
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)

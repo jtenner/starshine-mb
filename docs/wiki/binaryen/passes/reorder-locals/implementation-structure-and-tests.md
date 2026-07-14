@@ -5,7 +5,6 @@ last_reviewed: 2026-07-02
 sources:
   - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
@@ -31,7 +30,7 @@ Use it when you need to answer "which upstream file proves what?" without re-rea
 ## Source rule
 
 Use Binaryen `version_130` as the current released oracle for this O4Z audit. The refreshed `version_130` owner/lit files are byte-identical to the previously reviewed `version_129` files, so older line-oriented notes still describe the same algorithm.
-For the retained manifests of the reviewed official release, source, and test URLs, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md).
+For the retained manifests of the reviewed official release, source, and test URLs, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md); [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md) preserves the earlier current-main recheck.
 
 A 2026-07-02 `version_130` source refresh found no owner/lit drift beyond the dossier's existing claims. The 2026-04-27 validation recheck still stands, and the new 2026-05-05 freshness layer simply refreshes the current-main owner/scheduler/test provenance and the Starshine signoff bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

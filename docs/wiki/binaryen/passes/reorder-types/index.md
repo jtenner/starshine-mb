@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
   - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
@@ -37,7 +36,7 @@ related:
 - Upstream `version_129` registers it publicly as `reorder-types`, plus a hidden testing sibling `reorder-types-for-testing`.
 - It is **not** part of the repo's canonical no-DWARF default optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-types` slice**.
-- The retained 2026-04-24 source follow-up is [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md); the archived 2026-05-04 current-main recheck is [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md), and the 2026-05-05 freshness refresh is [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md).
+- The retained 2026-04-24 source follow-up is [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md); the archived 2026-05-04 current-main recheck is [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md), and the retained 2026-05-05 port-readiness bridge is [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md).
 
 ## The real `version_129` contract in one paragraph
 
@@ -135,7 +134,6 @@ It is a constrained whole-module type-remap pass.
 - [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md`](../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
-- [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

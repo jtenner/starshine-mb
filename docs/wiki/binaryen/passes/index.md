@@ -152,7 +152,6 @@ sources:
   - ../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
-  - ../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
