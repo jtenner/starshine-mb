@@ -556,7 +556,7 @@ test "flatten recognizes one direct drop-const then unreachable try-table suffix
 }
 
 ///|
-test "flatten keeps unreachable then drop-const mixed try-table suffix order unsupported" {
+test "flatten recognizes one direct unreachable then drop-const try-table suffix" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -573,13 +573,19 @@ test "flatten keeps unreachable then drop-const mixed try-table suffix order uns
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
-    table_id,
-    @ir.hot_build_unreachable(func),
-    @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(9))),
+  let dead_unreachable = @ir.hot_build_unreachable(func)
+  let dead_value = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let dead_drop = @ir.hot_build_drop(func, dead_value)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id, dead_unreachable, dead_drop,
   ])
   @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
-  assert_false(
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([dead_unreachable, dead_drop, dead_value]),
+  )
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),

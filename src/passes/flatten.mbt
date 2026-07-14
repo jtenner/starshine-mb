@@ -1124,6 +1124,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut all_unreachable = true
       let mut all_direct_drop_consts = true
       let mut exact_drop_const_then_unreachable = suffix_count == 2
+      let mut exact_unreachable_then_drop_const = suffix_count == 2
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1145,13 +1146,22 @@ fn flatten_try_table_dead_suffix_nodes(
           if !root_is_direct_drop_const {
             exact_drop_const_then_unreachable = false
           }
-        } else if !root_is_unreachable {
-          exact_drop_const_then_unreachable = false
+          if !root_is_unreachable {
+            exact_unreachable_then_drop_const = false
+          }
+        } else {
+          if !root_is_unreachable {
+            exact_drop_const_then_unreachable = false
+          }
+          if !root_is_direct_drop_const {
+            exact_unreachable_then_drop_const = false
+          }
         }
       }
       if !all_unreachable &&
         !all_direct_drop_consts &&
-        !exact_drop_const_then_unreachable {
+        !exact_drop_const_then_unreachable &&
+        !exact_unreachable_then_drop_const {
         return None
       }
     }
