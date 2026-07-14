@@ -970,6 +970,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
               match instr {
                 @lib.I32DivS => ()
                 @lib.I32Add => ()
+                @lib.I32Sub => ()
                 _ => return None
               }
             None => return None
