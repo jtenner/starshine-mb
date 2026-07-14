@@ -877,8 +877,18 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
     func,
     @ir.hot_node_get(func, node_id).imm0,
   )
-  if targets.length() > 3 {
-    return false
+  if targets.length() > 3 &&
+    @ir.hot_child_count(func, node_id) == payload_count + 1 {
+    let target_types = @ir.hot_type_results(
+      func,
+      @ir.hot_label_result_type(func, label_id),
+    )
+    if flatten_multivalue_tuple_branch_payload_values(
+        func, node_id, payload_count, target_types,
+      )
+      is Some(_) {
+      return false
+    }
   }
   flatten_try_terminal_br_table_targets_label(
     func, node_id, label_id, payload_count, allow_mixed_targets,
