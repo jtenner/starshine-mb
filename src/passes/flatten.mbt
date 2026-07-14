@@ -928,10 +928,16 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
         } else {
           @ir.hot_child_get(func, branch_id, payload_count - 1 - offset)
         }
-        match consumer.op {
-          @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 &&
-            @ir.hot_child_get(func, consumer_id, 0) == expected_payload => ()
-          _ => return None
+        if tuple_id >= 0 {
+          match consumer.op {
+            @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 &&
+              @ir.hot_child_get(func, consumer_id, 0) == expected_payload => ()
+            _ => return None
+          }
+        } else if !flatten_multivalue_loop_br_if_consumer_matches_payload(
+            func, use_def, consumer_id, expected_payload,
+          ) {
+          return None
         }
       }
       return Some([tuple_id, arm, root_idx])
@@ -3508,12 +3514,23 @@ fn flatten_try_route_multivalue_br_if(
           region_ref,
           flow[2] + 1 + offset,
         )
-        @ir.hot_child_set(
-          func,
-          consumer_id,
-          0,
-          @ir.hot_build_local_get(func, locals[payload_count - 1 - offset]),
-        )
+        if tuple_id >= 0 {
+          @ir.hot_child_set(
+            func,
+            consumer_id,
+            0,
+            @ir.hot_build_local_get(func, locals[payload_count - 1 - offset]),
+          )
+        } else {
+          ignore(
+            flatten_replace_multivalue_loop_br_if_consumer_payload(
+              func,
+              consumer_id,
+              @ir.hot_child_get(func, node_id, payload_count - 1 - offset),
+              locals[payload_count - 1 - offset],
+            ),
+          )
+        }
       }
       let condition_id = @ir.hot_child_get(func, node_id, payload_count)
       ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))

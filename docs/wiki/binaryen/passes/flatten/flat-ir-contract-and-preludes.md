@@ -30,6 +30,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-conditional-binary-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-conditional-break-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
@@ -275,7 +276,7 @@ When that happens, Binaryen may need:
 - one temp for the target block’s carried type
 - another temp for the value that can still flow outward when the branch is not taken
 
-Starshine now handles both the same-type one-temp case and this source-backed two-temp mismatch for supported scalar payloads. The mismatch route evaluates the payload once through the flow temp before copying it into the target channel, and rich ordinary producers retain one shared origin across false-path uses. The first multivalue route is deliberately narrower: exact same target/flow vectors, independently scalar payload origins, and one contiguous exclusive false-path tail; mismatched or ambiguously shared vectors remain separate work. That double-temp rule is one of the most important beginner-unfriendly details in the whole pass.
+Starshine now handles both the same-type one-temp case and this source-backed two-temp mismatch for supported scalar payloads. The mismatch route evaluates the payload once through the flow temp before copying it into the target channel, and rich ordinary producers retain one shared origin across false-path uses. The first block/if multivalue route is deliberately narrower: exact same target/flow vectors, independently scalar payload origins, and one contiguous exclusive false-path tail; mismatched or ambiguously shared vectors remain separate work. Legacy-try multivalue flow additionally admits immediate reversed independently scalar unary/conversion consumers whose results are directly dropped, while repeated tuple lanes remain direct-drop-only. That double-temp rule is one of the most important beginner-unfriendly details in the whole pass.
 
 ## Why `switch` / `br_table` duplicates work
 
