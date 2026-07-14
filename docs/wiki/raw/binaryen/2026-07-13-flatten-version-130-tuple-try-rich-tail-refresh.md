@@ -42,4 +42,4 @@ The ignored `.tmp/flatten-probes/tuple-try-tail.wat` probe uses separate scalar 
 
 Starshine may scalarize the tuple-local representation at the HOT boundary when both arms have exact separately owned tuple tails and every ordered component has one scalar defaultable result with a supported non-control origin. The whole-function preflight establishes ownership and types before mutation. During ordinary postorder operand rewriting, each rich component is spilled once in source order inside its own region. The tuple shells then contain simple reads and are replaced by writes into the shared typed result-local vector.
 
-Shared/non-tail tuples, mixed tuple/scalar arms, unsupported control origins, nondefaultable lanes, represented catch payloads, and exceptional transfers remain fail-closed.
+Mixed tuple/scalar arms were subsequently admitted under the same per-region ownership/type contract in [`2026-07-13-flatten-version-130-mixed-try-tail-refresh.md`](./2026-07-13-flatten-version-130-mixed-try-tail-refresh.md). Shared/non-tail tuples, unsupported control origins, nondefaultable lanes, represented catch payloads, and exceptional transfers remain fail-closed.

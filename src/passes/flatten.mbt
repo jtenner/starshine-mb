@@ -797,7 +797,6 @@ fn flatten_multivalue_legacy_try_is_supported(
     None => return false
   }
   let regions = [@ir.hot_region_body_ref(func, try_id), catch_ref]
-  let mut tuple_region_count = 0
   for region_ref in regions {
     if flatten_multivalue_region_tail_matches_types(
         func, region_ref, result_types,
@@ -807,12 +806,11 @@ fn flatten_multivalue_legacy_try_is_supported(
     if flatten_multivalue_region_tail_tuple_make_has_supported_origins(
         func, region_ref, result_types,
       ) {
-      tuple_region_count += 1
       continue
     }
     return false
   }
-  tuple_region_count == 0 || tuple_region_count == regions.length()
+  true
 }
 
 ///|
