@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-06
 sources:
-  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp
   - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
   - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
@@ -35,7 +35,7 @@ related:
 - As of 2026-05-06, it is implemented in Starshine as an active module pass in [`../../../../../src/passes/duplicate_import_elimination.mbt`](../../../../../src/passes/duplicate_import_elimination.mbt), registered in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), and dispatched by [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - Binaryen runs it in the late post-pass cluster after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`; Starshine exposes the direct pass but has not yet widened the public `optimize` preset to that full late-tail shape.
 - The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**.
-- The local `wasm-opt` oracle and official Binaryen `version_130` / current `main` source were refreshed on **2026-07-06** through [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md). The pass is still function-import-only, but the older first-import wording was corrected: a type mismatch updates the current bucket representative, so a later same-type import deduplicates against that newer kept import.
+- The local `wasm-opt` oracle and official Binaryen `version_130` / current `main` source were refreshed on **2026-07-06** against [the tagged owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp) and [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp). The pass is still function-import-only, but the older first-import wording was corrected: a type mismatch updates the current bucket representative, so a later same-type import deduplicates against that newer kept import.
 
 ## Why this dossier needed a follow-up
 
@@ -130,7 +130,8 @@ That is much closer to the real pass than either:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md)
+- Binaryen `version_130` owner: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
+- Binaryen current-main owner checked on 2026-07-06: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp>
 - [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md)
 - [`../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md`](../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md)
 - [`../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md`](../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md)

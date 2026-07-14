@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/AbstractTypeRefining.cpp
   - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt

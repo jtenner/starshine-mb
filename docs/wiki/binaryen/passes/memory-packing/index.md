@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
-  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
+  - https://github.com/WebAssembly/binaryen/commit/db30c15
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
@@ -90,7 +90,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 - Preserving trap behavior is mandatory unless `trapsNeverHappen` is allowed.
 - GC awareness exists here already, but mostly as a conservative boundary:
   - `array.new_data` and `array.init_data` users inhibit splitting today
-- `version_129` / `version_130` remain the released oracle, but current `main` has a 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. This is current-main drift, not a retroactive change to release-based Starshine signoff; see [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+- `version_129` / `version_130` remain the released oracle, but current `main` has a 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. This is current-main drift, not a retroactive change to release-based Starshine signoff; see [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
 
 ## Biggest beginner correction
 

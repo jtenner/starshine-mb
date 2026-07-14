@@ -3,7 +3,7 @@ kind: pass
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignExtLowering.cpp
   - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
@@ -36,7 +36,7 @@ The pass takes the five sign-extension opcodes:
 - `i64.extend16_s`
 - `i64.extend32_s`
 
-and, **only when the module's Binaryen feature set includes `SignExt`**, rewrites them to older same-width shift pairs. It then clears `SignExt`. The goal is feature compatibility, not immediate size or speed. The 2026-07-10 current-main refresh records this gate, the five rewrite shapes, and the feature-clear side effect in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md); it supersedes the older current-main summaries where they implied unconditional rewriting. The same opcode family roundtrips through Starshine's local binary decoder and pretty-printer, though the printer still uses underscoreless spellings today.
+and, **only when the module's Binaryen feature set includes `SignExt`**, rewrites them to older same-width shift pairs. It then clears `SignExt`. The goal is feature compatibility, not immediate size or speed. The 2026-07-10 current-main refresh records this gate, the five rewrite shapes, and the feature-clear side effect in [the reviewed Binaryen current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignExtLowering.cpp); it supersedes the older current-main summaries where they implied unconditional rewriting. The same opcode family roundtrips through Starshine's local binary decoder and pretty-printer, though the printer still uses underscoreless spellings today.
 
 ## Current Starshine status
 

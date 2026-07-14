@@ -5,7 +5,6 @@ starshine_status: upstream-only
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md
-  - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/lib/module.mbt
   - ../../../../../src/validate/validate.mbt
@@ -96,7 +95,6 @@ Do not create a compare-pass smoke lane yet: the local dispatcher and harness do
 ## Sources
 
 - Current-main owner/registration/scheduler/helper recheck: [`../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-remove-imports-current-main-recheck.md)
-- Earlier detailed source read: [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Starshine import/index model: [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md), [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt), [`../../../../../src/lib/module.mbt`](../../../../../src/lib/module.mbt)
 - Starshine validation and WAST lowering prerequisites: [`../../../../../src/validate/validate.mbt`](../../../../../src/validate/validate.mbt), [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt)
 - Fuzzing/admission boundary: [`fuzzing.md`](fuzzing.md), [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)
