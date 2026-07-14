@@ -6,9 +6,7 @@ sources:
   - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
@@ -115,9 +113,7 @@ So the pass is best taught as:
 
 - [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
