@@ -785,6 +785,34 @@ fn flatten_multivalue_try_terminal_plain_br_targets_label(
 }
 
 ///|
+fn flatten_control_directly_encloses_node(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  child_id : Int,
+) -> Bool {
+  let regions : Array[@ir.HotRegionRef] = match
+    @ir.hot_node_get(func, owner_id).op {
+    @ir.HotOp::Block => [@ir.hot_region_body_ref(func, owner_id)]
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, owner_id) {
+        Some(else_ref) => [@ir.hot_region_then_ref(func, owner_id), else_ref]
+        None => return false
+      }
+    _ => return false
+  }
+  for region_ref in regions {
+    for root_idx = 0
+        root_idx < @ir.hot_region_root_count(func, region_ref)
+        root_idx = root_idx + 1 {
+      if @ir.hot_region_get(func, region_ref, root_idx) == child_id {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
 fn flatten_try_terminal_br_table_targets_label(
   func : @ir.HotFunc,
   node_id : Int,
@@ -807,40 +835,44 @@ fn flatten_try_terminal_br_table_targets_label(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  let remaining_blocks : Array[Int] = []
+  let remaining_controls : Array[Int] = []
+  let mut if_count = 0
   for target in targets {
     if target == label_id {
       continue
     }
     match @ir.hot_label_kind(func, target) {
       @ir.HotLabelKind::BlockLabel =>
-        remaining_blocks.push(@ir.hot_label_owner(func, target))
+        remaining_controls.push(@ir.hot_label_owner(func, target))
+      @ir.HotLabelKind::IfLabel => {
+        if_count += 1
+        remaining_controls.push(@ir.hot_label_owner(func, target))
+      }
       _ => return false
     }
   }
+  if if_count > 0 && (if_count != 1 || targets.length() != 2) {
+    return false
+  }
   let mut directly_enclosed = try_id
-  while remaining_blocks.length() > 0 {
+  while remaining_controls.length() > 0 {
     let mut enclosing_index = -1
     for candidate_index = 0
-        candidate_index < remaining_blocks.length()
+        candidate_index < remaining_controls.length()
         candidate_index = candidate_index + 1 {
-      let block_body = @ir.hot_region_body_ref(
-        func,
-        remaining_blocks[candidate_index],
-      )
-      for root_idx = 0
-          root_idx < @ir.hot_region_root_count(func, block_body)
-          root_idx = root_idx + 1 {
-        if @ir.hot_region_get(func, block_body, root_idx) == directly_enclosed {
-          enclosing_index = candidate_index
-        }
+      if flatten_control_directly_encloses_node(
+          func,
+          remaining_controls[candidate_index],
+          directly_enclosed,
+        ) {
+        enclosing_index = candidate_index
       }
     }
     if enclosing_index < 0 {
       return false
     }
-    directly_enclosed = remaining_blocks[enclosing_index]
-    ignore(remaining_blocks.remove(enclosing_index))
+    directly_enclosed = remaining_controls[enclosing_index]
+    ignore(remaining_controls.remove(enclosing_index))
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
@@ -872,6 +904,19 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::BrTable => ()
     _ => return false
+  }
+  for
+    target in flatten_unique_br_table_targets(
+      func,
+      @ir.hot_node_get(func, node_id).imm0,
+    ) {
+    if target == label_id {
+      continue
+    }
+    match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::IfLabel => return false
+      _ => ()
+    }
   }
   flatten_try_terminal_br_table_targets_label(
     func, node_id, label_id, payload_count, allow_mixed_targets,

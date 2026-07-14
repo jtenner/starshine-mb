@@ -38,6 +38,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-block-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-three-block-table-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-if-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-block-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-three-block-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-two-block-table-tuple-refresh.md
