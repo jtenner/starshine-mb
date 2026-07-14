@@ -804,10 +804,9 @@ fn flatten_multivalue_legacy_try_is_supported(
       ) {
       continue
     }
-    if flatten_multivalue_region_tail_tuple_make_values(
+    if flatten_multivalue_region_tail_tuple_make_has_supported_origins(
         func, region_ref, result_types,
-      )
-      is Some(_) {
+      ) {
       tuple_region_count += 1
       continue
     }
