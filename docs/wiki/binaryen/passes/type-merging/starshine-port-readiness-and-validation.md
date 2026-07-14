@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeMerging.cpp
   - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
@@ -22,7 +22,7 @@ related:
 
 ## Main upstream files
 
-Direct `version_129` source URLs in this dossier retain tagged primary provenance. The 2026-07-11 current-main recheck preserves the owner, registration, and lit contract but corrects the helper call shape: `worldMode` now reaches both private-type selection and `GlobalTypeRewriter`; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md). The older 0193 research note remains historical context.
+Direct `version_129` source URLs in this dossier retain tagged primary provenance. The 2026-07-11 current-main recheck preserves the owner, registration, and lit contract but corrects the helper call shape: `worldMode` now reaches both private-type selection and `GlobalTypeRewriter`; see [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp). The older 0193 research note remains historical context.
 
 | File | Kind | Why it matters |
 | --- | --- | --- |

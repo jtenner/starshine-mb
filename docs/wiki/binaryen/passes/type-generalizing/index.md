@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
@@ -61,7 +61,7 @@ The 2026-07-11 `version_130` and current-main source recheck resolves both error
 - `ReFinalize` when local get/tee expression types changed;
 - many explicit unsupported or TODO families, which explains the hidden not-yet-sound registration.
 
-It does **not** include or use `ContentOracle`: the pass reads static signatures, declared global/table types, and declared heap-type supertype/field/element information directly. Treat [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md) as the current source anchor. The older captures remain audit history, but their `ContentOracle` claims are superseded.
+It does **not** include or use `ContentOracle`: the pass reads static signatures, declared global/table types, and declared heap-type supertype/field/element information directly. Treat Binaryen's current-main [`TypeGeneralizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp) as the current source anchor. The older captures remain audit history, but their `ContentOracle` claims are superseded.
 
 ## Beginner summary
 
@@ -132,7 +132,7 @@ For Starshine today:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp>
 - [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
 - [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
 - Superseded mechanics: the consumed 2026-04-24 source capture, [`../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md`](../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md), and [`../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md`](../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md)

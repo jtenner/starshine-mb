@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp
   - ../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
   - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
@@ -33,7 +33,7 @@ related:
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - The exact local status and future port map live in [`./starshine-strategy.md`](./starshine-strategy.md): no owner file, no active preset role, no active backlog slice, and no separately registered `type-refining-gufa` sibling today.
 - The implementation-readiness ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): analyzer-first scope, first mutating slice, shape-to-validation checklist, Binaryen oracle lanes, and local code surfaces.
-- Current Binaryen `main` preserves the closed-world semantic boundary but now carries `WorldMode` through the open-world rejection, public-type classification, and global type rewrite. A future port needs one consistent world/visibility policy, not an old boolean-only gate; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
+- Current Binaryen `main` preserves the closed-world semantic boundary but now carries `WorldMode` through the open-world rejection, public-type classification, and global type rewrite. A future port needs one consistent world/visibility policy, not an old boolean-only gate; see Binaryen's current-main [`TypeRefining.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp).
 - In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
   - `apply more specific subtypes to type fields where possible`
 
@@ -142,7 +142,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp>
 - [`../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md`](../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md)
 - [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)

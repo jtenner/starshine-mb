@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
@@ -23,7 +23,7 @@ So the examples here focus on type declarations and the places that mention them
 ## Reading note
 
 The examples are beginner-friendly sketches of the shapes Binaryen's official lit file proves.
-They are meant to teach the contract, not reproduce the full test file verbatim. For source provenance, see the direct `version_129` URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md) plus the 2026-07-11 current-main world-mode recheck [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md); for Starshine status, future local code locations, and the shape-to-validation checklist, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+They are meant to teach the contract, not reproduce the full test file verbatim. For source provenance, see the direct `version_129` URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md) plus the 2026-07-11 current-main world-mode recheck [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp); for Starshine status, future local code locations, and the shape-to-validation checklist, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Positive shape 1: private open leaf becomes final
 

@@ -3,7 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt

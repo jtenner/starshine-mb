@@ -3,7 +3,7 @@ kind: concept
 status: superseded
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
@@ -41,6 +41,6 @@ Use the replacement page and the refreshed landing/strategy pages for mechanics.
 
 ## Current sources
 
-- [`../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-type-generalizing-v130-current-main-recheck.md)
+- [Binaryen current-main `TypeGeneralizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp)
 - [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
 - [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md)

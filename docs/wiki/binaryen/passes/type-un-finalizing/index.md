@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
   - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
@@ -36,7 +36,7 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `type-un-finalizing` slice**.
-- Current Binaryen `main` passes `worldMode` into both private-type selection and the shared global rewriter. That does **not** make this sibling closed-world-only, but a port must make the same visibility/rewrite policy explicit at both stages; see [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
+- Current Binaryen `main` passes `worldMode` into both private-type selection and the shared global rewriter. That does **not** make this sibling closed-world-only, but a port must make the same visibility/rewrite policy explicit at both stages; see Binaryen's current-main [`TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
 
 So this folder is another explicit, source-backed upstream-only registry expansion. As of the 2026-04-27 refresh, it is anchored by immutable raw primary-source manifests, a dedicated Starshine status / future-port map, and a port-readiness / validation bridge rather than only the older 0193 research note.
 
@@ -114,7 +114,7 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp>
 - [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
 - [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md`](../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md)

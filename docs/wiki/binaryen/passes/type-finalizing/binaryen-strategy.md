@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the tagged source oracle for this pass; the direct tagged source URLs below retain that provenance. The 2026-07-11 current-main recheck preserves the GC/private-leaf contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global type rewriting. This is **not** a new closed-world-only gate; it is a policy input a future port must model consistently. See [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
+Use Binaryen `version_129` as the tagged source oracle for this pass; the direct tagged source URLs below retain that provenance. The 2026-07-11 current-main recheck preserves the GC/private-leaf contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global type rewriting. This is **not** a new closed-world-only gate; it is a policy input a future port must model consistently. See [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
 The core sources are:
 
 - `src/passes/TypeFinalizing.cpp`

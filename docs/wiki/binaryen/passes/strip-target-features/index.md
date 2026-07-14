@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
   - ../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
   - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
@@ -114,7 +114,7 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-strip-target-features-current-main-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp>
 - [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
 - [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
 - [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)

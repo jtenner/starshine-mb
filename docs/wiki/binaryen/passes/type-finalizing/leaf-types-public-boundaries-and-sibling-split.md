@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
@@ -18,7 +18,7 @@ related:
 
 # `type-finalizing`: leaf types, public boundaries, and the sibling split
 
-This page covers the easiest part of `type-finalizing` to misread. Its tagged `version_129` provenance is retained by the direct source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md), and its current-main world-mode boundary is recorded in [`../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md).
+This page covers the easiest part of `type-finalizing` to misread. Its tagged `version_129` provenance is retained by the direct source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md), and its current-main world-mode boundary is recorded in [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
 
 ## The three rules that matter most
 
