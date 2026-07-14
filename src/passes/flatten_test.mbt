@@ -3683,6 +3683,16 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
 }
 
 ///|
+test "flatten intentionally defers a tuple-made multivalue try table through two blocks and five ifs pending block-chain proof" {
+  flatten_assert_tuple_try_table_block_if_chain(2, 5, false)
+}
+
+///|
+test "flatten routes one tuple-made multivalue br_table through a legacy try enclosing block and five if vectors" {
+  flatten_assert_tuple_try_table_block_if_chain(1, 5, true)
+}
+
+///|
 test "flatten routes one tuple-made multivalue br_table through a legacy try enclosing block and two if vectors" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()
