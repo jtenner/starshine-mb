@@ -851,7 +851,8 @@ fn flatten_try_terminal_br_table_targets_label(
       _ => return false
     }
   }
-  if if_count > 0 && (if_count != 1 || targets.length() != 2) {
+  if if_count > 0 &&
+    (if_count != 1 || (targets.length() != 2 && targets.length() != 3)) {
     return false
   }
   let mut directly_enclosed = try_id
@@ -873,6 +874,12 @@ fn flatten_try_terminal_br_table_targets_label(
     }
     directly_enclosed = remaining_controls[enclosing_index]
     ignore(remaining_controls.remove(enclosing_index))
+  }
+  if if_count == 1 {
+    match @ir.hot_node_get(func, directly_enclosed).op {
+      @ir.HotOp::If => ()
+      _ => return false
+    }
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
