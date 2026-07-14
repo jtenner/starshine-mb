@@ -7,7 +7,6 @@ sources:
   - ../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md
 related:
@@ -92,8 +91,7 @@ A matching Binaryen sanity pass with `wasm-opt --all-features` validates every p
 
 - Archived research doc: [`../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
 - Superseded 2026-06-01 bridge: ingested and removed; use the 0704 recheck below for retained release-horizon evidence.
-- Binaryen `version_130` release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
-- Binaryen `version_130` source capture: [`../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Binaryen `version_130` retained release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Superseded Binaryen `version_125` correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Binaryen `version_130` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>

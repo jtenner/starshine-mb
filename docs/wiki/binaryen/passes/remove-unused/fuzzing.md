@@ -4,7 +4,6 @@ status: planned
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-current-main-and-fuzzing-admission-recheck.md
-  - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt

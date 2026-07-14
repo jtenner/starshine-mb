@@ -7,7 +7,7 @@ sources:
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
-  - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md

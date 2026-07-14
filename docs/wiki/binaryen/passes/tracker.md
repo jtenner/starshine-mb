@@ -247,7 +247,7 @@ Use these files in this order:
   - source of truth for the public Binaryen release baseline (`version_130`) and the live drift-watch handoff for anything beyond that tag
 - `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`
   - compact pass-roster page that carries the same release-horizon handoff into the late-pipeline context
-- `docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`
+- `docs/wiki/raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`
   - source of truth for the release-horizon fact behind that baseline
 - `docs/wiki/raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`
   - retained source for the current docs.rs / Debian / README package-surface caveats behind the late-pipeline dispatch note

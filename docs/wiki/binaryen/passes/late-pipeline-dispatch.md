@@ -7,7 +7,6 @@ sources:
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
@@ -120,8 +119,7 @@ related:
 - Binaryen Chromium mirror refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>
 - Binaryen Chromium mirror `main` changelog: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/refs/heads/main/CHANGELOG.md>
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
-- Binaryen `version_130` release-horizon recheck: [`../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
-- Binaryen `version_130` source capture: [`../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Binaryen `version_130` retained release-horizon recheck: [`../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Binaryen `mark-js-called` / `remove-exports` current-main recheck: [`../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Historical Binaryen `version_130` behavior and source reads: [`../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md), [`../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Superseded Binaryen `version_125` correction: [`../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
