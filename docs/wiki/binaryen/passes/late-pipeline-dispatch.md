@@ -127,7 +127,7 @@ related:
 - Superseded Binaryen `version_125` correction: [`../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Binaryen late-pipeline package-surface recheck: [`../../raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`](../../raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md)
 - Immutable source bridge for the package-surface recheck: [`../../raw/binaryen/2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`](../../raw/binaryen/2026-06-02-late-pipeline-dispatch-package-surface-recheck.md)
-- Superseded 2026-06-01 bridge: [`../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
+- Superseded 2026-06-01 bridge: ingested and removed; use the retained 2026-06-04 release-horizon sources above.
 - Superseded `version_125` release-horizon refresh: [`../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md`](../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md)
 - Binaryen official GitHub release page for `version_119`: <https://github.com/WebAssembly/binaryen/releases/tag/version_119>
 - Binaryen official GitHub release page for `version_124`: <https://github.com/WebAssembly/binaryen/releases/tag/version_124>

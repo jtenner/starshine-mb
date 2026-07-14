@@ -79,7 +79,7 @@ A matching Binaryen sanity pass with `wasm-opt --all-features` validates every p
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_130` as the upstream release baseline for new pass research; the 2026-06-04 release-horizon recheck 0704 supersedes both the temporary 2026-06-02 `version_125` correction and the earlier 2026-06-01 [`version_130` bridge](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md), and the older `version_129` path-reading notes remain historical until a dedicated `version_130` reread says otherwise.
+- Use Binaryen `version_130` as the upstream release baseline for new pass research; the 2026-06-04 release-horizon recheck 0704 supersedes both the temporary 2026-06-02 `version_125` correction and the earlier 2026-06-01 bridge (ingested and removed), and the older `version_129` path-reading notes remain historical until a dedicated `version_130` reread says otherwise.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_130` release baseline and the release-horizon note first.
@@ -91,7 +91,7 @@ A matching Binaryen sanity pass with `wasm-opt --all-features` validates every p
 ## Sources
 
 - Archived research doc: [`../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
-- Superseded 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
+- Superseded 2026-06-01 bridge: ingested and removed; use the 0704 recheck below for retained release-horizon evidence.
 - Binaryen `version_130` release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Binaryen `version_130` source capture: [`../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Superseded Binaryen `version_125` correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)

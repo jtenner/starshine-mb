@@ -12,7 +12,6 @@ sources:
   - ../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
   - ../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
   - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
-  - ../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_130
   - https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs
@@ -62,7 +61,7 @@ That `v130` baseline is substantive, not just a renumbering. The changelog inclu
 | Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past the newest tag in a way that matters to the docs. The 2026-07-10 `memory-packing` drift and the 2026-07-11 `mark-js-called` / `remove-exports` no-drift recheck are current examples. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Superseded correction | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
-| Historical bridge | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | Earlier `version_130` bridge; superseded by the stronger 2026-06-04 recheck. |
+| Historical bridge | 2026-06-01 capture (ingested and removed) | Earlier `version_130` bridge; its useful facts are retained by the stronger 2026-06-04 recheck. |
 | Discovery only | Search snippets, search-result summaries, and mirrored excerpts | Good for finding the official URL; not authoritative when they disagree with direct official pages. |
 | Pass-specific contract pages | Individual `docs/wiki/binaryen/passes/*` dossiers | The exact algorithm, test map, and Starshine status for one pass. |
 
@@ -108,7 +107,7 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 - Pass-specific `mark-js-called` / `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Historical v130 behavior/source reads for `mark-js-called` / `remove-exports`: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md), [`../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
-- Historical 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
+- Historical 2026-06-01 bridge: ingested and removed; its release-horizon facts are retained in the 0704 recheck above.
 - BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Current-main `memory-packing` drift bridge: [`../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
 - Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
