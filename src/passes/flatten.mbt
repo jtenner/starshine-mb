@@ -861,6 +861,66 @@ fn flatten_direct_enclosing_target_controls(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_root_nodes(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Array[Int]? {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Unreachable => Some([root_id])
+    @ir.HotOp::Drop => {
+      if @ir.hot_child_count(func, root_id) != 1 {
+        return None
+      }
+      let value_id = @ir.hot_child_get(func, root_id, 0)
+      match @ir.hot_node_get(func, value_id).op {
+        @ir.HotOp::Const => ()
+        _ => return None
+      }
+      let use_def = @ir.use_def_build_node_uses(func)
+      if @ir.node_use_count(use_def, root_id) != 1 ||
+        @ir.node_use_count(use_def, value_id) != 1 {
+        return None
+      }
+      Some([root_id, value_id])
+    }
+    _ => None
+  }
+}
+
+///|
+fn flatten_try_table_dead_suffix_nodes(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  table_id : Int,
+) -> Array[Int]? {
+  let nodes : Array[Int] = []
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+    if @ir.hot_region_get(func, region_ref, root_idx) != table_id {
+      continue
+    }
+    for suffix_idx = root_idx + 1
+        suffix_idx < root_count
+        suffix_idx = suffix_idx + 1 {
+      let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
+      let root_nodes = match
+        flatten_try_table_dead_suffix_root_nodes(func, root_id) {
+        Some(root_nodes) => root_nodes
+        None => return None
+      }
+      for node_id in root_nodes {
+        if nodes.contains(node_id) {
+          return None
+        }
+        nodes.push(node_id)
+      }
+    }
+    return Some(nodes)
+  }
+  None
+}
+
+///|
 fn flatten_try_terminal_br_table_targets_label(
   func : @ir.HotFunc,
   node_id : Int,
@@ -907,27 +967,8 @@ fn flatten_try_terminal_br_table_targets_label(
   }
   let mut is_terminal = false
   for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
-    let root_count = @ir.hot_region_root_count(func, region_ref)
-    for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
-      if @ir.hot_region_get(func, region_ref, root_idx) != node_id {
-        continue
-      }
-      let mut suffix_is_unreachable = true
-      for suffix_idx = root_idx + 1
-          suffix_idx < root_count
-          suffix_idx = suffix_idx + 1 {
-        match
-          @ir.hot_node_get(
-            func,
-            @ir.hot_region_get(func, region_ref, suffix_idx),
-          ).op {
-          @ir.HotOp::Unreachable => ()
-          _ => suffix_is_unreachable = false
-        }
-      }
-      if suffix_is_unreachable {
-        is_terminal = true
-      }
+    if flatten_try_table_dead_suffix_nodes(func, region_ref, node_id) is Some(_) {
+      is_terminal = true
     }
   }
   if !is_terminal {
@@ -947,13 +988,15 @@ fn flatten_try_region_effective_terminal_id(
     return -1
   }
   let last_id = @ir.hot_region_get(func, region_ref, root_count - 1)
-  let mut root_idx = root_count - 1
-  while root_idx >= 0 {
+  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, root_idx)
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Unreachable => root_idx = root_idx - 1
-      @ir.HotOp::BrTable => return node_id
-      _ => return last_id
+      @ir.HotOp::BrTable =>
+        if flatten_try_table_dead_suffix_nodes(func, region_ref, node_id)
+          is Some(_) {
+          return node_id
+        }
+      _ => ()
     }
   }
   last_id
@@ -2820,7 +2863,11 @@ fn flatten_target_can_route_scalar_branches(
     if root_count == 0 {
       return false
     }
-    let tail_id = @ir.hot_region_get(func, target_region, root_count - 1)
+    let tail_id = match owner.op {
+      @ir.HotOp::Try =>
+        flatten_try_region_effective_terminal_id(func, target_region)
+      _ => @ir.hot_region_get(func, target_region, root_count - 1)
+    }
     if @ir.hot_node_result_arity(func, tail_id) != 1 &&
       !flatten_terminal_branch_targets_label(func, tail_id, label_id, true) {
       return false
@@ -4101,51 +4148,37 @@ fn flatten_try_route_br_table(
     preludes.push(@ir.hot_build_local_set(func, value_local, value_id))
     state.terminal_payloads.push(value_id)
   }
-  let mut has_unreachable_suffix_try_target = false
-  for target in targets {
-    match @ir.hot_label_kind(func, target) {
-      @ir.HotLabelKind::TryLabel =>
-        if flatten_try_terminal_br_table_targets_label(
-            func, node_id, target, payload_count, true,
-          ) {
-          has_unreachable_suffix_try_target = true
+  let suffix_nodes = flatten_try_table_dead_suffix_nodes(
+    func, owner_region, node_id,
+  )
+  match suffix_nodes {
+    Some(nodes) if !nodes.is_empty() => {
+      let root_count = @ir.hot_region_root_count(func, owner_region)
+      for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+        if @ir.hot_region_get(func, owner_region, root_idx) != node_id ||
+          root_idx + 1 >= root_count {
+          continue
         }
-      _ => ()
-    }
-  }
-  if has_unreachable_suffix_try_target {
-    let root_count = @ir.hot_region_root_count(func, owner_region)
-    for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
-      if @ir.hot_region_get(func, owner_region, root_idx) != node_id ||
-        root_idx + 1 >= root_count {
-        continue
-      }
-      let mut suffix_is_unreachable = true
-      for suffix_idx = root_idx + 1
-          suffix_idx < root_count
-          suffix_idx = suffix_idx + 1 {
-        match
-          @ir.hot_node_get(
+        ignore(
+          pass_splice_region(
+            ctx,
             func,
-            @ir.hot_region_get(func, owner_region, suffix_idx),
-          ).op {
-          @ir.HotOp::Unreachable => ()
-          _ => suffix_is_unreachable = false
-        }
-      }
-      if suffix_is_unreachable {
-        let removed = pass_splice_region(
-          ctx,
-          func,
-          owner_region,
-          root_idx + 1,
-          root_count - root_idx - 1,
-          [],
+            owner_region,
+            root_idx + 1,
+            root_count - root_idx - 1,
+            [],
+          ),
         )
-        pass_delete_detached_nodes(ctx, func, removed)
+        for node_id in nodes {
+          if @ir.hot_node_is_live(func, node_id) {
+            @ir.hot_delete_detached_node(func, node_id)
+          }
+        }
+        pass_mark_mutated(ctx, func)
         break
       }
     }
+    _ => ()
   }
   for target in targets {
     for slot = 0; slot < payload_count; slot = slot + 1 {

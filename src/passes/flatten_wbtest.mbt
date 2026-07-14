@@ -335,3 +335,72 @@ test "flatten admits only unreachable roots after a legacy try table" {
     ),
   )
 }
+
+///|
+test "flatten recognizes one exclusively owned pure drop try-table suffix" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let dead_value = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let dead_drop = @ir.hot_build_drop(func, dead_value)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, dead_drop])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  let use_def = @ir.use_def_build_node_uses(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, dead_drop), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, dead_value), 1)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([dead_drop, dead_value]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a pure try-table suffix gated when its value is shared" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let shared_value = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let dead_drop = @ir.hot_build_drop(func, shared_value)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id, dead_drop,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, shared_value))
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
