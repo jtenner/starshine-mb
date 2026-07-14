@@ -177,7 +177,7 @@ sources:
   - ../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
-  - ../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
+  - ../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
@@ -632,7 +632,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md)
 - [`../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`](../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md)
-- [`../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md`](../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md)
+- [`../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md)
 - [`../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md`](../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md)
 - [`../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)

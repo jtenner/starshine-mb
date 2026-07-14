@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
+  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md
   - ../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md
@@ -22,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass. The retained 2026-05-05 current-main bridge is [`../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md); the direct tagged URLs below preserve the `version_129` source catalog after the earlier manifest is consumed.
+Use Binaryen `version_129` as the primary source oracle for this pass. The 2026-05-05 recheck remains preserved as [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md); the direct tagged URLs below preserve the `version_129` source catalog after the source capture is consumed.
 
 Primary files:
 
@@ -294,7 +294,7 @@ That is the behavior a future Starshine port would need to preserve.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
+- [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
 - [`../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md`](../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md)
 - [`../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md`](../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md)

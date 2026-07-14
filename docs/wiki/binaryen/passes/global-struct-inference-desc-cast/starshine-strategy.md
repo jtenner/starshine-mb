@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
-  - ../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
+  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
@@ -142,7 +142,7 @@ Agent classification: the final matrix has zero Starshine semantic mismatches an
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
+- [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
 - [`../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
 - [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)
