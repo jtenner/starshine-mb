@@ -2554,16 +2554,22 @@ fn flatten_scalar_try_br_if_consumer_matches_payload(
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
   if @ir.node_use_count(use_def, consumed_id) != 1 ||
-    @ir.hot_child_count(func, consumed_id) == 0 ||
-    @ir.hot_child_get(func, consumed_id, 0) != value_id {
+    @ir.hot_child_count(func, consumed_id) == 0 {
     return false
   }
   match consumed.op {
     @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => {
-      if !flatten_node_is_simple_operand(
+      let value_is_left = @ir.hot_child_get(func, consumed_id, 0) == value_id &&
+        flatten_node_is_simple_operand(
           func,
           @ir.hot_child_get(func, consumed_id, 1),
-        ) ||
+        )
+      let value_is_right = @ir.hot_child_get(func, consumed_id, 1) == value_id &&
+        flatten_node_is_simple_operand(
+          func,
+          @ir.hot_child_get(func, consumed_id, 0),
+        )
+      if (!value_is_left && !value_is_right) ||
         @ir.hot_node_exact_instr(func, consumed_id) is None {
         return false
       }
@@ -2576,6 +2582,7 @@ fn flatten_scalar_try_br_if_consumer_matches_payload(
     }
     @ir.HotOp::Unary | @ir.HotOp::Convert =>
       @ir.hot_child_count(func, consumed_id) == 1 &&
+      @ir.hot_child_get(func, consumed_id, 0) == value_id &&
       @ir.hot_node_exact_instr(func, consumed_id) is Some(_)
     _ => false
   }
