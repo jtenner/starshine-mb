@@ -6,7 +6,7 @@ sources:
   - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
   - ../raw/release/2026-06-04-release-package-surface-refresh.md
-  - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
+  - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - ../raw/release/2026-05-20-starshine-release-process-sources.md
   - ../../../AGENTS.md
   - ../../README.md
@@ -46,7 +46,7 @@ A Starshine release is not just “run tests and publish npm.” The current rep
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
 
-The current release package-surface refresh is [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md). It supersedes the stale local-path claims in the older [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md) manifest after rechecking current npm CLI v11 packaging docs, current MoonBit `moon.mod` docs, and the live Starshine package files. The MoonBit-specific module-file correction is also tracked in [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md).
+The current release package-surface refresh is [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md). It supersedes the stale local-path claims in the older [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md) manifest after rechecking current npm CLI v11 packaging docs, current MoonBit `moon.mod` docs, and the live Starshine package files. The live [`moon.mod`](../../../moon.mod) and official [MoonBit module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) establish the current module-file format.
 
 The current publication-trust refresh is [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md). It checked current npm trusted-publishing / provenance docs and GitHub Actions OIDC docs against the live Starshine package and workflows. The durable result is a boundary, not a new release path: Starshine has release-prep guidance, package tests, and tarball-inspection guidance, but no configured npm trusted publisher, no publish workflow, no `id-token: write` publication job, and no `node/package.json` `repository` field yet.
 
@@ -207,7 +207,7 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 
 - npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
 - Current release package-surface refresh: [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md)
-- Current MoonBit module-file refresh: [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md)
+- Official MoonBit [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) and the live [`moon.mod`](../../../moon.mod)
 - Earlier release source snapshot superseded for local `moon.mod.json` paths: [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md)
 - Repo policy: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Package metadata: [`../../../moon.mod`](../../../moon.mod), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json)

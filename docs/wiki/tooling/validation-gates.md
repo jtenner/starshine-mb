@@ -4,11 +4,11 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
-  - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
-  - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
+  - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
+  - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
+  - https://docs.moonbitlang.com/en/latest/language/verification.html
+  - https://moonbitlang.github.io/moon/commands.html
   - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
-  - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
-  - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
   - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
@@ -54,7 +54,7 @@ Starshine has three layers of validation:
 2. **MoonBit-native checks** (`moon info`, `moon fmt`, `moon check`, `moon test`, `moon coverage analyze`, and separate `moon prove` lanes) supplied by the MoonBit toolchain.
 3. **Repository orchestration** (`bun validate ...`, `bun fuzz ...`, pass comparison scripts, and self-optimize comparison scripts) that chooses the target, ordering, profiles, seeds, and artifact/report conventions for Starshine.
 
-The important maintenance rule is: **do not blur tool capability with repo policy**. The 2026-05-20 Moon CLI refresh in [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md) confirms the upstream commands are legitimate building blocks and records where the up-to-date `moon` manual is newer than the generated docs page, but Starshine's exact default target, target whitelist, fuzz profile, command order, and CI/reporting semantics live in [`scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts), and the command-shape tests in [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts). For the runtime `starshine` command itself, use the separate dispatcher contract in [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md).
+The important maintenance rule is: **do not blur tool capability with repo policy**. The official [Moon command manual](https://moonbitlang.github.io/moon/commands.html) establishes the upstream commands as building blocks, but Starshine's exact default target, target whitelist, fuzz profile, command order, and CI/reporting semantics live in [`scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts), and the command-shape tests in [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts). For the runtime `starshine` command itself, use the separate dispatcher contract in [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md).
 
 ## Command Matrix
 
@@ -153,7 +153,7 @@ Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; rel
 
 ## Formal Proof Is A Separate Lane
 
-Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). The proof-specific 2026-06-04 refresh in [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md) is the current source bridge for proof-command and trust-surface caveats; this gate page owns only when the repo asks developers to run the proof lane.
+Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). The official [MoonBit verification documentation](https://docs.moonbitlang.com/en/latest/language/verification.html), the current command manual, and the live proof package files establish the proof-command and trust-surface caveats; this gate page owns only when the repo asks developers to run the proof lane.
 
 Practical rules:
 
@@ -186,8 +186,7 @@ Practical rules:
 
 ## Sources
 
-- MoonBit formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
-- MoonBit command-manual refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
+- Official MoonBit [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html), [formal verification](https://docs.moonbitlang.com/en/latest/language/verification.html), and [command manual](https://moonbitlang.github.io/moon/commands.html)
 - Current tracing and validation trace benchmark source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
 - Previous validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
 - wasm-tools validate feature defaults: [`../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md`](../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md)
@@ -195,5 +194,5 @@ Practical rules:
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)
 - Self-optimized artifact lane: [`../../../scripts/self-opt.ts`](../../../scripts/self-opt.ts), [`../../../scripts/lib/self-opt-task.ts`](../../../scripts/lib/self-opt-task.ts), [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs), [`../../../scripts/lib/run-self-optimized-spec-suite.mjs`](../../../scripts/lib/run-self-optimized-spec-suite.mjs), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - Command-shape tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
-- Package and workspace metadata: [`../../../package.json`](../../../package.json), [`../../../moon.mod`](../../../moon.mod), [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md), [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
+- Package and workspace metadata: [`../../../package.json`](../../../package.json), [`../../../moon.mod`](../../../moon.mod), [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md)
 - Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./release-process.md`](release-process.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./pass-fuzz-compare.md`](./pass-fuzz-compare.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)

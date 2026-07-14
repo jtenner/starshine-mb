@@ -13,7 +13,7 @@ sources:
   - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
   - ../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md
   - ../raw/node/2026-05-20-node-package-export-boundary.md
-  - ../raw/moonbit/2026-05-20-workspace-package-surface.md
+  - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0110-2026-04-18-node-package-api-audit.md
   - ../../../node/package.json
@@ -228,5 +228,5 @@ The comparison must start from the `exports` allowlist, not from every file in `
 - Release/package publication checklist: [`./release-process.md`](release-process.md)
 - Validator diagnostics/repro contract: [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
 - WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
-- MoonBit workspace/package map: [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
+- MoonBit workspace/package map: [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../../../moon.mod`](../../../moon.mod), and the official [MoonBit package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)

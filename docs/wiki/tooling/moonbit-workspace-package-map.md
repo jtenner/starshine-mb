@@ -1,13 +1,12 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
-  - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
-  - ../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md
-  - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
-  - ../raw/moonbit/2026-05-20-workspace-package-surface.md
-  - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
+  - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
+  - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
+  - https://docs.moonbitlang.com/en/latest/language/verification.html
+  - https://moonbitlang.github.io/moon/commands.html
   - ../../../moon.mod
   - ../../../src/*/moon.pkg
   - ../../../src/spec_runner/imports.mbt
@@ -39,7 +38,7 @@ moon.mod
   -> bun/moon validation gates check package, API, proof, and runtime entrypoints
 ```
 
-The official MoonBit package documentation distinguishes the module file from package files: module config describes the whole module, while package config owns `import { ... }`, aliases such as `@lib`, and `options(...)` such as `"is-main"` or `"proof-enabled"`. The current filename correction is [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md); the broader package-surface source capture remains [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md), and the focused `spec_runner` exception recheck is [`../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md`](../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md).
+The official MoonBit [module](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) and [package](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html) documentation distinguishes whole-module configuration from package configuration: module config describes the module, while package config owns `import { ... }`, aliases such as `@lib`, and `options(...)` such as `"is-main"` or `"proof-enabled"`. The live [`moon.mod`](../../../moon.mod), package files, and `spec_runner` files below are the repository evidence for the current filename and documented exception.
 
 ## Module-Level Contract
 
@@ -96,7 +95,7 @@ Package imports are not optional documentation. If a source file starts using a 
 | [`src/validate`](../../../src/validate/) | Module validation, typechecking, valid/invalid generators, diagnostics. | `options("proof-enabled": true)` and imports `validate_proof`; direct validator proving is policy-sensitive. |
 | [`src/validate_proof`](../../../src/validate_proof/) | Small proof helper package. | `options("proof-enabled": true)`; required proof lane is documented in [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). |
 | [`src/validate_trace`](../../../src/validate_trace/) | Main validation-trace benchmark runner. | `options("is-main": true)`; trace benchmark behavior lives in [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md). |
-| [`src/spec_runner`](../../../src/spec_runner/) | Native/static WAST spec-suite runner over the shared `src/wast` spec harness. | Active package with [`imports.mbt`](../../../src/spec_runner/imports.mbt), [`spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt), and [`pkg.generated.mbti`](../../../src/spec_runner/pkg.generated.mbti), but no `moon.pkg`; spec semantics live in [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), and topology evidence lives in [`../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md`](../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md). |
+| [`src/spec_runner`](../../../src/spec_runner/) | Native/static WAST spec-suite runner over the shared `src/wast` spec harness. | Active package with [`imports.mbt`](../../../src/spec_runner/imports.mbt), [`spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt), and [`pkg.generated.mbti`](../../../src/spec_runner/pkg.generated.mbti), but no `moon.pkg`; spec semantics live in [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md). |
 | [`src/cli-benchmarks`](../../../src/cli-benchmarks/) | Main CLI startup/runtime benchmark package. | `options("is-main": true)`; use [`cli-startup-path.md`](cli-startup-path.md) for startup-cost follow-up. |
 | [`src/fs`](../../../src/fs/), [`src/diff`](../../../src/diff/), [`src/bitset`](../../../src/bitset/) | Support packages. | Keep support-package public interfaces small and reviewed through `.mbti` diffs when they become shared APIs. |
 
@@ -153,10 +152,6 @@ When adding or reshaping a package:
 
 ## Sources
 
-- Spec runner package-topology recheck: [`../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md`](../raw/moonbit/2026-06-04-spec-runner-package-topology-recheck.md)
-- Current module-file refresh: [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md)
-- Earlier source manifest: [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
-- Moon CLI command-source refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
-- Formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
+- Official MoonBit [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html), [formal verification](https://docs.moonbitlang.com/en/latest/language/verification.html), and [command manual](https://moonbitlang.github.io/moon/commands.html).
 - Module config: [`../../../moon.mod`](../../../moon.mod)
 - Package configs: [`../../../src/binary/moon.pkg`](../../../src/binary/moon.pkg), [`../../../src/cli/moon.pkg`](../../../src/cli/moon.pkg), [`../../../src/cmd/moon.pkg`](../../../src/cmd/moon.pkg), [`../../../src/fuzz/moon.pkg`](../../../src/fuzz/moon.pkg), [`../../../src/ir/moon.pkg`](../../../src/ir/moon.pkg), [`../../../src/lib/moon.pkg`](../../../src/lib/moon.pkg), [`../../../src/passes/moon.pkg`](../../../src/passes/moon.pkg), [`../../../src/validate/moon.pkg`](../../../src/validate/moon.pkg), [`../../../src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg), [`../../../src/validate_trace/moon.pkg`](../../../src/validate_trace/moon.pkg), [`../../../src/wast/moon.pkg`](../../../src/wast/moon.pkg); current exception package files: [`../../../src/spec_runner/imports.mbt`](../../../src/spec_runner/imports.mbt), [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt), [`../../../src/spec_runner/pkg.generated.mbti`](../../../src/spec_runner/pkg.generated.mbti)
