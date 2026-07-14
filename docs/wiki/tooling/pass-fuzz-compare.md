@@ -4,7 +4,9 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
-  - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
+  - https://github.com/WebAssembly/binaryen
+  - https://github.com/bytecodealliance/wasm-tools
+  - https://webassembly.github.io/spec/core/valid/
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
   - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
@@ -35,7 +37,7 @@ related:
 
 `bun fuzz compare-pass` is Starshine's pass-local Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass asks whether one or more Starshine pass flags produce the same normalized output as the corresponding Binaryen `wasm-opt` flags on the same input modules.
 
-The 2026-05-20 source bridge is [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md). It rechecked the current Binaryen, `wasm-tools`, `wasm-smith`, WebAssembly validation, and local script/test sources behind this workflow. The 2026-06-05 Binaryen BrOn assertion bridge [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) adds a concrete current tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_130` baseline is after the fix. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
+This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The 2026-06-05 Binaryen BrOn assertion bridge [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) adds a concrete current tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_130` baseline is after the fix. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
 Beginner mental model:
 
@@ -255,7 +257,7 @@ For preset or neighborhood work, direct pass green is necessary but not sufficie
 ## Sources
 
 - Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
-- Tool/source bridge: [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md)
+- Upstream tool and validation references: <https://github.com/WebAssembly/binaryen>, <https://github.com/bytecodealliance/wasm-tools>, <https://docs.rs/wasm-smith/latest/wasm_smith/>, and <https://webassembly.github.io/spec/core/valid/>
 - Native artifact-path policy bridge: [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md)
 - Harness implementation: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
 - Wrapper split: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)

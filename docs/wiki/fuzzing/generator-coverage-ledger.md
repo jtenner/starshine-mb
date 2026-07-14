@@ -36,7 +36,9 @@ sources:
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
   - ../../../scripts/test/pass-fuzz-normalization-fixtures.ts
-  - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
+  - https://github.com/WebAssembly/binaryen
+  - https://github.com/bytecodealliance/wasm-tools
+  - https://webassembly.github.io/spec/core/valid/
 related:
   - ./wast-arbitrary-parity-plan.md
   - ../tooling/fuzz-runner.md
@@ -294,5 +296,5 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - Type-section validation/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md), current bridge [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), and older bridge [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md), [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md), [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
 - WAST text-generation boundary: [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md)
-- Compare-pass failure metadata and workflow: [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md), [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)
+- Compare-pass failure metadata and workflow: [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts), and the Binaryen / `wasm-tools` / WebAssembly-validation references cited by that workflow
 - External semantic anchor checked during this review: current WebAssembly 3.0 module validation docs for [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [validation index](https://webassembly.github.io/spec/core/valid/index.html), [binary module section / segment encoding](https://webassembly.github.io/spec/core/binary/modules.html), and [custom/name sections](https://webassembly.github.io/spec/core/appendix/custom).

@@ -6,7 +6,9 @@ sources:
   - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
-  - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
+  - https://github.com/WebAssembly/binaryen
+  - https://github.com/bytecodealliance/wasm-tools
+  - https://webassembly.github.io/spec/core/valid/
   - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt

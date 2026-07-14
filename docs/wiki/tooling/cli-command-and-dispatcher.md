@@ -6,7 +6,8 @@ sources:
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md
   - ../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md
-  - ../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md
+  - https://github.com/WebAssembly/binaryen/blob/main/README.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
   - ../../../src/cli/cli.mbt
   - ../../../src/cli/cli_test.mbt
   - ../../../src/cli/glob.mbt
@@ -35,7 +36,7 @@ related:
 
 ## Overview
 
-Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape: read one or more Wasm modules, combine command-line/config/environment options, run an ordered queue of passes or inspection steps, validate the result, and write wasm output. The upstream shape is documented in the Binaryen source snapshot [`../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md`](../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md), but exact Starshine behavior is defined by the local packages:
+Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape: read one or more Wasm modules, combine command-line/config/environment options, run an ordered queue of passes or inspection steps, validate the result, and write wasm output. The high-level upstream orientation comes from Binaryen's README and `wasm-opt` tool source, but exact Starshine behavior is defined by the local packages:
 
 - [`src/cli/cli.mbt`](../../../src/cli/cli.mbt) parses flags, input globs, formats, optimization level flags, tracing, trap mode, closed-world mode, and output targets.
 - [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) merges CLI/config/environment settings, resolves input files, lowers text input to binary modules, dispatches ordered pipeline steps, validates, encodes, records resolved trap mode, and writes outputs.
@@ -178,7 +179,7 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 - 2026-06-04 print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - 2026-06-04 dispatcher/stdin source audit: [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md)
 - 2026-06-04 trap-mode routing refresh: [`../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md)
-- Upstream CLI shape: [`../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md`](../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md)
+- Upstream CLI orientation: <https://github.com/WebAssembly/binaryen/blob/main/README.md>, <https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp>
 - Parser/config/glob code: [`../../../src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt), [`../../../src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt)
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
@@ -145,7 +144,7 @@ So the durable rule is:
 
 - treat Binaryen `version_129` as the released algorithm oracle for this dossier
 - keep the current-main note explicit only to say that the checked core logic and tests still match semantically
-- use the living dossier's direct `version_129` URLs with the retained 2026-05-13 current-main recheck when future follow-ups need release/source/test provenance
+- use the living dossier's direct `version_129` and current-`main` URLs when future follow-ups need release/source/test provenance
 
 ## 2026-05-06 direct revalidation
 
@@ -170,7 +169,6 @@ This refresh removes `duplicate-function-elimination` from the AUD002 direct-pas
 
 - [`../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md`](../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md)
 - [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
-- [`../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md)
 - [`../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md`](../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md)
 - [`../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md`](../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md`](../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md)
