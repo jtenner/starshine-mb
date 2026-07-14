@@ -28,6 +28,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-try-tail-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
@@ -133,8 +134,9 @@ That placeholder rule is why `flatten` is safer to describe as “statement-sequ
 
 ### 7. Unsupported families are fatal in Binaryen
 
-The reviewed `version_129` and current-main sources still hard-fail on `BrOn*` and `TryTable` with `Unsupported instruction for Flatten`.
-A future Starshine implementation must choose an explicit policy here:
+The refreshed `version_130` owner still treats all four `BrOn*` variants and `TryTable` as hard unsupported. Direct v130 probes show `BrOn` reports `Unsupported instruction for Flatten`, while `TryTable` reaches the earlier unhandled control-structure arm and aborts. Internal Starshine now classifies all five as `FlattenRunAdmission::UpstreamHardUnsupported` before mutation and returns unchanged only while public execution remains removed. Public admission still needs a tested Binaryen-compatible rejection path. Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md).
+
+The public policy choices remain:
 
 - match Binaryen and reject/fail those shapes for the pass, or
 - intentionally diverge and document why a safe local no-op/skip policy is preferable.

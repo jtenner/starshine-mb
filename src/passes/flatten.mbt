@@ -4192,13 +4192,44 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+priv enum FlattenRunAdmission {
+  Admitted
+  UpstreamHardUnsupported
+  DeferredInputfulLoop
+  DeferredLegacyTry
+  DeferredBranchPayload
+}
+
+///|
+fn flatten_run_admission(
+  func : @ir.HotFunc,
+  report : FlattenFlatnessReport,
+) -> FlattenRunAdmission {
+  if report.unsupported_count > 0 {
+    return FlattenRunAdmission::UpstreamHardUnsupported
+  }
+  if flatten_has_deferred_inputful_loop(func) {
+    return FlattenRunAdmission::DeferredInputfulLoop
+  }
+  if flatten_has_deferred_legacy_try(func) {
+    return FlattenRunAdmission::DeferredLegacyTry
+  }
+  if flatten_has_deferred_rich_branch_payload(func) {
+    return FlattenRunAdmission::DeferredBranchPayload
+  }
+  FlattenRunAdmission::Admitted
+}
+
+///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let before = flatten_classify_hot(func)
-  if before.unsupported_count > 0 ||
-    flatten_has_deferred_inputful_loop(func) ||
-    flatten_has_deferred_legacy_try(func) ||
-    flatten_has_deferred_rich_branch_payload(func) {
-    return HotPassResult::unchanged()
+  match flatten_run_admission(func, before) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::UpstreamHardUnsupported
+    | FlattenRunAdmission::DeferredInputfulLoop
+    | FlattenRunAdmission::DeferredLegacyTry
+    | FlattenRunAdmission::DeferredBranchPayload =>
+      return HotPassResult::unchanged()
   }
   let state = FlattenRewriteState::new(func)
   let mut changed = flatten_rewrite_region_operands(

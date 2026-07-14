@@ -27,6 +27,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-try-tail-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
@@ -611,14 +612,19 @@ becoming a temp-local-returned shape in `flatten_all-features.wast`.
 - `br_on_cast_fail`
 - `try_table`
 
-## Current `version_129` behavior
+## Current `version_130` behavior
 
-- `Flatten.cpp` fatals with `Unsupported instruction for Flatten`
+- every `BrOn` variant exits with `Unsupported instruction for Flatten`
+- a direct `try_table` probe reaches the earlier unhandled control-structure arm and aborts with `unexpected expr type` / `UNREACHABLE`
 
-## Why this matters
+## Current internal Starshine policy
 
-- this is not a soft bailout that leaves the function unchanged
-- it is a real unsupported-instruction boundary in current upstream source
+- `FlattenRunAdmission::UpstreamHardUnsupported` is selected before any mutation
+- `flatten_run(...)` returns unchanged while the pass remains public-removed
+- whitebox coverage proves an otherwise flattenable rich operand is not partially rewritten for any of the five families
+- public admission remains blocked because an unchanged internal result does not yet match Binaryen's observable failure contract
+
+Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md).
 
 ## Bottom line
 

@@ -27,6 +27,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-try-tail-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
@@ -146,7 +147,7 @@ Required tests before any parity claim:
 - placeholder `unreachable` now preserves nested terminal `br`/`br_table`/`return`/`return_call`/`return_call_indirect`/`return_call_ref`/`throw`/`throw_ref` effects in their owner region without duplicating effects that HOT already exposes as an earlier root; branch payload, tail-call operand, and throw-argument work remains before the terminal in source order and later sibling preludes remain later, while `rethrow`/`delegate` stay gated with EH repair;
 - `BrOn*` and `TryTable` have an explicit documented policy.
 
-Binaryen currently hard-fails on `BrOn*` and `TryTable`. Starshine must either match that behavior, pre-gate the pass away from those shapes, or record a deliberate no-op/divergence. Silent divergence should block a parity claim.
+Binaryen v130 hard-fails on all four `BrOn*` variants, and a direct `TryTable` probe aborts in the earlier unhandled control-structure arm. Internal Starshine now classifies all five through `FlattenRunAdmission::UpstreamHardUnsupported` before mutation and leaves the function byte-for-byte structurally untouched at HOT level. This is a safe internal gate, not public behavior parity: public registry/CLI/harness admission remains blocked until a tested Binaryen-compatible rejection path replaces or wraps the internal unchanged result. Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md).
 
 ## Downstream validation lanes
 

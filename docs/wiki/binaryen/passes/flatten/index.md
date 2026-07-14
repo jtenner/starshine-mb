@@ -28,6 +28,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-try-tail-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
@@ -130,7 +131,7 @@ That is much closer to the real pass than “flatten removes nesting.”
   - carried `switch` / `br_table`
 - `If` temp typing uses least-upper-bound logic, not just exact arm type equality.
 - Flatten can create blocks inside `catch`, so it must repair EH pop placement afterwards.
-- In `version_129`, `flatten` hard-fails on `BrOn*` and `TryTable`.
+- In `version_130`, all four `BrOn*` variants are hard unsupported, and a direct `TryTable` probe aborts in the unhandled control-structure arm. Internal Starshine classifies these as `UpstreamHardUnsupported` before mutation but keeps public execution removed until a Binaryen-compatible rejection contract is wired.
 - `Flatten.cpp` also still carries an open non-nullability TODO.
   - But the shipped tests show some non-null cases already work, so the limitation is selective, not absolute.
 
